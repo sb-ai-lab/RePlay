@@ -1,0 +1,9 @@
+bin
+lib
+src
+pyvenv.cfg
+*~
+*.egg-info
+__pycache__
+.coverage
+.mypy_cache
