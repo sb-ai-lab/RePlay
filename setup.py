@@ -25,4 +25,11 @@ setuptools.setup(
         "Typing :: Typed"
     ],
     python_requires='>=3.7',
+    install_requires=[
+        "jupyter",
+        "pandas",
+        "pyspark",
+        "scipy",
+        "scikit-learn"
+    ]
 )

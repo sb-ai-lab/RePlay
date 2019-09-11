@@ -9,3 +9,4 @@ pyvenv.cfg
 __pycache__
 .coverage
 .mypy_cache
+*.pyc
