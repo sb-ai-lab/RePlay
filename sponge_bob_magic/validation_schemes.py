@@ -23,7 +23,7 @@ class ValidationSchemes:
             test_start: datetime,
             drop_cold_items: bool,
             drop_cold_users: bool
-    ) -> (DataFrame, DataFrame):
+    ) -> (DataFrame, DataFrame, DataFrame):
         """
         разбить лог действий пользователей по дате на обучающую и тестовую
         выборки
@@ -56,4 +56,4 @@ class ValidationSchemes:
                 how="inner",
                 on="user_id"
             )
-        return (train, test)
+        return (train, train, test)
