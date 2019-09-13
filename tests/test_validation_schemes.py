@@ -53,7 +53,7 @@ class TestValidationSchemes(TestCase):
             schema=LOG_SCHEMA
         )
         train, test = validation_schemes.log_split_by_date(
-            log, "2019-09-15", False, False
+            log, datetime(2019, 9, 15), False, False
         )
         true_train = self.spark.createDataFrame(
             data=[
@@ -74,7 +74,7 @@ class TestValidationSchemes(TestCase):
         self.assertTrue(compare_dataframes(true_train, train))
         self.assertTrue(compare_dataframes(true_test, test))
         train, test = validation_schemes.log_split_by_date(
-            log, "2019-09-15", True, False
+            log, datetime(2019, 9, 15), True, False
         )
         true_test = self.spark.createDataFrame(
             data=[
@@ -86,7 +86,7 @@ class TestValidationSchemes(TestCase):
         self.assertTrue(compare_dataframes(true_train, train))
         self.assertTrue(compare_dataframes(true_test, test))
         train, test = validation_schemes.log_split_by_date(
-            log, "2019-09-15", False, True
+            log, datetime(2019, 9, 15), False, True
         )
         true_test = self.spark.createDataFrame(
             data=[
@@ -98,7 +98,7 @@ class TestValidationSchemes(TestCase):
         self.assertTrue(compare_dataframes(true_train, train))
         self.assertTrue(compare_dataframes(true_test, test))
         train, test = validation_schemes.log_split_by_date(
-            log, "2019-09-15", True, True
+            log, datetime(2019, 9, 15), True, True
         )
         true_test = self.spark.createDataFrame(
             data=[

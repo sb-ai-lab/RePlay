@@ -1,7 +1,11 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
 """
+from datetime import datetime
+
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.functions import col, lit
+from pyspark.sql.types import TimestampType
 
 
 class ValidationSchemes:
@@ -16,7 +20,7 @@ class ValidationSchemes:
     @staticmethod
     def log_split_by_date(
             log: DataFrame,
-            test_start: str,
+            test_start: datetime,
             drop_cold_items: bool,
             drop_cold_users: bool
     ) -> (DataFrame, DataFrame):
@@ -34,8 +38,12 @@ class ValidationSchemes:
         :returns: тройка таблиц структуры, аналогичной входной
         (train, test_inpit, test)
         """
-        train = log.where(f"timestamp < CAST('{test_start}' AS TIMESTAMP)")
-        test = log.where(f"timestamp >= CAST('{test_start}' AS TIMESTAMP)")
+        train = log.filter(
+            col("timestamp") < lit(test_start).cast(TimestampType())
+        )
+        test = log.filter(
+            col("timestamp") >= lit(test_start).cast(TimestampType())
+        )
         if drop_cold_items:
             test = test.join(
                 train.select("item_id").distinct(),
