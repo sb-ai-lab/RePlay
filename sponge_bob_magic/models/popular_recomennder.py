@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Dict
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as sf
@@ -18,6 +18,10 @@ class PopularRecommender(BaseRecommender):
 
         self.items_popularity = None
 
+    def get_params(self) -> Dict[str, object]:
+        return {'alpha': self.alpha,
+                'beta': self.beta}
+
     def fit(self,
             log: DataFrame,
             user_features: DataFrame or None,
@@ -32,17 +36,23 @@ class PopularRecommender(BaseRecommender):
 
     def predict(self,
                 k: int,
-                users: Iterable,
-                items: Iterable,
+                users: Iterable or None,
+                items: Iterable or None,
                 context: str or None,
                 log: DataFrame,
                 user_features: DataFrame or None,
                 item_features: DataFrame or None,
                 to_filter_seen_items: bool = True) -> DataFrame:
-        users = self.spark.createDataFrame(data=[[user] for user in users],
-                                           schema=['user_id'])
+        if users is None:
+            users = log.select('user_id').distinct()
+        else:
+            users = self.spark.createDataFrame(data=[[user] for user in users],
+                                               schema=['user_id'])
+        if items is None:
+            items = log.select('item_id').distinct()['item_id']
+        else:
+            items = set(items)
 
-        items = set(items)
         items_to_rec = self.items_popularity \
             .filter(self.items_popularity['item_id'].isin(items))
         if context is None or context == 'no_context':
@@ -50,7 +60,7 @@ class PopularRecommender(BaseRecommender):
                 .select('item_id', 'count') \
                 .groupBy('item_id') \
                 .agg(sf.sum('count').alias('count'))
-            items_to_rec = items_to_rec\
+            items_to_rec = items_to_rec \
                 .withColumn('context', sf.lit('no_context'))
         else:
             items_to_rec = items_to_rec \
@@ -73,25 +83,14 @@ class PopularRecommender(BaseRecommender):
         recs = users.crossJoin(items_to_rec)
         return recs
 
-    def fit_predict(self,
-                    k: int,
-                    users: Iterable,
-                    items: Iterable,
-                    context: str or None,
-                    log: DataFrame,
-                    user_features: DataFrame or None,
-                    item_features: DataFrame or None,
-                    to_filter_seen_items: bool = True) -> DataFrame:
-        pass
-
     def _filter_seen_recs(self, recs: DataFrame, log: DataFrame) -> DataFrame:
         pass
 
     def _leave_top_recs(self, k: int, recs: DataFrame) -> DataFrame:
         pass
 
-    def _get_batch_recs(self, users: Iterable,
-                        items: Iterable,
+    def _get_batch_recs(self, users: Iterable or None,
+                        items: Iterable or None,
                         context: str or None,
                         log: DataFrame,
                         user_features: DataFrame or None,
@@ -101,7 +100,7 @@ class PopularRecommender(BaseRecommender):
 
     def _get_single_recs(self,
                          user: str,
-                         items: Iterable,
+                         items: Iterable or None,
                          context: str or None,
                          log: DataFrame,
                          user_feature: DataFrame or None,
