@@ -1,6 +1,5 @@
-from abc import abstractmethod
 from datetime import datetime
-from typing import Iterable, Dict
+from typing import Iterable, Dict, List
 
 import joblib
 import optuna
@@ -23,6 +22,10 @@ class BigRecommender(BaseRecommender):
         self.path_optuna_study = path_tmp
         self.optuna_study = None
 
+    @staticmethod
+    def get_distinct_values_as_list(df, column) -> List:
+        return df.select(column).distinct().rdd.flatMap(lambda x: x).collect()
+
     def fit(self, log: DataFrame,
             user_features: DataFrame or None,
             item_features: DataFrame or None) -> None:
@@ -31,8 +34,8 @@ class BigRecommender(BaseRecommender):
             drop_cold_items=True, drop_cold_users=True)
 
         self.model = PopularRecommender(self.spark)
-        users = log.select('user_id').distinct().rdd.flatMap(lambda x: x).collect()
-        items = log.select('item_id').distinct().rdd.flatMap(lambda x: x).collect()
+        users = self.get_distinct_values_as_list(log, 'user_id')
+        items = self.get_distinct_values_as_list(log, 'item_id')
 
         def objective(trial):
             if self.path_optuna_study is not None:
@@ -52,7 +55,6 @@ class BigRecommender(BaseRecommender):
                                           context='no_context',
                                           log=train,
                                           to_filter_seen_items=True)
-            recs.show()
 
             return - Metrics.hit_rate_at_k(recs, train, k=10)
 
