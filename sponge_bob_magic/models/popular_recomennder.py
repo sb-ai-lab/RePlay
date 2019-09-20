@@ -98,10 +98,9 @@ if __name__ == '__main__':
     items_ = ["item1", "item2", "item3"]
 
     pr = PopularRecommender(spark_, alpha=0, beta=0)
-    pr.fit(log_, user_features=None, item_features=None)
-    recs = pr.predict(k=10, users=users_, items=items_, context='context1',
-                      log=log_,
-                      user_features=None, item_features=None,
-                      to_filter_seen_items=False)
+    recs = pr.fit_predict(k=10, users=users_, items=items_, context='context1',
+                          log=log_,
+                          user_features=None, item_features=None,
+                          to_filter_seen_items=False)
 
     recs.show()
