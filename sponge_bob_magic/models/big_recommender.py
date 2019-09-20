@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from typing import Iterable, Dict, List
 
@@ -26,9 +27,10 @@ class BigRecommender(BaseRecommender):
     def get_distinct_values_as_list(df, column) -> List:
         return df.select(column).distinct().rdd.flatMap(lambda x: x).collect()
 
-    def fit(self, log: DataFrame,
-            user_features: DataFrame or None,
-            item_features: DataFrame or None) -> None:
+    def _fit(self, log: DataFrame,
+             user_features: DataFrame or None,
+             item_features: DataFrame or None) -> None:
+        # ToDO: куда передавать параметры для оптимизации гиперпараметров? конструктор?
         train, _, test = self.splitter.log_split_by_date(
             log, self.split_date,
             drop_cold_items=True, drop_cold_users=True)
@@ -41,6 +43,9 @@ class BigRecommender(BaseRecommender):
             if self.path_optuna_study is not None:
                 joblib.dump(self.optuna_study, self.path_optuna_study)
 
+            # ToDo: надо понять как эту trial передавать в модели
+            # потому что мы не знаем  параметры у моделей,
+            # непонятно как тогда сэмплить эти параметры если мы их не знаем
             alpha = trial.suggest_uniform('alpha', 0.0, 1.0)
             beta = trial.suggest_uniform('beta', 0.0, 1.0)
 
@@ -61,62 +66,10 @@ class BigRecommender(BaseRecommender):
         study = optuna.create_study()
         study.optimize(objective, n_trials=2, n_jobs=2)
 
-        print('best_value:', study.best_value)
+        logging.debug(f"Best value: {study.best_value}")
 
-    def _filter_seen_recs(self, recs: DataFrame, log: DataFrame) -> DataFrame:
-        """
-
-        :param recs:
-        :param log:
-        :return:
-        """
-
-    def _leave_top_recs(self, k: int, recs: DataFrame) -> DataFrame:
-        """
-
-        :param k:
-        :param recs:
-        :return:
-        """
-
-    def _get_batch_recs(self, users: Iterable,
-                        items: Iterable,
-                        context: str or None,
-                        log: DataFrame,
-                        user_features: DataFrame or None,
-                        item_features: DataFrame or None,
-                        to_filter_seen_items: bool = True) -> DataFrame:
-        """
-
-        :param users:
-        :param items:
-        :param context:
-        :param log:
-        :param user_features:
-        :param item_features:
-        :return:
-        """
-
-    def _get_single_recs(self,
-                         user: str,
-                         items: Iterable,
-                         context: str or None,
-                         log: DataFrame,
-                         user_feature: DataFrame or None,
-                         item_features: DataFrame or None,
-                         to_filter_seen_items: bool = True
-                         ) -> DataFrame:
-        """
-
-        :param user:
-        :param items:
-        :param context:
-        :param log:
-        :param user_feature:
-        :param item_features:
-        :param to_filter_seen_items:
-        :return:
-        """
+        self.model.set_params(**study.best_params)
+        self.model.fit(log, user_features, item_features)
 
     def get_params(self) -> Dict[str, object]:
         """
@@ -124,15 +77,15 @@ class BigRecommender(BaseRecommender):
         :return:
         """
 
-    def predict(self,
-                k: int,
-                users: Iterable or None,
-                items: Iterable or None,
-                context: str or None,
-                log: DataFrame,
-                user_features: DataFrame or None,
-                item_features: DataFrame or None,
-                to_filter_seen_items: bool = True) -> DataFrame:
+    def _predict(self,
+                 k: int,
+                 users: Iterable or DataFrame,
+                 items: Iterable or DataFrame,
+                 context: str or None,
+                 log: DataFrame,
+                 user_features: DataFrame or None,
+                 item_features: DataFrame or None,
+                 to_filter_seen_items: bool = True) -> DataFrame:
         """
 
         :param k:
@@ -145,6 +98,9 @@ class BigRecommender(BaseRecommender):
         :param to_filter_seen_items:
         :return:
         """
+        return self.model.predict(k, users, items, log,
+                                  user_features, item_features,
+                                  to_filter_seen_items)
 
 
 if __name__ == '__main__':
@@ -163,9 +119,9 @@ if __name__ == '__main__':
         ["user3", "item3", 2.0, 'no_context', datetime(2019, 10, 13)],
     ]
     schema = ['user_id', 'item_id', 'relevance', 'context', 'timestamp']
-    log = spark.createDataFrame(data=data,
-                                schema=schema)
+    log_ = spark.createDataFrame(data=data,
+                                 schema=schema)
 
     br = BigRecommender(spark, date=datetime(2019, 10, 12))
 
-    br.fit(log, user_features=None, item_features=None)
+    br.fit(log_, user_features=None, item_features=None)

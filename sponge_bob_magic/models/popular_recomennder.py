@@ -22,10 +22,10 @@ class PopularRecommender(BaseRecommender):
         return {'alpha': self.alpha,
                 'beta': self.beta}
 
-    def fit(self,
-            log: DataFrame,
-            user_features: DataFrame or None,
-            item_features: DataFrame or None) -> None:
+    def _fit(self,
+             log: DataFrame,
+             user_features: DataFrame or None,
+             item_features: DataFrame or None) -> None:
         popularity = log \
             .groupBy('item_id', 'context') \
             .count()
@@ -34,27 +34,18 @@ class PopularRecommender(BaseRecommender):
             'item_id', 'context', 'count'
         )
 
-    def predict(self,
-                k: int,
-                users: Iterable or None,
-                items: Iterable or None,
-                context: str or None,
-                log: DataFrame,
-                user_features: DataFrame or None,
-                item_features: DataFrame or None,
-                to_filter_seen_items: bool = True) -> DataFrame:
-        if users is None:
-            users = log.select('user_id').distinct()
-        else:
-            users = self.spark.createDataFrame(data=[[user] for user in users],
-                                               schema=['user_id'])
-        if items is None:
-            items = log.select('item_id').distinct()['item_id']
-        else:
-            items = set(items)
-
+    def _predict(self,
+                 k: int,
+                 users: Iterable or DataFrame,
+                 items: Iterable or DataFrame,
+                 context: str or None,
+                 log: DataFrame,
+                 user_features: DataFrame or None,
+                 item_features: DataFrame or None,
+                 to_filter_seen_items: bool = True) -> DataFrame:
         items_to_rec = self.items_popularity \
             .filter(self.items_popularity['item_id'].isin(items))
+
         if context is None or context == 'no_context':
             items_to_rec = items_to_rec \
                 .select('item_id', 'count') \
@@ -83,41 +74,15 @@ class PopularRecommender(BaseRecommender):
         recs = users.crossJoin(items_to_rec)
         return recs
 
-    def _filter_seen_recs(self, recs: DataFrame, log: DataFrame) -> DataFrame:
-        pass
-
-    def _leave_top_recs(self, k: int, recs: DataFrame) -> DataFrame:
-        pass
-
-    def _get_batch_recs(self, users: Iterable or None,
-                        items: Iterable or None,
-                        context: str or None,
-                        log: DataFrame,
-                        user_features: DataFrame or None,
-                        item_features: DataFrame or None,
-                        to_filter_seen_items: bool = True) -> DataFrame:
-        pass
-
-    def _get_single_recs(self,
-                         user: str,
-                         items: Iterable or None,
-                         context: str or None,
-                         log: DataFrame,
-                         user_feature: DataFrame or None,
-                         item_features: DataFrame or None,
-                         to_filter_seen_items: bool = True
-                         ) -> DataFrame:
-        pass
-
 
 if __name__ == '__main__':
-    spark = (SparkSession
-             .builder
-             .master('local[1]')
-             .config('spark.driver.memory', '512m')
-             .appName('testing-pyspark')
-             .enableHiveSupport()
-             .getOrCreate())
+    spark_ = (SparkSession
+              .builder
+              .master('local[1]')
+              .config('spark.driver.memory', '512m')
+              .appName('testing-pyspark')
+              .enableHiveSupport()
+              .getOrCreate())
 
     data = [
         ["user1", "item1", 1.0, 'context1'],
@@ -126,15 +91,16 @@ if __name__ == '__main__':
         ["user3", "item3", 2.0, 'context1'],
     ]
     schema = ['user_id', 'item_id', 'relevance', 'context']
-    log = spark.createDataFrame(data=data,
-                                schema=schema)
+    log_ = spark_.createDataFrame(data=data,
+                                  schema=schema)
 
     users_ = ["user1", "user2", "user3"]
     items_ = ["item1", "item2", "item3"]
 
-    pr = PopularRecommender(spark, alpha=0, beta=0)
-    pr.fit(log, user_features=None, item_features=None)
-    recs = pr.predict(k=10, users=users_, items=items_, context='context1', log=log,
+    pr = PopularRecommender(spark_, alpha=0, beta=0)
+    pr.fit(log_, user_features=None, item_features=None)
+    recs = pr.predict(k=10, users=users_, items=items_, context='context1',
+                      log=log_,
                       user_features=None, item_features=None,
                       to_filter_seen_items=False)
 
