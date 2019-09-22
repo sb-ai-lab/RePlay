@@ -5,8 +5,8 @@ from parameterized import parameterized
 from pyspark.sql import functions as sf
 from pyspark.sql.types import StringType, StructType
 
+import constants
 from sponge_bob_magic.data_preparator.data_preparator import DataPreparator
-from tests import constants
 from tests.pyspark_testcase import PySparkTest
 
 

@@ -1,49 +1,107 @@
 import unittest
 
-from sponge_bob_magic.models.popular_recomennder import PopularRecommender
+from parameterized import parameterized
+from pyspark.sql import functions as sf
+
 from pyspark_testcase import PySparkTest
+from sponge_bob_magic.models.popular_recomennder import PopularRecommender
 
 
 class PopularRecommenderTestCase(PySparkTest):
     def setUp(self):
         self.model = PopularRecommender(self.spark)
 
-    def test_popularity_recs(self):
-        data = [
-            ["u1", "i1", 1.0, 'context1'],
-            ["u2", "i3", 2.0, 'context1'],
-            ["u1", "i2", 1.0, 'context2'],
-            ["u3", "i3", 2.0, 'context1'],
-        ]
-        schema = ['user_id', 'item_id', 'relevance', 'context']
-        log = self.spark.createDataFrame(data=data,
-                                         schema=schema)
+    @parameterized.expand([
+        # users, context, to_filter_seen_items, k, items
+        # проверяем выделение айтемов
+        (["u1", "u2", "u3"], "no_context", False, 10, [["i1", 3 / 14],
+                                                       ["i2", 2 / 14],
+                                                       ["i3", 4 / 14],
+                                                       ["i4", 5 / 14],
+                                                       ["i999", 0.0]],),
+        (["u1", "u2", "u3"], "c1", False, 10, [["i1", 2 / 7],
+                                               ["i999", 0.0],
+                                               ["i998", 0.0],
+                                               ["i3", 3 / 7],
+                                               ["i4", 2 / 7]],),
+        (["u1", "u2", "u3"], "c2", False, 10, [["i1", 1 / 7],
+                                               ["i2", 2 / 7],
+                                               ["i3", 1 / 7],
+                                               ["i998", 0.0],
+                                               ["i999", 0.0],
+                                               ["i4", 3 / 7]],),
 
-        users = ["u1", "u2", "u3"]
-        items = ["i1", "i2", "i3"]
+        # проверяем выделение юзеров
+        (["u1", "u2"], "no_context", False, 10, [["i1", 3 / 14],
+                                                 ["i2", 2 / 14],
+                                                 ["i3", 4 / 14],
+                                                 ["i4", 5 / 14],
+                                                 ["i999", 0.0]],),
 
-        true_recs_data = [
-            ["u1", "i1", 0.25, "no_context"],
-            ["u2", "i1", 0.25, "no_context"],
-            ["u3", "i1", 0.25, "no_context"],
-            ["u1", "i2", 0.25, "no_context"],
-            ["u2", "i2", 0.25, "no_context"],
-            ["u3", "i2", 0.25, "no_context"],
-            ["u1", "i3", 0.50, "no_context"],
-            ["u2", "i3", 0.50, "no_context"],
-            ["u3", "i3", 0.50, "no_context"],
+        # проверяем выделение топ-к
+        (["u1", "u2"], "c1", False, 1, [["i3", 3 / 7]]),
+        (["u1", "u3"], "c2", False, 2, [["i2", 2 / 7],
+                                        ["i4", 3 / 7]],),
+        (["u3", "u2"], "no_context", False, 3, [["i1", 3 / 14],
+                                                ["i3", 4 / 14],
+                                                ["i4", 5 / 14]]),
+
+    ])
+    def test_popularity_recs_no_params(self,
+                                       users, context,
+                                       to_filter_seen_items, k,
+                                       items_relevance
+                                       ):
+        log_data = [
+            ["u1", "i1", 1.0, "c1"],
+            ["u2", "i1", 1.0, "c1"],
+            ["u3", "i3", 2.0, "c1"],
+            ["u3", "i3", 2.0, "c1"],
+            ["u2", "i3", 2.0, "c1"],
+            ["u3", "i4", 2.0, "c1"],
+            ["u1", "i4", 2.0, "c1"],
+
+            ["u2", "i1", 3.0, "c2"],
+            ["u3", "i2", 1.0, "c2"],
+            ["u2", "i2", 1.0, "c2"],
+            ["u2", "i3", 2.0, "c2"],
+            ["u3", "i4", 3.0, "c2"],
+            ["u2", "i4", 2.0, "c2"],
+            ["u1", "i4", 1.0, "c2"],
         ]
-        true_recs_schema = ['user_id', 'item_id', 'relevance', 'context']
-        true_recs = self.spark.createDataFrame(data=true_recs_data,
-                                               schema=true_recs_schema)
+        log_schema = ['user_id', 'item_id', 'relevance', 'context']
+        log = self.spark.createDataFrame(data=log_data,
+                                         schema=log_schema)
+
+        true_recs = (
+            self.spark.createDataFrame(data=[[user] for user in users],
+                                       schema=['user_id'])
+                .crossJoin(
+                self.spark.createDataFrame(items_relevance,
+                                           schema=['item_id', 'relevance']))
+        )
+        true_recs = true_recs \
+            .withColumn('context', sf.lit(context))
 
         self.model.set_params(**{'alpha': 0, 'beta': 0})
-        test_recs = self.model.fit_predict(k=10, users=users, items=items,
-                                           context='no_context',
-                                           log=log,
-                                           user_features=None,
-                                           item_features=None,
-                                           to_filter_seen_items=False)
+        _ = self.model.fit_predict(
+            k=k, users=users,
+            items=set([elem[0]
+                       for elem in items_relevance]),
+            context=context,
+            log=log,
+            user_features=None,
+            item_features=None,
+            to_filter_seen_items=to_filter_seen_items)
+        test_recs = self.model.fit_predict(
+            k=k, users=users,
+            items=set([elem[0]
+                       for elem in items_relevance]),
+            context=context,
+            log=log,
+            user_features=None,
+            item_features=None,
+            to_filter_seen_items=to_filter_seen_items)
 
         self.assertSparkDataFrameEqual(true_recs, test_recs)
 

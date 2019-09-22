@@ -1,6 +1,6 @@
 from typing import Iterable, Dict
 
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import SparkSession, DataFrame, Window
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.models.base_recommender import BaseRecommender
@@ -43,8 +43,8 @@ class PopularRecommender(BaseRecommender):
                  user_features: DataFrame or None,
                  item_features: DataFrame or None,
                  to_filter_seen_items: bool = True) -> DataFrame:
-        items_to_rec = self.items_popularity \
-            .filter(self.items_popularity['item_id'].isin(items))
+        # ToDo: два повторных предикта должны возвращать одно и то же
+        items_to_rec = self.items_popularity
 
         if context is None or context == 'no_context':
             items_to_rec = items_to_rec \
@@ -70,9 +70,33 @@ class PopularRecommender(BaseRecommender):
                         (count_sum + self.beta)) \
             .drop('count')
 
+        # удаляем ненужные items и добавляем нулевые
+        if not isinstance(items, DataFrame):
+            items = self.spark.createDataFrame(
+                data=[[item] for item in items],
+                schema=['item_id']
+            )
+
+        items = items \
+            .join(items_to_rec, on='item_id', how='left')
+        items = items.na.fill({'context': context,
+                               'relevance': 0})
+
+        # берем топ-k
+        items = self._get_top_k_rows(items, 'relevance', k=k)
+
         # (user_id, item_id, context, relevance)
-        recs = users.crossJoin(items_to_rec)
+        recs = users.crossJoin(items)
         return recs
+
+    @staticmethod
+    def _get_top_k_rows(df, column, k):
+        window = Window.orderBy(df[column].desc())
+        return (df
+                .select('*', sf.rank().over(window).alias('rank'))
+                .filter(sf.col('rank') <= k)
+                .drop('rank')
+                )
 
 
 if __name__ == '__main__':
