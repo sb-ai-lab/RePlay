@@ -1,9 +1,9 @@
 import collections
-from typing import Iterable, Set, Dict, Tuple, List
+from typing import Dict, Iterable, List, Set, Tuple
 
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
-from pyspark.sql.types import StringType, FloatType, TimestampType
+from pyspark.sql.types import FloatType, StringType, TimestampType
 
 
 def flat_list(l: Iterable):
@@ -200,7 +200,6 @@ class DataPreparator:
             given_columns = flat_list(list(columns_names.values()))
             df_columns = df.columns
             feature_columns = list(set(df_columns).difference(given_columns))
-            print(given_columns, df_columns, feature_columns)
             if len(feature_columns) == 0:
                 raise ValueError("В датафрейме нет колонок с фичами")
             features_dict = {'features': feature_columns}
