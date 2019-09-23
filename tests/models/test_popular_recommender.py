@@ -146,6 +146,64 @@ class PopularRecommenderTestCase(PySparkTest):
 
         self.assertSparkDataFrameEqual(true_recs, test_recs)
 
+    @parameterized.expand([
+        # alpha, beta
+        (1, 1),
+        (10, 100),
+        (999, 0),
+        (0, 19999),
+        (0.0009, 0.4),
+    ])
+    def test_popularity_recs_with_params(self, alpha, beta):
+        log_data = [
+            ["u2", "i1", 1.0, "c1"],
+            ["u3", "i3", 2.0, "c1"],
+            ["u1", "i4", 2.0, "c1"],
+
+            ["u1", "i1", 1.0, "c2"],
+            ["u3", "i1", 2.0, "c2"],
+            ["u2", "i2", 1.0, "c2"],
+            ["u2", "i3", 3.0, "c2"],
+            ["u3", "i4", 2.0, "c2"],
+            ["u1", "i4", 2.0, "c2"],
+            ["u3", "i4", 4.0, "c2"],
+        ]
+        log_schema = ['user_id', 'item_id', 'relevance', 'context']
+        log = self.spark.createDataFrame(data=log_data,
+                                         schema=log_schema)
+        context = 'c2'
+
+        true_recs_data = [
+            ["u1", "i1", (2 + alpha) / (beta + 7), context],
+            ["u1", "i2", (1 + alpha) / (beta + 7), context],
+            ["u1", "i3", (1 + alpha) / (beta + 7), context],
+            ["u1", "i4", (3 + alpha) / (beta + 7), context],
+            ["u2", "i1", (2 + alpha) / (beta + 7), context],
+            ["u2", "i2", (1 + alpha) / (beta + 7), context],
+            ["u2", "i3", (1 + alpha) / (beta + 7), context],
+            ["u2", "i4", (3 + alpha) / (beta + 7), context],
+            ["u3", "i1", (2 + alpha) / (beta + 7), context],
+            ["u3", "i2", (1 + alpha) / (beta + 7), context],
+            ["u3", "i3", (1 + alpha) / (beta + 7), context],
+            ["u3", "i4", (3 + alpha) / (beta + 7), context],
+        ]
+        true_recs_schema = ['user_id', 'item_id', 'relevance', 'context']
+        true_recs = self.spark.createDataFrame(data=true_recs_data,
+                                               schema=true_recs_schema)
+
+        self.model.set_params(**{'alpha': alpha, 'beta': beta})
+
+        test_recs = self.model.fit_predict(
+            k=10, users=["u1", "u2", "u3"],
+            items=["i1", "i2", "i3", "i4"],
+            context=context,
+            log=log,
+            user_features=None,
+            item_features=None,
+            to_filter_seen_items=False)
+
+        self.assertSparkDataFrameEqual(true_recs, test_recs)
+
 
 if __name__ == '__main__':
     unittest.main()
