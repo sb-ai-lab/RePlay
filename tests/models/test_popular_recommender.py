@@ -48,8 +48,7 @@ class PopularRecommenderTestCase(PySparkTest):
     ])
     def test_popularity_recs_no_params(self,
                                        users, context, k,
-                                       items_relevance
-                                       ):
+                                       items_relevance):
         log_data = [
             ["u1", "i1", 1.0, "c1"],
             ["u2", "i1", 1.0, "c1"],
@@ -106,6 +105,46 @@ class PopularRecommenderTestCase(PySparkTest):
         self.assertSparkDataFrameEqual(true_recs, test_recs_second)
         self.assertSparkDataFrameEqual(true_recs, test_recs_first)
         self.assertSparkDataFrameEqual(test_recs_first, test_recs_second)
+
+    def test_popularity_recs_no_params_to_filter_seen_items(self):
+        log_data = [
+            ["u1", "i1", 1.0, "c1"],
+            ["u2", "i1", 1.0, "c1"],
+            ["u3", "i3", 2.0, "c2"],
+            ["u3", "i3", 2.0, "c1"],
+            ["u2", "i3", 2.0, "c1"],
+            ["u3", "i4", 2.0, "c2"],
+            ["u1", "i4", 2.0, "c1"],
+        ]
+        log_schema = ['user_id', 'item_id', 'relevance', 'context']
+        log = self.spark.createDataFrame(data=log_data,
+                                         schema=log_schema)
+        context = 'c1'  # вычищение лога не зависит от контекста
+
+        true_recs_data = [
+            ["u1", "i2", 0 / 5, context],
+            ["u1", "i3", 2 / 5, context],
+            ["u2", "i2", 0 / 5, context],
+            ["u2", "i4", 1 / 5, context],
+            ["u3", "i1", 2 / 5, context],
+            ["u3", "i2", 0 / 5, context],
+        ]
+        true_recs_schema = ['user_id', 'item_id', 'relevance', 'context']
+        true_recs = self.spark.createDataFrame(data=true_recs_data,
+                                               schema=true_recs_schema)
+
+        self.model.set_params(**{'alpha': 0, 'beta': 0})
+
+        test_recs = self.model.fit_predict(
+            k=10, users=["u1", "u2", "u3"],
+            items=["i1", "i2", "i3", "i4"],
+            context=context,
+            log=log,
+            user_features=None,
+            item_features=None,
+            to_filter_seen_items=True)
+
+        self.assertSparkDataFrameEqual(true_recs, test_recs)
 
 
 if __name__ == '__main__':

@@ -87,7 +87,16 @@ class PopularRecommender(BaseRecommender):
 
         # (user_id, item_id, context, relevance)
         recs = users.crossJoin(items)
+
+        if to_filter_seen_items:
+            recs = self._filter_seen_recs(recs, log)
         return recs
+
+    def _filter_seen_recs(self, recs: DataFrame, log: DataFrame) -> DataFrame:
+        return (recs
+                .join(log,
+                      on=['item_id', 'user_id'],
+                      how='left_anti'))
 
     @staticmethod
     def _get_top_k_rows(df, column, k):
@@ -122,9 +131,9 @@ if __name__ == '__main__':
     items_ = ["item1", "item2", "item3"]
 
     pr = PopularRecommender(spark_, alpha=0, beta=0)
-    recs = pr.fit_predict(k=10, users=users_, items=items_, context='context1',
-                          log=log_,
-                          user_features=None, item_features=None,
-                          to_filter_seen_items=False)
+    recs_ = pr.fit_predict(k=10, users=users_, items=items_, context='context1',
+                           log=log_,
+                           user_features=None, item_features=None,
+                           to_filter_seen_items=False)
 
-    recs.show()
+    recs_.show()

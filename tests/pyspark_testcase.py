@@ -13,11 +13,17 @@ class PySparkTest(unittest.TestCase):
                                   df2: DataFrame,
                                   msg: str or None = None) \
             -> None:
-        df1 = df1.toPandas().sort_values(by=df1.columns).reset_index(drop=True)
-        df2 = df2.toPandas().sort_values(by=df2.columns).reset_index(drop=True)
-
+        def _unify_dataframe(df: DataFrame):
+            return (df
+                    .toPandas()
+                    [sorted(df.columns)]
+                    .sort_values(by=sorted(df.columns))
+                    .reset_index(drop=True)
+                    )
         try:
-            pd.testing.assert_frame_equal(df1, df2, check_like=True)
+            pd.testing.assert_frame_equal(_unify_dataframe(df1),
+                                          _unify_dataframe(df2),
+                                          check_like=True)
         except AssertionError as e:
             raise self.failureException(msg) from e
 
