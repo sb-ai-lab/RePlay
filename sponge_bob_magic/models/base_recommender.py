@@ -76,9 +76,10 @@ class BaseRecommender(ABC):
         if features is None:
             return
 
-        columns = set(features.columns).difference({'user_id', 'timestamp'})
+        columns = set(features.columns).difference(required_columns)
         if len(columns) == 0:
-            raise ValueError("В датафрейме user_features нет колонок с фичами")
+            raise ValueError("В датафрейме features нет колонок с фичами")
+
         BaseRecommender._check_dataframe(
             features,
             required_columns=required_columns.union(columns),
@@ -96,15 +97,16 @@ class BaseRecommender(ABC):
         :return:
         """
         self._check_dataframe(log,
-                              required_columns={'item_id', 'user_id'},
-                              optional_columns={'timestamp', 'relevance',
-                                                'context'})
-        self._check_feature_dataframe(user_features,
-                                      required_columns={'user_id'},
-                                      optional_columns={'timestamp'})
-        self._check_feature_dataframe(item_features,
-                                      required_columns={'item_id'},
-                                      optional_columns={'timestamp'})
+                              required_columns={'item_id', 'user_id',
+                                                'timestamp', 'relevance',
+                                                'context'},
+                              optional_columns=set())
+        self._check_feature_dataframe(user_features, optional_columns=set(),
+                                      required_columns={'user_id',
+                                                        'timestamp'})
+        self._check_feature_dataframe(item_features, optional_columns=set(),
+                                      required_columns={'item_id',
+                                                        'timestamp'})
 
         self._fit(log, user_features, item_features)
 
