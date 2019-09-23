@@ -18,6 +18,8 @@ __pycache__/
 .Python
 build/
 bin/
+etc/
+share/
 develop-eggs/
 dist/
 downloads/
