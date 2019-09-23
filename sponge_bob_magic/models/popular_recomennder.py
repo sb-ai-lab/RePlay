@@ -58,11 +58,9 @@ class PopularRecommender(BaseRecommender):
                 .filter(items_to_rec['context'] == context)
 
         count_sum = items_to_rec \
-            .select('count') \
-            .rdd \
-            .map(lambda x: (1, x[0])) \
-            .reduceByKey(lambda x, y: x + y) \
-            .collect()[0][1]
+            .groupBy() \
+            .agg(sf.sum("count")) \
+            .collect()[0][0]
 
         items_to_rec = items_to_rec \
             .withColumn('relevance',
@@ -131,7 +129,8 @@ if __name__ == '__main__':
     items_ = ["item1", "item2", "item3"]
 
     pr = PopularRecommender(spark_, alpha=0, beta=0)
-    recs_ = pr.fit_predict(k=10, users=users_, items=items_, context='context1',
+    recs_ = pr.fit_predict(k=10, users=users_, items=items_,
+                           context='context1',
                            log=log_,
                            user_features=None, item_features=None,
                            to_filter_seen_items=False)
