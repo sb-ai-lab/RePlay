@@ -8,8 +8,10 @@ from pyspark.sql.types import FloatType, StringType, TimestampType
 
 def flat_list(l: Iterable):
     for el in l:
-        if isinstance(el, collections.abc.Iterable) and \
-                not isinstance(el, (str, bytes)):
+        if (
+            isinstance(el, collections.abc.Iterable) and
+            not isinstance(el, (str, bytes))
+        ):
             yield from flat_list(el)
         else:
             yield el
@@ -45,9 +47,11 @@ class DataPreparator:
         if not required_columns.issubset(given_columns):
             raise ValueError(
                 f"В датафрейме нет обязательных колонок ({required_columns})")
-        if len(given_columns
-                       .difference(required_columns)
-                       .difference(optional_columns)) > 0:
+        if len(
+            given_columns
+            .difference(required_columns)
+            .difference(optional_columns)
+        ) > 0:
             raise ValueError("В 'columns_names' есть лишние колонки")
 
     @staticmethod
@@ -92,8 +96,8 @@ class DataPreparator:
 
         # добавляем необязательные дефолтные колонки, если их нет,
         # и задаем тип для тех колонок, что есть
-        for column_name, \
-            (default_value, default_type) in default_schema.items():
+        for column_name, (default_value,
+                          default_type) in default_schema.items():
             if column_name not in df.columns:
                 column = sf.lit(default_value)
             else:
