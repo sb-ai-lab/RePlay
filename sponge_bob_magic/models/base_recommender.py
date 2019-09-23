@@ -62,9 +62,9 @@ class BaseRecommender(ABC):
             raise ValueError(
                 f"В датафрейме нет обязательных колонок ({required_columns})")
 
-        wrong_columns = set(df_columns) \
-            .difference(required_columns) \
-            .difference(optional_columns)
+        wrong_columns = (set(df_columns)
+                         .difference(required_columns)
+                         .difference(optional_columns))
         if len(wrong_columns) > 0:
             raise ValueError(
                 f"В датафрейме есть лишние колонки: {wrong_columns}")
@@ -132,22 +132,21 @@ class BaseRecommender(ABC):
                 item_features: DataFrame or None,
                 to_filter_seen_items: bool = True) -> DataFrame:
         """
-        
-        :param k: 
-        :param users: 
-        :param items: 
-        :param context: 
-        :param log: 
-        :param user_features: 
-        :param item_features: 
-        :param to_filter_seen_items: 
-        :return: 
+
+        :param k:
+        :param users:
+        :param items:
+        :param context:
+        :param log:
+        :param user_features:
+        :param item_features:
+        :param to_filter_seen_items:
+        :return:
         """
         self._check_dataframe(log,
                               required_columns={'item_id', 'user_id'},
                               optional_columns={'timestamp', 'relevance',
-                                                'context'}
-                              )
+                                                'context'})
         self._check_feature_dataframe(user_features,
                                       required_columns={'user_id'},
                                       optional_columns={'timestamp'})
@@ -222,61 +221,15 @@ class BaseRecommender(ABC):
                             user_features, item_features,
                             to_filter_seen_items)
 
-    def _filter_seen_recs(self, recs: DataFrame, log: DataFrame) -> DataFrame:
+    @staticmethod
+    def _filter_seen_recs(recs: DataFrame, log: DataFrame) -> DataFrame:
         """
 
         :param recs:
         :param log:
         :return:
         """
-        raise NotImplementedError("Method is not implemented!")
-
-    def _leave_top_recs(self, k: int, recs: DataFrame) -> DataFrame:
-        """
-
-        :param k:
-        :param recs:
-        :return:
-        """
-        raise NotImplementedError("Method is not implemented!")
-
-    def _get_batch_recs(self, users: Iterable,
-                        items: Iterable,
-                        context: str or None,
-                        log: DataFrame,
-                        user_features: DataFrame or None,
-                        item_features: DataFrame or None,
-                        to_filter_seen_items: bool = True) -> DataFrame:
-        """
-
-        :param users:
-        :param items:
-        :param context:
-        :param log:
-        :param user_features:
-        :param item_features:
-        :return:
-        """
-        raise NotImplementedError("Method is not implemented!")
-
-    def _get_single_recs(self,
-                         user: str,
-                         items: Iterable,
-                         context: str or None,
-                         log: DataFrame,
-                         user_feature: DataFrame or None,
-                         item_features: DataFrame or None,
-                         to_filter_seen_items: bool = True
-                         ) -> DataFrame:
-        """
-
-        :param user:
-        :param items:
-        :param context:
-        :param log:
-        :param user_feature:
-        :param item_features:
-        :param to_filter_seen_items:
-        :return:
-        """
-        raise NotImplementedError("Method is not implemented!")
+        return (recs
+                .join(log,
+                      on=['item_id', 'user_id'],
+                      how='left_anti'))

@@ -6,8 +6,8 @@ from pyspark.sql import functions as sf
 from pyspark.sql.types import StringType, StructType
 
 import constants
+from pyspark_testcase import PySparkTest
 from sponge_bob_magic.data_preparator.data_preparator import DataPreparator
-from tests.pyspark_testcase import PySparkTest
 
 
 class DataPreparatorTest(PySparkTest):
@@ -303,14 +303,18 @@ class DataPreparatorTest(PySparkTest):
             features = features.withColumn(column,
                                            sf.col(column).cast(StringType()))
 
-        schema = ['user_id', 'timestamp'] + \
-                 [f'f{i}'
-                  for i in range(len(true_feature_data[0]) - 2)]
+        schema = (
+                ['user_id', 'timestamp'] +
+                [f'f{i}'
+                 for i in range(len(true_feature_data[0]) - 2)]
+        )
         true_features = self.spark.createDataFrame(data=true_feature_data,
                                                    schema=schema)
-        true_features = true_features \
-            .withColumn('user_id', sf.col('user_id').cast(StringType())) \
-            .withColumn('timestamp', sf.to_timestamp('timestamp'))
+        true_features = (true_features
+                         .withColumn('user_id',
+                                     sf.col('user_id').cast(StringType()))
+                         .withColumn('timestamp', sf.to_timestamp('timestamp'))
+                         )
 
         self.dp._read_data = Mock(return_value=features)
 

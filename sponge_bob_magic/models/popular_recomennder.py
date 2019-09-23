@@ -26,9 +26,9 @@ class PopularRecommender(BaseRecommender):
              log: DataFrame,
              user_features: DataFrame or None,
              item_features: DataFrame or None) -> None:
-        popularity = log \
-            .groupBy('item_id', 'context') \
-            .count()
+        popularity = (log
+                      .groupBy('item_id', 'context')
+                      .count())
 
         self.items_popularity = popularity.select(
             'item_id', 'context', 'count'
@@ -47,20 +47,20 @@ class PopularRecommender(BaseRecommender):
         items_to_rec = self.items_popularity
 
         if context is None or context == 'no_context':
-            items_to_rec = items_to_rec \
-                .select('item_id', 'count') \
-                .groupBy('item_id') \
-                .agg(sf.sum('count').alias('count'))
-            items_to_rec = items_to_rec \
-                .withColumn('context', sf.lit('no_context'))
+            items_to_rec = (items_to_rec
+                            .select('item_id', 'count')
+                            .groupBy('item_id')
+                            .agg(sf.sum('count').alias('count')))
+            items_to_rec = (items_to_rec
+                            .withColumn('context', sf.lit('no_context')))
         else:
-            items_to_rec = items_to_rec \
-                .filter(items_to_rec['context'] == context)
+            items_to_rec = (items_to_rec
+                            .filter(items_to_rec['context'] == context))
 
-        count_sum = items_to_rec \
-            .groupBy() \
-            .agg(sf.sum("count")) \
-            .collect()[0][0]
+        count_sum = (items_to_rec
+            .groupBy()
+            .agg(sf.sum("count"))
+            .collect()[0][0])
 
         items_to_rec = items_to_rec \
             .withColumn('relevance',
@@ -75,8 +75,8 @@ class PopularRecommender(BaseRecommender):
                 schema=['item_id']
             )
 
-        items = items \
-            .join(items_to_rec, on='item_id', how='left')
+        items = (items
+                 .join(items_to_rec, on='item_id', how='left'))
         items = items.na.fill({'context': context,
                                'relevance': 0})
 
@@ -90,17 +90,11 @@ class PopularRecommender(BaseRecommender):
             recs = self._filter_seen_recs(recs, log)
         return recs
 
-    def _filter_seen_recs(self, recs: DataFrame, log: DataFrame) -> DataFrame:
-        return (recs
-                .join(log,
-                      on=['item_id', 'user_id'],
-                      how='left_anti'))
-
     @staticmethod
-    def _get_top_k_rows(df, column, k):
+    def _get_top_k_rows(df: DataFrame, column: str, k: int):
         window = Window.orderBy(df[column].desc())
         return (df
-                .select('*', sf.rank().over(window).alias('rank'))
+                .withColumn('rank', sf.rank().over(window))
                 .filter(sf.col('rank') <= k)
                 .drop('rank')
                 )

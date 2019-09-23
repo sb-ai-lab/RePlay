@@ -30,7 +30,7 @@ class BigRecommender(BaseRecommender):
     def _fit(self, log: DataFrame,
              user_features: DataFrame or None,
              item_features: DataFrame or None) -> None:
-        # ToDO: куда передавать параметры для оптимизации гиперпараметров? конструктор?
+        # ToDO: куда передавать параметры для оптимизации гиперпараметров?
         train, _, test = self.splitter.log_split_by_date(
             log, self.split_date,
             drop_cold_items=True, drop_cold_users=True)
@@ -43,9 +43,6 @@ class BigRecommender(BaseRecommender):
             if self.path_optuna_study is not None:
                 joblib.dump(self.optuna_study, self.path_optuna_study)
 
-            # ToDo: надо понять как эту trial передавать в модели
-            # потому что мы не знаем  параметры у моделей,
-            # непонятно как тогда сэмплить эти параметры если мы их не знаем
             alpha = trial.suggest_uniform('alpha', 0.0, 1.0)
             beta = trial.suggest_uniform('beta', 0.0, 1.0)
 
@@ -61,9 +58,9 @@ class BigRecommender(BaseRecommender):
                                           log=train,
                                           to_filter_seen_items=True)
 
-            return - Metrics.hit_rate_at_k(recs, train, k=10)
+            return Metrics.hit_rate_at_k(recs, train, k=10)
 
-        study = optuna.create_study()
+        study = optuna.create_study(direction='maximize')
         study.optimize(objective, n_trials=2, n_jobs=2)
 
         logging.debug(f"Best value: {study.best_value}")

@@ -78,8 +78,8 @@ class PopularRecommenderTestCase(PySparkTest):
                 self.spark.createDataFrame(items_relevance,
                                            schema=['item_id', 'relevance']))
         )
-        true_recs = true_recs \
-            .withColumn('context', sf.lit(context))
+        true_recs = (true_recs
+                     .withColumn('context', sf.lit(context)))
 
         self.model.set_params(**{'alpha': 0, 'beta': 0})
 
