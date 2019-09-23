@@ -1,7 +1,8 @@
 import unittest
+import warnings
 
 import pandas as pd
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import DataFrame, SparkSession
 
 
 class PySparkTest(unittest.TestCase):
@@ -39,6 +40,7 @@ class PySparkTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        warnings.filterwarnings(action="ignore", category=ResourceWarning)
         cls.spark = cls.create_testing_pyspark_session()
         cls.spark.sparkContext.setLogLevel(cls.spark_log_level)
 
