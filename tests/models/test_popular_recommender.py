@@ -50,23 +50,24 @@ class PopularRecommenderTestCase(PySparkTest):
                                        users, context, k,
                                        items_relevance):
         log_data = [
-            ["u1", "i1", 1.0, "c1"],
-            ["u2", "i1", 1.0, "c1"],
-            ["u3", "i3", 2.0, "c1"],
-            ["u3", "i3", 2.0, "c1"],
-            ["u2", "i3", 2.0, "c1"],
-            ["u3", "i4", 2.0, "c1"],
-            ["u1", "i4", 2.0, "c1"],
+            ["u1", "i1", 1.0, "c1", "2019-01-01"],
+            ["u2", "i1", 1.0, "c1", "2019-01-01"],
+            ["u3", "i3", 2.0, "c1", "2019-01-01"],
+            ["u3", "i3", 2.0, "c1", "2019-01-01"],
+            ["u2", "i3", 2.0, "c1", "2019-01-01"],
+            ["u3", "i4", 2.0, "c1", "2019-01-01"],
+            ["u1", "i4", 2.0, "c1", "2019-01-01"],
 
-            ["u2", "i1", 3.0, "c2"],
-            ["u3", "i2", 1.0, "c2"],
-            ["u2", "i2", 1.0, "c2"],
-            ["u2", "i3", 2.0, "c2"],
-            ["u3", "i4", 3.0, "c2"],
-            ["u2", "i4", 2.0, "c2"],
-            ["u1", "i4", 1.0, "c2"],
+            ["u2", "i1", 3.0, "c2", "2019-01-01"],
+            ["u3", "i2", 1.0, "c2", "2019-01-01"],
+            ["u2", "i2", 1.0, "c2", "2019-01-01"],
+            ["u2", "i3", 2.0, "c2", "2019-01-01"],
+            ["u3", "i4", 3.0, "c2", "2019-01-01"],
+            ["u2", "i4", 2.0, "c2", "2019-01-01"],
+            ["u1", "i4", 1.0, "c2", "2019-01-01"],
         ]
-        log_schema = ['user_id', 'item_id', 'relevance', 'context']
+        log_schema = ['user_id', 'item_id', 'relevance',
+                      'context', 'timestamp']
         log = self.spark.createDataFrame(data=log_data,
                                          schema=log_schema)
 
@@ -108,15 +109,16 @@ class PopularRecommenderTestCase(PySparkTest):
 
     def test_popularity_recs_no_params_to_filter_seen_items(self):
         log_data = [
-            ["u1", "i1", 1.0, "c1"],
-            ["u2", "i1", 1.0, "c1"],
-            ["u3", "i3", 2.0, "c2"],
-            ["u3", "i3", 2.0, "c1"],
-            ["u2", "i3", 2.0, "c1"],
-            ["u3", "i4", 2.0, "c2"],
-            ["u1", "i4", 2.0, "c1"],
+            ["u1", "i1", 1.0, "c1", "2019-01-01"],
+            ["u2", "i1", 1.0, "c1", "2019-01-01"],
+            ["u3", "i3", 2.0, "c2", "2019-01-01"],
+            ["u3", "i3", 2.0, "c1", "2019-01-01"],
+            ["u2", "i3", 2.0, "c1", "2019-01-01"],
+            ["u3", "i4", 2.0, "c2", "2019-01-01"],
+            ["u1", "i4", 2.0, "c1", "2019-01-01"],
         ]
-        log_schema = ['user_id', 'item_id', 'relevance', 'context']
+        log_schema = ['user_id', 'item_id', 'relevance',
+                      'context', 'timestamp']
         log = self.spark.createDataFrame(data=log_data,
                                          schema=log_schema)
         context = 'c1'  # вычищение лога не зависит от контекста
@@ -156,19 +158,20 @@ class PopularRecommenderTestCase(PySparkTest):
     ])
     def test_popularity_recs_with_params(self, alpha, beta):
         log_data = [
-            ["u2", "i1", 1.0, "c1"],
-            ["u3", "i3", 2.0, "c1"],
-            ["u1", "i4", 2.0, "c1"],
+            ["u2", "i1", 1.0, "c1", "2019-01-01"],
+            ["u3", "i3", 2.0, "c1", "2019-01-01"],
+            ["u1", "i4", 2.0, "c1", "2019-01-01"],
 
-            ["u1", "i1", 1.0, "c2"],
-            ["u3", "i1", 2.0, "c2"],
-            ["u2", "i2", 1.0, "c2"],
-            ["u2", "i3", 3.0, "c2"],
-            ["u3", "i4", 2.0, "c2"],
-            ["u1", "i4", 2.0, "c2"],
-            ["u3", "i4", 4.0, "c2"],
+            ["u1", "i1", 1.0, "c2", "2019-01-01"],
+            ["u3", "i1", 2.0, "c2", "2019-01-01"],
+            ["u2", "i2", 1.0, "c2", "2019-01-01"],
+            ["u2", "i3", 3.0, "c2", "2019-01-01"],
+            ["u3", "i4", 2.0, "c2", "2019-01-01"],
+            ["u1", "i4", 2.0, "c2", "2019-01-01"],
+            ["u3", "i4", 4.0, "c2", "2019-01-01"],
         ]
-        log_schema = ['user_id', 'item_id', 'relevance', 'context']
+        log_schema = ['user_id', 'item_id', 'relevance',
+                      'context', 'timestamp']
         log = self.spark.createDataFrame(data=log_data,
                                          schema=log_schema)
         context = 'c2'
