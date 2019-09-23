@@ -101,13 +101,13 @@ class BigRecommender(BaseRecommender):
 
 
 if __name__ == '__main__':
-    spark = (SparkSession
-             .builder
-             .master('local[1]')
-             .config('spark.driver.memory', '512m')
-             .appName('testing-pyspark')
-             .enableHiveSupport()
-             .getOrCreate())
+    spark_ = (SparkSession
+              .builder
+              .master('local[1]')
+              .config('spark.driver.memory', '512m')
+              .appName('testing-pyspark')
+              .enableHiveSupport()
+              .getOrCreate())
 
     data = [
         ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 10)],
@@ -116,9 +116,9 @@ if __name__ == '__main__':
         ["user3", "item3", 2.0, 'no_context', datetime(2019, 10, 13)],
     ]
     schema = ['user_id', 'item_id', 'relevance', 'context', 'timestamp']
-    log_ = spark.createDataFrame(data=data,
-                                 schema=schema)
+    log_ = spark_.createDataFrame(data=data,
+                                  schema=schema)
 
-    br = BigRecommender(spark, date=datetime(2019, 10, 12))
+    br = BigRecommender(spark_, date=datetime(2019, 10, 12))
 
     br.fit(log_, user_features=None, item_features=None)

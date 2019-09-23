@@ -18,8 +18,8 @@ class PySparkTest(unittest.TestCase):
                     .toPandas()
                     [sorted(df.columns)]
                     .sort_values(by=sorted(df.columns))
-                    .reset_index(drop=True)
-                    )
+                    .reset_index(drop=True))
+
         try:
             pd.testing.assert_frame_equal(_unify_dataframe(df1),
                                           _unify_dataframe(df2),

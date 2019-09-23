@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Iterable, Dict, Set
 
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as sf
 from sklearn.preprocessing import LabelEncoder
 
@@ -161,8 +161,15 @@ class BaseRecommender(ABC):
                                                schema=['user_id'])
         if items is None:
             items = log.select('item_id').distinct()['item_id']
+            num_items = items.count()
         else:
             items = set(items)
+            num_items = len(items)
+
+        if num_items < k:
+            raise ValueError(
+                "Значение k больше, чем множество объектов; "
+                f"k = {k}, number of items = {num_items}")
 
         return self._predict(
             k, users, items,
@@ -229,7 +236,31 @@ class BaseRecommender(ABC):
         :param log:
         :return:
         """
-        return (recs
-                .join(log,
-                      on=['item_id', 'user_id'],
-                      how='left_anti'))
+        log = (log
+               .select('item_id', 'user_id')
+               .withColumn('in_log', sf.lit(True)))
+        recs = (recs
+                .join(log, on=['item_id', 'user_id'], how='left'))
+        recs = (recs
+                .withColumn('relevance',
+                            sf.when(recs['in_log'], -1)
+                            .otherwise(recs['relevance']))
+                .drop('in_log'))
+        return recs
+
+    @staticmethod
+    def _get_top_k_recs(recs: DataFrame, k: int):
+        """
+
+        :param recs:
+        :param k:
+        :return:
+        """
+        window = (Window
+                  .partitionBy(recs['user_id'])
+                  .orderBy(recs['relevance'].desc()))
+
+        return (recs.withColumn('rank',
+                                sf.row_number().over(window))
+                .filter(sf.col('rank') <= k)
+                .drop('rank'))

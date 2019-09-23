@@ -1,6 +1,6 @@
 from typing import Iterable, Dict
 
-from pyspark.sql import SparkSession, DataFrame, Window
+from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.models.base_recommender import BaseRecommender
@@ -43,7 +43,7 @@ class PopularRecommender(BaseRecommender):
                  user_features: DataFrame or None,
                  item_features: DataFrame or None,
                  to_filter_seen_items: bool = True) -> DataFrame:
-        # ToDo: два повторных предикта должны возвращать одно и то же
+        # ToDo: два повторных вызова должны возвращать одно и то же
         items_to_rec = self.items_popularity
 
         if context is None or context == 'no_context':
@@ -58,15 +58,15 @@ class PopularRecommender(BaseRecommender):
                             .filter(items_to_rec['context'] == context))
 
         count_sum = (items_to_rec
-            .groupBy()
-            .agg(sf.sum("count"))
-            .collect()[0][0])
+                     .groupBy()
+                     .agg(sf.sum("count"))
+                     .collect()[0][0])
 
-        items_to_rec = items_to_rec \
-            .withColumn('relevance',
-                        (sf.col('count') + self.alpha) /
-                        (count_sum + self.beta)) \
-            .drop('count')
+        items_to_rec = (items_to_rec
+                        .withColumn('relevance',
+                                    (sf.col('count') + self.alpha) /
+                                    (count_sum + self.beta))
+                        .drop('count'))
 
         # удаляем ненужные items и добавляем нулевые
         if not isinstance(items, DataFrame):
@@ -80,24 +80,22 @@ class PopularRecommender(BaseRecommender):
         items = items.na.fill({'context': context,
                                'relevance': 0})
 
-        # берем топ-k
-        items = self._get_top_k_rows(items, 'relevance', k=k)
-
         # (user_id, item_id, context, relevance)
         recs = users.crossJoin(items)
 
         if to_filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
-        return recs
 
-    @staticmethod
-    def _get_top_k_rows(df: DataFrame, column: str, k: int):
-        window = Window.orderBy(df[column].desc())
-        return (df
-                .withColumn('rank', sf.rank().over(window))
-                .filter(sf.col('rank') <= k)
-                .drop('rank')
-                )
+        # берем топ-к
+        recs = self._get_top_k_recs(recs, k)
+
+        # заменяем отрицательные рейтинги на 0
+        # (они помогали отобрать в топ-k невиденные айтемы)
+        recs = (recs
+                .withColumn('relevance',
+                            sf.when(recs['relevance'] < 0, 0)
+                            .otherwise(recs['relevance'])))
+        return recs
 
 
 if __name__ == '__main__':
@@ -110,12 +108,12 @@ if __name__ == '__main__':
               .getOrCreate())
 
     data = [
-        ["user1", "item1", 1.0, 'context1'],
-        ["user2", "item3", 2.0, 'context1'],
-        ["user1", "item2", 1.0, 'context2'],
-        ["user3", "item3", 2.0, 'context1'],
+        ["user1", "item1", 1.0, 'context1', "timestamp"],
+        ["user2", "item3", 2.0, 'context1', "timestamp"],
+        ["user1", "item2", 1.0, 'context2', "timestamp"],
+        ["user3", "item3", 2.0, 'context1', "timestamp"],
     ]
-    schema = ['user_id', 'item_id', 'relevance', 'context']
+    schema = ['user_id', 'item_id', 'relevance', 'context', 'timestamp']
     log_ = spark_.createDataFrame(data=data,
                                   schema=schema)
 
@@ -123,7 +121,7 @@ if __name__ == '__main__':
     items_ = ["item1", "item2", "item3"]
 
     pr = PopularRecommender(spark_, alpha=0, beta=0)
-    recs_ = pr.fit_predict(k=10, users=users_, items=items_,
+    recs_ = pr.fit_predict(k=3, users=users_, items=items_,
                            context='context1',
                            log=log_,
                            user_features=None, item_features=None,
