@@ -6,6 +6,7 @@ from datetime import datetime
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import TimestampType
+from typing import Tuple
 
 
 class ValidationSchemes:
@@ -23,7 +24,7 @@ class ValidationSchemes:
             test_start: datetime,
             drop_cold_items: bool,
             drop_cold_users: bool
-    ) -> (DataFrame, DataFrame, DataFrame):
+    ) -> Tuple[DataFrame, DataFrame, DataFrame]:
         """
         разбить лог действий пользователей по дате на обучающую и тестовую
         выборки
@@ -56,4 +57,4 @@ class ValidationSchemes:
                 how="inner",
                 on="user_id"
             )
-        return (train, train, test)
+        return train, train, test

@@ -7,8 +7,9 @@ from pyspark.sql.functions import col, desc, row_number
 
 class Metrics:
     """ различные метрики качества рекомендательных систем """
+
+    @staticmethod
     def hit_rate_at_k(
-            self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
             k: int
