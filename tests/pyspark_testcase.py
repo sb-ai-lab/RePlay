@@ -9,11 +9,12 @@ class PySparkTest(unittest.TestCase):
     spark: SparkSession = None
     spark_log_level: str = 'ERROR'
 
-    def assertSparkDataFrameEqual(self,
-                                  df1: DataFrame,
-                                  df2: DataFrame,
-                                  msg: str or None = None) \
-            -> None:
+    def assertSparkDataFrameEqual(
+            self,
+            df1: DataFrame,
+            df2: DataFrame,
+            msg: str or None = None
+    ) -> None:
         def _unify_dataframe(df: DataFrame):
             return (df
                     .toPandas()

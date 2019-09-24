@@ -1,44 +1,12 @@
 from datetime import datetime
-from unittest import TestCase
-
-import pandas as pd
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.types import (FloatType, StringType, StructField, StructType,
-                               TimestampType)
 
 from sponge_bob_magic.validation_schemes import ValidationSchemes
 
-LOG_SCHEMA = StructType([
-    StructField("user_id", StringType()),
-    StructField("item_id", StringType()),
-    StructField("timestamp", TimestampType()),
-    StructField("context", StringType()),
-    StructField("relevance", FloatType())
-])
+from constants import LOG_SCHEMA
+from pyspark_testcase import PySparkTest
 
 
-def compare_dataframes(dataframe1: DataFrame, dataframe2: DataFrame) -> bool:
-    x = (
-        dataframe1.toPandas().sort_values(by=dataframe1.columns)
-        .reset_index(drop=True)
-    )
-    y = (
-        dataframe2.toPandas().sort_values(by=dataframe1.columns)
-        .reset_index(drop=True)
-    )[dataframe1.columns]
-    pd.testing.assert_frame_equal(x, y)
-    return True
-
-
-class TestValidationSchemes(TestCase):
-    def setUp(self):
-        self.spark = (
-            SparkSession.builder
-            .master("local[1]")
-            .config("spark.driver.memory", "512m")
-            .getOrCreate()
-        )
-
+class TestValidationSchemes(PySparkTest):
     def test_log_split_by_date(self):
         validation_schemes = ValidationSchemes(self.spark)
         log = self.spark.createDataFrame(
@@ -71,9 +39,9 @@ class TestValidationSchemes(TestCase):
             ],
             schema=LOG_SCHEMA
         )
-        self.assertTrue(compare_dataframes(true_train, train))
-        self.assertTrue(compare_dataframes(train, test_input))
-        self.assertTrue(compare_dataframes(true_test, test))
+        self.assertSparkDataFrameEqual(true_train, train)
+        self.assertSparkDataFrameEqual(train, test_input)
+        self.assertSparkDataFrameEqual(true_test, test)
         train, test_input, test = validation_schemes.log_split_by_date(
             log, datetime(2019, 9, 15), True, False
         )
@@ -84,9 +52,9 @@ class TestValidationSchemes(TestCase):
             ],
             schema=LOG_SCHEMA
         )
-        self.assertTrue(compare_dataframes(true_train, train))
-        self.assertTrue(compare_dataframes(train, test_input))
-        self.assertTrue(compare_dataframes(true_test, test))
+        self.assertSparkDataFrameEqual(true_train, train)
+        self.assertSparkDataFrameEqual(train, test_input)
+        self.assertSparkDataFrameEqual(true_test, test)
         train, test_input, test = validation_schemes.log_split_by_date(
             log, datetime(2019, 9, 15), False, True
         )
@@ -97,9 +65,9 @@ class TestValidationSchemes(TestCase):
             ],
             schema=LOG_SCHEMA
         )
-        self.assertTrue(compare_dataframes(true_train, train))
-        self.assertTrue(compare_dataframes(train, test_input))
-        self.assertTrue(compare_dataframes(true_test, test))
+        self.assertSparkDataFrameEqual(true_train, train)
+        self.assertSparkDataFrameEqual(train, test_input)
+        self.assertSparkDataFrameEqual(true_test, test)
         train, test_input, test = validation_schemes.log_split_by_date(
             log, datetime(2019, 9, 15), True, True
         )
@@ -109,6 +77,6 @@ class TestValidationSchemes(TestCase):
             ],
             schema=LOG_SCHEMA
         )
-        self.assertTrue(compare_dataframes(true_train, train))
-        self.assertTrue(compare_dataframes(train, test_input))
-        self.assertTrue(compare_dataframes(true_test, test))
+        self.assertSparkDataFrameEqual(true_train, train)
+        self.assertSparkDataFrameEqual(train, test_input)
+        self.assertSparkDataFrameEqual(true_test, test)

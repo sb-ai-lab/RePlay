@@ -4,10 +4,10 @@ from unittest.mock import Mock
 from parameterized import parameterized
 from pyspark.sql import functions as sf
 from pyspark.sql.types import StringType, StructType
+from sponge_bob_magic.data_preparator.data_preparator import DataPreparator
 
 import constants
 from pyspark_testcase import PySparkTest
-from sponge_bob_magic.data_preparator.data_preparator import DataPreparator
 
 
 class DataPreparatorTest(PySparkTest):
