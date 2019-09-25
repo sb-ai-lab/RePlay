@@ -160,7 +160,7 @@ class BaseRecommender(ABC):
             users = self.spark.createDataFrame(data=[[user] for user in users],
                                                schema=['user_id'])
         if items is None:
-            items = log.select('item_id').distinct()['item_id']
+            items = log.select('item_id').distinct()
             num_items = items.count()
         else:
             items = set(items)

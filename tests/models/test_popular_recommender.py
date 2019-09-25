@@ -208,6 +208,57 @@ class PopularRecommenderTestCase(PySparkTest):
 
         self.assertSparkDataFrameEqual(true_recs, test_recs)
 
+    def test_popularity_recs_default_items_users(self):
+        log_data = [
+            ["u2", "i1", 1.0, "c1", "2019-01-01"],
+            ["u3", "i3", 2.0, "c1", "2019-01-01"],
+            ["u1", "i4", 2.0, "c1", "2019-01-01"],
+
+            ["u1", "i1", 1.0, "c2", "2019-01-01"],
+            ["u3", "i1", 2.0, "c2", "2019-01-01"],
+            ["u2", "i2", 1.0, "c2", "2019-01-01"],
+            ["u2", "i3", 3.0, "c2", "2019-01-01"],
+            ["u3", "i4", 2.0, "c2", "2019-01-01"],
+            ["u1", "i4", 2.0, "c2", "2019-01-01"],
+            ["u3", "i4", 4.0, "c2", "2019-01-01"],
+        ]
+        log_schema = ['user_id', 'item_id', 'relevance',
+                      'context', 'timestamp']
+        log = self.spark.createDataFrame(data=log_data,
+                                         schema=log_schema)
+        context = 'c2'
+
+        true_recs_data = [
+            ["u1", "i1", 2 / 7, context],
+            ["u1", "i2", 1 / 7, context],
+            ["u1", "i3", 1 / 7, context],
+            ["u1", "i4", 3 / 7, context],
+            ["u2", "i1", 2 / 7, context],
+            ["u2", "i2", 1 / 7, context],
+            ["u2", "i3", 1 / 7, context],
+            ["u2", "i4", 3 / 7, context],
+            ["u3", "i1", 2 / 7, context],
+            ["u3", "i2", 1 / 7, context],
+            ["u3", "i3", 1 / 7, context],
+            ["u3", "i4", 3 / 7, context],
+        ]
+        true_recs_schema = ['user_id', 'item_id', 'relevance', 'context']
+        true_recs = self.spark.createDataFrame(data=true_recs_data,
+                                               schema=true_recs_schema)
+
+        self.model.set_params(**{'alpha': 0, 'beta': 0})
+
+        test_recs = self.model.fit_predict(
+            k=4, users=None,
+            items=None,
+            context=context,
+            log=log,
+            user_features=None,
+            item_features=None,
+            to_filter_seen_items=False)
+
+        self.assertSparkDataFrameEqual(true_recs, test_recs)
+
 
 if __name__ == '__main__':
     unittest.main()
