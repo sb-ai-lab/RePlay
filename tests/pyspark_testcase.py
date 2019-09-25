@@ -1,18 +1,20 @@
 import unittest
+import warnings
 
 import pandas as pd
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import DataFrame, SparkSession
 
 
 class PySparkTest(unittest.TestCase):
     spark: SparkSession = None
     spark_log_level: str = 'ERROR'
 
-    def assertSparkDataFrameEqual(self,
-                                  df1: DataFrame,
-                                  df2: DataFrame,
-                                  msg: str or None = None) \
-            -> None:
+    def assertSparkDataFrameEqual(
+            self,
+            df1: DataFrame,
+            df2: DataFrame,
+            msg: str or None = None
+    ) -> None:
         def _unify_dataframe(df: DataFrame):
             return (df
                     .toPandas()
@@ -39,6 +41,7 @@ class PySparkTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        warnings.filterwarnings(action="ignore", category=ResourceWarning)
         cls.spark = cls.create_testing_pyspark_session()
         cls.spark.sparkContext.setLogLevel(cls.spark_log_level)
 

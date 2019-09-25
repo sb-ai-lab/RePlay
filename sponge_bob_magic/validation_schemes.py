@@ -2,11 +2,11 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
 """
 from datetime import datetime
+from typing import Tuple
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import TimestampType
-from typing import Tuple
 
 
 class ValidationSchemes:

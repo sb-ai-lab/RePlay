@@ -1,19 +1,10 @@
 from datetime import datetime
-from unittest import TestCase
 
-from pyspark.sql import SparkSession
-from pyspark.sql.types import (FloatType, StringType, StructField, StructType,
-                               TimestampType)
-
+from pyspark.sql.types import FloatType, StringType, StructField, StructType
 from sponge_bob_magic.metrics.metrics import Metrics
 
-LOG_SCHEMA = StructType([
-    StructField("user_id", StringType()),
-    StructField("item_id", StringType()),
-    StructField("timestamp", TimestampType()),
-    StructField("context", StringType()),
-    StructField("relevance", FloatType())
-])
+from constants import LOG_SCHEMA
+from pyspark_testcase import PySparkTest
 
 REC_SCHEMA = StructType([
     StructField("user_id", StringType()),
@@ -23,15 +14,7 @@ REC_SCHEMA = StructType([
 ])
 
 
-class TestMetrics(TestCase):
-    def setUp(self):
-        self.spark = (
-            SparkSession.builder
-            .master("local[1]")
-            .config("spark.driver.memory", "512m")
-            .getOrCreate()
-        )
-
+class TestMetrics(PySparkTest):
     def test_hit_rate_at_k(self):
         metrics = Metrics()
         recommendations = self.spark.createDataFrame(
