@@ -39,6 +39,7 @@ class PopularScenario:
                  test_start: datetime,
                  k: int,
                  context: str or None,
+                 to_filter_seen_items: bool,
                  n_trials: int,
                  n_jobs: int,
                  ) -> Dict[str, Any]:
@@ -49,6 +50,8 @@ class PopularScenario:
 
         self.model = PopularRecommender(self.spark)
 
+        # если юзеров или айтемов нет, возьмем всех из лога,
+        # чтобы не делать на каждый trial их заново
         if users is None:
             users = self.get_values_in_column(log.select('user_id').distinct(),
                                               'user_id')
@@ -95,6 +98,23 @@ class PopularScenario:
         logging.debug(f"Best values of parameters: {study.best_params}")
         return study.best_params
 
+    def production(self, params,
+                   log: DataFrame,
+                   users: Iterable or DataFrame or None,
+                   items: Iterable or DataFrame or None,
+                   user_features: DataFrame or None,
+                   item_features: DataFrame or None,
+                   k: int,
+                   context: str or None,
+                   to_filter_seen_items: bool
+                   ):
+        self.model = PopularRecommender(self.spark)
+        self.model.set_params(**params)
+
+        return self.model.fit_predict(k, users, items, context, log,
+                                      user_features, item_features,
+                                      to_filter_seen_items)
+
 
 if __name__ == '__main__':
     spark_ = (SparkSession
@@ -128,7 +148,22 @@ if __name__ == '__main__':
         item_features=None,
         test_start=datetime(2019, 10, 11),
         k=3, context='no_context',
+        to_filter_seen_items=True,
         n_trials=4, n_jobs=4
     )
 
     print(best_params)
+
+    recs = br.production(
+        best_params,
+        log_,
+        users=None,
+        items=None,
+        user_features=None,
+        item_features=None,
+        k=3,
+        context='no_context',
+        to_filter_seen_items=True
+    )
+
+    recs.show()
