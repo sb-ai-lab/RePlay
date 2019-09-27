@@ -6,6 +6,7 @@ import joblib
 import optuna
 from pyspark.sql import SparkSession, DataFrame
 
+import utils
 from metrics.metrics import Metrics
 from models.popular_recomennder import PopularRecommender
 from validation_schemes import ValidationSchemes
@@ -21,46 +22,52 @@ class PopularScenario:
         self.model = None
         self.path_optuna_study = None
 
-    @staticmethod
-    def get_values_in_column(df, column):
-        return (df
-                .select(column)
-                .rdd
-                .flatMap(lambda x: x)
-                .collect())
+        self.seed = 1234
 
     def research(self,
                  params_grid: Dict[str, Tuple[TNum, TNum]],
                  log: DataFrame,
                  users: Iterable or DataFrame or None,
                  items: Iterable or DataFrame or None,
-                 user_features: DataFrame or None,
-                 item_features: DataFrame or None,
-                 test_start: datetime,
-                 k: int,
-                 context: str or None,
-                 to_filter_seen_items: bool,
-                 n_trials: int,
-                 n_jobs: int,
+                 user_features: DataFrame or None = None,
+                 item_features: DataFrame or None = None,
+                 test_start: datetime or None = None,
+                 test_size: float = None,
+                 k: int = 10,
+                 context: str or None = 'no_context',
+                 to_filter_seen_items: bool = True,
+                 n_trials: int = 10,
+                 n_jobs: int = 1,
+                 how_to_split: str = 'by_date',
                  ) -> Dict[str, Any]:
         splitter = ValidationSchemes(self.spark)
-        train, test_input, test = splitter.log_split_by_date(
-            log, test_start=test_start,
-            drop_cold_users=False, drop_cold_items=True)
+        if how_to_split == 'by_date':
+            train, test_input, test = splitter.log_split_by_date(
+                log, test_start=test_start,
+                drop_cold_users=False, drop_cold_items=True
+            )
+        elif how_to_split == 'randomly':
+            train, test_input, test = splitter.log_split_randomly(
+                log,
+                drop_cold_users=False, drop_cold_items=True,
+                seed=self.seed, test_size=test_size
+            )
+        else:
+            raise ValueError(
+                f"Значение how_to_split неверное ({how_to_split}), "
+                "допустимые варианты: 'by_date' или 'randomly'")
 
         self.model = PopularRecommender(self.spark)
 
         # если юзеров или айтемов нет, возьмем всех из лога,
         # чтобы не делать на каждый trial их заново
         if users is None:
-            users = self.get_values_in_column(log.select('user_id').distinct(),
-                                              'user_id')
+            users = utils.get_distinct_values_in_column(log, 'user_id')
         else:
             users = self.spark.createDataFrame(data=[[user] for user in users],
                                                schema=['user_id'])
         if items is None:
-            items = self.get_values_in_column(log.select('item_id').distinct(),
-                                              'item_id')
+            items = utils.get_distinct_values_in_column(log, 'item_id')
         else:
             items = set(items)
 
@@ -81,13 +88,15 @@ class PopularScenario:
                            user_features=user_features,
                            item_features=item_features)
 
-            recs = self.model.predict(k=k,
-                                      users=users, items=items,
-                                      user_features=user_features,
-                                      item_features=item_features,
-                                      context=context,
-                                      log=test,
-                                      to_filter_seen_items=True)
+            recs = self.model.predict(
+                k=k,
+                users=users, items=items,
+                user_features=user_features,
+                item_features=item_features,
+                context=context,
+                log=test,
+                to_filter_seen_items=to_filter_seen_items
+            )
 
             return Metrics.hit_rate_at_k(recs, test, k=k)
 
@@ -107,7 +116,7 @@ class PopularScenario:
                    k: int,
                    context: str or None,
                    to_filter_seen_items: bool
-                   ):
+                   ) -> DataFrame:
         self.model = PopularRecommender(self.spark)
         self.model.set_params(**params)
 
@@ -119,7 +128,7 @@ class PopularScenario:
 if __name__ == '__main__':
     spark_ = (SparkSession
               .builder
-              .master('local[1]')
+              .master('local[4]')
               .config('spark.driver.memory', '2g')
               .appName('testing-pyspark')
               .enableHiveSupport()
@@ -154,7 +163,7 @@ if __name__ == '__main__':
 
     print(best_params)
 
-    recs = br.production(
+    recs_ = br.production(
         best_params,
         log_,
         users=None,
@@ -166,4 +175,35 @@ if __name__ == '__main__':
         to_filter_seen_items=True
     )
 
-    recs.show()
+    recs_.show()
+
+    best_params = br.research(
+        popular_params_grid,
+        log_,
+        users=None, items=None,
+        user_features=None,
+        item_features=None,
+        test_start=None,
+        test_size=0.4,
+        k=3, context='no_context',
+        to_filter_seen_items=True,
+        n_trials=4, n_jobs=4,
+        how_to_split='randomly'
+    )
+
+    print(best_params)
+
+    recs_ = br.production(
+        best_params,
+        log_,
+        users=None,
+        items=None,
+        user_features=None,
+        item_features=None,
+        k=3,
+        context='no_context',
+        to_filter_seen_items=True
+    )
+
+    recs_.show()
+
