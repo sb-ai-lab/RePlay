@@ -20,6 +20,22 @@ class ValidationSchemes:
         self.spark = spark
 
     @staticmethod
+    def _drop_cold_items(train: DataFrame, test: DataFrame) -> DataFrame:
+        return test.join(
+            train.select("item_id").distinct(),
+            how="inner",
+            on="item_id"
+        )
+
+    @staticmethod
+    def _drop_cold_users(train: DataFrame, test: DataFrame) -> DataFrame:
+        return test.join(
+            train.select("user_id").distinct(),
+            how="inner",
+            on="user_id"
+        )
+
+    @staticmethod
     def log_split_by_date(
             log: DataFrame,
             test_start: datetime,
@@ -47,17 +63,9 @@ class ValidationSchemes:
             col("timestamp") >= lit(test_start).cast(TimestampType())
         )
         if drop_cold_items:
-            test = test.join(
-                train.select("item_id").distinct(),
-                how="inner",
-                on="item_id"
-            )
+            test = ValidationSchemes._drop_cold_items(train, test)
         if drop_cold_users:
-            test = test.join(
-                train.select("user_id").distinct(),
-                how="inner",
-                on="user_id"
-            )
+            test = ValidationSchemes._drop_cold_users(train, test)
         return train, train, test
 
     @staticmethod
@@ -84,16 +92,9 @@ class ValidationSchemes:
         (train, test_input, test)
         """
         train, test = log.randomSplit([1 - test_size, test_size], seed)
+
         if drop_cold_items:
-            test = test.join(
-                train.select("item_id").distinct(),
-                how="inner",
-                on="item_id"
-            )
+            test = ValidationSchemes._drop_cold_items(train, test)
         if drop_cold_users:
-            test = test.join(
-                train.select("user_id").distinct(),
-                how="inner",
-                on="user_id"
-            )
+            test = ValidationSchemes._drop_cold_users(train, test)
         return train, train, test

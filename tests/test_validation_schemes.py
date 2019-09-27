@@ -20,7 +20,7 @@ def get_distinct_values_in_column(df, column):
 
 class TestValidationSchemes(PySparkTest):
     def setUp(self):
-        self.vs = ValidationSchemes(self.spark)
+        self.splitter = ValidationSchemes(self.spark)
         self.seed = 1234
 
     def test_log_split_by_date(self):
@@ -35,7 +35,7 @@ class TestValidationSchemes(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        train, test_input, test = self.vs.log_split_by_date(
+        train, test_input, test = self.splitter.log_split_by_date(
             log, datetime(2019, 9, 15), False, False
         )
         true_train = self.spark.createDataFrame(
@@ -57,7 +57,7 @@ class TestValidationSchemes(PySparkTest):
         self.assertSparkDataFrameEqual(true_train, train)
         self.assertSparkDataFrameEqual(train, test_input)
         self.assertSparkDataFrameEqual(true_test, test)
-        train, test_input, test = self.vs.log_split_by_date(
+        train, test_input, test = self.splitter.log_split_by_date(
             log, datetime(2019, 9, 15), True, False
         )
         true_test = self.spark.createDataFrame(
@@ -70,7 +70,7 @@ class TestValidationSchemes(PySparkTest):
         self.assertSparkDataFrameEqual(true_train, train)
         self.assertSparkDataFrameEqual(train, test_input)
         self.assertSparkDataFrameEqual(true_test, test)
-        train, test_input, test = self.vs.log_split_by_date(
+        train, test_input, test = self.splitter.log_split_by_date(
             log, datetime(2019, 9, 15), False, True
         )
         true_test = self.spark.createDataFrame(
@@ -83,7 +83,7 @@ class TestValidationSchemes(PySparkTest):
         self.assertSparkDataFrameEqual(true_train, train)
         self.assertSparkDataFrameEqual(train, test_input)
         self.assertSparkDataFrameEqual(true_test, test)
-        train, test_input, test = self.vs.log_split_by_date(
+        train, test_input, test = self.splitter.log_split_by_date(
             log, datetime(2019, 9, 15), True, True
         )
         true_test = self.spark.createDataFrame(
@@ -129,7 +129,7 @@ class TestValidationSchemes(PySparkTest):
             schema=LOG_SCHEMA
         )
 
-        train, test_input, test = self.vs.log_split_randomly(
+        train, test_input, test = self.splitter.log_split_randomly(
             log, test_size=test_size, drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
             seed=self.seed
