@@ -20,20 +20,34 @@ class ValidationSchemes:
         self.spark = spark
 
     @staticmethod
-    def _drop_cold_items(train: DataFrame, test: DataFrame) -> DataFrame:
-        return test.join(
-            train.select("item_id").distinct(),
-            how="inner",
-            on="item_id"
-        )
+    def _drop_cold_items_and_users(train: DataFrame,
+                                   test: DataFrame,
+                                   drop_cold_items: bool,
+                                   drop_cold_users: bool) -> DataFrame:
+        """
+        удаляет из тестовой выборки холодных users и холодные items
 
-    @staticmethod
-    def _drop_cold_users(train: DataFrame, test: DataFrame) -> DataFrame:
-        return test.join(
-            train.select("user_id").distinct(),
-            how="inner",
-            on="user_id"
-        )
+        :param train: обучающая выборка с колонками
+        (timestamp, user_id, item_id, context, relevance)
+        :param test: тестовая выборка как train
+        :param drop_cold_items: если True, удалить холодные items
+        :param drop_cold_users: если True, удалить холодные users
+        :return: тестовая выборка без холодных users / items
+        """
+        if drop_cold_items:
+            test = test.join(
+                train.select("item_id").distinct(),
+                how="inner",
+                on="item_id"
+            )
+
+        if drop_cold_users:
+            test = test.join(
+                train.select("user_id").distinct(),
+                how="inner",
+                on="user_id"
+            )
+        return test
 
     @staticmethod
     def log_split_by_date(
@@ -62,10 +76,11 @@ class ValidationSchemes:
         test = log.filter(
             col("timestamp") >= lit(test_start).cast(TimestampType())
         )
-        if drop_cold_items:
-            test = ValidationSchemes._drop_cold_items(train, test)
-        if drop_cold_users:
-            test = ValidationSchemes._drop_cold_users(train, test)
+
+        test = ValidationSchemes._drop_cold_items_and_users(
+            train, test,
+            drop_cold_items, drop_cold_users
+        )
         return train, train, test
 
     @staticmethod
@@ -93,8 +108,8 @@ class ValidationSchemes:
         """
         train, test = log.randomSplit([1 - test_size, test_size], seed)
 
-        if drop_cold_items:
-            test = ValidationSchemes._drop_cold_items(train, test)
-        if drop_cold_users:
-            test = ValidationSchemes._drop_cold_users(train, test)
+        test = ValidationSchemes._drop_cold_items_and_users(
+            train, test,
+            drop_cold_items, drop_cold_users
+        )
         return train, train, test

@@ -2,20 +2,20 @@ from datetime import datetime
 
 import numpy as np
 from parameterized import parameterized
+from pyspark.sql import DataFrame
 
 from constants import LOG_SCHEMA
 from pyspark_testcase import PySparkTest
 from sponge_bob_magic.validation_schemes import ValidationSchemes
 
 
-def get_distinct_values_in_column(df, column):
-    return set(df
-               .select(column)
-               .distinct()
-               .select(column)
-               .rdd
-               .flatMap(lambda x: x)
-               .collect())
+def get_distinct_values_in_column(df: DataFrame, column: str):
+    return set([row[column]
+                for row in (df
+                            .select(column)
+                            .distinct()
+                            .collect())
+                ])
 
 
 class TestValidationSchemes(PySparkTest):
