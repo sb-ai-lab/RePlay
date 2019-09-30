@@ -4,8 +4,8 @@
 from datetime import datetime
 from typing import Tuple
 
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, lit
+from pyspark.sql import DataFrame, SparkSession, Window
+from pyspark.sql.functions import col, count, desc, lit, max, min, sum
 from pyspark.sql.types import TimestampType
 
 
@@ -113,3 +113,46 @@ class ValidationSchemes:
             drop_cold_items, drop_cold_users
         )
         return train, train, test
+
+    @staticmethod
+    def extract_cold_users(
+            log: DataFrame,
+            test_size: float
+    ) -> Tuple[DataFrame, DataFrame, DataFrame]:
+        """
+        выделить из лога действий пользователей случайную долю "холодных"
+        пользователей
+
+        :param seed: seed для фикстур в тестах
+        :param test_size: доля ото всех пользовтелей, которую должны составлять
+        "холодные", от 0 до 1
+        :param log: таблица с колонками
+        (timestamp, user_id, item_id, context, relevance)
+        :returns: тройка таблиц структуры, аналогичной входной
+        (train, test_input, test)
+        """
+        start_date_by_user = (
+            log.groupby("user_id")
+            .agg(min("timestamp").alias("start_dt"))
+            .cache()
+        )
+        test_start_date = (
+            start_date_by_user
+            .groupby("start_dt")
+            .agg(count("user_id").alias("cnt"))
+            .select(
+                "start_dt",
+                sum("cnt").over(Window.orderBy(desc("start_dt"))).alias("cnt"),
+                sum("cnt").over(Window.orderBy(lit(1))).alias("total")
+            )
+            .filter(col("cnt") >= col("total") * test_size)
+            .agg(max("start_dt"))
+            .head()[0]
+        )
+        train = log.filter(col("timestamp") < test_start_date).cache()
+        test = log.join(
+            start_date_by_user.filter(col("start_dt") >= test_start_date),
+            how="inner",
+            on="user_id"
+        ).drop("start_dt").cache()
+        return train, None, test
