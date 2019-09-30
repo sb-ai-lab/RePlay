@@ -1,6 +1,7 @@
 from typing import Set, Any
 
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, Window
+from pyspark.sql import functions as sf
 
 
 def get_distinct_values_in_column(df: DataFrame, column: str) -> Set[Any]:
@@ -17,3 +18,21 @@ def get_distinct_values_in_column(df: DataFrame, column: str) -> Set[Any]:
                             .distinct()
                             .collect())
                 ])
+
+
+def get_top_k_rows(df: DataFrame, k: int, sort_column: str):
+    """
+
+    :param sort_column:
+    :param df:
+    :param k:
+    :return:
+    """
+    window = (Window
+              .orderBy(df[sort_column].desc()))
+
+    return (df
+            .withColumn('rank',
+                        sf.row_number().over(window))
+            .filter(sf.col('rank') <= k)
+            .drop('rank'))

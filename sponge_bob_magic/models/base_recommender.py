@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Iterable, Dict, Set
 
@@ -88,9 +89,11 @@ class BaseRecommender(ABC):
 
     def fit(self, log: DataFrame,
             user_features: DataFrame or None,
-            item_features: DataFrame or None) -> None:
+            item_features: DataFrame or None,
+            path: str or None = None) -> None:
         """
 
+        :param path:
         :param log:
         :param user_features:
         :param item_features:
@@ -108,14 +111,16 @@ class BaseRecommender(ABC):
                                       required_columns={'item_id',
                                                         'timestamp'})
 
-        self._fit(log, user_features, item_features)
+        self._fit(log, user_features, item_features, path)
 
     @abstractmethod
     def _fit(self, log: DataFrame,
              user_features: DataFrame or None,
-             item_features: DataFrame or None) -> None:
+             item_features: DataFrame or None,
+             path: str or None = None) -> None:
         """
 
+        :param path:
         :param log:
         :param user_features:
         :param item_features:
@@ -130,9 +135,11 @@ class BaseRecommender(ABC):
                 log: DataFrame,
                 user_features: DataFrame or None,
                 item_features: DataFrame or None,
-                to_filter_seen_items: bool = True) -> DataFrame:
+                to_filter_seen_items: bool = True,
+                path: str or None = None) -> DataFrame:
         """
 
+        :param path:
         :param k:
         :param users:
         :param items:
@@ -143,6 +150,7 @@ class BaseRecommender(ABC):
         :param to_filter_seen_items:
         :return:
         """
+        logging.debug("Проверка датафреймов")
         self._check_dataframe(log,
                               required_columns={'item_id', 'user_id'},
                               optional_columns={'timestamp', 'relevance',
@@ -154,11 +162,14 @@ class BaseRecommender(ABC):
                                       required_columns={'item_id'},
                                       optional_columns={'timestamp'})
 
+        logging.debug("Выделение дефолтных юзеров")
         if users is None:
             users = log.select('user_id').distinct()
         else:
             users = self.spark.createDataFrame(data=[[user] for user in users],
                                                schema=['user_id'])
+
+        logging.debug("Выделение дефолтных айтемов")
         if items is None:
             items = log.select('item_id').distinct()
             num_items = items.count()
@@ -175,7 +186,8 @@ class BaseRecommender(ABC):
             k, users, items,
             context, log,
             user_features, item_features,
-            to_filter_seen_items
+            to_filter_seen_items,
+            path
         )
 
     @abstractmethod
@@ -187,9 +199,11 @@ class BaseRecommender(ABC):
                  log: DataFrame,
                  user_features: DataFrame or None,
                  item_features: DataFrame or None,
-                 to_filter_seen_items: bool = True) -> DataFrame:
+                 to_filter_seen_items: bool = True,
+                 path: str or None = None) -> DataFrame:
         """
 
+        :param path:
         :param k:
         :param users:
         :param items:
@@ -209,9 +223,11 @@ class BaseRecommender(ABC):
                     log: DataFrame,
                     user_features: DataFrame or None,
                     item_features: DataFrame or None,
-                    to_filter_seen_items: bool = True) -> DataFrame:
+                    to_filter_seen_items: bool = True,
+                    path: str or None = None) -> DataFrame:
         """
 
+        :param path:
         :param k:
         :param users:
         :param items:
@@ -222,11 +238,12 @@ class BaseRecommender(ABC):
         :param to_filter_seen_items:
         :return:
         """
-        self.fit(log, user_features, item_features)
+        self.fit(log, user_features, item_features, path)
         return self.predict(k, users, items,
                             context, log,
                             user_features, item_features,
-                            to_filter_seen_items)
+                            to_filter_seen_items,
+                            path)
 
     @staticmethod
     def _filter_seen_recs(recs: DataFrame, log: DataFrame) -> DataFrame:
@@ -236,11 +253,11 @@ class BaseRecommender(ABC):
         :param log:
         :return:
         """
-        log = (log
-               .select('item_id', 'user_id')
-               .withColumn('in_log', sf.lit(True)))
+        user_item_log = (log
+                         .select('item_id', 'user_id')
+                         .withColumn('in_log', sf.lit(True)))
         recs = (recs
-                .join(log, on=['item_id', 'user_id'], how='left'))
+                .join(user_item_log, on=['item_id', 'user_id'], how='left'))
         recs = (recs
                 .withColumn('relevance',
                             sf.when(recs['in_log'], -1)
@@ -260,7 +277,8 @@ class BaseRecommender(ABC):
                   .partitionBy(recs['user_id'])
                   .orderBy(recs['relevance'].desc()))
 
-        return (recs.withColumn('rank',
-                                sf.row_number().over(window))
+        return (recs
+                .withColumn('rank',
+                            sf.row_number().over(window))
                 .filter(sf.col('rank') <= k)
                 .drop('rank'))
