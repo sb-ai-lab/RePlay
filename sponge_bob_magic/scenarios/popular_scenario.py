@@ -92,7 +92,7 @@ class PopularScenario:
 
         def objective(trial: optuna.Trial):
             if path is not None:
-                joblib.dump(self.optuna_study,
+                joblib.dump(study,
                             os.path.join(path, "optuna_study.joblib"))
 
             alpha = trial.suggest_int(
@@ -156,6 +156,9 @@ if __name__ == '__main__':
               .enableHiveSupport()
               .getOrCreate())
 
+    path_ = '/Users/roseaysina/code/sponge-bob-magic/data/checkpoints'
+    spark_.sparkContext.setCheckpointDir(path_)
+
     data = [
         ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 8)],
         ["user2", "item2", 2.0, 'no_context', datetime(2019, 10, 9)],
@@ -209,7 +212,7 @@ if __name__ == '__main__':
         test_size=0.4,
         k=3, context='no_context',
         to_filter_seen_items=True,
-        n_trials=4, n_jobs=4,
+        n_trials=4, n_jobs=1,
         how_to_split='randomly'
     )
 

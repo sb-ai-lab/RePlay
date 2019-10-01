@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Iterable, Dict
 
+import numpy as np
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as sf
 
@@ -92,14 +93,16 @@ class PopularRecommender(BaseRecommender):
                                'relevance': 0})
 
         # считаем среднее кол-во просмотренных items у каждого user
-        k_fake = int(log
-                     .select('user_id', 'item_id')
-                     .groupBy('user_id')
-                     .count()
-                     .select(sf.mean(sf.col('count')).alias('mean'))
-                     .collect()[0]['mean'])
-        logging.debug(f"k для выделения топа: {k_fake}")
+        k_fake = np.ceil(log
+                         .select('user_id', 'item_id')
+                         .groupBy('user_id')
+                         .count()
+                         .select(sf.mean(sf.col('count')).alias('mean'))
+                         .collect()[0]['mean'])
         items = utils.get_top_k_rows(items, k + k_fake, 'relevance')
+
+        logging.debug(f"Среднее количество items у каждого user: {k_fake}")
+        logging.debug(f"Количество items после фильтрации: {items.count()}")
 
         # (user_id, item_id, context, relevance)
         recs = users.crossJoin(items)
@@ -136,6 +139,9 @@ if __name__ == '__main__':
               .appName('testing-pyspark')
               .enableHiveSupport()
               .getOrCreate())
+
+    path_ = '/Users/roseaysina/code/sponge-bob-magic/data/checkpoints'
+    spark_.sparkContext.setCheckpointDir(path_)
 
     data = [
         ["user1", "item1", 1.0, 'context1', "timestamp"],
