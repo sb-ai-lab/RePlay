@@ -132,7 +132,8 @@ class ValidationSchemes:
         (train, test_input, test)
         """
         start_date_by_user = (
-            log.groupby("user_id")
+            log
+            .groupby("user_id")
             .agg(min("timestamp").alias("start_dt"))
             .cache()
         )
@@ -150,9 +151,14 @@ class ValidationSchemes:
             .head()[0]
         )
         train = log.filter(col("timestamp") < test_start_date).cache()
-        test = log.join(
-            start_date_by_user.filter(col("start_dt") >= test_start_date),
-            how="inner",
-            on="user_id"
-        ).drop("start_dt").cache()
+        test = (
+            log
+            .join(
+                start_date_by_user.filter(col("start_dt") >= test_start_date),
+                how="inner",
+                on="user_id"
+            )
+            .drop("start_dt")
+            .cache()
+        )
         return train, None, test
