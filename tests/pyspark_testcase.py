@@ -7,7 +7,7 @@ from pyspark.sql import DataFrame, SparkSession
 
 class PySparkTest(unittest.TestCase):
     spark: SparkSession = None
-    spark_log_level: str = 'ERROR'
+    spark_log_level: str = "ERROR"
 
     def assertSparkDataFrameEqual(
             self,
@@ -33,9 +33,10 @@ class PySparkTest(unittest.TestCase):
     def create_testing_pyspark_session(cls):
         return (SparkSession
                 .builder
-                .master('local[1]')
-                .config('spark.driver.memory', '512m')
-                .appName('testing-pyspark')
+                .master("local[1]")
+                .config("spark.driver.memory", "512m")
+                .config("spark.sql.shuffle.partitions", "1")
+                .appName("testing-pyspark")
                 .enableHiveSupport()
                 .getOrCreate())
 
