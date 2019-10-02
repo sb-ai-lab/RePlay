@@ -84,11 +84,11 @@ class PopularScenario:
             items = set(items)
 
         # обучаем модель заранее, чтобы сохранить каунты
-        # здесь происходит сохранение поплуярности items на диск / checkpoint
+        # здесь происходит сохранение популярности items в checkpoint
         self.model.fit(log=train,
                        user_features=user_features,
                        item_features=item_features,
-                       path=path)
+                       path=None)
 
         def objective(trial: optuna.Trial):
             if path is not None:
@@ -105,7 +105,7 @@ class PopularScenario:
             self.model.set_params(**params)
 
             logging.debug("Предикт модели в оптимизации")
-            # здесь как в фите делается или сохранение на диск, или checkpoint
+            # здесь как в фите делается checkpoint
             recs = self.model.predict(
                 k=k,
                 users=users, items=items,
@@ -119,10 +119,13 @@ class PopularScenario:
             logging.debug("Подсчет метрики в оптимизации")
             metric_result = Metrics.hit_rate_at_k(recs, test, k=k)
 
+            logging.debug(f"Метрика и параметры: {metric_result, params}")
+
             return metric_result
 
         logging.debug("Начало оптимизации параметров")
-        study = optuna.create_study(direction='maximize')
+        sampler = optuna.samplers.RandomSampler()
+        study = optuna.create_study(direction='maximize', sampler=sampler)
         study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs)
 
         logging.debug(f"Лучшие значения метрики: {study.best_value}")
