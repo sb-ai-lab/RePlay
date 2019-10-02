@@ -4,6 +4,7 @@ from typing import Dict, Iterable, List, Set, Tuple
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.types import FloatType, StringType, TimestampType
+from sponge_bob_magic.constants import DEFAULT_VALUES
 
 
 def flat_list(l: Iterable):
@@ -142,11 +143,11 @@ class DataPreparator:
         self._check_dataframe(df, columns_names)
 
         log_schema = {
-            'timestamp': ('1999-05-01', TimestampType()),
-            'context': ('no_context', StringType()),
-            'relevance': (1.0, FloatType()),
-            'user_id': (None, StringType()),
-            'item_id': (None, StringType()),
+            'timestamp': (DEFAULT_VALUES['timestamp'], TimestampType()),
+            'context': (DEFAULT_VALUES['context'], StringType()),
+            'relevance': (DEFAULT_VALUES['relevance'], FloatType()),
+            'user_id': (DEFAULT_VALUES['user_id'], StringType()),
+            'item_id': (DEFAULT_VALUES['item_id'], StringType()),
         }
         df = self._rename_columns(df, columns_names,
                                   default_schema=log_schema,
@@ -213,9 +214,9 @@ class DataPreparator:
         self._check_dataframe(df, {**columns_names, **features_dict})
 
         features_schema = {
-            'timestamp': ('1999-05-01', TimestampType()),
+            'timestamp': (DEFAULT_VALUES['timestamp'], TimestampType()),
             ('user_id' if 'user_id' in columns_names else 'item_id'):
-                (None, StringType()),
+                (DEFAULT_VALUES['user_id'] if 'user_id' in columns_names else DEFAULT_VALUES['item_id'], StringType()),
         }
 
         df = self._rename_columns(df, columns_names,
