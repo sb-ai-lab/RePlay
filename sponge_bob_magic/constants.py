@@ -8,3 +8,5 @@ LOG_SCHEMA = StructType([
     StructField("context", StringType()),
     StructField("relevance", FloatType())
 ])
+
+DEFAULT_CONTEXT = 'no_context'

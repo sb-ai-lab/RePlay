@@ -3,7 +3,7 @@ from datetime import datetime
 from pyspark.sql.types import FloatType, StringType, StructField, StructType
 from sponge_bob_magic.metrics.metrics import Metrics
 
-from constants import LOG_SCHEMA
+from sponge_bob_magic.constants import LOG_SCHEMA
 from pyspark_testcase import PySparkTest
 
 REC_SCHEMA = StructType([

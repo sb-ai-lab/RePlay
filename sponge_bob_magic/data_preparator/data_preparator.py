@@ -4,7 +4,7 @@ from typing import Dict, Iterable, List, Set, Tuple
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.types import FloatType, StringType, TimestampType
-
+from sponge_bob_magic import constants
 
 def flat_list(l: Iterable):
     for el in l:
@@ -143,7 +143,7 @@ class DataPreparator:
 
         log_schema = {
             'timestamp': ('1999-05-01', TimestampType()),
-            'context': ('no_context', StringType()),
+            'context': (constants.DEFAULT_CONTEXT, StringType()),
             'relevance': (1.0, FloatType()),
             'user_id': (None, StringType()),
             'item_id': (None, StringType()),

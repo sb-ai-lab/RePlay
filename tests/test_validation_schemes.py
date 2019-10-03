@@ -5,7 +5,7 @@ from parameterized import parameterized
 from pyspark.sql import DataFrame
 from sponge_bob_magic.validation_schemes import ValidationSchemes
 
-from constants import LOG_SCHEMA
+from sponge_bob_magic.constants import LOG_SCHEMA
 from pyspark_testcase import PySparkTest
 
 
