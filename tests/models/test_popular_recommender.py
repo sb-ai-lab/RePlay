@@ -14,7 +14,7 @@ class PopularRecommenderTestCase(PySparkTest):
         self.model = PopularRecommender(self.spark)
 
     @parameterized.expand([
-        # users, context, k, items
+        # users, context, k, items_relevance
         # проверяем выделение айтемов
         (["u1", "u2", "u3"], constants.DEFAULT_CONTEXT, 5, [["i1", 3 / 14],
                                                ["i2", 2 / 14],
@@ -73,13 +73,13 @@ class PopularRecommenderTestCase(PySparkTest):
         log = self.spark.createDataFrame(data=log_data,
                                          schema=log_schema)
 
-        true_recs = (
-            self.spark.createDataFrame(data=[[user] for user in users],
-                                       schema=['user_id'])
-                .crossJoin(
-                self.spark.createDataFrame(items_relevance,
-                                           schema=['item_id', 'relevance']))
-        )
+        items_relevance = self.spark.createDataFrame(items_relevance,
+                                                     schema=['item_id',
+                                                             'relevance'])
+        users = self.spark.createDataFrame(data=[[user] for user in users],
+                                           schema=['user_id'])
+
+        true_recs = users.crossJoin(items_relevance)
         true_recs = (true_recs
                      .withColumn('context', sf.lit(context)))
 
@@ -88,8 +88,7 @@ class PopularRecommenderTestCase(PySparkTest):
         # два вызова нужны, чтобы проверить, что они возващают одно и то же
         test_recs_first = self.model.fit_predict(
             k=k, users=users,
-            items=set([elem[0]
-                       for elem in items_relevance]),
+            items=items_relevance.select('item_id'),
             context=context,
             log=log,
             user_features=None,
@@ -97,8 +96,7 @@ class PopularRecommenderTestCase(PySparkTest):
             to_filter_seen_items=False)
         test_recs_second = self.model.fit_predict(
             k=k, users=users,
-            items=set([elem[0]
-                       for elem in items_relevance]),
+            items=items_relevance.select('item_id'),
             context=context,
             log=log,
             user_features=None,
@@ -140,9 +138,16 @@ class PopularRecommenderTestCase(PySparkTest):
 
         self.model.set_params(**{'alpha': 0, 'beta': 0})
 
+        users = self.spark.createDataFrame(
+            data=[[user] for user in ["u1", "u2", "u3"]],
+            schema=['user_id'])
+        items = self.spark.createDataFrame(
+            data=[[item] for item in ["i1", "i2", "i3", "i4"]],
+            schema=['item_id'])
+
         test_recs = self.model.fit_predict(
-            k=2, users=["u1", "u2", "u3"],
-            items=["i1", "i2", "i3", "i4"],
+            k=2, users=users,
+            items=items,
             context=context,
             log=log,
             user_features=None,
@@ -200,8 +205,8 @@ class PopularRecommenderTestCase(PySparkTest):
         self.model.set_params(**{'alpha': alpha, 'beta': beta})
 
         test_recs = self.model.fit_predict(
-            k=4, users=["u1", "u2", "u3"],
-            items=["i1", "i2", "i3", "i4"],
+            k=4, users=None,
+            items=None,
             context=context,
             log=log,
             user_features=None,

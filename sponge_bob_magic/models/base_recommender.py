@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Iterable, Dict, Set
+from typing import Dict, Set, Any
 
 from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as sf
@@ -13,10 +13,12 @@ class BaseRecommender(ABC):
         self.encoder = LabelEncoder()
         self.spark = spark
 
-    def set_params(self, **params):
+    def set_params(self, **params: Dict[str, Any]):
         """
+        Устанавливает параметры рекоммендера.
 
-        :param params:
+        :param params: словарь, ключ - название параметра,
+            значение - значение параметра
         :return:
         """
         if not params:
@@ -36,8 +38,10 @@ class BaseRecommender(ABC):
     @abstractmethod
     def get_params(self) -> Dict[str, object]:
         """
+        Вовзращает параметры рекоммендера в виде словаря.
 
-        :return:
+        :return: словарь параметров, ключ - название параметра,
+            значение - значение параметра
         """
 
     @staticmethod
@@ -92,11 +96,19 @@ class BaseRecommender(ABC):
             item_features: DataFrame or None,
             path: str or None = None) -> None:
         """
+        Обучает модель на логе и признаках пользователей и объектов.
 
-        :param path:
-        :param log:
-        :param user_features:
-        :param item_features:
+        :param path: путь к директории, в которой сохраняются промежуточные
+            резльтаты в виде parquet-файлов; если None, делаются checkpoints
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `timestamp`, `context`, `relevance`]
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            [`user_id`, `timestamp`] и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            [`item_id`, `timestamp`] и колонки с признаками
         :return:
         """
         self._check_dataframe(log,
@@ -119,18 +131,27 @@ class BaseRecommender(ABC):
              item_features: DataFrame or None,
              path: str or None = None) -> None:
         """
+        Метод-helper для обучения модели.
+        Должен быть имплементирован наследниками.
 
-        :param path:
-        :param log:
-        :param user_features:
-        :param item_features:
+        :param path: путь к директории, в которой сохраняются промежуточные
+            резльтаты в виде parquet-файлов; если None, делаются checkpoints
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `timestamp`, `context`, `relevance`]
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            [`user_id`, `timestamp`] и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            [`item_id`, `timestamp`] и колонки с признаками
         :return:
         """
 
     def predict(self,
                 k: int,
-                users: Iterable or None,
-                items: Iterable or None,
+                users: DataFrame or None,
+                items: DataFrame or None,
                 context: str or None,
                 log: DataFrame,
                 user_features: DataFrame or None,
@@ -138,17 +159,37 @@ class BaseRecommender(ABC):
                 to_filter_seen_items: bool = True,
                 path: str or None = None) -> DataFrame:
         """
+        Выдача рекомендаций для пользователей.
 
-        :param path:
-        :param k:
-        :param users:
-        :param items:
-        :param context:
-        :param log:
-        :param user_features:
-        :param item_features:
-        :param to_filter_seen_items:
-        :return:
+        :param path: путь к директории, в которой сохраняются рекомендации;
+            если None, делается checkpoint рекомендаций
+        :param k: количество рекомендаций для каждого пользователя;
+            должно быть не больше, чем количество объектов в `items`
+        :param users: список пользователей, для которых необходимо получить
+            рекомендации, спарк-датафрейм с колонкой ['user_id'];
+            если None, выбираются все пользователи из лога;
+            если в этом списке есть пользователи, про которых модель ничего
+            не знает, то поднмиается исключение
+        :param items: список объектов, которые необходимо рекомендовать;
+            спарк-датафрейм с колонкой ['item_id'];
+            если None, выбираются все объекты из лога;
+            если в этом списке есть объекты, про которых модель ничего
+            не знает, то в relevance в рекомендациях к ним будет стоять 0
+        :param context: контекст, в котором нужно получить рекомендации;
+            если None, контекст не будет использоваться
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `timestamp`, `context`, `relevance`]
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            [`user_id`, `timestamp`] и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            [`item_id`, `timestamp`] и колонки с признаками
+        :param to_filter_seen_items: если True, из рекомендаций каждому
+            пользователю удаляются виденные им объекты на основе лога
+        :return: рекомендации, спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `context`, `relevance`]
         """
         logging.debug("Проверка датафреймов")
         self._check_dataframe(log,
@@ -162,21 +203,15 @@ class BaseRecommender(ABC):
                                       required_columns={'item_id'},
                                       optional_columns={'timestamp'})
 
-        logging.debug("Выделение дефолтных юзеров")
         if users is None:
+            logging.debug("Выделение дефолтных юзеров")
             users = log.select('user_id').distinct()
-        else:
-            users = self.spark.createDataFrame(data=[[user] for user in users],
-                                               schema=['user_id'])
 
-        logging.debug("Выделение дефолтных айтемов")
         if items is None:
+            logging.debug("Выделение дефолтных айтемов")
             items = log.select('item_id').distinct()
-            num_items = items.count()
-        else:
-            items = set(items)
-            num_items = len(items)
 
+        num_items = items.count()
         if num_items < k:
             raise ValueError(
                 "Значение k больше, чем множество объектов; "
@@ -193,8 +228,8 @@ class BaseRecommender(ABC):
     @abstractmethod
     def _predict(self,
                  k: int,
-                 users: Iterable or DataFrame,
-                 items: Iterable or DataFrame,
+                 users: DataFrame,
+                 items: DataFrame,
                  context: str,
                  log: DataFrame,
                  user_features: DataFrame or None,
@@ -202,23 +237,42 @@ class BaseRecommender(ABC):
                  to_filter_seen_items: bool = True,
                  path: str or None = None) -> DataFrame:
         """
+        Метод-helper для получения рекомендаций.
+        Должен быть имплементирован наследниками.
 
-        :param path:
-        :param k:
-        :param users:
-        :param items:
-        :param context:
-        :param log:
-        :param user_features:
-        :param item_features:
-        :param to_filter_seen_items:
-        :return:
+        :param path: путь к директории, в которой сохраняются рекомендации;
+            если None, делается checkpoint рекомендаций
+        :param k: количество рекомендаций для каждого пользователя;
+            должно быть не больше, чем количество объектов в `items`
+        :param users: список пользователей, для которых необходимо получить
+            рекомендации; если None, выбираются все пользователи из лога;
+            если в этом списке есть пользователи, про которых модель ничего
+            не знает, то поднмиается исключение
+        :param items: список объектов, которые необходимо рекомендовать;
+            если None, выбираются все объекты из лога;
+            если в этом списке есть объекты, про которых модель ничего
+            не знает, то в рекомендациях к ним будет стоять 0
+        :param context: контекст, в котором нужно получить рекомендоции;
+            если None, контекст не будет использоваться
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `timestamp`, `context`, `relevance`]
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            [`user_id`, `timestamp`] и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            [`item_id`, `timestamp`] и колонки с признаками
+        :param to_filter_seen_items: если True, из рекомендаций каждому
+            пользователю удаляются виденные им объекты на основе лога
+        :return: рекомендации, спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `context`, `relevance`]
         """
 
     def fit_predict(self,
                     k: int,
-                    users: Iterable or None,
-                    items: Iterable or None,
+                    users: DataFrame or None,
+                    items: DataFrame or None,
                     context: str or None,
                     log: DataFrame,
                     user_features: DataFrame or None,
@@ -226,17 +280,35 @@ class BaseRecommender(ABC):
                     to_filter_seen_items: bool = True,
                     path: str or None = None) -> DataFrame:
         """
+        Обучает модель и выдает рекомендации.
 
-        :param path:
-        :param k:
-        :param users:
-        :param items:
-        :param context:
-        :param log:
-        :param user_features:
-        :param item_features:
-        :param to_filter_seen_items:
-        :return:
+        :param path: путь к директории, в которой сохраняются рекомендации;
+            если None, делается checkpoint рекомендаций
+        :param k: количество рекомендаций для каждого пользователя;
+            должно быть не больше, чем количество объектов в `items`
+        :param users: список пользователей, для которых необходимо получить
+            рекомендации; если None, выбираются все пользователи из лога;
+            если в этом списке есть пользователи, про которых модель ничего
+            не знает, то поднмиается исключение
+        :param items: список объектов, которые необходимо рекомендовать;
+            если None, выбираются все объекты из лога;
+            если в этом списке есть объекты, про которых модель ничего
+            не знает, то в рекомендациях к ним будет стоять 0
+        :param context: контекст, в котором нужно получить рекомендоции;
+            если None, контекст не будет использоваться
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `timestamp`, `context`, `relevance`]
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            [`user_id`, `timestamp`] и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            [`item_id`, `timestamp`] и колонки с признаками
+        :param to_filter_seen_items: если True, из рекомендаций каждому
+            пользователю удаляются виденные им объекты на основе лога
+        :return: рекомендации, спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `context`, `relevance`]
         """
         self.fit(log, user_features, item_features, path)
         return self.predict(k, users, items,
@@ -248,11 +320,19 @@ class BaseRecommender(ABC):
     @staticmethod
     def _filter_seen_recs(recs: DataFrame, log: DataFrame) -> DataFrame:
         """
+        Преобразует рекомендации, заменяя для каждого пользователя
+        relevance уже виденных им объекты (на основе лога) на -1.
 
-        :param recs:
-        :param log:
-        :return:
+        :param recs: рекомендации, спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `context`, `relevance`]
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `timestamp`, `context`, `relevance`]
+        :return: измененные рекомендации, спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `context`, `relevance`]
         """
+        log.show()
+        recs.show()
         user_item_log = (log
                          .select('item_id', 'user_id')
                          .withColumn('in_log', sf.lit(True)))
@@ -263,15 +343,19 @@ class BaseRecommender(ABC):
                             sf.when(recs['in_log'], -1)
                             .otherwise(recs['relevance']))
                 .drop('in_log'))
+        recs.show()
         return recs
 
     @staticmethod
     def _get_top_k_recs(recs: DataFrame, k: int):
         """
+        Выбирает из рекомендаций топ-k штук на основе relevance.
 
-        :param recs:
-        :param k:
-        :return:
+        :param recs: рекомендации, спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `context`, `relevance`]
+        :param k: число рекомендаций для каждого юзера
+        :return: топ-k рекомендации, спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `context`, `relevance`]
         """
         window = (Window
                   .partitionBy(recs['user_id'])

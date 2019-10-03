@@ -13,7 +13,8 @@ class BaseRecommenderCase(PySparkTest):
         class DerivedRecommender(BaseRecommender):
             def _fit(self, log: DataFrame,
                      user_features: DataFrame or None,
-                     item_features: DataFrame or None) -> None:
+                     item_features: DataFrame or None,
+                     path: str or None = None) -> None:
                 pass
 
             def _predict(self,
@@ -24,7 +25,8 @@ class BaseRecommenderCase(PySparkTest):
                          log: DataFrame,
                          user_features: DataFrame or None,
                          item_features: DataFrame or None,
-                         to_filter_seen_items: bool = True) -> DataFrame:
+                         to_filter_seen_items: bool = True,
+                         path: str or None = None) -> DataFrame:
                 pass
 
             def get_params(self) -> Dict[str, object]:

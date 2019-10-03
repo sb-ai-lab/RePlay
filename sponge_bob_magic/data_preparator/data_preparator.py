@@ -1,5 +1,5 @@
 import collections
-from typing import Dict, Iterable, List, Set, Tuple
+from typing import Dict, Iterable, List, Set, Tuple, Union
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
@@ -9,8 +9,8 @@ from sponge_bob_magic import constants
 def flat_list(l: Iterable):
     for el in l:
         if (
-            isinstance(el, collections.abc.Iterable) and
-            not isinstance(el, (str, bytes))
+                isinstance(el, collections.abc.Iterable) and
+                not isinstance(el, (str, bytes))
         ):
             yield from flat_list(el)
         else:
@@ -48,15 +48,15 @@ class DataPreparator:
             raise ValueError(
                 f"В датафрейме нет обязательных колонок ({required_columns})")
         if len(
-            given_columns
-            .difference(required_columns)
-            .difference(optional_columns)
+                given_columns
+                        .difference(required_columns)
+                        .difference(optional_columns)
         ) > 0:
             raise ValueError("В 'columns_names' есть лишние колонки")
 
     @staticmethod
     def _check_dataframe(df: DataFrame,
-                         columns_names: Dict[str, str or List[str]]):
+                         columns_names: Dict[str, Union[str, List[str]]]):
         # чекаем, что датафрейм не пустой
         if len(df.head(1)) == 0:
             raise ValueError("Датафрейм пустой")

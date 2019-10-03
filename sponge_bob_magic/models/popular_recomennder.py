@@ -49,8 +49,8 @@ class PopularRecommender(BaseRecommender):
 
     def _predict(self,
                  k: int,
-                 users: Iterable or DataFrame,
-                 items: Iterable or DataFrame,
+                 users: DataFrame,
+                 items: DataFrame,
                  context: str or None,
                  log: DataFrame,
                  user_features: DataFrame or None,
@@ -82,13 +82,8 @@ class PopularRecommender(BaseRecommender):
                         .drop('count'))
 
         # удаляем ненужные items и добавляем нулевые
-        if not isinstance(items, DataFrame):
-            items = self.spark.createDataFrame(
-                data=[[item] for item in items],
-                schema=['item_id']
-            )
-
-        items = items.join(items_to_rec, on='item_id', how='left')
+        items = (items
+                 .join(items_to_rec, on='item_id', how='left'))
         items = items.na.fill({'context': context,
                                'relevance': 0})
 
@@ -136,12 +131,12 @@ if __name__ == '__main__':
               .builder
               .master('local[1]')
               .config('spark.driver.memory', '512m')
+              .config("spark.sql.shuffle.partitions", "1")
               .appName('testing-pyspark')
               .enableHiveSupport()
               .getOrCreate())
 
-    path_ = '/Users/roseaysina/code/sponge-bob-magic/data/checkpoints'
-    spark_.sparkContext.setCheckpointDir(path_)
+    spark_.sparkContext.setCheckpointDir(os.environ['SPONGE_BOB_CHECKPOINTS'])
 
     data = [
         ["user1", "item1", 1.0, 'context1', "timestamp"],

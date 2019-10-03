@@ -1,7 +1,7 @@
 import logging
 import os
 from datetime import datetime
-from typing import Dict, Tuple, TypeVar, Any, Iterable
+from typing import Dict, Tuple, TypeVar, Any
 
 import joblib
 import optuna
@@ -9,7 +9,6 @@ from pyspark.sql import SparkSession, DataFrame
 
 from sponge_bob_magic.metrics.metrics import Metrics
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
-from sponge_bob_magic.utils import get_distinct_values_in_column
 from sponge_bob_magic.validation_schemes import ValidationSchemes
 
 TNum = TypeVar('TNum', int, float)
@@ -27,8 +26,8 @@ class PopularScenario:
     def research(self,
                  params_grid: Dict[str, Tuple[TNum, TNum]],
                  log: DataFrame,
-                 users: Iterable or DataFrame or None,
-                 items: Iterable or DataFrame or None,
+                 users: DataFrame or None,
+                 items: DataFrame or None,
                  user_features: DataFrame or None = None,
                  item_features: DataFrame or None = None,
                  test_start: datetime or None = None,
@@ -73,15 +72,13 @@ class PopularScenario:
         # если юзеров или айтемов нет, возьмем всех из лога,
         # чтобы не делать на каждый trial их заново
         if users is None:
-            users = get_distinct_values_in_column(log, 'user_id')
-        else:
-            users = self.spark.createDataFrame(data=[[user] for user in users],
-                                               schema=['user_id'])
-            users.checkpoint()
+            users = log.select('user_id').distinct()
+
         if items is None:
-            items = get_distinct_values_in_column(log, 'item_id')
-        else:
-            items = set(items)
+            items = log.select('item_id').distinct()
+
+        users.checkpoint()
+        items.checkpoint()
 
         # обучаем модель заранее, чтобы сохранить каунты
         # здесь происходит сохранение популярности items в checkpoint
@@ -134,8 +131,8 @@ class PopularScenario:
 
     def production(self, params,
                    log: DataFrame,
-                   users: Iterable or DataFrame or None,
-                   items: Iterable or DataFrame or None,
+                   users: DataFrame or None,
+                   items: DataFrame or None,
                    user_features: DataFrame or None,
                    item_features: DataFrame or None,
                    k: int,
@@ -155,12 +152,12 @@ if __name__ == '__main__':
               .builder
               .master('local[4]')
               .config('spark.driver.memory', '2g')
+              .config("spark.sql.shuffle.partitions", "1")
               .appName('testing-pyspark')
               .enableHiveSupport()
               .getOrCreate())
 
-    path_ = '/Users/roseaysina/code/sponge-bob-magic/data/checkpoints'
-    spark_.sparkContext.setCheckpointDir(path_)
+    spark_.sparkContext.setCheckpointDir(os.environ['SPONGE_BOB_CHECKPOINTS'])
 
     data = [
         ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 8)],
