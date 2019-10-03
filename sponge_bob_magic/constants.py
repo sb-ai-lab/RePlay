@@ -1,8 +1,12 @@
+from pyspark.sql.types import (FloatType, StringType, StructField, StructType,
+                               TimestampType)
 
-DEFAULT_VALUES = {
-    'timestamp': '1999-05-01',
-    'context': 'no_context',
-    'relevance': 1.0,
-    'user_id': None,
-    'item_id': None,
-}
+LOG_SCHEMA = StructType([
+    StructField("user_id", StringType()),
+    StructField("item_id", StringType()),
+    StructField("timestamp", TimestampType()),
+    StructField("context", StringType()),
+    StructField("relevance", FloatType())
+])
+
+DEFAULT_CONTEXT = 'no_context'
