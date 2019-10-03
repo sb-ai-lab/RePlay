@@ -3,7 +3,7 @@ import unittest
 from parameterized import parameterized
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT
+from sponge_bob_magic import constants
 
 from pyspark_testcase import PySparkTest
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
@@ -16,7 +16,7 @@ class PopularRecommenderTestCase(PySparkTest):
     @parameterized.expand([
         # users, context, k, items
         # проверяем выделение айтемов
-        (["u1", "u2", "u3"], DEFAULT_CONTEXT, 5, [["i1", 3 / 14],
+        (["u1", "u2", "u3"], constants.DEFAULT_CONTEXT, 5, [["i1", 3 / 14],
                                                ["i2", 2 / 14],
                                                ["i3", 4 / 14],
                                                ["i4", 5 / 14],
@@ -34,7 +34,7 @@ class PopularRecommenderTestCase(PySparkTest):
                                        ["i4", 3 / 7]],),
 
         # проверяем выделение юзеров
-        (["u1", "u2"], DEFAULT_CONTEXT, 5, [["i1", 3 / 14],
+        (["u1", "u2"], constants.DEFAULT_CONTEXT, 5, [["i1", 3 / 14],
                                          ["i2", 2 / 14],
                                          ["i3", 4 / 14],
                                          ["i4", 5 / 14],
@@ -44,7 +44,7 @@ class PopularRecommenderTestCase(PySparkTest):
         (["u1", "u2"], "c1", 1, [["i3", 3 / 7]]),
         (["u1", "u3"], "c2", 2, [["i2", 2 / 7],
                                  ["i4", 3 / 7]],),
-        (["u3", "u2"], DEFAULT_CONTEXT, 3, [["i1", 3 / 14],
+        (["u3", "u2"], constants.DEFAULT_CONTEXT, 3, [["i1", 3 / 14],
                                          ["i3", 4 / 14],
                                          ["i4", 5 / 14]]),
     ])

@@ -3,7 +3,7 @@ from typing import Iterable, Dict
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT
+from sponge_bob_magic import constants
 
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 
@@ -48,13 +48,13 @@ class PopularRecommender(BaseRecommender):
         # ToDo: два повторных вызова должны возвращать одно и то же
         items_to_rec = self.items_popularity
 
-        if context is None or context == DEFAULT_CONTEXT:
+        if context is None or context == constants.DEFAULT_CONTEXT:
             items_to_rec = (items_to_rec
                             .select('item_id', 'count')
                             .groupBy('item_id')
                             .agg(sf.sum('count').alias('count')))
             items_to_rec = (items_to_rec
-                            .withColumn('context', sf.lit(DEFAULT_CONTEXT)))
+                            .withColumn('context', sf.lit(constants.DEFAULT_CONTEXT)))
         else:
             items_to_rec = (items_to_rec
                             .filter(items_to_rec['context'] == context))

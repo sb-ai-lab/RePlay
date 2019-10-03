@@ -4,7 +4,7 @@ import numpy as np
 from parameterized import parameterized
 from pyspark.sql import DataFrame
 
-from constants import LOG_SCHEMA
+from sponge_bob_magic.constants import LOG_SCHEMA
 from pyspark_testcase import PySparkTest
 from sponge_bob_magic.validation_schemes import ValidationSchemes
 
