@@ -45,6 +45,7 @@ class PySparkTest(unittest.TestCase):
         warnings.filterwarnings(action="ignore", category=ResourceWarning)
         cls.spark = cls.create_testing_pyspark_session()
         cls.spark.sparkContext.setLogLevel(cls.spark_log_level)
+        cls.spark.sparkContext.setCheckpointDir('../tmp')
 
     @classmethod
     def tearDownClass(cls):
