@@ -1,13 +1,13 @@
 import logging
 import os
-from typing import Iterable, Dict
+from typing import Dict
 
 import numpy as np
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic import utils
 from sponge_bob_magic import constants
+from sponge_bob_magic import utils
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 
 
@@ -65,7 +65,8 @@ class PopularRecommender(BaseRecommender):
                             .groupBy('item_id')
                             .agg(sf.sum('count').alias('count')))
             items_to_rec = (items_to_rec
-                            .withColumn('context', sf.lit(constants.DEFAULT_CONTEXT)))
+                            .withColumn('context',
+                                        sf.lit(constants.DEFAULT_CONTEXT)))
         else:
             items_to_rec = (items_to_rec
                             .filter(items_to_rec['context'] == context))

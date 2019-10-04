@@ -4,7 +4,9 @@ from typing import Dict, Iterable, List, Set, Tuple, Union
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.types import FloatType, StringType, TimestampType
+
 from sponge_bob_magic import constants
+
 
 def flat_list(l: Iterable):
     for el in l:
