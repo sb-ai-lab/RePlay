@@ -10,3 +10,10 @@ LOG_SCHEMA = StructType([
 ])
 
 DEFAULT_CONTEXT = 'no_context'
+
+REC_SCHEMA = StructType([
+    StructField("user_id", StringType()),
+    StructField("item_id", StringType()),
+    StructField("context", StringType()),
+    StructField("relevance", FloatType())
+])
