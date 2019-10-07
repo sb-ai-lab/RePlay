@@ -108,3 +108,37 @@ class Metrics:
 
         metrics = RankingMetrics(prediction_and_labels)
         return metrics.ndcgAt(k)
+
+
+    @staticmethod
+    def precision_at_k(
+            recommendations: DataFrame,
+            ground_truth: DataFrame,
+            k: int
+    ) -> float:
+        """
+        precision: точность на `k` первых элементах выдачи
+
+        :param recommendations: выдача рекомендательной системы вида
+        (user_id, item_id, context, relevance)
+        :param ground_truth: реальный лог действий пользователей
+        :param k: какое максимальное количество объектов брать из топа
+        рекомендованных для оценки
+        """
+
+        indexer = StringIndexer(inputCol="item_id", outputCol="item_idx", handleInvalid='keep').fit(ground_truth)
+        df_true = indexer.transform(ground_truth)
+        df_pred = indexer.transform(recommendations)
+
+        df_pred = df_pred.groupby("user_id").agg(sf.collect_list("item_idx").alias('pred_items'))
+        df_true = df_true.groupby("user_id").agg(sf.collect_list("item_idx").alias('true_items'))
+
+        predictionAndLabels = df_pred \
+            .join(df_true, ['user_id'], how='full') \
+            .rdd \
+            .map(lambda row: (row[1] if row[1] is not None else [],
+                              row[2] if row[2] is not None else [])
+                 )
+        metrics = RankingMetrics(predictionAndLabels)
+
+        return metrics.precisionAt(k)
