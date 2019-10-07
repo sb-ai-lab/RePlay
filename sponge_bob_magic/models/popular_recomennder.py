@@ -1,10 +1,13 @@
-from typing import Iterable, Dict
+import logging
+import os
+from typing import Dict
 
+import numpy as np
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic import constants
-
+from sponge_bob_magic import utils
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 
 
@@ -27,7 +30,8 @@ class PopularRecommender(BaseRecommender):
     def _fit(self,
              log: DataFrame,
              user_features: DataFrame or None,
-             item_features: DataFrame or None) -> None:
+             item_features: DataFrame or None,
+             path: str or None = None) -> None:
         popularity = (log
                       .groupBy('item_id', 'context')
                       .count())
@@ -36,16 +40,23 @@ class PopularRecommender(BaseRecommender):
             'item_id', 'context', 'count'
         )
 
+        if path is not None:
+            path_parquet = os.path.join(path, 'items_popularity.parquet')
+            self.items_popularity.write.parquet(path_parquet)
+            self.items_popularity = self.spark.read.parquet(path_parquet)
+        else:
+            self.items_popularity.checkpoint()
+
     def _predict(self,
                  k: int,
-                 users: Iterable or DataFrame,
-                 items: Iterable or DataFrame,
+                 users: DataFrame,
+                 items: DataFrame,
                  context: str or None,
                  log: DataFrame,
                  user_features: DataFrame or None,
                  item_features: DataFrame or None,
-                 to_filter_seen_items: bool = True) -> DataFrame:
-        # ToDo: два повторных вызова должны возвращать одно и то же
+                 to_filter_seen_items: bool = True,
+                 path: str or None = None) -> DataFrame:
         items_to_rec = self.items_popularity
 
         if context is None or context == constants.DEFAULT_CONTEXT:
@@ -54,7 +65,8 @@ class PopularRecommender(BaseRecommender):
                             .groupBy('item_id')
                             .agg(sf.sum('count').alias('count')))
             items_to_rec = (items_to_rec
-                            .withColumn('context', sf.lit(constants.DEFAULT_CONTEXT)))
+                            .withColumn('context',
+                                        sf.lit(constants.DEFAULT_CONTEXT)))
         else:
             items_to_rec = (items_to_rec
                             .filter(items_to_rec['context'] == context))
@@ -71,19 +83,26 @@ class PopularRecommender(BaseRecommender):
                         .drop('count'))
 
         # удаляем ненужные items и добавляем нулевые
-        if not isinstance(items, DataFrame):
-            items = self.spark.createDataFrame(
-                data=[[item] for item in items],
-                schema=['item_id']
-            )
-
         items = (items
                  .join(items_to_rec, on='item_id', how='left'))
         items = items.na.fill({'context': context,
                                'relevance': 0})
 
+        # считаем среднее кол-во просмотренных items у каждого user
+        k_fake = np.ceil(log
+                         .select('user_id', 'item_id')
+                         .groupBy('user_id')
+                         .count()
+                         .select(sf.mean(sf.col('count')).alias('mean'))
+                         .collect()[0]['mean'])
+        items = utils.get_top_k_rows(items, k + k_fake, 'relevance')
+
+        logging.debug(f"Среднее количество items у каждого user: {k_fake}")
+        logging.debug(f"Количество items после фильтрации: {items.count()}")
+
         # (user_id, item_id, context, relevance)
         recs = users.crossJoin(items)
+        logging.debug(f"Длина recs: {recs.count()}")
 
         if to_filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
@@ -97,6 +116,14 @@ class PopularRecommender(BaseRecommender):
                 .withColumn('relevance',
                             sf.when(recs['relevance'] < 0, 0)
                             .otherwise(recs['relevance'])))
+
+        if path is not None:
+            path_parquet = os.path.join(path, 'recs.parquet')
+            recs.write.parquet(path_parquet)
+            recs = self.spark.read.parquet(path_parquet)
+        else:
+            recs.checkpoint()
+
         return recs
 
 
@@ -105,9 +132,12 @@ if __name__ == '__main__':
               .builder
               .master('local[1]')
               .config('spark.driver.memory', '512m')
+              .config("spark.sql.shuffle.partitions", "1")
               .appName('testing-pyspark')
               .enableHiveSupport()
               .getOrCreate())
+
+    spark_.sparkContext.setCheckpointDir(os.environ['SPONGE_BOB_CHECKPOINTS'])
 
     data = [
         ["user1", "item1", 1.0, 'context1', "timestamp"],
