@@ -1,20 +1,20 @@
 import unittest
-from typing import Iterable, Dict
+from typing import Dict, Iterable, Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
+from sponge_bob_magic.models.base_recommender import BaseRecommender
 
 from pyspark_testcase import PySparkTest
-from sponge_bob_magic.models.base_recommender import BaseRecommender
 
 
 class BaseRecommenderCase(PySparkTest):
     def setUp(self):
         class DerivedRecommender(BaseRecommender):
             def _fit(self, log: DataFrame,
-                     user_features: DataFrame or None,
-                     item_features: DataFrame or None,
-                     path: str or None = None) -> None:
+                     user_features: Optional[DataFrame],
+                     item_features: Optional[DataFrame],
+                     path: Optional[str] = None) -> None:
                 pass
 
             def _predict(self,
@@ -23,10 +23,10 @@ class BaseRecommenderCase(PySparkTest):
                          items: Iterable or DataFrame,
                          context: str,
                          log: DataFrame,
-                         user_features: DataFrame or None,
-                         item_features: DataFrame or None,
+                         user_features: Optional[DataFrame],
+                         item_features: Optional[DataFrame],
                          to_filter_seen_items: bool = True,
-                         path: str or None = None) -> DataFrame:
+                         path: Optional[str] = None) -> DataFrame:
                 pass
 
             def get_params(self) -> Dict[str, object]:

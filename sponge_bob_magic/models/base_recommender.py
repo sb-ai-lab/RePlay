@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Set, Any
+from typing import Any, Dict, Optional, Set
 
 from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as sf
@@ -45,7 +45,7 @@ class BaseRecommender(ABC):
         """
 
     @staticmethod
-    def _check_dataframe(df: DataFrame or None,
+    def _check_dataframe(df: Optional[DataFrame],
                          required_columns: Set[str],
                          optional_columns: Set[str]):
         if df is None:
@@ -75,7 +75,7 @@ class BaseRecommender(ABC):
                 f"В датафрейме есть лишние колонки: {wrong_columns}")
 
     @staticmethod
-    def _check_feature_dataframe(features: DataFrame or None,
+    def _check_feature_dataframe(features: Optional[DataFrame],
                                  required_columns: Set[str],
                                  optional_columns: Set[str]):
         if features is None:
@@ -92,9 +92,9 @@ class BaseRecommender(ABC):
         )
 
     def fit(self, log: DataFrame,
-            user_features: DataFrame or None,
-            item_features: DataFrame or None,
-            path: str or None = None) -> None:
+            user_features: Optional[DataFrame],
+            item_features: Optional[DataFrame],
+            path: Optional[str] = None) -> None:
         """
         Обучает модель на логе и признаках пользователей и объектов.
 
@@ -127,9 +127,9 @@ class BaseRecommender(ABC):
 
     @abstractmethod
     def _fit(self, log: DataFrame,
-             user_features: DataFrame or None,
-             item_features: DataFrame or None,
-             path: str or None = None) -> None:
+             user_features: Optional[DataFrame],
+             item_features: Optional[DataFrame],
+             path: Optional[str] = None) -> None:
         """
         Метод-helper для обучения модели.
         Должен быть имплементирован наследниками.
@@ -150,14 +150,14 @@ class BaseRecommender(ABC):
 
     def predict(self,
                 k: int,
-                users: DataFrame or None,
-                items: DataFrame or None,
-                context: str or None,
+                users: Optional[DataFrame],
+                items: Optional[DataFrame],
+                context: Optional[str],
                 log: DataFrame,
-                user_features: DataFrame or None,
-                item_features: DataFrame or None,
+                user_features: Optional[DataFrame],
+                item_features: Optional[DataFrame],
                 to_filter_seen_items: bool = True,
-                path: str or None = None) -> DataFrame:
+                path: Optional[str] = None) -> DataFrame:
         """
         Выдача рекомендаций для пользователей.
 
@@ -232,10 +232,10 @@ class BaseRecommender(ABC):
                  items: DataFrame,
                  context: str,
                  log: DataFrame,
-                 user_features: DataFrame or None,
-                 item_features: DataFrame or None,
+                 user_features: Optional[DataFrame],
+                 item_features: Optional[DataFrame],
                  to_filter_seen_items: bool = True,
-                 path: str or None = None) -> DataFrame:
+                 path: Optional[str] = None) -> DataFrame:
         """
         Метод-helper для получения рекомендаций.
         Должен быть имплементирован наследниками.
@@ -271,14 +271,14 @@ class BaseRecommender(ABC):
 
     def fit_predict(self,
                     k: int,
-                    users: DataFrame or None,
-                    items: DataFrame or None,
-                    context: str or None,
+                    users: Optional[DataFrame],
+                    items: Optional[DataFrame],
+                    context: Optional[str],
                     log: DataFrame,
-                    user_features: DataFrame or None,
-                    item_features: DataFrame or None,
+                    user_features: Optional[DataFrame],
+                    item_features: Optional[DataFrame],
                     to_filter_seen_items: bool = True,
-                    path: str or None = None) -> DataFrame:
+                    path: Optional[str] = None) -> DataFrame:
         """
         Обучает модель и выдает рекомендации.
 

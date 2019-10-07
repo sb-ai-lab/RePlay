@@ -1,10 +1,9 @@
 import collections
-from typing import Dict, Iterable, List, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.types import FloatType, StringType, TimestampType
-
 from sponge_bob_magic import constants
 
 
@@ -81,7 +80,7 @@ class DataPreparator:
     def _rename_columns(df: DataFrame,
                         columns_names: Dict[str, str or List[str]],
                         default_schema: Dict[str, Tuple],
-                        date_format: str or None = None):
+                        date_format: Optional[str] = None):
         # колонки с фичами не будут переименованы, их надо просто селектить
         features_columns = []
         if 'features' in columns_names:
@@ -115,7 +114,7 @@ class DataPreparator:
                       path: str,
                       format_type: str,
                       columns_names: dict,
-                      date_format: str or None = None,
+                      date_format: Optional[str] = None,
                       **kwargs) -> DataFrame:
         """
         Преобразовывает лог формата `format_type` в файле по пути `path` в
@@ -160,7 +159,7 @@ class DataPreparator:
                            path: str,
                            format_type: str,
                            columns_names: dict,
-                           date_format: str or None = None,
+                           date_format: Optional[str] = None,
                            **kwargs) -> DataFrame:
         """
         Преобразовывает признаки формата `format_type` в файле по пути `path` в

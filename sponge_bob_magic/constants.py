@@ -1,5 +1,5 @@
-from pyspark.sql.types import (FloatType, StringType, StructField, StructType,
-                               TimestampType)
+from pyspark.sql.types import (DoubleType, FloatType, StringType, StructField,
+                               StructType, TimestampType)
 
 LOG_SCHEMA = StructType([
     StructField("user_id", StringType()),
@@ -15,5 +15,5 @@ REC_SCHEMA = StructType([
     StructField("user_id", StringType()),
     StructField("item_id", StringType()),
     StructField("context", StringType()),
-    StructField("relevance", FloatType())
+    StructField("relevance", DoubleType())
 ])
