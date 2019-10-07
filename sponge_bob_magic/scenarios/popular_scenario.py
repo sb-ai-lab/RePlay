@@ -15,11 +15,12 @@ TNum = TypeVar('TNum', int, float)
 
 
 class PopularScenario:
+    study: optuna.Study or None
+
     def __init__(self, spark: SparkSession):
         self.model = None
         self.spark = spark
-        self.optuna_study = None
-        self.model = None
+        self.study = None
 
         self.seed = 1234
 
@@ -89,7 +90,7 @@ class PopularScenario:
 
         def objective(trial: optuna.Trial):
             if path is not None:
-                joblib.dump(study,
+                joblib.dump(self.study,
                             os.path.join(path, "optuna_study.joblib"))
 
             alpha = trial.suggest_int(
@@ -116,18 +117,21 @@ class PopularScenario:
             logging.debug("Подсчет метрики в оптимизации")
             metric_result = Metrics.hit_rate_at_k(recs, test, k=k)
 
+            # вот так можно положить в trial еще метрики
+            trial.set_user_attr('some_metric', 1.0)
+
             logging.debug(f"Метрика и параметры: {metric_result, params}")
 
             return metric_result
 
         logging.debug("Начало оптимизации параметров")
         sampler = optuna.samplers.RandomSampler()
-        study = optuna.create_study(direction='maximize', sampler=sampler)
-        study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs)
+        self.study = optuna.create_study(direction='maximize', sampler=sampler)
+        self.study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs)
 
-        logging.debug(f"Лучшие значения метрики: {study.best_value}")
-        logging.debug(f"Лучшие параметры: {study.best_params}")
-        return study.best_params
+        logging.debug(f"Лучшие значения метрики: {self.study.best_value}")
+        logging.debug(f"Лучшие параметры: {self.study.best_params}")
+        return self.study.best_params
 
     def production(self, params,
                    log: DataFrame,

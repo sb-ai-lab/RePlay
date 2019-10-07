@@ -331,8 +331,6 @@ class BaseRecommender(ABC):
         :return: измененные рекомендации, спарк-датафрейм с колонками
             [`user_id`, `item_id`, `context`, `relevance`]
         """
-        log.show()
-        recs.show()
         user_item_log = (log
                          .select('item_id', 'user_id')
                          .withColumn('in_log', sf.lit(True)))
@@ -343,7 +341,6 @@ class BaseRecommender(ABC):
                             sf.when(recs['in_log'], -1)
                             .otherwise(recs['relevance']))
                 .drop('in_log'))
-        recs.show()
         return recs
 
     @staticmethod
