@@ -96,7 +96,7 @@ class TestMetrics(PySparkTest):
         )
         self.assertAlmostEqual(
             metrics.precision_at_k(recommendations, ground_truth, 3),
-            1 / 9
+            1 / 6
         )
         self.assertEqual(
             metrics.precision_at_k(recommendations, ground_truth, 1),
@@ -104,5 +104,5 @@ class TestMetrics(PySparkTest):
         )
         self.assertAlmostEqual(
             metrics.precision_at_k(recommendations, ground_truth, 2),
-            1 / 6
+            1 / 4
         )
