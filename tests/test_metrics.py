@@ -70,12 +70,11 @@ class TestMetrics(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-
         self.assertEqual(
             metrics.ndcg_at_k(recommendations, ground_truth, 1),
             0.0
         )
         self.assertEqual(
             metrics.ndcg_at_k(recommendations, ground_truth, 3),
-            0.12895093574484717
+            0.19342640361727076
         )
