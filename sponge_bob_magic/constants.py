@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+"""
 from pyspark.sql.types import (DoubleType, FloatType, StringType, StructField,
                                StructType, TimestampType)
 

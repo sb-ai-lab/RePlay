@@ -1,11 +1,10 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
 """
-from pyspark.sql import DataFrame, Window
-from pyspark.sql.functions import col, desc, row_number
-from pyspark.mllib.evaluation import RankingMetrics
 from pyspark.ml.feature import StringIndexer
-from pyspark.sql.functions import collect_list
+from pyspark.mllib.evaluation import RankingMetrics
+from pyspark.sql import DataFrame, Window
+from pyspark.sql.functions import col, collect_list, desc, row_number
 
 
 class Metrics:
@@ -31,7 +30,7 @@ class Metrics:
             "relevance_rank",
             row_number().over(
                 Window.partitionBy("user_id", "context")
-                    .orderBy(desc("relevance"))
+                .orderBy(desc("relevance"))
             )
         ).filter(col("relevance_rank") <= k).drop("relevance_rank")
         users_hit = top_k_recommendations.join(
@@ -59,19 +58,31 @@ class Metrics:
         :param k: какое максимальное количество объектов брать из топа
         рекомендованных для оценки
         """
-        indexer = StringIndexer(inputCol="item_id", outputCol="item_idx", handleInvalid='keep') \
+        indexer = (
+            StringIndexer(
+                inputCol="item_id",
+                outputCol="item_idx",
+                handleInvalid='keep'
+            )
             .fit(ground_truth)
+        )
         df_true = indexer.transform(ground_truth)
         df_pred = indexer.transform(recommendations)
-        df_pred = df_pred \
-            .groupby("user_id") \
+        df_pred = (
+            df_pred
+            .groupby("user_id")
             .agg(collect_list("item_idx").alias('pred_items'))
-        df_true = df_true \
-            .groupby("user_id") \
+        )
+        df_true = (
+            df_true
+            .groupby("user_id")
             .agg(collect_list("item_idx").alias('true_items'))
-        predictionAndLabels = df_pred \
-            .join(df_true, ['user_id'], how='inner') \
-            .rdd \
+        )
+        prediction_and_labels = (
+            df_pred
+            .join(df_true, ['user_id'], how='inner')
+            .rdd
             .map(lambda row: (row[1], row[2]))
-        metrics = RankingMetrics(predictionAndLabels)
+        )
+        metrics = RankingMetrics(prediction_and_labels)
         return metrics.ndcgAt(k)

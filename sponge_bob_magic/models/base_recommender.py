@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+"""
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Set
@@ -45,21 +48,21 @@ class BaseRecommender(ABC):
         """
 
     @staticmethod
-    def _check_dataframe(df: Optional[DataFrame],
+    def _check_dataframe(dataframe: Optional[DataFrame],
                          required_columns: Set[str],
                          optional_columns: Set[str]):
-        if df is None:
+        if dataframe is None:
             raise ValueError("Датафрейм есть None")
 
         # чекаем, что датафрейм не пустой
-        if len(df.head(1)) == 0:
+        if len(dataframe.head(1)) == 0:
             raise ValueError("Датафрейм пустой")
 
-        df_columns = df.columns
+        df_columns = dataframe.columns
 
         # чекаем на нуллы
         for column in df_columns:
-            if df.where(sf.col(column).isNull()).count() > 0:
+            if dataframe.where(sf.col(column).isNull()).count() > 0:
                 raise ValueError(f"В колонке '{column}' есть значения NULL")
 
         # чекаем колонки

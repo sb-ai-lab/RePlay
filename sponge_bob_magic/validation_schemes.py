@@ -4,8 +4,8 @@
 from datetime import datetime
 from typing import Tuple
 
+import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, SparkSession, Window
-from pyspark.sql.functions import col, count, desc, lit, max, min, sum
 from pyspark.sql.types import TimestampType
 
 
@@ -71,10 +71,10 @@ class ValidationSchemes:
         (train, test_input, test)
         """
         train = log.filter(
-            col("timestamp") < lit(test_start).cast(TimestampType())
+            F.col("timestamp") < F.lit(test_start).cast(TimestampType())
         )
         test = log.filter(
-            col("timestamp") >= lit(test_start).cast(TimestampType())
+            F.col("timestamp") >= F.lit(test_start).cast(TimestampType())
         )
 
         test = ValidationSchemes._drop_cold_items_and_users(
@@ -134,27 +134,31 @@ class ValidationSchemes:
         start_date_by_user = (
             log
             .groupby("user_id")
-            .agg(min("timestamp").alias("start_dt"))
+            .agg(F.min("timestamp").alias("start_dt"))
             .cache()
         )
         test_start_date = (
             start_date_by_user
             .groupby("start_dt")
-            .agg(count("user_id").alias("cnt"))
+            .agg(F.count("user_id").alias("cnt"))
             .select(
                 "start_dt",
-                sum("cnt").over(Window.orderBy(desc("start_dt"))).alias("cnt"),
-                sum("cnt").over(Window.orderBy(lit(1))).alias("total")
+                F.sum("cnt").over(Window.orderBy(
+                    F.desc("start_dt")
+                )).alias("cnt"),
+                F.sum("cnt").over(Window.orderBy(F.lit(1))).alias("total")
             )
-            .filter(col("cnt") >= col("total") * test_size)
-            .agg(max("start_dt"))
+            .filter(F.col("cnt") >= F.col("total") * test_size)
+            .agg(F.max("start_dt"))
             .head()[0]
         )
-        train = log.filter(col("timestamp") < test_start_date).cache()
+        train = log.filter(F.col("timestamp") < test_start_date).cache()
         test = (
             log
             .join(
-                start_date_by_user.filter(col("start_dt") >= test_start_date),
+                start_date_by_user.filter(
+                    F.col("start_dt") >= test_start_date
+                ),
                 how="inner",
                 on="user_id"
             )

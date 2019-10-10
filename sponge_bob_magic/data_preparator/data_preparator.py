@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+"""
 import collections
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
@@ -7,18 +10,19 @@ from pyspark.sql.types import FloatType, StringType, TimestampType
 from sponge_bob_magic import constants
 
 
-def flat_list(l: Iterable):
-    for el in l:
+def flat_list(list_object: Iterable):
+    for item in list_object:
         if (
-                isinstance(el, collections.abc.Iterable) and
-                not isinstance(el, (str, bytes))
+                isinstance(item, collections.abc.Iterable) and
+                not isinstance(item, (str, bytes))
         ):
-            yield from flat_list(el)
+            yield from flat_list(item)
         else:
-            yield el
+            yield item
 
 
 class DataPreparator:
+    """ основной класс для считывания различных типов данных """
     spark: SparkSession
 
     def __init__(self, spark: SparkSession):
@@ -29,17 +33,17 @@ class DataPreparator:
                    format_type: str,
                    **kwargs) -> DataFrame:
         if format_type == 'csv':
-            df = self.spark.read.csv(path, **kwargs)
+            dataframe = self.spark.read.csv(path, **kwargs)
         elif format_type == 'parquet':
-            df = self.spark.read.parquet(path)
+            dataframe = self.spark.read.parquet(path)
         elif format_type == 'json':
-            df = self.spark.read.json(path, **kwargs)
+            dataframe = self.spark.read.json(path, **kwargs)
         elif format_type == 'table':
-            df = self.spark.read.table(path)
+            dataframe = self.spark.read.table(path)
         else:
             raise ValueError(f"Invalid value of format_type='{format_type}'")
 
-        return df
+        return dataframe
 
     @staticmethod
     def _check_columns(given_columns: Set[str],
@@ -50,21 +54,21 @@ class DataPreparator:
                 f"В датафрейме нет обязательных колонок ({required_columns})")
         if len(
                 given_columns
-                        .difference(required_columns)
-                        .difference(optional_columns)
+                .difference(required_columns)
+                .difference(optional_columns)
         ) > 0:
             raise ValueError("В 'columns_names' есть лишние колонки")
 
     @staticmethod
-    def _check_dataframe(df: DataFrame,
+    def _check_dataframe(dataframe: DataFrame,
                          columns_names: Dict[str, Union[str, List[str]]]):
         # чекаем, что датафрейм не пустой
-        if len(df.head(1)) == 0:
+        if len(dataframe.head(1)) == 0:
             raise ValueError("Датафрейм пустой")
 
         # чекаем, что данные юзером колонки реально есть в датафрейме
         given_columns = set((flat_list(list(columns_names.values()))))
-        dataframe_columns = set(df.columns)
+        dataframe_columns = set(dataframe.columns)
         if not given_columns.issubset(dataframe_columns):
             raise ValueError(
                 "В columns_names есть колонки, которых нет в датафрейме; "
@@ -73,7 +77,7 @@ class DataPreparator:
 
         # чекаем на нуллы
         for column in given_columns:
-            if df.where(sf.col(column).isNull()).count() > 0:
+            if dataframe.where(sf.col(column).isNull()).count() > 0:
                 raise ValueError(f"В колонке '{column}' есть значения NULL")
 
     @staticmethod
@@ -85,7 +89,7 @@ class DataPreparator:
         features_columns = []
         if 'features' in columns_names:
             features_columns = columns_names['features']
-            if type(features_columns) is not list:
+            if not isinstance(features_columns, list):
                 features_columns = [features_columns]
 
         # переименовываем колонки
@@ -104,10 +108,15 @@ class DataPreparator:
             else:
                 column = sf.col(column_name)
             if column_name == 'timestamp':
-                df = df.withColumn(column_name,
-                                   sf.to_timestamp(column, format=date_format))
+                df = df.withColumn(
+                    column_name,
+                    sf.to_timestamp(column, format=date_format)
+                )
             else:
-                df = df.withColumn(column_name, column.cast(default_type))
+                df = df.withColumn(
+                    column_name,
+                    column.cast(default_type)
+                )
         return df
 
     def transform_log(self,

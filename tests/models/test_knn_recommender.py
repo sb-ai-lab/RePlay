@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+"""
 from datetime import datetime
 
 from pyspark.sql.types import DoubleType, StringType, StructField, StructType
@@ -28,9 +31,9 @@ class KNNRecommenderTestCase(PySparkTest):
         self.assertSparkDataFrameEqual(
             self.model.similarity,
             self.spark.createDataFrame([
-                ("i1", "i3", 1 / 6),
-                ("i3", "i1", 1 / 6),
-                ("i4", "i1", 1 / 4)
+                ("i1", "i3", 0.408248),
+                ("i3", "i1", 0.408248),
+                ("i4", "i1", 1 / 2)
             ], schema=StructType([
                 StructField("item_id_one", StringType()),
                 StructField("item_id_two", StringType()),
@@ -53,11 +56,11 @@ class KNNRecommenderTestCase(PySparkTest):
             recs,
             self.spark.createDataFrame(
                 [
-                    ["u1", "i3", DEFAULT_CONTEXT, 1 / 6],
-                    ["u3", "i1", DEFAULT_CONTEXT, 7 / 12],
+                    ["u1", "i3", DEFAULT_CONTEXT, 0.408248],
+                    ["u3", "i1", DEFAULT_CONTEXT, 1.316497],
                 ],
                 schema=REC_SCHEMA
-            ).drop("context")
+            )
         )
 
     def test_get_params(self):

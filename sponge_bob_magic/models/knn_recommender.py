@@ -1,20 +1,26 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+"""
 from typing import Dict, Optional
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, count, row_number, sum, lit, sqrt
+from pyspark.sql import functions as F
 from pyspark.sql.window import Window
-from sponge_bob_magic.models.base_recommender import BaseRecommender
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
+from sponge_bob_magic.models.base_recommender import BaseRecommender
 
 
 class KNNRecommender(BaseRecommender):
+    """ item-based KNN на сглаженной косинусной мере схожести """
+    similarity: DataFrame
+
     def __init__(self, spark: SparkSession, k: int, shrink: float = 0.0):
         super().__init__(spark)
         self.shrink = shrink
         self.k = k
-        self.similarity = None
 
     def get_params(self) -> Dict[str, object]:
+        """ показать параметры модели """
         return {"shrink": self.shrink, "k": self.k}
 
     def _get_similarity_matrix(
@@ -43,7 +49,7 @@ class KNNRecommender(BaseRecommender):
                 items
                 .withColumnRenamed("item_id", "item_id_two"),
                 how="inner",
-                on=col("item_id_one") > col("item_id_two")
+                on=F.col("item_id_one") > F.col("item_id_two")
             )
             .join(
                 dot_products,
@@ -53,17 +59,17 @@ class KNNRecommender(BaseRecommender):
             .join(
                 item_norms.alias("item1"),
                 how="inner",
-                on=col("item1.item_id") == col("item_id_one")
+                on=F.col("item1.item_id") == F.col("item_id_one")
             )
             .join(
                 item_norms.alias("item2"),
                 how="inner",
-                on=col("item2.item_id") == col("item_id_two")
+                on=F.col("item2.item_id") == F.col("item_id_two")
             )
             .withColumn(
                 "similarity",
-                col("dot_product") /
-                (col("item1.norm") * col("item2.norm") + self.shrink)
+                F.col("dot_product") /
+                (F.col("item1.norm") * F.col("item2.norm") + self.shrink)
             )
             .select("item_id_one", "item_id_two", "similarity")
         )
@@ -82,18 +88,18 @@ class KNNRecommender(BaseRecommender):
             .union(
                 similarity_matrix
                 .select(
-                    col("item_id_two").alias("item_id_one"),
-                    col("item_id_one").alias("item_id_two"),
-                    col("similarity")
+                    F.col("item_id_two").alias("item_id_one"),
+                    F.col("item_id_one").alias("item_id_two"),
+                    F.col("similarity")
                 )
             )
             .withColumn(
                 "similarity_order",
-                row_number().over(
+                F.row_number().over(
                     Window.partitionBy("item_id_one").orderBy("similarity")
                 )
             )
-            .filter(col("similarity_order") <= self.k)
+            .filter(F.col("similarity_order") <= self.k)
             .drop("similarity_order")
             .cache()
         )
@@ -114,36 +120,33 @@ class KNNRecommender(BaseRecommender):
                 on="user_id"
             )
             .groupby("item_id_one", "item_id_two")
-            .agg(count("user_id").alias("dot_product"))
+            .agg(F.count("user_id").alias("dot_product"))
             .cache()
         )
         item_norms = (
             log
             .groupby("item_id")
-            .agg(count("user_id").alias("square_norm"))
-            .select(col("item_id"), sqrt("square_norm").alias("norm"))
+            .agg(F.count("user_id").alias("square_norm"))
+            .select(F.col("item_id"), F.sqrt("square_norm").alias("norm"))
             .cache()
         )
         items = log.select("item_id").distinct().cache()
         similarity_matrix = self._get_similarity_matrix(
             items, dot_products, item_norms
         ).cache()
-        self.dot_products = dot_products
-        self.item_norms = item_norms
-        self.similarity_matrix = similarity_matrix
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()
 
     def _predict(
-        self,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        context: str,
-        log: DataFrame,
-        user_features: Optional[DataFrame],
-        item_features: Optional[DataFrame],
-        to_filter_seen_items: bool = True,
-        path: Optional[str] = None
+            self,
+            k: int,
+            users: DataFrame,
+            items: DataFrame,
+            context: str,
+            log: DataFrame,
+            user_features: Optional[DataFrame],
+            item_features: Optional[DataFrame],
+            to_filter_seen_items: bool = True,
+            path: Optional[str] = None
     ) -> DataFrame:
         recs = (
             log
@@ -155,16 +158,16 @@ class KNNRecommender(BaseRecommender):
             .join(
                 self.similarity,
                 how="left",
-                on=col("item_id") == col("item_id_one")
+                on=F.col("item_id") == F.col("item_id_one")
             )
             .groupby("user_id", "item_id_two")
-            .agg(sum("similarity").alias("relevance"))
+            .agg(F.sum("similarity").alias("relevance"))
             .withColumnRenamed("item_id_two", "item_id")
-            .withColumn("context", lit(DEFAULT_CONTEXT))
+            .withColumn("context", F.lit(DEFAULT_CONTEXT))
             .cache()
         )
         if to_filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
         recs = self._get_top_k_recs(recs, k)
-        recs = recs.filter(col("relevance") > 0.0)
+        recs = recs.filter(F.col("relevance") > 0.0)
         return recs.cache()

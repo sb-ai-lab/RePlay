@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+"""
 import logging
 import os
 from typing import Dict, Optional
@@ -10,6 +13,7 @@ from sponge_bob_magic.models.base_recommender import BaseRecommender
 
 
 class PopularRecommender(BaseRecommender):
+    """ простейший рекомендатель на основе сглаженной популярности """
     items_popularity: Optional[DataFrame]
 
     def __init__(self, spark: SparkSession, alpha: float = 0.001,

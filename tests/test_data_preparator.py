@@ -1,11 +1,13 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+"""
 from datetime import datetime
 from unittest.mock import Mock
 
 from parameterized import parameterized
 from pyspark.sql import functions as sf
 from pyspark.sql.types import StringType, StructType
-
-from sponge_bob_magic import constants
+from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
 from sponge_bob_magic.data_preparator.data_preparator import DataPreparator
 
 from pyspark_testcase import PySparkTest
@@ -108,17 +110,17 @@ class DataPreparatorTest(PySparkTest):
         ([["user1", "item1"],
           ["user1", "item2"],
           ["user2", "item1"], ], ['user', 'item'],
-         [["user1", "item1", datetime(1999, 5, 1), constants.DEFAULT_CONTEXT, 1.0],
-          ["user1", "item2", datetime(1999, 5, 1), constants.DEFAULT_CONTEXT, 1.0],
-          ["user2", "item1", datetime(1999, 5, 1), constants.DEFAULT_CONTEXT, 1.0], ],
+         [["user1", "item1", datetime(1999, 5, 1), DEFAULT_CONTEXT, 1.0],
+          ["user1", "item2", datetime(1999, 5, 1), DEFAULT_CONTEXT, 1.0],
+          ["user2", "item1", datetime(1999, 5, 1), DEFAULT_CONTEXT, 1.0], ],
          {'user_id': 'user', 'item_id': 'item'}),
         ([["u1", "i10", '2045-09-18'],
           ["u2", "12", '1935-12-15'],
           ["u5", "303030", '1989-06-26'], ],
          ['user_like', 'item_like', 'ts'],
-         [["u1", "i10", datetime(2045, 9, 18), constants.DEFAULT_CONTEXT, 1.0],
-          ["u2", "12", datetime(1935, 12, 15), constants.DEFAULT_CONTEXT, 1.0],
-          ["u5", "303030", datetime(1989, 6, 26), constants.DEFAULT_CONTEXT, 1.0], ],
+         [["u1", "i10", datetime(2045, 9, 18), DEFAULT_CONTEXT, 1.0],
+          ["u2", "12", datetime(1935, 12, 15), DEFAULT_CONTEXT, 1.0],
+          ["u5", "303030", datetime(1989, 6, 26), DEFAULT_CONTEXT, 1.0], ],
          {'user_id': 'user_like', 'item_id': 'item_like', 'timestamp': 'ts'}),
         ([["1010", "4944", '1945-05-25', 'day'],
           ["4565", "134232", '2045-11-18', 'night'],
@@ -146,7 +148,7 @@ class DataPreparatorTest(PySparkTest):
             log = log.withColumn(column, sf.col(column).cast(StringType()))
 
         true_log = self.spark.createDataFrame(data=true_log_data,
-                                              schema=constants.LOG_SCHEMA)
+                                              schema=LOG_SCHEMA)
 
         self.dp._read_data = Mock(return_value=log)
 
@@ -305,9 +307,8 @@ class DataPreparatorTest(PySparkTest):
                                            sf.col(column).cast(StringType()))
 
         schema = (
-                ['user_id', 'timestamp'] +
-                [f'f{i}'
-                 for i in range(len(true_feature_data[0]) - 2)]
+            ['user_id', 'timestamp'] +
+            [f'f{i}' for i in range(len(true_feature_data[0]) - 2)]
         )
         true_features = self.spark.createDataFrame(data=true_feature_data,
                                                    schema=schema)
