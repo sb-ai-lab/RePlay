@@ -9,6 +9,7 @@ decorator==4.4.0
 defusedxml==0.6.0
 entrypoints==0.3
 flake8==3.7.8
+importlib-metadata==0.23
 ipykernel==5.1.2
 ipython==7.8.0
 ipython-genutils==0.2.0
@@ -17,15 +18,16 @@ isort==4.3.21
 jedi==0.15.1
 Jinja2==2.10.3
 joblib==0.14.0
-jsonschema==3.0.2
+jsonschema==3.1.1
 jupyter==1.0.0
-jupyter-client==5.3.3
+jupyter-client==5.3.4
 jupyter-console==6.0.0
-jupyter-core==4.5.0
+jupyter-core==4.6.0
 lazy-object-proxy==1.4.2
 MarkupSafe==1.1.1
 mccabe==0.6.1
 mistune==0.8.4
+more-itertools==7.2.0
 mypy==0.730
 mypy-extensions==0.4.2
 nbconvert==5.6.0
@@ -48,7 +50,6 @@ Pygments==2.4.2
 pylint==2.4.2
 pyrsistent==0.15.4
 pyspark==2.4.4
-pyspark-stubs==2.4.0.post6
 python-dateutil==2.8.0
 pytz==2019.3
 pyzmq==18.1.0
@@ -69,3 +70,4 @@ wcwidth==0.1.7
 webencodings==0.5.1
 widgetsnbextension==3.5.1
 wrapt==1.11.2
+zipp==0.6.0
