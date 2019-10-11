@@ -1,18 +1,20 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+"""
 import logging
 import os
-from typing import Dict
+from typing import Dict, Optional
 
 import numpy as np
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
-
-from sponge_bob_magic import constants
-from sponge_bob_magic import utils
+from sponge_bob_magic import constants, utils
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 
 
 class PopularRecommender(BaseRecommender):
-    items_popularity: DataFrame or None
+    """ простейший рекомендатель на основе сглаженной популярности """
+    items_popularity: Optional[DataFrame]
 
     def __init__(self, spark: SparkSession, alpha: float = 0.001,
                  beta: float = 0.001):
@@ -29,9 +31,9 @@ class PopularRecommender(BaseRecommender):
 
     def _fit(self,
              log: DataFrame,
-             user_features: DataFrame or None,
-             item_features: DataFrame or None,
-             path: str or None = None) -> None:
+             user_features: Optional[DataFrame],
+             item_features: Optional[DataFrame],
+             path: Optional[str] = None) -> None:
         popularity = (log
                       .groupBy('item_id', 'context')
                       .count())
@@ -51,12 +53,12 @@ class PopularRecommender(BaseRecommender):
                  k: int,
                  users: DataFrame,
                  items: DataFrame,
-                 context: str or None,
+                 context: Optional[str],
                  log: DataFrame,
-                 user_features: DataFrame or None,
-                 item_features: DataFrame or None,
+                 user_features: Optional[DataFrame],
+                 item_features: Optional[DataFrame],
                  to_filter_seen_items: bool = True,
-                 path: str or None = None) -> DataFrame:
+                 path: Optional[str] = None) -> DataFrame:
         items_to_rec = self.items_popularity
 
         if context is None or context == constants.DEFAULT_CONTEXT:

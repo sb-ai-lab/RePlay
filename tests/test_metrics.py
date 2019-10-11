@@ -1,17 +1,9 @@
 from datetime import datetime
 
-from pyspark.sql.types import FloatType, StringType, StructField, StructType
+from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
 from sponge_bob_magic.metrics.metrics import Metrics
 
-from sponge_bob_magic.constants import LOG_SCHEMA
 from pyspark_testcase import PySparkTest
-
-REC_SCHEMA = StructType([
-    StructField("user_id", StringType()),
-    StructField("item_id", StringType()),
-    StructField("context", StringType()),
-    StructField("relevance", FloatType())
-])
 
 
 class TestMetrics(PySparkTest):

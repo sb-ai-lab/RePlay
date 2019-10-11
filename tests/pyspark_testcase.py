@@ -1,5 +1,6 @@
 import unittest
 import warnings
+from typing import Optional
 
 import pandas as pd
 from pyspark.sql import DataFrame, SparkSession
@@ -13,7 +14,7 @@ class PySparkTest(unittest.TestCase):
             self,
             df1: DataFrame,
             df2: DataFrame,
-            msg: str or None = None
+            msg: Optional[str] = None
     ) -> None:
         def _unify_dataframe(df: DataFrame):
             return (df

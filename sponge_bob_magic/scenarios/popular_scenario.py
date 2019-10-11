@@ -1,21 +1,21 @@
 import logging
 import os
 from datetime import datetime
-from typing import Dict, Tuple, TypeVar, Any
+from typing import Any, Dict, Optional, Tuple, TypeVar
 
 import joblib
-import optuna
-from pyspark.sql import SparkSession, DataFrame
-
+from pyspark.sql import DataFrame, SparkSession
 from sponge_bob_magic.metrics.metrics import Metrics
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
 from sponge_bob_magic.validation_schemes import ValidationSchemes
+
+import optuna
 
 TNum = TypeVar('TNum', int, float)
 
 
 class PopularScenario:
-    study: optuna.Study or None
+    study: Optional[optuna.Study]
 
     def __init__(self, spark: SparkSession):
         self.model = None
@@ -27,19 +27,19 @@ class PopularScenario:
     def research(self,
                  params_grid: Dict[str, Tuple[TNum, TNum]],
                  log: DataFrame,
-                 users: DataFrame or None,
-                 items: DataFrame or None,
-                 user_features: DataFrame or None = None,
-                 item_features: DataFrame or None = None,
-                 test_start: datetime or None = None,
+                 users: Optional[DataFrame],
+                 items: Optional[DataFrame],
+                 user_features: Optional[DataFrame] = None,
+                 item_features: Optional[DataFrame] = None,
+                 test_start: Optional[datetime] = None,
                  test_size: float = None,
                  k: int = 10,
-                 context: str or None = 'no_context',
+                 context: Optional[str] = 'no_context',
                  to_filter_seen_items: bool = True,
                  n_trials: int = 10,
                  n_jobs: int = 1,
                  how_to_split: str = 'by_date',
-                 path: str or None = None
+                 path: Optional[str] = None
                  ) -> Dict[str, Any]:
         splitter = ValidationSchemes(self.spark)
 
@@ -135,12 +135,12 @@ class PopularScenario:
 
     def production(self, params,
                    log: DataFrame,
-                   users: DataFrame or None,
-                   items: DataFrame or None,
-                   user_features: DataFrame or None,
-                   item_features: DataFrame or None,
+                   users: Optional[DataFrame],
+                   items: Optional[DataFrame],
+                   user_features: Optional[DataFrame],
+                   item_features: Optional[DataFrame],
                    k: int,
-                   context: str or None,
+                   context: Optional[str],
                    to_filter_seen_items: bool
                    ) -> DataFrame:
         self.model = PopularRecommender(self.spark)
