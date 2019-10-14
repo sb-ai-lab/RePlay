@@ -2,7 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
 """
 from datetime import datetime
-from typing import Tuple
+from typing import Tuple, Optional
 
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, SparkSession, Window
@@ -118,12 +118,11 @@ class ValidationSchemes:
     def extract_cold_users(
             log: DataFrame,
             test_size: float
-    ) -> Tuple[DataFrame, DataFrame, DataFrame]:
+    ) -> Tuple[DataFrame, Optional[DataFrame], DataFrame]:
         """
         выделить из лога действий пользователей случайную долю "холодных"
         пользователей
 
-        :param seed: seed для фикстур в тестах
         :param test_size: доля ото всех пользовтелей, которую должны составлять
         "холодные", от 0 до 1
         :param log: таблица с колонками

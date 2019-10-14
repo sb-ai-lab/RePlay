@@ -42,6 +42,16 @@ class PopularRecommender(BaseRecommender):
             'item_id', 'context', 'count'
         )
 
+        # считаем среднее кол-во просмотренных items у каждого user
+        self.k_fake = np.ceil(log
+                              .select('user_id', 'item_id')
+                              .groupBy('user_id')
+                              .count()
+                              .select(sf.mean(sf.col('count')).alias('mean'))
+                              .collect()[0]['mean'])
+        logging.debug(
+            f"Среднее количество items у каждого user: {self.k_fake}")
+
         if path is not None:
             path_parquet = os.path.join(path, 'items_popularity.parquet')
             self.items_popularity.write.parquet(path_parquet)
@@ -90,16 +100,8 @@ class PopularRecommender(BaseRecommender):
         items = items.na.fill({'context': context,
                                'relevance': 0})
 
-        # считаем среднее кол-во просмотренных items у каждого user
-        k_fake = np.ceil(log
-                         .select('user_id', 'item_id')
-                         .groupBy('user_id')
-                         .count()
-                         .select(sf.mean(sf.col('count')).alias('mean'))
-                         .collect()[0]['mean'])
-        items = utils.get_top_k_rows(items, k + k_fake, 'relevance')
+        items = utils.get_top_k_rows(items, k + self.k_fake, 'relevance')
 
-        logging.debug(f"Среднее количество items у каждого user: {k_fake}")
         logging.debug(f"Количество items после фильтрации: {items.count()}")
 
         # (user_id, item_id, context, relevance)
