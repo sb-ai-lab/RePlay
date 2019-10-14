@@ -11,6 +11,14 @@ from sponge_bob_magic import constants
 
 
 def flat_list(list_object: Iterable):
+    """
+    Генератор.
+    Из неоднородного листа с вложенными листами делает однородный лист.
+    Например [1, [2], [3, 4], 5] -> [1, 2, 3, 4, 5].
+
+    :param list_object: лист
+    :return: преобразованный лист
+    """
     for item in list_object:
         if (
                 isinstance(item, collections.abc.Iterable) and
