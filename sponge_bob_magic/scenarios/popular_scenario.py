@@ -70,13 +70,13 @@ class PopularScenario:
 
         self.model = PopularRecommender(self.spark)
 
-        # если юзеров или айтемов нет, возьмем всех из лога,
+        # если юзеров или айтемов нет, возьмем всех из теста,
         # чтобы не делать на каждый trial их заново
         if users is None:
-            users = log.select('user_id').distinct()
+            users = test.select('user_id').distinct()
 
         if items is None:
-            items = log.select('item_id').distinct()
+            items = test.select('item_id').distinct()
 
         users.checkpoint()
         items.checkpoint()
@@ -110,7 +110,7 @@ class PopularScenario:
                 user_features=user_features,
                 item_features=item_features,
                 context=context,
-                log=test,
+                log=log,
                 to_filter_seen_items=to_filter_seen_items
             )
 

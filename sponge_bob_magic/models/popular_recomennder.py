@@ -8,6 +8,7 @@ from typing import Dict, Optional
 import numpy as np
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
+
 from sponge_bob_magic import constants, utils
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 
@@ -41,6 +42,18 @@ class PopularRecommender(BaseRecommender):
         self.items_popularity = popularity.select(
             'item_id', 'context', 'count'
         )
+
+        # считаем среднее кол-во просмотренных items у каждого user
+        self.avg_num_items = np.ceil(
+            log
+            .select('user_id', 'item_id')
+            .groupBy('user_id')
+            .count()
+            .select(sf.mean(sf.col('count')).alias('mean'))
+            .collect()[0]['mean']
+        )
+        logging.debug(
+            f"Среднее количество items у каждого user: {self.avg_num_items}")
 
         if path is not None:
             path_parquet = os.path.join(path, 'items_popularity.parquet')
@@ -90,16 +103,9 @@ class PopularRecommender(BaseRecommender):
         items = items.na.fill({'context': context,
                                'relevance': 0})
 
-        # считаем среднее кол-во просмотренных items у каждого user
-        k_fake = np.ceil(log
-                         .select('user_id', 'item_id')
-                         .groupBy('user_id')
-                         .count()
-                         .select(sf.mean(sf.col('count')).alias('mean'))
-                         .collect()[0]['mean'])
-        items = utils.get_top_k_rows(items, k + k_fake, 'relevance')
+        items = utils.get_top_k_rows(items, k + self.avg_num_items,
+                                     'relevance')
 
-        logging.debug(f"Среднее количество items у каждого user: {k_fake}")
         logging.debug(f"Количество items после фильтрации: {items.count()}")
 
         # (user_id, item_id, context, relevance)
@@ -153,6 +159,11 @@ if __name__ == '__main__':
 
     users_ = ["user1", "user2", "user3"]
     items_ = ["item1", "item2", "item3"]
+
+    users_ = spark_.createDataFrame(data=[[user] for user in users_],
+                                    schema=['user_id'])
+    items_ = spark_.createDataFrame(data=[[item] for item in items_],
+                                    schema=['item_id'])
 
     pr = PopularRecommender(spark_, alpha=0, beta=0)
     recs_ = pr.fit_predict(k=3, users=users_, items=items_,
