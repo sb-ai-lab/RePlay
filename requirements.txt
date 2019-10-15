@@ -43,7 +43,7 @@ pickleshare==0.7.5
 prometheus-client==0.7.1
 prompt-toolkit==2.0.10
 ptyprocess==0.6.0
-py4j==0.10.8.1
+py4j==0.10.7
 pycodestyle==2.5.0
 pyflakes==2.1.1
 Pygments==2.4.2
@@ -65,7 +65,6 @@ tornado==6.0.3
 traitlets==4.3.3
 typed-ast==1.4.0
 typing-extensions==3.7.4
-virtualenv==16.7.5
 wcwidth==0.1.7
 webencodings==0.5.1
 widgetsnbextension==3.5.1
