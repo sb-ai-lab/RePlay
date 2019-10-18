@@ -11,10 +11,16 @@ from pyspark_testcase import PySparkTest
 class BaseRecommenderCase(PySparkTest):
     def setUp(self):
         class DerivedRecommender(BaseRecommender):
-            def _fit(self, log: DataFrame,
-                     user_features: Optional[DataFrame],
-                     item_features: Optional[DataFrame],
-                     path: Optional[str] = None) -> None:
+            def _pre_fit(self, log: DataFrame,
+                         user_features: Optional[DataFrame],
+                         item_features: Optional[DataFrame],
+                         path: Optional[str] = None) -> None:
+                pass
+
+            def _fit_partial(self, log: DataFrame,
+                             user_features: Optional[DataFrame],
+                             item_features: Optional[DataFrame],
+                             path: Optional[str] = None) -> None:
                 pass
 
             def _predict(self,

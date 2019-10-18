@@ -30,11 +30,10 @@ class PopularRecommender(BaseRecommender):
         return {'alpha': self.alpha,
                 'beta': self.beta}
 
-    def _fit(self,
-             log: DataFrame,
-             user_features: Optional[DataFrame],
-             item_features: Optional[DataFrame],
-             path: Optional[str] = None) -> None:
+    def _pre_fit(self, log: DataFrame,
+                 user_features: Optional[DataFrame],
+                 item_features: Optional[DataFrame],
+                 path: Optional[str] = None) -> None:
         popularity = (log
                       .groupBy('item_id', 'context')
                       .count())
@@ -62,11 +61,17 @@ class PopularRecommender(BaseRecommender):
         else:
             self.items_popularity.checkpoint()
 
+    def _fit_partial(self, log: DataFrame,
+                     user_features: Optional[DataFrame],
+                     item_features: Optional[DataFrame],
+                     path: Optional[str] = None) -> None:
+        pass
+
     def _predict(self,
                  k: int,
                  users: DataFrame,
                  items: DataFrame,
-                 context: Optional[str],
+                 context: str,
                  log: DataFrame,
                  user_features: Optional[DataFrame],
                  item_features: Optional[DataFrame],
@@ -74,7 +79,7 @@ class PopularRecommender(BaseRecommender):
                  path: Optional[str] = None) -> DataFrame:
         items_to_rec = self.items_popularity
 
-        if context is None or context == constants.DEFAULT_CONTEXT:
+        if context == constants.DEFAULT_CONTEXT:
             items_to_rec = (items_to_rec
                             .select('item_id', 'count')
                             .groupBy('item_id')

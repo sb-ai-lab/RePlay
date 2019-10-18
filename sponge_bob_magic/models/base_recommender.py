@@ -9,6 +9,8 @@ from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as sf
 from sklearn.preprocessing import LabelEncoder
 
+from sponge_bob_magic import constants
+
 
 class BaseRecommender(ABC):
     def __init__(self, spark: SparkSession, **kwargs):
@@ -94,6 +96,26 @@ class BaseRecommender(ABC):
             optional_columns=optional_columns
         )
 
+    @staticmethod
+    def _check_input_dataframes(log: DataFrame, user_features: DataFrame,
+                                item_features: DataFrame):
+        BaseRecommender._check_dataframe(
+            log,
+            required_columns={'item_id', 'user_id', 'timestamp', 'relevance',
+                              'context'},
+            optional_columns=set()
+        )
+        BaseRecommender._check_feature_dataframe(
+            user_features,
+            optional_columns=set(),
+            required_columns={'user_id', 'timestamp'}
+        )
+        BaseRecommender._check_feature_dataframe(
+            item_features,
+            optional_columns=set(),
+            required_columns={'item_id', 'timestamp'}
+        )
+
     def fit(self, log: DataFrame,
             user_features: Optional[DataFrame],
             item_features: Optional[DataFrame],
@@ -114,27 +136,47 @@ class BaseRecommender(ABC):
             [`item_id`, `timestamp`] и колонки с признаками
         :return:
         """
-        self._check_dataframe(log,
-                              required_columns={'item_id', 'user_id',
-                                                'timestamp', 'relevance',
-                                                'context'},
-                              optional_columns=set())
-        self._check_feature_dataframe(user_features, optional_columns=set(),
-                                      required_columns={'user_id',
-                                                        'timestamp'})
-        self._check_feature_dataframe(item_features, optional_columns=set(),
-                                      required_columns={'item_id',
-                                                        'timestamp'})
+        logging.debug("Проверка датафреймов")
+        self._check_input_dataframes(log, user_features, item_features)
 
-        self._fit(log, user_features, item_features, path)
+        logging.debug("Предварительная стадия обучения (pre-fit)")
+        self._pre_fit(log, user_features, item_features, path)
+
+        logging.debug("Основная стадия обучения (fit)")
+        self._fit_partial(log, user_features, item_features, path)
 
     @abstractmethod
-    def _fit(self, log: DataFrame,
-             user_features: Optional[DataFrame],
-             item_features: Optional[DataFrame],
-             path: Optional[str] = None) -> None:
+    def _pre_fit(self, log: DataFrame,
+                 user_features: Optional[DataFrame],
+                 item_features: Optional[DataFrame],
+                 path: Optional[str] = None) -> None:
         """
-        Метод-helper для обучения модели.
+        Метод-helper для обучения модели, в которой параметры не используются.
+        Нужен для того, чтобы вынести вычисление трудоемких агрегатов
+        в отдельный метод, который по возможности будет вызываться один раз.
+        Должен быть имплементирован наследниками.
+
+        :param path: путь к директории, в которой сохраняются промежуточные
+            резльтаты в виде parquet-файлов; если None, делаются checkpoints
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            [`user_id`, `item_id`, `timestamp`, `context`, `relevance`]
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            [`user_id`, `timestamp`] и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            [`item_id`, `timestamp`] и колонки с признаками
+        :return:
+        """
+
+    @abstractmethod
+    def _fit_partial(self, log: DataFrame,
+                     user_features: Optional[DataFrame],
+                     item_features: Optional[DataFrame],
+                     path: Optional[str] = None) -> None:
+        """
+        Метод-helper для обучения модели, в которой используются параметры.
         Должен быть имплементирован наследниками.
 
         :param path: путь к директории, в которой сохраняются промежуточные
@@ -172,7 +214,7 @@ class BaseRecommender(ABC):
             рекомендации, спарк-датафрейм с колонкой ['user_id'];
             если None, выбираются все пользователи из лога;
             если в этом списке есть пользователи, про которых модель ничего
-            не знает, то поднмиается исключение
+            не знает, то поднимается исключение
         :param items: список объектов, которые необходимо рекомендовать;
             спарк-датафрейм с колонкой ['item_id'];
             если None, выбираются все объекты из лога;
@@ -195,16 +237,7 @@ class BaseRecommender(ABC):
             [`user_id`, `item_id`, `context`, `relevance`]
         """
         logging.debug("Проверка датафреймов")
-        self._check_dataframe(log,
-                              required_columns={'item_id', 'user_id'},
-                              optional_columns={'timestamp', 'relevance',
-                                                'context'})
-        self._check_feature_dataframe(user_features,
-                                      required_columns={'user_id'},
-                                      optional_columns={'timestamp'})
-        self._check_feature_dataframe(item_features,
-                                      required_columns={'item_id'},
-                                      optional_columns={'timestamp'})
+        self._check_input_dataframes(log, user_features, item_features)
 
         if users is None:
             logging.debug("Выделение дефолтных юзеров")
@@ -219,6 +252,9 @@ class BaseRecommender(ABC):
             raise ValueError(
                 "Значение k больше, чем множество объектов; "
                 f"k = {k}, number of items = {num_items}")
+
+        if context is None:
+            context = constants.DEFAULT_CONTEXT
 
         return self._predict(
             k, users, items,
