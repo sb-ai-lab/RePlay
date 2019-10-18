@@ -1,46 +1,50 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 import logging
 import os
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple, TypeVar
 
 import joblib
+import optuna
 from pyspark.sql import DataFrame, SparkSession
+
 from sponge_bob_magic.metrics.metrics import Metrics
+from sponge_bob_magic.models.base_recommender import BaseRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
 from sponge_bob_magic.validation_schemes import ValidationSchemes
-
-import optuna
 
 TNum = TypeVar('TNum', int, float)
 
 
 class PopularScenario:
+    """ Сценарий с рекомнедациями популярных items. """
+    model: Optional[BaseRecommender]
     study: Optional[optuna.Study]
 
     def __init__(self, spark: SparkSession):
-        self.model = None
         self.spark = spark
-        self.study = None
-
         self.seed = 1234
 
-    def research(self,
-                 params_grid: Dict[str, Tuple[TNum, TNum]],
-                 log: DataFrame,
-                 users: Optional[DataFrame],
-                 items: Optional[DataFrame],
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None,
-                 test_start: Optional[datetime] = None,
-                 test_size: float = None,
-                 k: int = 10,
-                 context: Optional[str] = 'no_context',
-                 to_filter_seen_items: bool = True,
-                 n_trials: int = 10,
-                 n_jobs: int = 1,
-                 how_to_split: str = 'by_date',
-                 path: Optional[str] = None
-                 ) -> Dict[str, Any]:
+    def research(
+            self,
+            params_grid: Dict[str, Tuple[TNum, TNum]],
+            log: DataFrame,
+            users: Optional[DataFrame],
+            items: Optional[DataFrame],
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None,
+            test_start: Optional[datetime] = None,
+            test_size: float = None,
+            k: int = 10,
+            context: Optional[str] = 'no_context',
+            to_filter_seen_items: bool = True,
+            n_trials: int = 10,
+            n_jobs: int = 1,
+            how_to_split: str = 'by_date',
+            path: Optional[str] = None
+    ) -> Dict[str, Any]:
         splitter = ValidationSchemes(self.spark)
 
         logging.debug("Деление на трейн и тест")
@@ -64,13 +68,10 @@ class PopularScenario:
         train.checkpoint()
         test_input.checkpoint()
         test.checkpoint()
-        logging.debug(f"Размер трейна:      {train.count()}")
-        logging.debug(f"Размер теста_инпут: {test_input.count()}")
-        logging.debug(f"Размер теста:       {test.count()}")
 
         self.model = PopularRecommender(self.spark)
 
-        # если юзеров или айтемов нет, возьмем всех из теста,
+        # если users или items нет, возьмем всех из теста,
         # чтобы не делать на каждый trial их заново
         if users is None:
             users = test.select('user_id').distinct()
@@ -115,14 +116,14 @@ class PopularScenario:
             )
 
             logging.debug("Подсчет метрики в оптимизации")
-            metric_result = Metrics.hit_rate_at_k(recs, test, k=k)
+            hit_rate = Metrics.hit_rate_at_k(recs, test, k=k)
+            ndcg = Metrics.ndcg_at_k(recs, test, k=k)
 
-            # вот так можно положить в trial еще метрики
-            trial.set_user_attr('some_metric', 1.0)
+            trial.set_user_attr('nDCG@k', ndcg)
 
-            logging.debug(f"Метрика и параметры: {metric_result, params}")
+            logging.debug(f"Метрика и параметры: {hit_rate, ndcg, params}")
 
-            return metric_result
+            return hit_rate
 
         logging.debug("Начало оптимизации параметров")
         sampler = optuna.samplers.RandomSampler()
@@ -133,16 +134,18 @@ class PopularScenario:
         logging.debug(f"Лучшие параметры: {self.study.best_params}")
         return self.study.best_params
 
-    def production(self, params,
-                   log: DataFrame,
-                   users: Optional[DataFrame],
-                   items: Optional[DataFrame],
-                   user_features: Optional[DataFrame],
-                   item_features: Optional[DataFrame],
-                   k: int,
-                   context: Optional[str],
-                   to_filter_seen_items: bool
-                   ) -> DataFrame:
+    def production(
+            self,
+            params,
+            log: DataFrame,
+            users: Optional[DataFrame],
+            items: Optional[DataFrame],
+            user_features: Optional[DataFrame],
+            item_features: Optional[DataFrame],
+            k: int,
+            context: Optional[str],
+            to_filter_seen_items: bool
+    ) -> DataFrame:
         self.model = PopularRecommender(self.spark)
         self.model.set_params(**params)
 

@@ -1,5 +1,5 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
 import os
@@ -14,17 +14,16 @@ from sponge_bob_magic.models.base_recommender import BaseRecommender
 
 
 class PopularRecommender(BaseRecommender):
-    """ простейший рекомендатель на основе сглаженной популярности """
+    """ Простейший рекомендатель на основе сглаженной популярности. """
     items_popularity: Optional[DataFrame]
 
-    def __init__(self, spark: SparkSession, alpha: float = 0.001,
-                 beta: float = 0.001):
+    def __init__(self, spark: SparkSession,
+                 alpha: float = 1000,
+                 beta: float = 1000):
         super().__init__(spark)
 
         self.alpha = alpha
         self.beta = beta
-
-        self.items_popularity = None
 
     def get_params(self) -> Dict[str, object]:
         return {'alpha': self.alpha,
@@ -45,11 +44,11 @@ class PopularRecommender(BaseRecommender):
         # считаем среднее кол-во просмотренных items у каждого user
         self.avg_num_items = np.ceil(
             log
-            .select('user_id', 'item_id')
-            .groupBy('user_id')
-            .count()
-            .select(sf.mean(sf.col('count')).alias('mean'))
-            .collect()[0]['mean']
+                .select('user_id', 'item_id')
+                .groupBy('user_id')
+                .count()
+                .select(sf.mean(sf.col('count')).alias('mean'))
+                .collect()[0]['mean']
         )
         logging.debug(
             f"Среднее количество items у каждого user: {self.avg_num_items}")
@@ -92,9 +91,9 @@ class PopularRecommender(BaseRecommender):
                             .filter(items_to_rec['context'] == context))
 
         count_sum = (items_to_rec
-                     .groupBy()
-                     .agg(sf.sum("count"))
-                     .collect()[0][0])
+            .groupBy()
+            .agg(sf.sum("count"))
+            .collect()[0][0])
 
         items_to_rec = (items_to_rec
                         .withColumn('relevance',
@@ -103,8 +102,11 @@ class PopularRecommender(BaseRecommender):
                         .drop('count'))
 
         # удаляем ненужные items и добавляем нулевые
-        items = (items
-                 .join(items_to_rec, on='item_id', how='left'))
+        items = items.join(
+            items_to_rec,
+            on='item_id',
+            how='left'
+        )
         items = items.na.fill({'context': context,
                                'relevance': 0})
 
@@ -115,7 +117,6 @@ class PopularRecommender(BaseRecommender):
 
         # (user_id, item_id, context, relevance)
         recs = users.crossJoin(items)
-        logging.debug(f"Длина recs: {recs.count()}")
 
         if to_filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
