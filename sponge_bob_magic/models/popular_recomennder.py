@@ -39,26 +39,24 @@ class PopularRecommender(BaseRecommender):
 
         self.items_popularity = popularity.select(
             'item_id', 'context', 'count'
-        )
+        ).cache()
 
         # считаем среднее кол-во просмотренных items у каждого user
         self.avg_num_items = np.ceil(
             log
-                .select('user_id', 'item_id')
-                .groupBy('user_id')
-                .count()
-                .select(sf.mean(sf.col('count')).alias('mean'))
-                .collect()[0]['mean']
+            .select('user_id', 'item_id')
+            .groupBy('user_id')
+            .count()
+            .select(sf.mean(sf.col('count')).alias('mean'))
+            .collect()[0]['mean']
         )
         logging.debug(
             f"Среднее количество items у каждого user: {self.avg_num_items}")
 
         if path is not None:
-            path_parquet = os.path.join(path, 'items_popularity.parquet')
-            self.items_popularity.write.parquet(path_parquet)
-            self.items_popularity = self.spark.read.parquet(path_parquet)
-        else:
-            self.items_popularity.checkpoint()
+            self.items_popularity = utils.write_read_dataframe(
+                self.spark, self.items_popularity,
+                os.path.join(path, 'items_popularity.parquet'))
 
     def _fit_partial(self, log: DataFrame,
                      user_features: Optional[DataFrame],
@@ -91,9 +89,9 @@ class PopularRecommender(BaseRecommender):
                             .filter(items_to_rec['context'] == context))
 
         count_sum = (items_to_rec
-            .groupBy()
-            .agg(sf.sum("count"))
-            .collect()[0][0])
+                     .groupBy()
+                     .agg(sf.sum("count"))
+                     .collect()[0][0])
 
         items_to_rec = (items_to_rec
                         .withColumn('relevance',
@@ -129,14 +127,12 @@ class PopularRecommender(BaseRecommender):
         recs = (recs
                 .withColumn('relevance',
                             sf.when(recs['relevance'] < 0, 0)
-                            .otherwise(recs['relevance'])))
+                            .otherwise(recs['relevance']))).cache()
 
         if path is not None:
-            path_parquet = os.path.join(path, 'recs.parquet')
-            recs.write.parquet(path_parquet)
-            recs = self.spark.read.parquet(path_parquet)
-        else:
-            recs.checkpoint()
+            recs = utils.write_read_dataframe(
+                self.spark, recs,
+                os.path.join(path, 'recs.parquet'))
 
         return recs
 

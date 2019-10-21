@@ -68,8 +68,8 @@ class DataPreparator:
                 f"В датафрейме нет обязательных колонок ({required_columns})")
         if len(
                 given_columns
-                        .difference(required_columns)
-                        .difference(optional_columns)
+                .difference(required_columns)
+                .difference(optional_columns)
         ) > 0:
             raise ValueError("В 'columns_names' есть лишние колонки")
 
@@ -176,7 +176,7 @@ class DataPreparator:
         }
         df = self._rename_columns(df, columns_names,
                                   default_schema=log_schema,
-                                  date_format=date_format)
+                                  date_format=date_format).cache()
 
         return df
 
@@ -247,5 +247,5 @@ class DataPreparator:
 
         df = self._rename_columns(df, columns_names,
                                   default_schema=features_schema,
-                                  date_format=date_format)
+                                  date_format=date_format).cache()
         return df

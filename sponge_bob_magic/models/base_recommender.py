@@ -25,7 +25,6 @@ class BaseRecommender(ABC):
         self.model = None
         self.encoder = LabelEncoder()
         self.spark = spark
-        self.to_make_checkpoints = True
 
     def set_params(self, **params: Dict[str, Any]):
         """
