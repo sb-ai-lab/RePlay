@@ -1,5 +1,5 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
 import os
@@ -14,34 +14,32 @@ from sponge_bob_magic.models.base_recommender import BaseRecommender
 
 
 class PopularRecommender(BaseRecommender):
-    """ простейший рекомендатель на основе сглаженной популярности """
+    """ Простейший рекомендатель на основе сглаженной популярности. """
     items_popularity: Optional[DataFrame]
 
-    def __init__(self, spark: SparkSession, alpha: float = 0.001,
-                 beta: float = 0.001):
+    def __init__(self, spark: SparkSession,
+                 alpha: float = 1000,
+                 beta: float = 1000):
         super().__init__(spark)
 
         self.alpha = alpha
         self.beta = beta
 
-        self.items_popularity = None
-
     def get_params(self) -> Dict[str, object]:
         return {'alpha': self.alpha,
                 'beta': self.beta}
 
-    def _fit(self,
-             log: DataFrame,
-             user_features: Optional[DataFrame],
-             item_features: Optional[DataFrame],
-             path: Optional[str] = None) -> None:
+    def _pre_fit(self, log: DataFrame,
+                 user_features: Optional[DataFrame],
+                 item_features: Optional[DataFrame],
+                 path: Optional[str] = None) -> None:
         popularity = (log
                       .groupBy('item_id', 'context')
                       .count())
 
         self.items_popularity = popularity.select(
             'item_id', 'context', 'count'
-        )
+        ).cache()
 
         # считаем среднее кол-во просмотренных items у каждого user
         self.avg_num_items = np.ceil(
@@ -56,17 +54,21 @@ class PopularRecommender(BaseRecommender):
             f"Среднее количество items у каждого user: {self.avg_num_items}")
 
         if path is not None:
-            path_parquet = os.path.join(path, 'items_popularity.parquet')
-            self.items_popularity.write.parquet(path_parquet)
-            self.items_popularity = self.spark.read.parquet(path_parquet)
-        else:
-            self.items_popularity.checkpoint()
+            self.items_popularity = utils.write_read_dataframe(
+                self.spark, self.items_popularity,
+                os.path.join(path, 'items_popularity.parquet'))
+
+    def _fit_partial(self, log: DataFrame,
+                     user_features: Optional[DataFrame],
+                     item_features: Optional[DataFrame],
+                     path: Optional[str] = None) -> None:
+        pass
 
     def _predict(self,
                  k: int,
                  users: DataFrame,
                  items: DataFrame,
-                 context: Optional[str],
+                 context: str,
                  log: DataFrame,
                  user_features: Optional[DataFrame],
                  item_features: Optional[DataFrame],
@@ -74,7 +76,7 @@ class PopularRecommender(BaseRecommender):
                  path: Optional[str] = None) -> DataFrame:
         items_to_rec = self.items_popularity
 
-        if context is None or context == constants.DEFAULT_CONTEXT:
+        if context == constants.DEFAULT_CONTEXT:
             items_to_rec = (items_to_rec
                             .select('item_id', 'count')
                             .groupBy('item_id')
@@ -98,8 +100,11 @@ class PopularRecommender(BaseRecommender):
                         .drop('count'))
 
         # удаляем ненужные items и добавляем нулевые
-        items = (items
-                 .join(items_to_rec, on='item_id', how='left'))
+        items = items.join(
+            items_to_rec,
+            on='item_id',
+            how='left'
+        )
         items = items.na.fill({'context': context,
                                'relevance': 0})
 
@@ -110,7 +115,6 @@ class PopularRecommender(BaseRecommender):
 
         # (user_id, item_id, context, relevance)
         recs = users.crossJoin(items)
-        logging.debug(f"Длина recs: {recs.count()}")
 
         if to_filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
@@ -123,14 +127,12 @@ class PopularRecommender(BaseRecommender):
         recs = (recs
                 .withColumn('relevance',
                             sf.when(recs['relevance'] < 0, 0)
-                            .otherwise(recs['relevance'])))
+                            .otherwise(recs['relevance']))).cache()
 
         if path is not None:
-            path_parquet = os.path.join(path, 'recs.parquet')
-            recs.write.parquet(path_parquet)
-            recs = self.spark.read.parquet(path_parquet)
-        else:
-            recs.checkpoint()
+            recs = utils.write_read_dataframe(
+                self.spark, recs,
+                os.path.join(path, 'recs.parquet'))
 
         return recs
 

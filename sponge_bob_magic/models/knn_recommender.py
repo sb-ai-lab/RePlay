@@ -1,27 +1,34 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+import os
 from typing import Dict, Optional
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql import functions as F
+from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
+
+from sponge_bob_magic import utils
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 
 
 class KNNRecommender(BaseRecommender):
-    """ item-based KNN на сглаженной косинусной мере схожести """
-    similarity: DataFrame
+    """ Item-based KNN на сглаженной косинусной мере схожести. """
+    all_items: Optional[DataFrame]
+    dot_products: Optional[DataFrame]
+    item_norms: Optional[DataFrame]
+    similarity: Optional[DataFrame]
 
     def __init__(self, spark: SparkSession, k: int, shrink: float = 0.0):
         super().__init__(spark)
+
         self.shrink = shrink
         self.k = k
 
     def get_params(self) -> Dict[str, object]:
-        """ показать параметры модели """
-        return {"shrink": self.shrink, "k": self.k}
+        return {"shrink": self.shrink,
+                "k": self.k}
 
     def _get_similarity_matrix(
             self,
@@ -33,14 +40,14 @@ class KNNRecommender(BaseRecommender):
         получить верхнюю треугольную матрицу модифицированной косинусной меры
         схожести
 
-        :param items: объекты, между которыми нужно посчитать схожесть.
-        Содержит только одну колонку: item_id
-        :param dot_products: скалярные произведения между объектами. Имеет вид
-        (item_id_one, item_id_two, dot_product)
-        :param item_norms: евклидовы нормы объектов. Имеет вид
-        (item_id, norm)
-        :returns: матрица схожести вида
-        (item_id_one, item_id_two, similarity)
+        :param items: объекты, между которыми нужно посчитать схожесть,
+            спарк-датафрейм с колонкой `[item_id]`
+        :param dot_products: скалярные произведения между объектами,
+            спарк-датафрейм вида `[item_id_one, item_id_two, dot_product]`
+        :param item_norms: евклидовы нормы объектов,
+            спарк-датафрейм вида `[item_id, norm]`
+        :return: матрица схожести,
+            спарк-датафрейм вида `[item_id_one, item_id_two, similarity]`
         """
         return (
             items
@@ -49,7 +56,7 @@ class KNNRecommender(BaseRecommender):
                 items
                 .withColumnRenamed("item_id", "item_id_two"),
                 how="inner",
-                on=F.col("item_id_one") > F.col("item_id_two")
+                on=sf.col("item_id_one") > sf.col("item_id_two")
             )
             .join(
                 dot_products,
@@ -59,59 +66,60 @@ class KNNRecommender(BaseRecommender):
             .join(
                 item_norms.alias("item1"),
                 how="inner",
-                on=F.col("item1.item_id") == F.col("item_id_one")
+                on=sf.col("item1.item_id") == sf.col("item_id_one")
             )
             .join(
                 item_norms.alias("item2"),
                 how="inner",
-                on=F.col("item2.item_id") == F.col("item_id_two")
+                on=sf.col("item2.item_id") == sf.col("item_id_two")
             )
             .withColumn(
                 "similarity",
-                F.col("dot_product") /
-                (F.col("item1.norm") * F.col("item2.norm") + self.shrink)
+                sf.col("dot_product") /
+                (sf.col("item1.norm") * sf.col("item2.norm") + self.shrink)
             )
             .select("item_id_one", "item_id_two", "similarity")
         )
 
     def _get_k_most_similar(self, similarity_matrix: DataFrame) -> DataFrame:
         """
-        преобразовать матрицу схожести:
-        1) сделать её симметричной
-        2) отобрать только топ k ближайших соседей
+        Преобразовывает матрицу схожести:
+        1) делает её симметричной;
+        2) отбирает только топ-k ближайших соседей.
 
-        :param similarity_matrix: матрица схожести вида
-        (item_id_one, item_id_two, similarity)
+        :param similarity_matrix: матрица схожести,
+            спарк-датафрейм вида `[item_id_one, item_id_two, similarity]`
+        :return: преобразованная матрица схожести такого же вида
         """
         return (
             similarity_matrix
             .union(
                 similarity_matrix
                 .select(
-                    F.col("item_id_two").alias("item_id_one"),
-                    F.col("item_id_one").alias("item_id_two"),
-                    F.col("similarity")
+                    sf.col("item_id_two").alias("item_id_one"),
+                    sf.col("item_id_one").alias("item_id_two"),
+                    sf.col("similarity")
                 )
             )
             .withColumn(
                 "similarity_order",
-                F.row_number().over(
+                sf.row_number().over(
                     Window.partitionBy("item_id_one").orderBy("similarity")
                 )
             )
-            .filter(F.col("similarity_order") <= self.k)
+            .filter(sf.col("similarity_order") <= self.k)
             .drop("similarity_order")
             .cache()
         )
 
-    def _fit(
+    def _pre_fit(
             self,
             log: DataFrame,
             user_features: Optional[DataFrame],
             item_features: Optional[DataFrame],
             path: Optional[str] = None
     ) -> None:
-        dot_products = (
+        self.dot_products = (
             log
             .withColumnRenamed("item_id", "item_id_one")
             .join(
@@ -120,21 +128,49 @@ class KNNRecommender(BaseRecommender):
                 on="user_id"
             )
             .groupby("item_id_one", "item_id_two")
-            .agg(F.count("user_id").alias("dot_product"))
+            .agg(sf.count("user_id").alias("dot_product"))
             .cache()
         )
-        item_norms = (
+        self.item_norms = (
             log
             .groupby("item_id")
-            .agg(F.count("user_id").alias("square_norm"))
-            .select(F.col("item_id"), F.sqrt("square_norm").alias("norm"))
+            .agg(sf.count("user_id").alias("square_norm"))
+            .select(sf.col("item_id"), sf.sqrt("square_norm").alias("norm"))
             .cache()
         )
-        items = log.select("item_id").distinct().cache()
+        self.all_items = log.select("item_id").distinct().cache()
+
+        # сохраняем на диск, если есть путь
+        if path is not None:
+            self.dot_products = utils.write_read_dataframe(
+                self.spark, self.dot_products,
+                os.path.join(path, 'knn_dot_products.parquet'))
+            self.item_norms = utils.write_read_dataframe(
+                self.spark, self.item_norms,
+                os.path.join(path, 'knn_item_norms.parquet'))
+            self.all_items = utils.write_read_dataframe(
+                self.spark, self.all_items,
+                os.path.join(path, 'knn_all_items.parquet'))
+
+    def _fit_partial(
+            self,
+            log: DataFrame,
+            user_features: Optional[DataFrame],
+            item_features: Optional[DataFrame],
+            path: Optional[str] = None
+    ) -> None:
         similarity_matrix = self._get_similarity_matrix(
-            items, dot_products, item_norms
+            self.all_items, self.dot_products, self.item_norms
         ).cache()
+
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()
+
+        # сохраняем на диск, если есть путь
+        if path is not None:
+            self.similarity_matrix = utils.write_read_dataframe(
+                self.spark, self.similarity_matrix,
+                os.path.join(path, 'knn_similarity_matrix.parquet')
+            )
 
     def _predict(
             self,
@@ -158,16 +194,25 @@ class KNNRecommender(BaseRecommender):
             .join(
                 self.similarity,
                 how="left",
-                on=F.col("item_id") == F.col("item_id_one")
+                on=sf.col("item_id") == sf.col("item_id_one")
             )
             .groupby("user_id", "item_id_two")
-            .agg(F.sum("similarity").alias("relevance"))
+            .agg(sf.sum("similarity").alias("relevance"))
             .withColumnRenamed("item_id_two", "item_id")
-            .withColumn("context", F.lit(DEFAULT_CONTEXT))
+            .withColumn("context", sf.lit(DEFAULT_CONTEXT))
             .cache()
         )
+
         if to_filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
+
         recs = self._get_top_k_recs(recs, k)
-        recs = recs.filter(F.col("relevance") > 0.0)
+        recs = recs.filter(sf.col("relevance") > 0.0)
+
+        if path is not None:
+            recs = utils.write_read_dataframe(
+                self.spark, recs,
+                os.path.join(path, 'recs.parquet')
+            )
+
         return recs.cache()

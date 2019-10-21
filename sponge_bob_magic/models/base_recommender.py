@@ -1,5 +1,5 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
 from abc import ABC, abstractmethod
@@ -9,9 +9,19 @@ from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as sf
 from sklearn.preprocessing import LabelEncoder
 
+from sponge_bob_magic import constants
+
 
 class BaseRecommender(ABC):
+    """ Базовый класс-рекомендатель. """
+
     def __init__(self, spark: SparkSession, **kwargs):
+        """
+        Инициализирует параметры модели и сохраняет спарк-сессию.
+
+        :param spark: инициализированная спарк-сессия
+        :param kwargs: параметры для модели
+        """
         self.model = None
         self.encoder = LabelEncoder()
         self.spark = spark
@@ -41,7 +51,7 @@ class BaseRecommender(ABC):
     @abstractmethod
     def get_params(self) -> Dict[str, object]:
         """
-        Вовзращает параметры рекоммендера в виде словаря.
+        Возвращает параметры рекоммендера в виде словаря.
 
         :return: словарь параметров, ключ - название параметра,
             значение - значение параметра
@@ -50,7 +60,7 @@ class BaseRecommender(ABC):
     @staticmethod
     def _check_dataframe(dataframe: Optional[DataFrame],
                          required_columns: Set[str],
-                         optional_columns: Set[str]):
+                         optional_columns: Set[str]) -> None:
         if dataframe is None:
             raise ValueError("Датафрейм есть None")
 
@@ -80,7 +90,7 @@ class BaseRecommender(ABC):
     @staticmethod
     def _check_feature_dataframe(features: Optional[DataFrame],
                                  required_columns: Set[str],
-                                 optional_columns: Set[str]):
+                                 optional_columns: Set[str]) -> None:
         if features is None:
             return
 
@@ -94,6 +104,27 @@ class BaseRecommender(ABC):
             optional_columns=optional_columns
         )
 
+    @staticmethod
+    def _check_input_dataframes(log: DataFrame,
+                                user_features: DataFrame,
+                                item_features: DataFrame) -> None:
+        BaseRecommender._check_dataframe(
+            log,
+            required_columns={"item_id", "user_id", "timestamp", "relevance",
+                              "context"},
+            optional_columns=set()
+        )
+        BaseRecommender._check_feature_dataframe(
+            user_features,
+            optional_columns=set(),
+            required_columns={"user_id", "timestamp"}
+        )
+        BaseRecommender._check_feature_dataframe(
+            item_features,
+            optional_columns=set(),
+            required_columns={"item_id", "timestamp"}
+        )
+
     def fit(self, log: DataFrame,
             user_features: Optional[DataFrame],
             item_features: Optional[DataFrame],
@@ -105,49 +136,69 @@ class BaseRecommender(ABC):
             резльтаты в виде parquet-файлов; если None, делаются checkpoints
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            [`user_id`, `item_id`, `timestamp`, `context`, `relevance`]
+            `[user_id , item_id , timestamp , context , relevance]`
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
-            [`user_id`, `timestamp`] и колонки с признаками
+            `[user_id , timestamp]` и колонки с признаками
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
-            [`item_id`, `timestamp`] и колонки с признаками
+            `[item_id , timestamp]` и колонки с признаками
         :return:
         """
-        self._check_dataframe(log,
-                              required_columns={'item_id', 'user_id',
-                                                'timestamp', 'relevance',
-                                                'context'},
-                              optional_columns=set())
-        self._check_feature_dataframe(user_features, optional_columns=set(),
-                                      required_columns={'user_id',
-                                                        'timestamp'})
-        self._check_feature_dataframe(item_features, optional_columns=set(),
-                                      required_columns={'item_id',
-                                                        'timestamp'})
+        logging.debug("Проверка датафреймов")
+        self._check_input_dataframes(log, user_features, item_features)
 
-        self._fit(log, user_features, item_features, path)
+        logging.debug("Предварительная стадия обучения (pre-fit)")
+        self._pre_fit(log, user_features, item_features, path)
+
+        logging.debug("Основная стадия обучения (fit)")
+        self._fit_partial(log, user_features, item_features, path)
 
     @abstractmethod
-    def _fit(self, log: DataFrame,
-             user_features: Optional[DataFrame],
-             item_features: Optional[DataFrame],
-             path: Optional[str] = None) -> None:
+    def _pre_fit(self, log: DataFrame,
+                 user_features: Optional[DataFrame],
+                 item_features: Optional[DataFrame],
+                 path: Optional[str] = None) -> None:
         """
-        Метод-helper для обучения модели.
+        Метод-helper для обучения модели, в которой параметры не используются.
+        Нужен для того, чтобы вынести вычисление трудоемких агрегатов
+        в отдельный метод, который по возможности будет вызываться один раз.
         Должен быть имплементирован наследниками.
 
         :param path: путь к директории, в которой сохраняются промежуточные
             резльтаты в виде parquet-файлов; если None, делаются checkpoints
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            [`user_id`, `item_id`, `timestamp`, `context`, `relevance`]
+            `[user_id , item_id , timestamp , context , relevance]`
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
-            [`user_id`, `timestamp`] и колонки с признаками
+            `[user_id , timestamp]` и колонки с признаками
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
-            [`item_id`, `timestamp`] и колонки с признаками
+            `[item_id , timestamp]` и колонки с признаками
+        :return:
+        """
+
+    @abstractmethod
+    def _fit_partial(self, log: DataFrame,
+                     user_features: Optional[DataFrame],
+                     item_features: Optional[DataFrame],
+                     path: Optional[str] = None) -> None:
+        """
+        Метод-helper для обучения модели, в которой используются параметры.
+        Должен быть имплементирован наследниками.
+
+        :param path: путь к директории, в которой сохраняются промежуточные
+            резльтаты в виде parquet-файлов; если None, делаются checkpoints
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            `[user_id , item_id , timestamp , context , relevance]`
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            `[user_id , timestamp]` и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            `[item_id , timestamp]` и колонки с признаками
         :return:
         """
 
@@ -169,12 +220,12 @@ class BaseRecommender(ABC):
         :param k: количество рекомендаций для каждого пользователя;
             должно быть не больше, чем количество объектов в `items`
         :param users: список пользователей, для которых необходимо получить
-            рекомендации, спарк-датафрейм с колонкой ['user_id'];
+            рекомендации, спарк-датафрейм с колонкой `[user_id]`;
             если None, выбираются все пользователи из лога;
             если в этом списке есть пользователи, про которых модель ничего
-            не знает, то поднмиается исключение
+            не знает, то вызывается ошибка
         :param items: список объектов, которые необходимо рекомендовать;
-            спарк-датафрейм с колонкой ['item_id'];
+            спарк-датафрейм с колонкой `[item_id]`;
             если None, выбираются все объекты из лога;
             если в этом списке есть объекты, про которых модель ничего
             не знает, то в relevance в рекомендациях к ним будет стоять 0
@@ -182,43 +233,37 @@ class BaseRecommender(ABC):
             если None, контекст не будет использоваться
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            [`user_id`, `item_id`, `timestamp`, `context`, `relevance`]
+            `[user_id , item_id , timestamp , context , relevance]`
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
-            [`user_id`, `timestamp`] и колонки с признаками
+            `[user_id , timestamp]` и колонки с признаками
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
-            [`item_id`, `timestamp`] и колонки с признаками
+            `[item_id , timestamp]` и колонки с признаками
         :param to_filter_seen_items: если True, из рекомендаций каждому
             пользователю удаляются виденные им объекты на основе лога
         :return: рекомендации, спарк-датафрейм с колонками
-            [`user_id`, `item_id`, `context`, `relevance`]
+            `[user_id , item_id , context , relevance]`
         """
         logging.debug("Проверка датафреймов")
-        self._check_dataframe(log,
-                              required_columns={'item_id', 'user_id'},
-                              optional_columns={'timestamp', 'relevance',
-                                                'context'})
-        self._check_feature_dataframe(user_features,
-                                      required_columns={'user_id'},
-                                      optional_columns={'timestamp'})
-        self._check_feature_dataframe(item_features,
-                                      required_columns={'item_id'},
-                                      optional_columns={'timestamp'})
+        self._check_input_dataframes(log, user_features, item_features)
 
         if users is None:
             logging.debug("Выделение дефолтных юзеров")
-            users = log.select('user_id').distinct()
+            users = log.select("user_id").distinct()
 
         if items is None:
             logging.debug("Выделение дефолтных айтемов")
-            items = log.select('item_id').distinct()
+            items = log.select("item_id").distinct()
 
         num_items = items.count()
         if num_items < k:
             raise ValueError(
                 "Значение k больше, чем множество объектов; "
                 f"k = {k}, number of items = {num_items}")
+
+        if context is None:
+            context = constants.DEFAULT_CONTEXT
 
         return self._predict(
             k, users, items,
@@ -250,7 +295,7 @@ class BaseRecommender(ABC):
         :param users: список пользователей, для которых необходимо получить
             рекомендации; если None, выбираются все пользователи из лога;
             если в этом списке есть пользователи, про которых модель ничего
-            не знает, то поднмиается исключение
+            не знает, то вызывается ошибка
         :param items: список объектов, которые необходимо рекомендовать;
             если None, выбираются все объекты из лога;
             если в этом списке есть объекты, про которых модель ничего
@@ -259,17 +304,17 @@ class BaseRecommender(ABC):
             если None, контекст не будет использоваться
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            [`user_id`, `item_id`, `timestamp`, `context`, `relevance`]
+            `[user_id , item_id , timestamp , context , relevance]`
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
-            [`user_id`, `timestamp`] и колонки с признаками
+            `[user_id , timestamp]` и колонки с признаками
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
-            [`item_id`, `timestamp`] и колонки с признаками
+            `[item_id , timestamp]` и колонки с признаками
         :param to_filter_seen_items: если True, из рекомендаций каждому
             пользователю удаляются виденные им объекты на основе лога
         :return: рекомендации, спарк-датафрейм с колонками
-            [`user_id`, `item_id`, `context`, `relevance`]
+            `[user_id , item_id , context , relevance]`
         """
 
     def fit_predict(self,
@@ -301,17 +346,17 @@ class BaseRecommender(ABC):
             если None, контекст не будет использоваться
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            [`user_id`, `item_id`, `timestamp`, `context`, `relevance`]
+            `[user_id , item_id , timestamp , context , relevance]`
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
-            [`user_id`, `timestamp`] и колонки с признаками
+            `[user_id , timestamp]` и колонки с признаками
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
-            [`item_id`, `timestamp`] и колонки с признаками
+            `[item_id , timestamp]` и колонки с признаками
         :param to_filter_seen_items: если True, из рекомендаций каждому
             пользователю удаляются виденные им объекты на основе лога
         :return: рекомендации, спарк-датафрейм с колонками
-            [`user_id`, `item_id`, `context`, `relevance`]
+            `[user_id , item_id , context , relevance]`
         """
         self.fit(log, user_features, item_features, path)
         return self.predict(k, users, items,
@@ -327,42 +372,42 @@ class BaseRecommender(ABC):
         relevance уже виденных им объекты (на основе лога) на -1.
 
         :param recs: рекомендации, спарк-датафрейм с колонками
-            [`user_id`, `item_id`, `context`, `relevance`]
+            `[user_id , item_id , context , relevance]`
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            [`user_id`, `item_id`, `timestamp`, `context`, `relevance`]
+            `[user_id , item_id , timestamp , context , relevance]`
         :return: измененные рекомендации, спарк-датафрейм с колонками
-            [`user_id`, `item_id`, `context`, `relevance`]
+            `[user_id , item_id , context , relevance]`
         """
         user_item_log = (log
-                         .select('item_id', 'user_id')
-                         .withColumn('in_log', sf.lit(True)))
+                         .select("item_id", "user_id")
+                         .withColumn("in_log", sf.lit(True)))
         recs = (recs
-                .join(user_item_log, on=['item_id', 'user_id'], how='left'))
+                .join(user_item_log, on=["item_id", "user_id"], how="left"))
         recs = (recs
-                .withColumn('relevance',
-                            sf.when(recs['in_log'], -1)
-                            .otherwise(recs['relevance']))
-                .drop('in_log'))
+                .withColumn("relevance",
+                            sf.when(recs["in_log"], -1)
+                            .otherwise(recs["relevance"]))
+                .drop("in_log"))
         return recs
 
     @staticmethod
     def _get_top_k_recs(recs: DataFrame, k: int):
         """
-        Выбирает из рекомендаций топ-k штук на основе relevance.
+        Выбирает из рекомендаций топ-k штук на основе `relevance`.
 
         :param recs: рекомендации, спарк-датафрейм с колонками
-            [`user_id`, `item_id`, `context`, `relevance`]
+            `[user_id , item_id , context , relevance]`
         :param k: число рекомендаций для каждого юзера
         :return: топ-k рекомендации, спарк-датафрейм с колонками
-            [`user_id`, `item_id`, `context`, `relevance`]
+            `[user_id , item_id , context , relevance]`
         """
         window = (Window
-                  .partitionBy(recs['user_id'])
-                  .orderBy(recs['relevance'].desc()))
+                  .partitionBy(recs["user_id"])
+                  .orderBy(recs["relevance"].desc()))
 
         return (recs
-                .withColumn('rank',
+                .withColumn("rank",
                             sf.row_number().over(window))
-                .filter(sf.col('rank') <= k)
-                .drop('rank'))
+                .filter(sf.col("rank") <= k)
+                .drop("rank"))

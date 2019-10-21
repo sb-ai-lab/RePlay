@@ -27,7 +27,8 @@ class KNNRecommenderTestCase(PySparkTest):
         )
 
     def test_fit(self):
-        self.model._fit(self.log, None, None)
+        self.model._pre_fit(self.log, None, None)
+        self.model._fit_partial(self.log, None, None)
         self.assertSparkDataFrameEqual(
             self.model.similarity,
             self.spark.createDataFrame([
@@ -42,13 +43,13 @@ class KNNRecommenderTestCase(PySparkTest):
         )
 
     def test_predict(self):
-        self.model._fit(self.log, None, None)
+        self.model.fit(self.log, None, None)
         recs = self.model._predict(
             k=1,
             log=self.log,
             user_features=None,
             item_features=None,
-            context=None,
+            context=DEFAULT_CONTEXT,
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct()
         )
