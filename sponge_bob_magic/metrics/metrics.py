@@ -33,15 +33,15 @@ class Metrics:
         """
         top_k_recommendations = (
             recommendations
-            .withColumn(
+                .withColumn(
                 "relevance_rank",
                 sf.row_number().over(
                     Window.partitionBy("user_id", "context")
-                    .orderBy(sf.desc("relevance"))
+                        .orderBy(sf.desc("relevance"))
                 )
             )
-            .filter(sf.col("relevance_rank") <= k)
-            .drop("relevance_rank"))
+                .filter(sf.col("relevance_rank") <= k)
+                .drop("relevance_rank"))
 
         users_hit = top_k_recommendations.join(
             ground_truth,
@@ -81,7 +81,7 @@ class Metrics:
                 outputCol="item_idx",
                 handleInvalid="keep"
             )
-            .fit(ground_truth)
+                .fit(ground_truth)
         )
 
         df_true = indexer.transform(ground_truth)
@@ -89,22 +89,61 @@ class Metrics:
 
         df_pred = (
             df_pred
-            .groupby("user_id")
-            .agg(sf.collect_list("item_idx").alias("pred_items"))
+                .groupby("user_id")
+                .agg(sf.collect_list("item_idx").alias("pred_items"))
         )
 
         df_true = (
             df_true
-            .groupby("user_id")
-            .agg(sf.collect_list("item_idx").alias("true_items"))
+                .groupby("user_id")
+                .agg(sf.collect_list("item_idx").alias("true_items"))
         )
 
         prediction_and_labels = (
             df_pred
-            .join(df_true, ["user_id"], how="inner")
-            .rdd
-            .map(lambda row: (row[1], row[2]))
+                .join(df_true, ["user_id"], how="inner")
+                .rdd
+                .map(lambda row: (row[1], row[2]))
         )
 
         metrics = RankingMetrics(prediction_and_labels)
         return metrics.ndcgAt(k)
+
+    @staticmethod
+    def precision_at_k(
+            recommendations: DataFrame,
+            ground_truth: DataFrame,
+            k: int
+    ) -> float:
+        """
+        precision: точность на `k` первых элементах выдачи
+
+        :param recommendations: выдача рекомендательной системы вида
+        (user_id, item_id, context, relevance)
+        :param ground_truth: реальный лог действий пользователей
+        :param k: какое максимальное количество объектов брать из топа
+        рекомендованных для оценки
+        """
+        indexer = StringIndexer(inputCol="item_id",
+                                outputCol="item_idx",
+                                handleInvalid='keep') \
+            .fit(ground_truth)
+
+        df_true = indexer.transform(ground_truth)
+        df_pred = indexer.transform(recommendations)
+
+        df_pred = df_pred \
+            .groupby("user_id") \
+            .agg(sf.collect_list("item_idx").alias('pred_items'))
+
+        df_true = df_true \
+            .groupby("user_id") \
+            .agg(sf.collect_list("item_idx").alias('true_items'))
+
+        predictionAndLabels = df_pred \
+            .join(df_true, ['user_id'], how='inner') \
+            .rdd \
+            .map(lambda row: (row[1], row[2]))
+
+        metrics = RankingMetrics(predictionAndLabels)
+        return metrics.precisionAt(k)
