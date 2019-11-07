@@ -21,7 +21,7 @@ class KNNRecommender(BaseRecommender):
     similarity: Optional[DataFrame]
 
     def __init__(self, spark: SparkSession,
-                 num_neighbours: int,
+                 num_neighbours: int = 10,
                  shrink: float = 0.0):
         super().__init__(spark)
 

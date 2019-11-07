@@ -10,6 +10,7 @@ import joblib
 import optuna
 from pyspark.sql import DataFrame, SparkSession
 
+from sponge_bob_magic import constants
 from sponge_bob_magic.metrics.metrics import Metrics
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
@@ -38,13 +39,16 @@ class PopularScenario:
             test_start: Optional[datetime] = None,
             test_size: float = None,
             k: int = 10,
-            context: Optional[str] = 'no_context',
+            context: Optional[str] = None,
             to_filter_seen_items: bool = True,
             n_trials: int = 10,
             n_jobs: int = 1,
             how_to_split: str = 'by_date',
             path: Optional[str] = None
     ) -> Dict[str, Any]:
+        if context is None:
+            context = constants.DEFAULT_CONTEXT
+
         splitter = ValidationSchemes(self.spark)
 
         logging.debug("Деление на трейн и тест")
@@ -65,25 +69,27 @@ class PopularScenario:
                 "допустимые варианты: 'by_date' или 'randomly'")
 
         # рассчитываем все выборки перед подбором параметров
-        train.checkpoint()
-        test_input.checkpoint()
-        test.checkpoint()
-
-        self.model = PopularRecommender(self.spark)
+        train.cache()
+        test_input.cache()
+        test.cache()
+        logging.debug(f"Длина трейна и теста: {train.count(), test.count()}")
+        logging.debug("Количество юзеров в трейне и тесте: "
+                      f"{train.select('user_id').distinct().count()}, "
+                      f"{test.select('user_id').distinct().count()}")
+        logging.debug("Количество айтемов в трейне и тесте: "
+                      f"{train.select('item_id').distinct().count()}, "
+                      f"{test.select('item_id').distinct().count()}")
 
         # если users или items нет, возьмем всех из теста,
         # чтобы не делать на каждый trial их заново
         if users is None:
-            users = test.select('user_id').distinct()
+            users = test.select('user_id').distinct().cache()
 
         if items is None:
-            items = test.select('item_id').distinct()
+            items = test.select('item_id').distinct().cache()
 
-        users.checkpoint()
-        items.checkpoint()
-
-        # обучаем модель заранее, чтобы сохранить каунты
-        # здесь происходит сохранение популярности items в checkpoint
+        logging.debug("Популярная модель: полное обучение")
+        self.model = PopularRecommender(self.spark)
         self.model.fit(log=train,
                        user_features=user_features,
                        item_features=item_features,
@@ -102,29 +108,32 @@ class PopularScenario:
             params = {'alpha': alpha,
                       'beta': beta}
             self.model.set_params(**params)
+            logging.debug(f"-- Параметры: {params}")
 
-            logging.debug("Предикт модели в оптимизации")
-            # здесь как в фите делается checkpoint
+            logging.debug("-- Предикт модели в оптимизации")
+            # здесь как в фите делается cache
             recs = self.model.predict(
                 k=k,
                 users=users, items=items,
                 user_features=user_features,
                 item_features=item_features,
                 context=context,
-                log=log,
+                log=train,
                 to_filter_seen_items=to_filter_seen_items
             )
+            logging.debug(f"-- Длина рекомендаций: {recs.count()}")
 
-            logging.debug("Подсчет метрики в оптимизации")
+            logging.debug("-- Подсчет метрики в оптимизации")
             hit_rate = Metrics.hit_rate_at_k(recs, test, k=k)
             ndcg = Metrics.ndcg_at_k(recs, test, k=k)
 
             trial.set_user_attr('nDCG@k', ndcg)
 
-            logging.debug(f"Метрика и параметры: {hit_rate, ndcg, params}")
+            logging.debug(f"-- Метрика: {hit_rate, ndcg}")
 
             return hit_rate
 
+        logging.debug("-------------")
         logging.debug("Начало оптимизации параметров")
         sampler = optuna.samplers.RandomSampler()
         self.study = optuna.create_study(direction='maximize', sampler=sampler)
