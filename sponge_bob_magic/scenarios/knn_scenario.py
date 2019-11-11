@@ -4,7 +4,7 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple, TypeVar
+from typing import Any, Dict, Optional, Tuple, TypeVar, Set
 
 import joblib
 import optuna
@@ -23,12 +23,14 @@ TNum = TypeVar('TNum', int, float)
 
 class KNNScenario:
     """ Сценарий с item-based KNN моделью. """
+    num_attempts: int = 10
+    tested_params_set: Set[Tuple[TNum, TNum]] = set()
+    seed: int = 1234
     model: Optional[BaseRecommender]
     study: Optional[optuna.Study]
 
     def __init__(self, spark: SparkSession):
         self.spark = spark
-        self.seed = 1234
 
     def _complete_recs(self, recs: DataFrame, additional_recs: DataFrame):
         pass
@@ -126,17 +128,25 @@ class KNNScenario:
                 joblib.dump(self.study,
                             os.path.join(path, "optuna_study.joblib"))
 
-            num_neighbours = trial.suggest_discrete_uniform(
-                'num_neighbours',
-                params_grid['num_neighbours'][0],
-                params_grid['num_neighbours'][1],
-                params_grid['num_neighbours'][2],
-            )
-            shrink = trial.suggest_categorical(
-                'shrink',
-                params_grid['shrink']
-            )
+            # num_attempts раз пытаемся засемплить параметры, которых еще
+            # не было; если не получилось, берем с последней попытки
+            num_neighbours, shrink = 0, 0
+            for attempt in range(KNNScenario.num_attempts):
+                num_neighbours = trial.suggest_discrete_uniform(
+                    'num_neighbours',
+                    params_grid['num_neighbours'][0],
+                    params_grid['num_neighbours'][1],
+                    params_grid['num_neighbours'][2],
+                )
+                shrink = trial.suggest_categorical(
+                    'shrink',
+                    params_grid['shrink']
+                )
 
+                if (num_neighbours, shrink) not in self.tested_params_set:
+                    break
+
+            self.tested_params_set.add((num_neighbours, shrink))
             params = {'num_neighbours': num_neighbours,
                       'shrink': shrink}
             self.model.set_params(**params)
@@ -160,7 +170,10 @@ class KNNScenario:
             )
 
             # добавим максимум из популярных реков, чтобы сохранить порядок при заборе топ-k
-            recs = recs.withColumn("relevance", sf.col("relevance") + 10 * max_in_popular_recs)
+            recs = recs.withColumn(
+                "relevance",
+                sf.col("relevance") + 10 * max_in_popular_recs
+            )
             logging.debug(f"-- Длина рекомендаций: {recs.count()}")
 
             logging.debug("-- Дополняем рекомендации популярными")
@@ -168,8 +181,10 @@ class KNNScenario:
                              how='full_outer')
 
             recs = (recs
-                    .withColumn('context', sf.coalesce('context', 'context_pop'))
-                    .withColumn('relevance', sf.coalesce('relevance', 'relevance_pop'))
+                    .withColumn('context',
+                                sf.coalesce('context', 'context_pop'))
+                    .withColumn('relevance',
+                                sf.coalesce('relevance', 'relevance_pop'))
                     )
             recs = recs.select("user_id", "item_id", "context", "relevance")
 
@@ -179,10 +194,20 @@ class KNNScenario:
             logging.debug("-- Подсчет метрики в оптимизации")
             hit_rate = Metrics.hit_rate_at_k(recs, test, k=k)
             ndcg = Metrics.ndcg_at_k(recs, test, k=k)
+            precision = Metrics.precision_at_k(recs, test, k=k)
+            map_metric = Metrics.map_at_k(recs, test, k=k)
 
             trial.set_user_attr('nDCG@k', ndcg)
+            trial.set_user_attr('precision@k', precision)
+            trial.set_user_attr('MAP@k', map_metric)
+            trial.set_user_attr('HitRate@k', hit_rate)
 
-            logging.debug(f"-- Метрика: {hit_rate, ndcg}")
+            logging.debug(f"-- Метрики: "
+                          f"hit_rate={hit_rate:.4f}, "
+                          f"ndcg={ndcg:.4f}, "
+                          f"precision={precision:.4f}, "
+                          f"map_metric={map_metric:.4f}"
+                          )
 
             return hit_rate
 
@@ -229,94 +254,82 @@ if __name__ == '__main__':
 
     spark_.sparkContext.setCheckpointDir(os.environ['SPONGE_BOB_CHECKPOINTS'])
 
-    # data = [
-    #     ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 8)],
-    #     ["user2", "item2", 2.0, 'no_context', datetime(2019, 10, 9)],
-    #     ["user1", "item3", 1.0, 'no_context', datetime(2019, 10, 10)],
-    #     ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 11)],
-    #     ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 12)],
-    #     ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 13)],
-    #     ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 14)],
-    #     ["user1", "item3", 1.0, 'no_context', datetime(2019, 10, 15)],
-    #     ["user1", "item2", 1.0, 'no_context', datetime(2019, 10, 16)],
-    #     ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 17)],
-    #     ["user3", "item3", 2.0, 'no_context', datetime(2019, 10, 18)],
-    #     ["user3", "item2", 2.0, 'no_context', datetime(2019, 10, 19)],
-    #     ["user3", "item3", 2.0, 'no_context', datetime(2019, 10, 20)],
-    # ]
-    # schema = ['user_id', 'item_id', 'relevance', 'context', 'timestamp']
-    # log_ = spark_.createDataFrame(data=data,
-    #                               schema=schema)
-    #
-    # popular_scenario = KNNScenario(spark_)
-    # popular_params_grid = {'num_neighbours': (0, 2), 'shrink': (0, 10)}
-    #
-    # best_params = popular_scenario.research(
-    #     popular_params_grid,
-    #     log_,
-    #     users=None, items=None,
-    #     user_features=None,
-    #     item_features=None,
-    #     test_start=datetime(2019, 10, 11),
-    #     k=3, context=None,
-    #     to_filter_seen_items=True,
-    #     n_trials=4, n_jobs=4
-    # )
-    #
-    # print(best_params)
-    #
-    # recs_ = popular_scenario.production(
-    #     best_params,
-    #     log_,
-    #     users=None,
-    #     items=None,
-    #     user_features=None,
-    #     item_features=None,
-    #     k=3,
-    #     context='no_context',
-    #     to_filter_seen_items=True
-    # )
-    #
-    # recs_.show()
-    #
-    # best_params = popular_scenario.research(
-    #     popular_params_grid,
-    #     log_,
-    #     users=None, items=None,
-    #     user_features=None,
-    #     item_features=None,
-    #     test_start=None,
-    #     test_size=0.4,
-    #     k=3, context=None,
-    #     to_filter_seen_items=True,
-    #     n_trials=4, n_jobs=1,
-    #     how_to_split='randomly'
-    # )
-    #
-    # print(best_params)
-    #
-    # recs_ = popular_scenario.production(
-    #     best_params,
-    #     log_,
-    #     users=None,
-    #     items=None,
-    #     user_features=None,
-    #     item_features=None,
-    #     k=3,
-    #     context=None,
-    #     to_filter_seen_items=True
-    # )
-    #
-    # recs_.show()
+    data = [
+        ["user1", "item4", 1.0, 'no_context', datetime(2019, 10, 8)],
+        ["user2", "item2", 2.0, 'no_context', datetime(2019, 10, 9)],
+        ["user1", "item3", 1.0, 'no_context', datetime(2019, 10, 10)],
+        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 11)],
+        ["user1", "item4", 1.0, 'no_context', datetime(2019, 10, 12)],
+        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 13)],
+        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 14)],
+        ["user1", "item4", 1.0, 'no_context', datetime(2019, 10, 15)],
+        ["user1", "item2", 1.0, 'no_context', datetime(2019, 10, 16)],
+        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 17)],
+        ["user3", "item3", 2.0, 'no_context', datetime(2019, 10, 18)],
+        ["user3", "item2", 2.0, 'no_context', datetime(2019, 10, 19)],
+        ["user3", "item3", 2.0, 'no_context', datetime(2019, 10, 20)],
+    ]
+    schema = ['user_id', 'item_id', 'relevance', 'context', 'timestamp']
+    log_ = spark_.createDataFrame(data=data,
+                                  schema=schema)
 
-    valuesA = [('Pirate', 1), ('Monkey', 2), ('Ninja', 3), ('Spaghetti', 4)]
-    TableA = spark_.createDataFrame(valuesA, ['name', 'id1'])
+    knn_scenario = KNNScenario(spark_)
+    knn_params_grid = {'num_neighbours': (1, 9, 2), 'shrink': (0, 10)}
 
-    valuesB = [('Rutabaga', 1), ('Pirate', 2), ('Ninja', 3),
-               ('Darth Vader', 4)]
-    TableB = spark_.createDataFrame(valuesB, ['name', 'id2'])
+    best_params = knn_scenario.research(
+        knn_params_grid,
+        log_,
+        users=None, items=None,
+        user_features=None,
+        item_features=None,
+        test_start=datetime(2019, 10, 11),
+        k=2, context=None,
+        to_filter_seen_items=True,
+        n_trials=4, n_jobs=4
+    )
 
-    full_outer_join = TableA.join(TableB, on='name',
-                                  how='full_outer')
-    full_outer_join = full_outer_join.withColumn('id', sf.colesce('id1', 'id2'))
-    full_outer_join.show()
+    print(best_params)
+
+    recs_ = knn_scenario.production(
+        best_params,
+        log_,
+        users=None,
+        items=None,
+        user_features=None,
+        item_features=None,
+        k=2,
+        context='no_context',
+        to_filter_seen_items=True
+    )
+
+    recs_.show()
+
+    best_params = knn_scenario.research(
+        knn_params_grid,
+        log_,
+        users=None, items=None,
+        user_features=None,
+        item_features=None,
+        test_start=None,
+        test_size=0.4,
+        k=2, context=None,
+        to_filter_seen_items=True,
+        n_trials=4, n_jobs=1,
+        how_to_split='randomly'
+    )
+
+    print(best_params)
+
+    recs_ = knn_scenario.production(
+        best_params,
+        log_,
+        users=None,
+        items=None,
+        user_features=None,
+        item_features=None,
+        k=2,
+        context=None,
+        to_filter_seen_items=True
+    )
+
+    recs_.show()
