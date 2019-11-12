@@ -1,5 +1,5 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import os
 from typing import Dict, Optional
@@ -10,13 +10,15 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import lit, when
 from pyspark.sql.types import FloatType
+
+from sponge_bob_magic import utils
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 from sponge_bob_magic.utils import get_feature_cols, udf_get
 
 
 class LinearRecommender(BaseRecommender):
-    """ рекомендатель на основе линейной модели и эмбеддингов """
+    """ Рекомендатель на основе линейной модели и эмбеддингов. """
     _model: LogisticRegressionModel
 
     def get_params(self) -> Dict[str, object]:
@@ -41,7 +43,9 @@ class LinearRecommender(BaseRecommender):
             .withColumnRenamed("relevance", "label")
             .select("label", "features")
         )
+
         self._model = LogisticRegression().fit(data)
+
         if path is not None:
             model_path = os.path.join(path, "linear.model")
             self._model.write().overwrite().save(model_path)
@@ -54,16 +58,17 @@ class LinearRecommender(BaseRecommender):
             item_features: DataFrame
     ) -> DataFrame:
         """
-        обогатить лог данными о свойствах пользователей и объектов
+        Обогащает лог фичами пользователей и объектов.
 
         :param log: лог в стандартном формате
         :param user_features: свойства пользователей в стандартном формате
         :param item_features: свойства объектов в стандартном формате
-        :return: новый Spark DataFrame, в котором к каждой строчке лога
-        добавлены свойства пользователя и объекта, которые в ней встречаются
+        :return: новый спарк-датайрейм, в котором к каждой строчке лога
+            добавлены фичи пользователя и объекта, которые в ней встречаются
         """
         user_feature_cols, item_feature_cols = get_feature_cols(
             user_features, item_features)
+
         return VectorAssembler(
             inputCols=user_feature_cols + item_feature_cols,
             outputCol="features"
@@ -89,8 +94,10 @@ class LinearRecommender(BaseRecommender):
             )
             .select("features", "item_id", "user_id")
         )
+
         if to_filter_seen_items:
             data = data.join(log, on=["user_id", "item_id"], how="left_anti")
+
         recs = (
             self._model
             .transform(data)
@@ -103,13 +110,16 @@ class LinearRecommender(BaseRecommender):
             )
             .withColumn("context", lit(DEFAULT_CONTEXT))
         )
+
         recs = self._get_top_k_recs(recs, k)
         recs = recs.withColumn(
             "relevance",
             when(recs["relevance"] < 0, 0).otherwise(recs["relevance"])
         )
+
         if path is not None:
-            path_parquet = os.path.join(path, "recs.parquet")
-            recs.write.mode("overwrite").parquet(path_parquet)
-            recs = self.spark.read.parquet(path_parquet)
+            recs = utils.write_read_dataframe(
+                self.spark, recs,
+                os.path.join(path, 'recs.parquet')
+            )
         return recs
