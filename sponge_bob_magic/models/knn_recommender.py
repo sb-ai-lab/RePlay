@@ -169,8 +169,8 @@ class KNNRecommender(BaseRecommender):
 
         # сохраняем на диск, если есть путь
         if path is not None:
-            self.similarity_matrix = utils.write_read_dataframe(
-                self.spark, self.similarity_matrix,
+            self.similarity = utils.write_read_dataframe(
+                self.spark, self.similarity,
                 os.path.join(path, 'knn_similarity_matrix.parquet')
             )
 

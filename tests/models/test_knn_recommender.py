@@ -1,5 +1,5 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 from datetime import datetime
 
@@ -67,5 +67,5 @@ class KNNRecommenderTestCase(PySparkTest):
     def test_get_params(self):
         self.assertEqual(
             self.model.get_params(),
-            {"shrink": 0.0, "k": 1}
+            {"shrink": 0.0, "num_neighbours": 1}
         )
