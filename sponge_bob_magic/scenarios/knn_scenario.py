@@ -32,9 +32,6 @@ class KNNScenario:
     def __init__(self, spark: SparkSession):
         self.spark = spark
 
-    def _complete_recs(self, recs: DataFrame, additional_recs: DataFrame):
-        pass
-
     def research(
             self,
             params_grid: Dict[str, Tuple[TNum, TNum]],
