@@ -3,10 +3,10 @@ from datetime import datetime
 import numpy as np
 from parameterized import parameterized
 from pyspark.sql import DataFrame
-from sponge_bob_magic.validation_schemes import ValidationSchemes
 
-from sponge_bob_magic.constants import LOG_SCHEMA
 from pyspark_testcase import PySparkTest
+from sponge_bob_magic.constants import LOG_SCHEMA
+from sponge_bob_magic.validation_schemes import ValidationSchemes
 
 
 def get_distinct_values_in_column(df: DataFrame, column: str):
@@ -186,3 +186,71 @@ class TestValidationSchemes(PySparkTest):
         )
         self.assertSparkDataFrameEqual(train, true_train)
         self.assertSparkDataFrameEqual(test, true_test)
+
+    def test_log_split_randomly_by_user_num(self):
+        true_train = self.spark.createDataFrame(
+            data=[
+                ["user1", "item4", datetime(2019, 9, 12), "day", 1.0],
+                ["user1", "item5", datetime(2019, 9, 13), "night", 2.0],
+                ["user2", "item6", datetime(2019, 9, 14), "day", 3.0],
+                ["user2", "item2", datetime(2019, 9, 15), "night", 4.0],
+                ["user3", "item7", datetime(2019, 9, 17), "night", 1.0],
+                ["user3", "item4", datetime(2019, 9, 12), "day", 1.0],
+                ["user3", "item5", datetime(2019, 9, 13), "night", 2.0],
+                ["user3", "item6", datetime(2019, 9, 14), "day", 3.0],
+                ["user2", "item3", datetime(2019, 9, 15), "night", 4.0],
+                ["user1", "item7", datetime(2019, 9, 17), "night", 1.0],
+                ["user2", "item4", datetime(2019, 9, 12), "day", 1.0],
+                ["user2", "item5", datetime(2019, 9, 13), "night", 2.0],
+                ["user3", "item2", datetime(2019, 9, 14), "day", 3.0],
+                ["user4", "item2", datetime(2019, 9, 15), "night", 4.0],
+                ["user1", "item6", datetime(2019, 9, 17), "night", 1.0]
+            ],
+            schema=LOG_SCHEMA
+        )
+        train, test_input, test = self.splitter.log_split_randomly_by_user_num(
+            log=true_train,
+            test_size=3,
+            drop_cold_items=False,
+            drop_cold_users=False
+        )
+        train.show()
+        test.show()
+        self.assertSparkDataFrameEqual(test.union(train), true_train)
+        self.assertSparkDataFrameEqual(test.union(test_input), true_train)
+
+        self.assertEqual(test.intersect(train).count(), 0)
+        self.assertEqual(test.intersect(test_input).count(), 0)
+
+    def test_log_split_randomly_by_user_frac(self):
+        true_train = self.spark.createDataFrame(
+            data=[
+                ["user1", "item4", datetime(2019, 9, 12), "day", 1.0],
+                ["user1", "item5", datetime(2019, 9, 13), "night", 2.0],
+                ["user2", "item6", datetime(2019, 9, 14), "day", 3.0],
+                ["user2", "item2", datetime(2019, 9, 15), "night", 4.0],
+                ["user3", "item7", datetime(2019, 9, 17), "night", 1.0],
+                ["user3", "item4", datetime(2019, 9, 12), "day", 1.0],
+                ["user3", "item5", datetime(2019, 9, 13), "night", 2.0],
+                ["user3", "item6", datetime(2019, 9, 14), "day", 3.0],
+                ["user2", "item3", datetime(2019, 9, 15), "night", 4.0],
+                ["user1", "item7", datetime(2019, 9, 17), "night", 1.0],
+                ["user2", "item4", datetime(2019, 9, 12), "day", 1.0],
+                ["user2", "item5", datetime(2019, 9, 13), "night", 2.0],
+                ["user3", "item2", datetime(2019, 9, 14), "day", 3.0],
+                ["user4", "item2", datetime(2019, 9, 15), "night", 4.0],
+                ["user1", "item6", datetime(2019, 9, 17), "night", 1.0]
+            ],
+            schema=LOG_SCHEMA
+        )
+        train, test_input, test = self.splitter.log_split_randomly_by_user_frac(
+            log=true_train,
+            test_size=0.5,
+            drop_cold_items=False,
+            drop_cold_users=False
+        )
+        self.assertSparkDataFrameEqual(train.union(test), true_train)
+        self.assertSparkDataFrameEqual(test_input.union(test), true_train)
+
+        self.assertEqual(test.intersect(train).count(), 0)
+        self.assertEqual(test.intersect(test_input).count(), 0)

@@ -6,6 +6,7 @@ from typing import Tuple, Optional
 
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, SparkSession, Window
+from pyspark.sql.functions import col, row_number, rand
 from pyspark.sql.types import TimestampType
 
 
@@ -165,3 +166,58 @@ class ValidationSchemes:
             .cache()
         )
         return train, None, test
+
+    @staticmethod
+    def log_split_randomly_by_user_num(
+            log: DataFrame,
+            test_size: int,
+            drop_cold_items: bool,
+            drop_cold_users: bool,
+            seed: int = 1234
+    ) -> Tuple[DataFrame, DataFrame, DataFrame]:
+        log = log.withColumn("rand", rand(seed))
+        res = log \
+            .withColumn("row_num", row_number()
+                        .over(Window
+                              .partitionBy("user_id")
+                              .orderBy("rand")
+                              )
+                        ).cache()
+
+        train = res.filter(res.row_num > test_size).drop("rand", "row_num")
+        test = res.filter(res.row_num <= test_size).drop("rand", "row_num")
+
+        test = ValidationSchemes._drop_cold_items_and_users(
+            train, test,
+            drop_cold_items, drop_cold_users
+        )
+        return train, train, test
+
+    @staticmethod
+    def log_split_randomly_by_user_frac(
+            log: DataFrame,
+            test_size: float,
+            drop_cold_items: bool,
+            drop_cold_users: bool,
+            seed: int = 1234
+    ) -> Tuple[DataFrame, DataFrame, DataFrame]:
+        log = log.withColumn("rand", rand(seed))
+        counts = log.groupBy("user_id").count()
+        res = log \
+            .withColumn("row_num", row_number()
+                        .over(Window
+                              .partitionBy("user_id")
+                              .orderBy('rand')
+                              )
+                        )
+        res = res.join(counts, on="user_id", how="left")
+        res = res.withColumn("frac", col("row_num") / col("count")).cache()
+
+        train = res.filter(res.row_num > test_size).drop("rand", "row_num", "count", "frac")
+        test = res.filter(res.row_num <= test_size).drop("rand", "row_num", "count", "frac")
+
+        test = ValidationSchemes._drop_cold_items_and_users(
+            train, test,
+            drop_cold_items, drop_cold_users
+        )
+        return train, train, test
