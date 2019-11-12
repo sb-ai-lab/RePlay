@@ -96,7 +96,7 @@ class DataPreparator:
 
     @staticmethod
     def _rename_columns(df: DataFrame,
-                        columns_names: Dict[str, str or List[str]],
+                        columns_names: Dict[str, Union[str, List[str]]],
                         default_schema: Dict[str, Tuple],
                         date_format: Optional[str] = None):
         # колонки с фичами не будут переименованы, их надо просто селектить
