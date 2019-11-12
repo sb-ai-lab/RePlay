@@ -4,6 +4,7 @@ from typing import Optional
 
 import pandas as pd
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.ml.linalg import DenseVector
 
 
 class PySparkTest(unittest.TestCase):
@@ -17,10 +18,14 @@ class PySparkTest(unittest.TestCase):
             msg: Optional[str] = None
     ) -> None:
         def _unify_dataframe(df: DataFrame):
-            return (df
-                    .toPandas()
+            pandas_df = df.toPandas()
+            columns_to_sort_by = list()
+            for column in pandas_df.columns:
+                if not type(pandas_df[column][0]) in {DenseVector, list}:
+                    columns_to_sort_by.append(column)
+            return (pandas_df
                     [sorted(df.columns)]
-                    .sort_values(by=sorted(df.columns))
+                    .sort_values(by=sorted(columns_to_sort_by))
                     .reset_index(drop=True))
 
         try:
