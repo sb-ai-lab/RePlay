@@ -100,13 +100,13 @@ class KNNScenario:
             PopularRecommender(self.spark,
                                alpha=params_grid.get("alpha", 0),
                                beta=params_grid.get("beta", 0))
-                .fit_predict(k, users, items, context, train,
-                             user_features, item_features,
-                             to_filter_seen_items)
-                .select(sf.col("user_id"),
-                        sf.col("item_id"),
-                        sf.col("context").alias("context_pop"),
-                        sf.col("relevance").alias("relevance_pop"), )
+            .fit_predict(k, users, items, context, train,
+                         user_features, item_features,
+                         to_filter_seen_items)
+            .select(sf.col("user_id"),
+                    sf.col("item_id"),
+                    sf.col("context").alias("context_pop"),
+                    sf.col("relevance").alias("relevance_pop"), )
         )
         max_in_popular_recs = (
             popular_recs
@@ -169,7 +169,8 @@ class KNNScenario:
                 to_filter_seen_items=to_filter_seen_items
             )
 
-            # добавим максимум из популярных реков, чтобы сохранить порядок при заборе топ-k
+            # добавим максимум из популярных реков,
+            # чтобы сохранить порядок при заборе топ-k
             recs = recs.withColumn(
                 "relevance",
                 sf.col("relevance") + 10 * max_in_popular_recs

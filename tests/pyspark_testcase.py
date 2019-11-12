@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 import unittest
 import warnings
 from typing import Optional

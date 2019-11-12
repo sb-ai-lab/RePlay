@@ -15,6 +15,7 @@ from sponge_bob_magic.models.base_recommender import BaseRecommender
 
 class PopularRecommender(BaseRecommender):
     """ Простейший рекомендатель на основе сглаженной популярности. """
+    avg_num_items: int
     items_popularity: Optional[DataFrame]
 
     def __init__(self, spark: SparkSession,

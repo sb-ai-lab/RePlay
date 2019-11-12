@@ -26,7 +26,7 @@ class BaseRecommender(ABC):
         self.encoder = LabelEncoder()
         self.spark = spark
 
-    def set_params(self, **params: Dict[str, Any]):
+    def set_params(self, **params: Dict[str, Any]) -> None:
         """
         Устанавливает параметры рекоммендера.
 
@@ -35,7 +35,7 @@ class BaseRecommender(ABC):
         :return:
         """
         if not params:
-            return self
+            return
         valid_params = self.get_params()
 
         for param, value in params.items():

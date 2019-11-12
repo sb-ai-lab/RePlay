@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 from datetime import datetime
 
 import numpy as np
