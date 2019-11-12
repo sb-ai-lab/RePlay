@@ -7,7 +7,7 @@ from typing import Dict, Optional
 from pyspark.ml.classification import (LogisticRegression,
                                        LogisticRegressionModel)
 from pyspark.ml.feature import VectorAssembler
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import lit, when
 from pyspark.sql.types import FloatType
 
@@ -20,17 +20,34 @@ from sponge_bob_magic.utils import get_feature_cols, udf_get
 class LinearRecommender(BaseRecommender):
     """ Рекомендатель на основе линейной модели и эмбеддингов. """
     _model: LogisticRegressionModel
+    augmented_data: DataFrame
+
+    def __init__(self, spark: SparkSession,
+                 lambda_param: float = 0.0,
+                 elastic_net_param: float = 0.0,
+                 num_iter: int = 100):
+        super().__init__(spark)
+
+        self.lambda_param: float = lambda_param
+        self.elastic_net_param: float = elastic_net_param
+        self.num_iter: int = num_iter
 
     def get_params(self) -> Dict[str, object]:
-        return dict()
+        return {'lambda_param': self.lambda_param,
+                'elastic_net_param': self.elastic_net_param,
+                'num_iter': self.num_iter}
 
     def _pre_fit(self, log: DataFrame,
                  user_features: Optional[DataFrame],
                  item_features: Optional[DataFrame],
                  path: Optional[str] = None) -> None:
-        pass
+        # TODO: добавить проверку, что в логе есть только нули и единицы
+        self.augmented_data = (
+            self._augment_data(log, user_features, item_features)
+            .withColumnRenamed("relevance", "label")
+            .select("label", "features")
+        )
 
-    # TODO: добавить проверку, что в логе есть только нули и единицы
     def _fit_partial(
             self,
             log: DataFrame,
@@ -38,13 +55,13 @@ class LinearRecommender(BaseRecommender):
             item_features: DataFrame,
             path: Optional[str] = None
     ) -> None:
-        data = (
-            self._augment_data(log, user_features, item_features)
-            .withColumnRenamed("relevance", "label")
-            .select("label", "features")
+        self._model = (
+            LogisticRegression(
+                maxIter=self.num_iter,
+                regParam=self.lambda_param,
+                elasticNetParam=self.elastic_net_param)
+            .fit(self.augmented_data)
         )
-
-        self._model = LogisticRegression().fit(data)
 
         if path is not None:
             model_path = os.path.join(path, "linear.model")
