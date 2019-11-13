@@ -148,8 +148,6 @@ if __name__ == '__main__':
               .enableHiveSupport()
               .getOrCreate())
 
-    spark_.sparkContext.setCheckpointDir(os.environ['SPONGE_BOB_CHECKPOINTS'])
-
     data = [
         ["user1", "item1", 1.0, 'context1', "timestamp"],
         ["user2", "item3", 2.0, 'context1', "timestamp"],

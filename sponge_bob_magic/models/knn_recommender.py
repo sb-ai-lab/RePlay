@@ -25,8 +25,8 @@ class KNNRecommender(BaseRecommender):
                  shrink: float = 0.0):
         super().__init__(spark)
 
-        self.shrink = shrink
-        self.num_neighbours = num_neighbours
+        self.shrink: float = shrink
+        self.num_neighbours: int = num_neighbours
 
     def get_params(self) -> Dict[str, object]:
         return {"shrink": self.shrink,
