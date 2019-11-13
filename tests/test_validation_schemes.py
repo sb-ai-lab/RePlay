@@ -204,23 +204,30 @@ class TestValidationSchemes(PySparkTest):
                 ["user2", "item5", datetime(2019, 9, 13), "night", 2.0],
                 ["user3", "item2", datetime(2019, 9, 14), "day", 3.0],
                 ["user4", "item2", datetime(2019, 9, 15), "night", 4.0],
+                ["user4", "item1", datetime(2019, 9, 15), "night", 4.0],
+                ["user4", "item4", datetime(2019, 9, 15), "night", 4.0],
                 ["user1", "item6", datetime(2019, 9, 17), "night", 1.0]
             ],
             schema=LOG_SCHEMA
         )
         train, test_input, test = self.splitter.log_split_randomly_by_user_num(
             log=true_train,
-            test_size=3,
+            test_size=2,
             drop_cold_items=False,
             drop_cold_users=False
         )
-        train.show()
-        test.show()
         self.assertSparkDataFrameEqual(test.union(train), true_train)
         self.assertSparkDataFrameEqual(test.union(test_input), true_train)
 
         self.assertEqual(test.intersect(train).count(), 0)
         self.assertEqual(test.intersect(test_input).count(), 0)
+        # print(test.select("user_id").distinct().collect())
+        self.assertSetEqual(
+            set(test.select("user_id").distinct().collect()),
+            set(train.select("user_id").distinct().collect())
+        )
+
+        self.assertEqual(np.mean(test.groupBy("user_id").count().select("count").collect()), 2)
 
     def test_log_split_randomly_by_user_frac(self):
         true_train = self.spark.createDataFrame(
@@ -239,6 +246,8 @@ class TestValidationSchemes(PySparkTest):
                 ["user2", "item5", datetime(2019, 9, 13), "night", 2.0],
                 ["user3", "item2", datetime(2019, 9, 14), "day", 3.0],
                 ["user4", "item2", datetime(2019, 9, 15), "night", 4.0],
+                ["user4", "item1", datetime(2019, 9, 15), "night", 4.0],
+                ["user4", "item4", datetime(2019, 9, 15), "night", 4.0],
                 ["user1", "item6", datetime(2019, 9, 17), "night", 1.0]
             ],
             schema=LOG_SCHEMA
@@ -254,3 +263,8 @@ class TestValidationSchemes(PySparkTest):
 
         self.assertEqual(test.intersect(train).count(), 0)
         self.assertEqual(test.intersect(test_input).count(), 0)
+
+        self.assertSetEqual(
+            set(test.select("user_id").distinct().collect()),
+            set(train.select("user_id").distinct().collect())
+        )
