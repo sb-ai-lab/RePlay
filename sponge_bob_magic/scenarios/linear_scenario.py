@@ -15,13 +15,12 @@ from sponge_bob_magic import constants
 from sponge_bob_magic.metrics.metrics import Metrics
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 from sponge_bob_magic.models.linear_recomennder import LinearRecommender
-from sponge_bob_magic.models.popular_recomennder import PopularRecommender
 from sponge_bob_magic.validation_schemes import ValidationSchemes
 
 TNum = TypeVar('TNum', int, float)
 
 
-class KNNScenario:
+class LinearScenario:
     """ Сценарий с линейной моделью с эмбеддингами. """
     num_attempts: int = 10
     tested_params_set: Set[Tuple[TNum, TNum]] = set()
@@ -59,18 +58,20 @@ class KNNScenario:
         if how_to_split == 'by_date':
             train, test_input, test = splitter.log_split_by_date(
                 log, test_start=test_start,
-                drop_cold_users=True, drop_cold_items=True
+                drop_cold_users=False, drop_cold_items=False
             )
         elif how_to_split == 'randomly':
             train, test_input, test = splitter.log_split_randomly(
                 log,
-                drop_cold_users=True, drop_cold_items=True,
+                drop_cold_users=False, drop_cold_items=False,
                 seed=self.seed, test_size=test_size
             )
         else:
             raise ValueError(
                 f"Значение how_to_split неверное ({how_to_split}), "
                 "допустимые варианты: 'by_date' или 'randomly'")
+
+        test_positive = test.filter("relevance == 1").cache()
 
         # рассчитываем все выборки перед подбором параметров
         train.cache()
@@ -109,8 +110,8 @@ class KNNScenario:
             # num_attempts раз пытаемся засемплить параметры, которых еще
             # не было; если не получилось, берем с последней попытки
             lambda_, elastic_net = 0, 0
-            for attempt in range(KNNScenario.num_attempts):
-                lambda_ = trial.suggest_uniform(
+            for attempt in range(LinearScenario.num_attempts):
+                lambda_ = trial.suggest_loguniform(
                     'lambda_param',
                     params_grid['lambda_param'][0],
                     params_grid['lambda_param'][1],
@@ -150,10 +151,10 @@ class KNNScenario:
             logging.debug(f"-- Длина рекомендаций: {recs.count()}")
 
             logging.debug("-- Подсчет метрики в оптимизации")
-            hit_rate = Metrics.hit_rate_at_k(recs, test, k=k)
-            ndcg = Metrics.ndcg_at_k(recs, test, k=k)
-            precision = Metrics.precision_at_k(recs, test, k=k)
-            map_metric = Metrics.map_at_k(recs, test, k=k)
+            hit_rate = Metrics.hit_rate_at_k(recs, test_positive, k=k)
+            ndcg = Metrics.ndcg_at_k(recs, test_positive, k=k)
+            precision = Metrics.precision_at_k(recs, test_positive, k=k)
+            map_metric = Metrics.map_at_k(recs, test_positive, k=k)
 
             trial.set_user_attr('nDCG@k', ndcg)
             trial.set_user_attr('precision@k', precision)
