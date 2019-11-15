@@ -210,7 +210,8 @@ class ValidationSchemes:
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
             которых нет в обучающей
         :param seed: рандомный сид, нужен для повторения случайного порядка записей
-        :return:
+        :return: тройка спарк-датафреймов структуры, аналогичной входной
+            `train, test_input, test`
         """
         res = ValidationSchemes._log_row_num_by_user(log, seed)
 
@@ -244,7 +245,8 @@ class ValidationSchemes:
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
             которых нет в обучающей
         :param seed: рандомный сид, нужен для повторения случайного порядка записей
-        :return:
+        :return: тройка спарк-датафреймов структуры, аналогичной входной
+            `train, test_input, test`
         """
         counts = log.groupBy("user_id").count()
         res = ValidationSchemes._log_row_num_by_user(log, seed)
@@ -266,11 +268,11 @@ class ValidationSchemes:
             log: DataFrame
     ) -> DataFrame:
         """
-        Добавить в лог столбец случайных чисел и столбец номера записи по юзеру
+        Добавить в лог столбец столбец номера записи (по юзеру), сортированный по
+        времени
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
             `[timestamp, user_id, item_id, context, relevance]`
-        :param seed: рандомный сид, нужен для повторения случайного порядка записей
         :returns: лог с добавленными столбцами
         """
         res = log \
@@ -288,10 +290,9 @@ class ValidationSchemes:
             test_size: int,
             drop_cold_items: bool,
             drop_cold_users: bool,
-            seed: int = 1234
     ) -> Tuple[DataFrame, DataFrame, DataFrame]:
         """
-        Разбить лог действий пользователей рандомно на обучающую и тестовую
+        Разбить лог действий пользователей по времени на обучающую и тестовую
         выборки так, чтобы в тестовой выборке было фиксированное количество
         записей для каждого пользователя.
 
@@ -302,8 +303,8 @@ class ValidationSchemes:
             которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
             которых нет в обучающей
-        :param seed: рандомный сид, нужен для повторения случайного порядка записей
-        :return:
+        :return: тройка спарк-датафреймов структуры, аналогичной входной
+            `train, test_input, test`
         """
         res = ValidationSchemes._log_row_num_by_time(log)
 
@@ -323,10 +324,9 @@ class ValidationSchemes:
             test_size: float,
             drop_cold_items: bool,
             drop_cold_users: bool,
-            seed: int = 1234
     ) -> Tuple[DataFrame, DataFrame, DataFrame]:
         """
-        Разбить лог действий пользователей рандомно на обучающую и тестовую
+        Разбить лог действий пользователей по времени на обучающую и тестовую
         выборки так, чтобы в тестовой выборке была фиксированная доля
         записей для каждого пользователя.
 
@@ -337,8 +337,8 @@ class ValidationSchemes:
             которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
             которых нет в обучающей
-        :param seed: рандомный сид, нужен для повторения случайного порядка записей
-        :return:
+        :return: тройка спарк-датафреймов структуры, аналогичной входной
+            `train, test_input, test`
         """
         counts = log.groupBy("user_id").count()
         res = ValidationSchemes._log_row_num_by_time(log)
