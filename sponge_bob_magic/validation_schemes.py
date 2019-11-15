@@ -260,3 +260,97 @@ class ValidationSchemes:
             drop_cold_items, drop_cold_users
         )
         return train, train, test
+
+    @staticmethod
+    def _log_row_num_by_time(
+            log: DataFrame
+    ) -> DataFrame:
+        """
+        Добавить в лог столбец случайных чисел и столбец номера записи по юзеру
+
+        :param log: лог взаимодействия, спарк-датафрейм с колонками
+            `[timestamp, user_id, item_id, context, relevance]`
+        :param seed: рандомный сид, нужен для повторения случайного порядка записей
+        :returns: лог с добавленными столбцами
+        """
+        res = log \
+            .withColumn("row_num", sf.row_number()
+                        .over(Window
+                              .partitionBy("user_id")
+                              .orderBy(sf.col("timestamp").desc())
+                              )
+                        ).cache()
+        return res
+
+    @staticmethod
+    def log_split_by_time_by_user_num(
+            log: DataFrame,
+            test_size: int,
+            drop_cold_items: bool,
+            drop_cold_users: bool,
+            seed: int = 1234
+    ) -> Tuple[DataFrame, DataFrame, DataFrame]:
+        """
+        Разбить лог действий пользователей рандомно на обучающую и тестовую
+        выборки так, чтобы в тестовой выборке было фиксированное количество
+        записей для каждого пользователя.
+
+        :param log: лог взаимодействия, спарк-датафрейм с колонками
+            `[timestamp, user_id, item_id, context, relevance]`
+        :param test_size: размер тестовой выборки, int
+        :param drop_cold_items: исключать ли из тестовой выборки объекты,
+            которых нет в обучающей
+        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
+            которых нет в обучающей
+        :param seed: рандомный сид, нужен для повторения случайного порядка записей
+        :return:
+        """
+        res = ValidationSchemes._log_row_num_by_time(log)
+
+        train = res.filter(res.row_num > test_size).drop("row_num")
+        test = res.filter(res.row_num <= test_size).drop("row_num")
+        train.show()
+        test.show()
+        test = ValidationSchemes._drop_cold_items_and_users(
+            train, test,
+            drop_cold_items, drop_cold_users
+        )
+        return train, train, test
+
+    @staticmethod
+    def log_split_by_time_by_user_frac(
+            log: DataFrame,
+            test_size: float,
+            drop_cold_items: bool,
+            drop_cold_users: bool,
+            seed: int = 1234
+    ) -> Tuple[DataFrame, DataFrame, DataFrame]:
+        """
+        Разбить лог действий пользователей рандомно на обучающую и тестовую
+        выборки так, чтобы в тестовой выборке была фиксированная доля
+        записей для каждого пользователя.
+
+        :param log: лог взаимодействия, спарк-датафрейм с колонками
+            `[timestamp, user_id, item_id, context, relevance]`
+        :param test_size: размер тестовой выборки, int
+        :param drop_cold_items: исключать ли из тестовой выборки объекты,
+            которых нет в обучающей
+        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
+            которых нет в обучающей
+        :param seed: рандомный сид, нужен для повторения случайного порядка записей
+        :return:
+        """
+        counts = log.groupBy("user_id").count()
+        res = ValidationSchemes._log_row_num_by_time(log)
+
+        res = res.join(counts, on="user_id", how="left")
+        res = res.withColumn("frac", sf.col("row_num") / sf.col("count")).cache()
+
+        train = res.filter(res.frac > test_size).drop("row_num", "count", "frac")
+        test = res.filter(res.frac <= test_size).drop("row_num", "count", "frac")
+
+        test = ValidationSchemes._drop_cold_items_and_users(
+            train, test,
+            drop_cold_items, drop_cold_users
+        )
+        return train, train, test
