@@ -76,12 +76,11 @@ class NeuroCFRecommender(BaseRecommender):
     """ Модель на нейросети. """
 
     def __init__(self, spark: SparkSession,
-                 learning_rate: float,
-                 epochs: int,
-                 batch_size: int,
-                 embedding_dimension: int):
+                 learning_rate: float = 0.5,
+                 epochs: int = 1,
+                 batch_size: int = 1000,
+                 embedding_dimension: int = 10):
         """
-
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
         :param embedding_dimension: размер представления пользователей/объектов
