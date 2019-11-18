@@ -2,14 +2,21 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
+import os
 from typing import Dict, Optional
 
 import numpy as np
+import pandas
 import torch
+from pyspark.ml.feature import StringIndexer, IndexToString
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import functions as sf
+from torch.autograd import Variable
 from torch.nn import Embedding, Module, DataParallel
 from torch.utils.data import DataLoader, TensorDataset
 
+from sponge_bob_magic import utils
+from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 
 
@@ -90,6 +97,11 @@ class NeuroCFRecommender(BaseRecommender):
         self.batch_size = batch_size
         self.embedding_dimension = embedding_dimension
 
+        self.user_indexer = StringIndexer(inputCol="user_id",
+                                          outputCol="user_idx")
+        self.item_indexer = StringIndexer(inputCol="item_id",
+                                          outputCol="item_idx")
+
     def get_params(self) -> Dict[str, object]:
         return {
             "learning_rate": self.learning_rate,
@@ -102,8 +114,14 @@ class NeuroCFRecommender(BaseRecommender):
                  user_features: Optional[DataFrame],
                  item_features: Optional[DataFrame],
                  path: Optional[str] = None) -> None:
-        self.num_users = log.select("user_id").distinct().count()
-        self.num_items = log.select("item_id").distinct().count()
+        self.user_indexer_model = self.user_indexer.fit(log)
+        self.item_indexer_model = self.item_indexer.fit(log)
+
+        log_indexed = self.user_indexer_model.transform(log)
+        log_indexed = self.item_indexer_model.transform(log_indexed)
+
+        self.num_users = log_indexed.select("user_idx").distinct().count()
+        self.num_items = log_indexed.select("item_idx").distinct().count()
 
         model = RecommenderModel(
             user_count=self.num_users,
@@ -125,16 +143,26 @@ class NeuroCFRecommender(BaseRecommender):
     def _fit_partial(self, log: DataFrame, user_features: Optional[DataFrame],
                      item_features: Optional[DataFrame],
                      path: Optional[str] = None) -> None:
+        logging.debug("Индексирование данных")
+        log_indexed = self.user_indexer_model.transform(log)
+        log_indexed = self.item_indexer_model.transform(log_indexed)
+
         self.model.train()
 
         optimizer = torch.optim.Adam(self.model.parameters(),
                                      lr=self.learning_rate)
 
-        tensor_data = log.select("user_id", "item_id").toPandas()
-        user_batch = torch.LongTensor(tensor_data["user_id"].values)
-        item_batch = torch.LongTensor(tensor_data["item_id"].values)
+        logging.debug("Составление батча:")
+        tensor_data = NeuroCFRecommender.spark2pandas_csv(
+            log_indexed.select("user_idx", "item_idx"),
+            os.path.join(path, "tmp_tensor_data")
+        )
+
+        user_batch = Variable(torch.LongTensor(tensor_data["user_idx"].values))
+        item_batch = Variable(torch.LongTensor(tensor_data["item_idx"].values))
 
         for epoch in range(self.epochs):
+            logging.debug(f"Эпоха {epoch}")
             loss_value = 0
 
             data = DataLoader(
@@ -144,6 +172,7 @@ class NeuroCFRecommender(BaseRecommender):
                 num_workers=20
             )
 
+            current_loss = None
             for batch in data:
                 negative_items = torch.from_numpy(
                     np.random.randint(low=0, high=self.num_items - 1,
@@ -169,24 +198,37 @@ class NeuroCFRecommender(BaseRecommender):
                 optimizer.step()
 
                 current_loss = loss_value / len(data)
-                logging.debug(f"Текущее значение: {current_loss:.4f}")
+
+            logging.debug(f"Текущее значение: {current_loss:.4f}")
 
     def get_loss(
             self,
             log: DataFrame,
+            path: str
     ) -> float:
         """
         Считает значение функции потерь на одной эпохе.
+        Записывает временные файлы.
 
-        :param log: набор положительных примеров для обучения
-        :return:
+        :param path: путь, по которому записывается временные файлы
+        :param log: лог пользователей и объектов в стандартном формате
+        :return: значение функции потерь
         """
+        log_indexed = self.user_indexer_model.transform(log)
+        log_indexed = self.user_indexer_model.transform(log_indexed)
+
         self.model.eval()
 
         loss_value = 0
-        tensor_data = log.select("user_id", "item_id").toPandas()
-        user_batch = torch.LongTensor(tensor_data.user_id.values)
-        item_batch = torch.LongTensor(tensor_data.item_id.values)
+
+        logging.debug("Составление батча:")
+        tensor_data = NeuroCFRecommender.spark2pandas_csv(
+            log_indexed.select("user_idx", "item_idx"),
+            os.path.join(path, "tmp_tensor_data")
+        )
+
+        user_batch = Variable(torch.LongTensor(tensor_data["user_idx"].values))
+        item_batch = Variable(torch.LongTensor(tensor_data["item_idx"].values))
 
         data = DataLoader(
             TensorDataset(user_batch, item_batch),
@@ -215,6 +257,7 @@ class NeuroCFRecommender(BaseRecommender):
                 ).mean()
 
                 loss_value += loss.item()
+
         return loss_value / len(data)
 
     def _predict(self,
@@ -225,19 +268,159 @@ class NeuroCFRecommender(BaseRecommender):
                  item_features: Optional[DataFrame],
                  to_filter_seen_items: bool = True,
                  path: Optional[str] = None) -> DataFrame:
+        logging.debug("Индексирование пользователей и объектов")
+        users_indexed = NeuroCFRecommender.spark2pandas_csv(
+            self.user_indexer_model.transform(users),
+            os.path.join(path, "tmp_users_indexed")
+        )
+
+        items_indexed = NeuroCFRecommender.spark2pandas_csv(
+            self.item_indexer_model.transform(items),
+            os.path.join(path, "tmp_items_indexed")
+        )
+
         self.model.eval()
 
-        users = list(users.toPandas()["user_id"].values)
-        items = list(items.toPandas()["item_id"].values)
+        users = list(users_indexed["user_idx"].values)
+        items = list(items_indexed["item_idx"].values)
         user_count = len(users)
         item_count = len(items)
 
-        user_ids = torch.from_numpy(np.repeat(users, item_count))
-        item_ids = torch.from_numpy(np.tile(items, user_count))
+        logging.debug("Создание тензоров")
+        user_ids = torch.from_numpy(
+            np.repeat(users, item_count).astype(int)).cuda()
+        item_ids = torch.from_numpy(
+            np.tile(items, user_count).astype(int)).cuda()
 
+        logging.debug("Предсказание модели")
         with torch.no_grad():
-            return (
+            sparse_recs = (
                 self.model.forward(user=user_ids, item=item_ids)
                     .reshape(user_count, item_count)
-                    .detach().cpu().numpy()
+                    .detach()
+                    .cpu()
+                    .to_sparse()
             )
+
+        logging.debug("Преобразование numpy-массива в спарк-датафрейм")
+        # ToDo: придумать, как по-нормальному передать результат из спарка
+        arr = np.c_[sparse_recs.indices().T, sparse_recs.values()]
+        columns = ["user_idx", "item_idx", "relevance"]
+        recs = NeuroCFRecommender.numpy2spark(
+            self.spark, arr, columns,
+            os.path.join(path, "tmp_recs_array.csv")
+        )
+        for column in columns[:2]:
+            recs = recs.withColumn(column, sf.col(column).cast("int"))
+        recs = recs.withColumn("relevance", sf.col("relevance").cast("double"))
+        recs = recs.withColumn("context", sf.lit(DEFAULT_CONTEXT))
+
+        logging.debug("Обратное преобразование индексов")
+        user_converter = IndexToString(inputCol="user_idx",
+                                       outputCol="user_id",
+                                       labels=self.user_indexer_model.labels)
+        item_converter = IndexToString(inputCol="item_idx",
+                                       outputCol="item_id",
+                                       labels=self.item_indexer_model.labels)
+
+        recs = user_converter.transform(recs)
+        recs = item_converter.transform(recs)
+        recs = recs.drop("user_idx", "item_idx")
+
+        if to_filter_seen_items:
+            recs = self._filter_seen_recs(recs, log)
+
+        recs = self._get_top_k_recs(recs, k)
+
+        logging.debug("Преобразование отрицательных relevance")
+        recs = NeuroCFRecommender.min_max_scale_column(recs, "relevance")
+
+        if path is not None:
+            logging.debug("Запись на диск рекомендаций")
+            recs = utils.write_read_dataframe(
+                self.spark, recs,
+                os.path.join(path, "recs.parquet")
+            )
+
+        return recs.cache()
+
+    @staticmethod
+    def min_max_scale_column(df: DataFrame, column: str) -> DataFrame:
+        """
+        Отнормировать колонку датафрейма.
+        Применяет классическую форму нормализации с минимумом и максимумом:
+        new_value_i = (value_i - min) / (max - min).
+
+        :param df: спарк-датафрейм
+        :param column: имя колонки, которую надо нормализовать
+        :return: исходный датафрейм с измененной колонкой
+        """
+        max_value = (
+            df
+                .agg({column: "max"})
+                .collect()[0][0]
+        )
+        min_value = (
+            df
+                .agg({column: "min"})
+                .collect()[0][0]
+        )
+
+        df = df.withColumn(
+            column,
+            (sf.col(column) - min_value) / (max_value - min_value)
+        )
+        return df
+
+    @staticmethod
+    def spark2pandas_csv(df: DataFrame, path: str) -> pandas.DataFrame:
+        """
+        Преобразовать спарк-датафрейм в пандас-датафрейм.
+        Функция записывает спарк-датафрейм на диск в виде CSV,
+        а затем pandas считывает этот файл в виде пандас-датафрейма.
+        Создается временный файл по пути `path`.
+
+        :param df: спарк-датафрейм, который надо переобразовать в пандас
+        :param path: путь, по которому будет записан датафрейм и заново считан
+        :return:
+        """
+        logging.debug("-- Запись")
+        (df
+         .repartition(1)
+         .write
+         .mode("overwrite")
+         .csv(path, header=True))
+
+        logging.debug("-- Считывание")
+        pandas_path = os.path.join(path,
+                                   [file
+                                    for file in os.listdir(path)
+                                    if file.endswith(".csv")][0])
+
+        df_pd = pandas.read_csv(pandas_path)
+        return df_pd
+
+    @staticmethod
+    def numpy2spark(spark, arr, columns, path, **kwargs):
+        """
+        Преобразовать numpy-массив в спарк-датафрейм.
+        Функция записывает на на диск массив в формате текстового файла CSV,
+        а затем спарк считывает его в формат датафрейма.
+        Создается временный файл по пути `path`.
+
+        :param spark: инициализированная спарк-сессия
+        :param arr: numpy-массив, который необходио преобразовать в датафрейм
+        :param columns: список названий колонок (в качестве header)
+        :param path: путь, по которому записывается временный файл
+        :param kwargs: дополнительные агрументы в функцию считывания CSV,
+            которая принимает на вход функция `spark.read.csv`
+        :return:
+        """
+        logging.debug("-- Запись")
+        delimiter = ","
+        np.savetxt(path, arr, delimiter=delimiter, fmt="%.5f",
+                   header=delimiter.join(columns), comments="")
+
+        logging.debug("-- Считывание")
+        df = spark.read.csv(path, sep=delimiter, header=True, **kwargs)
+        return df
