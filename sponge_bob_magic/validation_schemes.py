@@ -172,7 +172,7 @@ class ValidationSchemes:
             seed: int = 1234
     ) -> DataFrame:
         """
-        Добавить в лог столбец случайных чисел и столбец номера записи по юзеру
+        Добавить в лог столбец случайных чисел и столбец номера записи по юзеру.
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
             `[timestamp, user_id, item_id, context, relevance]`
@@ -180,13 +180,15 @@ class ValidationSchemes:
         :returns: лог с добавленными столбцами
         """
         log = log.withColumn("rand", sf.rand(seed))
-        res = log \
-            .withColumn("row_num", sf.row_number()
-                        .over(Window
-                              .partitionBy("user_id")
-                              .orderBy("rand")
-                              )
-                        ).cache()
+        res = (
+            log
+                .withColumn("row_num", sf.row_number()
+                            .over(Window
+                                  .partitionBy("user_id")
+                                  .orderBy("rand")
+                                  )
+                            ).cache()
+        )
         return res
 
     @staticmethod
@@ -204,13 +206,15 @@ class ValidationSchemes:
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
             `[timestamp, user_id, item_id, context, relevance]`
-        :param test_size: размер тестовой выборки, int
+        :param test_size: количество записей лога по каждому пользователю,
+            которые пойдут в тестовую выборку
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
             которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
             которых нет в обучающей
         :param seed: рандомный сид, нужен для повторения случайного порядка записей
-        :return:
+        :return: тройка спарк-датафреймов структуры, аналогичной входной
+            `train, test_input, test`
         """
         res = ValidationSchemes._log_row_num_by_user(log, seed)
 
@@ -238,13 +242,15 @@ class ValidationSchemes:
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
             `[timestamp, user_id, item_id, context, relevance]`
-        :param test_size: размер тестовой выборки, int
+        :param test_size: доля записей лога по каждому пользователю,
+            которые пойдут в тестовую выборку
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
             которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
             которых нет в обучающей
         :param seed: рандомный сид, нужен для повторения случайного порядка записей
-        :return:
+        :return: тройка спарк-датафреймов структуры, аналогичной входной
+            `train, test_input, test`
         """
         counts = log.groupBy("user_id").count()
         res = ValidationSchemes._log_row_num_by_user(log, seed)
@@ -254,6 +260,102 @@ class ValidationSchemes:
 
         train = res.filter(res.frac > test_size).drop("rand", "row_num", "count", "frac")
         test = res.filter(res.frac <= test_size).drop("rand", "row_num", "count", "frac")
+
+        test = ValidationSchemes._drop_cold_items_and_users(
+            train, test,
+            drop_cold_items, drop_cold_users
+        )
+        return train, train, test
+
+    @staticmethod
+    def _log_row_num_by_time(
+            log: DataFrame
+    ) -> DataFrame:
+        """
+        Добавить в лог столбе номера записи (по пользователю), сортированный по
+        времени.
+
+        :param log: лог взаимодействия, спарк-датафрейм с колонками
+            `[timestamp, user_id, item_id, context, relevance]`
+        :returns: лог с добавленными столбцами
+        """
+        res = (
+            log
+                .withColumn("row_num", sf.row_number()
+                            .over(Window
+                                  .partitionBy("user_id")
+                                  .orderBy(sf.col("timestamp").desc())
+                                  )
+                            ).cache()
+        )
+        return res
+
+    @staticmethod
+    def log_split_by_time_by_user_num(
+            log: DataFrame,
+            test_size: int,
+            drop_cold_items: bool,
+            drop_cold_users: bool,
+    ) -> Tuple[DataFrame, DataFrame, DataFrame]:
+        """
+        Разбить лог действий пользователей по времени на обучающую и тестовую
+        выборки так, чтобы в тестовой выборке было фиксированное количество
+        записей для каждого пользователя.
+
+        :param log: лог взаимодействия, спарк-датафрейм с колонками
+            `[timestamp, user_id, item_id, context, relevance]`
+        :param test_size: количество записей лога по каждому пользователю,
+            которые пойдут в тестовую выборку
+        :param drop_cold_items: исключать ли из тестовой выборки объекты,
+            которых нет в обучающей
+        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
+            которых нет в обучающей
+        :return: тройка спарк-датафреймов структуры, аналогичной входной
+            `train, test_input, test`
+        """
+        res = ValidationSchemes._log_row_num_by_time(log)
+
+        train = res.filter(res.row_num > test_size).drop("row_num")
+        test = res.filter(res.row_num <= test_size).drop("row_num")
+        train.show()
+        test.show()
+        test = ValidationSchemes._drop_cold_items_and_users(
+            train, test,
+            drop_cold_items, drop_cold_users
+        )
+        return train, train, test
+
+    @staticmethod
+    def log_split_by_time_by_user_frac(
+            log: DataFrame,
+            test_size: float,
+            drop_cold_items: bool,
+            drop_cold_users: bool,
+    ) -> Tuple[DataFrame, DataFrame, DataFrame]:
+        """
+        Разбить лог действий пользователей по времени на обучающую и тестовую
+        выборки так, чтобы в тестовой выборке была фиксированная доля
+        записей для каждого пользователя.
+
+        :param log: лог взаимодействия, спарк-датафрейм с колонками
+            `[timestamp, user_id, item_id, context, relevance]`
+        :param test_size: доля записей лога по каждому пользователю,
+            которые пойдут в тестовую выборку
+        :param drop_cold_items: исключать ли из тестовой выборки объекты,
+            которых нет в обучающей
+        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
+            которых нет в обучающей
+        :return: тройка спарк-датафреймов структуры, аналогичной входной
+            `train, test_input, test`
+        """
+        counts = log.groupBy("user_id").count()
+        res = ValidationSchemes._log_row_num_by_time(log)
+
+        res = res.join(counts, on="user_id", how="left")
+        res = res.withColumn("frac", sf.col("row_num") / sf.col("count")).cache()
+
+        train = res.filter(res.frac > test_size).drop("row_num", "count", "frac")
+        test = res.filter(res.frac <= test_size).drop("row_num", "count", "frac")
 
         test = ValidationSchemes._drop_cold_items_and_users(
             train, test,
