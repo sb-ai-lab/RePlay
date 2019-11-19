@@ -3,6 +3,7 @@
 """
 import logging
 import os
+from datetime import datetime
 from typing import Dict, Optional
 
 import numpy as np
@@ -27,29 +28,29 @@ class PopularRecommender(BaseRecommender):
         self.beta = beta
 
     def get_params(self) -> Dict[str, object]:
-        return {'alpha': self.alpha,
-                'beta': self.beta}
+        return {"alpha": self.alpha,
+                "beta": self.beta}
 
     def _pre_fit(self, log: DataFrame,
                  user_features: Optional[DataFrame],
                  item_features: Optional[DataFrame],
                  path: Optional[str] = None) -> None:
         popularity = (log
-                      .groupBy('item_id', 'context')
+                      .groupBy("item_id", "context")
                       .count())
 
         self.items_popularity = popularity.select(
-            'item_id', 'context', 'count'
+            "item_id", "context", "count"
         ).cache()
 
         # считаем среднее кол-во просмотренных items у каждого user
         self.avg_num_items = np.ceil(
             log
-            .select('user_id', 'item_id')
-            .groupBy('user_id')
+            .select("user_id", "item_id")
+            .groupBy("user_id")
             .count()
-            .select(sf.mean(sf.col('count')).alias('mean'))
-            .collect()[0]['mean']
+            .select(sf.mean(sf.col("count")).alias("mean"))
+            .collect()[0]["mean"]
         )
         logging.debug(
             f"Среднее количество items у каждого user: {self.avg_num_items}")
@@ -57,7 +58,7 @@ class PopularRecommender(BaseRecommender):
         if path is not None:
             self.items_popularity = utils.write_read_dataframe(
                 self.spark, self.items_popularity,
-                os.path.join(path, 'items_popularity.parquet'))
+                os.path.join(path, "items_popularity.parquet"))
 
     def _fit_partial(self, log: DataFrame,
                      user_features: Optional[DataFrame],
@@ -79,15 +80,15 @@ class PopularRecommender(BaseRecommender):
 
         if context == constants.DEFAULT_CONTEXT:
             items_to_rec = (items_to_rec
-                            .select('item_id', 'count')
-                            .groupBy('item_id')
-                            .agg(sf.sum('count').alias('count')))
+                            .select("item_id", "count")
+                            .groupBy("item_id")
+                            .agg(sf.sum("count").alias("count")))
             items_to_rec = (items_to_rec
-                            .withColumn('context',
+                            .withColumn("context",
                                         sf.lit(constants.DEFAULT_CONTEXT)))
         else:
             items_to_rec = (items_to_rec
-                            .filter(items_to_rec['context'] == context))
+                            .filter(items_to_rec["context"] == context))
 
         count_sum = (items_to_rec
                      .groupBy()
@@ -95,22 +96,22 @@ class PopularRecommender(BaseRecommender):
                      .collect()[0][0])
 
         items_to_rec = (items_to_rec
-                        .withColumn('relevance',
-                                    (sf.col('count') + self.alpha) /
+                        .withColumn("relevance",
+                                    (sf.col("count") + self.alpha) /
                                     (count_sum + self.beta))
-                        .drop('count'))
+                        .drop("count"))
 
         # удаляем ненужные items и добавляем нулевые
         items = items.join(
             items_to_rec,
-            on='item_id',
-            how='left'
+            on="item_id",
+            how="left"
         )
-        items = items.na.fill({'context': context,
-                               'relevance': 0})
+        items = items.na.fill({"context": context,
+                               "relevance": 0})
 
         items = utils.get_top_k_rows(items, k + self.avg_num_items,
-                                     'relevance')
+                                     "relevance")
 
         logging.debug(f"Количество items после фильтрации: {items.count()}")
 
@@ -126,49 +127,48 @@ class PopularRecommender(BaseRecommender):
         # заменяем отрицательные рейтинги на 0
         # (они помогали отобрать в топ-k невиденные айтемы)
         recs = (recs
-                .withColumn('relevance',
-                            sf.when(recs['relevance'] < 0, 0)
-                            .otherwise(recs['relevance']))).cache()
+                .withColumn("relevance",
+                            sf.when(recs["relevance"] < 0, 0)
+                            .otherwise(recs["relevance"]))).cache()
 
         if path is not None:
             recs = utils.write_read_dataframe(
                 self.spark, recs,
-                os.path.join(path, 'recs.parquet'))
+                os.path.join(path, "recs.parquet"))
 
         return recs
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     spark_ = (SparkSession
               .builder
-              .master('local[1]')
-              .config('spark.driver.memory', '512m')
+              .master("local[1]")
+              .config("spark.driver.memory", "512m")
               .config("spark.sql.shuffle.partitions", "1")
-              .appName('testing-pyspark')
+              .appName("testing-pyspark")
               .enableHiveSupport()
               .getOrCreate())
 
     data = [
-        ["user1", "item1", 1.0, 'context1', "timestamp"],
-        ["user2", "item3", 2.0, 'context1', "timestamp"],
-        ["user1", "item2", 1.0, 'context2', "timestamp"],
-        ["user3", "item3", 2.0, 'context1', "timestamp"],
+        ["user1", "item1", datetime(2019, 1, 1), "context1", 1.0],
+        ["user2", "item3", datetime(2019, 1, 1), "context1", 2.0],
+        ["user1", "item2", datetime(2019, 1, 1), "context2", 1.0],
+        ["user3", "item3", datetime(2019, 1, 1), "context1", 2.0],
     ]
-    schema = ['user_id', 'item_id', 'relevance', 'context', 'timestamp']
     log_ = spark_.createDataFrame(data=data,
-                                  schema=schema)
+                                  schema=constants.LOG_SCHEMA)
 
     users_ = ["user1", "user2", "user3"]
     items_ = ["item1", "item2", "item3"]
 
     users_ = spark_.createDataFrame(data=[[user] for user in users_],
-                                    schema=['user_id'])
+                                    schema=["user_id"])
     items_ = spark_.createDataFrame(data=[[item] for item in items_],
-                                    schema=['item_id'])
+                                    schema=["item_id"])
 
     pr = PopularRecommender(spark_, alpha=0, beta=0)
     recs_ = pr.fit_predict(k=3, users=users_, items=items_,
-                           context='context1',
+                           context="context1",
                            log=log_,
                            user_features=None, item_features=None,
                            to_filter_seen_items=False)
