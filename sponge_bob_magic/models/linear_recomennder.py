@@ -33,9 +33,9 @@ class LinearRecommender(BaseRecommender):
         self.num_iter: int = num_iter
 
     def get_params(self) -> Dict[str, object]:
-        return {'lambda_param': self.lambda_param,
-                'elastic_net_param': self.elastic_net_param,
-                'num_iter': self.num_iter}
+        return {"lambda_param": self.lambda_param,
+                "elastic_net_param": self.elastic_net_param,
+                "num_iter": self.num_iter}
 
     def _pre_fit(self, log: DataFrame,
                  user_features: Optional[DataFrame],
@@ -46,7 +46,7 @@ class LinearRecommender(BaseRecommender):
             self._augment_data(log, user_features, item_features)
             .withColumnRenamed("relevance", "label")
             .select("label", "features")
-        )
+        ).cache()
 
     def _fit_partial(
             self,
@@ -137,6 +137,6 @@ class LinearRecommender(BaseRecommender):
         if path is not None:
             recs = utils.write_read_dataframe(
                 self.spark, recs,
-                os.path.join(path, 'recs.parquet')
+                os.path.join(path, "recs.parquet")
             )
         return recs

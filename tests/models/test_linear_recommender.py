@@ -6,6 +6,7 @@ from datetime import datetime
 import numpy as np
 from pyspark.sql.types import (ArrayType, FloatType, IntegerType, StringType,
                                StructField, StructType, TimestampType)
+
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
 from sponge_bob_magic.models.linear_recomennder import LinearRecommender
 from tests.pyspark_testcase import PySparkTest
@@ -38,11 +39,24 @@ class LinearRecommenderTestCase(PySparkTest):
             schema=LOG_SCHEMA
         )
 
-    def test_get_params(self):
-        self.assertEqual(self.model.get_params(), dict())
+    def test_set_params(self):
+        params = {"lambda_param": 1e-5,
+                  "elastic_net_param": 0.1,
+                  "num_iter": 10}
+        self.model.set_params(**params)
+        self.assertEqual(self.model.get_params(), params)
 
-    def test_fit_partial(self):
-        self.model._fit_partial(
+    def test_get_params(self):
+        model = LinearRecommender(self.spark, lambda_param=1e-4,
+                                  elastic_net_param=0.1, num_iter=1)
+
+        params = {"lambda_param": 1e-4,
+                  "elastic_net_param": 0.1,
+                  "num_iter": 1}
+        self.assertEqual(model.get_params(), params)
+
+    def test_fit(self):
+        self.model.fit(
             log=self.log,
             user_features=self.user_features,
             item_features=self.item_features
