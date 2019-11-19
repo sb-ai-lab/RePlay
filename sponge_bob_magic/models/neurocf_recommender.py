@@ -74,6 +74,7 @@ class RecommenderModel(Module):
 
 class NeuroCFRecommender(BaseRecommender):
     """ Модель на нейросети. """
+    num_workers: int = 10
 
     def __init__(self, spark: SparkSession,
                  learning_rate: float = 0.5,
@@ -157,8 +158,8 @@ class NeuroCFRecommender(BaseRecommender):
             os.path.join(path, "tmp_tensor_data")
         )
 
-        user_batch = Variable(torch.LongTensor(tensor_data["user_idx"].values))
-        item_batch = Variable(torch.LongTensor(tensor_data["item_idx"].values))
+        user_batch = torch.LongTensor(tensor_data["user_idx"].values)
+        item_batch = torch.LongTensor(tensor_data["item_idx"].values)
 
         for epoch in range(self.epochs):
             logging.debug(f"Эпоха {epoch}")
@@ -168,7 +169,7 @@ class NeuroCFRecommender(BaseRecommender):
                 TensorDataset(user_batch, item_batch),
                 batch_size=self.batch_size,
                 shuffle=True,
-                num_workers=20
+                num_workers=self.num_workers
             )
 
             current_loss = None
@@ -226,14 +227,14 @@ class NeuroCFRecommender(BaseRecommender):
             os.path.join(path, "tmp_tensor_data")
         )
 
-        user_batch = Variable(torch.LongTensor(tensor_data["user_idx"].values))
-        item_batch = Variable(torch.LongTensor(tensor_data["item_idx"].values))
+        user_batch = torch.LongTensor(tensor_data["user_idx"].values)
+        item_batch = torch.LongTensor(tensor_data["item_idx"].values)
 
         data = DataLoader(
             TensorDataset(user_batch, item_batch),
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=20
+            num_workers=self.num_workers
         )
         with torch.no_grad():
             for batch in data:
@@ -287,9 +288,13 @@ class NeuroCFRecommender(BaseRecommender):
 
         logging.debug("Создание тензоров")
         user_ids = torch.from_numpy(
-            np.repeat(users, item_count).astype(int)).cuda()
+            np.repeat(users, item_count).astype(int)).cpu()
         item_ids = torch.from_numpy(
-            np.tile(items, user_count).astype(int)).cuda()
+            np.tile(items, user_count).astype(int)).cpu()
+
+        if torch.cuda.is_available():
+            user_ids = user_ids.cuda()
+            item_ids = item_ids.cuda()
 
         logging.debug("Предсказание модели")
         with torch.no_grad():
@@ -356,13 +361,13 @@ class NeuroCFRecommender(BaseRecommender):
         """
         max_value = (
             df
-                .agg({column: "max"})
-                .collect()[0][0]
+            .agg({column: "max"})
+            .collect()[0][0]
         )
         min_value = (
             df
-                .agg({column: "min"})
-                .collect()[0][0]
+            .agg({column: "min"})
+            .collect()[0][0]
         )
 
         df = df.withColumn(
