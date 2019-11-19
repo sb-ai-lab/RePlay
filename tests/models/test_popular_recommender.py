@@ -69,27 +69,27 @@ class PopularRecommenderTestCase(PySparkTest):
             ["u2", "i4", 2.0, "c2", "2019-01-01"],
             ["u1", "i4", 1.0, "c2", "2019-01-01"],
         ]
-        log_schema = ['user_id', 'item_id', 'relevance',
-                      'context', 'timestamp']
+        log_schema = ["user_id", "item_id", "relevance",
+                      "context", "timestamp"]
         log = self.spark.createDataFrame(data=log_data,
                                          schema=log_schema)
 
         items_relevance = self.spark.createDataFrame(items_relevance,
-                                                     schema=['item_id',
-                                                             'relevance'])
+                                                     schema=["item_id",
+                                                             "relevance"])
         users = self.spark.createDataFrame(data=[[user] for user in users],
-                                           schema=['user_id'])
+                                           schema=["user_id"])
 
         true_recs = users.crossJoin(items_relevance)
         true_recs = (true_recs
-                     .withColumn('context', sf.lit(context)))
+                     .withColumn("context", sf.lit(context)))
 
-        self.model.set_params(**{'alpha': 0, 'beta': 0})
+        self.model.set_params(**{"alpha": 0, "beta": 0})
 
         # два вызова нужны, чтобы проверить, что они возващают одно и то же
         test_recs_first = self.model.fit_predict(
             k=k, users=users,
-            items=items_relevance.select('item_id'),
+            items=items_relevance.select("item_id"),
             context=context,
             log=log,
             user_features=None,
@@ -97,7 +97,7 @@ class PopularRecommenderTestCase(PySparkTest):
             to_filter_seen_items=False)
         test_recs_second = self.model.fit_predict(
             k=k, users=users,
-            items=items_relevance.select('item_id'),
+            items=items_relevance.select("item_id"),
             context=context,
             log=log,
             user_features=None,
@@ -119,11 +119,11 @@ class PopularRecommenderTestCase(PySparkTest):
             ["u3", "i4", 1.0, "c2", "2019-01-01"],
             ["u3", "i3", 2.0, "c2", "2019-01-01"],
         ]
-        log_schema = ['user_id', 'item_id', 'relevance',
-                      'context', 'timestamp']
+        log_schema = ["user_id", "item_id", "relevance",
+                      "context", "timestamp"]
         log = self.spark.createDataFrame(data=log_data,
                                          schema=log_schema)
-        context = 'c1'  # вычищение лога не зависит от контекста
+        context = "c1"  # вычищение лога не зависит от контекста
 
         true_recs_data = [
             ["u1", "i2", 0 / 5, context],
@@ -133,18 +133,18 @@ class PopularRecommenderTestCase(PySparkTest):
             ["u3", "i1", 2 / 5, context],
             ["u3", "i2", 0 / 5, context],
         ]
-        true_recs_schema = ['user_id', 'item_id', 'relevance', 'context']
+        true_recs_schema = ["user_id", "item_id", "relevance", "context"]
         true_recs = self.spark.createDataFrame(data=true_recs_data,
                                                schema=true_recs_schema)
 
-        self.model.set_params(**{'alpha': 0, 'beta': 0})
+        self.model.set_params(**{"alpha": 0, "beta": 0})
 
         users = self.spark.createDataFrame(
             data=[[user] for user in ["u1", "u2", "u3"]],
-            schema=['user_id'])
+            schema=["user_id"])
         items = self.spark.createDataFrame(
             data=[[item] for item in ["i1", "i2", "i3", "i4"]],
-            schema=['item_id'])
+            schema=["item_id"])
 
         test_recs = self.model.fit_predict(
             k=2, users=users,
@@ -179,11 +179,11 @@ class PopularRecommenderTestCase(PySparkTest):
             ["u1", "i4", 2.0, "c2", "2019-01-01"],
             ["u3", "i4", 4.0, "c2", "2019-01-01"],
         ]
-        log_schema = ['user_id', 'item_id', 'relevance',
-                      'context', 'timestamp']
+        log_schema = ["user_id", "item_id", "relevance",
+                      "context", "timestamp"]
         log = self.spark.createDataFrame(data=log_data,
                                          schema=log_schema)
-        context = 'c2'
+        context = "c2"
 
         true_recs_data = [
             ["u1", "i1", (2 + alpha) / (beta + 7), context],
@@ -199,11 +199,11 @@ class PopularRecommenderTestCase(PySparkTest):
             ["u3", "i3", (1 + alpha) / (beta + 7), context],
             ["u3", "i4", (3 + alpha) / (beta + 7), context],
         ]
-        true_recs_schema = ['user_id', 'item_id', 'relevance', 'context']
+        true_recs_schema = ["user_id", "item_id", "relevance", "context"]
         true_recs = self.spark.createDataFrame(data=true_recs_data,
                                                schema=true_recs_schema)
 
-        self.model.set_params(**{'alpha': alpha, 'beta': beta})
+        self.model.set_params(**{"alpha": alpha, "beta": beta})
 
         test_recs = self.model.fit_predict(
             k=4, users=None,
@@ -230,11 +230,11 @@ class PopularRecommenderTestCase(PySparkTest):
             ["u1", "i4", 2.0, "c2", "2019-01-01"],
             ["u3", "i4", 4.0, "c2", "2019-01-01"],
         ]
-        log_schema = ['user_id', 'item_id', 'relevance',
-                      'context', 'timestamp']
+        log_schema = ["user_id", "item_id", "relevance",
+                      "context", "timestamp"]
         log = self.spark.createDataFrame(data=log_data,
                                          schema=log_schema)
-        context = 'c2'
+        context = "c2"
 
         true_recs_data = [
             ["u1", "i1", 2 / 7, context],
@@ -250,11 +250,11 @@ class PopularRecommenderTestCase(PySparkTest):
             ["u3", "i3", 1 / 7, context],
             ["u3", "i4", 3 / 7, context],
         ]
-        true_recs_schema = ['user_id', 'item_id', 'relevance', 'context']
+        true_recs_schema = ["user_id", "item_id", "relevance", "context"]
         true_recs = self.spark.createDataFrame(data=true_recs_data,
                                                schema=true_recs_schema)
 
-        self.model.set_params(**{'alpha': 0, 'beta': 0})
+        self.model.set_params(**{"alpha": 0, "beta": 0})
 
         test_recs = self.model.fit_predict(
             k=4, users=None,

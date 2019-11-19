@@ -149,16 +149,16 @@ class TestValidationSchemes(PySparkTest):
                 test.count(), np.ceil(self.mega_log.count() * test_size)
             )
         if drop_cold_items:
-            test_items = get_distinct_values_in_column(test, 'item_id')
-            test_input_items = get_distinct_values_in_column(test, 'item_id')
-            train_items = get_distinct_values_in_column(test, 'item_id')
+            test_items = get_distinct_values_in_column(test, "item_id")
+            test_input_items = get_distinct_values_in_column(test, "item_id")
+            train_items = get_distinct_values_in_column(test, "item_id")
 
             self.assertSetEqual(test_items, test_input_items)
             self.assertSetEqual(test_items, train_items)
         if drop_cold_users:
-            test_users = get_distinct_values_in_column(test, 'user_id')
-            test_input_users = get_distinct_values_in_column(test, 'user_id')
-            train_users = get_distinct_values_in_column(test, 'user_id')
+            test_users = get_distinct_values_in_column(test, "user_id")
+            test_input_users = get_distinct_values_in_column(test, "user_id")
+            train_users = get_distinct_values_in_column(test, "user_id")
 
             self.assertSetEqual(test_users, test_input_users)
             self.assertSetEqual(test_users, train_users)

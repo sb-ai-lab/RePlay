@@ -58,8 +58,8 @@ class BaseRecommenderCase(PySparkTest):
                           k=10, users=None, items=None, context=None)
 
         # log с недостающими колонкнами
-        log_required_columns = ['item_id', 'user_id', 'timestamp',
-                                'relevance', 'context']
+        log_required_columns = ["item_id", "user_id", "timestamp",
+                                "relevance", "context"]
         for i in range(1, len(log_required_columns) - 1):
             log = self.spark.createDataFrame(
                 data=[["1", "2", "3", "4", "5"]],
@@ -72,7 +72,7 @@ class BaseRecommenderCase(PySparkTest):
     def test_fit_predict_feature_exception(self):
         log = self.spark.createDataFrame(
             data=[["1", "2", "3", "4", "5", "6"]],
-            schema=['item_id', 'user_id', 'timestamp', 'relevance', 'context'])
+            schema=["item_id", "user_id", "timestamp", "relevance", "context"])
 
         # user_features пустой | item_features пустой
         self.assertRaises(ValueError, self.model.fit_predict,
@@ -89,14 +89,14 @@ class BaseRecommenderCase(PySparkTest):
             ValueError, self.model.fit_predict,
             log=log, item_features=None,
             user_features=self.spark.createDataFrame(data=[["1", "2"]],
-                                                     schema=['user_id', 'f']),
+                                                     schema=["user_id", "f"]),
             k=10, users=None, items=None, context=None,
         )
         self.assertRaises(
             ValueError, self.model.fit_predict,
             log=log, user_features=None,
             item_features=self.spark.createDataFrame(data=[["1", "2"]],
-                                                     schema=['item_id', 'f']),
+                                                     schema=["item_id", "f"]),
             k=10, users=None, items=None, context=None
         )
 
@@ -107,7 +107,7 @@ class BaseRecommenderCase(PySparkTest):
             k=10, users=None, items=None, context=None,
             user_features=self.spark.createDataFrame(
                 data=[["1", "2"]],
-                schema=['user_id', 'timestamp'])
+                schema=["user_id", "timestamp"])
         )
         self.assertRaises(
             ValueError, self.model.fit_predict,
@@ -115,9 +115,9 @@ class BaseRecommenderCase(PySparkTest):
             k=10, users=None, items=None, context=None,
             user_features=self.spark.createDataFrame(
                 data=[["1", "2"]],
-                schema=['item_id', 'timestamp'])
+                schema=["item_id", "timestamp"])
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
