@@ -58,7 +58,8 @@ class PopularRecommender(BaseRecommender):
         if path is not None:
             self.items_popularity = utils.write_read_dataframe(
                 self.spark, self.items_popularity,
-                os.path.join(path, "items_popularity.parquet"))
+                os.path.join(path, "items_popularity.parquet"),
+                self.to_overwrite_files)
 
     def _fit_partial(self, log: DataFrame,
                      user_features: Optional[DataFrame],
@@ -134,7 +135,8 @@ class PopularRecommender(BaseRecommender):
         if path is not None:
             recs = utils.write_read_dataframe(
                 self.spark, recs,
-                os.path.join(path, "recs.parquet"))
+                os.path.join(path, "recs.parquet"),
+                self.to_overwrite_files)
 
         return recs
 

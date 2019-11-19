@@ -51,11 +51,14 @@ def get_top_k_rows(dataframe: DataFrame, k: int, sort_column: str):
 
 def write_read_dataframe(spark: SparkSession,
                          df: DataFrame,
-                         path: Optional[str]):
+                         path: Optional[str],
+                         to_overwrite_files: bool = True):
     """
     Записывает спарк-датафрейм на диск и считывает его обратно и возвращает.
     Если путь равен None, то возвращается спарк-датафрейм, поданный на вход.
 
+    :param to_overwrite_files: флажок, если True, то перезаписывает файл,
+        если он существует; иначе - поднимается исключение
     :param spark: инициализированная спарк-сессия
     :param df: спарк-датафрейм
     :param path: путь, по которому происходит записаь датафрейма
@@ -63,7 +66,10 @@ def write_read_dataframe(spark: SparkSession,
         то lineage датафрейма обнуляется
     """
     if path is not None:
-        df.write.mode("overwrite").parquet(path)
+        (df
+         .write
+         .mode("overwrite" if to_overwrite_files else "error")
+         .parquet(path))
         df = spark.read.parquet(path)
     return df
 
