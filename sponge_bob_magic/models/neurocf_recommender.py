@@ -11,9 +11,9 @@ import torch
 from pyspark.ml.feature import StringIndexer, IndexToString
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
-from torch.autograd import Variable
 from torch.nn import Embedding, Module, DataParallel
 from torch.utils.data import DataLoader, TensorDataset
+import torch.optim
 
 from sponge_bob_magic import utils
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
@@ -140,6 +140,53 @@ class NeuroCFRecommender(BaseRecommender):
         else:
             self.model = model
 
+    def _run_single_batch(self, batch):
+        negative_items = torch.from_numpy(
+            np.random.randint(low=0, high=self.num_items - 1,
+                              size=batch[0].shape[0])
+        )
+
+        if torch.cuda.is_available():
+            batch = [item.cuda() for item in batch]
+            negative_items = negative_items.cuda()
+
+        positive_relevance = self.model.forward(batch[0], batch[1])
+        negative_relevance = self.model.forward(
+            batch[0], negative_items
+        )
+
+        loss = torch.clamp(
+            negative_relevance - positive_relevance + 1.0, 0.0, 1.0
+        ).mean()
+
+        return loss
+
+    def _run_epoch(self,
+                   user_batch: torch.LongTensor,
+                   item_batch: torch.LongTensor,
+                   optimizer: torch.optim.Optimizer):
+        loss_value = 0
+
+        data = DataLoader(
+            TensorDataset(user_batch, item_batch),
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers
+        )
+
+        current_loss = None
+        for batch in data:
+            loss = self._run_single_batch(batch)
+
+            loss_value += loss.item()
+            current_loss = loss_value / len(data)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        return current_loss
+
     def _fit_partial(self, log: DataFrame, user_features: Optional[DataFrame],
                      item_features: Optional[DataFrame],
                      path: Optional[str] = None) -> None:
@@ -148,7 +195,6 @@ class NeuroCFRecommender(BaseRecommender):
         log_indexed = self.item_indexer_model.transform(log_indexed)
 
         self.model.train()
-
         optimizer = torch.optim.Adam(self.model.parameters(),
                                      lr=self.learning_rate)
 
@@ -161,45 +207,11 @@ class NeuroCFRecommender(BaseRecommender):
         user_batch = torch.LongTensor(tensor_data["user_idx"].values)
         item_batch = torch.LongTensor(tensor_data["item_idx"].values)
 
+        logging.debug("Обучение модели")
         for epoch in range(self.epochs):
-            logging.debug(f"Эпоха {epoch}")
-            loss_value = 0
-
-            data = DataLoader(
-                TensorDataset(user_batch, item_batch),
-                batch_size=self.batch_size,
-                shuffle=True,
-                num_workers=self.num_workers
-            )
-
-            current_loss = None
-            for batch in data:
-                negative_items = torch.from_numpy(
-                    np.random.randint(low=0, high=self.num_items - 1,
-                                      size=batch[0].shape[0])
-                )
-
-                if torch.cuda.is_available():
-                    batch = [item.cuda() for item in batch]
-                    negative_items = negative_items.cuda()
-
-                positive_relevance = self.model.forward(batch[0], batch[1])
-                negative_relevance = self.model.forward(
-                    batch[0], negative_items
-                )
-
-                loss = torch.clamp(
-                    negative_relevance - positive_relevance + 1.0, 0.0, 1.0
-                ).mean()
-
-                loss_value += loss.item()
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                current_loss = loss_value / len(data)
-
-            logging.debug(f"Текущее значение: {current_loss:.4f}")
+            logging.debug(f"-- Эпоха {epoch}")
+            current_loss = self._run_epoch(user_batch, item_batch, optimizer)
+            logging.debug(f"-- Текущее значение: {current_loss:.4f}")
 
     def get_loss(
             self,
@@ -238,24 +250,7 @@ class NeuroCFRecommender(BaseRecommender):
         )
         with torch.no_grad():
             for batch in data:
-                negative_items = torch.from_numpy(
-                    np.random.randint(low=0, high=self.num_items - 1,
-                                      size=batch[0].shape[0])
-                )
-
-                if torch.cuda.is_available():
-                    batch = [item.cuda() for item in batch]
-                    negative_items = negative_items.cuda()
-
-                positive_relevance = self.model.forward(batch[0], batch[1])
-                negative_relevance = self.model.forward(
-                    batch[0], negative_items
-                )
-
-                loss = torch.clamp(
-                    negative_relevance - positive_relevance + 1.0, 0.0, 1.0
-                ).mean()
-
+                loss = self._run_single_batch(batch)
                 loss_value += loss.item()
 
         return loss_value / len(data)
@@ -390,7 +385,7 @@ class NeuroCFRecommender(BaseRecommender):
         """
         logging.debug("-- Запись")
         (df
-         .repartition(1)
+         .coalesce(1)
          .write
          .mode("overwrite")
          .csv(path, header=True))
