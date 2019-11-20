@@ -34,8 +34,6 @@ class BaseRecommender(ABC):
             значение - значение параметра
         :return:
         """
-        if not params:
-            return
         valid_params = self.get_params()
 
         for param, value in params.items():
