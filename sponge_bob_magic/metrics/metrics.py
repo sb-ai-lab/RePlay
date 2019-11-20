@@ -1,9 +1,9 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from pyspark.rdd import RDD
 from pyspark.ml.feature import StringIndexer
 from pyspark.mllib.evaluation import RankingMetrics
+from pyspark.rdd import RDD
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 
@@ -40,17 +40,18 @@ class Metrics:
         df_true = indexer.transform(ground_truth)
         df_pred = indexer.transform(recommendations)
 
-        df_pred = (
-            df_pred
-            .groupby("user_id")
-            .agg(sf.collect_list("item_idx").alias("pred_items"))
-        )
+        w = Window.partitionBy('user_id').orderBy(sf.col('relevance').desc())
 
-        df_true = (
-            df_true
-            .groupby("user_id")
-            .agg(sf.collect_list("item_idx").alias("true_items"))
-        )
+        df_pred = (df_pred
+                   .withColumn('pred_items',
+                               sf.collect_list('item_idx').over(w))
+                   .groupby("user_id")
+                   .agg(sf.max('pred_items').alias('pred_items')))
+        df_true = (df_true
+                   .withColumn('true_items',
+                               sf.collect_list('item_idx').over(w))
+                   .groupby("user_id")
+                   .agg(sf.max('true_items').alias('true_items')))
 
         prediction_and_labels = (
             df_pred
