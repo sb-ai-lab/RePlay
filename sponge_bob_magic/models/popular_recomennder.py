@@ -15,6 +15,7 @@ from sponge_bob_magic.models.base_recommender import BaseRecommender
 
 class PopularRecommender(BaseRecommender):
     """ Простейший рекомендатель на основе сглаженной популярности. """
+    avg_num_items: int
     items_popularity: Optional[DataFrame]
 
     def __init__(self, spark: SparkSession,
@@ -146,8 +147,6 @@ if __name__ == '__main__':
               .appName('testing-pyspark')
               .enableHiveSupport()
               .getOrCreate())
-
-    spark_.sparkContext.setCheckpointDir(os.environ['SPONGE_BOB_CHECKPOINTS'])
 
     data = [
         ["user1", "item1", 1.0, 'context1', "timestamp"],

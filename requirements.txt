@@ -1,3 +1,4 @@
+optuna==0.19.0
 appnope==0.1.0
 astroid==2.3.2
 attrs==19.3.0

@@ -4,29 +4,33 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple, TypeVar
+from typing import Any, Dict, Optional, Tuple, TypeVar, Set
 
 import joblib
 import optuna
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import functions as sf
 
 from sponge_bob_magic import constants
 from sponge_bob_magic.metrics.metrics import Metrics
 from sponge_bob_magic.models.base_recommender import BaseRecommender
+from sponge_bob_magic.models.knn_recommender import KNNRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
 from sponge_bob_magic.validation_schemes import ValidationSchemes
 
 TNum = TypeVar('TNum', int, float)
 
 
-class PopularScenario:
-    """ Сценарий с рекомнедациями популярных items. """
+class KNNScenario:
+    """ Сценарий с item-based KNN моделью. """
+    num_attempts: int = 10
+    tested_params_set: Set[Tuple[TNum, TNum]] = set()
+    seed: int = 1234
     model: Optional[BaseRecommender]
     study: Optional[optuna.Study]
 
     def __init__(self, spark: SparkSession):
         self.spark = spark
-        self.seed = 1234
 
     def research(
             self,
@@ -55,12 +59,12 @@ class PopularScenario:
         if how_to_split == 'by_date':
             train, test_input, test = splitter.log_split_by_date(
                 log, test_start=test_start,
-                drop_cold_users=False, drop_cold_items=True
+                drop_cold_users=True, drop_cold_items=True
             )
         elif how_to_split == 'randomly':
             train, test_input, test = splitter.log_split_randomly(
                 log,
-                drop_cold_users=False, drop_cold_items=True,
+                drop_cold_users=True, drop_cold_items=True,
                 seed=self.seed, test_size=test_size
             )
         else:
@@ -88,30 +92,70 @@ class PopularScenario:
         if items is None:
             items = test.select('item_id').distinct().cache()
 
-        logging.debug("Популярная модель: полное обучение")
-        self.model = PopularRecommender(self.spark)
-        self.model.fit(log=train,
-                       user_features=user_features,
-                       item_features=item_features,
-                       path=None)
+        logging.debug("Популярная модель: фит_предикт")
+        popular_recs = (
+            PopularRecommender(self.spark,
+                               alpha=params_grid.get("alpha", 0),
+                               beta=params_grid.get("beta", 0))
+            .fit_predict(k, users, items, context, train,
+                         user_features, item_features,
+                         to_filter_seen_items)
+            .select(sf.col("user_id"),
+                    sf.col("item_id"),
+                    sf.col("context").alias("context_pop"),
+                    sf.col("relevance").alias("relevance_pop"), )
+        )
+        max_in_popular_recs = (
+            popular_recs
+            .agg({"relevance_pop": "max"})
+            .collect()[0][0]
+        )
+
+        logging.debug("Модель KNN")
+        self.model = KNNRecommender(self.spark)
+
+        logging.debug("Первый пре-фит модели")
+        self.model._pre_fit(log=train,
+                            user_features=user_features,
+                            item_features=item_features,
+                            path=None)
 
         def objective(trial: optuna.Trial):
             if path is not None:
                 joblib.dump(self.study,
                             os.path.join(path, "optuna_study.joblib"))
 
-            alpha = trial.suggest_int(
-                'alpha', params_grid['alpha'][0], params_grid['alpha'][1])
-            beta = trial.suggest_int(
-                'beta', params_grid['beta'][0], params_grid['beta'][1])
+            # num_attempts раз пытаемся засемплить параметры, которых еще
+            # не было; если не получилось, берем с последней попытки
+            num_neighbours, shrink = 0, 0
+            for attempt in range(KNNScenario.num_attempts):
+                num_neighbours = trial.suggest_discrete_uniform(
+                    'num_neighbours',
+                    params_grid['num_neighbours'][0],
+                    params_grid['num_neighbours'][1],
+                    params_grid['num_neighbours'][2],
+                )
+                shrink = trial.suggest_categorical(
+                    'shrink',
+                    params_grid['shrink']
+                )
 
-            params = {'alpha': alpha,
-                      'beta': beta}
+                if (num_neighbours, shrink) not in self.tested_params_set:
+                    break
+
+            self.tested_params_set.add((num_neighbours, shrink))
+            params = {'num_neighbours': num_neighbours,
+                      'shrink': shrink}
             self.model.set_params(**params)
             logging.debug(f"-- Параметры: {params}")
 
+            logging.debug("-- Второй фит модели в оптимизации")
+            self.model._fit_partial(log=train,
+                                    user_features=user_features,
+                                    item_features=item_features,
+                                    path=None)
+
             logging.debug("-- Предикт модели в оптимизации")
-            # здесь как в фите делается cache
             recs = self.model.predict(
                 k=k,
                 users=users, items=items,
@@ -121,22 +165,55 @@ class PopularScenario:
                 log=train,
                 to_filter_seen_items=to_filter_seen_items
             )
+
+            # добавим максимум из популярных реков,
+            # чтобы сохранить порядок при заборе топ-k
+            recs = recs.withColumn(
+                "relevance",
+                sf.col("relevance") + 10 * max_in_popular_recs
+            )
+            logging.debug(f"-- Длина рекомендаций: {recs.count()}")
+
+            logging.debug("-- Дополняем рекомендации популярными")
+            recs = recs.join(popular_recs, on=['user_id', 'item_id'],
+                             how='full_outer')
+
+            recs = (recs
+                    .withColumn('context',
+                                sf.coalesce('context', 'context_pop'))
+                    .withColumn('relevance',
+                                sf.coalesce('relevance', 'relevance_pop'))
+                    )
+            recs = recs.select("user_id", "item_id", "context", "relevance")
+
+            recs = self.model._get_top_k_recs(recs, k)
             logging.debug(f"-- Длина рекомендаций: {recs.count()}")
 
             logging.debug("-- Подсчет метрики в оптимизации")
             hit_rate = Metrics.hit_rate_at_k(recs, test, k=k)
             ndcg = Metrics.ndcg_at_k(recs, test, k=k)
+            precision = Metrics.precision_at_k(recs, test, k=k)
+            map_metric = Metrics.map_at_k(recs, test, k=k)
 
             trial.set_user_attr('nDCG@k', ndcg)
+            trial.set_user_attr('precision@k', precision)
+            trial.set_user_attr('MAP@k', map_metric)
+            trial.set_user_attr('HitRate@k', hit_rate)
 
-            logging.debug(f"-- Метрика: {hit_rate, ndcg}")
+            logging.debug(f"-- Метрики: "
+                          f"hit_rate={hit_rate:.4f}, "
+                          f"ndcg={ndcg:.4f}, "
+                          f"precision={precision:.4f}, "
+                          f"map_metric={map_metric:.4f}"
+                          )
 
             return hit_rate
 
-        logging.debug("-------------")
-        logging.debug("Начало оптимизации параметров")
         sampler = optuna.samplers.RandomSampler()
         self.study = optuna.create_study(direction='maximize', sampler=sampler)
+
+        logging.debug("-------------")
+        logging.debug("Начало оптимизации параметров")
         self.study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs)
 
         logging.debug(f"Лучшие значения метрики: {self.study.best_value}")
@@ -155,7 +232,7 @@ class PopularScenario:
             context: Optional[str],
             to_filter_seen_items: bool
     ) -> DataFrame:
-        self.model = PopularRecommender(self.spark)
+        self.model = KNNRecommender(self.spark)
         self.model.set_params(**params)
 
         return self.model.fit_predict(k, users, items, context, log,
@@ -176,57 +253,64 @@ if __name__ == '__main__':
     spark_.sparkContext.setCheckpointDir(os.environ['SPONGE_BOB_CHECKPOINTS'])
 
     data = [
-        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 8)],
+        ["user1", "item4", 1.0, 'no_context', datetime(2019, 10, 8)],
         ["user2", "item2", 2.0, 'no_context', datetime(2019, 10, 9)],
         ["user1", "item3", 1.0, 'no_context', datetime(2019, 10, 10)],
         ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 11)],
-        ["user1", "item2", 1.0, 'no_context', datetime(2019, 10, 12)],
-        ["user3", "item3", 2.0, 'no_context', datetime(2019, 10, 13)],
+        ["user1", "item4", 1.0, 'no_context', datetime(2019, 10, 12)],
+        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 13)],
+        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 14)],
+        ["user1", "item4", 1.0, 'no_context', datetime(2019, 10, 15)],
+        ["user1", "item2", 1.0, 'no_context', datetime(2019, 10, 16)],
+        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 17)],
+        ["user3", "item3", 2.0, 'no_context', datetime(2019, 10, 18)],
+        ["user3", "item2", 2.0, 'no_context', datetime(2019, 10, 19)],
+        ["user3", "item3", 2.0, 'no_context', datetime(2019, 10, 20)],
     ]
     schema = ['user_id', 'item_id', 'relevance', 'context', 'timestamp']
     log_ = spark_.createDataFrame(data=data,
                                   schema=schema)
 
-    popular_scenario = PopularScenario(spark_)
-    popular_params_grid = {'alpha': (0, 100), 'beta': (0, 100)}
+    knn_scenario = KNNScenario(spark_)
+    knn_params_grid = {'num_neighbours': (1, 9, 2), 'shrink': (0, 10)}
 
-    best_params = popular_scenario.research(
-        popular_params_grid,
+    best_params = knn_scenario.research(
+        knn_params_grid,
         log_,
         users=None, items=None,
         user_features=None,
         item_features=None,
         test_start=datetime(2019, 10, 11),
-        k=3, context='no_context',
+        k=2, context=None,
         to_filter_seen_items=True,
         n_trials=4, n_jobs=4
     )
 
     print(best_params)
 
-    recs_ = popular_scenario.production(
+    recs_ = knn_scenario.production(
         best_params,
         log_,
         users=None,
         items=None,
         user_features=None,
         item_features=None,
-        k=3,
+        k=2,
         context='no_context',
         to_filter_seen_items=True
     )
 
     recs_.show()
 
-    best_params = popular_scenario.research(
-        popular_params_grid,
+    best_params = knn_scenario.research(
+        knn_params_grid,
         log_,
         users=None, items=None,
         user_features=None,
         item_features=None,
         test_start=None,
         test_size=0.4,
-        k=3, context='no_context',
+        k=2, context=None,
         to_filter_seen_items=True,
         n_trials=4, n_jobs=1,
         how_to_split='randomly'
@@ -234,15 +318,15 @@ if __name__ == '__main__':
 
     print(best_params)
 
-    recs_ = popular_scenario.production(
+    recs_ = knn_scenario.production(
         best_params,
         log_,
         users=None,
         items=None,
         user_features=None,
         item_features=None,
-        k=3,
-        context='no_context',
+        k=2,
+        context=None,
         to_filter_seen_items=True
     )
 

@@ -20,15 +20,17 @@ class KNNRecommender(BaseRecommender):
     item_norms: Optional[DataFrame]
     similarity: Optional[DataFrame]
 
-    def __init__(self, spark: SparkSession, k: int, shrink: float = 0.0):
+    def __init__(self, spark: SparkSession,
+                 num_neighbours: int = 10,
+                 shrink: float = 0.0):
         super().__init__(spark)
 
-        self.shrink = shrink
-        self.k = k
+        self.shrink: float = shrink
+        self.num_neighbours: int = num_neighbours
 
     def get_params(self) -> Dict[str, object]:
         return {"shrink": self.shrink,
-                "k": self.k}
+                "num_neighbours": self.num_neighbours}
 
     def _get_similarity_matrix(
             self,
@@ -37,8 +39,8 @@ class KNNRecommender(BaseRecommender):
             item_norms: DataFrame
     ) -> DataFrame:
         """
-        получить верхнюю треугольную матрицу модифицированной косинусной меры
-        схожести
+        Получает верхнюю треугольную матрицу модифицированной косинусной меры
+        схожести.
 
         :param items: объекты, между которыми нужно посчитать схожесть,
             спарк-датафрейм с колонкой `[item_id]`
@@ -107,7 +109,7 @@ class KNNRecommender(BaseRecommender):
                     Window.partitionBy("item_id_one").orderBy("similarity")
                 )
             )
-            .filter(sf.col("similarity_order") <= self.k)
+            .filter(sf.col("similarity_order") <= self.num_neighbours)
             .drop("similarity_order")
             .cache()
         )
@@ -167,8 +169,8 @@ class KNNRecommender(BaseRecommender):
 
         # сохраняем на диск, если есть путь
         if path is not None:
-            self.similarity_matrix = utils.write_read_dataframe(
-                self.spark, self.similarity_matrix,
+            self.similarity = utils.write_read_dataframe(
+                self.spark, self.similarity,
                 os.path.join(path, 'knn_similarity_matrix.parquet')
             )
 
