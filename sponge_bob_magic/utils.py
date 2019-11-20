@@ -32,7 +32,7 @@ def get_distinct_values_in_column(
 
 def get_top_k_rows(dataframe: DataFrame, k: int, sort_column: str):
     """
-    Выделяет топ-k строк в датафрейме на оснвое заданной колонки.
+    Выделяет топ-k строк в датафрейме на основе заданной колонки.
 
     :param sort_column: название колонки, по которой необходимы выделить топ
     :param dataframe: спарк-датафрейм
@@ -43,10 +43,10 @@ def get_top_k_rows(dataframe: DataFrame, k: int, sort_column: str):
               .orderBy(dataframe[sort_column].desc()))
 
     return (dataframe
-            .withColumn('rank',
+            .withColumn("rank",
                         sf.row_number().over(window))
-            .filter(sf.col('rank') <= k)
-            .drop('rank'))
+            .filter(sf.col("rank") <= k)
+            .drop("rank"))
 
 
 def write_read_dataframe(spark: SparkSession,
