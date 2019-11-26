@@ -3,21 +3,22 @@
 """
 import logging
 import os
+import shutil
 from typing import Dict, Optional
 
 import numpy as np
 import pandas
 import torch
+import torch.optim
 from pyspark.ml.feature import StringIndexer, IndexToString
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
-from torch.nn import Embedding, Module, DataParallel
-from torch.utils.data import DataLoader, TensorDataset
-import torch.optim
-
+from pyspark.sql.types import DoubleType, StructField, StructType, IntegerType
 from sponge_bob_magic import utils
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_recommender import BaseRecommender
+from torch.nn import Embedding, Module, DataParallel
+from torch.utils.data import DataLoader, TensorDataset
 
 
 class RecommenderModel(Module):
@@ -79,7 +80,8 @@ class NeuroCFRecommender(BaseRecommender):
     def __init__(self, spark: SparkSession,
                  learning_rate: float = 0.5,
                  epochs: int = 1,
-                 batch_size: int = 1000,
+                 batch_size_fit: int = 1000,
+                 batch_size_predict: int = 100,
                  embedding_dimension: int = 10):
         """
         Инициализирует параметры модели и сохраняет спарк-сессию.
@@ -88,13 +90,15 @@ class NeuroCFRecommender(BaseRecommender):
         :param spark: инициализированная спарк-сессия
         :param learning_rate: шаг обучения
         :param epochs: количество эпох, в течение которых учимся
-        :param batch_size: размер батча для обучения
+        :param batch_size_fit: размер батча для обучения
+        :param batch_size_predict: размер батча для предикта
         """
         super().__init__(spark)
 
+        self.batch_size_predict = batch_size_predict
         self.learning_rate = learning_rate
         self.epochs = epochs
-        self.batch_size = batch_size
+        self.batch_size_fit = batch_size_fit
         self.embedding_dimension = embedding_dimension
 
         self.user_indexer = StringIndexer(inputCol="user_id",
@@ -106,7 +110,7 @@ class NeuroCFRecommender(BaseRecommender):
         return {
             "learning_rate": self.learning_rate,
             "epochs": self.epochs,
-            "batch_size": self.batch_size,
+            "batch_size": self.batch_size_fit,
             "embedding_dimension": self.embedding_dimension
         }
 
@@ -169,7 +173,7 @@ class NeuroCFRecommender(BaseRecommender):
 
         data = DataLoader(
             TensorDataset(user_batch, item_batch),
-            batch_size=self.batch_size,
+            batch_size=self.batch_size_fit,
             shuffle=True,
             num_workers=self.num_workers
         )
@@ -244,7 +248,7 @@ class NeuroCFRecommender(BaseRecommender):
 
         data = DataLoader(
             TensorDataset(user_batch, item_batch),
-            batch_size=self.batch_size,
+            batch_size=self.batch_size_fit,
             shuffle=True,
             num_workers=self.num_workers
         )
@@ -263,55 +267,43 @@ class NeuroCFRecommender(BaseRecommender):
                  item_features: Optional[DataFrame],
                  to_filter_seen_items: bool = True,
                  path: Optional[str] = None) -> DataFrame:
-        logging.debug("Индексирование пользователей и объектов")
-        users_indexed = NeuroCFRecommender.spark2pandas_csv(
-            self.user_indexer_model.transform(users),
-            os.path.join(path, "tmp_users_indexed")
-        )
-
-        items_indexed = NeuroCFRecommender.spark2pandas_csv(
-            self.item_indexer_model.transform(items),
-            os.path.join(path, "tmp_items_indexed")
-        )
-
         self.model.eval()
 
-        users = list(users_indexed["user_idx"].values)
-        items = list(items_indexed["item_idx"].values)
-        user_count = len(users)
-        item_count = len(items)
+        schema = StructType([
+            StructField("user_idx", IntegerType()),
+            StructField("item_idx", IntegerType()),
+            StructField("relevance", DoubleType())
+        ])
+        columns = [field.name for field in schema]
+        sep = ","
 
-        logging.debug("Создание тензоров")
-        user_ids = torch.from_numpy(
-            np.repeat(users, item_count).astype(int)).cpu()
-        item_ids = torch.from_numpy(
-            np.tile(items, user_count).astype(int)).cpu()
-
-        if torch.cuda.is_available():
-            user_ids = user_ids.cuda()
-            item_ids = item_ids.cuda()
+        tmp_path = os.path.join(path, "recs")
+        if os.path.exists(tmp_path):
+            shutil.rmtree(tmp_path)
+        os.makedirs(tmp_path)
 
         logging.debug("Предсказание модели")
-        with torch.no_grad():
-            sparse_recs = (
-                self.model.forward(user=user_ids, item=item_ids)
-                    .reshape(user_count, item_count)
-                    .detach()
-                    .cpu()
-                    .to_sparse()
-            )
+        for i, (user_ids, item_ids, num_users, num_items) in enumerate(
+                self._batch_generator(users, items, path)):
+            with torch.no_grad():
+                sparse_recs = (
+                    self.model.forward(user=user_ids, item=item_ids)
+                        .reshape(num_users, num_items)
+                        .detach()
+                        .cpu()
+                        .to_sparse()
+                )
 
-        logging.debug("Преобразование numpy-массива в спарк-датафрейм")
-        # ToDo: придумать, как по-нормальному передать результат из спарка
-        arr = np.c_[sparse_recs.indices().T, sparse_recs.values()]
-        columns = ["user_idx", "item_idx", "relevance"]
-        recs = NeuroCFRecommender.numpy2spark(
-            self.spark, arr, columns,
-            os.path.join(path, "tmp_recs_array.csv")
-        )
-        for column in columns[:2]:
-            recs = recs.withColumn(column, sf.col(column).cast("int"))
-        recs = recs.withColumn("relevance", sf.col("relevance").cast("double"))
+            arr = np.c_[sparse_recs.indices().T, sparse_recs.values()]
+            np.savetxt(os.path.join(tmp_path, f"recs_{i}.csv"),
+                       arr,
+                       delimiter=sep,
+                       fmt="%.5f",
+                       header=sep.join(columns),
+                       comments="")
+
+        recs = self.spark.read.csv(tmp_path, sep=sep, header=True,
+                                   inferSchema=True)
         recs = recs.withColumn("context", sf.lit(DEFAULT_CONTEXT))
 
         logging.debug("Обратное преобразование индексов")
@@ -342,6 +334,38 @@ class NeuroCFRecommender(BaseRecommender):
             )
 
         return recs.cache()
+
+    def _batch_generator(self, users, items, path):
+        logging.debug("Индексирование пользователей и объектов")
+        users_indexed = NeuroCFRecommender.spark2pandas_csv(
+            self.user_indexer_model.transform(users),
+            os.path.join(path, "tmp_users_indexed")
+        )
+
+        items_indexed = NeuroCFRecommender.spark2pandas_csv(
+            self.item_indexer_model.transform(items),
+            os.path.join(path, "tmp_items_indexed")
+        )
+
+        users = list(users_indexed["user_idx"].values)
+        items = list(items_indexed["item_idx"].values)
+
+        logging.debug("Генерация тензоров")
+        number_of_batches = int(np.ceil(len(users) / self.batch_size_predict))
+
+        batches = np.array_split(users, number_of_batches)
+        for batch in batches:
+            num_users, num_items = len(batch), len(items)
+            user_ids = torch.from_numpy(
+                np.repeat(batch, num_items).astype(int)).cpu()
+            item_ids = torch.from_numpy(
+                np.tile(items, num_users).astype(int)).cpu()
+
+            if torch.cuda.is_available():
+                user_ids = user_ids.cuda()
+                item_ids = item_ids.cuda()
+
+            yield user_ids, item_ids, num_users, num_items
 
     @staticmethod
     def min_max_scale_column(df: DataFrame, column: str) -> DataFrame:
