@@ -65,13 +65,15 @@ class DataPreparator:
                        optional_columns: Set[str]):
         if not required_columns.issubset(given_columns):
             raise ValueError(
-                f"В датафрейме нет обязательных колонок ({required_columns})")
-        if len(
-                given_columns
-                .difference(required_columns)
-                .difference(optional_columns)
-        ) > 0:
-            raise ValueError("В 'columns_names' есть лишние колонки")
+                "В датафрейме нет обязательных колонок: "
+                f"{required_columns.difference(given_columns)}")
+
+        excess_columns = (given_columns
+                          .difference(required_columns)
+                          .difference(optional_columns))
+        if len(excess_columns) > 0:
+            raise ValueError("В 'columns_names' есть лишние колонки: "
+                             f"{excess_columns}")
 
     @staticmethod
     def _check_dataframe(dataframe: DataFrame,
@@ -85,9 +87,9 @@ class DataPreparator:
         dataframe_columns = set(dataframe.columns)
         if not given_columns.issubset(dataframe_columns):
             raise ValueError(
-                "В columns_names есть колонки, которых нет в датафрейме; "
-                f"columns_names={given_columns}, "
-                f"df.columns={dataframe_columns}")
+                "В columns_names в значениях есть колонки, "
+                "которых нет в датафрейме: "
+                f"{given_columns.difference(dataframe_columns)}")
 
         # чекаем на нуллы
         for column in given_columns:

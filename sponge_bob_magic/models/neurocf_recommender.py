@@ -326,7 +326,8 @@ class NeuroCFRecommender(BaseRecommender):
             logging.debug("Запись на диск рекомендаций")
             recs = utils.write_read_dataframe(
                 self.spark, recs,
-                os.path.join(path, "recs.parquet")
+                os.path.join(path, "recs.parquet"),
+                self.to_overwrite_files
             )
 
         return recs.cache()

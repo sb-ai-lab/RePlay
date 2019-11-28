@@ -7,13 +7,14 @@ from typing import Any, Dict, Optional, Set
 
 from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as sf
-from sklearn.preprocessing import LabelEncoder
 
 from sponge_bob_magic import constants
 
 
 class BaseRecommender(ABC):
     """ Базовый класс-рекомендатель. """
+    model: Any = None
+    to_overwrite_files: bool = True
 
     def __init__(self, spark: SparkSession, **kwargs):
         """
@@ -22,8 +23,6 @@ class BaseRecommender(ABC):
         :param spark: инициализированная спарк-сессия
         :param kwargs: параметры для модели
         """
-        self.model = None
-        self.encoder = LabelEncoder()
         self.spark = spark
 
     def set_params(self, **params: Dict[str, Any]) -> None:
