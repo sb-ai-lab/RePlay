@@ -34,7 +34,6 @@ class NeuroCFRecommenderTestCase(PySparkTest):
     def test_build_model(self):
         params = {"learning_rate": 0.5,
                   "epochs": 1,
-                  "batch_size": 1000,
                   "embedding_dimension": 10}
         self.model.set_params(**params)
 
