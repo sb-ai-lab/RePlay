@@ -63,7 +63,7 @@ def write_read_dataframe(spark: SparkSession,
         то lineage датафрейма обнуляется
     """
     if path is not None:
-        df.write.parquet(path)
+        df.write.mode("overwrite").parquet(path)
         df = spark.read.parquet(path)
     return df
 
