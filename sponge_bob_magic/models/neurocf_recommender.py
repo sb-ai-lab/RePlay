@@ -161,7 +161,7 @@ class NeuroCFRecommender(BaseRecommender):
     def _run_epoch(self,
                    user_batch: torch.LongTensor,
                    item_batch: torch.LongTensor,
-                   optimizer: torch.optim.Optimizer):
+                   optimizer: torch.optim.Optimizer) -> float:
         loss_value = 0
 
         data = DataLoader(
@@ -331,9 +331,22 @@ class NeuroCFRecommender(BaseRecommender):
 
         return recs.cache()
 
-    def _batch_generator(self, users: DataFrame,
+    def _batch_generator(self,
+                         users: DataFrame,
                          items: DataFrame,
-                         path: str):
+                         path: str) -> (Tensor, Tensor, int, int):
+        """
+        Генератор батчей для пользователей и объектов.
+        Записывает временыне файлы на диск по пути `path`.
+        Размеры батчей регулируются параметрами класса -
+        `batch_size_predict_users` и `batch_size_predict_items`.
+
+        :param users: спарк-датафрейм с пользователями
+        :param items: спарк-датафрейм с объектами
+        :param path: путь, по которому записываются временные файлы
+        :return: батч пользователей, батч объектов и количество пользователей
+            и объектов в них
+        """
         logging.debug("Индексирование пользователей и объектов")
         users_indexed = NeuroCFRecommender.spark2pandas_csv(
             self.user_indexer_model.transform(users),
@@ -363,6 +376,7 @@ class NeuroCFRecommender(BaseRecommender):
         for user_batch in user_batches:
             for item_batch in item_batches:
                 num_users, num_items = len(user_batch), len(item_batch)
+
                 user_ids = torch.from_numpy(
                     np.repeat(user_batch, num_items).astype(int)).cpu()
                 item_ids = torch.from_numpy(
