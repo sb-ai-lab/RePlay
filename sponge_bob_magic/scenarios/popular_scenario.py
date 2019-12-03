@@ -9,20 +9,20 @@ from typing import Any, Dict, Optional, Tuple, TypeVar
 import joblib
 import optuna
 from pyspark.sql import DataFrame, SparkSession
-
 from sponge_bob_magic import constants
 from sponge_bob_magic.metrics.metrics import Metrics
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
 from sponge_bob_magic.validation_schemes import ValidationSchemes
 
-TNum = TypeVar('TNum', int, float)
+TNum = TypeVar("TNum", int, float)
 
 
 class PopularScenario:
     """ Сценарий с рекомнедациями популярных items. """
     model: Optional[BaseRecommender]
     study: Optional[optuna.Study]
+    maximum_num_attempts: Optional[int] = 100
 
     def __init__(self, spark: SparkSession):
         self.spark = spark
@@ -43,7 +43,7 @@ class PopularScenario:
             to_filter_seen_items: bool = True,
             n_trials: int = 10,
             n_jobs: int = 1,
-            how_to_split: str = 'by_date',
+            how_to_split: str = "by_date",
             path: Optional[str] = None
     ) -> Dict[str, Any]:
         if context is None:
@@ -52,12 +52,12 @@ class PopularScenario:
         splitter = ValidationSchemes(self.spark)
 
         logging.debug("Деление на трейн и тест")
-        if how_to_split == 'by_date':
+        if how_to_split == "by_date":
             train, test_input, test = splitter.log_split_by_date(
                 log, test_start=test_start,
                 drop_cold_users=False, drop_cold_items=True
             )
-        elif how_to_split == 'randomly':
+        elif how_to_split == "randomly":
             train, test_input, test = splitter.log_split_randomly(
                 log,
                 drop_cold_users=False, drop_cold_items=True,
@@ -83,10 +83,10 @@ class PopularScenario:
         # если users или items нет, возьмем всех из теста,
         # чтобы не делать на каждый trial их заново
         if users is None:
-            users = test.select('user_id').distinct().cache()
+            users = test.select("user_id").distinct().cache()
 
         if items is None:
-            items = test.select('item_id').distinct().cache()
+            items = test.select("item_id").distinct().cache()
 
         logging.debug("Популярная модель: полное обучение")
         self.model = PopularRecommender(self.spark)
@@ -101,17 +101,25 @@ class PopularScenario:
                             os.path.join(path, "optuna_study.joblib"))
 
             alpha = trial.suggest_int(
-                'alpha', params_grid['alpha'][0], params_grid['alpha'][1])
+                "alpha", params_grid["alpha"][0], params_grid["alpha"][1])
             beta = trial.suggest_int(
-                'beta', params_grid['beta'][0], params_grid['beta'][1])
+                "beta", params_grid["beta"][0], params_grid["beta"][1])
 
-            params = {'alpha': alpha,
-                      'beta': beta}
+            for t in trial.study.trials:
+                # проверяем, что засемлпенные значения не повторялись раньше
+                if t.state != optuna.structs.TrialState.COMPLETE:
+                    continue
+
+                if t.params == trial.params:
+                    raise optuna.exceptions.TrialPruned(
+                        "Повторные значения параметров")
+
+            params = {"alpha": alpha,
+                      "beta": beta}
             self.model.set_params(**params)
             logging.debug(f"-- Параметры: {params}")
 
             logging.debug("-- Предикт модели в оптимизации")
-            # здесь как в фите делается cache
             recs = self.model.predict(
                 k=k,
                 users=users, items=items,
@@ -126,18 +134,35 @@ class PopularScenario:
             logging.debug("-- Подсчет метрики в оптимизации")
             hit_rate = Metrics.hit_rate_at_k(recs, test, k=k)
             ndcg = Metrics.ndcg_at_k(recs, test, k=k)
+            precision = Metrics.precision_at_k(recs, test, k=k)
+            map_metric = Metrics.map_at_k(recs, test, k=k)
 
             trial.set_user_attr('nDCG@k', ndcg)
+            trial.set_user_attr('precision@k', precision)
+            trial.set_user_attr('MAP@k', map_metric)
+            trial.set_user_attr('HitRate@k', hit_rate)
 
-            logging.debug(f"-- Метрика: {hit_rate, ndcg}")
-
+            logging.debug(f"-- Метрики: "
+                          f"hit_rate={hit_rate:.4f}, "
+                          f"ndcg={ndcg:.4f}, "
+                          f"precision={precision:.4f}, "
+                          f"map_metric={map_metric:.4f}"
+                          )
             return hit_rate
 
         logging.debug("-------------")
         logging.debug("Начало оптимизации параметров")
+        logging.debug(
+            f"Максимальное количество попыток: {self.maximum_num_attempts} "
+            "(чтобы поменять его, задайте параметр 'maximum_num_attempts')")
         sampler = optuna.samplers.RandomSampler()
-        self.study = optuna.create_study(direction='maximize', sampler=sampler)
-        self.study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs)
+        self.study = optuna.create_study(direction="maximize", sampler=sampler)
+
+        count = 1
+        while n_trials > len(set(str(t.params) for t in self.study.trials)) \
+                and count <= self.maximum_num_attempts:
+            self.study.optimize(objective, n_trials=1, n_jobs=n_jobs)
+            count += 1
 
         logging.debug(f"Лучшие значения метрики: {self.study.best_value}")
         logging.debug(f"Лучшие параметры: {self.study.best_params}")
@@ -163,32 +188,32 @@ class PopularScenario:
                                       to_filter_seen_items)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     spark_ = (SparkSession
               .builder
-              .master('local[4]')
-              .config('spark.driver.memory', '2g')
+              .master("local[4]")
+              .config("spark.driver.memory", "2g")
               .config("spark.sql.shuffle.partitions", "1")
-              .appName('testing-pyspark')
+              .appName("testing-pyspark")
               .enableHiveSupport()
               .getOrCreate())
 
-    spark_.sparkContext.setCheckpointDir(os.environ['SPONGE_BOB_CHECKPOINTS'])
+    spark_.sparkContext.setCheckpointDir(os.environ["SPONGE_BOB_CHECKPOINTS"])
 
     data = [
-        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 8)],
-        ["user2", "item2", 2.0, 'no_context', datetime(2019, 10, 9)],
-        ["user1", "item3", 1.0, 'no_context', datetime(2019, 10, 10)],
-        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 11)],
-        ["user1", "item2", 1.0, 'no_context', datetime(2019, 10, 12)],
-        ["user3", "item3", 2.0, 'no_context', datetime(2019, 10, 13)],
+        ["user1", "item1", 1.0, "no_context", datetime(2019, 10, 8)],
+        ["user2", "item2", 2.0, "no_context", datetime(2019, 10, 9)],
+        ["user1", "item3", 1.0, "no_context", datetime(2019, 10, 10)],
+        ["user1", "item1", 1.0, "no_context", datetime(2019, 10, 11)],
+        ["user1", "item2", 1.0, "no_context", datetime(2019, 10, 12)],
+        ["user3", "item3", 2.0, "no_context", datetime(2019, 10, 13)],
     ]
-    schema = ['user_id', 'item_id', 'relevance', 'context', 'timestamp']
+    schema = ["user_id", "item_id", "relevance", "context", "timestamp"]
     log_ = spark_.createDataFrame(data=data,
                                   schema=schema)
 
     popular_scenario = PopularScenario(spark_)
-    popular_params_grid = {'alpha': (0, 100), 'beta': (0, 100)}
+    popular_params_grid = {"alpha": (0, 100), "beta": (0, 100)}
 
     best_params = popular_scenario.research(
         popular_params_grid,
@@ -197,7 +222,7 @@ if __name__ == '__main__':
         user_features=None,
         item_features=None,
         test_start=datetime(2019, 10, 11),
-        k=3, context='no_context',
+        k=3, context="no_context",
         to_filter_seen_items=True,
         n_trials=4, n_jobs=4
     )
@@ -212,7 +237,7 @@ if __name__ == '__main__':
         user_features=None,
         item_features=None,
         k=3,
-        context='no_context',
+        context="no_context",
         to_filter_seen_items=True
     )
 
@@ -226,10 +251,10 @@ if __name__ == '__main__':
         item_features=None,
         test_start=None,
         test_size=0.4,
-        k=3, context='no_context',
+        k=3, context="no_context",
         to_filter_seen_items=True,
         n_trials=4, n_jobs=1,
-        how_to_split='randomly'
+        how_to_split="randomly"
     )
 
     print(best_params)
@@ -242,7 +267,7 @@ if __name__ == '__main__':
         user_features=None,
         item_features=None,
         k=3,
-        context='no_context',
+        context="no_context",
         to_filter_seen_items=True
     )
 
