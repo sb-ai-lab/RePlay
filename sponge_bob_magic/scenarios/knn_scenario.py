@@ -18,16 +18,15 @@ from sponge_bob_magic.models.knn_recommender import KNNRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
 from sponge_bob_magic.validation_schemes import ValidationSchemes
 
-TNum = TypeVar('TNum', int, float)
+TNum = TypeVar("TNum", int, float)
 
 
 class KNNScenario:
     """ Сценарий с item-based KNN моделью. """
-    num_attempts: int = 10
-    tested_params_set: Set[Tuple[TNum, TNum]] = set()
     seed: int = 1234
     model: Optional[BaseRecommender]
     study: Optional[optuna.Study]
+    maximum_num_attempts: Optional[int] = 100
 
     def __init__(self, spark: SparkSession):
         self.spark = spark
@@ -47,7 +46,7 @@ class KNNScenario:
             to_filter_seen_items: bool = True,
             n_trials: int = 10,
             n_jobs: int = 1,
-            how_to_split: str = 'by_date',
+            how_to_split: str = "by_date",
             path: Optional[str] = None
     ) -> Dict[str, Any]:
         if context is None:
@@ -56,12 +55,12 @@ class KNNScenario:
         splitter = ValidationSchemes(self.spark)
 
         logging.debug("Деление на трейн и тест")
-        if how_to_split == 'by_date':
+        if how_to_split == "by_date":
             train, test_input, test = splitter.log_split_by_date(
                 log, test_start=test_start,
                 drop_cold_users=True, drop_cold_items=True
             )
-        elif how_to_split == 'randomly':
+        elif how_to_split == "randomly":
             train, test_input, test = splitter.log_split_randomly(
                 log,
                 drop_cold_users=True, drop_cold_items=True,
@@ -87,12 +86,12 @@ class KNNScenario:
         # если users или items нет, возьмем всех из теста,
         # чтобы не делать на каждый trial их заново
         if users is None:
-            users = test.select('user_id').distinct().cache()
+            users = test.select("user_id").distinct().cache()
 
         if items is None:
-            items = test.select('item_id').distinct().cache()
+            items = test.select("item_id").distinct().cache()
 
-        logging.debug("Популярная модель: фит_предикт")
+        logging.debug("Популярная модель: обучение и предикт")
         popular_recs = (
             PopularRecommender(self.spark,
                                alpha=params_grid.get("alpha", 0),
@@ -111,10 +110,8 @@ class KNNScenario:
             .collect()[0][0]
         )
 
-        logging.debug("Модель KNN")
+        logging.debug("Модель KNN: пре-фит")
         self.model = KNNRecommender(self.spark)
-
-        logging.debug("Первый пре-фит модели")
         self.model._pre_fit(log=train,
                             user_features=user_features,
                             item_features=item_features,
@@ -125,27 +122,28 @@ class KNNScenario:
                 joblib.dump(self.study,
                             os.path.join(path, "optuna_study.joblib"))
 
-            # num_attempts раз пытаемся засемплить параметры, которых еще
-            # не было; если не получилось, берем с последней попытки
-            num_neighbours, shrink = 0, 0
-            for attempt in range(KNNScenario.num_attempts):
-                num_neighbours = trial.suggest_discrete_uniform(
-                    'num_neighbours',
-                    params_grid['num_neighbours'][0],
-                    params_grid['num_neighbours'][1],
-                    params_grid['num_neighbours'][2],
-                )
-                shrink = trial.suggest_categorical(
-                    'shrink',
-                    params_grid['shrink']
-                )
+            num_neighbours = trial.suggest_discrete_uniform(
+                "num_neighbours",
+                params_grid["num_neighbours"][0],
+                params_grid["num_neighbours"][1],
+                params_grid["num_neighbours"][2],
+            )
+            shrink = trial.suggest_categorical(
+                "shrink",
+                params_grid["shrink"]
+            )
 
-                if (num_neighbours, shrink) not in self.tested_params_set:
-                    break
+            for t in trial.study.trials:
+                # проверяем, что засемлпенные значения не повторялись раньше
+                if t.state != optuna.structs.TrialState.COMPLETE:
+                    continue
 
-            self.tested_params_set.add((num_neighbours, shrink))
-            params = {'num_neighbours': num_neighbours,
-                      'shrink': shrink}
+                if t.params == trial.params:
+                    raise optuna.exceptions.TrialPruned(
+                        "Повторные значения параметров")
+
+            params = {"num_neighbours": num_neighbours,
+                      "shrink": shrink}
             self.model.set_params(**params)
             logging.debug(f"-- Параметры: {params}")
 
@@ -175,14 +173,14 @@ class KNNScenario:
             logging.debug(f"-- Длина рекомендаций: {recs.count()}")
 
             logging.debug("-- Дополняем рекомендации популярными")
-            recs = recs.join(popular_recs, on=['user_id', 'item_id'],
-                             how='full_outer')
+            recs = recs.join(popular_recs, on=["user_id", "item_id"],
+                             how="full_outer")
 
             recs = (recs
-                    .withColumn('context',
-                                sf.coalesce('context', 'context_pop'))
-                    .withColumn('relevance',
-                                sf.coalesce('relevance', 'relevance_pop'))
+                    .withColumn("context",
+                                sf.coalesce("context", "context_pop"))
+                    .withColumn("relevance",
+                                sf.coalesce("relevance", "relevance_pop"))
                     )
             recs = recs.select("user_id", "item_id", "context", "relevance")
 
@@ -195,10 +193,10 @@ class KNNScenario:
             precision = Metrics.precision_at_k(recs, test, k=k)
             map_metric = Metrics.map_at_k(recs, test, k=k)
 
-            trial.set_user_attr('nDCG@k', ndcg)
-            trial.set_user_attr('precision@k', precision)
-            trial.set_user_attr('MAP@k', map_metric)
-            trial.set_user_attr('HitRate@k', hit_rate)
+            trial.set_user_attr("nDCG@k", ndcg)
+            trial.set_user_attr("precision@k", precision)
+            trial.set_user_attr("MAP@k", map_metric)
+            trial.set_user_attr("HitRate@k", hit_rate)
 
             logging.debug(f"-- Метрики: "
                           f"hit_rate={hit_rate:.4f}, "
@@ -209,12 +207,19 @@ class KNNScenario:
 
             return hit_rate
 
-        sampler = optuna.samplers.RandomSampler()
-        self.study = optuna.create_study(direction='maximize', sampler=sampler)
-
         logging.debug("-------------")
         logging.debug("Начало оптимизации параметров")
-        self.study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs)
+        logging.debug(
+            f"Максимальное количество попыток: {self.maximum_num_attempts} "
+            "(чтобы поменять его, задайте параметр 'maximum_num_attempts')")
+        sampler = optuna.samplers.RandomSampler()
+        self.study = optuna.create_study(direction="maximize", sampler=sampler)
+
+        count = 1
+        while n_trials > len(set(str(t.params) for t in self.study.trials)) \
+                and count <= self.maximum_num_attempts:
+            self.study.optimize(objective, n_trials=1, n_jobs=n_jobs)
+            count += 1
 
         logging.debug(f"Лучшие значения метрики: {self.study.best_value}")
         logging.debug(f"Лучшие параметры: {self.study.best_params}")
@@ -240,39 +245,39 @@ class KNNScenario:
                                       to_filter_seen_items)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     spark_ = (SparkSession
               .builder
-              .master('local[4]')
-              .config('spark.driver.memory', '2g')
+              .master("local[4]")
+              .config("spark.driver.memory", "2g")
               .config("spark.sql.shuffle.partitions", "1")
-              .appName('testing-pyspark')
+              .appName("testing-pyspark")
               .enableHiveSupport()
               .getOrCreate())
 
-    spark_.sparkContext.setCheckpointDir(os.environ['SPONGE_BOB_CHECKPOINTS'])
+    spark_.sparkContext.setCheckpointDir(os.environ["SPONGE_BOB_CHECKPOINTS"])
 
     data = [
-        ["user1", "item4", 1.0, 'no_context', datetime(2019, 10, 8)],
-        ["user2", "item2", 2.0, 'no_context', datetime(2019, 10, 9)],
-        ["user1", "item3", 1.0, 'no_context', datetime(2019, 10, 10)],
-        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 11)],
-        ["user1", "item4", 1.0, 'no_context', datetime(2019, 10, 12)],
-        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 13)],
-        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 14)],
-        ["user1", "item4", 1.0, 'no_context', datetime(2019, 10, 15)],
-        ["user1", "item2", 1.0, 'no_context', datetime(2019, 10, 16)],
-        ["user1", "item1", 1.0, 'no_context', datetime(2019, 10, 17)],
-        ["user3", "item3", 2.0, 'no_context', datetime(2019, 10, 18)],
-        ["user3", "item2", 2.0, 'no_context', datetime(2019, 10, 19)],
-        ["user3", "item3", 2.0, 'no_context', datetime(2019, 10, 20)],
+        ["user1", "item4", 1.0, "no_context", datetime(2019, 10, 8)],
+        ["user2", "item2", 2.0, "no_context", datetime(2019, 10, 9)],
+        ["user1", "item3", 1.0, "no_context", datetime(2019, 10, 10)],
+        ["user1", "item1", 1.0, "no_context", datetime(2019, 10, 11)],
+        ["user1", "item4", 1.0, "no_context", datetime(2019, 10, 12)],
+        ["user1", "item1", 1.0, "no_context", datetime(2019, 10, 13)],
+        ["user1", "item1", 1.0, "no_context", datetime(2019, 10, 14)],
+        ["user1", "item4", 1.0, "no_context", datetime(2019, 10, 15)],
+        ["user1", "item2", 1.0, "no_context", datetime(2019, 10, 16)],
+        ["user1", "item1", 1.0, "no_context", datetime(2019, 10, 17)],
+        ["user3", "item3", 2.0, "no_context", datetime(2019, 10, 18)],
+        ["user3", "item2", 2.0, "no_context", datetime(2019, 10, 19)],
+        ["user3", "item3", 2.0, "no_context", datetime(2019, 10, 20)],
     ]
-    schema = ['user_id', 'item_id', 'relevance', 'context', 'timestamp']
+    schema = ["user_id", "item_id", "relevance", "context", "timestamp"]
     log_ = spark_.createDataFrame(data=data,
                                   schema=schema)
 
     knn_scenario = KNNScenario(spark_)
-    knn_params_grid = {'num_neighbours': (1, 9, 2), 'shrink': (0, 10)}
+    knn_params_grid = {"num_neighbours": (1, 9, 2), "shrink": (0, 10)}
 
     best_params = knn_scenario.research(
         knn_params_grid,
@@ -296,7 +301,7 @@ if __name__ == '__main__':
         user_features=None,
         item_features=None,
         k=2,
-        context='no_context',
+        context="no_context",
         to_filter_seen_items=True
     )
 
@@ -313,7 +318,7 @@ if __name__ == '__main__':
         k=2, context=None,
         to_filter_seen_items=True,
         n_trials=4, n_jobs=1,
-        how_to_split='randomly'
+        how_to_split="randomly"
     )
 
     print(best_params)
