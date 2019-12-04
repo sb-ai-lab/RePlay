@@ -7,10 +7,10 @@ from unittest.mock import Mock
 from parameterized import parameterized
 from pyspark.sql import functions as sf
 from pyspark.sql.types import StringType, StructType
-from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
-from sponge_bob_magic.data_preparator.data_preparator import DataPreparator
 
 from pyspark_testcase import PySparkTest
+from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
+from sponge_bob_magic.data_preparator.data_preparator import DataPreparator
 
 
 class DataPreparatorTest(PySparkTest):
@@ -146,6 +146,38 @@ class DataPreparatorTest(PySparkTest):
         # явно преобразовываем все к стрингам
         for column in log.columns:
             log = log.withColumn(column, sf.col(column).cast(StringType()))
+
+        true_log = self.spark.createDataFrame(data=true_log_data,
+                                              schema=LOG_SCHEMA)
+
+        self.dp._read_data = Mock(return_value=log)
+
+        test_log = self.dp.transform_log(
+            path="", format_type="",
+            columns_names=columns_names)
+
+        self.assertSparkDataFrameEqual(true_log, test_log)
+
+    @parameterized.expand([
+        # log_data, log_schema, true_log_data, columns_names
+        ([["user1", "item1", 32],
+          ["user1", "item2", 12],
+          ["user2", "item1", 0], ], ["user", "item", "ts"],
+         [["user1", "item1", datetime(1999, 6, 1 + 1), DEFAULT_CONTEXT, 1.0],
+          ["user1", "item2", datetime(1999, 5, 1 + 12), DEFAULT_CONTEXT, 1.0],
+          ["user2", "item1", datetime(1999, 5, 1), DEFAULT_CONTEXT, 1.0], ],
+         {"user_id": "user", "item_id": "item", "timestamp": "ts"}),
+        ([["user1", "item1", 3],
+          ["user1", "item2", 2 * 365],
+          ["user2", "item1", 365], ], ["user", "item", "ts"],
+         [["user1", "item1", datetime(1999, 5, 1 + 3), DEFAULT_CONTEXT, 1.0],
+          ["user1", "item2", datetime(2001, 4, 30), DEFAULT_CONTEXT, 1.0],
+          ["user2", "item1", datetime(2000, 4, 30), DEFAULT_CONTEXT, 1.0], ],
+         {"user_id": "user", "item_id": "item", "timestamp": "ts"}),
+    ])
+    def test_transform_log_timestamp_column(self, log_data, log_schema,
+                                            true_log_data, columns_names):
+        log = self.spark.createDataFrame(data=log_data, schema=log_schema)
 
         true_log = self.spark.createDataFrame(data=true_log_data,
                                               schema=LOG_SCHEMA)
@@ -305,6 +337,49 @@ class DataPreparatorTest(PySparkTest):
         for column in features.columns:
             features = features.withColumn(column,
                                            sf.col(column).cast(StringType()))
+
+        schema = (
+            ["user_id", "timestamp"] +
+            [f"f{i}" for i in range(len(true_feature_data[0]) - 2)]
+        )
+        true_features = self.spark.createDataFrame(data=true_feature_data,
+                                                   schema=schema)
+        true_features = (true_features
+                         .withColumn("user_id",
+                                     sf.col("user_id").cast(StringType()))
+                         .withColumn("timestamp", sf.to_timestamp("timestamp"))
+                         )
+
+        self.dp._read_data = Mock(return_value=features)
+
+        test_features = self.dp.transform_features(
+            path="", format_type="",
+            columns_names=columns_names)
+
+        self.assertSparkDataFrameEqual(true_features, test_features)
+
+    @parameterized.expand([
+        # feature_data, feature_schema, true_feature_data, columns_names
+        ([["user1", "feature1", 1],
+          ["user1", "feature2", 2],
+          ["user2", "feature1", 3], ], ["user", "f0", "ts"],
+         [["user1", datetime(1999, 5, 1 + 1), "feature1"],
+          ["user1", datetime(1999, 5, 1 + 2), "feature2"],
+          ["user2", datetime(1999, 5, 1 + 3), "feature1"], ],
+         {"user_id": "user", "features": "f0", "timestamp": "ts"}),
+        ([["user1", "feature1", 3],
+          ["user1", "feature2", 2 * 365],
+          ["user2", "feature1", 365], ], ["user", "f0", "ts"],
+         [["user1", datetime(1999, 5, 1 + 3), "feature1"],
+          ["user1", datetime(2001, 4, 30), "feature2"],
+          ["user2", datetime(2000, 4, 30), "feature1"], ],
+         {"user_id": "user", "features": "f0", "timestamp": "ts"}),
+    ])
+    def test_transform_features_timestamp_column(
+            self, feature_data, feature_schema,
+            true_feature_data, columns_names):
+        features = self.spark.createDataFrame(data=feature_data,
+                                              schema=feature_schema)
 
         schema = (
             ["user_id", "timestamp"] +

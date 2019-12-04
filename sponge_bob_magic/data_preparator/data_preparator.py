@@ -47,7 +47,7 @@ class DataPreparator:
                    format_type: str,
                    **kwargs) -> DataFrame:
         if format_type == "csv":
-            dataframe = self.spark.read.csv(path, **kwargs)
+            dataframe = self.spark.read.csv(path, inferSchema=True, **kwargs)
         elif format_type == "parquet":
             dataframe = self.spark.read.parquet(path)
         elif format_type == "json":
@@ -110,13 +110,13 @@ class DataPreparator:
 
         # переименовываем колонки
         df = df.select([sf.col(column).alias(new_name)
-                        for new_name, column in
-                        columns_names.items()
+                        for new_name, column in columns_names.items()
                         if new_name != "features"] +
                        features_columns)
 
         # добавляем необязательные дефолтные колонки, если их нет,
         # и задаем тип для тех колонок, что есть
+        not_ts_types = ["timestamp", "string", None]
         for column_name, (default_value,
                           default_type) in default_schema.items():
             if column_name not in df.columns:
@@ -124,10 +124,21 @@ class DataPreparator:
             else:
                 column = sf.col(column_name)
             if column_name == "timestamp":
-                df = df.withColumn(
-                    column_name,
-                    sf.to_timestamp(column, format=date_format)
-                )
+                if dict(df.dtypes).get("timestamp", None) not in not_ts_types:
+                    # если в колонке находятся чиселки (порядок записей),
+                    # то прибавим их к дефолтной дате
+                    df = (df
+                          .withColumn("tmp",
+                                      sf.to_timestamp(sf.lit(default_value)))
+                          .withColumn(column_name,
+                                      sf.to_timestamp(sf.expr(
+                                          f"date_add(tmp, {column_name})")))
+                          .drop("tmp"))
+                else:
+                    df = df.withColumn(
+                        column_name,
+                        sf.to_timestamp(column, format=date_format)
+                    )
             else:
                 df = df.withColumn(
                     column_name,
@@ -152,7 +163,9 @@ class DataPreparator:
         :param columns_names: маппинг колонок, ключ - значения из списка
             `[user_id , item_id , timestamp , context , relevance]`;
             обязательными являются только `[user_id , item_id]`;
-            значения - колонки в логе
+            значения - колонки в логе; в `timestamp` может быть числовая
+            колонка, которая обозначает порядок записей,
+            она будет преобразована в даты
         :param date_format: формат даты, нужен, если формат даты особенный
         :param kwargs: дополнительные аргументы, которые передаются в функцию
             `spark.read.csv(path, **kwargs)`
