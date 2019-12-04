@@ -102,11 +102,9 @@ class DataPreparator:
                         default_schema: Dict[str, Tuple],
                         date_format: Optional[str] = None):
         # колонки с фичами не будут переименованы, их надо просто селектить
-        features_columns: List[str] = []
-        if "features" in columns_names:
-            features_columns = columns_names["features"]
-            if not isinstance(features_columns, list):
-                features_columns = [features_columns]
+        features_columns = columns_names.get("features", [])
+        if not isinstance(features_columns, list):
+            features_columns = [features_columns]
 
         # переименовываем колонки
         df = df.select([sf.col(column).alias(new_name)

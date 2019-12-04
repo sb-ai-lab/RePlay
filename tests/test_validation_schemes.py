@@ -231,7 +231,10 @@ class TestValidationSchemes(PySparkTest):
             set(train.select("user_id").distinct().collect())
         )
 
-        self.assertEqual(np.mean(test.groupBy("user_id").count().select("count").collect()), 2)
+        self.assertEqual(
+            np.mean(test.groupBy("user_id").count().select("count").collect()),
+            2
+        )
 
     def test_log_split_randomly_by_user_frac(self):
         true_train = self.spark.createDataFrame(
@@ -256,11 +259,13 @@ class TestValidationSchemes(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        train, test_input, test = self.splitter.log_split_randomly_by_user_frac(
-            log=true_train,
-            test_size=0.5,
-            drop_cold_items=False,
-            drop_cold_users=False
+        train, test_input, test = (
+            self.splitter.log_split_randomly_by_user_frac(
+                log=true_train,
+                test_size=0.5,
+                drop_cold_items=False,
+                drop_cold_users=False
+            )
         )
         self.assertSparkDataFrameEqual(train.union(test), true_train)
         self.assertSparkDataFrameEqual(test_input.union(test), true_train)
@@ -304,29 +309,29 @@ class TestValidationSchemes(PySparkTest):
         )
         self.assertSparkDataFrameEqual(test.union(train), true_train)
         self.assertSparkDataFrameEqual(test.union(test_input), true_train)
-
         self.assertEqual(test.intersect(train).count(), 0)
         self.assertEqual(test.intersect(test_input).count(), 0)
-
         self.assertSetEqual(
             set(test.select("user_id").distinct().collect()),
             set(train.select("user_id").distinct().collect())
         )
-
-        self.assertEqual(np.mean(test.groupBy("user_id").count().select("count").collect()), 2)
+        self.assertEqual(
+            np.mean(test.groupBy("user_id").count().select("count").collect()),
+            2
+        )
         self.assertEqual(all([x <= y for x, y in zip(
             train
-                .orderBy("user_id")
-                .groupBy("user_id")
-                .agg(sf.max("timestamp"))
-                .select("max(timestamp)")
-                .collect(),
+            .orderBy("user_id")
+            .groupBy("user_id")
+            .agg(sf.max("timestamp"))
+            .select("max(timestamp)")
+            .collect(),
             test
-                .orderBy("user_id")
-                .groupBy("user_id")
-                .agg(sf.min("timestamp"))
-                .select("min(timestamp)")
-                .collect(),
+            .orderBy("user_id")
+            .groupBy("user_id")
+            .agg(sf.min("timestamp"))
+            .select("min(timestamp)")
+            .collect(),
         )]), True)
 
     def test_log_split_by_time_by_user_frac(self):
@@ -371,15 +376,15 @@ class TestValidationSchemes(PySparkTest):
 
         self.assertEqual(all([x <= y for x, y in zip(
             train
-                .orderBy("user_id")
-                .groupBy("user_id")
-                .agg(sf.max("timestamp"))
-                .select("max(timestamp)")
-                .collect(),
+            .orderBy("user_id")
+            .groupBy("user_id")
+            .agg(sf.max("timestamp"))
+            .select("max(timestamp)")
+            .collect(),
             test
-                .orderBy("user_id")
-                .groupBy("user_id")
-                .agg(sf.min("timestamp"))
-                .select("min(timestamp)")
-                .collect(),
+            .orderBy("user_id")
+            .groupBy("user_id")
+            .agg(sf.min("timestamp"))
+            .select("min(timestamp)")
+            .collect(),
         )]), True)

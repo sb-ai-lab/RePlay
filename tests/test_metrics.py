@@ -4,7 +4,8 @@
 from datetime import datetime
 from math import log
 
-from pyspark_testcase import PySparkTest
+from tests.pyspark_testcase import PySparkTest
+
 from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
 from sponge_bob_magic.metrics.metrics import Metrics
 
