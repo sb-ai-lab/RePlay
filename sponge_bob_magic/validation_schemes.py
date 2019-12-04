@@ -20,6 +20,17 @@ class ValidationSchemes:
         self.spark = spark
 
     @staticmethod
+    def _filter_zero_relevance(data_frame: DataFrame) -> DataFrame:
+        """
+        Удалить записи с нулевой релевантностью (нужно для тестовой выборки).
+
+        :param data_frame: входной набор данных стандартного формата
+        :returns: набор данных той же структуры, но без записей с нулевой
+        релевантностью
+        """
+        return data_frame.filter("relevance > 0.0")
+
+    @staticmethod
     def _drop_cold_items_and_users(train: DataFrame,
                                    test: DataFrame,
                                    drop_cold_items: bool,
@@ -81,7 +92,7 @@ class ValidationSchemes:
             train, test,
             drop_cold_items, drop_cold_users
         )
-        return train, train, test
+        return train, train, ValidationSchemes._filter_zero_relevance(test)
 
     @staticmethod
     def log_split_randomly(
@@ -112,7 +123,7 @@ class ValidationSchemes:
             train, test,
             drop_cold_items, drop_cold_users
         )
-        return train, train, test
+        return train, train, ValidationSchemes._filter_zero_relevance(test)
 
     @staticmethod
     def extract_cold_users(
@@ -164,7 +175,7 @@ class ValidationSchemes:
             .drop("start_dt")
             .cache()
         )
-        return train, None, test
+        return train, None, ValidationSchemes._filter_zero_relevance(test)
 
     @staticmethod
     def _log_row_num_by_user(
@@ -231,7 +242,7 @@ class ValidationSchemes:
             train, test,
             drop_cold_items, drop_cold_users
         )
-        return train, train, test
+        return train, train, ValidationSchemes._filter_zero_relevance(test)
 
     @staticmethod
     def log_split_randomly_by_user_frac(
@@ -277,7 +288,7 @@ class ValidationSchemes:
             train, test,
             drop_cold_items, drop_cold_users
         )
-        return train, train, test
+        return train, train, ValidationSchemes._filter_zero_relevance(test)
 
     @staticmethod
     def _log_row_num_by_time(
@@ -335,7 +346,7 @@ class ValidationSchemes:
             train, test,
             drop_cold_items, drop_cold_users
         )
-        return train, train, test
+        return train, train, ValidationSchemes._filter_zero_relevance(test)
 
     @staticmethod
     def log_split_by_time_by_user_frac(
@@ -377,4 +388,4 @@ class ValidationSchemes:
             train, test,
             drop_cold_items, drop_cold_users
         )
-        return train, train, test
+        return train, train, ValidationSchemes._filter_zero_relevance(test)

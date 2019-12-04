@@ -7,8 +7,8 @@ import numpy as np
 import pyspark.sql.functions as sf
 from parameterized import parameterized
 from pyspark.sql import DataFrame
+from tests.pyspark_testcase import PySparkTest
 
-from pyspark_testcase import PySparkTest
 from sponge_bob_magic.constants import LOG_SCHEMA
 from sponge_bob_magic.validation_schemes import ValidationSchemes
 
@@ -388,3 +388,21 @@ class TestValidationSchemes(PySparkTest):
             .select("min(timestamp)")
             .collect(),
         )]), True)
+
+    def test_filter_zero_relevance(self):
+        some_log = self.spark.createDataFrame(
+            data=[
+                ["user1", "item4", datetime(2019, 9, 12), "day", 1.0],
+                ["user4", "item1", datetime(2019, 9, 12), "day", 0.0]
+            ],
+            schema=LOG_SCHEMA
+        )
+        self.assertSparkDataFrameEqual(
+            ValidationSchemes._filter_zero_relevance(some_log),
+            self.spark.createDataFrame(
+                data=[
+                    ["user1", "item4", datetime(2019, 9, 12), "day", 1.0]
+                ],
+                schema=LOG_SCHEMA
+            )
+        )

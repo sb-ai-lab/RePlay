@@ -4,11 +4,12 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple, TypeVar, Set
+from typing import Any, Dict, Optional, Set, Tuple, TypeVar
 
 import joblib
 import optuna
 from pyspark.sql import DataFrame, SparkSession
+
 from sponge_bob_magic import constants
 from sponge_bob_magic.metrics.metrics import Metrics
 from sponge_bob_magic.models.base_recommender import BaseRecommender
@@ -69,9 +70,6 @@ class LinearScenario:
             raise ValueError(
                 f"Значение how_to_split неверное ({how_to_split}), "
                 "допустимые варианты: 'by_date' или 'randomly'")
-
-        test_positive = test.filter("relevance == 1").cache()
-
         # рассчитываем все выборки перед подбором параметров
         train.cache()
         test_input.cache()
@@ -151,10 +149,10 @@ class LinearScenario:
             logging.debug(f"-- Длина рекомендаций: {recs.count()}")
 
             logging.debug("-- Подсчет метрики в оптимизации")
-            hit_rate = Metrics.hit_rate_at_k(recs, test_positive, k=k)
-            ndcg = Metrics.ndcg_at_k(recs, test_positive, k=k)
-            precision = Metrics.precision_at_k(recs, test_positive, k=k)
-            map_metric = Metrics.map_at_k(recs, test_positive, k=k)
+            hit_rate = Metrics.hit_rate_at_k(recs, test, k=k)
+            ndcg = Metrics.ndcg_at_k(recs, test, k=k)
+            precision = Metrics.precision_at_k(recs, test, k=k)
+            map_metric = Metrics.map_at_k(recs, test, k=k)
 
             trial.set_user_attr("nDCG@k", ndcg)
             trial.set_user_attr("precision@k", precision)
