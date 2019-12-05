@@ -339,8 +339,8 @@ class DataPreparatorTest(PySparkTest):
                                            sf.col(column).cast(StringType()))
 
         schema = (
-            ["user_id", "timestamp"] +
-            [f"f{i}" for i in range(len(true_feature_data[0]) - 2)]
+                ["user_id", "timestamp"] +
+                [f"f{i}" for i in range(len(true_feature_data[0]) - 2)]
         )
         true_features = self.spark.createDataFrame(data=true_feature_data,
                                                    schema=schema)
@@ -382,8 +382,8 @@ class DataPreparatorTest(PySparkTest):
                                               schema=feature_schema)
 
         schema = (
-            ["user_id", "timestamp"] +
-            [f"f{i}" for i in range(len(true_feature_data[0]) - 2)]
+                ["user_id", "timestamp"] +
+                [f"f{i}" for i in range(len(true_feature_data[0]) - 2)]
         )
         true_features = self.spark.createDataFrame(data=true_feature_data,
                                                    schema=schema)
@@ -398,5 +398,53 @@ class DataPreparatorTest(PySparkTest):
         test_features = self.dp.transform_features(
             path="", format_type="",
             columns_names=columns_names)
+
+        self.assertSparkDataFrameEqual(true_features, test_features)
+
+    @parameterized.expand([
+        # feature_data, feature_schema, true_feature_data, columns_names
+        ([["u1", "f1", "2019-01-01 00:00:00"],
+          ["u1", "f2", "1995-11-01 00:00:00"],
+          ["u2", "f1", "2000-03-30 00:00:00"], ], ["user", "f0", "string_time"],
+         [["u1", datetime(2019, 1, 1), "f1"],
+          ["u1", datetime(1995, 11, 1), "f2"],
+          ["u2", datetime(2000, 3, 30), "f1"], ],
+         {"user_id": "user", "features": "f0", "timestamp": "ts"}),
+        ([["u1", "f1", "1970-01-01 00:00:00"],
+          ["u1", "f2", "2047-03-25 00:00:00"],
+          ["u2", "f1", "2020-12-31 00:00:00"], ], ["user", "f0", "string_time"],
+         [["u1", datetime(1970, 1, 1), "f1"],
+          ["u1", datetime(2047, 3, 25), "f2"],
+          ["u2", datetime(2020, 12, 31), "f1"], ],
+         {"user_id": "user", "features": "f0", "timestamp": "ts"}),
+    ])
+    def test_transform_features_timestamp_unix_column(
+            self, feature_data, feature_schema,
+            true_feature_data, columns_names):
+        features = self.spark.createDataFrame(data=feature_data,
+                                              schema=feature_schema)
+        features = (features
+                    .withColumn("ts",
+                                sf.unix_timestamp("string_time"))
+                    .drop("string_time"))
+
+        schema = (
+                ["user_id", "timestamp"] +
+                [f"f{i}" for i in range(len(true_feature_data[0]) - 2)]
+        )
+        true_features = self.spark.createDataFrame(data=true_feature_data,
+                                                   schema=schema)
+        true_features = (true_features
+                         .withColumn("user_id",
+                                     sf.col("user_id").cast(StringType()))
+                         .withColumn("timestamp", sf.to_timestamp("timestamp"))
+                         )
+
+        self.dp._read_data = Mock(return_value=features)
+
+        test_features = self.dp.transform_features(
+            path="", format_type="",
+            columns_names=columns_names,
+            date_format="yyyy-MM-dd HH:mm:ss")
 
         self.assertSparkDataFrameEqual(true_features, test_features)
