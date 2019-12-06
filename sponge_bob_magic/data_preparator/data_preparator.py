@@ -2,9 +2,10 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import collections
+import logging
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame, SparkSession, Column
 from pyspark.sql import functions as sf
 from pyspark.sql.types import FloatType, StringType, TimestampType
 
@@ -47,7 +48,7 @@ class DataPreparator:
                    format_type: str,
                    **kwargs) -> DataFrame:
         if format_type == "csv":
-            dataframe = self.spark.read.csv(path, **kwargs)
+            dataframe = self.spark.read.csv(path, inferSchema=True, **kwargs)
         elif format_type == "parquet":
             dataframe = self.spark.read.parquet(path)
         elif format_type == "json":
@@ -97,6 +98,60 @@ class DataPreparator:
                 raise ValueError(f"В колонке '{column}' есть значения NULL")
 
     @staticmethod
+    def _process_timestamp_column(
+            df: DataFrame,
+            column_name: str,
+            column: Column,
+            date_format: str,
+            default_value: str
+    ):
+        not_ts_types = ["timestamp", "string", None]
+        if dict(df.dtypes).get("timestamp", None) not in not_ts_types:
+            # если в колонке лежат чиселки,
+            # то это либо порядок записей, либо unix time
+
+            # попробуем преобразовать unix time
+            tmp_column = column_name + "tmp"
+            df = df.withColumn(
+                tmp_column,
+                sf.to_timestamp(sf.from_unixtime(column, format=date_format))
+            )
+
+            # если не unix time, то в колонке будут все null
+            is_null_column = (
+                df
+                .select(
+                    (sf.min(tmp_column).eqNullSafe(sf.max(tmp_column)))
+                    .alias(tmp_column)
+                )
+                .collect()[0]
+            )
+            if is_null_column[tmp_column]:
+                logging.warning(
+                    "Колонка со временем не содержит unix time; "
+                    "чиселки в этой колонке будут добавлены к "
+                    "дефолтной дате")
+
+                df = (df
+                      .withColumn("tmp",
+                                  sf.to_timestamp(
+                                      sf.lit(default_value)))
+                      .withColumn(column_name,
+                                  sf.to_timestamp(sf.expr(
+                                      f"date_add(tmp, {column_name})")))
+                      .drop("tmp", tmp_column))
+            else:
+                df = (df
+                      .drop(column_name)
+                      .withColumnRenamed(tmp_column, column_name))
+        else:
+            df = df.withColumn(
+                column_name,
+                sf.to_timestamp(column, format=date_format)
+            )
+        return df
+
+    @staticmethod
     def _rename_columns(df: DataFrame,
                         columns_names: Dict[str, Union[str, List[str]]],
                         default_schema: Dict[str, Tuple],
@@ -108,8 +163,7 @@ class DataPreparator:
 
         # переименовываем колонки
         df = df.select([sf.col(column).alias(new_name)
-                        for new_name, column in
-                        columns_names.items()
+                        for new_name, column in columns_names.items()
                         if new_name != "features"] +
                        features_columns)
 
@@ -122,10 +176,8 @@ class DataPreparator:
             else:
                 column = sf.col(column_name)
             if column_name == "timestamp":
-                df = df.withColumn(
-                    column_name,
-                    sf.to_timestamp(column, format=date_format)
-                )
+                df = DataPreparator._process_timestamp_column(
+                    df, column_name, column, date_format, default_value)
             else:
                 df = df.withColumn(
                     column_name,
@@ -150,7 +202,9 @@ class DataPreparator:
         :param columns_names: маппинг колонок, ключ - значения из списка
             `[user_id , item_id , timestamp , context , relevance]`;
             обязательными являются только `[user_id , item_id]`;
-            значения - колонки в логе
+            значения - колонки в логе; в `timestamp` может быть числовая
+            колонка, которая обозначает порядок записей,
+            она будет преобразована в даты
         :param date_format: формат даты, нужен, если формат даты особенный
         :param kwargs: дополнительные аргументы, которые передаются в функцию
             `spark.read.csv(path, **kwargs)`
