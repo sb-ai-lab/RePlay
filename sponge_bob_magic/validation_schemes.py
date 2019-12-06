@@ -2,7 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 from datetime import datetime
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, SparkSession, Window
@@ -18,6 +18,17 @@ class ValidationSchemes:
             в рамках которой будет происходить обработка данных
         """
         self.spark = spark
+
+    @staticmethod
+    def _filter_zero_relevance(data_frame: DataFrame) -> DataFrame:
+        """
+        Удалить записи с нулевой релевантностью (нужно для тестовой выборки).
+
+        :param data_frame: входной набор данных стандартного формата
+        :returns: набор данных той же структуры, но без записей с нулевой
+        релевантностью
+        """
+        return data_frame.filter("relevance > 0.0")
 
     @staticmethod
     def _drop_cold_items_and_users(train: DataFrame,
@@ -81,7 +92,7 @@ class ValidationSchemes:
             train, test,
             drop_cold_items, drop_cold_users
         )
-        return train, train, test
+        return train, train, ValidationSchemes._filter_zero_relevance(test)
 
     @staticmethod
     def log_split_randomly(
@@ -112,7 +123,7 @@ class ValidationSchemes:
             train, test,
             drop_cold_items, drop_cold_users
         )
-        return train, train, test
+        return train, train, ValidationSchemes._filter_zero_relevance(test)
 
     @staticmethod
     def extract_cold_users(
@@ -132,24 +143,24 @@ class ValidationSchemes:
         """
         start_date_by_user = (
             log
-                .groupby("user_id")
-                .agg(sf.min("timestamp").alias("start_dt"))
-                .cache()
+            .groupby("user_id")
+            .agg(sf.min("timestamp").alias("start_dt"))
+            .cache()
         )
         test_start_date = (
             start_date_by_user
-                .groupby("start_dt")
-                .agg(sf.count("user_id").alias("cnt"))
-                .select(
+            .groupby("start_dt")
+            .agg(sf.count("user_id").alias("cnt"))
+            .select(
                 "start_dt",
                 sf.sum("cnt").over(Window.orderBy(
                     sf.desc("start_dt")
                 )).alias("cnt"),
                 sf.sum("cnt").over(Window.orderBy(sf.lit(1))).alias("total")
             )
-                .filter(sf.col("cnt") >= sf.col("total") * test_size)
-                .agg(sf.max("start_dt"))
-                .head()[0]
+            .filter(sf.col("cnt") >= sf.col("total") * test_size)
+            .agg(sf.max("start_dt"))
+            .head()[0]
         )
         train = log.filter(sf.col("timestamp") < test_start_date).cache()
         test = (
@@ -164,7 +175,7 @@ class ValidationSchemes:
             .drop("start_dt")
             .cache()
         )
-        return train, None, test
+        return train, None, ValidationSchemes._filter_zero_relevance(test)
 
     @staticmethod
     def _log_row_num_by_user(
@@ -172,22 +183,27 @@ class ValidationSchemes:
             seed: int = 1234
     ) -> DataFrame:
         """
-        Добавить в лог столбец случайных чисел и столбец номера записи по юзеру.
+        Добавить в лог столбец случайных чисел и столбец номера записи по
+        юзеру.
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
             `[timestamp, user_id, item_id, context, relevance]`
-        :param seed: рандомный сид, нужен для повторения случайного порядка записей
+        :param seed: рандомный сид, нужен для повторения случайного порядка
+        записей
         :returns: лог с добавленными столбцами
         """
         log = log.withColumn("rand", sf.rand(seed))
         res = (
             log
-                .withColumn("row_num", sf.row_number()
-                            .over(Window
-                                  .partitionBy("user_id")
-                                  .orderBy("rand")
-                                  )
-                            ).cache()
+            .withColumn(
+                "row_num",
+                sf.row_number()
+                .over(
+                    Window
+                    .partitionBy("user_id")
+                    .orderBy("rand")
+                )
+            ).cache()
         )
         return res
 
@@ -212,7 +228,8 @@ class ValidationSchemes:
             которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
             которых нет в обучающей
-        :param seed: рандомный сид, нужен для повторения случайного порядка записей
+        :param seed: рандомный сид, нужен для повторения случайного порядка
+        записей
         :return: тройка спарк-датафреймов структуры, аналогичной входной
             `train, test_input, test`
         """
@@ -225,7 +242,7 @@ class ValidationSchemes:
             train, test,
             drop_cold_items, drop_cold_users
         )
-        return train, train, test
+        return train, train, ValidationSchemes._filter_zero_relevance(test)
 
     @staticmethod
     def log_split_randomly_by_user_frac(
@@ -248,7 +265,8 @@ class ValidationSchemes:
             которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
             которых нет в обучающей
-        :param seed: рандомный сид, нужен для повторения случайного порядка записей
+        :param seed: рандомный сид, нужен для повторения случайного порядка
+        записей
         :return: тройка спарк-датафреймов структуры, аналогичной входной
             `train, test_input, test`
         """
@@ -256,16 +274,21 @@ class ValidationSchemes:
         res = ValidationSchemes._log_row_num_by_user(log, seed)
 
         res = res.join(counts, on="user_id", how="left")
-        res = res.withColumn("frac", sf.col("row_num") / sf.col("count")).cache()
-
-        train = res.filter(res.frac > test_size).drop("rand", "row_num", "count", "frac")
-        test = res.filter(res.frac <= test_size).drop("rand", "row_num", "count", "frac")
-
+        res = res.withColumn(
+            "frac",
+            sf.col("row_num") / sf.col("count")
+        ).cache()
+        train = res.filter(res.frac > test_size).drop(
+            "rand", "row_num", "count", "frac"
+        )
+        test = res.filter(res.frac <= test_size).drop(
+            "rand", "row_num", "count", "frac"
+        )
         test = ValidationSchemes._drop_cold_items_and_users(
             train, test,
             drop_cold_items, drop_cold_users
         )
-        return train, train, test
+        return train, train, ValidationSchemes._filter_zero_relevance(test)
 
     @staticmethod
     def _log_row_num_by_time(
@@ -281,12 +304,15 @@ class ValidationSchemes:
         """
         res = (
             log
-                .withColumn("row_num", sf.row_number()
-                            .over(Window
-                                  .partitionBy("user_id")
-                                  .orderBy(sf.col("timestamp").desc())
-                                  )
-                            ).cache()
+            .withColumn(
+                "row_num",
+                sf.row_number()
+                .over(
+                    Window
+                    .partitionBy("user_id")
+                    .orderBy(sf.col("timestamp").desc())
+                )
+            ).cache()
         )
         return res
 
@@ -314,16 +340,13 @@ class ValidationSchemes:
             `train, test_input, test`
         """
         res = ValidationSchemes._log_row_num_by_time(log)
-
         train = res.filter(res.row_num > test_size).drop("row_num")
         test = res.filter(res.row_num <= test_size).drop("row_num")
-        train.show()
-        test.show()
         test = ValidationSchemes._drop_cold_items_and_users(
             train, test,
             drop_cold_items, drop_cold_users
         )
-        return train, train, test
+        return train, train, ValidationSchemes._filter_zero_relevance(test)
 
     @staticmethod
     def log_split_by_time_by_user_frac(
@@ -350,15 +373,19 @@ class ValidationSchemes:
         """
         counts = log.groupBy("user_id").count()
         res = ValidationSchemes._log_row_num_by_time(log)
-
         res = res.join(counts, on="user_id", how="left")
-        res = res.withColumn("frac", sf.col("row_num") / sf.col("count")).cache()
-
-        train = res.filter(res.frac > test_size).drop("row_num", "count", "frac")
-        test = res.filter(res.frac <= test_size).drop("row_num", "count", "frac")
-
+        res = res.withColumn(
+            "frac",
+            sf.col("row_num") / sf.col("count")
+        ).cache()
+        train = res.filter(res.frac > test_size).drop(
+            "row_num", "count", "frac"
+        )
+        test = res.filter(res.frac <= test_size).drop(
+            "row_num", "count", "frac"
+        )
         test = ValidationSchemes._drop_cold_items_and_users(
             train, test,
             drop_cold_items, drop_cold_users
         )
-        return train, train, test
+        return train, train, ValidationSchemes._filter_zero_relevance(test)

@@ -77,7 +77,7 @@ class KNNRecommender(BaseRecommender):
             )
             .withColumn(
                 "similarity",
-                sf.col("dot_product") /
+                1 - sf.col("dot_product") /
                 (sf.col("item1.norm") * sf.col("item2.norm") + self.shrink)
             )
             .select("item_id_one", "item_id_two", "similarity")

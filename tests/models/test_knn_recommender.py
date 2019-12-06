@@ -4,9 +4,10 @@
 from datetime import datetime
 
 from pyspark.sql.types import DoubleType, StringType, StructField, StructType
+from tests.pyspark_testcase import PySparkTest
+
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA, REC_SCHEMA
 from sponge_bob_magic.models.knn_recommender import KNNRecommender
-from tests.pyspark_testcase import PySparkTest
 
 
 class KNNRecommenderTestCase(PySparkTest):
@@ -32,9 +33,9 @@ class KNNRecommenderTestCase(PySparkTest):
         self.assertSparkDataFrameEqual(
             self.model.similarity,
             self.spark.createDataFrame([
-                ("i1", "i3", 0.408248),
-                ("i3", "i1", 0.408248),
-                ("i4", "i1", 1 / 2)
+                ("i1", "i4", 0.5),
+                ("i3", "i4", 0.18350341907227408),
+                ("i4", "i3", 0.18350341907227408)
             ], schema=StructType([
                 StructField("item_id_one", StringType()),
                 StructField("item_id_two", StringType()),
@@ -57,8 +58,8 @@ class KNNRecommenderTestCase(PySparkTest):
             recs,
             self.spark.createDataFrame(
                 [
-                    ["u1", "i3", DEFAULT_CONTEXT, 0.408248],
-                    ["u3", "i1", DEFAULT_CONTEXT, 1.316497],
+                    ["u1", "i3", DEFAULT_CONTEXT, 0.18350341907227408],
+                    ["u2", "i4", DEFAULT_CONTEXT, 0.6835034190722742],
                 ],
                 schema=REC_SCHEMA
             )
