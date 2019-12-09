@@ -6,11 +6,11 @@ from datetime import datetime
 
 import numpy as np
 import pyspark
-from pyspark.sql.types import (StructField, StructType, IntegerType,
-                               TimestampType, StringType)
+from pyspark.sql.types import (IntegerType, StringType, StructField,
+                               StructType, TimestampType)
+from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic import utils
-from tests.pyspark_testcase import PySparkTest
 
 
 class UtilsTestCase(PySparkTest):
@@ -42,7 +42,7 @@ class UtilsTestCase(PySparkTest):
         self.assertEqual(item_feature_cols, ["feature2"])
 
     def test_write_read_dataframe(self):
-        df = self.spark.createDataFrame(data=[
+        dataframe = self.spark.createDataFrame(data=[
             ["user1", "feature1", '2019-01-01'],
             ["user1", "feature2", '2019-01-01'],
             ["user2", "feature1", '2019-01-01']
@@ -50,13 +50,13 @@ class UtilsTestCase(PySparkTest):
 
         path = os.path.join(self.tmp_path, "tmp_test_write_read_df.parquet")
 
-        test_df = utils.write_read_dataframe(self.spark, df, path,
+        test_df = utils.write_read_dataframe(self.spark, dataframe, path,
                                              to_overwrite_files=True)
-        self.assertSparkDataFrameEqual(df, test_df)
+        self.assertSparkDataFrameEqual(dataframe, test_df)
 
         self.assertRaises(
             pyspark.sql.utils.AnalysisException,
             utils.write_read_dataframe,
-            spark=self.spark, df=df, path=path,
+            spark=self.spark, dataframe=dataframe, path=path,
             to_overwrite_files=False
         )

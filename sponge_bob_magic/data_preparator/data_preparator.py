@@ -3,7 +3,7 @@
 """
 import collections
 import logging
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql import functions as sf
@@ -99,27 +99,27 @@ class DataPreparator:
 
     @staticmethod
     def _process_timestamp_column(
-            df: DataFrame,
+            dataframe: DataFrame,
             column_name: str,
             column: Column,
-            date_format: str,
+            date_format: Optional[str],
             default_value: str
     ):
         not_ts_types = ["timestamp", "string", None]
-        if dict(df.dtypes).get("timestamp", None) not in not_ts_types:
+        if dict(dataframe.dtypes).get("timestamp", None) not in not_ts_types:
             # если в колонке лежат чиселки,
             # то это либо порядок записей, либо unix time
 
             # попробуем преобразовать unix time
             tmp_column = column_name + "tmp"
-            df = df.withColumn(
+            dataframe = dataframe.withColumn(
                 tmp_column,
                 sf.to_timestamp(sf.from_unixtime(column))
             )
 
             # если не unix time, то в колонке будут все null
             is_null_column = (
-                df
+                dataframe
                 .select(
                     (sf.min(tmp_column).eqNullSafe(sf.max(tmp_column)))
                     .alias(tmp_column)
@@ -132,58 +132,62 @@ class DataPreparator:
                     "чиселки в этой колонке будут добавлены к "
                     "дефолтной дате")
 
-                df = (df
-                      .withColumn("tmp",
-                                  sf.to_timestamp(
-                                      sf.lit(default_value)))
-                      .withColumn(column_name,
-                                  sf.to_timestamp(sf.expr(
-                                      f"date_add(tmp, {column_name})")))
-                      .drop("tmp", tmp_column))
+                dataframe = (
+                    dataframe
+                    .withColumn("tmp",
+                                sf.to_timestamp(
+                                    sf.lit(default_value)))
+                    .withColumn(column_name,
+                                sf.to_timestamp(sf.expr(
+                                    f"date_add(tmp, {column_name})")))
+                    .drop("tmp", tmp_column)
+                )
             else:
-                df = (df
-                      .drop(column_name)
-                      .withColumnRenamed(tmp_column, column_name))
+                dataframe = (
+                    dataframe
+                    .drop(column_name)
+                    .withColumnRenamed(tmp_column, column_name)
+                )
         else:
-            df = df.withColumn(
+            dataframe = dataframe.withColumn(
                 column_name,
                 sf.to_timestamp(column, format=date_format)
             )
-        return df
+        return dataframe
 
     @staticmethod
-    def _rename_columns(df: DataFrame,
+    def _rename_columns(dataframe: DataFrame,
                         columns_names: Dict[str, Union[str, List[str]]],
-                        default_schema: Dict[str, Tuple],
+                        default_schema: Dict[str, Tuple[Any, Any]],
                         date_format: Optional[str] = None):
         # колонки с фичами не будут переименованы, их надо просто селектить
         features_columns = columns_names.get("features", [])
         if not isinstance(features_columns, list):
             features_columns = [features_columns]
-
         # переименовываем колонки
-        df = df.select([sf.col(column).alias(new_name)
-                        for new_name, column in columns_names.items()
-                        if new_name != "features"] +
-                       features_columns)
-
+        dataframe = dataframe.select([
+            sf.col(column).alias(new_name)
+            for new_name, column in columns_names.items()
+            if new_name != "features"
+        ] + features_columns)
         # добавляем необязательные дефолтные колонки, если их нет,
         # и задаем тип для тех колонок, что есть
         for column_name, (default_value,
                           default_type) in default_schema.items():
-            if column_name not in df.columns:
+            if column_name not in dataframe .columns:
                 column = sf.lit(default_value)
             else:
                 column = sf.col(column_name)
             if column_name == "timestamp":
-                df = DataPreparator._process_timestamp_column(
-                    df, column_name, column, date_format, default_value)
+                dataframe = DataPreparator._process_timestamp_column(
+                    dataframe, column_name, column, date_format,
+                    default_value)
             else:
-                df = df.withColumn(
+                dataframe = dataframe .withColumn(
                     column_name,
                     column.cast(default_type)
                 )
-        return df
+        return dataframe
 
     def transform_log(self,
                       path: str,
@@ -218,8 +222,8 @@ class DataPreparator:
                             optional_columns={"timestamp", "context",
                                               "relevance"})
 
-        df = self._read_data(path, format_type, **kwargs)
-        self._check_dataframe(df, columns_names)
+        dataframe = self._read_data(path, format_type, **kwargs)
+        self._check_dataframe(dataframe, columns_names)
 
         log_schema = {
             "timestamp": ("1999-05-01", TimestampType()),
@@ -228,11 +232,12 @@ class DataPreparator:
             "user_id": (None, StringType()),
             "item_id": (None, StringType()),
         }
-        df = self._rename_columns(df, columns_names,
-                                  default_schema=log_schema,
-                                  date_format=date_format).cache()
-
-        return df
+        dataframe = self._rename_columns(
+            dataframe, columns_names,
+            default_schema=log_schema,
+            date_format=date_format
+        ).cache()
+        return dataframe
 
     def transform_features(self,
                            path: str,
@@ -276,30 +281,28 @@ class DataPreparator:
         self._check_columns(set(columns_names.keys()),
                             required_columns=required_columns,
                             optional_columns={"timestamp", "features"})
-
-        df = self._read_data(path, format_type, **kwargs)
-
+        dataframe = self._read_data(path, format_type, **kwargs)
         # если фичей нет в данных юзером колонках, вставляем все оставшиеся
         # нужно, чтобы проверить, что там нет нуллов
         if "features" not in columns_names:
             given_columns = flat_list(list(columns_names.values()))
-            df_columns = df.columns
-            feature_columns = list(set(df_columns).difference(given_columns))
+            dataframe_columns = dataframe.columns
+            feature_columns = list(
+                set(dataframe_columns).difference(given_columns)
+            )
             if len(feature_columns) == 0:
                 raise ValueError("В датафрейме нет колонок с фичами")
             features_dict = {"features": feature_columns}
         else:
             features_dict = dict()
-
-        self._check_dataframe(df, {**columns_names, **features_dict})
-
+        self._check_dataframe(dataframe, {**columns_names, **features_dict})
         features_schema = {
             "timestamp": ("1999-05-01", TimestampType()),
             ("user_id" if "user_id" in columns_names else "item_id"):
                 (None, StringType()),
         }
-
-        df = self._rename_columns(df, columns_names,
-                                  default_schema=features_schema,
-                                  date_format=date_format).cache()
-        return df
+        dataframe = self._rename_columns(
+            dataframe, columns_names,
+            default_schema=features_schema,
+            date_format=date_format).cache()
+        return dataframe

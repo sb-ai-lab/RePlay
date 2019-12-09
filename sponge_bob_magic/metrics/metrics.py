@@ -39,17 +39,17 @@ class Metrics:
 
         df_true = indexer.transform(ground_truth)
         df_pred = indexer.transform(recommendations)
-
-        w = Window.partitionBy('user_id').orderBy(sf.col('relevance').desc())
-
+        window = Window.partitionBy('user_id').orderBy(
+            sf.col('relevance').desc()
+        )
         df_pred = (df_pred
                    .withColumn('pred_items',
-                               sf.collect_list('item_idx').over(w))
+                               sf.collect_list('item_idx').over(window))
                    .groupby("user_id")
                    .agg(sf.max('pred_items').alias('pred_items')))
         df_true = (df_true
                    .withColumn('true_items',
-                               sf.collect_list('item_idx').over(w))
+                               sf.collect_list('item_idx').over(window))
                    .groupby("user_id")
                    .agg(sf.max('true_items').alias('true_items')))
 
@@ -125,9 +125,11 @@ class Metrics:
         :param k: какое максимальное количество объектов брать из топа
             рекомендованных для оценки
         """
-        df = Metrics._merge_prediction_and_truth(recommendations, ground_truth)
-        df = df.map(lambda row: (row[1], row[2]))
-        metrics = RankingMetrics(df)
+        dataframe = Metrics._merge_prediction_and_truth(
+            recommendations, ground_truth
+        )
+        dataframe = dataframe.map(lambda row: (row[1], row[2]))
+        metrics = RankingMetrics(dataframe)
         return metrics.ndcgAt(k)
 
     @staticmethod
@@ -150,9 +152,11 @@ class Metrics:
         :param k: какое максимальное количество объектов брать из топа
             рекомендованных для оценки
         """
-        df = Metrics._merge_prediction_and_truth(recommendations, ground_truth)
-        df = df.map(lambda row: (row[1], row[2]))
-        metrics = RankingMetrics(df)
+        dataframe = Metrics._merge_prediction_and_truth(
+            recommendations, ground_truth
+        )
+        dataframe = dataframe.map(lambda row: (row[1], row[2]))
+        metrics = RankingMetrics(dataframe)
         return metrics.precisionAt(k)
 
     @staticmethod
@@ -175,7 +179,9 @@ class Metrics:
         :param k: какое максимальное количество объектов брать из топа
             рекомендованных для оценки
         """
-        df = Metrics._merge_prediction_and_truth(recommendations, ground_truth)
-        df = df.map(lambda row: (row[1][:k], row[2][:k]))
-        metrics = RankingMetrics(df)
+        dataframe = Metrics._merge_prediction_and_truth(
+            recommendations, ground_truth
+        )
+        dataframe = dataframe.map(lambda row: (row[1][:k], row[2][:k]))
+        metrics = RankingMetrics(dataframe)
         return metrics.meanAveragePrecision
