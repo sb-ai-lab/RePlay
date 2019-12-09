@@ -185,3 +185,59 @@ class Metrics:
         dataframe = dataframe.map(lambda row: (row[1][:k], row[2][:k]))
         metrics = RankingMetrics(dataframe)
         return metrics.meanAveragePrecision
+
+    @staticmethod
+    def recall_at_k(
+            recommendations: DataFrame,
+            ground_truth: DataFrame,
+            k: int
+    ) -> float:
+        """
+        Метрика recall@K:
+        какую долю объектов из реального лога мы покажем в рекомендациях среди
+        первых `k` (в среднем по пользователям).
+        Диапазон значений [0, 1], чем выше метрика, тем лучше.
+
+        :param recommendations: выдача рекомендательной системы,
+            спарк-датарейм вида
+            `[user_id, item_id, context, relevance]`
+        :param ground_truth: реальный лог действий пользователей,
+            спарк-датафрейм вида
+            `[user_id , item_id , timestamp , context , relevance]`
+        :param k: какое максимальное количество объектов брать из топа
+            рекомендованных для оценки
+        """
+        top_k_recommendations = (
+            recommendations.withColumn(
+                "relevance_rank",
+                sf.row_number().over(
+                    Window.partitionBy("user_id")
+                    .orderBy(sf.desc("relevance"))
+                )
+            )
+            .filter(sf.col("relevance_rank") <= k)
+            .drop("relevance_rank"))
+        hits = top_k_recommendations.join(
+            ground_truth,
+            how="inner",
+            on=["user_id", "item_id"]
+        ).groupby("user_id").agg(sf.count("item_id").alias("hits"))
+        totals = (
+            ground_truth
+            .groupby("user_id")
+            .agg(sf.count("item_id").alias("totals"))
+        )
+        total_recall, total_users = (
+            totals.join(hits, on=["user_id"], how="left")
+            .withColumn(
+                "recall",
+                sf.coalesce(sf.col("hits") / sf.col("totals"), sf.lit(0))
+            )
+            .agg(
+                sf.sum("recall").alias("total_hits"),
+                sf.count("recall").alias("total_users")
+            )
+            .select("total_hits", "total_users")
+            .head()[:2]
+        )
+        return total_recall / total_users
