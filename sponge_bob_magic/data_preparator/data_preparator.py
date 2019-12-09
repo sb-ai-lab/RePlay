@@ -5,7 +5,7 @@ import collections
 import logging
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
-from pyspark.sql import DataFrame, SparkSession, Column
+from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.types import FloatType, StringType, TimestampType
 
@@ -114,7 +114,7 @@ class DataPreparator:
             tmp_column = column_name + "tmp"
             df = df.withColumn(
                 tmp_column,
-                sf.to_timestamp(sf.from_unixtime(column, format=date_format))
+                sf.to_timestamp(sf.from_unixtime(column))
             )
 
             # если не unix time, то в колонке будут все null
