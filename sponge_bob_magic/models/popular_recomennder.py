@@ -52,7 +52,7 @@ class PopularRecommender(BaseRecommender):
             .collect()[0]["mean"]
         )
         logging.debug(
-            f"Среднее количество items у каждого user: {self.avg_num_items}")
+            "Среднее количество items у каждого user: %d", self.avg_num_items)
 
         if path is not None:
             self.items_popularity = utils.write_read_dataframe(
@@ -113,7 +113,7 @@ class PopularRecommender(BaseRecommender):
         items = utils.get_top_k_rows(items, k + self.avg_num_items,
                                      "relevance")
 
-        logging.debug(f"Количество items после фильтрации: {items.count()}")
+        logging.debug("Количество items после фильтрации: %d", items.count())
 
         # (user_id, item_id, context, relevance)
         recs = users.crossJoin(items)
