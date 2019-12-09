@@ -17,7 +17,8 @@ from sponge_bob_magic.models.base_recommender import BaseRecommender
 from sponge_bob_magic.models.knn_recommender import KNNRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
 from sponge_bob_magic.utils import get_top_k_recs
-from sponge_bob_magic.validation_schemes import ValidationSchemes
+from sponge_bob_magic.validation_schemes.validation_schemes import \
+    ValidationSchemes
 
 TNum = TypeVar("TNum", int, float)
 

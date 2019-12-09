@@ -10,7 +10,7 @@ from pyspark.sql import DataFrame
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.validation_schemes import ValidationSchemes
+from sponge_bob_magic.validation_schemes.validation_schemes import ValidationSchemes
 
 
 def get_distinct_values_in_column(df: DataFrame, column: str):
