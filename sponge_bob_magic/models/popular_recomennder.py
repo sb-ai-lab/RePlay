@@ -3,7 +3,6 @@
 """
 import logging
 import os
-from datetime import datetime
 from typing import Dict, Optional
 
 import numpy as np
@@ -139,40 +138,3 @@ class PopularRecommender(BaseRecommender):
                 self.to_overwrite_files)
 
         return recs
-
-
-if __name__ == "__main__":
-    spark_ = (SparkSession
-              .builder
-              .master("local[1]")
-              .config("spark.driver.memory", "512m")
-              .config("spark.sql.shuffle.partitions", "1")
-              .appName("testing-pyspark")
-              .enableHiveSupport()
-              .getOrCreate())
-
-    data = [
-        ["user1", "item1", datetime(2019, 1, 1), "context1", 1.0],
-        ["user2", "item3", datetime(2019, 1, 1), "context1", 2.0],
-        ["user1", "item2", datetime(2019, 1, 1), "context2", 1.0],
-        ["user3", "item3", datetime(2019, 1, 1), "context1", 2.0],
-    ]
-    log_ = spark_.createDataFrame(data=data,
-                                  schema=constants.LOG_SCHEMA)
-
-    users_ = ["user1", "user2", "user3"]
-    items_ = ["item1", "item2", "item3"]
-
-    users_ = spark_.createDataFrame(data=[[user] for user in users_],
-                                    schema=["user_id"])
-    items_ = spark_.createDataFrame(data=[[item] for item in items_],
-                                    schema=["item_id"])
-
-    pr = PopularRecommender(spark_, alpha=0, beta=0)
-    recs_ = pr.fit_predict(k=3, users=users_, items=items_,
-                           context="context1",
-                           log=log_,
-                           user_features=None, item_features=None,
-                           to_filter_seen_items=False)
-
-    recs_.show()
