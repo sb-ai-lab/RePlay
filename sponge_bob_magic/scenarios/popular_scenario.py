@@ -14,7 +14,7 @@ from sponge_bob_magic import constants
 from sponge_bob_magic.metrics.metrics import Metrics
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
-from sponge_bob_magic.validation_schemes.validation_schemes import \
+from sponge_bob_magic.validation_schemes.whole_log_splitter import \
     ValidationSchemes
 
 TNum = TypeVar("TNum", int, float)

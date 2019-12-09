@@ -10,7 +10,7 @@ from pyspark.sql import DataFrame
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.validation_schemes.validation_schemes import ValidationSchemes
+from sponge_bob_magic.validation_schemes.whole_log_splitter import ValidationSchemes
 
 
 def get_distinct_values_in_column(df: DataFrame, column: str):
@@ -214,7 +214,7 @@ class TestValidationSchemes(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        train, test_input, test = self.splitter.log_split_randomly_by_user_num(
+        train, test_input, test = self.splitter._split_quantity(
             log=true_train,
             test_size=2,
             drop_cold_items=False,
@@ -260,7 +260,7 @@ class TestValidationSchemes(PySparkTest):
             schema=LOG_SCHEMA
         )
         train, test_input, test = (
-            self.splitter.log_split_randomly_by_user_frac(
+            self.splitter._split_proportion(
                 log=true_train,
                 test_size=0.5,
                 drop_cold_items=False,
@@ -301,7 +301,7 @@ class TestValidationSchemes(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        train, test_input, test = self.splitter.log_split_by_time_by_user_num(
+        train, test_input, test = self.splitter._split_quantity(
             log=true_train,
             test_size=2,
             drop_cold_items=False,
@@ -357,7 +357,7 @@ class TestValidationSchemes(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        train, test_input, test = self.splitter.log_split_by_time_by_user_frac(
+        train, test_input, test = self.splitter._split_proportion(
             log=true_train,
             test_size=0.5,
             drop_cold_items=False,
