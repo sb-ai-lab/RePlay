@@ -50,7 +50,7 @@ def get_top_k_rows(dataframe: DataFrame, k: int, sort_column: str):
 
 
 def write_read_dataframe(spark: SparkSession,
-                         df: DataFrame,
+                         dataframe: DataFrame,
                          path: Optional[str],
                          to_overwrite_files: bool = True):
     """
@@ -60,18 +60,18 @@ def write_read_dataframe(spark: SparkSession,
     :param to_overwrite_files: флажок, если True, то перезаписывает файл,
         если он существует; иначе - поднимается исключение
     :param spark: инициализированная спарк-сессия
-    :param df: спарк-датафрейм
+    :param dataframe: спарк-датафрейм
     :param path: путь, по которому происходит записаь датафрейма
     :return: оригинальный датафрейм; если `path` не пустой,
         то lineage датафрейма обнуляется
     """
     if path is not None:
-        (df
+        (dataframe
          .write
          .mode("overwrite" if to_overwrite_files else "error")
          .parquet(path))
-        df = spark.read.parquet(path)
-    return df
+        dataframe = spark.read.parquet(path)
+    return dataframe
 
 
 def func_get(vector: np.ndarray, i: int) -> float:

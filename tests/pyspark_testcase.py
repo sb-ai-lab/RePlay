@@ -6,8 +6,8 @@ import warnings
 from typing import Optional
 
 import pandas as pd
-from pyspark.sql import DataFrame, SparkSession
 from pyspark.ml.linalg import DenseVector
+from pyspark.sql import DataFrame, SparkSession
 
 
 class PySparkTest(unittest.TestCase):

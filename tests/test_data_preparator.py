@@ -7,8 +7,8 @@ from unittest.mock import Mock
 from parameterized import parameterized
 from pyspark.sql import functions as sf
 from pyspark.sql.types import StringType, StructType
+from tests.pyspark_testcase import PySparkTest
 
-from pyspark_testcase import PySparkTest
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
 from sponge_bob_magic.data_preparator.data_preparator import DataPreparator
 
@@ -163,16 +163,18 @@ class DataPreparatorTest(PySparkTest):
         ([["user1", "item1", 32],
           ["user1", "item2", 12],
           ["user2", "item1", 0], ], ["user", "item", "ts"],
-         [["user1", "item1", datetime(1999, 6, 1 + 1), DEFAULT_CONTEXT, 1.0],
-          ["user1", "item2", datetime(1999, 5, 1 + 12), DEFAULT_CONTEXT, 1.0],
-          ["user2", "item1", datetime(1999, 5, 1), DEFAULT_CONTEXT, 1.0], ],
+         [["user1", "item1", datetime.fromtimestamp(32), DEFAULT_CONTEXT, 1.0],
+          ["user1", "item2", datetime.fromtimestamp(12), DEFAULT_CONTEXT, 1.0],
+          ["user2", "item1", datetime.fromtimestamp(0), DEFAULT_CONTEXT, 1.0]],
          {"user_id": "user", "item_id": "item", "timestamp": "ts"}),
         ([["user1", "item1", 3],
           ["user1", "item2", 2 * 365],
           ["user2", "item1", 365], ], ["user", "item", "ts"],
-         [["user1", "item1", datetime(1999, 5, 1 + 3), DEFAULT_CONTEXT, 1.0],
-          ["user1", "item2", datetime(2001, 4, 30), DEFAULT_CONTEXT, 1.0],
-          ["user2", "item1", datetime(2000, 4, 30), DEFAULT_CONTEXT, 1.0], ],
+         [["user1", "item1", datetime.fromtimestamp(3), DEFAULT_CONTEXT, 1.0],
+          ["user1", "item2", datetime.fromtimestamp(730), DEFAULT_CONTEXT,
+           1.0],
+          ["user2", "item1", datetime.fromtimestamp(365), DEFAULT_CONTEXT,
+           1.0]],
          {"user_id": "user", "item_id": "item", "timestamp": "ts"}),
     ])
     def test_transform_log_timestamp_column(self, log_data, log_schema,
@@ -363,16 +365,16 @@ class DataPreparatorTest(PySparkTest):
         ([["user1", "feature1", 1],
           ["user1", "feature2", 2],
           ["user2", "feature1", 3], ], ["user", "f0", "ts"],
-         [["user1", datetime(1999, 5, 1 + 1), "feature1"],
-          ["user1", datetime(1999, 5, 1 + 2), "feature2"],
-          ["user2", datetime(1999, 5, 1 + 3), "feature1"], ],
+         [["user1", datetime.fromtimestamp(1), "feature1"],
+          ["user1", datetime.fromtimestamp(2), "feature2"],
+          ["user2", datetime.fromtimestamp(3), "feature1"], ],
          {"user_id": "user", "features": "f0", "timestamp": "ts"}),
         ([["user1", "feature1", 3],
           ["user1", "feature2", 2 * 365],
           ["user2", "feature1", 365], ], ["user", "f0", "ts"],
-         [["user1", datetime(1999, 5, 1 + 3), "feature1"],
-          ["user1", datetime(2001, 4, 30), "feature2"],
-          ["user2", datetime(2000, 4, 30), "feature1"], ],
+         [["user1", datetime.fromtimestamp(3), "feature1"],
+          ["user1", datetime.fromtimestamp(730), "feature2"],
+          ["user2", datetime.fromtimestamp(365), "feature1"], ],
          {"user_id": "user", "features": "f0", "timestamp": "ts"}),
     ])
     def test_transform_features_timestamp_column(
@@ -392,27 +394,25 @@ class DataPreparatorTest(PySparkTest):
                                      sf.col("user_id").cast(StringType()))
                          .withColumn("timestamp", sf.to_timestamp("timestamp"))
                          )
-
         self.dp._read_data = Mock(return_value=features)
 
         test_features = self.dp.transform_features(
             path="", format_type="",
             columns_names=columns_names)
-
         self.assertSparkDataFrameEqual(true_features, test_features)
 
     @parameterized.expand([
         # feature_data, feature_schema, true_feature_data, columns_names
         ([["u1", "f1", "2019-01-01 00:00:00"],
           ["u1", "f2", "1995-11-01 00:00:00"],
-          ["u2", "f1", "2000-03-30 00:00:00"], ], ["user", "f0", "string_time"],
+          ["u2", "f1", "2000-03-30 00:00:00"]], ["user", "f0", "string_time"],
          [["u1", datetime(2019, 1, 1), "f1"],
           ["u1", datetime(1995, 11, 1), "f2"],
           ["u2", datetime(2000, 3, 30), "f1"], ],
          {"user_id": "user", "features": "f0", "timestamp": "ts"}),
         ([["u1", "f1", "1970-01-01 00:00:00"],
           ["u1", "f2", "2047-03-25 00:00:00"],
-          ["u2", "f1", "2020-12-31 00:00:00"], ], ["user", "f0", "string_time"],
+          ["u2", "f1", "2020-12-31 00:00:00"]], ["user", "f0", "string_time"],
          [["u1", datetime(1970, 1, 1), "f1"],
           ["u1", datetime(2047, 3, 25), "f2"],
           ["u2", datetime(2020, 12, 31), "f1"], ],
