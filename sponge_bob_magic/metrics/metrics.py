@@ -7,6 +7,8 @@ from pyspark.rdd import RDD
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 
+from sponge_bob_magic.utils import get_top_k_recs
+
 
 class Metrics:
     """ Различные метрики качества рекомендательных систем. """
@@ -82,27 +84,15 @@ class Metrics:
         :param k: какое максимальное количество объектов брать из топа
             рекомендованных для оценки
         """
-        top_k_recommendations = (
-            recommendations.withColumn(
-                "relevance_rank",
-                sf.row_number().over(
-                    Window.partitionBy("user_id", "context")
-                    .orderBy(sf.desc("relevance"))
-                )
-            )
-            .filter(sf.col("relevance_rank") <= k)
-            .drop("relevance_rank"))
-
+        top_k_recommendations = get_top_k_recs(recommendations, k)
         users_hit = top_k_recommendations.join(
             ground_truth,
             how="inner",
             on=["user_id", "item_id", "context"]
         ).select("user_id").distinct().count()
-
         users_total = (
             top_k_recommendations.select("user_id").distinct().count()
         )
-
         return users_hit / users_total
 
     @staticmethod
@@ -207,16 +197,7 @@ class Metrics:
         :param k: какое максимальное количество объектов брать из топа
             рекомендованных для оценки
         """
-        top_k_recommendations = (
-            recommendations.withColumn(
-                "relevance_rank",
-                sf.row_number().over(
-                    Window.partitionBy("user_id")
-                    .orderBy(sf.desc("relevance"))
-                )
-            )
-            .filter(sf.col("relevance_rank") <= k)
-            .drop("relevance_rank"))
+        top_k_recommendations = get_top_k_recs(recommendations, k)
         hits = top_k_recommendations.join(
             ground_truth,
             how="inner",
