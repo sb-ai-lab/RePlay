@@ -30,7 +30,9 @@ def get_distinct_values_in_column(
     }
 
 
-def get_top_k_rows(dataframe: DataFrame, k: int, sort_column: str):
+def get_top_k_rows(
+        dataframe: DataFrame, k: int, sort_column: str
+) -> DataFrame:
     """
     Выделяет топ-k строк в датафрейме на основе заданной колонки.
 
@@ -41,7 +43,6 @@ def get_top_k_rows(dataframe: DataFrame, k: int, sort_column: str):
     """
     window = (Window
               .orderBy(dataframe[sort_column].desc()))
-
     return (dataframe
             .withColumn("rank",
                         sf.row_number().over(window))
@@ -49,10 +50,12 @@ def get_top_k_rows(dataframe: DataFrame, k: int, sort_column: str):
             .drop("rank"))
 
 
-def write_read_dataframe(spark: SparkSession,
-                         dataframe: DataFrame,
-                         path: Optional[str],
-                         to_overwrite_files: bool = True):
+def write_read_dataframe(
+        spark: SparkSession,
+        dataframe: DataFrame,
+        path: Optional[str],
+        to_overwrite_files: bool = True
+) -> DataFrame:
     """
     Записывает спарк-датафрейм на диск и считывает его обратно и возвращает.
     Если путь равен None, то возвращается спарк-датафрейм, поданный на вход.
