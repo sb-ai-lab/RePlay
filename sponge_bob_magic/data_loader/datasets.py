@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 import logging
 from os.path import  join
 from sponge_bob_magic.data_loader.loaders import download_dataset
