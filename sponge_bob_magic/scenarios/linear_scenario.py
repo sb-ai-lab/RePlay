@@ -14,8 +14,8 @@ from sponge_bob_magic import constants
 from sponge_bob_magic.metrics.metrics import Metrics
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 from sponge_bob_magic.models.linear_recomennder import LinearRecommender
-from sponge_bob_magic.validation_schemes.whole_log_splitter import \
-    ValidationSchemes
+from sponge_bob_magic.splitters.log_splitter import \
+    LogSplitByDateSplitter, LogSplitRandomlySplitter
 
 TNum = TypeVar("TNum", int, float)
 
@@ -53,27 +53,26 @@ class LinearScenario:
         if context is None:
             context = constants.DEFAULT_CONTEXT
 
-        splitter = ValidationSchemes(self.spark)
-
         logging.debug("Деление на трейн и тест")
         if how_to_split == "by_date":
-            train, test_input, test = splitter.log_split_by_date(
-                log, test_start=test_start,
-                drop_cold_users=False, drop_cold_items=False
-            )
+            splitter = LogSplitByDateSplitter(spark=self.spark,
+                                              test_start=test_start)
         elif how_to_split == "randomly":
-            train, test_input, test = splitter.log_split_randomly(
-                log,
-                drop_cold_users=False, drop_cold_items=False,
-                seed=self.seed, test_size=test_size
-            )
+            splitter = LogSplitRandomlySplitter(spark=self.spark,
+                                                test_size=test_size,
+                                                seed=self.seed)
         else:
             raise ValueError(
                 f"Значение how_to_split неверное ({how_to_split}), "
                 "допустимые варианты: 'by_date' или 'randomly'")
+
+        train, predict_input, test = splitter.split(log,
+                                                    drop_cold_users=True,
+                                                    drop_cold_items=True)
+
         # рассчитываем все выборки перед подбором параметров
         train.cache()
-        test_input.cache()
+        predict_input.cache()
         test.cache()
         logging.debug(f"Длина трейна и теста: {train.count(), test.count()}")
         logging.debug("Количество юзеров в трейне и тесте: "

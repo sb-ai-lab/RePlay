@@ -42,8 +42,8 @@ class Splitter:
         :param train: обучающая выборка, спарк-датафрейм с колонками
             `[timestamp, user_id, item_id, context, relevance]`
         :param test: тестовая выборка как train
-        :param drop_cold_items: если True, удалить холодные items
-        :param drop_cold_users: если True, удалить холодные users
+        :param drop_cold_items: если True, удаляет холодные items
+        :param drop_cold_users: если True, удаляет холодные users
         :return: тестовая выборка без холодных users / items
         """
         if drop_cold_items:
@@ -64,15 +64,12 @@ class Splitter:
     @abstractmethod
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         """
-        Внутренний метод, который должны реализовать классы-наследники.
+        Внутренний метод, который должны имплеменитровать классы-наследники.
+
         Разбивает лог действий пользователей на обучающую и тестовую выборки.
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
             `[timestamp, user_id, item_id, context, relevance]`
-        :param drop_cold_items: исключать ли из тестовой выборки объекты,
-            которых нет в обучающей
-        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
-            которых нет в обучающей
         :returns: тройка спарк-датафреймов структуры, аналогичной входной,
             `train, predict_input, test`, где `train` - обучающая выборка,
             `predict_input` - выборка, которая известна на момент предсказания,
@@ -82,8 +79,8 @@ class Splitter:
     def split(
             self,
             log: DataFrame,
-            drop_cold_items: bool,
-            drop_cold_users: bool
+            drop_cold_items: bool = False,
+            drop_cold_users: bool = False
     ) -> SplitterReturnType:
         """
         Разбивает лог действий пользователей на обучающую и тестовую выборки.
