@@ -4,7 +4,7 @@
 import logging
 import os
 import shutil
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pandas
@@ -66,10 +66,10 @@ class RecommenderModel(Module):
             объектов
         """
         return (
-                (self.user_embedding(user) * self.item_embedding(item))
-                .sum(dim=1).squeeze() +
-                self.item_biases(item).squeeze() +
-                self.user_biases(user).squeeze()
+            (self.user_embedding(user) * self.item_embedding(item))
+            .sum(dim=1).squeeze() +
+            self.item_biases(item).squeeze() +
+            self.user_biases(user).squeeze()
         )
 
 
@@ -163,26 +163,21 @@ class NeuroCFRecommender(BaseRecommender):
                    user_batch: torch.LongTensor,
                    item_batch: torch.LongTensor,
                    optimizer: torch.optim.Optimizer) -> float:
-        loss_value = 0
-
+        loss_value = 0.0
         data = DataLoader(
             TensorDataset(user_batch, item_batch),
             batch_size=self.batch_size_fit_users,
             shuffle=True,
             num_workers=self.num_workers
         )
-
-        current_loss = None
+        current_loss = 0.0
         for batch in data:
             loss = self._run_single_batch(batch)
-
             loss_value += loss.item()
             current_loss = loss_value / len(data)
-
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
         return current_loss
 
     def _fit_partial(self, log: DataFrame, user_features: Optional[DataFrame],
@@ -280,8 +275,8 @@ class NeuroCFRecommender(BaseRecommender):
             with torch.no_grad():
                 relevance = (
                     self.model.forward(user=user_ids, item=item_ids)
-                        .detach()
-                        .cpu()
+                    .detach()
+                    .cpu()
                 )
                 if torch.cuda.is_available():
                     relevance = relevance.cuda()
@@ -336,7 +331,7 @@ class NeuroCFRecommender(BaseRecommender):
     def _batch_generator(self,
                          users: DataFrame,
                          items: DataFrame,
-                         path: str) -> (Tensor, Tensor, int, int):
+                         path: str) -> Tuple[Tensor, Tensor, int, int]:
         """
         Генератор батчей для пользователей и объектов.
         Записывает временыне файлы на диск по пути `path`.
@@ -391,47 +386,47 @@ class NeuroCFRecommender(BaseRecommender):
                 yield user_ids, item_ids, num_users, num_items
 
     @staticmethod
-    def min_max_scale_column(df: DataFrame, column: str) -> DataFrame:
+    def min_max_scale_column(dataframe: DataFrame, column: str) -> DataFrame:
         """
         Отнормировать колонку датафрейма.
         Применяет классическую форму нормализации с минимумом и максимумом:
         new_value_i = (value_i - min) / (max - min).
 
-        :param df: спарк-датафрейм
+        :param dataframe: спарк-датафрейм
         :param column: имя колонки, которую надо нормализовать
         :return: исходный датафрейм с измененной колонкой
         """
         max_value = (
-            df
+            dataframe
             .agg({column: "max"})
             .head(1)[0][0]
         )
         min_value = (
-            df
+            dataframe
             .agg({column: "min"})
             .head(1)[0][0]
         )
 
-        df = df.withColumn(
+        dataframe = dataframe.withColumn(
             column,
             (sf.col(column) - min_value) / (max_value - min_value)
         )
-        return df
+        return dataframe
 
     @staticmethod
-    def spark2pandas_csv(df: DataFrame, path: str) -> pandas.DataFrame:
+    def spark2pandas_csv(dataframe: DataFrame, path: str) -> pandas.DataFrame:
         """
         Преобразовать спарк-датафрейм в пандас-датафрейм.
         Функция записывает спарк-датафрейм на диск в виде CSV,
         а затем pandas считывает этот файл в виде пандас-датафрейма.
         Создается временный файл по пути `path`.
 
-        :param df: спарк-датафрейм, который надо переобразовать в пандас
+        :param dataframe: спарк-датафрейм, который надо переобразовать в пандас
         :param path: путь, по которому будет записан датафрейм и заново считан
         :return:
         """
         logging.debug("-- Запись")
-        (df
+        (dataframe
          .coalesce(1)
          .write
          .mode("overwrite")
@@ -442,6 +437,5 @@ class NeuroCFRecommender(BaseRecommender):
                                    [file
                                     for file in os.listdir(path)
                                     if file.endswith(".csv")][0])
-
-        df_pd = pandas.read_csv(pandas_path)
-        return df_pd
+        pandas_dataframe = pandas.read_csv(pandas_path)
+        return pandas_dataframe
