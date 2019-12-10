@@ -12,8 +12,8 @@ from sponge_bob_magic.splitters.base_splitter import (Splitter,
 
 class UserLogSplitter(Splitter):
     def __init__(self, spark: SparkSession,
-                 test_size: float or int,
-                 seed: int):
+                 test_size: float or int = 0.3,
+                 seed: int = 1234):
         """
         :param seed: сид для разбиения
         :param test_size: размер тестовой выборки; если от 0 до 1, то в тест
@@ -63,16 +63,16 @@ class UserLogSplitter(Splitter):
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         if 0 <= self.test_size <= 1:
-            train, train, test = self._split_proportion
+            train, predict_input, test = self._split_proportion(log)
         elif 1 <= self.test_size:
-            train, train, test = self._split_quantity
+            train, predict_input, test = self._split_quantity(log)
         else:
             raise ValueError(
                 "Значение `test_size` должно быть в диапазоне [0, 1] или "
                 f"быть числом больше 1; сейчас test_size={self.test_size}"
             )
 
-        return train, train, test
+        return train, predict_input, test
 
 
 class RandomUserLogSplitter(UserLogSplitter):
