@@ -5,7 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Set
 
-from pyspark.sql import DataFrame, SparkSession, Window
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic import constants
@@ -387,24 +387,3 @@ class BaseRecommender(ABC):
                             .otherwise(recs["relevance"]))
                 .drop("in_log"))
         return recs
-
-    @staticmethod
-    def _get_top_k_recs(recs: DataFrame, k: int):
-        """
-        Выбирает из рекомендаций топ-k штук на основе `relevance`.
-
-        :param recs: рекомендации, спарк-датафрейм с колонками
-            `[user_id , item_id , context , relevance]`
-        :param k: число рекомендаций для каждого юзера
-        :return: топ-k рекомендации, спарк-датафрейм с колонками
-            `[user_id , item_id , context , relevance]`
-        """
-        window = (Window
-                  .partitionBy(recs["user_id"])
-                  .orderBy(recs["relevance"].desc()))
-
-        return (recs
-                .withColumn("rank",
-                            sf.row_number().over(window))
-                .filter(sf.col("rank") <= k)
-                .drop("rank"))

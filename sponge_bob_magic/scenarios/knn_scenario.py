@@ -4,18 +4,19 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple, TypeVar, Set
+from typing import Any, Dict, Optional, Tuple, TypeVar
 
 import joblib
 import optuna
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic import constants
+from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.metrics.metrics import Metrics
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 from sponge_bob_magic.models.knn_recommender import KNNRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
+from sponge_bob_magic.utils import get_top_k_recs
 from sponge_bob_magic.validation_schemes import ValidationSchemes
 
 TNum = TypeVar("TNum", int, float)
@@ -50,7 +51,7 @@ class KNNScenario:
             path: Optional[str] = None
     ) -> Dict[str, Any]:
         if context is None:
-            context = constants.DEFAULT_CONTEXT
+            context = DEFAULT_CONTEXT
 
         splitter = ValidationSchemes(self.spark)
 
@@ -184,7 +185,7 @@ class KNNScenario:
                     )
             recs = recs.select("user_id", "item_id", "context", "relevance")
 
-            recs = self.model._get_top_k_recs(recs, k)
+            recs = get_top_k_recs(recs, k)
             logging.debug(f"-- Длина рекомендаций: {recs.count()}")
 
             logging.debug("-- Подсчет метрики в оптимизации")

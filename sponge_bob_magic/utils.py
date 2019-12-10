@@ -111,3 +111,23 @@ def get_feature_cols(
         set(item_features.columns) - {"item_id", "timestamp"}
     )
     return user_feature_cols, item_feature_cols
+
+
+def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
+    """
+    Выбирает из рекомендаций топ-k штук на основе `relevance`.
+
+    :param recs: рекомендации, спарк-датафрейм с колонками
+        `[user_id , item_id , context , relevance]`
+    :param k: число рекомендаций для каждого юзера
+    :return: топ-k рекомендации, спарк-датафрейм с колонками
+        `[user_id , item_id , context , relevance]`
+    """
+    window = (Window
+              .partitionBy(recs["user_id"])
+              .orderBy(recs["relevance"].desc()))
+    return (recs
+            .withColumn("rank",
+                        sf.row_number().over(window))
+            .filter(sf.col("rank") <= k)
+            .drop("rank"))

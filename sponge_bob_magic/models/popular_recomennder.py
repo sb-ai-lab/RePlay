@@ -9,8 +9,10 @@ import numpy as np
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic import constants, utils
+from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_recommender import BaseRecommender
+from sponge_bob_magic.utils import (get_top_k_recs, get_top_k_rows,
+                                    write_read_dataframe)
 
 
 class PopularRecommender(BaseRecommender):
@@ -55,7 +57,7 @@ class PopularRecommender(BaseRecommender):
             "Среднее количество items у каждого user: %d", self.avg_num_items)
 
         if path is not None:
-            self.items_popularity = utils.write_read_dataframe(
+            self.items_popularity = write_read_dataframe(
                 self.spark, self.items_popularity,
                 os.path.join(path, "items_popularity.parquet"),
                 self.to_overwrite_files)
@@ -78,14 +80,14 @@ class PopularRecommender(BaseRecommender):
                  path: Optional[str] = None) -> DataFrame:
         items_to_rec = self.items_popularity
 
-        if context == constants.DEFAULT_CONTEXT:
+        if context == DEFAULT_CONTEXT:
             items_to_rec = (items_to_rec
                             .select("item_id", "count")
                             .groupBy("item_id")
                             .agg(sf.sum("count").alias("count")))
             items_to_rec = (items_to_rec
                             .withColumn("context",
-                                        sf.lit(constants.DEFAULT_CONTEXT)))
+                                        sf.lit(DEFAULT_CONTEXT)))
         else:
             items_to_rec = (items_to_rec
                             .filter(items_to_rec["context"] == context))
@@ -109,10 +111,10 @@ class PopularRecommender(BaseRecommender):
         )
         items = items.na.fill({"context": context,
                                "relevance": 0})
-
-        items = utils.get_top_k_rows(items, k + self.avg_num_items,
-                                     "relevance")
-
+        items = get_top_k_rows(
+            items, k + self.avg_num_items,
+            "relevance"
+        )
         logging.debug("Количество items после фильтрации: %d", items.count())
 
         # (user_id, item_id, context, relevance)
@@ -122,7 +124,7 @@ class PopularRecommender(BaseRecommender):
             recs = self._filter_seen_recs(recs, log)
 
         # берем топ-к
-        recs = self._get_top_k_recs(recs, k)
+        recs = get_top_k_recs(recs, k)
 
         # заменяем отрицательные рейтинги на 0
         # (они помогали отобрать в топ-k невиденные айтемы)
@@ -132,7 +134,7 @@ class PopularRecommender(BaseRecommender):
                             .otherwise(recs["relevance"]))).cache()
 
         if path is not None:
-            recs = utils.write_read_dataframe(
+            recs = write_read_dataframe(
                 self.spark, recs,
                 os.path.join(path, "recs.parquet"),
                 self.to_overwrite_files)
