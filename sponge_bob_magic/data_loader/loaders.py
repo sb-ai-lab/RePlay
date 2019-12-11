@@ -1,11 +1,11 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import sys
 import logging
-import requests
+from urllib.request import urlretrieve
 
-from sponge_bob_magic.data_loader.archives import extract, delete
+from sponge_bob_magic.data_loader.archives import extract, safe_delete
+from tqdm import tqdm
 
 
 def download_dataset(link: str, archive_name: str):
@@ -20,7 +20,7 @@ def download_dataset(link: str, archive_name: str):
     try:
         download_url(link, archive_name)
         extract(archive_name)
-        delete(archive_name)
+        safe_delete(archive_name)
         logging.info('Done\n')
 
     except Exception as e:
@@ -35,21 +35,8 @@ def download_url(url: str, filename: str):
     :param filename: как сохранить
     :return: None
     """
-    with open(filename, 'wb') as f:
-        response = requests.get(url, stream=True)
-        total = response.headers.get('content-length')
-
-        if total is None:
-            f.write(response.content)
-        else:
-            downloaded = 0
-            total = int(total)
-            chunk_size = max(int(total / 1000), 1024 * 1024)
-            for data in response.iter_content(chunk_size=chunk_size):
-                downloaded += len(data)
-                f.write(data)
-                done = int(50 * downloaded / total)
-                sys.stdout.write('\r[{}{}]'.format('█' * done, '.' * (50 - done)))
-                sys.stdout.flush()
-
-    sys.stdout.write('\n')
+    with tqdm(unit='B', unit_scale=True) as progress:
+        def report(chunk, chunksize, total):
+            progress.total = total
+            progress.update(chunksize)
+        return urlretrieve(url, filename, reporthook=report)

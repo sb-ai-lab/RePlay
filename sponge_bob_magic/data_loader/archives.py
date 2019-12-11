@@ -14,10 +14,9 @@ def extract(archive_name: str):
     :return: None
     """
     archive = ZipFile(archive_name)
-    contents = archive.namelist()
 
-    if have_folder(contents):
-        name = None
+    if contains_dir(archive):
+        name = '.'
     else:
         name = remove_extension(archive_name)
         os.mkdir(name)
@@ -25,36 +24,20 @@ def extract(archive_name: str):
     archive.extractall(path=name)
 
 
-def delete(archive_name: str):
+def safe_delete(filename: str):
     """
-    Удалить архив, чтобы не мешался.
+    Удалить архив (или любой файл), чтобы не мешался.
 
-    :param archive_name: путь до архива
+    :param filename: путь до файла
     :return: None
     """
-    if os.path.exists(archive_name):
-        os.remove(archive_name)
+    if os.path.exists(filename):
+        os.remove(filename)
 
 
-def have_folder(contents: list):
-    """
-    Проверить, что архив содержит папку, содержащую все остальное.
-
-    :param contents: списое содержимого из .namelist()
-    :return: None
-    """
-    return is_dir(contents[0])
-
-
-def is_dir(s: str):
-    """
-    Проверка того, что строка обозначает папку.
-
-    :param s: строка
-    :return: None
-    """
-    last_char = s[-1]
-    return True if last_char == '/' or last_char == '\\' else False
+def contains_dir(zip_file: ZipFile) -> bool:
+    contents = zip_file.infolist()
+    return contents[0].is_dir()
 
 
 def remove_extension(file: str):
