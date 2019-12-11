@@ -79,3 +79,13 @@ class TestMetrics(PySparkTest):
             self.metrics.map_at_k(self.recs, self.ground_truth_recs, 1),
             1 / 2
         )
+
+    def test_recall_at_k(self):
+        self.assertEqual(
+            self.metrics.recall_at_k(self.recs, self.ground_truth_recs, 10),
+            (1 / 2 + 2 / 3) / 2
+        )
+        self.assertEqual(
+            self.metrics.recall_at_k(self.recs, self.ground_truth_recs, 1),
+            1 / 6
+        )

@@ -9,15 +9,16 @@ from typing import Dict, Optional
 import numpy as np
 import pandas
 import torch.optim
-from pyspark.ml.feature import StringIndexer, IndexToString
+from pyspark.ml.feature import IndexToString, StringIndexer
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
-from sponge_bob_magic import utils
+from torch import Tensor
+from torch.nn import DataParallel, Embedding, Module
+from torch.utils.data import DataLoader, TensorDataset
+
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_recommender import BaseRecommender
-from torch import Tensor
-from torch.nn import Embedding, Module, DataParallel
-from torch.utils.data import DataLoader, TensorDataset
+from sponge_bob_magic.utils import get_top_k_recs, write_read_dataframe
 
 
 class RecommenderModel(Module):
@@ -317,14 +318,14 @@ class NeuroCFRecommender(BaseRecommender):
         if to_filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
 
-        recs = self._get_top_k_recs(recs, k)
+        recs = get_top_k_recs(recs, k)
 
         logging.debug("Преобразование отрицательных relevance")
         recs = NeuroCFRecommender.min_max_scale_column(recs, "relevance")
 
         if path is not None:
             logging.debug("Запись на диск рекомендаций")
-            recs = utils.write_read_dataframe(
+            recs = write_read_dataframe(
                 self.spark, recs,
                 os.path.join(path, "recs.parquet"),
                 self.to_overwrite_files

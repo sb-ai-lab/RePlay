@@ -8,9 +8,9 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
 
-from sponge_bob_magic import utils
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_recommender import BaseRecommender
+from sponge_bob_magic.utils import get_top_k_recs, write_read_dataframe
 
 
 class KNNRecommender(BaseRecommender):
@@ -144,15 +144,15 @@ class KNNRecommender(BaseRecommender):
 
         # сохраняем на диск, если есть путь
         if path is not None:
-            self.dot_products = utils.write_read_dataframe(
+            self.dot_products = write_read_dataframe(
                 self.spark, self.dot_products,
                 os.path.join(path, 'knn_dot_products.parquet'),
                 self.to_overwrite_files)
-            self.item_norms = utils.write_read_dataframe(
+            self.item_norms = write_read_dataframe(
                 self.spark, self.item_norms,
                 os.path.join(path, 'knn_item_norms.parquet'),
                 self.to_overwrite_files)
-            self.all_items = utils.write_read_dataframe(
+            self.all_items = write_read_dataframe(
                 self.spark, self.all_items,
                 os.path.join(path, 'knn_all_items.parquet'),
                 self.to_overwrite_files)
@@ -172,7 +172,7 @@ class KNNRecommender(BaseRecommender):
 
         # сохраняем на диск, если есть путь
         if path is not None:
-            self.similarity = utils.write_read_dataframe(
+            self.similarity = write_read_dataframe(
                 self.spark, self.similarity,
                 os.path.join(path, 'knn_similarity_matrix.parquet'),
                 self.to_overwrite_files
@@ -212,11 +212,11 @@ class KNNRecommender(BaseRecommender):
         if to_filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
 
-        recs = self._get_top_k_recs(recs, k)
+        recs = get_top_k_recs(recs, k)
         recs = recs.filter(sf.col("relevance") > 0.0)
 
         if path is not None:
-            recs = utils.write_read_dataframe(
+            recs = write_read_dataframe(
                 self.spark, recs,
                 os.path.join(path, 'recs.parquet'),
                 self.to_overwrite_files

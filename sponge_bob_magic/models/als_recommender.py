@@ -11,9 +11,9 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import DoubleType
 
-from sponge_bob_magic import utils
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_recommender import BaseRecommender
+from sponge_bob_magic.utils import get_top_k_recs, write_read_dataframe
 
 
 class ALSRecommender(BaseRecommender):
@@ -91,9 +91,9 @@ class ALSRecommender(BaseRecommender):
             .drop("user_idx", "item_idx", "prediction")
             .cache()
         )
-        recs = self._get_top_k_recs(recs, k)
+        recs = get_top_k_recs(recs, k)
         if path is not None:
-            recs = utils.write_read_dataframe(
+            recs = write_read_dataframe(
                 self.spark, recs,
                 os.path.join(path, "recs.parquet"),
                 self.to_overwrite_files)

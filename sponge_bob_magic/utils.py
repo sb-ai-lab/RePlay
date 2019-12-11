@@ -30,7 +30,9 @@ def get_distinct_values_in_column(
     }
 
 
-def get_top_k_rows(dataframe: DataFrame, k: int, sort_column: str):
+def get_top_k_rows(
+        dataframe: DataFrame, k: int, sort_column: str
+) -> DataFrame:
     """
     Выделяет топ-k строк в датафрейме на основе заданной колонки.
 
@@ -41,7 +43,6 @@ def get_top_k_rows(dataframe: DataFrame, k: int, sort_column: str):
     """
     window = (Window
               .orderBy(dataframe[sort_column].desc()))
-
     return (dataframe
             .withColumn("rank",
                         sf.row_number().over(window))
@@ -49,10 +50,12 @@ def get_top_k_rows(dataframe: DataFrame, k: int, sort_column: str):
             .drop("rank"))
 
 
-def write_read_dataframe(spark: SparkSession,
-                         dataframe: DataFrame,
-                         path: Optional[str],
-                         to_overwrite_files: bool = True):
+def write_read_dataframe(
+        spark: SparkSession,
+        dataframe: DataFrame,
+        path: Optional[str],
+        to_overwrite_files: bool = True
+) -> DataFrame:
     """
     Записывает спарк-датафрейм на диск и считывает его обратно и возвращает.
     Если путь равен None, то возвращается спарк-датафрейм, поданный на вход.
@@ -108,3 +111,23 @@ def get_feature_cols(
         set(item_features.columns) - {"item_id", "timestamp"}
     )
     return user_feature_cols, item_feature_cols
+
+
+def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
+    """
+    Выбирает из рекомендаций топ-k штук на основе `relevance`.
+
+    :param recs: рекомендации, спарк-датафрейм с колонками
+        `[user_id , item_id , context , relevance]`
+    :param k: число рекомендаций для каждого юзера
+    :return: топ-k рекомендации, спарк-датафрейм с колонками
+        `[user_id , item_id , context , relevance]`
+    """
+    window = (Window
+              .partitionBy(recs["user_id"])
+              .orderBy(recs["relevance"].desc()))
+    return (recs
+            .withColumn("rank",
+                        sf.row_number().over(window))
+            .filter(sf.col("rank") <= k)
+            .drop("rank"))
