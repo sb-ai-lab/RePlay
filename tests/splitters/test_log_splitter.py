@@ -9,9 +9,11 @@ from pyspark.sql import DataFrame
 
 from pyspark_testcase import PySparkTest
 from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.splitters.log_splitter import (LogSplitByDateSplitter,
-                                                     LogSplitRandomlySplitter,
-                                                     ColdUsersExtractingSplitter)
+from sponge_bob_magic.splitters.log_splitter import (
+    LogSplitByDateSplitter,
+    LogSplitRandomlySplitter,
+    ColdUsersExtractingSplitter
+)
 
 
 def get_distinct_values_in_column(df: DataFrame, column: str):

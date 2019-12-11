@@ -4,7 +4,7 @@
 import logging
 import os
 import shutil
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pandas
@@ -336,7 +336,7 @@ class NeuroCFRecommender(BaseRecommender):
     def _batch_generator(self,
                          users: DataFrame,
                          items: DataFrame,
-                         path: str) -> (Tensor, Tensor, int, int):
+                         path: str) -> Tuple[Tensor, Tensor, int, int]:
         """
         Генератор батчей для пользователей и объектов.
         Записывает временыне файлы на диск по пути `path`.

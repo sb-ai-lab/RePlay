@@ -96,18 +96,18 @@ class KNNScenario:
             PopularRecommender(self.spark,
                                alpha=params_grid.get("alpha", 0),
                                beta=params_grid.get("beta", 0))
-                .fit_predict(k, users, items, context, train,
-                             user_features, item_features,
-                             to_filter_seen_items)
-                .select(sf.col("user_id"),
-                        sf.col("item_id"),
-                        sf.col("context").alias("context_pop"),
-                        sf.col("relevance").alias("relevance_pop"), )
+            .fit_predict(k, users, items, context, train,
+                         user_features, item_features,
+                         to_filter_seen_items)
+            .select(sf.col("user_id"),
+                    sf.col("item_id"),
+                    sf.col("context").alias("context_pop"),
+                    sf.col("relevance").alias("relevance_pop"), )
         )
         max_in_popular_recs = (
             popular_recs
-                .agg({"relevance_pop": "max"})
-                .collect()[0][0]
+            .agg({"relevance_pop": "max"})
+            .collect()[0][0]
         )
 
         logging.debug("Модель KNN: пре-фит")
@@ -216,8 +216,8 @@ class KNNScenario:
         self.study = optuna.create_study(direction="maximize", sampler=sampler)
 
         count = 1
-        while n_trials > len(set(str(t.params) for t in self.study.trials)) \
-                and count <= self.maximum_num_attempts:
+        while (n_trials > len(set(str(t.params) for t in self.study.trials))
+                and count <= self.maximum_num_attempts):
             self.study.optimize(objective, n_trials=1, n_jobs=n_jobs)
             count += 1
 

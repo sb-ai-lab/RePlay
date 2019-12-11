@@ -14,8 +14,8 @@ from sponge_bob_magic import constants
 from sponge_bob_magic.metrics.metrics import Metrics
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 from sponge_bob_magic.models.linear_recomennder import LinearRecommender
-from sponge_bob_magic.splitters.log_splitter import \
-    LogSplitByDateSplitter, LogSplitRandomlySplitter
+from sponge_bob_magic.splitters.log_splitter import (LogSplitByDateSplitter,
+                                                     LogSplitRandomlySplitter)
 
 TNum = TypeVar("TNum", int, float)
 

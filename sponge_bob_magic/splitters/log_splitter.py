@@ -18,7 +18,10 @@ from sponge_bob_magic.splitters.base_splitter import (Splitter,
 
 
 class LogSplitByDateSplitter(Splitter):
-    """ Делит лог взаимодействия по времени на обучающую и тестовую выборки. """
+    """
+    Делит лог взаимодействия пользователей и объектов на обучающую и
+    тестовую выборки по времени.
+    """
 
     def __init__(self, spark: SparkSession,
                  test_start: datetime):
@@ -113,9 +116,10 @@ class ColdUsersExtractingSplitter(Splitter):
 
         test = (
             log
-            .join(start_date_by_user.filter(
-                sf.col("start_dt") >= test_start_date
-            ),
+            .join(
+                start_date_by_user.filter(
+                    sf.col("start_dt") >= test_start_date
+                ),
                 how="inner",
                 on="user_id"
             )
