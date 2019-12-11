@@ -66,9 +66,9 @@ class UserLogSplitter(Splitter):
         """
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
-        if 0 <= self.test_size <= 1:
+        if 0 <= self.test_size < 1.0:
             train, predict_input, test = self._split_proportion(log)
-        elif 1 < self.test_size and isinstance(self.test_size, int):
+        elif 1 <= self.test_size and isinstance(self.test_size, int):
             train, predict_input, test = self._split_quantity(log)
         else:
             raise ValueError(
