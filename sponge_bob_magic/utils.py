@@ -6,8 +6,6 @@ from typing import Any, List, Optional, Set, Tuple
 import numpy as np
 from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as sf
-from pyspark.sql.functions import udf
-from pyspark.sql.types import DoubleType
 
 
 def get_distinct_values_in_column(
@@ -87,9 +85,6 @@ def func_get(vector: np.ndarray, i: int) -> float:
     :returns: значение ячейки массива (вещественное число)
     """
     return float(vector[i])
-
-
-udf_get = udf(func_get, DoubleType())
 
 
 def get_feature_cols(
