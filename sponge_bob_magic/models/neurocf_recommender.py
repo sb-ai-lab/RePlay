@@ -43,7 +43,7 @@ class RecommenderModel(Module):
                                    embedding_dim=embedding_dimension)
         item_biases = Embedding(num_embeddings=item_count,
                                 embedding_dim=1)
-        user_biases = Embedding(num_embeddings=item_count,
+        user_biases = Embedding(num_embeddings=user_count,
                                 embedding_dim=1)
 
         user_embedding.weight.data.normal_(0, 1.0 / embedding_dimension)
