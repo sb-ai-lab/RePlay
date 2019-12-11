@@ -12,7 +12,7 @@ LOG_SCHEMA = StructType([
     StructField("relevance", FloatType())
 ])
 
-DEFAULT_CONTEXT = 'no_context'
+DEFAULT_CONTEXT = "no_context"
 
 REC_SCHEMA = StructType([
     StructField("user_id", StringType()),

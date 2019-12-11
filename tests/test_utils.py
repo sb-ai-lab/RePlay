@@ -43,9 +43,9 @@ class UtilsTestCase(PySparkTest):
 
     def test_write_read_dataframe(self):
         dataframe = self.spark.createDataFrame(data=[
-            ["user1", "feature1", '2019-01-01'],
-            ["user1", "feature2", '2019-01-01'],
-            ["user2", "feature1", '2019-01-01']
+            ["user1", "feature1", "2019-01-01"],
+            ["user1", "feature2", "2019-01-01"],
+            ["user2", "feature1", "2019-01-01"]
         ], schema=["user_id", "features", "timestamp"])
 
         path = os.path.join(self.tmp_path, "tmp_test_write_read_df.parquet")

@@ -16,7 +16,7 @@ def extract(archive_name: str):
     archive = ZipFile(archive_name)
 
     if contains_dir(archive):
-        name = '.'
+        name = "."
     else:
         name = remove_extension(archive_name)
         os.mkdir(name)

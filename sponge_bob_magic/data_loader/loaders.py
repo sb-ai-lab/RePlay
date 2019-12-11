@@ -4,8 +4,9 @@
 import logging
 from urllib.request import urlretrieve
 
-from sponge_bob_magic.data_loader.archives import extract, safe_delete
 from tqdm import tqdm
+
+from sponge_bob_magic.data_loader.archives import extract, safe_delete
 
 
 def download_dataset(link: str, archive_name: str):
@@ -21,7 +22,7 @@ def download_dataset(link: str, archive_name: str):
         download_url(link, archive_name)
         extract(archive_name)
         safe_delete(archive_name)
-        logging.info('Done\n')
+        logging.info("Done\n")
 
     except Exception as e:
         logging.exception(e)
@@ -35,7 +36,7 @@ def download_url(url: str, filename: str):
     :param filename: как сохранить
     :return: None
     """
-    with tqdm(unit='B', unit_scale=True) as progress:
+    with tqdm(unit="B", unit_scale=True) as progress:
         def report(chunk, chunksize, total):
             progress.total = total
             progress.update(chunksize)
