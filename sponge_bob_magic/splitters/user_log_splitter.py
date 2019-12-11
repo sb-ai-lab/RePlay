@@ -1,7 +1,13 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+
+В скрипте собраны классы для разбиения лога взаимодействий пользователей и
+объектов на тестовую и обучающие выборки так, что делится лог каждого
+пользователя по отдельности.
+Способы разбиения - по времени и случайно.
 """
 from abc import abstractmethod
+from typing import Union
 
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, SparkSession, Window
@@ -12,7 +18,7 @@ from sponge_bob_magic.splitters.base_splitter import (Splitter,
 
 class UserLogSplitter(Splitter):
     def __init__(self, spark: SparkSession,
-                 test_size: float or int = 0.3,
+                 test_size: Union[float, int] = 0.3,
                  seed: int = 1234):
         """
         :param seed: сид для разбиения
@@ -33,7 +39,7 @@ class UserLogSplitter(Splitter):
         Внутренний метод, который должны имплементировать классы-наследники.
 
         Разбивает лог действий пользователей на обучающую и тестовую
-        выборки так, чтобы в тестовой выборке было фиксированная доля
+        выборки так, чтобы в тестовой выборке была фиксированная доля
         объектов для каждого пользователя. Способ разбиения определяется
         классом-наследником.
 
@@ -42,7 +48,6 @@ class UserLogSplitter(Splitter):
         :return: тройка спарк-датафреймов структуры, аналогичной входной
             `train, predict_input, test`
         """
-        pass
 
     @abstractmethod
     def _split_quantity(self, log: DataFrame) -> SplitterReturnType:
@@ -59,17 +64,16 @@ class UserLogSplitter(Splitter):
         :return: тройка спарк-датафреймов структуры, аналогичной входной
             `train, predict_input, test`
         """
-        pass
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         if 0 <= self.test_size <= 1:
             train, predict_input, test = self._split_proportion(log)
-        elif 1 <= self.test_size:
+        elif 1 < self.test_size and isinstance(self.test_size, int):
             train, predict_input, test = self._split_quantity(log)
         else:
             raise ValueError(
                 "Значение `test_size` должно быть в диапазоне [0, 1] или "
-                f"быть числом больше 1; сейчас test_size={self.test_size}"
+                f"быть целым числом больше 1; сейчас test_size={self.test_size}"
             )
 
         return train, predict_input, test

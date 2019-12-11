@@ -16,9 +16,9 @@ from sponge_bob_magic.metrics.metrics import Metrics
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 from sponge_bob_magic.models.knn_recommender import KNNRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
+from sponge_bob_magic.splitters.log_splitter import (LogSplitByDateSplitter,
+                                                     LogSplitRandomlySplitter)
 from sponge_bob_magic.utils import get_top_k_recs
-from sponge_bob_magic.splitters.log_splitter import \
-    LogSplitByDateSplitter, LogSplitRandomlySplitter
 
 TNum = TypeVar("TNum", int, float)
 
@@ -96,18 +96,18 @@ class KNNScenario:
             PopularRecommender(self.spark,
                                alpha=params_grid.get("alpha", 0),
                                beta=params_grid.get("beta", 0))
-            .fit_predict(k, users, items, context, train,
-                         user_features, item_features,
-                         to_filter_seen_items)
-            .select(sf.col("user_id"),
-                    sf.col("item_id"),
-                    sf.col("context").alias("context_pop"),
-                    sf.col("relevance").alias("relevance_pop"), )
+                .fit_predict(k, users, items, context, train,
+                             user_features, item_features,
+                             to_filter_seen_items)
+                .select(sf.col("user_id"),
+                        sf.col("item_id"),
+                        sf.col("context").alias("context_pop"),
+                        sf.col("relevance").alias("relevance_pop"), )
         )
         max_in_popular_recs = (
             popular_recs
-            .agg({"relevance_pop": "max"})
-            .collect()[0][0]
+                .agg({"relevance_pop": "max"})
+                .collect()[0][0]
         )
 
         logging.debug("Модель KNN: пре-фит")

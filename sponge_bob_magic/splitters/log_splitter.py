@@ -1,5 +1,10 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+
+В скрипте собраны классы по разбиению всего лога взаимодействий пользователей и
+объектов на обучающую и тестовую выборки.
+Способы разбиения - по времени и случайно, а также способ,
+когда в тестовую выборку попадают только холодные пользователи.
 """
 from datetime import datetime
 
@@ -13,6 +18,8 @@ from sponge_bob_magic.splitters.base_splitter import (Splitter,
 
 
 class LogSplitByDateSplitter(Splitter):
+    """ Делит лог взаимодействия по времени на обучающую и тестовую выборки. """
+
     def __init__(self, spark: SparkSession,
                  test_start: datetime):
         """
@@ -35,6 +42,8 @@ class LogSplitByDateSplitter(Splitter):
 
 
 class LogSplitRandomlySplitter(Splitter):
+    """ Делит лог взаимодействия случайно на обучающую и тестовую выборки. """
+
     def __init__(self, spark: SparkSession,
                  test_size: float,
                  seed: int):
@@ -57,6 +66,14 @@ class LogSplitRandomlySplitter(Splitter):
 
 
 class ColdUsersExtractingSplitter(Splitter):
+    """
+    Делит лог взаимодействия на обучающую и тестовую выборки,
+    таким образом, чтобы в тестовой выборке оказались холодные пользователи.
+    На основе желаемого размера тестовой выборки подбирается дата,
+    и пользователи, появившиеся после этой даты, считаются холодными, и
+    их лог попадает в тестовую выборку.
+    """
+
     def __init__(self, spark: SparkSession,
                  test_size: float):
         """
@@ -71,9 +88,9 @@ class ColdUsersExtractingSplitter(Splitter):
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         start_date_by_user = (
             log
-                .groupby("user_id")
-                .agg(sf.min("timestamp").alias("start_dt"))
-                .cache()
+            .groupby("user_id")
+            .agg(sf.min("timestamp").alias("start_dt"))
+            .cache()
         )
         test_start_date = (
             start_date_by_user
