@@ -21,8 +21,8 @@ def download_movielens(path: str = ".", dataset: str = "ml-latest-small"):
     logging.info("Downloading %s from grouplens...", dataset)
     archive = dataset + ".zip"
     path = join(path, archive)
-    link = f"http://files.grouplens.org/datasets/movielens/{archive}"
-    download_dataset(link, path)
+    url = f"http://files.grouplens.org/datasets/movielens/{archive}"
+    download_dataset(url, path)
 
 
 def download_rekko(path: str = "."):
@@ -36,6 +36,6 @@ def download_rekko(path: str = "."):
     """
     logging.info("Downloading rekko challenge dataset...")
     archive = "rekko_challenge_rekko_challenge_2019.zip"
-    link = f"https://boosters.pro/api/ch/files/pub/{archive}"
+    url = f"https://boosters.pro/api/ch/files/pub/{archive}"
     path = join(path, "rekko.zip")
-    download_dataset(link, path)
+    download_dataset(url, path)
