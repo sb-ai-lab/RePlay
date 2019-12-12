@@ -8,7 +8,8 @@ from zipfile import ZipFile
 
 def extract(archive_name: str):
     """
-    Извлечь содержимое архива и положить его в папку, если там несколько файлов.
+    Извлечь содержимое архива и положить его в папку, если там несколько
+    файлов.
 
     :param archive_name: путь до архива
     :return: None
@@ -36,6 +37,12 @@ def safe_delete(filename: str):
 
 
 def contains_dir(zip_file: ZipFile) -> bool:
+    """
+    Проверить, запакована ли в архив папка или просто набор файлов.
+
+    :param zip_file: zip-архив
+    :return: является ли первый элемент содержимого арихва папкой
+    """
     contents = zip_file.infolist()
     return contents[0].is_dir()
 
