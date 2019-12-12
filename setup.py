@@ -24,7 +24,7 @@ setuptools.setup(
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Typing :: Typed"
     ],
-    python_requires='>=3.7',
+    python_requires=">=3.7",
     install_requires=[
         "jupyter",
         "pandas",

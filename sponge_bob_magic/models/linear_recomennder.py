@@ -8,12 +8,12 @@ from pyspark.ml.classification import (LogisticRegression,
                                        LogisticRegressionModel)
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import lit, when
-from pyspark.sql.types import FloatType
+from pyspark.sql.functions import lit, udf, when
+from pyspark.sql.types import DoubleType, FloatType
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_recommender import BaseRecommender
-from sponge_bob_magic.utils import (get_feature_cols, get_top_k_recs, udf_get,
+from sponge_bob_magic.utils import (func_get, get_feature_cols, get_top_k_recs,
                                     write_read_dataframe)
 
 
@@ -121,7 +121,7 @@ class LinearRecommender(BaseRecommender):
             .select(
                 "user_id",
                 "item_id",
-                udf_get("probability", lit(1))
+                udf(func_get, DoubleType())("probability", lit(1))
                 .alias("relevance")
                 .cast(FloatType())
             )

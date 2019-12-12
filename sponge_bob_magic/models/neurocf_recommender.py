@@ -4,12 +4,12 @@
 import logging
 import os
 import shutil
-from typing import Dict, Optional, Tuple
+from typing import Dict, Generator, Optional, Tuple
 
 import numpy as np
 import pandas
 import torch.optim
-from pyspark.ml.feature import IndexToString, StringIndexer
+from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from torch import Tensor
@@ -22,6 +22,7 @@ from sponge_bob_magic.utils import get_top_k_recs, write_read_dataframe
 
 
 class RecommenderModel(Module):
+    """ Нейросеть на pytorch для дальнейшего использования. """
     def __init__(
             self,
             user_count: int,
@@ -79,6 +80,10 @@ class NeuroCFRecommender(BaseRecommender):
     batch_size_fit_users: int = 100000
     batch_size_predict_users: int = 100
     batch_size_predict_items: int = 10000
+    user_indexer_model: StringIndexerModel
+    item_indexer_model: StringIndexerModel
+    num_users: int
+    num_items: int
 
     def __init__(self, spark: SparkSession,
                  learning_rate: float = 0.5,
@@ -194,7 +199,7 @@ class NeuroCFRecommender(BaseRecommender):
         logging.debug("Составление батча:")
         tensor_data = NeuroCFRecommender.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
-            os.path.join(path, "tmp_tensor_data")
+            os.path.join(path if path else "ncf_model", "tmp_tensor_data")
         )
 
         user_batch = torch.LongTensor(tensor_data["user_idx"].values)
@@ -202,9 +207,9 @@ class NeuroCFRecommender(BaseRecommender):
 
         logging.debug("Обучение модели")
         for epoch in range(self.epochs):
-            logging.debug(f"-- Эпоха {epoch}")
+            logging.debug("-- Эпоха %d", epoch)
             current_loss = self._run_epoch(user_batch, item_batch, optimizer)
-            logging.debug(f"-- Текущее значение: {current_loss:.4f}")
+            logging.debug("-- Текущее значение: %.4f", current_loss)
 
     def get_loss(
             self,
@@ -224,7 +229,7 @@ class NeuroCFRecommender(BaseRecommender):
 
         self.model.eval()
 
-        loss_value = 0
+        loss_value = 0.0
 
         logging.debug("Составление батча:")
         tensor_data = NeuroCFRecommender.spark2pandas_csv(
@@ -261,16 +266,19 @@ class NeuroCFRecommender(BaseRecommender):
         columns = ["user_idx", "item_idx", "relevance"]
         sep = ","
 
-        tmp_path = os.path.join(path, "recs")
+        tmp_path = os.path.join(path if path else "ncf_model", "recs")
         if os.path.exists(tmp_path):
             shutil.rmtree(tmp_path)
         os.makedirs(tmp_path)
 
         logging.debug("Предсказание модели")
         for i, (user_ids, item_ids, num_users, num_items) in enumerate(
-                self._batch_generator(users, items, path)):
+                self._batch_generator(
+                    users, items, path if path else "ncf_model"
+                )
+        ):
             if i % 100 == 0:
-                logging.debug(f"-- Батч: {i}")
+                logging.debug("-- Батч: %d", i)
 
             with torch.no_grad():
                 relevance = (
@@ -328,10 +336,12 @@ class NeuroCFRecommender(BaseRecommender):
 
         return recs.cache()
 
-    def _batch_generator(self,
-                         users: DataFrame,
-                         items: DataFrame,
-                         path: str) -> Tuple[Tensor, Tensor, int, int]:
+    def _batch_generator(
+            self,
+            users: DataFrame,
+            items: DataFrame,
+            path: str
+    ) -> Generator[Tuple[Tensor, Tensor, int, int], None, None]:
         """
         Генератор батчей для пользователей и объектов.
         Записывает временыне файлы на диск по пути `path`.
@@ -364,8 +374,8 @@ class NeuroCFRecommender(BaseRecommender):
         num_item_batches = int(
             np.ceil(len(items) / self.batch_size_predict_items))
 
-        logging.debug(f"-- Количество батчей для users: {num_user_batches}")
-        logging.debug(f"-- Количество батчей для items: {num_item_batches}")
+        logging.debug("-- Количество батчей для users: %d", num_user_batches)
+        logging.debug("-- Количество батчей для items: %d", num_item_batches)
 
         user_batches = np.array_split(users, num_user_batches)
         item_batches = np.array_split(items, num_item_batches)

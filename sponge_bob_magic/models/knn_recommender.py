@@ -146,15 +146,15 @@ class KNNRecommender(BaseRecommender):
         if path is not None:
             self.dot_products = write_read_dataframe(
                 self.spark, self.dot_products,
-                os.path.join(path, 'knn_dot_products.parquet'),
+                os.path.join(path, "knn_dot_products.parquet"),
                 self.to_overwrite_files)
             self.item_norms = write_read_dataframe(
                 self.spark, self.item_norms,
-                os.path.join(path, 'knn_item_norms.parquet'),
+                os.path.join(path, "knn_item_norms.parquet"),
                 self.to_overwrite_files)
             self.all_items = write_read_dataframe(
                 self.spark, self.all_items,
-                os.path.join(path, 'knn_all_items.parquet'),
+                os.path.join(path, "knn_all_items.parquet"),
                 self.to_overwrite_files)
 
     def _fit_partial(
@@ -174,7 +174,7 @@ class KNNRecommender(BaseRecommender):
         if path is not None:
             self.similarity = write_read_dataframe(
                 self.spark, self.similarity,
-                os.path.join(path, 'knn_similarity_matrix.parquet'),
+                os.path.join(path, "knn_similarity_matrix.parquet"),
                 self.to_overwrite_files
             )
 
@@ -218,7 +218,7 @@ class KNNRecommender(BaseRecommender):
         if path is not None:
             recs = write_read_dataframe(
                 self.spark, recs,
-                os.path.join(path, 'recs.parquet'),
+                os.path.join(path, "recs.parquet"),
                 self.to_overwrite_files
             )
 

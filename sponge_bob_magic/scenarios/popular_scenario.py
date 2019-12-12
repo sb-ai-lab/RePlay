@@ -136,10 +136,10 @@ class PopularScenario:
             precision = Metrics.precision_at_k(recs, test, k=k)
             map_metric = Metrics.map_at_k(recs, test, k=k)
 
-            trial.set_user_attr('nDCG@k', ndcg)
-            trial.set_user_attr('precision@k', precision)
-            trial.set_user_attr('MAP@k', map_metric)
-            trial.set_user_attr('HitRate@k', hit_rate)
+            trial.set_user_attr("nDCG@k", ndcg)
+            trial.set_user_attr("precision@k", precision)
+            trial.set_user_attr("MAP@k", map_metric)
+            trial.set_user_attr("HitRate@k", hit_rate)
 
             logging.debug(f"-- Метрики: "
                           f"hit_rate={hit_rate:.4f}, "
