@@ -3,7 +3,7 @@
 """
 import unittest
 import warnings
-from typing import Optional
+from typing import Optional, List
 
 import pandas as pd
 from pyspark.ml.linalg import DenseVector
@@ -22,10 +22,15 @@ class PySparkTest(unittest.TestCase):
     ) -> None:
         def _unify_dataframe(df: DataFrame):
             pandas_df = df.toPandas()
-            columns_to_sort_by = list()
-            for column in pandas_df.columns:
-                if not type(pandas_df[column][0]) in {DenseVector, list}:
-                    columns_to_sort_by.append(column)
+            columns_to_sort_by: List[str] = []
+
+            if len(pandas_df) == 0:
+                columns_to_sort_by = pandas_df.columns
+            else:
+                for column in pandas_df.columns:
+                    if not type(pandas_df[column][0]) in {DenseVector, list}:
+                        columns_to_sort_by.append(column)
+
             return (pandas_df
                     [sorted(df.columns)]
                     .sort_values(by=sorted(columns_to_sort_by))
