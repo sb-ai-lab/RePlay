@@ -4,15 +4,16 @@
 from datetime import datetime
 from math import log
 
-from tests.pyspark_testcase import PySparkTest
-
 from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.metrics.metrics import Metrics
+from sponge_bob_magic.metrics.metrics import (HitRateMetric, NDCGMetric,
+                                              PrecisionMetric,
+                                              MAPMetric,
+                                              RecallMetric)
+from tests.pyspark_testcase import PySparkTest
 
 
 class TestMetrics(PySparkTest):
     def setUp(self) -> None:
-        self.metrics = Metrics()
         self.recs = self.spark.createDataFrame(
             data=[["user1", "item1", "day  ", 3.0],
                   ["user1", "item2", "night", 2.0],
@@ -32,21 +33,21 @@ class TestMetrics(PySparkTest):
 
     def test_hit_rate_at_k(self):
         self.assertEqual(
-            self.metrics.hit_rate_at_k(self.recs, self.ground_truth_recs, 10),
+            HitRateMetric(self.spark)(self.recs, self.ground_truth_recs, 10),
             2 / 3
         )
         self.assertEqual(
-            self.metrics.hit_rate_at_k(self.recs, self.ground_truth_recs, 1),
+            HitRateMetric(self.spark)(self.recs, self.ground_truth_recs, 1),
             1 / 3
         )
 
     def test_ndcg_at_k(self):
         self.assertEqual(
-            self.metrics.ndcg_at_k(self.recs, self.ground_truth_recs, 1),
+            NDCGMetric(self.spark)(self.recs, self.ground_truth_recs, 1),
             1 / 2
         )
         self.assertEqual(
-            self.metrics.ndcg_at_k(self.recs, self.ground_truth_recs, 3),
+            NDCGMetric(self.spark)(self.recs, self.ground_truth_recs, 3),
             1 / 2 * (
                     1 / (1 / log(2) + 1 / log(3) + 1 / log(4)) *
                     (1 / log(2) + 1 / log(3)) +
@@ -57,35 +58,35 @@ class TestMetrics(PySparkTest):
 
     def test_precision_at_k(self):
         self.assertAlmostEqual(
-            self.metrics.precision_at_k(self.recs, self.ground_truth_recs, 3),
+            PrecisionMetric(self.spark)(self.recs, self.ground_truth_recs, 3),
             1 / 2
         )
         self.assertEqual(
-            self.metrics.precision_at_k(self.recs, self.ground_truth_recs, 1),
+            PrecisionMetric(self.spark)(self.recs, self.ground_truth_recs, 1),
             1 / 2
         )
         self.assertAlmostEqual(
-            self.metrics.precision_at_k(self.recs, self.ground_truth_recs, 2),
+            PrecisionMetric(self.spark)(self.recs, self.ground_truth_recs, 2),
             3 / 4
         )
 
     def test_map_at_k(self):
         self.assertAlmostEqual(
-            self.metrics.map_at_k(self.recs, self.ground_truth_recs, 3),
+            MAPMetric(self.spark)(self.recs, self.ground_truth_recs, 3),
             11 / 24
         )
 
         self.assertAlmostEqual(
-            self.metrics.map_at_k(self.recs, self.ground_truth_recs, 1),
+            MAPMetric(self.spark)(self.recs, self.ground_truth_recs, 1),
             1 / 2
         )
 
     def test_recall_at_k(self):
         self.assertEqual(
-            self.metrics.recall_at_k(self.recs, self.ground_truth_recs, 10),
+            RecallMetric(self.spark)(self.recs, self.ground_truth_recs, 10),
             (1 / 2 + 2 / 3) / 2
         )
         self.assertEqual(
-            self.metrics.recall_at_k(self.recs, self.ground_truth_recs, 1),
+            RecallMetric(self.spark)(self.recs, self.ground_truth_recs, 1),
             1 / 6
         )
