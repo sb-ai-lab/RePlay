@@ -11,7 +11,7 @@ import optuna
 from pyspark.sql import DataFrame, SparkSession
 
 from sponge_bob_magic import constants
-from sponge_bob_magic.metrics.metrics import Metrics
+from sponge_bob_magic.metrics import metrics
 from sponge_bob_magic.models.base_recommender import BaseRecommender
 from sponge_bob_magic.models.linear_recomennder import LinearRecommender
 from sponge_bob_magic.splitters.log_splitter import (LogSplitByDateSplitter,
@@ -149,10 +149,10 @@ class LinearScenario:
             logging.debug(f"-- Длина рекомендаций: {recs.count()}")
 
             logging.debug("-- Подсчет метрики в оптимизации")
-            hit_rate = Metrics.hit_rate_at_k(recs, test, k=k)
-            ndcg = Metrics.ndcg_at_k(recs, test, k=k)
-            precision = Metrics.precision_at_k(recs, test, k=k)
-            map_metric = Metrics.map_at_k(recs, test, k=k)
+            hit_rate = metrics.HitRateMetric(self.spark)(recs, test, k=k)
+            ndcg = metrics.NDCGMetric(self.spark)(recs, test, k=k)
+            precision = metrics.PrecisionMetric(self.spark)(recs, test, k=k)
+            map_metric = metrics.MAPMetric(self.spark)(recs, test, k=k)
 
             trial.set_user_attr("nDCG@k", ndcg)
             trial.set_user_attr("precision@k", precision)
