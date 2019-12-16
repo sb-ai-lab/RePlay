@@ -44,6 +44,10 @@ class Metrics(ABC):
         return self.calculate(recommendations, ground_truth, k)
 
     @abstractmethod
+    def __str__(self):
+        """ Строковое представление метрики. """
+
+    @abstractmethod
     def calculate(
             self,
             recommendations: DataFrame,

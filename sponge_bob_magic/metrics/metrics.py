@@ -19,6 +19,9 @@ class HitRateMetric(Metrics):
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
 
+    def __str__(self):
+        return "HitRate@K"
+
     def calculate(
             self,
             recommendations: DataFrame,
@@ -44,6 +47,9 @@ class NDCGMetric(Metrics):
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
 
+    def __str__(self):
+        return "nDCG@k"
+
     def calculate(
             self,
             recommendations: DataFrame,
@@ -64,6 +70,9 @@ class PrecisionMetric(Metrics):
     точность на `k` первых элементах выдачи.
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
+
+    def __str__(self):
+        return "Precision@k"
 
     def calculate(
             self,
@@ -86,6 +95,9 @@ class MAPMetric(Metrics):
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
 
+    def __str__(self):
+        return "MAP@k"
+
     def calculate(
             self,
             recommendations: DataFrame,
@@ -102,11 +114,14 @@ class MAPMetric(Metrics):
 
 class RecallMetric(Metrics):
     """
-    Метрика recall@K:
+    Метрика Recall@K:
     какую долю объектов из реального лога мы покажем в рекомендациях среди
     первых `k` (в среднем по пользователям).
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
+
+    def __str__(self):
+        return "Recall@K"
 
     def calculate(
             self,
