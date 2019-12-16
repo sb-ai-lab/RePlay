@@ -11,7 +11,7 @@ from sponge_bob_magic.models.base_recommender import Recommender
 from pyspark_testcase import PySparkTest
 
 
-class BaseRecommenderCase(PySparkTest):
+class RecommenderTestCase(PySparkTest):
     def setUp(self):
         class DerivedRecommender(Recommender):
             def _pre_fit(self, log: DataFrame,
