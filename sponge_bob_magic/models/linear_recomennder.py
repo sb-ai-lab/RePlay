@@ -12,12 +12,12 @@ from pyspark.sql.functions import lit, udf, when
 from pyspark.sql.types import DoubleType, FloatType
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
-from sponge_bob_magic.models.base_recommender import BaseRecommender
+from sponge_bob_magic.models.base_recommender import Recommender
 from sponge_bob_magic.utils import (func_get, get_feature_cols, get_top_k_recs,
                                     write_read_dataframe)
 
 
-class LinearRecommender(BaseRecommender):
+class LinearRecommender(Recommender):
     """ Рекомендатель на основе линейной модели и эмбеддингов. """
     _model: LogisticRegressionModel
     augmented_data: DataFrame

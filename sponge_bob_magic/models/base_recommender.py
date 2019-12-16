@@ -14,7 +14,7 @@ from pyspark.sql import functions as sf
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 
 
-class BaseRecommender(ABC):
+class Recommender(ABC):
     """ Базовый класс-рекомендатель. """
     model: Any = None
     to_overwrite_files: bool = True
@@ -98,7 +98,7 @@ class BaseRecommender(ABC):
         if len(columns) == 0:
             raise ValueError("В датафрейме features нет колонок с фичами")
 
-        BaseRecommender._check_dataframe(
+        Recommender._check_dataframe(
             features,
             required_columns=required_columns.union(columns),
             optional_columns=optional_columns
@@ -108,18 +108,18 @@ class BaseRecommender(ABC):
     def _check_input_dataframes(log: DataFrame,
                                 user_features: DataFrame,
                                 item_features: DataFrame) -> None:
-        BaseRecommender._check_dataframe(
+        Recommender._check_dataframe(
             log,
             required_columns={"item_id", "user_id", "timestamp", "relevance",
                               "context"},
             optional_columns=set()
         )
-        BaseRecommender._check_feature_dataframe(
+        Recommender._check_feature_dataframe(
             user_features,
             optional_columns=set(),
             required_columns={"user_id", "timestamp"}
         )
-        BaseRecommender._check_feature_dataframe(
+        Recommender._check_feature_dataframe(
             item_features,
             optional_columns=set(),
             required_columns={"item_id", "timestamp"}

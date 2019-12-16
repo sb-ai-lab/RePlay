@@ -17,7 +17,7 @@ from torch.nn import DataParallel, Embedding, Module
 from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
-from sponge_bob_magic.models.base_recommender import BaseRecommender
+from sponge_bob_magic.models.base_recommender import Recommender
 from sponge_bob_magic.utils import get_top_k_recs, write_read_dataframe
 
 
@@ -74,7 +74,7 @@ class RecommenderModel(Module):
         )
 
 
-class NeuroCFRecommender(BaseRecommender):
+class NeuroCFRecommender(Recommender):
     """ Модель на нейросети. """
     num_workers: int = 10
     batch_size_fit_users: int = 100000

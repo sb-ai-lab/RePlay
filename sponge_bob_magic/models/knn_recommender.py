@@ -9,11 +9,11 @@ from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
-from sponge_bob_magic.models.base_recommender import BaseRecommender
+from sponge_bob_magic.models.base_recommender import Recommender
 from sponge_bob_magic.utils import get_top_k_recs, write_read_dataframe
 
 
-class KNNRecommender(BaseRecommender):
+class KNNRecommender(Recommender):
     """ Item-based KNN на сглаженной косинусной мере схожести. """
     all_items: Optional[DataFrame]
     dot_products: Optional[DataFrame]

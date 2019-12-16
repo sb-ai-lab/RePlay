@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from typing import Tuple
 
 from pyspark.sql import DataFrame, SparkSession
@@ -9,7 +9,7 @@ from pyspark.sql import DataFrame, SparkSession
 SplitterReturnType = Tuple[DataFrame, DataFrame, DataFrame]
 
 
-class Splitter:
+class Splitter(ABC):
     """ Базовый класс для разбиения выборки на обучающую и тестовую. """
 
     def __init__(self, spark: SparkSession, **kwargs):
