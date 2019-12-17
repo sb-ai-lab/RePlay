@@ -1,6 +1,8 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+from math import log2
+
 from pyspark.mllib.evaluation import RankingMetrics
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
@@ -151,9 +153,11 @@ class Surprisal(BaseMetrics):
 
     surprisal(item) = -log2(prob(item))
     prob(item) =  # users which interacted with item / # total users
+
+    Если normalize=True, то метрика нормирована в отрезок 0-1
     """
 
-    def __init__(self, spark: SparkSession, logs: DataFrame, items: DataFrame):
+    def __init__(self, spark: SparkSession, logs: DataFrame, items: DataFrame, normalize: bool = False):
         """
 
         :param logs: Трейн логи взаимодействий
@@ -163,12 +167,17 @@ class Surprisal(BaseMetrics):
         super().__init__(spark)
 
         n_users = logs.select("user_id").distinct().count()
+        max_value = -log2(1 / n_users)
+
         stats = logs.groupby("item_id").agg(sf.countDistinct("user_id").alias("count"))
         stats = stats.join(items, on="item_id", how="right").fillna(1)
+
         stats = stats.withColumn("popularity", stats["count"] / n_users)
         stats = stats.withColumn("self-information", -sf.log2("popularity"))
+        stats = stats.withColumn("normalized_si", stats["self-information"] / max_value)
 
         self.stats = stats
+        self.normalize = normalize
 
     def calculate(
             self,
@@ -177,10 +186,12 @@ class Surprisal(BaseMetrics):
             k: int
     ) -> NumType:
 
-        self_information = self.stats.select(["item_id", "self-information"])
+        metric = "normalized_si" if self.normalize else "self-information"
+
+        self_information = self.stats.select(["item_id", metric])
         top_k_recommendations = get_top_k_recs(recommendations, k)
+
         recs = top_k_recommendations.join(self_information, on="item_id")
-        metric = "self-information"
         res = recs.groupBy("user_id").agg(sf.mean(metric).alias(metric))
         res = res.select(sf.mean(metric)).collect()[0][0]
 

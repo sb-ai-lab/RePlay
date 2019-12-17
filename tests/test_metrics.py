@@ -140,3 +140,11 @@ class TestMetrics(PySparkTest):
             surprisal(self.recs2, self.empty, 2),
             2.0
         )
+
+    def test_normalized_surprisal_at_k(self):
+        surprisal = Surprisal(self.spark, self.history, self.items, normalize=True)
+
+        self.assertAlmostEqual(
+            surprisal(self.recs2, self.empty, 1),
+            1.0
+        )
