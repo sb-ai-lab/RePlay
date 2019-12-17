@@ -2,7 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 from pyspark.mllib.evaluation import RankingMetrics
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.metrics.base_metrics import BaseMetrics, NumType
@@ -137,3 +137,51 @@ class RecallMetric(BaseMetrics):
             .head()[:2]
         )
         return total_recall / total_users
+
+
+class Surprisal(BaseMetrics):
+    """
+    Метрика Surprisal@k --
+    среднее по юзерам,
+    среднее по списку рекомендаций длины k
+    значение surprisal для айтема в рекомендации.
+    
+    Показывает, насколько непопулярные айтемы попадают в рекомендации.
+    Для холодных айтемов количество взаимодействий с айтемом считается равным 1.
+
+    surprisal(item) = -log2(prob(item))
+    prob(item) =  # users which interacted with item / # total users
+    """
+
+    def __init__(self, spark: SparkSession, logs: DataFrame, items: DataFrame):
+        """
+
+        :param logs: Трейн логи взаимодействий
+        :param items: Список всех айтемов в библиотеке
+        """
+
+        super().__init__(spark)
+
+        n_users = logs.select("user_id").distinct().count()
+        stats = logs.groupby("item_id").agg(sf.countDistinct("user_id").alias("count"))
+        stats = stats.join(items, on="item_id", how="right").fillna(1)
+        stats = stats.withColumn("popularity", stats["count"] / n_users)
+        stats = stats.withColumn("self-information", -sf.log2("popularity"))
+
+        self.stats = stats
+
+    def calculate(
+            self,
+            recommendations: DataFrame,
+            ground_truth: DataFrame,
+            k: int
+    ) -> NumType:
+
+        self_information = self.stats.select(["item_id", "self-information"])
+        top_k_recommendations = get_top_k_recs(recommendations, k)
+        recs = top_k_recommendations.join(self_information, on="item_id")
+        metric = "self-information"
+        res = recs.groupBy("user_id").agg(sf.mean(metric).alias(metric))
+        res = res.select(sf.mean(metric)).collect()[0][0]
+
+        return res
