@@ -7,11 +7,11 @@ from pyspark.mllib.evaluation import RankingMetrics
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.metrics.base_metrics import Metrics, NumType
+from sponge_bob_magic.metrics.base_metrics import Metric, NumType
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class HitRateMetric(Metrics):
+class HitRateMetric(Metric):
     """
     Метрика HitRate@K:
     для какой доли пользователей удалось порекомендовать среди
@@ -40,7 +40,7 @@ class HitRateMetric(Metrics):
         return users_hit / users_total
 
 
-class NDCGMetric(Metrics):
+class NDCGMetric(Metric):
     """
     Метрика nDCG@k:
     чем релевантнее элементы среди первых `k`, тем выше метрика.
@@ -64,7 +64,7 @@ class NDCGMetric(Metrics):
         return metrics.ndcgAt(k)
 
 
-class PrecisionMetric(Metrics):
+class PrecisionMetric(Metric):
     """
     Метрика Precision@k:
     точность на `k` первых элементах выдачи.
@@ -88,7 +88,7 @@ class PrecisionMetric(Metrics):
         return metrics.precisionAt(k)
 
 
-class MAPMetric(Metrics):
+class MAPMetric(Metric):
     """
     Метрика MAP@k (mean average precision):
     средняя точность на `k` первых элементах выдачи.
@@ -112,7 +112,7 @@ class MAPMetric(Metrics):
         return metrics.meanAveragePrecision
 
 
-class RecallMetric(Metrics):
+class RecallMetric(Metric):
     """
     Метрика Recall@K:
     какую долю объектов из реального лога мы покажем в рекомендациях среди

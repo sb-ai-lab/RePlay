@@ -12,7 +12,7 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
-from sponge_bob_magic.metrics.metrics import Metrics
+from sponge_bob_magic.metrics.metrics import Metric
 from sponge_bob_magic.models.base_recommender import Recommender
 from sponge_bob_magic.models.knn_recommender import KNNRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
@@ -161,7 +161,7 @@ class KNNScenario:
                 item_features=item_features,
                 context=context,
                 log=train,
-                to_filter_seen_items=to_filter_seen_items
+                filter_seen_items=to_filter_seen_items
             )
 
             # добавим максимум из популярных реков,
@@ -188,10 +188,10 @@ class KNNScenario:
             logging.debug(f"-- Длина рекомендаций: {recs.count()}")
 
             logging.debug("-- Подсчет метрики в оптимизации")
-            hit_rate = Metrics.hit_rate_at_k(recs, test, k=k)
-            ndcg = Metrics.ndcg_at_k(recs, test, k=k)
-            precision = Metrics.precision_at_k(recs, test, k=k)
-            map_metric = Metrics.map_at_k(recs, test, k=k)
+            hit_rate = Metric.hit_rate_at_k(recs, test, k=k)
+            ndcg = Metric.ndcg_at_k(recs, test, k=k)
+            precision = Metric.precision_at_k(recs, test, k=k)
+            map_metric = Metric.map_at_k(recs, test, k=k)
 
             trial.set_user_attr("nDCG@k", ndcg)
             trial.set_user_attr("precision@k", precision)
@@ -211,7 +211,7 @@ class KNNScenario:
         logging.debug("Начало оптимизации параметров")
         logging.debug(
             f"Максимальное количество попыток: {self.maximum_num_attempts} "
-            "(чтобы поменять его, задайте параметр 'maximum_num_attempts')")
+            "(чтобы поменять его, задайте параметр 'optuna_max_n_trials')")
         sampler = optuna.samplers.RandomSampler()
         self.study = optuna.create_study(direction="maximize", sampler=sampler)
 

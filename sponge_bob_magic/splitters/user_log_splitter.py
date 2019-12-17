@@ -19,9 +19,13 @@ from sponge_bob_magic.splitters.base_splitter import (Splitter,
 class UserLogSplitter(Splitter):
     """ Абстрактный класс для деления лога каждого пользователя. """
 
-    def __init__(self, spark: SparkSession,
-                 test_size: Union[float, int] = 0.3,
-                 seed: int = 1234):
+    def __init__(
+            self,
+            spark: SparkSession,
+            drop_cold_items: bool,
+            drop_cold_users: bool,
+            test_size: Union[float, int] = 0.3,
+            seed: int = 1234):
         """
         :param seed: сид для разбиения
         :param test_size: размер тестовой выборки; если от 0 до 1, то в тест
@@ -29,8 +33,12 @@ class UserLogSplitter(Splitter):
             большее 1, то в тест попадает заданное число объектов у каждого
             пользователя
         :param spark: инициализированная спарк-сессия
+        :param drop_cold_items: исключать ли из тестовой выборки объекты,
+           которых нет в обучающей
+        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
+           которых нет в обучающей
         """
-        super().__init__(spark)
+        super().__init__(spark, drop_cold_users, drop_cold_items)
 
         self.test_size = test_size
         self.seed = seed

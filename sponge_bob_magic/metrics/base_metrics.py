@@ -12,7 +12,7 @@ from pyspark.sql import functions as sf
 NumType = Union[int, float]
 
 
-class Metrics(ABC):
+class Metric(ABC):
     """ Базовый класс метрик. """
 
     def __init__(self, spark: SparkSession, **kwargs):

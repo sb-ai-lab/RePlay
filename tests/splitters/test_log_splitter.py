@@ -39,8 +39,8 @@ class TestLogSplitByDateSplitter(PySparkTest):
             schema=LOG_SCHEMA
         )
         train, predict_input, test = (
-            LogSplitByDateSplitter(self.spark, datetime(2019, 9, 15))
-            .split(log, False, False)
+            LogSplitByDateSplitter(self.spark, False, False, datetime(2019, 9, 15))
+            .split(log)
         )
 
         true_train = self.spark.createDataFrame(

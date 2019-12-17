@@ -7,16 +7,13 @@ from typing import Dict, Optional, Any
 import optuna
 from pyspark.sql import DataFrame, SparkSession
 
-from sponge_bob_magic.models.base_recommender import Recommender
-
 
 class Scenario(ABC):
     """ Базовый класс сценария. """
-    model: Optional[Recommender]
-    study: Optional[optuna.Study]
-    maximum_num_attempts: Optional[int] = 100
-    n_jobs: int = 1
-    to_filter_seen_items: bool = True
+    optuna_study: Optional[optuna.Study]
+    optuna_max_n_trials: Optional[int] = 100
+    optuna_n_jobs: int = 1
+    filter_seen_items: bool = True
 
     def __init__(self, spark: SparkSession, **kwargs):
         self.spark = spark
@@ -33,6 +30,29 @@ class Scenario(ABC):
             param_name, *param_dict["args"]
         )
         return param
+
+    @staticmethod
+    def suggest_all_params(
+            trial: optuna.Trial,
+            params_grid
+    ):
+        params = dict()
+        for param_name, param_dict in params_grid.items():
+            param = Scenario.suggest_param(trial, param_name, param_dict)
+            params[param_name] = param
+        return params
+
+    @staticmethod
+    def check_trial_on_duplicates(trial: optuna.Trial):
+        for t in trial.study.trials:
+            # проверяем, что засемлпенные значения не повторялись раньше
+            if t.state != optuna.structs.TrialState.COMPLETE:
+                continue
+
+            if t.params == trial.params:
+                raise optuna.exceptions.TrialPruned(
+                    "Повторные значения параметров"
+                )
 
     @abstractmethod
     def research(

@@ -12,10 +12,22 @@ SplitterReturnType = Tuple[DataFrame, DataFrame, DataFrame]
 class Splitter(ABC):
     """ Базовый класс для разбиения выборки на обучающую и тестовую. """
 
-    def __init__(self, spark: SparkSession, **kwargs):
+    def __init__(
+            self,
+            spark: SparkSession,
+            drop_cold_items: bool = False,
+            drop_cold_users: bool = False,
+            **kwargs
+    ):
         """
         :param spark: инициализированная спарк-сессия
+        :param drop_cold_items: исключать ли из тестовой выборки объекты,
+           которых нет в обучающей
+        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
+           которых нет в обучающей
         """
+        self.drop_cold_users = drop_cold_users
+        self.drop_cold_items = drop_cold_items
         self.spark = spark
 
     @staticmethod
@@ -79,18 +91,12 @@ class Splitter(ABC):
     def split(
             self,
             log: DataFrame,
-            drop_cold_items: bool = False,
-            drop_cold_users: bool = False
     ) -> SplitterReturnType:
         """
         Разбивает лог действий пользователей на обучающую и тестовую выборки.
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
            `[timestamp, user_id, item_id, context, relevance]`
-        :param drop_cold_items: исключать ли из тестовой выборки объекты,
-           которых нет в обучающей
-        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
-           которых нет в обучающей
         :returns: тройка спарк-датафреймов структуры, аналогичной входной,
             `train, predict_input, test`, где `train` - обучающая выборка,
             `predict_input` - выборка, которая известна на момент предсказания,
@@ -100,7 +106,7 @@ class Splitter(ABC):
 
         test = self._drop_cold_items_and_users(
             train, test,
-            drop_cold_items, drop_cold_users
+            self.drop_cold_items, self.drop_cold_users
         )
 
         return (train,
