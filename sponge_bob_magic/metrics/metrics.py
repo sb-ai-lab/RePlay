@@ -157,7 +157,10 @@ class Surprisal(BaseMetrics):
     Если normalize=True, то метрика нормирована в отрезок 0-1.
     """
 
-    def __init__(self, spark: SparkSession, log: DataFrame, normalize: bool = False):
+    def __init__(self,
+                 spark: SparkSession,
+                 log: DataFrame,
+                 normalize: bool = False):
         """
         Здесь происходит подсчет популярности и собственной информации для всех объектов в библиотеке.
 
@@ -193,12 +196,14 @@ class Surprisal(BaseMetrics):
         self_information = self.stats.select(["item_id", metric])
         top_k_recommendations = get_top_k_recs(recommendations, k)
 
-        recs = top_k_recommendations.join(self_information, on="item_id", how="left").fillna(self.fill_value)
+        recs = top_k_recommendations.join(self_information,
+                                          on="item_id",
+                                          how="left").fillna(self.fill_value)
 
         list_mean = (
-                recs
-                .groupby("user_id")
-                .agg(sf.mean(metric).alias(metric))
+            recs
+            .groupby("user_id")
+            .agg(sf.mean(metric).alias(metric))
         )
 
         global_mean = (
