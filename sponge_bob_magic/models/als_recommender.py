@@ -91,10 +91,12 @@ class ALSRecommender(BaseRecommender):
             .drop("user_idx", "item_idx", "prediction")
             .cache()
         )
-        recs = get_top_k_recs(recs, k)
+        recs = get_top_k_recs(recs, k).withColumn(
+            "context", lit(DEFAULT_CONTEXT)
+        )
         if path is not None:
             recs = write_read_dataframe(
                 self.spark, recs,
                 os.path.join(path, "recs.parquet"),
                 self.to_overwrite_files)
-        return recs.withColumn("context", lit(DEFAULT_CONTEXT))
+        return recs
