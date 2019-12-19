@@ -35,9 +35,9 @@ class TestMetrics(PySparkTest):
                   ["user2", "item1", datetime(2019, 9, 15), "night", 3.0]],
             schema=LOG_SCHEMA)
 
-        self.empty = self.spark.createDataFrame(data=[], schema=LOG_SCHEMA)
+        self.empty_df = self.spark.createDataFrame(data=[], schema=LOG_SCHEMA)
 
-        self.history = self.spark.createDataFrame(
+        self.log = self.spark.createDataFrame(
             data=[["user1", "item1", datetime(2019, 8, 22), "day  ", 4.0],
                   ["user1", "item3", datetime(2019, 8, 23), "night", 3.0],
                   ["user1", "item2", datetime(2019, 8, 27), "night", 2.0],
@@ -119,32 +119,32 @@ class TestMetrics(PySparkTest):
         )
 
     def test_surprisal_at_k(self):
-        surprisal = Surprisal(self.spark, self.history, self.items)
+        surprisal = Surprisal(self.spark, self.log)
 
         self.assertAlmostEqual(
-            surprisal(self.recs, self.empty, 1),
+            surprisal(self.recs, self.empty_df, 1),
             (-log2(0.75)) / 3
         )
 
         self.assertAlmostEqual(
-            surprisal(self.recs, self.empty, 2),
+            surprisal(self.recs, self.empty_df, 2),
             (-log2(0.75)) / 3
         )
 
         self.assertAlmostEqual(
-            surprisal(self.recs, self.empty, 3),
+            surprisal(self.recs, self.empty_df, 3),
             ((1 - log2(0.75)) / 3 - log2(0.75) / 2) / 3
         )
 
         self.assertAlmostEqual(
-            surprisal(self.recs2, self.empty, 2),
+            surprisal(self.recs2, self.empty_df, 2),
             2.0
         )
 
     def test_normalized_surprisal_at_k(self):
-        surprisal = Surprisal(self.spark, self.history, self.items, normalize=True)
+        surprisal = Surprisal(self.spark, self.log, normalize=True)
 
         self.assertAlmostEqual(
-            surprisal(self.recs2, self.empty, 1),
+            surprisal(self.recs2, self.empty_df, 1),
             1.0
         )
