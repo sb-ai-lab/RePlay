@@ -39,7 +39,8 @@ class TestLogSplitByDateSplitter(PySparkTest):
             schema=LOG_SCHEMA
         )
         train, predict_input, test = (
-            LogSplitByDateSplitter(self.spark, False, False, datetime(2019, 9, 15))
+            LogSplitByDateSplitter(self.spark, False, False,
+                                   datetime(2019, 9, 15))
             .split(log)
         )
 
@@ -64,8 +65,10 @@ class TestLogSplitByDateSplitter(PySparkTest):
         self.assertSparkDataFrameEqual(true_test, test)
 
         train, predict_input, test = (
-            LogSplitByDateSplitter(self.spark, datetime(2019, 9, 15))
-            .split(log, True, False)
+            LogSplitByDateSplitter(self.spark,
+                                   True, False,
+                                   datetime(2019, 9, 15))
+            .split(log)
         )
         true_test = self.spark.createDataFrame(
             data=[
@@ -79,8 +82,10 @@ class TestLogSplitByDateSplitter(PySparkTest):
         self.assertSparkDataFrameEqual(true_test, test)
 
         train, predict_input, test = (
-            LogSplitByDateSplitter(self.spark, datetime(2019, 9, 15))
-            .split(log, False, True)
+            LogSplitByDateSplitter(self.spark,
+                                   False, True,
+                                   datetime(2019, 9, 15))
+            .split(log)
         )
         true_test = self.spark.createDataFrame(
             data=[
@@ -94,8 +99,10 @@ class TestLogSplitByDateSplitter(PySparkTest):
         self.assertSparkDataFrameEqual(true_test, test)
 
         train, predict_input, test = (
-            LogSplitByDateSplitter(self.spark, datetime(2019, 9, 15))
-            .split(log, True, True)
+            LogSplitByDateSplitter(self.spark,
+                                   True, True,
+                                   datetime(2019, 9, 15))
+            .split(log)
         )
         true_test = self.spark.createDataFrame(
             data=[
@@ -143,10 +150,12 @@ class TestLogSplitRandomlySplitter(PySparkTest):
         )
 
         train, test_input, test = (
-            LogSplitRandomlySplitter(self.spark, test_size, seed=seed)
-            .split(log,
-                   drop_cold_items=drop_cold_items,
-                   drop_cold_users=drop_cold_users)
+            LogSplitRandomlySplitter(self.spark,
+                                     drop_cold_items=drop_cold_items,
+                                     drop_cold_users=drop_cold_users,
+                                     test_size=test_size,
+                                     seed=seed)
+            .split(log)
         )
 
         if not drop_cold_items and not drop_cold_users:
@@ -192,7 +201,9 @@ class TestColdUsersExtractingSplitter(PySparkTest):
         )
 
         train, test_input, test = (
-            ColdUsersExtractingSplitter(self.spark, test_size=1 / 4)
+            ColdUsersExtractingSplitter(self.spark,
+                                        False, False,
+                                        test_size=1 / 4)
             .split(log=log)
         )
 

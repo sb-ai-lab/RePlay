@@ -156,7 +156,7 @@ class RecallMetric(Metric):
         return total_recall / total_users
 
 
-class Surprisal(BaseMetrics):
+class Surprisal(Metric):
     """
     Метрика Surprisal@k --
     среднее по пользователям,
@@ -171,6 +171,8 @@ class Surprisal(BaseMetrics):
 
     Если normalize=True, то метрика нормирована в отрезок 0-1.
     """
+    def __str__(self):
+        return "Surprisal@K"
 
     def __init__(self,
                  spark: SparkSession,
