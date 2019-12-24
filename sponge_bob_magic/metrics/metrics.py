@@ -146,10 +146,10 @@ class Surprisal(BaseMetrics):
     Метрика Surprisal@k --
     среднее по пользователям,
     среднее по списку рекомендаций длины k
-    значение surprisal для айтема в рекомендации.
+    значение surprisal для объекта в рекомендации.
     
-    Показывает, насколько непопулярные айтемы попадают в рекомендации.
-    Для холодных айтемов количество взаимодействий с айтемом считается равным 1.
+    Показывает, насколько непопулярные объекты попадают в рекомендации.
+    Для холодных объектов количество взаимодействий считается равным 1.
 
     surprisal(item) = -log2(prob(item))
     prob(item) =  # users which interacted with item / # total users
@@ -165,10 +165,9 @@ class Surprisal(BaseMetrics):
         Здесь происходит подсчет популярности и собственной информации для всех объектов в библиотеке.
 
         :param log: Cпарк-датафрейм вида
-        `[user_id, item_id, timestamp, context, relevance]`
-        Содержит информацию о взаимодействии пользователей с объектами.
+        `[user_id, item_id, timestamp, context, relevance]`;
+        содержит информацию о взаимодействии пользователей с объектами.
         """
-
         super().__init__(spark)
 
         n_users = log.select("user_id").distinct().count()
@@ -190,7 +189,6 @@ class Surprisal(BaseMetrics):
             ground_truth: DataFrame,
             k: int
     ) -> NumType:
-
         metric = "normalized_si" if self.normalize else "self-information"
 
         self_information = self.stats.select(["item_id", metric])
@@ -199,7 +197,6 @@ class Surprisal(BaseMetrics):
         recs = top_k_recommendations.join(self_information,
                                           on="item_id",
                                           how="left").fillna(self.fill_value)
-
         list_mean = (
             recs
             .groupby("user_id")

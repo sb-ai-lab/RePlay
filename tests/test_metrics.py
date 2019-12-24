@@ -51,13 +51,6 @@ class TestMetrics(PySparkTest):
                   ["user4", "item1", datetime(2019, 8, 26), "night", 1.0]],
             schema=LOG_SCHEMA)
 
-        self.items = self.spark.createDataFrame(data=[["item1"],
-                                                      ["item2"],
-                                                      ["item3"],
-                                                      ["item4"],
-                                                      ["item5"]],
-                                                schema=["item_id"])
-
     def test_hit_rate_at_k(self):
         self.assertEqual(
             HitRateMetric(self.spark)(self.recs, self.ground_truth_recs, 10),
@@ -120,31 +113,26 @@ class TestMetrics(PySparkTest):
 
     def test_surprisal_at_k(self):
         surprisal = Surprisal(self.spark, self.log)
+        surprisal_norm = Surprisal(self.spark, self.log, normalize=True)
 
-        self.assertAlmostEqual(
-            surprisal(self.recs, self.empty_df, 1),
-            (-log2(0.75)) / 3
-        )
+        test_cases = [
+            [1, (-log2(0.75)) / 3],
+            [2, (-log2(0.75)) / 3],
+            [3, ((1 - log2(0.75)) / 3 - log2(0.75) / 2) / 3]
+        ]
+        for k, correct_value in test_cases:
+            with self.subTest(f"recs, k={k}"):
+                self.assertAlmostEqual(surprisal(self.recs, self.empty_df, k),
+                                       correct_value)
 
-        self.assertAlmostEqual(
-            surprisal(self.recs, self.empty_df, 2),
-            (-log2(0.75)) / 3
-        )
+        with self.subTest("recs2, k=2"):
+            self.assertAlmostEqual(
+                surprisal(self.recs2, self.empty_df, 2),
+                2.0
+            )
 
-        self.assertAlmostEqual(
-            surprisal(self.recs, self.empty_df, 3),
-            ((1 - log2(0.75)) / 3 - log2(0.75) / 2) / 3
-        )
-
-        self.assertAlmostEqual(
-            surprisal(self.recs2, self.empty_df, 2),
-            2.0
-        )
-
-    def test_normalized_surprisal_at_k(self):
-        surprisal = Surprisal(self.spark, self.log, normalize=True)
-
-        self.assertAlmostEqual(
-            surprisal(self.recs2, self.empty_df, 1),
-            1.0
-        )
+        with self.subTest("Normalized, recs2, k=1"):
+            self.assertAlmostEqual(
+                surprisal_norm(self.recs2, self.empty_df, 1),
+                1.0
+            )
