@@ -51,8 +51,7 @@ class KNNScenario:
             how_to_split: str = "by_date",
             path: Optional[str] = None
     ) -> Dict[str, Any]:
-        if context is None:
-            context = DEFAULT_CONTEXT
+        context = context if context else DEFAULT_CONTEXT
 
         logging.debug("Деление на трейн и тест")
         if how_to_split == "by_date":

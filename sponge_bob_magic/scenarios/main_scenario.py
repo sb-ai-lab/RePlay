@@ -11,7 +11,7 @@ import joblib
 import optuna
 from pyspark.sql import DataFrame, SparkSession
 
-from sponge_bob_magic import constants
+from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.metrics.base_metrics import Metric
 from sponge_bob_magic.metrics.metrics import (HitRateMetric, NDCGMetric,
                                               PrecisionMetric)
@@ -204,8 +204,7 @@ class MainScenario(Scenario):
             n_trials: int = 10,
             path: Optional[str] = None,
     ) -> Dict[str, Any]:
-        if context is None:
-            context = constants.DEFAULT_CONTEXT
+        context = context if context else DEFAULT_CONTEXT
 
         logging.debug("Деление лога на обучающую и тестовую выборку")
         split_data = self._prepare_data(log,

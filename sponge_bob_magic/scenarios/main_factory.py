@@ -13,8 +13,8 @@ from sponge_bob_magic.scenarios.base_factory import ScenarioFactory
 from sponge_bob_magic.scenarios.base_scenario import Scenario
 from sponge_bob_magic.scenarios.main_scenario import MainScenario
 from sponge_bob_magic.splitters.base_splitter import Splitter
-from sponge_bob_magic.splitters.log_splitter import LogSplitRandomlySplitter, \
-    LogSplitByDateSplitter
+from sponge_bob_magic.splitters.log_splitter import (LogSplitRandomlySplitter,
+                                                     LogSplitByDateSplitter)
 
 
 class MainScenarioFactory(ScenarioFactory):
