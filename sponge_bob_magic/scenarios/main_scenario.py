@@ -16,31 +16,40 @@ from sponge_bob_magic.metrics.base_metrics import Metric
 from sponge_bob_magic.metrics.metrics import (HitRateMetric, NDCGMetric,
                                               PrecisionMetric)
 from sponge_bob_magic.models.base_recommender import Recommender
+from sponge_bob_magic.models.knn_recommender import KNNRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
 from sponge_bob_magic.scenarios.base_scenario import Scenario
 from sponge_bob_magic.splitters.base_splitter import Splitter
 from sponge_bob_magic.splitters.log_splitter import LogSplitByDateSplitter
 
 SplitData = collections.namedtuple(
-    'SplitData',
-    'train predict_input test users items user_features item_features'
+    "SplitData",
+    "train predict_input test users items user_features item_features"
 )
 
 
 class Objective:
+    """
+    Функция, которая оптимизируется при подборе параметров.
+    Принимает на вход объект класса `optuna.Trial` и возвращает значение
+    метрики, которая оптимизируется.
+
+    Вынесена в отдельный класс, так как она должна принимать только
+    один аргумент, и все остальные аргументы передаются через callback.
+    """
+
     def __init__(
             self,
-            params_grid,
-            study,
-            recommender,
+            params_grid: Dict[str, Dict[str, Any]],
+            study: optuna.Study,
             split_data: SplitData,
-            k,
-            context,
-            criterion,
-            metrics,
-            path
+            recommender: Recommender,
+            criterion: Metric,
+            metrics: List[Metric],
+            k: int = 10,
+            context: Optional[str] = None,
+            path: str = None
     ):
-
         self.path = path
         self.metrics = metrics
         self.criterion = criterion
@@ -55,7 +64,7 @@ class Objective:
             self,
             trial,
     ):
-        params = Scenario.suggest_all_params(trial, self.params_grid)
+        params = Scenario._suggest_all_params(trial, self.params_grid)
         logging.debug(f"-- Параметры: {params}")
 
         self.recommender.set_params(**params)
@@ -97,39 +106,40 @@ class Objective:
             result_string += f" {str(metric)}={value:.4f}"
 
         logging.debug(result_string)
+
         return criterion_value
 
 
 class MainScenario(Scenario):
-    """ Сценарий для обучения модели популярных рекомендаций. """
+    """ Сценарий для простого обучения моделей рекомендаций. """
 
-    def __init__(
+    spark: SparkSession
+    splitter: Splitter
+    recommender: Recommender
+    criterion: Metric
+    metrics: List[Metric]
+    study: optuna.Study
+
+    def _prepare_data(
             self,
-            spark: SparkSession,
-            splitter: Splitter,
-            recommender: Recommender,
-            criterion: Metric,
-            metrics: List[Metric],
-    ):
-        super().__init__(spark)
-
-        self.metrics = metrics
-        self.criterion = criterion
-        self.recommender = recommender
-        self.splitter = splitter
-        self.spark = spark
-
-    def prepare_data(self, log, users, items, user_features, item_features):
+            log: DataFrame,
+            users: Optional[DataFrame] = None,
+            items: Optional[DataFrame] = None,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None,
+    ) -> SplitData:
+        """ Делит лог и готовит объекти типа `SplitData`. """
         train, predict_input, test = self.splitter.split(log)
+
         train.cache()
         predict_input.cache()
         test.cache()
 
         logging.debug(f"Длина трейна и теста: {train.count(), test.count()}")
-        logging.debug("Количество юзеров в трейне и тесте: "
+        logging.debug("Количество пользователей в трейне и тесте: "
                       f"{train.select('user_id').distinct().count()}, "
                       f"{test.select('user_id').distinct().count()}")
-        logging.debug("Количество айтемов в трейне и тесте: "
+        logging.debug("Количество объектов в трейне и тесте: "
                       f"{train.select('item_id').distinct().count()}, "
                       f"{test.select('item_id').distinct().count()}")
 
@@ -144,28 +154,32 @@ class MainScenario(Scenario):
 
         return split_data
 
-    def run_optimization(self, n_trials, params_grid, split_data, k
-                         , context, path=None):
-        logging.debug("-------------")
-        logging.debug("Оптимизация параметров")
-        logging.debug(
-            f"Максимальное количество попыток: {self.optuna_max_n_trials} "
-            "(чтобы поменять его, задайте параметр 'optuna_max_n_trials')")
-
+    def run_optimization(
+            self,
+            n_trials: int,
+            params_grid: Dict[str, Dict[str, Any]],
+            split_data: SplitData,
+            k: int = 10,
+            context: Optional[str] = None,
+            path=None
+    ) -> Dict[str, Any]:
+        """ Запускает подбор параметров в optuna. """
         sampler = optuna.samplers.RandomSampler()
         self.study = optuna.create_study(direction="maximize", sampler=sampler)
 
+        # делаем триалы до тех пор, пока не засемплим уникальных n_trials или
+        # не используем максимально попыток
         count = 1
         n_unique_trials = 0
         while n_trials > n_unique_trials and count <= self.optuna_max_n_trials:
             self.study.optimize(
-                Objective(params_grid, self.study,
-                          self.recommender, split_data,
-                          k, context,
-                          self.criterion, self.metrics,
-                          path),
+                Objective(params_grid, self.study, split_data,
+                          self.recommender, self.criterion, self.metrics, k,
+                          context, path),
                 n_trials=1,
-                n_jobs=self.optuna_n_jobs)
+                n_jobs=self.optuna_n_jobs
+            )
+
             count += 1
             n_unique_trials = len(
                 set(str(t.params)
@@ -181,8 +195,8 @@ class MainScenario(Scenario):
             self,
             params_grid: Dict[str, Dict[str, Any]],
             log: DataFrame,
-            users: Optional[DataFrame],
-            items: Optional[DataFrame],
+            users: Optional[DataFrame] = None,
+            items: Optional[DataFrame] = None,
             user_features: Optional[DataFrame] = None,
             item_features: Optional[DataFrame] = None,
             k: int = 10,
@@ -193,26 +207,27 @@ class MainScenario(Scenario):
         if context is None:
             context = constants.DEFAULT_CONTEXT
 
-        split_data = self.prepare_data(log,
-                                       users, items,
-                                       user_features, item_features)
+        logging.debug("Деление лога на обучающую и тестовую выборку")
+        split_data = self._prepare_data(log,
+                                        users, items,
+                                        user_features, item_features)
 
         logging.debug("Пре-фит модели")
-        self.recommender._pre_fit(
-            split_data.train,
-            split_data.user_features,
-            split_data.item_features,
-            path
-        )
+        self.recommender._pre_fit(split_data.train,
+                                  split_data.user_features,
+                                  split_data.item_features,
+                                  path=path)
 
-        best_params = self.run_optimization(
-            n_trials,
-            params_grid,
-            split_data,
-            k,
-            context,
-            path=path
-        )
+        logging.debug("-------------")
+        logging.debug("Оптимизация параметров")
+        logging.debug(
+            f"Максимальное количество попыток: {self.optuna_max_n_trials} "
+            "(чтобы поменять его, задайте параметр 'optuna_max_n_trials')")
+
+        best_params = self.run_optimization(n_trials, params_grid,
+                                            split_data,
+                                            k, context,
+                                            path=path)
 
         return best_params
 
@@ -245,13 +260,14 @@ if __name__ == "__main__":
               .appName("testing-pyspark")
               .enableHiveSupport()
               .getOrCreate())
-    spark_logger = logging.getLogger('py4j')
+    spark_logger = logging.getLogger("py4j")
     spark_logger.setLevel(logging.WARN)
 
     logger = logging.getLogger()
     formatter = logging.Formatter(
-        '%(asctime)s, %(name)s, %(levelname)s: %(message)s',
-        datefmt='%d-%b-%y %H:%M:%S')
+        "%(asctime)s, %(name)s, %(levelname)s: %(message)s",
+        datefmt="%d-%b-%y %H:%M:%S"
+    )
     hdlr = logging.StreamHandler()
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
@@ -259,45 +275,44 @@ if __name__ == "__main__":
 
     data = [
         ["user1", "item1", 1.0, "no_context", datetime(2019, 10, 8)],
-        ["user2", "item2", 2.0, "no_context", datetime(2019, 10, 9)],
+        ["user1", "item2", 2.0, "no_context", datetime(2019, 10, 9)],
         ["user1", "item3", 1.0, "no_context", datetime(2019, 10, 10)],
-        ["user1", "item1", 1.0, "no_context", datetime(2019, 10, 11)],
-        ["user1", "item2", 1.0, "no_context", datetime(2019, 10, 12)],
-        ["user3", "item3", 2.0, "no_context", datetime(2019, 10, 13)],
+        ["user2", "item1", 1.0, "no_context", datetime(2019, 10, 11)],
+        ["user2", "item3", 1.0, "no_context", datetime(2019, 10, 12)],
+        ["user3", "item2", 1.0, "no_context", datetime(2019, 10, 13)],
+        ["user3", "item1", 1.0, "no_context", datetime(2019, 10, 14)],
+
+        ["user1", "item1", 1.0, "no_context", datetime(2019, 10, 15)],
+        ["user1", "item2", 1.0, "no_context", datetime(2019, 10, 16)],
+        ["user2", "item3", 2.0, "no_context", datetime(2019, 10, 17)],
+        ["user3", "item2", 2.0, "no_context", datetime(2019, 10, 18)],
     ]
     schema = ["user_id", "item_id", "relevance", "context", "timestamp"]
     log_ = spark_.createDataFrame(data=data,
                                   schema=schema)
 
-    popular_scenario = MainScenario(
-        spark_,
-        LogSplitByDateSplitter(spark_, True, True, datetime(2019, 10, 11)),
-        PopularRecommender(spark_),
-        criterion=HitRateMetric(spark_),
-        metrics=[NDCGMetric(spark_), PrecisionMetric(spark_)]
-    )
-    popular_params_grid = {"alpha": {"type": "int", "args": [0, 100]},
-                           "beta": {"type": "int", "args": [0, 100]}, }
+    scenario = MainScenario(spark_)
+    scenario.splitter = LogSplitByDateSplitter(spark_, True, True,
+                                               datetime(2019, 10, 14))
+    scenario.criterion = HitRateMetric(spark_)
+    scenario.metrics = [NDCGMetric(spark_), PrecisionMetric(spark_)]
+    scenario.optuna_max_n_trials = 10
 
-    best_params_ = popular_scenario.research(
-        popular_params_grid,
-        log_,
-        users=None, items=None,
-        user_features=None,
-        item_features=None,
-        k=2, context="no_context",
-        n_trials=4
-    )
+    flag = True
+    if flag:
+        scenario.recommender = PopularRecommender(spark_)
+        grid = {"alpha": {"type": "int", "args": [0, 100]},
+                "beta": {"type": "int", "args": [0, 100]}}
+    else:
+        scenario.recommender = KNNRecommender(spark_)
+        grid = {"num_neighbours": {"type": "categorical",
+                                   "args": [[1]]}}
 
-    print(best_params_)
+    best_params_ = scenario.research(grid, log_,
+                                     k=2, n_trials=4)
 
-    recs_ = popular_scenario.production(
-        best_params_,
-        log_,
-        users=None,
-        items=None,
-        k=3,
-        context="no_context"
-    )
+    recs_ = scenario.production(best_params_, log_,
+                                users=None, items=None,
+                                k=2)
 
     recs_.show()
