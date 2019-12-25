@@ -172,12 +172,16 @@ class Surprisal(BaseMetrics):
 
         n_users = log.select("user_id").distinct().count()
         max_value = -log2(1 / n_users)
-
-        stats = log.groupby("item_id").agg(sf.countDistinct("user_id").alias("count"))
+        stats = log.groupby("item_id").agg(
+            sf.countDistinct("user_id").alias("count")
+        )
 
         stats = stats.withColumn("popularity", stats["count"] / n_users)
         stats = stats.withColumn("self-information", -sf.log2("popularity"))
-        stats = stats.withColumn("normalized_si", stats["self-information"] / max_value)
+        stats = stats.withColumn(
+            "normalized_si",
+            stats["self-information"] / max_value
+        )
 
         self.stats = stats
         self.normalize = normalize
