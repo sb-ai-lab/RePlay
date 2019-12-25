@@ -1,14 +1,11 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import collections
 import logging
-import os
 from datetime import datetime
 from typing import Dict, Optional, List, Any
 
-import joblib
-import optuna
+from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame, SparkSession
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
@@ -19,95 +16,12 @@ from sponge_bob_magic.models.base_recommender import Recommender
 from sponge_bob_magic.models.knn_recommender import KNNRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
 from sponge_bob_magic.scenarios.base_scenario import Scenario
+from sponge_bob_magic.scenarios.main_scenario.main_objective import (
+    MainObjective,
+    SplitData
+)
 from sponge_bob_magic.splitters.base_splitter import Splitter
 from sponge_bob_magic.splitters.log_splitter import LogSplitByDateSplitter
-
-SplitData = collections.namedtuple(
-    "SplitData",
-    "train predict_input test users items user_features item_features"
-)
-
-
-class Objective:
-    """
-    Функция, которая оптимизируется при подборе параметров.
-    Принимает на вход объект класса `optuna.Trial` и возвращает значение
-    метрики, которая оптимизируется.
-
-    Вынесена в отдельный класс, так как она должна принимать только
-    один аргумент, и все остальные аргументы передаются через callback.
-    """
-
-    def __init__(
-            self,
-            params_grid: Dict[str, Dict[str, Any]],
-            study: optuna.Study,
-            split_data: SplitData,
-            recommender: Recommender,
-            criterion: Metric,
-            metrics: List[Metric],
-            k: int = 10,
-            context: Optional[str] = None,
-            path: str = None
-    ):
-        self.path = path
-        self.metrics = metrics
-        self.criterion = criterion
-        self.context = context
-        self.k = k
-        self.split_data = split_data
-        self.recommender = recommender
-        self.study = study
-        self.params_grid = params_grid
-
-    def __call__(
-            self,
-            trial,
-    ):
-        params = Scenario._suggest_all_params(trial, self.params_grid)
-        logging.debug(f"-- Параметры: {params}")
-
-        self.recommender.set_params(**params)
-
-        Scenario.check_trial_on_duplicates(trial)
-
-        if self.path is not None:
-            logging.debug("-- Сохраняем optuna study на диск")
-            joblib.dump(self.study,
-                        os.path.join(self.path, "optuna_study.joblib"))
-
-        logging.debug("-- Второй фит модели в оптимизации")
-        self.recommender._fit_partial(self.split_data.train,
-                                      self.split_data.user_features,
-                                      self.split_data.item_features,
-                                      path=None)
-
-        logging.debug("-- Предикт модели в оптимизации")
-        recs = self.recommender.predict(
-            k=self.k,
-            users=self.split_data.users, items=self.split_data.items,
-            user_features=self.split_data.user_features,
-            item_features=self.split_data.item_features,
-            context=self.context,
-            log=self.split_data.predict_input,
-            filter_seen_items=Scenario.filter_seen_items
-        )
-        logging.debug(f"-- Длина рекомендаций: {recs.count()}")
-
-        logging.debug("-- Подсчет метрики в оптимизации")
-        result_string = "-- Метрики:"
-
-        criterion_value = self.criterion(recs, self.split_data.test, k=self.k)
-        result_string += f" {self.criterion}={criterion_value:.4f}"
-
-        for metric in self.metrics:
-            value = metric(recs, self.split_data.test, k=self.k)
-            trial.set_user_attr(str(metric), value)
-            result_string += f" {metric}={value:.4f}"
-
-        logging.debug(result_string)
-
-        return criterion_value
 
 
 class MainScenario(Scenario):
@@ -118,7 +32,7 @@ class MainScenario(Scenario):
     recommender: Recommender
     criterion: Metric
     metrics: List[Metric]
-    study: optuna.Study
+    study: Study
 
     def _prepare_data(
             self,
@@ -164,8 +78,8 @@ class MainScenario(Scenario):
             path=None
     ) -> Dict[str, Any]:
         """ Запускает подбор параметров в optuna. """
-        sampler = optuna.samplers.RandomSampler()
-        self.study = optuna.create_study(direction="maximize", sampler=sampler)
+        sampler = samplers.RandomSampler()
+        self.study = create_study(direction="maximize", sampler=sampler)
 
         # делаем триалы до тех пор, пока не засемплим уникальных n_trials или
         # не используем максимально попыток
@@ -173,9 +87,10 @@ class MainScenario(Scenario):
         n_unique_trials = 0
         while n_trials > n_unique_trials and count <= self.optuna_max_n_trials:
             self.study.optimize(
-                Objective(params_grid, self.study, split_data,
-                          self.recommender, self.criterion, self.metrics, k,
-                          context, path),
+                MainObjective(params_grid, self.study, split_data,
+                              self.recommender, self.criterion, self.metrics,
+                              k,
+                              context, path),
                 n_trials=1,
                 n_jobs=self.optuna_n_jobs
             )
@@ -315,3 +230,5 @@ if __name__ == "__main__":
                                 k=2)
 
     recs_.show()
+
+    print(scenario.study.trials_dataframe())

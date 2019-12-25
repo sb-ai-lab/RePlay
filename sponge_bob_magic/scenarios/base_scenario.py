@@ -4,14 +4,14 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Any
 
-import optuna
+from optuna import Study
 from pyspark.sql import DataFrame, SparkSession
 
 
 class Scenario(ABC):
     """ Базовый класс сценария. """
 
-    optuna_study: Optional[optuna.Study]
+    optuna_study: Optional[Study]
     optuna_max_n_trials: Optional[int] = 100
     optuna_n_jobs: int = 1
     filter_seen_items: bool = True
@@ -24,45 +24,6 @@ class Scenario(ABC):
         :param kwargs: дополнительные параметры классов-наследников
         """
         self.spark = spark
-
-    @staticmethod
-    def _suggest_param(
-            trial: optuna.Trial,
-            param_name: str,
-            param_dict: Dict[str, Dict[str, Any]]
-    ) -> Any:
-        """ Сэмплит заданный параметр в соответствии с сеткой. """
-        distribution_type = param_dict["type"]
-
-        param = getattr(trial, f"suggest_{distribution_type}")(
-            param_name, *param_dict["args"]
-        )
-        return param
-
-    # ToDO: фукнции по семплингу надо бы перенести в Objective класс
-    #  и сделать для него базовый
-    @staticmethod
-    def _suggest_all_params(
-            trial: optuna.Trial,
-            params_grid: Dict[str, Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """ Сэмплит все параметры модели в соответствии с заданной сеткой. """
-        params = dict()
-        for param_name, param_dict in params_grid.items():
-            param = Scenario._suggest_param(trial, param_name, param_dict)
-            params[param_name] = param
-        return params
-
-    @staticmethod
-    def check_trial_on_duplicates(trial: optuna.Trial):
-        """ Проверяет, что испытание `trial` не повторяется с другими. """
-        for another_trial in trial.study.trials:
-            # проверяем, что засемлпенные значения не повторялись раньше
-            if (another_trial.state == optuna.structs.TrialState.COMPLETE and
-                    another_trial.params == trial.params):
-                raise optuna.exceptions.TrialPruned(
-                    "Повторные значения параметров"
-                )
 
     @abstractmethod
     def research(

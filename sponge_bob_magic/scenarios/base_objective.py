@@ -1,0 +1,114 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
+import logging
+import os
+from abc import ABC, abstractmethod
+from typing import Dict, Optional, Any, List
+
+import joblib
+import optuna
+from optuna import Study, Trial
+from pyspark.sql import DataFrame
+
+from sponge_bob_magic.metrics.base_metrics import Metric
+
+
+class Objective(ABC):
+    """
+    Класс функции, которая оптимизируется при подборе параметров (критерий).
+    Принимает на вход объект класса `optuna.Trial` и возвращает значение
+    метрики, которая оптимизируется.
+
+    Вынесена в отдельный класс, так как она должна принимать только
+    один аргумент. Вызов подсчета критерия происходит через `__call__`,
+    а все остальные аргументы передаются через `__init__`.
+    """
+
+    @staticmethod
+    def _suggest_param(
+            trial: Trial,
+            param_name: str,
+            param_dict: Dict[str, Dict[str, Any]]
+    ) -> Any:
+        """ Сэмплит заданный параметр в соответствии с сеткой. """
+        distribution_type = param_dict["type"]
+
+        param = getattr(trial, f"suggest_{distribution_type}")(
+            param_name, *param_dict["args"]
+        )
+        return param
+
+    @staticmethod
+    def _suggest_all_params(
+            trial: Trial,
+            params_grid: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """ Сэмплит все параметры модели в соответствии с заданной сеткой. """
+        params = dict()
+        for param_name, param_dict in params_grid.items():
+            param = Objective._suggest_param(trial, param_name, param_dict)
+            params[param_name] = param
+
+        logging.debug(f"-- Параметры: {params}")
+        return params
+
+    @staticmethod
+    def _check_trial_on_duplicates(trial: Trial):
+        """ Проверяет, что испытание `trial` не повторяется с другими. """
+        for another_trial in trial.study.trials:
+            # проверяем, что засемлпенные значения не повторялись раньше
+            if (another_trial.state == optuna.structs.TrialState.COMPLETE and
+                    another_trial.params == trial.params):
+                raise optuna.exceptions.TrialPruned(
+                    "Повторные значения параметров"
+                )
+
+    @staticmethod
+    def _save_study(
+            study: Study,
+            path: Optional[str]
+    ):
+        """ Сохрняет объект исследования `study` на диск. """
+        if path is not None:
+            logging.debug("-- Сохраняем optuna study на диск")
+            joblib.dump(study,
+                        os.path.join(path, "optuna_study.joblib"))
+
+    @staticmethod
+    def _calculate_metrics(
+            trial: Trial,
+            recommendations: DataFrame,
+            ground_truth: DataFrame,
+            criterion: Metric,
+            metrics: Optional[List[Metric]],
+            k
+    ) -> float:
+        """ Подсчитывает все метрики и сохраняет их в `trial`. """
+        result_string = "-- Метрики:"
+
+        criterion_value = criterion(recommendations, ground_truth, k=k)
+        result_string += f" {criterion}={criterion_value:.4f}"
+
+        for metric in metrics:
+            value = metric(recommendations, ground_truth, k=k)
+            trial.set_user_attr(str(metric), value)
+            result_string += f" {metric}={value:.4f}"
+
+        logging.debug(result_string)
+        return criterion_value
+
+    @abstractmethod
+    def __call__(
+            self,
+            trial: Trial,
+    ) -> float:
+        """
+        Основная функция, которую должны реализовать классы-наследники.
+        Именно она вызывается при вычилении критерия в переборе параметров
+        optuna. Сигнатура функции совапдает с той, что описана в документации
+        к optuna.
+
+        :param trial: текущее испытание
+        :return: значение критерия, который оптимизируется
+        """

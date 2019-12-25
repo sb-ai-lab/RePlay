@@ -11,7 +11,7 @@ from sponge_bob_magic.models.knn_recommender import KNNRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
 from sponge_bob_magic.scenarios.base_factory import ScenarioFactory
 from sponge_bob_magic.scenarios.base_scenario import Scenario
-from sponge_bob_magic.scenarios.main_scenario import MainScenario
+from sponge_bob_magic.scenarios.main_scenario.main_scenario import MainScenario
 from sponge_bob_magic.splitters.base_splitter import Splitter
 from sponge_bob_magic.splitters.log_splitter import (LogSplitRandomlySplitter,
                                                      LogSplitByDateSplitter)
@@ -100,11 +100,11 @@ if __name__ == "__main__":
 
     flag = True
     if flag:
-        recommender = PopularRecommender(spark_)
+        recommender_ = PopularRecommender(spark_)
         grid = {"alpha": {"type": "int", "args": [0, 100]},
                 "beta": {"type": "int", "args": [0, 100]}}
     else:
-        recommender = KNNRecommender(spark_)
+        recommender_ = KNNRecommender(spark_)
         grid = {"num_neighbours": {"type": "categorical",
                                    "args": [[1]]}}
 
@@ -114,7 +114,7 @@ if __name__ == "__main__":
                                         datetime(2019, 10, 14)),
         criterion=None,
         metrics=None,
-        recommender=recommender
+        recommender=recommender_
     )
 
     scenario = factory.get()
