@@ -98,12 +98,12 @@ class Objective:
         result_string = "-- Метрики:"
 
         criterion_value = self.criterion(recs, self.split_data.test, k=self.k)
-        result_string += f" {str(self.criterion)}={criterion_value:.4f}"
+        result_string += f" {self.criterion}={criterion_value:.4f}"
 
         for metric in self.metrics:
             value = metric(recs, self.split_data.test, k=self.k)
             trial.set_user_attr(str(metric), value)
-            result_string += f" {str(metric)}={value:.4f}"
+            result_string += f" {metric}={value:.4f}"
 
         logging.debug(result_string)
 

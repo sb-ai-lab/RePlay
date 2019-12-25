@@ -15,8 +15,8 @@ class Splitter(ABC):
     def __init__(
             self,
             spark: SparkSession,
-            drop_cold_items: bool = False,
-            drop_cold_users: bool = False,
+            drop_cold_items: bool,
+            drop_cold_users: bool,
             **kwargs
     ):
         """
