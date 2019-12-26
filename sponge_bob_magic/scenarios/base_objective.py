@@ -10,8 +10,10 @@ import joblib
 import optuna
 from optuna import Study, Trial
 from pyspark.sql import DataFrame
+from pyspark.sql import functions as sf
 
 from sponge_bob_magic.metrics.base_metrics import Metric
+from sponge_bob_magic.utils import get_top_k_recs
 
 
 class Objective(ABC):
@@ -97,6 +99,35 @@ class Objective(ABC):
 
         logging.debug(result_string)
         return criterion_value
+
+    @staticmethod
+    def _join_fallback_recs(max_in_fallback_recs, fallback_recs, k, recs):
+        logging.debug(f"-- Длина рекомендаций: {recs.count()}")
+
+        if fallback_recs is not None:
+            # добавим максимум из fallback реков,
+            # чтобы сохранить порядок при заборе топ-k
+            recs = recs.withColumn(
+                "relevance",
+                sf.col("relevance") + 10 * max_in_fallback_recs
+            )
+
+            recs = recs.join(fallback_recs,
+                             on=["user_id", "item_id"],
+                             how="full_outer")
+            recs = (recs
+                    .withColumn("context",
+                                sf.coalesce("context", "context_fallback"))
+                    .withColumn("relevance",
+                                sf.coalesce("relevance", "relevance_fallback"))
+                    )
+            recs = recs.select("user_id", "item_id", "context", "relevance")
+
+            recs = get_top_k_recs(recs, k)
+
+            logging.debug(f"-- Длина рекомендаций после замеса: {recs.count()}")
+
+        return recs
 
     @abstractmethod
     def __call__(

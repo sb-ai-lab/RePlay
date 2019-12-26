@@ -25,6 +25,7 @@ class MainScenarioFactory(ScenarioFactory):
             recommender: Optional[Recommender] = None,
             criterion: Optional[Metric] = None,
             metrics: Optional[List[Metric]] = None,
+            fallback_recommender: Optional[Recommender] = None,
     ):
         super().__init__(spark)
 
@@ -32,6 +33,7 @@ class MainScenarioFactory(ScenarioFactory):
         self.criterion = criterion
         self.recommender = recommender
         self.splitter = splitter
+        self.fallback_recommender = fallback_recommender
         self.spark = spark
 
     def get(self) -> Scenario:
@@ -54,6 +56,7 @@ class MainScenarioFactory(ScenarioFactory):
             else HitRateMetric(self.spark)
         )
         main_scenario.metrics = self.metrics if self.metrics else []
+        main_scenario.fallback_recommender = self.fallback_recommender
 
         return main_scenario
 

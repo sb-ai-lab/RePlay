@@ -30,6 +30,7 @@ class MainScenario(Scenario):
     spark: SparkSession
     splitter: Splitter
     recommender: Recommender
+    fallback_recommender: Recommender
     criterion: Metric
     metrics: List[Metric]
     study: Study
@@ -75,6 +76,7 @@ class MainScenario(Scenario):
             split_data: SplitData,
             k: int = 10,
             context: Optional[str] = None,
+            fallback_recs: Optional[DataFrame] = None,
             path=None
     ) -> Dict[str, Any]:
         """ Запускает подбор параметров в optuna. """
@@ -85,12 +87,15 @@ class MainScenario(Scenario):
         # не используем максимально попыток
         count = 1
         n_unique_trials = 0
+
         while n_trials > n_unique_trials and count <= self.optuna_max_n_trials:
             self.study.optimize(
                 MainObjective(params_grid, self.study, split_data,
                               self.recommender, self.criterion, self.metrics,
-                              k,
-                              context, path),
+                              k, context,
+                              fallback_recs,
+                              self.filter_seen_items,
+                              path),
                 n_trials=1,
                 n_jobs=self.optuna_n_jobs
             )
@@ -126,6 +131,12 @@ class MainScenario(Scenario):
                                         users, items,
                                         user_features, item_features)
 
+        logging.debug("Обучение и предсказание дополнительной модели")
+        fallback_recs = self._predict_fallback_recs(self.fallback_recommender,
+                                                    split_data,
+                                                    context,
+                                                    k)
+
         logging.debug("Пре-фит модели")
         self.recommender._pre_fit(split_data.train,
                                   split_data.user_features,
@@ -141,9 +152,31 @@ class MainScenario(Scenario):
         best_params = self.run_optimization(n_trials, params_grid,
                                             split_data,
                                             k, context,
+                                            fallback_recs,
                                             path=path)
 
         return best_params
+
+    def _predict_fallback_recs(
+            self,
+            fallback_recommender,
+            split_data,
+            context,
+            k
+    ) -> Optional[DataFrame]:
+        fallback_recs = None
+        if fallback_recommender is not None:
+            fallback_recs = (
+                fallback_recommender
+                    .fit_predict(k,
+                                 split_data.users, split_data.items,
+                                 context,
+                                 split_data.predict_input,
+                                 split_data.user_features,
+                                 split_data.item_features,
+                                 self.filter_seen_items)
+            )
+        return fallback_recs
 
     def production(
             self,
@@ -211,14 +244,16 @@ if __name__ == "__main__":
     scenario.criterion = HitRateMetric(spark_)
     scenario.metrics = [NDCGMetric(spark_), PrecisionMetric(spark_)]
     scenario.optuna_max_n_trials = 10
+    scenario.fallback_recommender = None
 
-    flag = True
+    flag = False
     if flag:
         scenario.recommender = PopularRecommender(spark_)
         grid = {"alpha": {"type": "int", "args": [0, 100]},
                 "beta": {"type": "int", "args": [0, 100]}}
     else:
         scenario.recommender = KNNRecommender(spark_)
+        scenario.fallback_recommender = PopularRecommender(spark_)
         grid = {"num_neighbours": {"type": "categorical",
                                    "args": [[1]]}}
 

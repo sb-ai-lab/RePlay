@@ -3,11 +3,11 @@ import logging
 from typing import Dict, Any, List, Optional
 
 from optuna import Study, Trial
+from pyspark.sql import DataFrame
 
 from sponge_bob_magic.metrics.base_metrics import Metric
 from sponge_bob_magic.models.base_recommender import Recommender
 from sponge_bob_magic.scenarios.base_objective import Objective
-from sponge_bob_magic.scenarios.base_scenario import Scenario
 
 SplitData = collections.namedtuple(
     "SplitData",
@@ -26,6 +26,8 @@ class MainObjective(Objective):
             metrics: List[Metric],
             k: int = 10,
             context: Optional[str] = None,
+            fallback_recs: Optional[DataFrame] = None,
+            filter_seen_items: bool = False,
             path: str = None
     ):
         self.path = path
@@ -37,6 +39,19 @@ class MainObjective(Objective):
         self.recommender = recommender
         self.study = study
         self.params_grid = params_grid
+        self.filter_seen_items = filter_seen_items
+
+        self.max_in_fallback_recs = (
+            fallback_recs
+                .agg({"relevance": "max"})
+                .collect()[0][0]
+        ) if fallback_recs is not None else 0
+
+        self.fallback_recs = (
+            fallback_recs
+            .withColumnRenamed("context", "context_fallback")
+            .withColumnRenamed("relevance", "relevance_fallback")
+        ) if fallback_recs is not None else None
 
     def __call__(
             self,
@@ -62,9 +77,12 @@ class MainObjective(Objective):
             item_features=self.split_data.item_features,
             context=self.context,
             log=self.split_data.predict_input,
-            filter_seen_items=Scenario.filter_seen_items
+            filter_seen_items=self.filter_seen_items
         )
-        logging.debug(f"-- Длина рекомендаций: {recs.count()}")
+
+        logging.debug("-- Дополняем рекомендации fallback рекомендациями")
+        recs = self._join_fallback_recs(self.max_in_fallback_recs,
+                                        self.fallback_recs, self.k, recs)
 
         logging.debug("-- Подсчет метрики в оптимизации")
         criterion_value = self._calculate_metrics(trial, recs,
