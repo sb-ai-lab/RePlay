@@ -133,9 +133,7 @@ class MainScenario(Scenario):
 
         logging.debug("Обучение и предсказание дополнительной модели")
         fallback_recs = self._predict_fallback_recs(self.fallback_recommender,
-                                                    split_data,
-                                                    context,
-                                                    k)
+                                                    split_data, k, context)
 
         logging.debug("Пре-фит модели")
         self.recommender._pre_fit(split_data.train,
@@ -154,27 +152,28 @@ class MainScenario(Scenario):
                                             k, context,
                                             fallback_recs,
                                             path=path)
-
         return best_params
 
     def _predict_fallback_recs(
             self,
-            fallback_recommender,
-            split_data,
-            context,
-            k
+            fallback_recommender: Recommender,
+            split_data: SplitData,
+            k: int,
+            context: Optional[str] = None
     ) -> Optional[DataFrame]:
+        """ Обучает fallback модель и возвращает ее рекомендации. """
         fallback_recs = None
+
         if fallback_recommender is not None:
             fallback_recs = (
                 fallback_recommender
-                    .fit_predict(k,
-                                 split_data.users, split_data.items,
-                                 context,
-                                 split_data.predict_input,
-                                 split_data.user_features,
-                                 split_data.item_features,
-                                 self.filter_seen_items)
+                .fit_predict(k,
+                             split_data.users, split_data.items,
+                             context,
+                             split_data.predict_input,
+                             split_data.user_features,
+                             split_data.item_features,
+                             self.filter_seen_items)
             )
         return fallback_recs
 

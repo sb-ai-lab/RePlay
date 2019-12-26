@@ -43,8 +43,8 @@ class MainObjective(Objective):
 
         self.max_in_fallback_recs = (
             fallback_recs
-                .agg({"relevance": "max"})
-                .collect()[0][0]
+            .agg({"relevance": "max"})
+            .collect()[0][0]
         ) if fallback_recs is not None else 0
 
         self.fallback_recs = (
@@ -81,8 +81,8 @@ class MainObjective(Objective):
         )
 
         logging.debug("-- Дополняем рекомендации fallback рекомендациями")
-        recs = self._join_fallback_recs(self.max_in_fallback_recs,
-                                        self.fallback_recs, self.k, recs)
+        recs = self._join_fallback_recs(recs, self.fallback_recs, self.k,
+                                        self.max_in_fallback_recs)
 
         logging.debug("-- Подсчет метрики в оптимизации")
         criterion_value = self._calculate_metrics(trial, recs,

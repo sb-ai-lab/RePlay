@@ -101,7 +101,13 @@ class Objective(ABC):
         return criterion_value
 
     @staticmethod
-    def _join_fallback_recs(max_in_fallback_recs, fallback_recs, k, recs):
+    def _join_fallback_recs(
+            recs: DataFrame,
+            fallback_recs: Optional[DataFrame],
+            k: int,
+            max_in_fallback_recs: float
+    ) -> DataFrame:
+        """ Добавляет к рекомендациям fallback-рекомендации. """
         logging.debug(f"-- Длина рекомендаций: {recs.count()}")
 
         if fallback_recs is not None:
@@ -120,12 +126,14 @@ class Objective(ABC):
                                 sf.coalesce("context", "context_fallback"))
                     .withColumn("relevance",
                                 sf.coalesce("relevance", "relevance_fallback"))
-                    )
-            recs = recs.select("user_id", "item_id", "context", "relevance")
+                    .select("user_id", "item_id", "context", "relevance"))
 
             recs = get_top_k_recs(recs, k)
 
-            logging.debug(f"-- Длина рекомендаций после замеса: {recs.count()}")
+            logging.debug(
+                "-- Длина рекомендаций после добавления fallback-рекомендаций:"
+                f" {recs.count()}"
+            )
 
         return recs
 
