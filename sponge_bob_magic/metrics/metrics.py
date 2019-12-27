@@ -1,6 +1,8 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+from math import log2
+
 from pyspark.mllib.evaluation import RankingMetrics
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
@@ -142,33 +144,48 @@ class RecallMetric(BaseMetrics):
 class Surprisal(BaseMetrics):
     """
     Метрика Surprisal@k --
-    среднее по юзерам,
+    среднее по пользователям,
     среднее по списку рекомендаций длины k
-    значение surprisal для айтема в рекомендации.
+    значение surprisal для объекта в рекомендации.
     
-    Показывает, насколько непопулярные айтемы попадают в рекомендации.
-    Для холодных айтемов количество взаимодействий с айтемом считается равным 1.
+    Показывает, насколько непопулярные объекты попадают в рекомендации.
+    Для холодных объектов количество взаимодействий считается равным 1.
 
     surprisal(item) = -log2(prob(item))
     prob(item) =  # users which interacted with item / # total users
+
+    Если normalize=True, то метрика нормирована в отрезок 0-1.
     """
 
-    def __init__(self, spark: SparkSession, logs: DataFrame, items: DataFrame):
+    def __init__(self,
+                 spark: SparkSession,
+                 log: DataFrame,
+                 normalize: bool = False):
         """
+        Здесь происходит подсчет популярности и собственной информации для всех объектов в библиотеке.
 
-        :param logs: Трейн логи взаимодействий
-        :param items: Список всех айтемов в библиотеке
+        :param log: Cпарк-датафрейм вида
+        `[user_id, item_id, timestamp, context, relevance]`;
+        содержит информацию о взаимодействии пользователей с объектами.
         """
-
         super().__init__(spark)
 
-        n_users = logs.select("user_id").distinct().count()
-        stats = logs.groupby("item_id").agg(sf.countDistinct("user_id").alias("count"))
-        stats = stats.join(items, on="item_id", how="right").fillna(1)
+        n_users = log.select("user_id").distinct().count()
+        max_value = -log2(1 / n_users)
+        stats = log.groupby("item_id").agg(
+            sf.countDistinct("user_id").alias("count")
+        )
+
         stats = stats.withColumn("popularity", stats["count"] / n_users)
         stats = stats.withColumn("self-information", -sf.log2("popularity"))
+        stats = stats.withColumn(
+            "normalized_si",
+            stats["self-information"] / max_value
+        )
 
         self.stats = stats
+        self.normalize = normalize
+        self.fill_value = 1.0 if normalize else max_value
 
     def calculate(
             self,
@@ -176,12 +193,24 @@ class Surprisal(BaseMetrics):
             ground_truth: DataFrame,
             k: int
     ) -> NumType:
+        metric = "normalized_si" if self.normalize else "self-information"
 
-        self_information = self.stats.select(["item_id", "self-information"])
+        self_information = self.stats.select(["item_id", metric])
         top_k_recommendations = get_top_k_recs(recommendations, k)
-        recs = top_k_recommendations.join(self_information, on="item_id")
-        metric = "self-information"
-        res = recs.groupBy("user_id").agg(sf.mean(metric).alias(metric))
-        res = res.select(sf.mean(metric)).collect()[0][0]
 
-        return res
+        recs = top_k_recommendations.join(self_information,
+                                          on="item_id",
+                                          how="left").fillna(self.fill_value)
+        list_mean = (
+            recs
+            .groupby("user_id")
+            .agg(sf.mean(metric).alias(metric))
+        )
+
+        global_mean = (
+            list_mean
+            .select(sf.mean(metric).alias("mean"))
+            .collect()[0]["mean"]
+        )
+
+        return global_mean
