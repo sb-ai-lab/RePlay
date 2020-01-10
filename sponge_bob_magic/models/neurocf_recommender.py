@@ -18,11 +18,12 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_recommender import Recommender
-from sponge_bob_magic.utils import get_top_k_recs, write_read_dataframe
+from sponge_bob_magic.utils import get_top_k_recs
 
 
 class RecommenderModel(Module):
     """ Нейросеть на pytorch для дальнейшего использования. """
+
     def __init__(
             self,
             user_count: int,
@@ -117,8 +118,7 @@ class NeuroCFRecommender(Recommender):
 
     def _pre_fit(self, log: DataFrame,
                  user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame],
-                 path: Optional[str] = None) -> None:
+                 item_features: Optional[DataFrame]) -> None:
         self.user_indexer_model = self.user_indexer.fit(log)
         self.item_indexer_model = self.item_indexer.fit(log)
 
@@ -186,8 +186,7 @@ class NeuroCFRecommender(Recommender):
         return current_loss
 
     def _fit_partial(self, log: DataFrame, user_features: Optional[DataFrame],
-                     item_features: Optional[DataFrame],
-                     path: Optional[str] = None) -> None:
+                     item_features: Optional[DataFrame]) -> None:
         logging.debug("Индексирование данных")
         log_indexed = self.user_indexer_model.transform(log)
         log_indexed = self.item_indexer_model.transform(log_indexed)
@@ -199,7 +198,8 @@ class NeuroCFRecommender(Recommender):
         logging.debug("Составление батча:")
         tensor_data = NeuroCFRecommender.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
-            os.path.join(path if path else "ncf_model", "tmp_tensor_data")
+            os.path.join(self.spark.conf.get("spark.local.dir"),
+                         "tmp_tensor_data")
         )
 
         user_batch = torch.LongTensor(tensor_data["user_idx"].values)
@@ -234,7 +234,8 @@ class NeuroCFRecommender(Recommender):
         logging.debug("Составление батча:")
         tensor_data = NeuroCFRecommender.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
-            os.path.join(path, "tmp_tensor_data")
+            os.path.join(self.spark.conf.get("spark.local.dir"),
+                         "tmp_tensor_data")
         )
 
         user_batch = torch.LongTensor(tensor_data["user_idx"].values)
@@ -259,14 +260,13 @@ class NeuroCFRecommender(Recommender):
                  context: str, log: DataFrame,
                  user_features: Optional[DataFrame],
                  item_features: Optional[DataFrame],
-                 to_filter_seen_items: bool = True,
-                 path: Optional[str] = None) -> DataFrame:
+                 to_filter_seen_items: bool = True) -> DataFrame:
         self.model.eval()
 
         columns = ["user_idx", "item_idx", "relevance"]
         sep = ","
 
-        tmp_path = os.path.join(path if path else "ncf_model", "recs")
+        tmp_path = os.path.join(self.spark.conf.get("spark.local.dir"), "recs")
         if os.path.exists(tmp_path):
             shutil.rmtree(tmp_path)
         os.makedirs(tmp_path)
@@ -274,7 +274,7 @@ class NeuroCFRecommender(Recommender):
         logging.debug("Предсказание модели")
         for i, (user_ids, item_ids, num_users, num_items) in enumerate(
                 self._batch_generator(
-                    users, items, path if path else "ncf_model"
+                    users, items, self.spark.conf.get("spark.local.dir")
                 )
         ):
             if i % 100 == 0:
@@ -326,15 +326,7 @@ class NeuroCFRecommender(Recommender):
         logging.debug("Преобразование отрицательных relevance")
         recs = NeuroCFRecommender.min_max_scale_column(recs, "relevance")
 
-        if path is not None:
-            logging.debug("Запись на диск рекомендаций")
-            recs = write_read_dataframe(
-                self.spark, recs,
-                os.path.join(path, "recs.parquet"),
-                self.to_overwrite_files
-            )
-
-        return recs.cache()
+        return recs
 
     def _batch_generator(
             self,

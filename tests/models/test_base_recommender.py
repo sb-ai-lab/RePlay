@@ -16,14 +16,12 @@ class RecommenderTestCase(PySparkTest):
         class DerivedRecommender(Recommender):
             def _pre_fit(self, log: DataFrame,
                          user_features: Optional[DataFrame],
-                         item_features: Optional[DataFrame],
-                         path: Optional[str] = None) -> None:
+                         item_features: Optional[DataFrame]) -> None:
                 pass
 
             def _fit_partial(self, log: DataFrame,
                              user_features: Optional[DataFrame],
-                             item_features: Optional[DataFrame],
-                             path: Optional[str] = None) -> None:
+                             item_features: Optional[DataFrame]) -> None:
                 pass
 
             def _predict(self,
@@ -34,8 +32,7 @@ class RecommenderTestCase(PySparkTest):
                          log: DataFrame,
                          user_features: Optional[DataFrame],
                          item_features: Optional[DataFrame],
-                         to_filter_seen_items: bool = True,
-                         path: Optional[str] = None) -> DataFrame:
+                         to_filter_seen_items: bool = True) -> DataFrame:
                 pass
 
             def get_params(self) -> Dict[str, object]:

@@ -15,6 +15,7 @@ from sponge_bob_magic.utils import get_top_k_recs, write_read_dataframe
 
 class KNNRecommender(Recommender):
     """ Item-based KNN на сглаженной косинусной мере схожести. """
+
     all_items: Optional[DataFrame]
     dot_products: Optional[DataFrame]
     item_norms: Optional[DataFrame]
@@ -118,9 +119,7 @@ class KNNRecommender(Recommender):
             self,
             log: DataFrame,
             user_features: Optional[DataFrame],
-            item_features: Optional[DataFrame],
-            path: Optional[str] = None
-    ) -> None:
+            item_features: Optional[DataFrame]) -> None:
         self.dot_products = (
             log
             .withColumnRenamed("item_id", "item_id_one")
@@ -142,54 +141,41 @@ class KNNRecommender(Recommender):
         )
         self.all_items = log.select("item_id").distinct().cache()
 
-        # сохраняем на диск, если есть путь
-        if path is not None:
-            self.dot_products = write_read_dataframe(
-                self.spark, self.dot_products,
-                os.path.join(path, "knn_dot_products.parquet"),
-                self.to_overwrite_files)
-            self.item_norms = write_read_dataframe(
-                self.spark, self.item_norms,
-                os.path.join(path, "knn_item_norms.parquet"),
-                self.to_overwrite_files)
-            self.all_items = write_read_dataframe(
-                self.spark, self.all_items,
-                os.path.join(path, "knn_all_items.parquet"),
-                self.to_overwrite_files)
+        self.dot_products = write_read_dataframe(
+            self.spark, self.dot_products,
+            os.path.join(self.spark.conf.get("spark.local.dir"),
+                         "knn_dot_products.parquet")
+        )
+        self.item_norms = write_read_dataframe(
+            self.spark, self.item_norms,
+            os.path.join(self.spark.conf.get("spark.local.dir"),
+                         "knn_item_norms.parquet")
+        )
+        self.all_items = write_read_dataframe(
+            self.spark, self.all_items,
+            os.path.join(self.spark.conf.get("spark.local.dir"),
+                         "knn_all_items.parquet")
+        )
 
-    def _fit_partial(
-            self,
-            log: DataFrame,
-            user_features: Optional[DataFrame],
-            item_features: Optional[DataFrame],
-            path: Optional[str] = None
-    ) -> None:
+    def _fit_partial(self, log: DataFrame, user_features: Optional[DataFrame],
+                     item_features: Optional[DataFrame]) -> None:
         similarity_matrix = self._get_similarity_matrix(
             self.all_items, self.dot_products, self.item_norms
         ).cache()
 
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()
 
-        # сохраняем на диск, если есть путь
-        if path is not None:
-            self.similarity = write_read_dataframe(
-                self.spark, self.similarity,
-                os.path.join(path, "knn_similarity_matrix.parquet"),
-                self.to_overwrite_files
-            )
+        self.similarity = write_read_dataframe(
+            self.spark, self.similarity,
+            os.path.join(self.spark.conf.get("spark.local.dir"),
+                         "knn_similarity_matrix.parquet")
+        )
 
-    def _predict(
-            self,
-            k: int,
-            users: DataFrame,
-            items: DataFrame,
-            context: str,
-            log: DataFrame,
-            user_features: Optional[DataFrame],
-            item_features: Optional[DataFrame],
-            to_filter_seen_items: bool = True,
-            path: Optional[str] = None
-    ) -> DataFrame:
+    def _predict(self, k: int, users: DataFrame, items: DataFrame,
+                 context: str, log: DataFrame,
+                 user_features: Optional[DataFrame],
+                 item_features: Optional[DataFrame],
+                 to_filter_seen_items: bool = True) -> DataFrame:
         recs = (
             log
             .join(
@@ -215,11 +201,4 @@ class KNNRecommender(Recommender):
         recs = get_top_k_recs(recs, k)
         recs = recs.filter(sf.col("relevance") > 0.0)
 
-        if path is not None:
-            recs = write_read_dataframe(
-                self.spark, recs,
-                os.path.join(path, "recs.parquet"),
-                self.to_overwrite_files
-            )
-
-        return recs.cache()
+        return recs

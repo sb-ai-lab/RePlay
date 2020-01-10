@@ -6,6 +6,8 @@ from sponge_bob_magic.scenarios.base_scenario import Scenario
 
 
 class ScenarioFactory(ABC):
+    """ Базовый класс фабрики. """
+    
     def __init__(self, spark: SparkSession, **kwargs):
         """
         Инициализирует фабрику нужными параметрами и сохраняет спарк-сессию.

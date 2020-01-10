@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 import collections
 import logging
 from typing import Dict, Any, List, Optional
@@ -16,6 +19,8 @@ SplitData = collections.namedtuple(
 
 
 class MainObjective(Objective):
+    """ Класс критерия для простого сценария с замесом. """
+
     def __init__(
             self,
             params_grid: Dict[str, Dict[str, Any]],
@@ -66,17 +71,17 @@ class MainObjective(Objective):
         logging.debug("-- Второй фит модели в оптимизации")
         self.recommender._fit_partial(self.split_data.train,
                                       self.split_data.user_features,
-                                      self.split_data.item_features,
-                                      path=None)
+                                      self.split_data.item_features)
 
         logging.debug("-- Предикт модели в оптимизации")
         recs = self.recommender.predict(
             k=self.k,
-            users=self.split_data.users, items=self.split_data.items,
-            user_features=self.split_data.user_features,
-            item_features=self.split_data.item_features,
+            users=self.split_data.users,
+            items=self.split_data.items,
             context=self.context,
             log=self.split_data.predict_input,
+            user_features=self.split_data.user_features,
+            item_features=self.split_data.item_features,
             filter_seen_items=self.filter_seen_items
         )
 

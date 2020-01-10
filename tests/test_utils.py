@@ -48,7 +48,8 @@ class UtilsTestCase(PySparkTest):
             ["user2", "feature1", "2019-01-01"]
         ], schema=["user_id", "features", "timestamp"])
 
-        path = os.path.join(self.tmp_path, "tmp_test_write_read_df.parquet")
+        path = os.path.join(self.spark.conf.get("spark.local.dir"),
+                            "tmp_test_write_read_df.parquet")
 
         test_df = utils.write_read_dataframe(self.spark, dataframe, path,
                                              to_overwrite_files=True)

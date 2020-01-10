@@ -49,8 +49,7 @@ class PopularRecommender(Recommender):
 
     def _pre_fit(self, log: DataFrame,
                  user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame],
-                 path: Optional[str] = None) -> None:
+                 item_features: Optional[DataFrame]) -> None:
         popularity = (log
                       .groupBy("item_id", "context")
                       .count())
@@ -71,16 +70,15 @@ class PopularRecommender(Recommender):
         logging.debug(
             "Среднее количество items у каждого user: %d", self.avg_num_items)
 
-        if path is not None:
-            self.items_popularity = write_read_dataframe(
-                self.spark, self.items_popularity,
-                os.path.join(path, "items_popularity.parquet"),
-                self.to_overwrite_files)
+        self.items_popularity = write_read_dataframe(
+            self.spark, self.items_popularity,
+            os.path.join(self.spark.conf.get("spark.local.dir"),
+                         "items_popularity.parquet")
+        )
 
     def _fit_partial(self, log: DataFrame,
                      user_features: Optional[DataFrame],
-                     item_features: Optional[DataFrame],
-                     path: Optional[str] = None) -> None:
+                     item_features: Optional[DataFrame]) -> None:
         pass
 
     def _predict(self,
@@ -91,8 +89,7 @@ class PopularRecommender(Recommender):
                  log: DataFrame,
                  user_features: Optional[DataFrame],
                  item_features: Optional[DataFrame],
-                 to_filter_seen_items: bool = True,
-                 path: Optional[str] = None) -> DataFrame:
+                 to_filter_seen_items: bool = True) -> DataFrame:
         items_to_rec = self.items_popularity
 
         if context == DEFAULT_CONTEXT:
@@ -147,11 +144,5 @@ class PopularRecommender(Recommender):
                 .withColumn("relevance",
                             sf.when(recs["relevance"] < 0, 0)
                             .otherwise(recs["relevance"]))).cache()
-
-        if path is not None:
-            recs = write_read_dataframe(
-                self.spark, recs,
-                os.path.join(path, "recs.parquet"),
-                self.to_overwrite_files)
 
         return recs

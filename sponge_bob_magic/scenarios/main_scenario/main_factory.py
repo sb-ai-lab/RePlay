@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 import logging
 from datetime import datetime
 from typing import List, Optional
@@ -18,6 +21,8 @@ from sponge_bob_magic.splitters.log_splitter import (LogSplitRandomlySplitter,
 
 
 class MainScenarioFactory(ScenarioFactory):
+    """ Класс фабрики для простого сценария с замесом. """
+
     def __init__(
             self,
             spark: SparkSession,

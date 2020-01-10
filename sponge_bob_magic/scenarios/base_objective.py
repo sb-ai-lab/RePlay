@@ -71,7 +71,7 @@ class Objective(ABC):
             study: Study,
             path: Optional[str]
     ):
-        """ Сохрняет объект исследования `study` на диск. """
+        """ Сохраняет объект исследования `study` на диск. """
         if path is not None:
             logging.debug("-- Сохраняем optuna study на диск")
             joblib.dump(study,
@@ -84,7 +84,7 @@ class Objective(ABC):
             ground_truth: DataFrame,
             criterion: Metric,
             metrics: Optional[List[Metric]],
-            k
+            k: int
     ) -> float:
         """ Подсчитывает все метрики и сохраняет их в `trial`. """
         result_string = "-- Метрики:"

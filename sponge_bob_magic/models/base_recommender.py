@@ -2,19 +2,22 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
+import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Set
+from uuid import uuid4
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic import constants
+from sponge_bob_magic.utils import write_read_dataframe
 
 
 class Recommender(ABC):
     """ Базовый класс-рекомендатель. """
+
     model: Any = None
-    to_overwrite_files: bool = True
 
     def __init__(self, spark: SparkSession, **kwargs):
         """
@@ -124,13 +127,10 @@ class Recommender(ABC):
 
     def fit(self, log: DataFrame,
             user_features: Optional[DataFrame],
-            item_features: Optional[DataFrame],
-            path: Optional[str] = None) -> None:
+            item_features: Optional[DataFrame]) -> None:
         """
         Обучает модель на логе и признаках пользователей и объектов.
 
-        :param path: путь к директории, в которой сохраняются промежуточные
-            резльтаты в виде parquet-файлов; если None, делаются checkpoints
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             `[user_id , item_id , timestamp , context , relevance]`
@@ -146,24 +146,21 @@ class Recommender(ABC):
         self._check_input_dataframes(log, user_features, item_features)
 
         logging.debug("Предварительная стадия обучения (pre-fit)")
-        self._pre_fit(log, user_features, item_features, path)
+        self._pre_fit(log, user_features, item_features)
 
         logging.debug("Основная стадия обучения (fit)")
-        self._fit_partial(log, user_features, item_features, path)
+        self._fit_partial(log, user_features, item_features)
 
     @abstractmethod
     def _pre_fit(self, log: DataFrame,
                  user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame],
-                 path: Optional[str] = None) -> None:
+                 item_features: Optional[DataFrame]) -> None:
         """
         Метод-helper для обучения модели, в которой параметры не используются.
         Нужен для того, чтобы вынести вычисление трудоемких агрегатов
         в отдельный метод, который по возможности будет вызываться один раз.
         Должен быть имплементирован наследниками.
 
-        :param path: путь к директории, в которой сохраняются промежуточные
-            резльтаты в виде parquet-файлов; если None, делаются checkpoints
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             `[user_id , item_id , timestamp , context , relevance]`
@@ -179,14 +176,11 @@ class Recommender(ABC):
     @abstractmethod
     def _fit_partial(self, log: DataFrame,
                      user_features: Optional[DataFrame],
-                     item_features: Optional[DataFrame],
-                     path: Optional[str] = None) -> None:
+                     item_features: Optional[DataFrame]) -> None:
         """
         Метод-helper для обучения модели, в которой используются параметры.
         Должен быть имплементирован наследниками.
 
-        :param path: путь к директории, в которой сохраняются промежуточные
-            резльтаты в виде parquet-файлов; если None, делаются checkpoints
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             `[user_id , item_id , timestamp , context , relevance]`
@@ -207,13 +201,10 @@ class Recommender(ABC):
                 log: DataFrame,
                 user_features: Optional[DataFrame],
                 item_features: Optional[DataFrame],
-                filter_seen_items: bool = True,
-                path: Optional[str] = None) -> DataFrame:
+                filter_seen_items: bool = True) -> DataFrame:
         """
         Выдача рекомендаций для пользователей.
 
-        :param path: путь к директории, в которой сохраняются рекомендации;
-            если None, делается checkpoint рекомендаций
         :param k: количество рекомендаций для каждого пользователя;
             должно быть не больше, чем количество объектов в `items`
         :param users: список пользователей, для которых необходимо получить
@@ -262,13 +253,16 @@ class Recommender(ABC):
         if context is None:
             context = constants.DEFAULT_CONTEXT
 
-        return self._predict(
-            k, users, items,
-            context, log,
-            user_features, item_features,
-            filter_seen_items,
-            path
+        recs = self._predict(k, users, items, context, log, user_features,
+                                item_features, filter_seen_items)
+
+        recs = write_read_dataframe(
+            self.spark, recs,
+            os.path.join(self.spark.conf.get("spark.local.dir"),
+                         f"recs{uuid4()}.parquet")
         )
+
+        return recs
 
     @abstractmethod
     def _predict(self,
@@ -279,14 +273,11 @@ class Recommender(ABC):
                  log: DataFrame,
                  user_features: Optional[DataFrame],
                  item_features: Optional[DataFrame],
-                 to_filter_seen_items: bool = True,
-                 path: Optional[str] = None) -> DataFrame:
+                 to_filter_seen_items: bool = True) -> DataFrame:
         """
         Метод-helper для получения рекомендаций.
         Должен быть имплементирован наследниками.
 
-        :param path: путь к директории, в которой сохраняются рекомендации;
-            если None, делается checkpoint рекомендаций
         :param k: количество рекомендаций для каждого пользователя;
             должно быть не больше, чем количество объектов в `items`
         :param users: список пользователей, для которых необходимо получить
@@ -322,13 +313,10 @@ class Recommender(ABC):
                     log: DataFrame,
                     user_features: Optional[DataFrame],
                     item_features: Optional[DataFrame],
-                    to_filter_seen_items: bool = True,
-                    path: Optional[str] = None) -> DataFrame:
+                    to_filter_seen_items: bool = True) -> DataFrame:
         """
         Обучает модель и выдает рекомендации.
 
-        :param path: путь к директории, в которой сохраняются рекомендации;
-            если None, делается checkpoint рекомендаций
         :param k: количество рекомендаций для каждого пользователя;
             должно быть не больше, чем количество объектов в `items`
         :param users: список пользователей, для которых необходимо получить
@@ -355,12 +343,11 @@ class Recommender(ABC):
         :return: рекомендации, спарк-датафрейм с колонками
             `[user_id , item_id , context , relevance]`
         """
-        self.fit(log, user_features, item_features, path)
+        self.fit(log, user_features, item_features)
         return self.predict(k, users, items,
                             context, log,
                             user_features, item_features,
-                            to_filter_seen_items,
-                            path)
+                            to_filter_seen_items)
 
     @staticmethod
     def _filter_seen_recs(recs: DataFrame, log: DataFrame) -> DataFrame:

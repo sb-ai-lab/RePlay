@@ -2,6 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
+import os
 from datetime import datetime
 from typing import Dict, Optional, List, Any
 
@@ -22,10 +23,11 @@ from sponge_bob_magic.scenarios.main_scenario.main_objective import (
 )
 from sponge_bob_magic.splitters.base_splitter import Splitter
 from sponge_bob_magic.splitters.log_splitter import LogSplitByDateSplitter
+from sponge_bob_magic.utils import write_read_dataframe
 
 
 class MainScenario(Scenario):
-    """ Сценарий для простого обучения моделей рекомендаций. """
+    """ Сценарий для простого обучения моделей рекомендаций с замесом. """
 
     spark: SparkSession
     splitter: Splitter
@@ -46,9 +48,19 @@ class MainScenario(Scenario):
         """ Делит лог и готовит объекти типа `SplitData`. """
         train, predict_input, test = self.splitter.split(log)
 
-        train.cache()
-        predict_input.cache()
-        test.cache()
+        train = write_read_dataframe(
+            self.spark, train,
+            os.path.join(self.spark.conf.get("spark.local.dir"), "train")
+        )
+        predict_input = write_read_dataframe(
+            self.spark, predict_input,
+            os.path.join(self.spark.conf.get("spark.local.dir"),
+                         "predict_input")
+        )
+        test = write_read_dataframe(
+            self.spark, test,
+            os.path.join(self.spark.conf.get("spark.local.dir"), "test")
+        )
 
         logging.debug(f"Длина трейна и теста: {train.count(), test.count()}")
         logging.debug("Количество пользователей в трейне и тесте: "
@@ -76,8 +88,7 @@ class MainScenario(Scenario):
             split_data: SplitData,
             k: int = 10,
             context: Optional[str] = None,
-            fallback_recs: Optional[DataFrame] = None,
-            path=None
+            fallback_recs: Optional[DataFrame] = None
     ) -> Dict[str, Any]:
         """ Запускает подбор параметров в optuna. """
         sampler = samplers.RandomSampler()
@@ -95,7 +106,7 @@ class MainScenario(Scenario):
                               k, context,
                               fallback_recs,
                               self.filter_seen_items,
-                              path),
+                              self.spark.conf.get("spark.local.dir")),
                 n_trials=1,
                 n_jobs=self.optuna_n_jobs
             )
@@ -136,10 +147,8 @@ class MainScenario(Scenario):
                                                     split_data, k, context)
 
         logging.debug("Пре-фит модели")
-        self.recommender._pre_fit(split_data.train,
-                                  split_data.user_features,
-                                  split_data.item_features,
-                                  path=path)
+        self.recommender._pre_fit(split_data.train, split_data.user_features,
+                                  split_data.item_features)
 
         logging.debug("-------------")
         logging.debug("Оптимизация параметров")
@@ -147,11 +156,8 @@ class MainScenario(Scenario):
             f"Максимальное количество попыток: {self.optuna_max_n_trials} "
             "(чтобы поменять его, задайте параметр 'optuna_max_n_trials')")
 
-        best_params = self.run_optimization(n_trials, params_grid,
-                                            split_data,
-                                            k, context,
-                                            fallback_recs,
-                                            path=path)
+        best_params = self.run_optimization(n_trials, params_grid, split_data,
+                                            k, context, fallback_recs)
         return best_params
 
     def _predict_fallback_recs(

@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+import os
 import unittest
 import warnings
 from typing import Optional, List
@@ -50,6 +51,8 @@ class PySparkTest(unittest.TestCase):
                 .master("local[1]")
                 .config("spark.driver.memory", "512m")
                 .config("spark.sql.shuffle.partitions", "1")
+                .config("spark.local.dir",
+                        os.path.join(os.environ["HOME"], "tmp"))
                 .appName("testing-pyspark")
                 .enableHiveSupport()
                 .getOrCreate())
@@ -59,7 +62,6 @@ class PySparkTest(unittest.TestCase):
         warnings.filterwarnings(action="ignore", category=ResourceWarning)
         cls.spark = cls.create_testing_pyspark_session()
         cls.spark.sparkContext.setLogLevel(cls.spark_log_level)
-        cls.tmp_path = "../tmp"
 
     @classmethod
     def tearDownClass(cls):
