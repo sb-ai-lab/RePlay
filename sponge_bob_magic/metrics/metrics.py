@@ -158,19 +158,20 @@ class RecallMetric(Metric):
 
 class Surprisal(Metric):
     """
-    Метрика Surprisal@k --
+    Метрика Surprisal@k:
     среднее по пользователям,
     среднее по списку рекомендаций длины k
-    значение surprisal для объекта в рекомендации.
-    
-    Показывает, насколько непопулярные объекты попадают в рекомендации.
+    значение surprisal для объекта в рекомендациях.
+
+    surprisal(item) = -log2(prob(item)),
+    prob(item) =  # users which interacted with item / # total users.
+
+    Чем выше метрика, тем больше непопулярных объектов попадают в рекомендации.
+
+    Если normalize=True, то метрика нормирована в отрезок [0, 1].
     Для холодных объектов количество взаимодействий считается равным 1.
-
-    surprisal(item) = -log2(prob(item))
-    prob(item) =  # users which interacted with item / # total users
-
-    Если normalize=True, то метрика нормирована в отрезок 0-1.
     """
+
     def __str__(self):
         return "Surprisal@K"
 
@@ -179,11 +180,11 @@ class Surprisal(Metric):
                  log: DataFrame,
                  normalize: bool = False):
         """
-        Здесь происходит подсчет популярности и собственной информации для всех объектов в библиотеке.
+        Считает популярность и собственную информацию каждого объета.
 
-        :param log: Cпарк-датафрейм вида
-        `[user_id, item_id, timestamp, context, relevance]`;
-        содержит информацию о взаимодействии пользователей с объектами.
+        :param log: спарк-датафрейм вида
+            `[user_id, item_id, timestamp, context, relevance]`;
+            содержит информацию о взаимодействии пользователей с объектами
         """
         super().__init__(spark)
 
