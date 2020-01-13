@@ -23,13 +23,22 @@ class LogSplitByDateSplitter(Splitter):
     тестовую выборки по времени.
     """
 
-    def __init__(self, spark: SparkSession,
-                 test_start: datetime):
+    def __init__(
+            self,
+            spark: SparkSession,
+            drop_cold_items: bool,
+            drop_cold_users: bool,
+            test_start: datetime
+    ):
         """
         :param spark: инициализированная спарк-сессия
+        :param drop_cold_items: исключать ли из тестовой выборки объекты,
+           которых нет в обучающей
+        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
+           которых нет в обучающей
         :param test_start: дата в формате `yyyy-mm-dd`
         """
-        super().__init__(spark)
+        super().__init__(spark, drop_cold_items, drop_cold_users)
 
         self.test_start = test_start
 
@@ -47,15 +56,24 @@ class LogSplitByDateSplitter(Splitter):
 class LogSplitRandomlySplitter(Splitter):
     """ Делит лог взаимодействия случайно на обучающую и тестовую выборки. """
 
-    def __init__(self, spark: SparkSession,
-                 test_size: float,
-                 seed: int):
+    def __init__(
+            self,
+            spark: SparkSession,
+            drop_cold_items: bool,
+            drop_cold_users: bool,
+            test_size: float,
+            seed: int
+    ):
         """
         :param seed: сид для разбиения
         :param spark: инициализированная спарк-сессия
+        :param drop_cold_items: исключать ли из тестовой выборки объекты,
+           которых нет в обучающей
+        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
+           которых нет в обучающей
         :param test_size: размер тестовой выборки, от 0 до 1
         """
-        super().__init__(spark)
+        super().__init__(spark, drop_cold_items, drop_cold_users)
 
         self.seed = seed
         self.test_size = test_size
@@ -77,14 +95,22 @@ class ColdUsersExtractingSplitter(Splitter):
     их лог попадает в тестовую выборку.
     """
 
-    def __init__(self, spark: SparkSession,
-                 test_size: float):
+    def __init__(
+            self,
+            spark: SparkSession,
+            drop_cold_items: bool,
+            drop_cold_users: bool,
+            test_size: float
+    ):
         """
-        :param spark: инициализированная спарк-сессия,
-            в рамках которой будет происходить обработка данных
+        :param spark: инициализированная спарк-сессия
+        :param drop_cold_items: исключать ли из тестовой выборки объекты,
+           которых нет в обучающей
+        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
+           которых нет в обучающей
         :param test_size: размер тестовой выборки, от 0 до 1
         """
-        super().__init__(spark)
+        super().__init__(spark, drop_cold_items, drop_cold_users)
 
         self.test_size = test_size
 

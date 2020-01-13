@@ -60,10 +60,13 @@ class TestRandomUserLogSplitter(PySparkTest):
     ])
     def test_split(self, test_size):
         train, predict_input, test = (
-            RandomUserLogSplitter(self.spark, test_size=test_size, seed=1234)
-            .split(log=self.log,
-                   drop_cold_items=False,
-                   drop_cold_users=False)
+            RandomUserLogSplitter(
+                self.spark,
+                drop_cold_items=False,
+                drop_cold_users=False,
+                test_size=test_size,
+                seed=1234)
+            .split(log=self.log)
         )
 
         self.assertSparkDataFrameEqual(train.union(test), self.log)
@@ -94,7 +97,7 @@ class TestRandomUserLogSplitter(PySparkTest):
     def test_test_size_exception(self, test_size):
         self.assertRaises(
             ValueError,
-            RandomUserLogSplitter(self.spark, test_size=test_size).split,
+            RandomUserLogSplitter(self.spark, False, False, test_size).split,
             log=self.log
         )
 
@@ -122,10 +125,12 @@ class TestByTimeUserLogSplitter(PySparkTest):
 
     def test_split_quantity(self):
         train, predict_input, test = (
-            ByTimeUserLogSplitter(self.spark, test_size=2)
-            .split(log=self.log,
-                   drop_cold_items=False,
-                   drop_cold_users=False)
+            ByTimeUserLogSplitter(
+                self.spark,
+                drop_cold_items=False,
+                drop_cold_users=False,
+                test_size=2)
+            .split(log=self.log)
         )
 
         true_train = self.spark.createDataFrame(
@@ -160,10 +165,12 @@ class TestByTimeUserLogSplitter(PySparkTest):
 
     def test_split_proportion(self):
         train, predict_input, test = (
-            ByTimeUserLogSplitter(self.spark, test_size=0.4)
-            .split(log=self.log,
-                   drop_cold_items=False,
-                   drop_cold_users=False)
+            ByTimeUserLogSplitter(
+                self.spark,
+                drop_cold_items=False,
+                drop_cold_users=False,
+                test_size=0.4)
+            .split(log=self.log)
         )
 
         true_train = self.spark.createDataFrame(
@@ -208,6 +215,6 @@ class TestByTimeUserLogSplitter(PySparkTest):
     def test_test_size_exception(self, test_size):
         self.assertRaises(
             ValueError,
-            ByTimeUserLogSplitter(self.spark, test_size=test_size).split,
+            ByTimeUserLogSplitter(self.spark, False, False, test_size).split,
             log=self.log
         )

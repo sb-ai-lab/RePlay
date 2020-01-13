@@ -12,13 +12,13 @@ from pyspark.sql.functions import lit, udf, when
 from pyspark.sql.types import DoubleType, FloatType
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
-from sponge_bob_magic.models.base_recommender import BaseRecommender
-from sponge_bob_magic.utils import (func_get, get_feature_cols, get_top_k_recs,
-                                    write_read_dataframe)
+from sponge_bob_magic.models.base_recommender import Recommender
+from sponge_bob_magic.utils import func_get, get_feature_cols, get_top_k_recs
 
 
-class LinearRecommender(BaseRecommender):
+class LinearRecommender(Recommender):
     """ Рекомендатель на основе линейной модели и эмбеддингов. """
+
     _model: LogisticRegressionModel
     augmented_data: DataFrame
 
@@ -39,8 +39,7 @@ class LinearRecommender(BaseRecommender):
 
     def _pre_fit(self, log: DataFrame,
                  user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame],
-                 path: Optional[str] = None) -> None:
+                 item_features: Optional[DataFrame]) -> None:
         # TODO: добавить проверку, что в логе есть только нули и единицы
         self.augmented_data = (
             self._augment_data(log, user_features, item_features)
@@ -48,13 +47,8 @@ class LinearRecommender(BaseRecommender):
             .select("label", "features")
         ).cache()
 
-    def _fit_partial(
-            self,
-            log: DataFrame,
-            user_features: DataFrame,
-            item_features: DataFrame,
-            path: Optional[str] = None
-    ) -> None:
+    def _fit_partial(self, log: DataFrame, user_features: DataFrame,
+                     item_features: DataFrame) -> None:
         self._model = (
             LogisticRegression(
                 maxIter=self.num_iter,
@@ -63,10 +57,10 @@ class LinearRecommender(BaseRecommender):
             .fit(self.augmented_data)
         )
 
-        if path is not None:
-            model_path = os.path.join(path, "linear.model")
-            self._model.write().overwrite().save(model_path)
-            self._model = self._model.read().load(model_path)
+        model_path = os.path.join(self.spark.conf.get("spark.local.dir"),
+                                  "linear.model")
+        self._model.write().overwrite().save(model_path)
+        self._model = self._model.read().load(model_path)
 
     @staticmethod
     def _augment_data(
@@ -103,8 +97,7 @@ class LinearRecommender(BaseRecommender):
                  log: DataFrame,
                  user_features: Optional[DataFrame],
                  item_features: Optional[DataFrame],
-                 to_filter_seen_items: bool = True,
-                 path: Optional[str] = None) -> DataFrame:
+                 to_filter_seen_items: bool = True) -> DataFrame:
         data = (
             self._augment_data(
                 users.crossJoin(items), user_features, item_features
@@ -133,10 +126,4 @@ class LinearRecommender(BaseRecommender):
             "relevance",
             when(recs["relevance"] < 0, 0).otherwise(recs["relevance"])
         )
-
-        if path is not None:
-            recs = write_read_dataframe(
-                self.spark, recs,
-                os.path.join(path, "recs.parquet")
-            )
         return recs

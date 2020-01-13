@@ -7,17 +7,20 @@ from pyspark.mllib.evaluation import RankingMetrics
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.metrics.base_metrics import BaseMetrics, NumType
+from sponge_bob_magic.metrics.base_metrics import Metric, NumType
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class HitRateMetric(BaseMetrics):
+class HitRateMetric(Metric):
     """
     Метрика HitRate@K:
     для какой доли пользователей удалось порекомендовать среди
     первых `k` хотя бы один объект из реального лога.
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
+
+    def __str__(self):
+        return "HitRate@K"
 
     def calculate(
             self,
@@ -37,12 +40,15 @@ class HitRateMetric(BaseMetrics):
         return users_hit / users_total
 
 
-class NDCGMetric(BaseMetrics):
+class NDCGMetric(Metric):
     """
     Метрика nDCG@k:
     чем релевантнее элементы среди первых `k`, тем выше метрика.
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
+
+    def __str__(self):
+        return "nDCG@k"
 
     def calculate(
             self,
@@ -58,12 +64,15 @@ class NDCGMetric(BaseMetrics):
         return metrics.ndcgAt(k)
 
 
-class PrecisionMetric(BaseMetrics):
+class PrecisionMetric(Metric):
     """
     Метрика Precision@k:
     точность на `k` первых элементах выдачи.
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
+
+    def __str__(self):
+        return "Precision@k"
 
     def calculate(
             self,
@@ -79,12 +88,15 @@ class PrecisionMetric(BaseMetrics):
         return metrics.precisionAt(k)
 
 
-class MAPMetric(BaseMetrics):
+class MAPMetric(Metric):
     """
     Метрика MAP@k (mean average precision):
     средняя точность на `k` первых элементах выдачи.
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
+
+    def __str__(self):
+        return "MAP@k"
 
     def calculate(
             self,
@@ -100,13 +112,16 @@ class MAPMetric(BaseMetrics):
         return metrics.meanAveragePrecision
 
 
-class RecallMetric(BaseMetrics):
+class RecallMetric(Metric):
     """
-    Метрика recall@K:
+    Метрика Recall@K:
     какую долю объектов из реального лога мы покажем в рекомендациях среди
     первых `k` (в среднем по пользователям).
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
+
+    def __str__(self):
+        return "Recall@K"
 
     def calculate(
             self,
@@ -141,32 +156,35 @@ class RecallMetric(BaseMetrics):
         return total_recall / total_users
 
 
-class Surprisal(BaseMetrics):
+class Surprisal(Metric):
     """
-    Метрика Surprisal@k --
+    Метрика Surprisal@k:
     среднее по пользователям,
     среднее по списку рекомендаций длины k
-    значение surprisal для объекта в рекомендации.
-    
-    Показывает, насколько непопулярные объекты попадают в рекомендации.
+    значение surprisal для объекта в рекомендациях.
+
+    surprisal(item) = -log2(prob(item)),
+    prob(item) =  # users which interacted with item / # total users.
+
+    Чем выше метрика, тем больше непопулярных объектов попадают в рекомендации.
+
+    Если normalize=True, то метрика нормирована в отрезок [0, 1].
     Для холодных объектов количество взаимодействий считается равным 1.
-
-    surprisal(item) = -log2(prob(item))
-    prob(item) =  # users which interacted with item / # total users
-
-    Если normalize=True, то метрика нормирована в отрезок 0-1.
     """
+
+    def __str__(self):
+        return "Surprisal@K"
 
     def __init__(self,
                  spark: SparkSession,
                  log: DataFrame,
                  normalize: bool = False):
         """
-        Здесь происходит подсчет популярности и собственной информации для всех объектов в библиотеке.
+        Считает популярность и собственную информацию каждого объета.
 
-        :param log: Cпарк-датафрейм вида
-        `[user_id, item_id, timestamp, context, relevance]`;
-        содержит информацию о взаимодействии пользователей с объектами.
+        :param log: спарк-датафрейм вида
+            `[user_id, item_id, timestamp, context, relevance]`;
+            содержит информацию о взаимодействии пользователей с объектами
         """
         super().__init__(spark)
 

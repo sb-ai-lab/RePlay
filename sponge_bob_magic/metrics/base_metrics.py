@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from typing import Union
 
 from pyspark.ml.feature import StringIndexer
@@ -12,7 +12,7 @@ from pyspark.sql import functions as sf
 NumType = Union[int, float]
 
 
-class BaseMetrics:
+class Metric(ABC):
     """ Базовый класс метрик. """
 
     def __init__(self, spark: SparkSession, **kwargs):
@@ -42,6 +42,10 @@ class BaseMetrics:
         :return: значение метрики
         """
         return self.calculate(recommendations, ground_truth, k)
+
+    @abstractmethod
+    def __str__(self):
+        """ Строковое представление метрики. """
 
     @abstractmethod
     def calculate(

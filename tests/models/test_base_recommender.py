@@ -1,32 +1,27 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import os
 import unittest
 from typing import Dict, Iterable, Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
-from tests.pyspark_testcase import PySparkTest
+from sponge_bob_magic.models.base_recommender import Recommender
 
-from sponge_bob_magic.models.base_recommender import BaseRecommender
+from pyspark_testcase import PySparkTest
 
 
-class BaseRecommenderCase(PySparkTest):
+class RecommenderTestCase(PySparkTest):
     def setUp(self):
-        class DerivedRecommender(BaseRecommender):
-            predict_count: int
-
+        class DerivedRecommender(Recommender):
             def _pre_fit(self, log: DataFrame,
                          user_features: Optional[DataFrame],
-                         item_features: Optional[DataFrame],
-                         path: Optional[str] = None) -> None:
+                         item_features: Optional[DataFrame]) -> None:
                 pass
 
             def _fit_partial(self, log: DataFrame,
                              user_features: Optional[DataFrame],
-                             item_features: Optional[DataFrame],
-                             path: Optional[str] = None) -> None:
+                             item_features: Optional[DataFrame]) -> None:
                 pass
 
             def _predict(self,
@@ -37,14 +32,8 @@ class BaseRecommenderCase(PySparkTest):
                          log: DataFrame,
                          user_features: Optional[DataFrame],
                          item_features: Optional[DataFrame],
-                         to_filter_seen_items: bool = True,
-                         path: Optional[str] = None) -> DataFrame:
-                if path:
-                    (
-                        self.spark.createDataFrame([(1,)])
-                        .write.parquet(os.path.join(path, "recs.parquet"))
-                    )
-                    self.predict_count += 1
+                         to_filter_seen_items: bool = True) -> DataFrame:
+                pass
 
             def get_params(self) -> Dict[str, object]:
                 pass
@@ -125,23 +114,6 @@ class BaseRecommenderCase(PySparkTest):
                 data=[["1", "2"]],
                 schema=["item_id", "timestamp"])
         )
-
-    def test_batch_predict(self):
-        log = self.spark.createDataFrame(
-            data=[["1", "2", "3", "4", "5"], ["a", "b", "3", "4", "5"]],
-            schema=["item_id", "user_id", "timestamp", "relevance", "context"])
-        with self.assertRaises(ValueError):
-            self.model.predict(
-                log=log, user_features=None, item_features=None,
-                k=1, users=None, items=None, context=None, batch_size=1
-            )
-        self.model.predict_count = 0
-        self.model.predict(
-            log=log, user_features=None, item_features=None, k=1, users=None,
-            items=None, context=None, batch_size=1,
-            path=os.path.join(os.environ["HOME"], "models/test_model")
-        )
-        self.assertEqual(self.model.predict_count, 2)
 
 
 if __name__ == "__main__":

@@ -10,13 +10,28 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
-from sponge_bob_magic.models.base_recommender import BaseRecommender
+from sponge_bob_magic.models.base_recommender import Recommender
 from sponge_bob_magic.utils import (get_top_k_recs, get_top_k_rows,
                                     write_read_dataframe)
 
 
-class PopularRecommender(BaseRecommender):
-    """ Простейший рекомендатель на основе сглаженной популярности. """
+class PopularRecommender(Recommender):
+    """
+    Простейший рекомендатель на основе сглаженной популярности.
+
+    Популярность объекта определяется как:
+    popularity(i) = \dfrac{N_i + \alpha}{N + \beta},
+
+    где $ N_i $ - количество пользователей, у которых было взаимодействие с
+    данным объектом $ i $, $ N $ - общее количество пользователей,
+    которые как провзаимодействовали с объектом, так и нет,
+    $ \alpha, \beta \in [0, \infty) $ - параметры модели.
+
+    Эвристика: размуным пределом для параметров $ \alpha $ и $ \beta $
+    может стать среднее значение количества пользователей $ N_i $,
+    которые провзаимодействовали с объектами.
+    """
+
     avg_num_items: int
     items_popularity: DataFrame
 
@@ -34,8 +49,7 @@ class PopularRecommender(BaseRecommender):
 
     def _pre_fit(self, log: DataFrame,
                  user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame],
-                 path: Optional[str] = None) -> None:
+                 item_features: Optional[DataFrame]) -> None:
         popularity = (log
                       .groupBy("item_id", "context")
                       .count())
@@ -56,16 +70,15 @@ class PopularRecommender(BaseRecommender):
         logging.debug(
             "Среднее количество items у каждого user: %d", self.avg_num_items)
 
-        if path is not None:
-            self.items_popularity = write_read_dataframe(
-                self.spark, self.items_popularity,
-                os.path.join(path, "items_popularity.parquet"),
-                self.to_overwrite_files)
+        self.items_popularity = write_read_dataframe(
+            self.spark, self.items_popularity,
+            os.path.join(self.spark.conf.get("spark.local.dir"),
+                         "items_popularity.parquet")
+        )
 
     def _fit_partial(self, log: DataFrame,
                      user_features: Optional[DataFrame],
-                     item_features: Optional[DataFrame],
-                     path: Optional[str] = None) -> None:
+                     item_features: Optional[DataFrame]) -> None:
         pass
 
     def _predict(self,
@@ -76,8 +89,7 @@ class PopularRecommender(BaseRecommender):
                  log: DataFrame,
                  user_features: Optional[DataFrame],
                  item_features: Optional[DataFrame],
-                 to_filter_seen_items: bool = True,
-                 path: Optional[str] = None) -> DataFrame:
+                 to_filter_seen_items: bool = True) -> DataFrame:
         items_to_rec = self.items_popularity
 
         if context == DEFAULT_CONTEXT:
@@ -132,11 +144,5 @@ class PopularRecommender(BaseRecommender):
                 .withColumn("relevance",
                             sf.when(recs["relevance"] < 0, 0)
                             .otherwise(recs["relevance"]))).cache()
-
-        if path is not None:
-            recs = write_read_dataframe(
-                self.spark, recs,
-                os.path.join(path, "recs.parquet"),
-                self.to_overwrite_files)
 
         return recs

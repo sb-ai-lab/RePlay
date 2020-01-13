@@ -37,11 +37,8 @@ class NeuroCFRecommenderTestCase(PySparkTest):
                   "embedding_dimension": 10}
         self.model.set_params(**params)
 
-        self.model.fit(
-            log=self.log,
-            user_features=None, item_features=None,
-            path=self.tmp_path
-        )
+        self.model.fit(log=self.log, user_features=None, item_features=None)
+
         true_parameters = [
             [[-0.574079, -0.5637433, -0.65786004, -0.43539688, -0.492432,
               0.48474327, -0.48040557, -0.6568693, -0.56893927, -0.50494426],
@@ -58,6 +55,7 @@ class NeuroCFRecommenderTestCase(PySparkTest):
             [[0.49999952], [-0.49999967], [0.49999905]],
             [[0.], [0.], [0.]]
         ]
+
         for i, parameter in enumerate(self.model.model.parameters()):
             self.assertTrue(np.allclose(
                 parameter.detach().cpu().numpy(), true_parameters[i],
