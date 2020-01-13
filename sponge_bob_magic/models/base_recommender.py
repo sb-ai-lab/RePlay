@@ -254,7 +254,7 @@ class Recommender(ABC):
             context = constants.DEFAULT_CONTEXT
 
         recs = self._predict(k, users, items, context, log, user_features,
-                                item_features, filter_seen_items)
+                             item_features, filter_seen_items)
 
         recs = write_read_dataframe(
             self.spark, recs,

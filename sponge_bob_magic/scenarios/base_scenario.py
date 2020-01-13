@@ -12,7 +12,7 @@ class Scenario(ABC):
     """ Базовый класс сценария. """
 
     optuna_study: Optional[Study]
-    optuna_max_n_trials: Optional[int] = 100
+    optuna_max_n_trials: int = 100
     optuna_n_jobs: int = 1
     filter_seen_items: bool = True
 

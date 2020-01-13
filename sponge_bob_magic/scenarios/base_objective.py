@@ -83,7 +83,7 @@ class Objective(ABC):
             recommendations: DataFrame,
             ground_truth: DataFrame,
             criterion: Metric,
-            metrics: Optional[List[Metric]],
+            metrics: List[Metric],
             k: int
     ) -> float:
         """ Подсчитывает все метрики и сохраняет их в `trial`. """
