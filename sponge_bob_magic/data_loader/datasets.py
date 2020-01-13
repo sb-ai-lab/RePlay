@@ -2,8 +2,10 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
+from os import rename
 from os.path import join
 
+from sponge_bob_magic.data_loader.archives import extract, rm_if_exists
 from sponge_bob_magic.data_loader.loaders import download_dataset
 
 
@@ -39,3 +41,20 @@ def download_rekko(path: str = "."):
     url = f"https://boosters.pro/api/ch/files/pub/{archive}"
     path = join(path, "rekko.zip")
     download_dataset(url, path)
+
+
+def download_netflix(path: str = "."):
+    """
+    Cкачать датасет Netflix Prize
+    https://www.kaggle.com/netflix-inc/netflix-prize-data
+    :param path: куда положить
+    :return: None
+    """
+    logging.info("Downloading Netflix Prize dataset...")
+    url = "https://archive.org/download/nf_prize_dataset.tar/nf_prize_dataset.tar.gz"
+    download_dataset(url, join(path, "netflix.tar.gz"))
+    rename(join(path, "download"), join(path, "netflix"))
+    archive = join(path, "netflix", "training_set.tar")
+    extract(archive)
+    rm_if_exists(archive)
+
