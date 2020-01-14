@@ -6,8 +6,9 @@ from os import rename
 from os.path import join
 
 from sponge_bob_magic.data_loader.archives import extract, rm_if_exists
-from sponge_bob_magic.data_loader.loaders import download_dataset
+from sponge_bob_magic.data_loader.loaders import download_dataset, download_url
 
+logging.getLogger().setLevel(logging.INFO)
 
 def download_movielens(path: str = ".", dataset: str = "ml-latest-small"):
     """
@@ -57,4 +58,33 @@ def download_netflix(path: str = "."):
     archive = join(path, "netflix", "training_set.tar")
     extract(archive)
     rm_if_exists(archive)
+
+
+def download_msd(path: str = "."):
+    """
+    Скачать Million Song Dataset (Echo Nest Taste Profile Subset)
+    http://millionsongdataset.com/
+    Данная функция скачивает тройки для обучения,
+    набор данных для теста с MSD Challenge Kaggle (http://millionsongdataset.com/challenge/)
+    и список песен, которые неправильно матчатся с аудио-данными
+    http://millionsongdataset.com/blog/12-2-12-fixing-matching-errors/
+    :param path: куда положить
+    :return: None
+    """
+    logging.info("Getting Million Song Dataset...")
+    logging.info("Downloading Echo Nest Taste Subprofile train data...")
+    url = "http://millionsongdataset.com/sites/default/files/challenge/train_triplets.txt.zip"
+    download_dataset(url, join(path, "train.zip"))
+    msd_folder = join(path, "msd")
+    rename(join(path, "train"), msd_folder)
+
+    logging.info("Downloading evaluation data for MSD Challenge...")
+    url = "http://millionsongdataset.com/sites/default/files/challenge/EvalDataYear1MSDWebsite.zip"
+    download_dataset(url, join(msd_folder, "eval.zip"))
+    rename(join(msd_folder, "EvalDataYear1MSDWebsite"), join(msd_folder, "evaluation"))
+
+    logging.info("Downloading list of matching errors...")
+    url = "http://millionsongdataset.com/sites/default/files/tasteprofile/sid_mismatches.txt"
+    download_url(url, join(msd_folder, "sid_mismatches.txt"))
+
 
