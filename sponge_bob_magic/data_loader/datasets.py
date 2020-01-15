@@ -124,3 +124,17 @@ def download_epinions(path: str = "."):
     url = "http://www.trustlet.org/datasets/downloaded_epinions/trust_data.txt.bz2"
     filepath = join(folder, "trust_data.txt.bz2")
     download_dataset(url, filepath, manage_folder=False)
+
+
+def download_lastfm(path: str = "."):
+    """
+    Скачать lastfm 360k
+    http://ocelma.net/MusicRecommendationDataset/lastfm-360K.html
+
+    :param path: куда положить
+    :return: None
+    """
+    logging.info("Downloading Last.fm 360k dataset...")
+    url = "http://mtg.upf.edu/static/datasets/last.fm/lastfm-dataset-360K.tar.gz"
+    download_dataset(url, join(path, "lastfm.tar.gz"))
+    rename(join(path, "lastfm-dataset-360K"), join(path, "lastfm"))
