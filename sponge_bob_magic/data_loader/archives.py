@@ -8,12 +8,16 @@ from zipfile import ZipFile
 from tarfile import TarFile
 
 
-def extract(archive_name: str) -> None:
+def extract(archive_name: str, manage_folder: bool = True) -> None:
     """
     Извлечь содержимое архива и положить его в папку, если там несколько
     файлов.
 
     :param archive_name: путь до архива
+    :param manage_folder: проверить наличие корневой папки в архиве:
+        если она есть, не создавать дополнительную папку,
+        если в архиве лежат просто файлы, положить их в папку.
+        Значение параметра False означает распаковку "как есть".
     :return:
     """
     if archive_name.endswith(".zip"):
@@ -22,10 +26,13 @@ def extract(archive_name: str) -> None:
         archive = tarfile.open(archive_name, "r:gz")
     elif archive_name.endswith(".tar"):
         archive = tarfile.open(archive_name, "r:")
-
-    if contains_dir(archive):
-        name = os.path.dirname(archive_name)
+    elif archive_name.endswith(".bz2"):
+        archive = tarfile.open(archive_name, "r:bz2")
     else:
+        raise NotImplementedError(f"Can\'t extract {archive_name}")
+
+    name = os.path.dirname(archive_name)
+    if manage_folder and not contains_dir(archive):
         name = remove_extension(archive_name)
         os.mkdir(name)
 
@@ -33,16 +40,16 @@ def extract(archive_name: str) -> None:
     archive.close()
 
 
-def rm_if_exists(filename: str) -> None:
+def rm_if_exists(filepath: str) -> None:
     """
     Удалить файл, если он существует, а если не существует, не бросать
     исключение.
 
-    :param filename: имя файла
+    :param filepath: путь до файла
     :return:
     """
-    if os.path.exists(filename):
-        os.remove(filename)
+    if os.path.exists(filepath):
+        os.remove(filepath)
 
 
 def contains_dir(archive) -> bool:

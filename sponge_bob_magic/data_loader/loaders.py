@@ -8,16 +8,20 @@ from tqdm import tqdm
 from sponge_bob_magic.data_loader.archives import extract, rm_if_exists
 
 
-def download_dataset(url: str, destination_path: str):
+def download_dataset(url: str, destination_path: str, manage_folder: bool = True):
     """
     Скачать датасет из интернета.
 
-    :param link: откуда
-    :param archive_name: куда
+    :param url: откуда
+    :param destination_path: куда
+    :param manage_folder: проверить наличие корневой папки в архиве:
+        если она есть, не создавать дополнительную папку,
+        если в архиве лежат просто файлы, положить их в папку.
+        Значение параметра False означает распаковку "как есть".
     :return: None
     """
     download_url(url, destination_path)
-    extract(destination_path)
+    extract(destination_path, manage_folder)
     rm_if_exists(destination_path)
 
 
