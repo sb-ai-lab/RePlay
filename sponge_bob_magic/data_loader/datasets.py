@@ -5,8 +5,7 @@ import logging
 from os import rename, mkdir
 from os.path import join
 
-from sponge_bob_magic.data_loader.archives import extract, rm_if_exists, remove_extension, \
-    decompress_bz2
+from sponge_bob_magic.data_loader.archives import extract, rm_if_exists
 from sponge_bob_magic.data_loader.loaders import download_dataset, download_url
 
 logging.getLogger().setLevel(logging.INFO)
@@ -117,6 +116,7 @@ def download_epinions(path: str = "."):
     logging.info("Downloading Epinions dataset...")
     folder = join(path, "epinions")
     mkdir(folder)
+
     url = "http://www.trustlet.org/datasets/downloaded_epinions/ratings_data.txt.bz2"
     filepath = join(folder, "ratings_data.txt.bz2")
     download_dataset(url, filepath, manage_folder=False)
@@ -138,3 +138,25 @@ def download_lastfm(path: str = "."):
     url = "http://mtg.upf.edu/static/datasets/last.fm/lastfm-dataset-360K.tar.gz"
     download_dataset(url, join(path, "lastfm.tar.gz"))
     rename(join(path, "lastfm-dataset-360K"), join(path, "lastfm"))
+
+
+def download_hetrec(path: str = "."):
+    """
+    Скачать HetRec 2011
+    https://grouplens.org/datasets/hetrec-2011/
+
+    :param path: куда положить
+    :return: None
+    """
+    logging.info("Downloading HetRec 2011 dataset...")
+    folder = join(path, "hetrec")
+    mkdir(folder)
+
+    url = "http://files.grouplens.org/datasets/hetrec2011/hetrec2011-delicious-2k.zip"
+    download_dataset(url, join(folder, "delicious.zip"))
+
+    url = "http://files.grouplens.org/datasets/hetrec2011/hetrec2011-lastfm-2k.zip"
+    download_dataset(url, join(folder, "lastfm.zip"))
+
+    url = "http://files.grouplens.org/datasets/hetrec2011/hetrec2011-movielens-2k-v2.zip"
+    download_dataset(url, join(folder, "movielens.zip"))
