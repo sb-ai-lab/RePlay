@@ -36,7 +36,7 @@ def download_rekko(path: str = "."):
     175MB
 
     :param path: куда положить
-    :return:  None
+    :return: None
     """
     logging.info("Downloading rekko challenge dataset...")
     archive = "rekko_challenge_rekko_challenge_2019.zip"
