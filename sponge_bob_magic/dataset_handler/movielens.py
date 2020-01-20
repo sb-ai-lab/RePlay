@@ -1,14 +1,16 @@
 import os
 from os.path import join
+import pandas as pd
 
 from sponge_bob_magic.data_loader.datasets import download_movielens
 from sponge_bob_magic.dataset_handler import DATA_FOLDER
 
 
-class MovieLens():
+class MovieLens:
     """
     Враппер для мувиленса, обеспечивает загрузку и парсинг данных.
     Доступны следующие размеры датасета:
+
     | Версия | Размер | Оценок | Пользователей | Фильмов | Тэгов |
     | :----: | :----: | :----: | :-----------: | :-----: | :---: |
     |  25m   | 250MB  |  25m   |     162k      |   62k   |  1m   |
@@ -17,17 +19,33 @@ class MovieLens():
     |   1m   |  6MB   |   1m   |      6k       |   4k    |   -   |
     |  100k  |  5MB   |  100k  |      1k       |  1.7k   |   -   |
 
+    Прочитанные объекты доступны как атрибуты класса:
+    - ratings -- лог оценок фильмов пользователями
+    - items -- фичи фильмов
+    - users -- фичи пользователей
+    - tags -- лог тегов, которые пользователи ставили фильмам
+    - links -- связка id датасета с imdb и tmdb
+    - genome_tags -- список тегов из tag genome dataset
+    - genome_scores -- теги с важностью
+
+    Только некоторые атрибуты доступны для каждой версии датасета.
+    Это определяется файлами в датасете,
+    например, начиная с 10m отсутствуют фичи пользователей,
+    а начиная с 20m можно дополнительно прочитать tag genome dataset.
+
     Подробнее: https://grouplens.org/datasets/movielens/
     """
-    def __init__(self, version):
+    def __init__(self, version: str = "small", read_genome: bool = False):
         """
         :param version: Конкретный вариант датасета
+        :param read_genome: Читать ли данные genome tag dataset (если включены в датасет),
+            по умолчанию не читаются для экономии памяти.
         """
-        options = {'100k', '1m', '10m', '20m', '25m', 'small'}
+        options = {"100k", "1m", "10m", "20m", "25m", "small"}
         if version not in options:
-            raise ValueError(f'{version} is not supported. Available options: {options}')
+            raise ValueError(f"{version} is not supported. Available options: {options}")
 
-        if version == 'small':
+        if version == "small":
             dataset = "ml-latest-small"
         else:
             dataset = "ml-" + version
@@ -35,3 +53,70 @@ class MovieLens():
         folder = join(DATA_FOLDER, dataset)
         if not os.path.exists(folder):
             download_movielens(DATA_FOLDER, dataset)
+
+        if version == "100k":
+            self.ratings, self.users, self.items = self._read_100k(folder)
+        elif version == "1m":
+            self.ratings, self.users, self.items = self._read_1m(folder)
+        elif version == "10m":
+            self.ratings, self.items, self.tags = self._read_10m(folder)
+        else:
+            self.ratings, self.items, self.tags, self.links = self._read_modern(folder)
+            if read_genome:
+                self.genome_tags, self.genome_scores = self._read_genome(folder)
+
+    @staticmethod
+    def _read_modern(folder):
+        ratings = pd.read_csv(join(folder, "ratings.csv"), header=0,
+                              names=["user_id", "item_id", "relevance", "timestamp"])
+        items = pd.read_csv(join(folder, "movies.csv"), header=0,
+                            names=["item_id", "title", "genres"])
+        tags = pd.read_csv(join(folder, "tags.csv"), header=0,
+                           names=["user_id", "item_id", "tag", "timestamp"])
+        links = pd.read_csv(join(folder, "links.csv"), header=0,
+                            names=["item_id", "imdb_id", "tmdb_id"])
+        return ratings, items, tags, links
+
+    @staticmethod
+    def _read_genome(folder):
+        genome_tags = pd.read_csv(join(folder, "genome-tags.csv"), header=0,
+                                  names=["tag_id", "tag"])
+        genome_scores = pd.read_csv(join(folder, "genome-scores.csv"), header=0,
+                                    names=["movie_id", "tag_id", "relevance"])
+        return genome_tags, genome_scores
+
+    @staticmethod
+    def _read_10m(folder):
+        ratings = pd.read_csv(join(folder, "ratings.dat"), sep="\t",
+                              names=["user_id", "item_id", "relevance", "timestamp"])
+        items = pd.read_csv(join(folder, "movies.dat"), sep="\t",
+                            names=["item_id", "title", "genres"])
+        tags = pd.read_csv(join(folder, "tags.dat"), sep="\t",
+                           names=["user_id", "item_id", "tag", "timestamp"])
+        return ratings, items, tags
+
+    @staticmethod
+    def _read_1m(folder):
+        ratings = pd.read_csv(join(folder, "ratings.dat"), sep="\t",
+                              names=["user_id", "item_id", "relevance", "timestamp"])
+        users = pd.read_csv(join(folder, "users.dat"), sep="\t",
+                            names=["user_id", "gender", "age", "occupation", "zip_code"])
+        items = pd.read_csv(join(folder, "movies.dat"), sep="\t",
+                            names=["item_id", "title", "genres"])
+        return ratings, users, items
+
+    @staticmethod
+    def _read_100k(folder):
+        ratings = pd.read_csv(join(folder, "u.data"), sep="\t",
+                              names=["user_id", "item_id", "relevance", "timestamp"])
+        users = pd.read_csv(join(folder, "u.user"), sep="|",
+                            names=["user_id", "gender", "age", "occupation", "zip_code"])
+        items = pd.read_csv(join(folder, "u.item"), sep="|",
+                            names=["item_id", "title", "release_date", "video_release_date",
+                                   "imdb_url", "unknown", "Action", "Adventure", "Animation",
+                                   "Children\'s", "Comedy", "Crime", "Documentary", "Drama",
+                                   "Fantasy", "Film-Noir", "Horror", "Musical", "Mystery",
+                                   "Romance", "Sci-Fi", "Thriller", "War", "Western"],
+                            encoding="ISO-8859-1",
+                            parse_dates=["release_date"]).drop("video_release_date", axis=1)
+        return ratings, users, items
