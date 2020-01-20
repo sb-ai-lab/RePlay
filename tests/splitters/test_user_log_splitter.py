@@ -1,13 +1,53 @@
 from datetime import datetime
 
 from parameterized import parameterized
+from pyspark.sql import DataFrame
+from tests.pyspark_testcase import PySparkTest
 
-from pyspark_testcase import PySparkTest
 from sponge_bob_magic.constants import LOG_SCHEMA
+from sponge_bob_magic.splitters.base_splitter import SplitterReturnType
 from sponge_bob_magic.splitters.user_log_splitter import (
-    RandomUserLogSplitter,
-    ByTimeUserLogSplitter
-)
+    ByTimeUserLogSplitter, RandomUserLogSplitter, UserLogSplitter)
+
+
+class TestSplitter(UserLogSplitter):
+    def _split_proportion(self, log: DataFrame) -> SplitterReturnType:
+        return (log, log, log)
+
+    def _split_quantity(self, log: DataFrame) -> SplitterReturnType:
+        return (log, log, log)
+
+
+class TestUserLogSplitter(PySparkTest):
+    def setUp(self):
+        data = [
+            ["user1", "item4", datetime(2019, 9, 12), "day", 1.0],
+            ["user2", "item5", datetime(2019, 9, 13), "night", 2.0],
+            ["user3", "item7", datetime(2019, 9, 17), "night", 1.0],
+            ["user4", "item6", datetime(2019, 9, 17), "night", 1.0],
+            ["user5", "item6", datetime(2019, 9, 17), "night", 1.0]
+        ]
+        self.log = self.spark.createDataFrame(data=data, schema=LOG_SCHEMA)
+
+    @parameterized.expand([(0.5,), (3,)])
+    def test_get_test_users(self, fraction):
+        test_users = TestSplitter(
+            self.spark, False, False, 1, fraction
+        ).get_test_users(self.log)
+        self.assertEqual(test_users.count(), 2)
+        self.assertSparkDataFrameEqual(
+            test_users,
+            self.spark.createDataFrame(
+                data=[{"user_id": "user4"}, {"user_id": "user5"}]
+            )
+        )
+
+    @parameterized.expand([(5,), (1.0,)])
+    def test_exceptions(self, wrong_fraction):
+        with self.assertRaises(ValueError):
+            TestSplitter(
+                self.spark, False, False, 1, wrong_fraction
+            ).get_test_users(self.log)
 
 
 class TestRandomUserLogSplitter(PySparkTest):
@@ -42,7 +82,7 @@ class TestRandomUserLogSplitter(PySparkTest):
             schema=LOG_SCHEMA)
 
     @parameterized.expand([
-        # test_size
+        # item_test_size
         (0.1,),
         (0.2,),
         (0.3,),
@@ -58,13 +98,13 @@ class TestRandomUserLogSplitter(PySparkTest):
         (3,),
         (4,),
     ])
-    def test_split(self, test_size):
+    def test_split(self, item_test_size):
         train, predict_input, test = (
             RandomUserLogSplitter(
                 self.spark,
                 drop_cold_items=False,
                 drop_cold_users=False,
-                test_size=test_size,
+                item_test_size=item_test_size,
                 seed=1234)
             .split(log=self.log)
         )
@@ -75,18 +115,18 @@ class TestRandomUserLogSplitter(PySparkTest):
         self.assertEqual(test.intersect(train).count(), 0)
         self.assertEqual(test.intersect(predict_input).count(), 0)
 
-        if isinstance(test_size, int):
+        if isinstance(item_test_size, int):
             #  это грубая проверка; чтобы она была верна, необходимо
-            # чтобы test_size был больше длины лога каждого пользователя
+            # чтобы item_test_size был больше длины лога каждого пользователя
             num_users = self.log.select("user_id").distinct().count()
-            self.assertEqual(num_users * test_size, test.count())
-            self.assertEqual(self.log.count() - num_users * test_size,
+            self.assertEqual(num_users * item_test_size, test.count())
+            self.assertEqual(self.log.count() - num_users * item_test_size,
                              train.count())
-            self.assertEqual(self.log.count() - num_users * test_size,
+            self.assertEqual(self.log.count() - num_users * item_test_size,
                              predict_input.count())
 
     @parameterized.expand([
-        # test_size
+        # item_test_size
         (2.0,),
         (2.1,),
         (-1,),
@@ -94,10 +134,12 @@ class TestRandomUserLogSplitter(PySparkTest):
         (-0.01,),
         (-50,),
     ])
-    def test_test_size_exception(self, test_size):
+    def test_item_test_size_exception(self, item_test_size):
         self.assertRaises(
             ValueError,
-            RandomUserLogSplitter(self.spark, False, False, test_size).split,
+            RandomUserLogSplitter(
+                self.spark, False, False, item_test_size
+            ).split,
             log=self.log
         )
 
@@ -129,7 +171,7 @@ class TestByTimeUserLogSplitter(PySparkTest):
                 self.spark,
                 drop_cold_items=False,
                 drop_cold_users=False,
-                test_size=2)
+                item_test_size=2)
             .split(log=self.log)
         )
 
@@ -158,7 +200,6 @@ class TestByTimeUserLogSplitter(PySparkTest):
                 ["3", "3", datetime(1995, 1, 3), "", 1.0],
             ],
             schema=LOG_SCHEMA)
-
         self.assertSparkDataFrameEqual(true_train, train)
         self.assertSparkDataFrameEqual(true_test, test)
         self.assertSparkDataFrameEqual(true_train, predict_input)
@@ -169,7 +210,7 @@ class TestByTimeUserLogSplitter(PySparkTest):
                 self.spark,
                 drop_cold_items=False,
                 drop_cold_users=False,
-                test_size=0.4)
+                item_test_size=0.4)
             .split(log=self.log)
         )
 
@@ -204,7 +245,7 @@ class TestByTimeUserLogSplitter(PySparkTest):
         self.assertSparkDataFrameEqual(true_train, predict_input)
 
     @parameterized.expand([
-        # test_size
+        # item_test_size
         (2.0,),
         (2.1,),
         (-1,),
@@ -212,9 +253,11 @@ class TestByTimeUserLogSplitter(PySparkTest):
         (-0.01,),
         (-50,),
     ])
-    def test_test_size_exception(self, test_size):
+    def test_item_test_size_exception(self, item_test_size):
         self.assertRaises(
             ValueError,
-            ByTimeUserLogSplitter(self.spark, False, False, test_size).split,
+            ByTimeUserLogSplitter(
+                self.spark, False, False, item_test_size
+            ).split,
             log=self.log
         )
