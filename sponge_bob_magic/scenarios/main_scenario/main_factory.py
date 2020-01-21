@@ -2,6 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
+import os
 from datetime import datetime
 from typing import List, Optional
 
@@ -23,29 +24,18 @@ from sponge_bob_magic.splitters.log_splitter import (LogSplitRandomlySplitter,
 class MainScenarioFactory(ScenarioFactory):
     """ Класс фабрики для простого сценария с замесом. """
 
-    def __init__(
-            self,
-            spark: SparkSession,
-            splitter: Optional[Splitter] = None,
-            recommender: Optional[Recommender] = None,
-            criterion: Optional[Metric] = None,
-            metrics: Optional[List[Metric]] = None,
-            fallback_recommender: Optional[Recommender] = None,
-    ):
-        super().__init__(spark)
-
-        self.metrics = metrics
-        self.criterion = criterion
-        self.recommender = recommender
-        self.splitter = splitter
-        self.fallback_recommender = fallback_recommender
-        self.spark = spark
-
-    def get(self) -> Scenario:
+    def get(
+        self,
+        splitter: Optional[Splitter] = None,
+        recommender: Optional[Recommender] = None,
+        criterion: Optional[Metric] = None,
+        metrics: Optional[List[Metric]] = None,
+        fallback_recommender: Optional[Recommender] = None
+    ) -> Scenario:
         main_scenario = MainScenario(self.spark)
 
         main_scenario.splitter = (
-            self.splitter if self.splitter
+            splitter if splitter
             else LogSplitRandomlySplitter(self.spark,
                                           drop_cold_users=True,
                                           drop_cold_items=True,
@@ -53,15 +43,15 @@ class MainScenarioFactory(ScenarioFactory):
                                           seed=1234)
         )
         main_scenario.recommender = (
-            self.recommender if self.recommender
+            recommender if recommender
             else PopularRecommender(self.spark, alpha=0, beta=0)
         )
         main_scenario.criterion = (
-            self.criterion if self.criterion
+            criterion if criterion
             else HitRateMetric(self.spark)
         )
-        main_scenario.metrics = self.metrics if self.metrics else []
-        main_scenario.fallback_recommender = self.fallback_recommender
+        main_scenario.metrics = metrics if metrics else []
+        main_scenario.fallback_recommender = fallback_recommender
 
         return main_scenario
 
@@ -70,6 +60,7 @@ if __name__ == "__main__":
     spark_ = (SparkSession
               .builder
               .master("local[4]")
+              .config("spark.local.dir", os.path.join(os.environ["HOME"], "tmp"))
               .config("spark.driver.memory", "2g")
               .config("spark.sql.shuffle.partitions", "1")
               .appName("testing-pyspark")
@@ -116,16 +107,15 @@ if __name__ == "__main__":
         grid = {"num_neighbours": {"type": "categorical",
                                    "args": [[1]]}}
 
-    factory = MainScenarioFactory(
-        spark_,
+    factory = MainScenarioFactory(spark_)
+
+    scenario = factory.get(
         splitter=LogSplitByDateSplitter(spark_, True, True,
                                         datetime(2019, 10, 14)),
         criterion=None,
         metrics=None,
         recommender=recommender_
     )
-
-    scenario = factory.get()
     best_params_ = scenario.research(grid, log_,
                                      k=2, n_trials=4)
 
