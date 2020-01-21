@@ -1,6 +1,9 @@
 import os
 from os.path import join
 import pandas as pd
+from IPython.display import display
+from pandas import DataFrame
+from typing import Tuple
 
 from sponge_bob_magic.data_loader.datasets import download_movielens
 from sponge_bob_magic.dataset_handler import DATA_FOLDER
@@ -32,6 +35,32 @@ class MovieLens:
     Это определяется файлами в датасете,
     например, начиная с 10m отсутствуют фичи пользователей,
     а начиная с 20m можно дополнительно прочитать tag genome dataset.
+
+    Посмотреть доступные данные можно с помощью метода `info()`.
+
+    Пример загрузки:
+    >>> from sponge_bob_magic.dataset_handler import MovieLens
+    >>> ml = MovieLens("10m")
+    >>> ml.info()
+    ratings
+       user_id  item_id  relevance  timestamp
+    0        1      122        5.0  838985046
+    1        1      185        5.0  838983525
+    2        1      231        5.0  838983392
+    items
+       item_id                    title  \
+    0        1         Toy Story (1995)
+    1        2           Jumanji (1995)
+    2        3  Grumpier Old Men (1995)
+                                            genres
+    0  Adventure|Animation|Children|Comedy|Fantasy
+    1                   Adventure|Children|Fantasy
+    2                               Comedy|Romance
+    tags
+       user_id  item_id         tag   timestamp
+    0       15     4973  excellent!  1215184630
+    1       20     1747    politics  1188263867
+    2       20     1747      satire  1188263867
 
     Подробнее: https://grouplens.org/datasets/movielens/
     """
@@ -65,8 +94,15 @@ class MovieLens:
             if read_genome:
                 self.genome_tags, self.genome_scores = self._read_genome(folder)
 
+    def info(self):
+        with pd.option_context('display.max_columns', 10):
+            for name, df in self.__dict__.items():
+                print(name)
+                display(df.head(3))
+                print()
+
     @staticmethod
-    def _read_modern(folder):
+    def _read_modern(folder: str) -> Tuple[DataFrame]:
         ratings = pd.read_csv(join(folder, "ratings.csv"), header=0,
                               names=["user_id", "item_id", "relevance", "timestamp"])
         items = pd.read_csv(join(folder, "movies.csv"), header=0,
@@ -78,7 +114,7 @@ class MovieLens:
         return ratings, items, tags, links
 
     @staticmethod
-    def _read_genome(folder):
+    def _read_genome(folder: str) -> Tuple[DataFrame]:
         genome_tags = pd.read_csv(join(folder, "genome-tags.csv"), header=0,
                                   names=["tag_id", "tag"])
         genome_scores = pd.read_csv(join(folder, "genome-scores.csv"), header=0,
@@ -86,7 +122,7 @@ class MovieLens:
         return genome_tags, genome_scores
 
     @staticmethod
-    def _read_10m(folder):
+    def _read_10m(folder: str) -> Tuple[DataFrame]:
         ratings = pd.read_csv(join(folder, "ratings.dat"), sep="\t",
                               names=["user_id", "item_id", "relevance", "timestamp"])
         items = pd.read_csv(join(folder, "movies.dat"), sep="\t",
@@ -96,7 +132,7 @@ class MovieLens:
         return ratings, items, tags
 
     @staticmethod
-    def _read_1m(folder):
+    def _read_1m(folder: str) -> Tuple[DataFrame]:
         ratings = pd.read_csv(join(folder, "ratings.dat"), sep="\t",
                               names=["user_id", "item_id", "relevance", "timestamp"])
         users = pd.read_csv(join(folder, "users.dat"), sep="\t",
@@ -106,7 +142,7 @@ class MovieLens:
         return ratings, users, items
 
     @staticmethod
-    def _read_100k(folder):
+    def _read_100k(folder: str) -> Tuple[DataFrame]:
         ratings = pd.read_csv(join(folder, "u.data"), sep="\t",
                               names=["user_id", "item_id", "relevance", "timestamp"])
         users = pd.read_csv(join(folder, "u.user"), sep="|",
