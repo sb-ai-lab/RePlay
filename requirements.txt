@@ -37,6 +37,7 @@ jupyter-console==6.0.0
 jupyter-core==4.6.1
 kiwisolver==1.1.0
 lazy-object-proxy==1.4.3
+lightfm==1.15
 Mako==1.1.0
 MarkupSafe==1.1.1
 matplotlib==3.1.2
@@ -79,6 +80,7 @@ PyYAML==5.3
 pyzmq==18.1.1
 qtconsole==4.6.0
 regex==2020.1.8
+requests==2.22.0
 rope==0.16.0
 scikit-learn==0.22.1
 scipy==1.4.1
