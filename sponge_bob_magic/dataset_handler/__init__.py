@@ -10,3 +10,4 @@ if not os.path.exists(DATA_FOLDER):
     os.mkdir(DATA_FOLDER)
 
 from sponge_bob_magic.dataset_handler.movielens import MovieLens
+from sponge_bob_magic.dataset_handler.msd import MillionSongDataset

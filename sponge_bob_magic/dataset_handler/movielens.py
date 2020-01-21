@@ -1,15 +1,15 @@
 import os
 from os.path import join
 import pandas as pd
-from IPython.display import display
 from pandas import DataFrame
 from typing import Tuple
 
 from sponge_bob_magic.data_loader.datasets import download_movielens
 from sponge_bob_magic.dataset_handler import DATA_FOLDER
+from sponge_bob_magic.dataset_handler.generic_dataset import Dataset
 
 
-class MovieLens:
+class MovieLens(Dataset):
     """
     Враппер для мувиленса, обеспечивает загрузку и парсинг данных.
     Доступны следующие размеры датасета:
@@ -93,13 +93,6 @@ class MovieLens:
             self.ratings, self.items, self.tags, self.links = self._read_modern(folder)
             if read_genome:
                 self.genome_tags, self.genome_scores = self._read_genome(folder)
-
-    def info(self):
-        with pd.option_context('display.max_columns', 10):
-            for name, df in self.__dict__.items():
-                print(name)
-                display(df.head(3))
-                print()
 
     @staticmethod
     def _read_modern(folder: str) -> Tuple[DataFrame]:
