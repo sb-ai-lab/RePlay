@@ -70,7 +70,7 @@ class MovieLens(Dataset):
         :param read_genome: Читать ли данные genome tag dataset (если включены в датасет),
             по умолчанию не читаются для экономии памяти.
         """
-        options = {"100k", "1m", "10m", "20m", "25m", "small"}
+        options = {"100k", "1m", "10m", "20m", "25m", "small", "latest"}
         if version not in options:
             raise ValueError(f"{version} is not supported. Available options: {options}")
 

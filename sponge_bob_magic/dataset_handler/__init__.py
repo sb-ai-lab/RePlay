@@ -1,10 +1,11 @@
 import os
-import sys
 from os.path import join
 
 
-ROOT = os.path.dirname(sys.modules['sponge_bob_magic'].__file__)
-DATA_FOLDER = join(ROOT, 'datasets')
+DATA_FOLDER = os.getenv("KRUSTY_KRABS", None)
+if DATA_FOLDER is None:
+    ROOT = os.path.expanduser("~")
+    DATA_FOLDER = join(ROOT, 'sb_magic_data')
 
 if not os.path.exists(DATA_FOLDER):
     os.mkdir(DATA_FOLDER)
