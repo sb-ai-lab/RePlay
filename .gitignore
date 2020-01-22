@@ -144,3 +144,4 @@ data/
 pyvenv.cfg
 *~
 tmp/
+/sponge_bob_magic/datasets/
