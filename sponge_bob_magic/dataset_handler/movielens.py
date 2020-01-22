@@ -1,15 +1,14 @@
 import os
 from os.path import join
 import pandas as pd
-from IPython.display import display
 from pandas import DataFrame
 from typing import Tuple
 
 from sponge_bob_magic.data_loader.datasets import download_movielens
-from sponge_bob_magic.dataset_handler import DATA_FOLDER
+from sponge_bob_magic.dataset_handler.generic_dataset import Dataset
 
 
-class MovieLens:
+class MovieLens(Dataset):
     """
     Враппер для мувиленса, обеспечивает загрузку и парсинг данных.
     Доступны следующие размеры датасета:
@@ -70,6 +69,7 @@ class MovieLens:
         :param read_genome: Читать ли данные genome tag dataset (если включены в датасет),
             по умолчанию не читаются для экономии памяти.
         """
+        super().__init__()
         options = {"100k", "1m", "10m", "20m", "25m", "small", "latest"}
         if version not in options:
             raise ValueError(f"{version} is not supported. Available options: {options}")
@@ -79,9 +79,9 @@ class MovieLens:
         else:
             dataset = "ml-" + version
 
-        folder = join(DATA_FOLDER, dataset)
+        folder = join(self.data_folder, dataset)
         if not os.path.exists(folder):
-            download_movielens(DATA_FOLDER, dataset)
+            download_movielens(self.data_folder, dataset)
 
         if version == "100k":
             self.ratings, self.users, self.items = self._read_100k(folder)
@@ -93,13 +93,6 @@ class MovieLens:
             self.ratings, self.items, self.tags, self.links = self._read_modern(folder)
             if read_genome:
                 self.genome_tags, self.genome_scores = self._read_genome(folder)
-
-    def info(self):
-        with pd.option_context('display.max_columns', 10):
-            for name, df in self.__dict__.items():
-                print(name)
-                display(df.head(3))
-                print()
 
     @staticmethod
     def _read_modern(folder: str) -> Tuple[DataFrame]:
