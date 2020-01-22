@@ -5,7 +5,7 @@ from pandas import DataFrame
 from typing import Tuple
 
 from sponge_bob_magic.data_loader.datasets import download_movielens
-from sponge_bob_magic.dataset_handler.generic_dataset import Dataset
+from sponge_bob_magic.datasets.generic_dataset import Dataset
 
 
 class MovieLens(Dataset):
@@ -38,7 +38,7 @@ class MovieLens(Dataset):
     Посмотреть доступные данные можно с помощью метода `info()`.
 
     Пример загрузки:
-    >>> from sponge_bob_magic.dataset_handler import MovieLens
+    >>> from sponge_bob_magic.datasets import MovieLens
     >>> ml = MovieLens("10m")
     >>> ml.info()
     ratings
