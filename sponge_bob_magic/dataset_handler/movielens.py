@@ -5,7 +5,6 @@ from pandas import DataFrame
 from typing import Tuple
 
 from sponge_bob_magic.data_loader.datasets import download_movielens
-from sponge_bob_magic.dataset_handler import DATA_FOLDER
 from sponge_bob_magic.dataset_handler.generic_dataset import Dataset
 
 
@@ -70,6 +69,7 @@ class MovieLens(Dataset):
         :param read_genome: Читать ли данные genome tag dataset (если включены в датасет),
             по умолчанию не читаются для экономии памяти.
         """
+        super().__init__()
         options = {"100k", "1m", "10m", "20m", "25m", "small", "latest"}
         if version not in options:
             raise ValueError(f"{version} is not supported. Available options: {options}")
@@ -79,9 +79,9 @@ class MovieLens(Dataset):
         else:
             dataset = "ml-" + version
 
-        folder = join(DATA_FOLDER, dataset)
+        folder = join(self.data_folder, dataset)
         if not os.path.exists(folder):
-            download_movielens(DATA_FOLDER, dataset)
+            download_movielens(self.data_folder, dataset)
 
         if version == "100k":
             self.ratings, self.users, self.items = self._read_100k(folder)

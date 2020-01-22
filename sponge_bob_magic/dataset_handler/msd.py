@@ -3,7 +3,6 @@ import pandas as pd
 from os.path import join
 
 from sponge_bob_magic.data_loader.datasets import download_msd
-from sponge_bob_magic.dataset_handler import DATA_FOLDER
 from sponge_bob_magic.dataset_handler.generic_dataset import Dataset
 
 
@@ -55,9 +54,10 @@ class MillionSongDataset(Dataset):
             По умолчанию эти песни выкидываются из датасета.
             Подробнее: http://millionsongdataset.com/blog/12-2-12-fixing-matching-errors/
         """
-        folder = join(DATA_FOLDER, "msd")
+        super().__init__()
+        folder = join(self.data_folder, "msd")
         if not os.path.exists(folder):
-            download_msd(DATA_FOLDER)
+            download_msd(self.data_folder)
 
         try_cache = merge_kaggle_splits and drop_mismatches
         processed = join(folder, "clean")
