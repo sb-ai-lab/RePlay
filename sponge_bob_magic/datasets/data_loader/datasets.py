@@ -5,8 +5,8 @@ import logging
 from os.path import join, dirname
 from os import rename, mkdir
 
-from sponge_bob_magic.data_loader.archives import extract, rm_if_exists
-from sponge_bob_magic.data_loader.loaders import download_dataset, download_url
+from sponge_bob_magic.datasets.data_loader.archives import extract, rm_if_exists
+from sponge_bob_magic.datasets.data_loader.loaders import download_dataset, download_url
 
 logging.getLogger().setLevel(logging.INFO)
 

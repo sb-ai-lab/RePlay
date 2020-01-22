@@ -4,7 +4,7 @@ import pandas as pd
 from pandas import DataFrame
 from typing import Tuple
 
-from sponge_bob_magic.data_loader.datasets import download_movielens
+from sponge_bob_magic.datasets.data_loader import download_movielens
 from sponge_bob_magic.datasets.generic_dataset import Dataset
 
 

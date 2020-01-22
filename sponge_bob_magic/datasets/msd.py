@@ -2,7 +2,7 @@ import os
 import pandas as pd
 from os.path import join
 
-from sponge_bob_magic.data_loader.datasets import download_msd
+from sponge_bob_magic.datasets.data_loader import download_msd
 from sponge_bob_magic.datasets.generic_dataset import Dataset
 
 
