@@ -5,7 +5,7 @@ from urllib.request import urlretrieve
 
 from tqdm import tqdm
 
-from sponge_bob_magic.data_loader.archives import extract, rm_if_exists
+from sponge_bob_magic.datasets.data_loader.archives import extract, rm_if_exists
 
 
 def download_dataset(url: str, destination_path: str, manage_folder: bool = True):

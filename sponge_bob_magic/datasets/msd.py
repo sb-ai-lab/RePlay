@@ -2,8 +2,8 @@ import os
 import pandas as pd
 from os.path import join
 
-from sponge_bob_magic.data_loader.datasets import download_msd
-from sponge_bob_magic.dataset_handler.generic_dataset import Dataset
+from sponge_bob_magic.datasets.data_loader import download_msd
+from sponge_bob_magic.datasets.generic_dataset import Dataset
 
 
 class MillionSongDataset(Dataset):
@@ -18,7 +18,7 @@ class MillionSongDataset(Dataset):
     - 48,373,586 троек user - song - play count
 
     Пример загрузки:
-    >>> from sponge_bob_magic.dataset_handler import MillionSongDataset
+    >>> from sponge_bob_magic.datasets import MillionSongDataset
     >>> msd = MillionSongDataset()
     >>> msd.info()
     train
