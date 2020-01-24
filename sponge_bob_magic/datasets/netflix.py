@@ -1,6 +1,6 @@
 import logging
 from glob import glob
-from os import mkdir
+from os import mkdir, remove
 from os.path import join, exists
 import pandas as pd
 from tqdm import tqdm
@@ -18,8 +18,18 @@ class Netflix(Dataset):
     - 100m оценок по шкале 1-5
 
     Для тестовых данных оценки не доступны.
-
     Подробнее: https://www.kaggle.com/netflix-inc/netflix-prize-data
+
+    ! В первую загрузку чтение будет происходить долго, около 7 минут из-за парсинга дат.
+    ! В последствии будет читаться быстро т.к. будет оставлен только обработанный паркет файл.
+
+    ! Не рекомендуется читать датафрейм напрямую (df = pd.read_parquet)
+    ! при использовании саентифик мод пайчарм.
+    ! Пайчарм пытается прогрузить все 100млн строк, объекта,
+    ! чтобы отображать информацию о датафрейме,
+    ! что приводит к огромному потреблению памяти и, вероятно, зависанию.
+    ! В обертке (например, этот класс) он туда не лезет,
+    ! если не разворачивать атрибуты объекта вручную.
     """
     def __init__(self, path: str = None):
         super().__init__(path)
@@ -30,23 +40,28 @@ class Netflix(Dataset):
         self._read_clean(folder)
 
     def _read_clean(self, folder):
-        logging.info("loading preprocessed")
         path = join(folder, "clean")
         self.movies = pd.read_csv(join(path, "movies.csv"), sep="\t",
                                   names=["item_id", "year", "title"],
                                   dtype={"item_id": "uint16",
                                           "year": "float32"})
-        self.train = pd.read_csv(join(path, "train.csv"),
-                                 names=["item_id", "user_id", "relevance", "timestamp"],
-                                 parse_dates=["timestamp"],
-                                 dtype={"user_id": "category",
-                                        "item_id": "category",
-                                        "relevance": "uint8"})
         self.test = pd.read_csv(join(path, "test.csv"),
                                 names=["item_id", "user_id", "timestamp"],
                                 parse_dates=["timestamp"],
                                 dtype={"user_id": "category",
                                        "item_id": "category"})
+        if exists(join(path, "train.parquet")):
+            self.train = pd.read_parquet(join(path, 'train.parquet'))
+        else:
+            logging.info("One time date parsing will take ≈ 7 minutes...")
+            self.train = pd.read_csv(join(path, "train.csv"),
+                                     names=["item_id", "user_id", "relevance", "timestamp"],
+                                     parse_dates=["timestamp"],
+                                     dtype={"user_id": "category",
+                                            "item_id": "category",
+                                            "relevance": "uint8"})
+            self.train.to_parquet(join(path, "train.parquet"))
+            remove(join(path, "train.csv"))
 
     def _save_clean(self, raw):
         clean = join(raw, "clean")
