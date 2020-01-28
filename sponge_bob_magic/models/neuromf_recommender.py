@@ -218,7 +218,6 @@ class NeuroMFRecommender(Recommender):
         self.model.eval()
         logging.debug("-- Запись annoy индексов")
         _, item_embs = self.model(user_batch, item_batch, get_embs=True)
-        #         pdb.set_trace()
         for item_id, item_emb in zip(tensor_data["item_idx"].values, item_embs.detach().numpy()):
             self.annoy_index.add_item(int(item_id), item_emb)
         self.annoy_index.build(10)
@@ -409,16 +408,15 @@ class NeuroMFRecommender(Recommender):
         :param column: имя колонки, которую надо нормализовать
         :return: исходный датафрейм с измененной колонкой
         """
-        i = column
         unlist = udf(lambda x: float(list(x)[0]), DoubleType())
-        assembler = VectorAssembler(inputCols=[column], outputCol=column + "_Vect")
-        scaler = MinMaxScaler(inputCol=column + "_Vect", outputCol=column + "_Scaled")
+        assembler = VectorAssembler(inputCols=[column], outputCol=column+"_Vect")
+        scaler = MinMaxScaler(inputCol=column+"_Vect", outputCol=column+"_Scaled")
         pipeline = Pipeline(stages=[assembler, scaler])
         dataframe = (pipeline
                      .fit(dataframe)
                      .transform(dataframe)
-                     .withColumn(column, unlist(column + "_Scaled"))
-                     .drop(column + "_Vect", column + "_Scaled"))
+                     .withColumn(column, unlist(column+"_Scaled"))
+                     .drop(column+"_Vect", column+"_Scaled"))
 
         return dataframe
 
