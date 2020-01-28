@@ -9,19 +9,18 @@ from typing import Dict, Generator, Optional, Tuple, Union
 import numpy as np
 import pandas
 import torch.optim
+from annoy import AnnoyIndex
+from pyspark.ml import Pipeline
 from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql import functions as sf
 from pyspark.ml.feature import MinMaxScaler
 from pyspark.ml.feature import VectorAssembler
-from pyspark.ml import Pipeline
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import functions as sf
 from pyspark.sql.functions import udf
 from pyspark.sql.types import DoubleType
 from torch import Tensor
 from torch.nn import DataParallel, Embedding, Module
 from torch.utils.data import DataLoader, TensorDataset
-
-from annoy import AnnoyIndex
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_recommender import Recommender
@@ -37,13 +36,13 @@ class NMF(Module):
     ):
         super().__init__()
         user_embedding = Embedding(num_embeddings=user_count,
-                                      embedding_dim=embedding_dimension)
+                                   embedding_dim=embedding_dimension)
         item_embedding = Embedding(num_embeddings=item_count,
-                                      embedding_dim=embedding_dimension)
+                                   embedding_dim=embedding_dimension)
         item_biases = Embedding(num_embeddings=item_count,
-                                   embedding_dim=1)
+                                embedding_dim=1)
         user_biases = Embedding(num_embeddings=user_count,
-                                   embedding_dim=1)
+                                embedding_dim=1)
 
         user_embedding.weight.data.normal_(0, 1.0 / embedding_dimension)
         item_embedding.weight.data.normal_(0, 1.0 / embedding_dimension)
@@ -412,14 +411,14 @@ class NeuroMFRecommender(Recommender):
         """
         i = column
         unlist = udf(lambda x: float(list(x)[0]), DoubleType())
-        assembler = VectorAssembler(inputCols=[column], outputCol=column+"_Vect")
-        scaler = MinMaxScaler(inputCol=column+"_Vect", outputCol=column+"_Scaled")
+        assembler = VectorAssembler(inputCols=[column], outputCol=column + "_Vect")
+        scaler = MinMaxScaler(inputCol=column + "_Vect", outputCol=column + "_Scaled")
         pipeline = Pipeline(stages=[assembler, scaler])
         dataframe = (pipeline
                      .fit(dataframe)
                      .transform(dataframe)
-                     .withColumn(column, unlist(column+"_Scaled"))
-                     .drop(column+"_Vect", column+"_Scaled"))
+                     .withColumn(column, unlist(column + "_Scaled"))
+                     .drop(column + "_Vect", column + "_Scaled"))
 
         return dataframe
 
