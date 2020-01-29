@@ -1,9 +1,13 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+import logging
+import os
+from math import floor
 from typing import Any, List, Optional, Set, Tuple
 
 import numpy as np
+import psutil
 from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as sf
 
@@ -126,3 +130,39 @@ def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
                         sf.row_number().over(window))
             .filter(sf.col("rank") <= k)
             .drop("rank"))
+
+
+def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
+    """
+    инициализирует и возращает SparkSession с "годными" параметрами по
+    умолчанию (для пользователей, которые не хотят сами настраивать Spark)
+
+    :param spark_memory: количество гигабайт оперативной памяти, которую нужно
+    выделить под Spark; если не задано, выделяется половина всей доступной
+    памяти
+    """
+    if spark_memory is None:
+        spark_memory = floor(psutil.virtual_memory().total / 1024 ** 3 / 2)
+    spark_cores = "*"
+    user_home = os.environ["HOME"]
+    spark = (
+        SparkSession
+        .builder
+        .config("spark.driver.memory", f"{spark_memory}g")
+        .config("spark.local.dir", os.path.join(user_home, "tmp"))
+        .master(f"local[{spark_cores}]")
+        .enableHiveSupport()
+        .getOrCreate()
+    )
+    spark_logger = logging.getLogger("py4j")
+    spark_logger.setLevel(logging.WARN)
+    logger = logging.getLogger()
+    formatter = logging.Formatter(
+        "%(asctime)s, %(name)s, %(levelname)s: %(message)s",
+        datefmt="%d-%b-%y %H:%M:%S"
+    )
+    hdlr = logging.StreamHandler()
+    hdlr.setFormatter(formatter)
+    logger.addHandler(hdlr)
+    logger.setLevel(logging.DEBUG)
+    return spark
