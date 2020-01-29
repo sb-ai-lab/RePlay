@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 from datetime import datetime
 
 from parameterized import parameterized
@@ -32,7 +35,7 @@ class TestUserLogSplitter(PySparkTest):
     @parameterized.expand([(0.5,), (3,)])
     def test_get_test_users(self, fraction):
         test_users = TestSplitter(
-            self.spark, False, False, 1, fraction
+            False, False, 1, fraction
         ).get_test_users(self.log)
         self.assertEqual(test_users.count(), 2)
         self.assertSparkDataFrameEqual(
@@ -46,7 +49,7 @@ class TestUserLogSplitter(PySparkTest):
     def test_exceptions(self, wrong_fraction):
         with self.assertRaises(ValueError):
             TestSplitter(
-                self.spark, False, False, 1, wrong_fraction
+                False, False, 1, wrong_fraction
             ).get_test_users(self.log)
 
 
@@ -101,7 +104,6 @@ class TestRandomUserLogSplitter(PySparkTest):
     def test_split(self, item_test_size):
         train, predict_input, test = (
             RandomUserLogSplitter(
-                self.spark,
                 drop_cold_items=False,
                 drop_cold_users=False,
                 item_test_size=item_test_size,
@@ -168,7 +170,6 @@ class TestByTimeUserLogSplitter(PySparkTest):
     def test_split_quantity(self):
         train, predict_input, test = (
             ByTimeUserLogSplitter(
-                self.spark,
                 drop_cold_items=False,
                 drop_cold_users=False,
                 item_test_size=2)
@@ -207,7 +208,6 @@ class TestByTimeUserLogSplitter(PySparkTest):
     def test_split_proportion(self):
         train, predict_input, test = (
             ByTimeUserLogSplitter(
-                self.spark,
                 drop_cold_items=False,
                 drop_cold_users=False,
                 item_test_size=0.4)
@@ -257,7 +257,7 @@ class TestByTimeUserLogSplitter(PySparkTest):
         self.assertRaises(
             ValueError,
             ByTimeUserLogSplitter(
-                self.spark, False, False, item_test_size
+                False, False, item_test_size
             ).split,
             log=self.log
         )

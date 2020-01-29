@@ -10,7 +10,7 @@ from abc import abstractmethod
 from typing import Optional, Union
 
 import pyspark.sql.functions as sf
-from pyspark.sql import DataFrame, SparkSession, Window
+from pyspark.sql import DataFrame, Window
 
 from sponge_bob_magic.splitters.base_splitter import (Splitter,
                                                       SplitterReturnType)
@@ -21,14 +21,12 @@ class UserLogSplitter(Splitter):
 
     def __init__(
             self,
-            spark: SparkSession,
             drop_cold_items: bool,
             drop_cold_users: bool,
             item_test_size: Union[float, int] = 1,
             user_test_size: Optional[Union[float, int]] = None,
             seed: int = 1234):
         """
-        :param spark: инициализированная спарк-сессия
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
@@ -43,7 +41,7 @@ class UserLogSplitter(Splitter):
             пользователи
         :param seed: сид для разбиения
         """
-        super().__init__(spark, drop_cold_users, drop_cold_items)
+        super().__init__(drop_cold_users, drop_cold_items)
         self.item_test_size = item_test_size
         self.user_test_size = user_test_size
         self.seed = seed

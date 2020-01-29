@@ -22,24 +22,20 @@ class LogSplitByDateSplitter(Splitter):
     Делит лог взаимодействия пользователей и объектов на обучающую и
     тестовую выборки по времени.
     """
-
     def __init__(
             self,
-            spark: SparkSession,
             drop_cold_items: bool,
             drop_cold_users: bool,
             test_start: datetime
     ):
         """
-        :param spark: инициализированная спарк-сессия
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
            которых нет в обучающей
         :param test_start: дата в формате `yyyy-mm-dd`
         """
-        super().__init__(spark, drop_cold_items, drop_cold_users)
-
+        super().__init__(drop_cold_items, drop_cold_users)
         self.test_start = test_start
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
@@ -55,10 +51,8 @@ class LogSplitByDateSplitter(Splitter):
 
 class LogSplitRandomlySplitter(Splitter):
     """ Делит лог взаимодействия случайно на обучающую и тестовую выборки. """
-
     def __init__(
             self,
-            spark: SparkSession,
             drop_cold_items: bool,
             drop_cold_users: bool,
             test_size: float,
@@ -66,15 +60,13 @@ class LogSplitRandomlySplitter(Splitter):
     ):
         """
         :param seed: сид для разбиения
-        :param spark: инициализированная спарк-сессия
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
            которых нет в обучающей
         :param test_size: размер тестовой выборки, от 0 до 1
         """
-        super().__init__(spark, drop_cold_items, drop_cold_users)
-
+        super().__init__(drop_cold_items, drop_cold_users)
         self.seed = seed
         self.test_size = test_size
 
@@ -97,21 +89,18 @@ class ColdUsersExtractingSplitter(Splitter):
 
     def __init__(
             self,
-            spark: SparkSession,
             drop_cold_items: bool,
             drop_cold_users: bool,
             test_size: float
     ):
         """
-        :param spark: инициализированная спарк-сессия
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
            которых нет в обучающей
         :param test_size: размер тестовой выборки, от 0 до 1
         """
-        super().__init__(spark, drop_cold_items, drop_cold_users)
-
+        super().__init__(drop_cold_items, drop_cold_users)
         self.test_size = test_size
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
@@ -152,7 +141,7 @@ class ColdUsersExtractingSplitter(Splitter):
             .drop("start_dt")
             .cache()
         )
-
-        predict_input = self.spark.createDataFrame(data=[], schema=LOG_SCHEMA)
-
+        predict_input = SparkSession(train.rdd.context).createDataFrame(
+            data=[], schema=LOG_SCHEMA
+        )
         return train, predict_input, test
