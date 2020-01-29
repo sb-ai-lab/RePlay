@@ -2,11 +2,13 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
-from os.path import join, dirname
-from os import rename, mkdir
+from os import mkdir, rename
+from os.path import dirname, join
 
-from sponge_bob_magic.datasets.data_loader.archives import extract, rm_if_exists
-from sponge_bob_magic.datasets.data_loader.loaders import download_dataset, download_url
+from sponge_bob_magic.datasets.data_loader.archives import (extract,
+                                                            rm_if_exists)
+from sponge_bob_magic.datasets.data_loader.loaders import (download_dataset,
+                                                           download_url)
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -36,7 +38,8 @@ def download_movielens(path: str = ".", dataset: str = "ml-latest-small"):
     elif dataset == "ml-1m":
         path = dirname(path)
         data_path = join(path, "ml-1m")
-        replace_separator(join(data_path, "movies.dat"), "::", "\t", "ISO-8859-1")
+        replace_separator(
+            join(data_path, "movies.dat"), "::", "\t", "ISO-8859-1")
         replace_separator(join(data_path, "ratings.dat"), "::", "\t")
         replace_separator(join(data_path, "users.dat"), "::", "\t")
 
@@ -79,7 +82,8 @@ def download_msd(path: str = "."):
     Скачать Million Song Dataset (Echo Nest Taste Profile Subset)
     http://millionsongdataset.com/
     Данная функция скачивает тройки для обучения,
-    набор данных для теста с MSD Challenge Kaggle (http://millionsongdataset.com/challenge/)
+    набор данных для теста с MSD Challenge Kaggle
+    (http://millionsongdataset.com/challenge/)
     и список песен, которые неправильно матчатся с аудио-данными
     http://millionsongdataset.com/blog/12-2-12-fixing-matching-errors/
 
@@ -96,8 +100,10 @@ def download_msd(path: str = "."):
     logging.info("Downloading evaluation data for MSD Challenge...")
     url = "http://millionsongdataset.com/sites/default/files/challenge/EvalDataYear1MSDWebsite.zip"
     download_dataset(url, join(msd_folder, "eval.zip"))
-    rename(join(msd_folder, "EvalDataYear1MSDWebsite"), join(msd_folder, "evaluation"))
-
+    rename(
+        join(msd_folder, "EvalDataYear1MSDWebsite"),
+        join(msd_folder, "evaluation")
+    )
     logging.info("Downloading list of matching errors...")
     url = "http://millionsongdataset.com/sites/default/files/tasteprofile/sid_mismatches.txt"
     download_url(url, join(msd_folder, "sid_mismatches.txt"))
@@ -174,11 +180,12 @@ def download_hetrec(path: str = "."):
     download_dataset(url, join(folder, "movielens.zip"))
 
 
-def replace_separator(filepath: str, old: str, new: str, encoding: str = "utf8"):
-    with open(filepath, 'r', encoding=encoding) as f:
+def replace_separator(
+        filepath: str, old: str, new: str, encoding: str = "utf8"):
+    with open(filepath, "r", encoding=encoding) as f:
         newlines = []
         for line in f.readlines():
             newlines.append(line.replace(old, new))
-    with open(filepath, 'w') as f:
+    with open(filepath, "w") as f:
         for line in newlines:
             f.write(line)

@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 import os
 from os.path import join
 
@@ -8,7 +11,8 @@ from pandas import DataFrame
 
 class Dataset:
     def __init__(self, path: str = None):
-        data_folder = path or os.getenv("KRUSTY_KRABS", None) or self.default_folder
+        data_folder = (path or os.getenv("KRUSTY_KRABS", None)
+                       or self.default_folder)
         if not os.path.exists(data_folder):
             os.makedirs(data_folder)
         self.data_folder = data_folder

@@ -1,8 +1,12 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 import os
 from os.path import join
+from typing import Tuple
+
 import pandas as pd
 from pandas import DataFrame
-from typing import Tuple
 
 from sponge_bob_magic.datasets.data_loader import download_movielens
 from sponge_bob_magic.datasets.generic_dataset import Dataset
@@ -75,17 +79,23 @@ class MovieLens(Dataset):
     2       20     1747      satire  1188263867
 
     """
-    def __init__(self, version: str = "small", read_genome: bool = False, path: str = None):
+    def __init__(
+            self,
+            version: str = "small",
+            read_genome: bool = False,
+            path: str = None
+    ):
         """
         :param version: Конкретный вариант датасета
-        :param read_genome: Читать ли данные genome tag dataset (если включены в датасет),
-            по умолчанию не читаются для экономии памяти.
+        :param read_genome: Читать ли данные genome tag dataset (если включены
+            в датасет), по умолчанию не читаются для экономии памяти.
         :param path: где искать и куда класть датасет.
         """
         super().__init__(path)
         options = {"100k", "1m", "10m", "20m", "25m", "small", "latest"}
         if version not in options:
-            raise ValueError(f"{version} is not supported. Available options: {options}")
+            raise ValueError(
+                f"{version} is not supported. Available options: {options}")
 
         if version == "small":
             dataset = "ml-latest-small"
@@ -103,14 +113,17 @@ class MovieLens(Dataset):
         elif version == "10m":
             self.ratings, self.items, self.tags = self._read_10m(folder)
         else:
-            self.ratings, self.items, self.tags, self.links = self._read_modern(folder)
+            (self.ratings,
+             self.items, self.tags, self.links) = self._read_modern(folder)
             if read_genome:
-                self.genome_tags, self.genome_scores = self._read_genome(folder)
+                (self.genome_tags,
+                 self.genome_scores) = self._read_genome(folder)
 
     @staticmethod
     def _read_modern(folder: str) -> Tuple[DataFrame]:
-        ratings = pd.read_csv(join(folder, "ratings.csv"), header=0,
-                              names=["user_id", "item_id", "relevance", "timestamp"])
+        ratings = pd.read_csv(
+            join(folder, "ratings.csv"), header=0,
+            names=["user_id", "item_id", "relevance", "timestamp"])
         items = pd.read_csv(join(folder, "movies.csv"), header=0,
                             names=["item_id", "title", "genres"])
         tags = pd.read_csv(join(folder, "tags.csv"), header=0,
@@ -123,14 +136,16 @@ class MovieLens(Dataset):
     def _read_genome(folder: str) -> Tuple[DataFrame]:
         genome_tags = pd.read_csv(join(folder, "genome-tags.csv"), header=0,
                                   names=["tag_id", "tag"])
-        genome_scores = pd.read_csv(join(folder, "genome-scores.csv"), header=0,
-                                    names=["movie_id", "tag_id", "relevance"])
+        genome_scores = pd.read_csv(
+            join(folder, "genome-scores.csv"), header=0,
+            names=["movie_id", "tag_id", "relevance"])
         return genome_tags, genome_scores
 
     @staticmethod
     def _read_10m(folder: str) -> Tuple[DataFrame]:
-        ratings = pd.read_csv(join(folder, "ratings.dat"), sep="\t",
-                              names=["user_id", "item_id", "relevance", "timestamp"])
+        ratings = pd.read_csv(
+            join(folder, "ratings.dat"), sep="\t",
+            names=["user_id", "item_id", "relevance", "timestamp"])
         items = pd.read_csv(join(folder, "movies.dat"), sep="\t",
                             names=["item_id", "title", "genres"])
         tags = pd.read_csv(join(folder, "tags.dat"), sep="\t",
@@ -139,26 +154,31 @@ class MovieLens(Dataset):
 
     @staticmethod
     def _read_1m(folder: str) -> Tuple[DataFrame]:
-        ratings = pd.read_csv(join(folder, "ratings.dat"), sep="\t",
-                              names=["user_id", "item_id", "relevance", "timestamp"])
-        users = pd.read_csv(join(folder, "users.dat"), sep="\t",
-                            names=["user_id", "gender", "age", "occupation", "zip_code"])
+        ratings = pd.read_csv(
+            join(folder, "ratings.dat"), sep="\t",
+            names=["user_id", "item_id", "relevance", "timestamp"])
+        users = pd.read_csv(
+            join(folder, "users.dat"), sep="\t",
+            names=["user_id", "gender", "age", "occupation", "zip_code"])
         items = pd.read_csv(join(folder, "movies.dat"), sep="\t",
                             names=["item_id", "title", "genres"])
         return ratings, users, items
 
     @staticmethod
     def _read_100k(folder: str) -> Tuple[DataFrame]:
-        ratings = pd.read_csv(join(folder, "u.data"), sep="\t",
-                              names=["user_id", "item_id", "relevance", "timestamp"])
-        users = pd.read_csv(join(folder, "u.user"), sep="|",
-                            names=["user_id", "gender", "age", "occupation", "zip_code"])
-        items = pd.read_csv(join(folder, "u.item"), sep="|",
-                            names=["item_id", "title", "release_date", "video_release_date",
-                                   "imdb_url", "unknown", "Action", "Adventure", "Animation",
-                                   "Children\'s", "Comedy", "Crime", "Documentary", "Drama",
-                                   "Fantasy", "Film-Noir", "Horror", "Musical", "Mystery",
-                                   "Romance", "Sci-Fi", "Thriller", "War", "Western"],
-                            encoding="ISO-8859-1",
-                            parse_dates=["release_date"]).drop("video_release_date", axis=1)
+        ratings = pd.read_csv(
+            join(folder, "u.data"), sep="\t",
+            names=["user_id", "item_id", "relevance", "timestamp"])
+        users = pd.read_csv(
+            join(folder, "u.user"), sep="|",
+            names=["user_id", "gender", "age", "occupation", "zip_code"])
+        items = pd.read_csv(
+            join(folder, "u.item"), sep="|",
+            names=["item_id", "title", "release_date", "video_release_date",
+                   "imdb_url", "unknown", "Action", "Adventure", "Animation",
+                   "Children\'s", "Comedy", "Crime", "Documentary", "Drama",
+                   "Fantasy", "Film-Noir", "Horror", "Musical", "Mystery",
+                   "Romance", "Sci-Fi", "Thriller", "War", "Western"],
+            encoding="ISO-8859-1",
+            parse_dates=["release_date"]).drop("video_release_date", axis=1)
         return ratings, users, items
