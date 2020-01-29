@@ -75,13 +75,14 @@ class MovieLens(Dataset):
     2       20     1747      satire  1188263867
 
     """
-    def __init__(self, version: str = "small", read_genome: bool = False):
+    def __init__(self, version: str = "small", read_genome: bool = False, path: str = None):
         """
         :param version: Конкретный вариант датасета
         :param read_genome: Читать ли данные genome tag dataset (если включены в датасет),
             по умолчанию не читаются для экономии памяти.
+        :param path: где искать и куда класть датасет.
         """
-        super().__init__()
+        super().__init__(path)
         options = {"100k", "1m", "10m", "20m", "25m", "small", "latest"}
         if version not in options:
             raise ValueError(f"{version} is not supported. Available options: {options}")
