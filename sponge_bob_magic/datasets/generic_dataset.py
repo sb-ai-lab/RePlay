@@ -7,14 +7,16 @@ from pandas import DataFrame
 
 
 class Dataset:
-    def __init__(self):
-        DATA_FOLDER = os.getenv("KRUSTY_KRABS", None)
-        if DATA_FOLDER is None:
-            ROOT = os.path.expanduser("~")
-            DATA_FOLDER = join(ROOT, 'sb_magic_data')
-        self.data_folder = DATA_FOLDER
-        if not os.path.exists(DATA_FOLDER):
-            os.mkdir(DATA_FOLDER)
+    def __init__(self, path: str = None):
+        data_folder = path or os.getenv("KRUSTY_KRABS", None) or self.default_folder
+        if not os.path.exists(data_folder):
+            os.makedirs(data_folder)
+        self.data_folder = data_folder
+
+    @property
+    def default_folder(self):
+        root = os.path.expanduser("~")
+        return join(root, 'sb_magic_data')
 
     def info(self):
         with pd.option_context('display.max_columns', 10):

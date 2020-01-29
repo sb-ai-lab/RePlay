@@ -39,7 +39,7 @@ class MillionSongDataset(Dataset):
 
     Подробнее: http://millionsongdataset.com/tasteprofile/
     """
-    def __init__(self, merge_kaggle_splits: bool = True, drop_mismatches: bool = True):
+    def __init__(self, merge_kaggle_splits: bool = True, drop_mismatches: bool = True, path: str = None):
         """Загрузить все в память.
         ! Датасет большой и на маке в первый раз грузится минут пять,
         ! суммарно занимая в оперативке около 1.2GB
@@ -53,8 +53,9 @@ class MillionSongDataset(Dataset):
             Существует ошибка в соотношении песен и треков в MSD.
             По умолчанию эти песни выкидываются из датасета.
             Подробнее: http://millionsongdataset.com/blog/12-2-12-fixing-matching-errors/
+        :param path: где искать и куда класть датасет.
         """
-        super().__init__()
+        super().__init__(path)
         folder = join(self.data_folder, "msd")
         if not os.path.exists(folder):
             download_msd(self.data_folder)
