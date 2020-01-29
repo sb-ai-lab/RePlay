@@ -22,15 +22,12 @@ class LightFMRecommender(Recommender):
     user_indexer: StringIndexerModel
     item_indexer: StringIndexerModel
 
-    def __init__(self, spark: SparkSession,
-                 rank: int = 10):
+    def __init__(self, rank: int = 10):
         """
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
-        :param spark: инициализированная спарк-сессия
         :param rank: матрицей какого ранга приближаем исходную
         """
-        super().__init__(spark)
         self.rank = rank
 
     def get_params(self) -> Dict[str, object]:
@@ -91,7 +88,8 @@ class LightFMRecommender(Recommender):
         prediction = log_indexed.toPandas()
         prediction["relevance"] = self.model.predict(
             np.array(prediction.user_idx), np.array(prediction.item_idx))
-        recs = self.spark.createDataFrame(
+        spark = SparkSession(test_data.rdd.context)
+        recs = spark.createDataFrame(
             prediction[["user_id", "item_id", "relevance"]]
         ).cache()
         recs = get_top_k_recs(recs, k).withColumn(

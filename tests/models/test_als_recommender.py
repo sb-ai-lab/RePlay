@@ -12,7 +12,7 @@ from sponge_bob_magic.models.als_recommender import ALSRecommender
 
 class ALSRecommenderTestCase(PySparkTest):
     def setUp(self):
-        self.als_recommender = ALSRecommender(self.spark, 1)
+        self.als_recommender = ALSRecommender(1)
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [

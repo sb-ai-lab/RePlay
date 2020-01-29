@@ -6,7 +6,7 @@ from typing import Dict, Optional
 
 from pyspark.ml.feature import StringIndexer, StringIndexerModel
 from pyspark.ml.recommendation import ALS
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import DoubleType
 
@@ -23,15 +23,12 @@ class ALSRecommender(Recommender):
     item_indexer_model: StringIndexerModel
 
     """ Обёртка вокруг ALS на Spark. """
-    def __init__(self, spark: SparkSession,
-                 rank: int = 10):
+    def __init__(self, rank: int = 10):
         """
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
-        :param spark: инициализированная спарк-сессия
         :param rank: матрицей какого ранга приближаем исходную
         """
-        super().__init__(spark)
         self.rank = rank
         self.user_indexer = StringIndexer(inputCol="user_id",
                                           outputCol="user_idx")

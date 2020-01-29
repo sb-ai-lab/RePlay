@@ -3,15 +3,15 @@
 """
 from parameterized import parameterized
 from pyspark.sql import functions as sf
+from tests.pyspark_testcase import PySparkTest
+
 from sponge_bob_magic import constants
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
-
-from pyspark_testcase import PySparkTest
 
 
 class PopularRecommenderTestCase(PySparkTest):
     def setUp(self):
-        self.model = PopularRecommender(self.spark)
+        self.model = PopularRecommender()
 
     @parameterized.expand([
         # users, context, k, items_relevance

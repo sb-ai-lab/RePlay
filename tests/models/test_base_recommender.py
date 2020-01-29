@@ -6,9 +6,9 @@ from typing import Dict, Iterable, Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
-from sponge_bob_magic.models.base_recommender import Recommender
+from tests.pyspark_testcase import PySparkTest
 
-from pyspark_testcase import PySparkTest
+from sponge_bob_magic.models.base_recommender import Recommender
 
 
 class RecommenderTestCase(PySparkTest):
@@ -38,7 +38,7 @@ class RecommenderTestCase(PySparkTest):
             def get_params(self) -> Dict[str, object]:
                 pass
 
-        self.model = DerivedRecommender(self.spark)
+        self.model = DerivedRecommender()
         self.empty_df = self.spark.createDataFrame(data=[],
                                                    schema=StructType([]))
 
