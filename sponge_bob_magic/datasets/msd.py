@@ -8,9 +8,8 @@ from sponge_bob_magic.datasets.generic_dataset import Dataset
 
 class MillionSongDataset(Dataset):
     """
-    Враппер для MSD, обеспечивает загрузку и парсинг.
-
-    Данный датасет, так же называемый Echo Nest Taste Profile Subset --
+    `Million Song Dataset <http://millionsongdataset.com/tasteprofile/>`_,
+    так же известный как Echo Nest Taste Profile Subset --
     часть MSD, содержащая информацию о прослушиваниях треков пользователями.
 
     - 1,019,318 уникальных пользователей
@@ -18,6 +17,7 @@ class MillionSongDataset(Dataset):
     - 48,373,586 троек user - song - play count
 
     Пример загрузки:
+
     >>> from sponge_bob_magic.datasets import MillionSongDataset
     >>> msd = MillionSongDataset()
     >>> msd.info()
@@ -37,22 +37,23 @@ class MillionSongDataset(Dataset):
     1  00007a02388c208ea7176479f6ae06f8224355b3  SONZGLW12A6D4FBBC1          1
     2  00007a02388c208ea7176479f6ae06f8224355b3  SOXNWYP12A6D4FBDC4          1
 
-    Подробнее: http://millionsongdataset.com/tasteprofile/
     """
     def __init__(self, merge_kaggle_splits: bool = True, drop_mismatches: bool = True):
-        """Загрузить все в память.
-        ! Датасет большой и на маке в первый раз грузится минут пять,
-        ! суммарно занимая в оперативке около 1.2GB
-        ! При параметрах по умолчанию, результат записывается на диск
-        ! и последующие загрузки занимают полминуты.
-
-        :param merge_kaggle_splits: bool
-            В MSD Challenge на кэггл была паблик и прайват часть,
+        """
+        :param merge_kaggle_splits:
+            В `MSD Challenge на кэггл <https://www.kaggle.com/c/msdchallenge>`_
+            была паблик и прайват часть,
             эти файлы разделены, но по умолчанию они сливаются вместе.
-        :param drop_mismatches: bool
-            Существует ошибка в соотношении песен и треков в MSD.
+        :param drop_mismatches:
+            Существует `ошибка <http://millionsongdataset.com/blog/12-2-12-fixing-matching-errors/>`_
+            в соотношении песен и треков в MSD.
             По умолчанию эти песни выкидываются из датасета.
-            Подробнее: http://millionsongdataset.com/blog/12-2-12-fixing-matching-errors/
+
+        .. warning::
+            Датасет большой и на маке в первый раз грузится минут пять,
+            суммарно занимая в оперативке около 1.2GB.
+            При параметрах по умолчанию, обработанный результат записывается на диск
+            и последующие загрузки занимают полминуты.
         """
         super().__init__()
         folder = join(self.data_folder, "msd")
