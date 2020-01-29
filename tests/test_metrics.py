@@ -52,21 +52,21 @@ class TestMetrics(PySparkTest):
 
     def test_hit_rate_at_k(self):
         self.assertEqual(
-            HitRateMetric(self.spark)(self.recs, self.ground_truth_recs, 10),
+            HitRateMetric()(self.recs, self.ground_truth_recs, 10),
             2 / 3
         )
         self.assertEqual(
-            HitRateMetric(self.spark)(self.recs, self.ground_truth_recs, 1),
+            HitRateMetric()(self.recs, self.ground_truth_recs, 1),
             1 / 3
         )
 
     def test_ndcg_at_k(self):
         self.assertEqual(
-            NDCGMetric(self.spark)(self.recs, self.ground_truth_recs, 1),
+            NDCGMetric()(self.recs, self.ground_truth_recs, 1),
             1 / 2
         )
         self.assertEqual(
-            NDCGMetric(self.spark)(self.recs, self.ground_truth_recs, 3),
+            NDCGMetric()(self.recs, self.ground_truth_recs, 3),
             1 / 2 * (
                     1 / (1 / log(2) + 1 / log(3) + 1 / log(4)) *
                     (1 / log(2) + 1 / log(3)) +
@@ -77,42 +77,42 @@ class TestMetrics(PySparkTest):
 
     def test_precision_at_k(self):
         self.assertAlmostEqual(
-            PrecisionMetric(self.spark)(self.recs, self.ground_truth_recs, 3),
+            PrecisionMetric()(self.recs, self.ground_truth_recs, 3),
             1 / 2
         )
         self.assertEqual(
-            PrecisionMetric(self.spark)(self.recs, self.ground_truth_recs, 1),
+            PrecisionMetric()(self.recs, self.ground_truth_recs, 1),
             1 / 2
         )
         self.assertAlmostEqual(
-            PrecisionMetric(self.spark)(self.recs, self.ground_truth_recs, 2),
+            PrecisionMetric()(self.recs, self.ground_truth_recs, 2),
             3 / 4
         )
 
     def test_map_at_k(self):
         self.assertAlmostEqual(
-            MAPMetric(self.spark)(self.recs, self.ground_truth_recs, 3),
+            MAPMetric()(self.recs, self.ground_truth_recs, 3),
             11 / 24
         )
 
         self.assertAlmostEqual(
-            MAPMetric(self.spark)(self.recs, self.ground_truth_recs, 1),
+            MAPMetric()(self.recs, self.ground_truth_recs, 1),
             1 / 2
         )
 
     def test_recall_at_k(self):
         self.assertEqual(
-            RecallMetric(self.spark)(self.recs, self.ground_truth_recs, 10),
+            RecallMetric()(self.recs, self.ground_truth_recs, 10),
             (1 / 2 + 2 / 3) / 2
         )
         self.assertEqual(
-            RecallMetric(self.spark)(self.recs, self.ground_truth_recs, 1),
+            RecallMetric()(self.recs, self.ground_truth_recs, 1),
             1 / 6
         )
 
     def test_surprisal_at_k(self):
-        surprisal = Surprisal(self.spark, self.log)
-        surprisal_norm = Surprisal(self.spark, self.log, normalize=True)
+        surprisal = Surprisal(self.log)
+        surprisal_norm = Surprisal(self.log, normalize=True)
 
         test_cases = [
             [1, (-log2(0.75)) / 3],

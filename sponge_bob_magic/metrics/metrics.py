@@ -4,7 +4,7 @@
 from math import log2
 
 from pyspark.mllib.evaluation import RankingMetrics
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.metrics.base_metrics import Metric, NumType
@@ -176,7 +176,6 @@ class Surprisal(Metric):
         return "Surprisal@K"
 
     def __init__(self,
-                 spark: SparkSession,
                  log: DataFrame,
                  normalize: bool = False):
         """
@@ -186,8 +185,6 @@ class Surprisal(Metric):
             `[user_id, item_id, timestamp, context, relevance]`;
             содержит информацию о взаимодействии пользователей с объектами
         """
-        super().__init__(spark)
-
         n_users = log.select("user_id").distinct().count()
         max_value = -log2(1 / n_users)
         stats = log.groupby("item_id").agg(
