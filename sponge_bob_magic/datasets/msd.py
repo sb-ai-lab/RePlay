@@ -38,7 +38,7 @@ class MillionSongDataset(Dataset):
     2  00007a02388c208ea7176479f6ae06f8224355b3  SOXNWYP12A6D4FBDC4          1
 
     """
-    def __init__(self, merge_kaggle_splits: bool = True, drop_mismatches: bool = True, path: str = True):
+    def __init__(self, merge_kaggle_splits: bool = True, drop_mismatches: bool = True, path: str = None):
         """
         :param merge_kaggle_splits:
             В `MSD Challenge на кэггл <https://www.kaggle.com/c/msdchallenge>`_
