@@ -6,6 +6,7 @@ from datetime import datetime
 
 import numpy as np
 import pyspark
+from pyspark.sql import SparkSession
 from pyspark.sql.types import (IntegerType, StringType, StructField,
                                StructType, TimestampType)
 from tests.pyspark_testcase import PySparkTest
@@ -61,3 +62,9 @@ class UtilsTestCase(PySparkTest):
             spark=self.spark, dataframe=dataframe, path=path,
             to_overwrite_files=False
         )
+
+    def test_get_spark_session(self):
+        spark = utils.get_spark_session(1)
+        self.assertIsInstance(spark, SparkSession)
+        self.assertEqual(spark.conf.get("spark.driver.memory"), "1g")
+        spark.stop()

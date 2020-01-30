@@ -4,12 +4,12 @@
 from datetime import datetime
 from math import log, log2
 
-from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.metrics.metrics import (HitRateMetric, NDCGMetric,
-                                              PrecisionMetric,
-                                              MAPMetric,
-                                              RecallMetric, Surprisal)
 from tests.pyspark_testcase import PySparkTest
+
+from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
+from sponge_bob_magic.metrics.metrics import (HitRateMetric, MAPMetric,
+                                              NDCGMetric, PrecisionMetric,
+                                              RecallMetric, Surprisal)
 
 
 class TestMetrics(PySparkTest):
@@ -22,11 +22,10 @@ class TestMetrics(PySparkTest):
                   ["user2", "item2", "night", 4.0],
                   ["user3", "item1", "day  ", 5.0]],
             schema=REC_SCHEMA)
-
-        self.recs2 = self.spark.createDataFrame(data=[["user1", "item4", "day  ", 4.0],
-                                                      ["user1", "item5", "night", 5.0]],
-                                                schema=REC_SCHEMA)
-
+        self.recs2 = self.spark.createDataFrame(
+            data=[["user1", "item4", "day  ", 4.0],
+                  ["user1", "item5", "night", 5.0]],
+            schema=REC_SCHEMA)
         self.ground_truth_recs = self.spark.createDataFrame(
             data=[["user1", "item1", datetime(2019, 9, 12), "day  ", 3.0],
                   ["user1", "item5", datetime(2019, 9, 13), "night", 2.0],

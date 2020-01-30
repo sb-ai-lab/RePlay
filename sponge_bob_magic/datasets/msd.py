@@ -1,6 +1,10 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 import os
-import pandas as pd
 from os.path import join
+
+import pandas as pd
 
 from sponge_bob_magic.datasets.data_loader import download_msd
 from sponge_bob_magic.datasets.generic_dataset import Dataset
@@ -38,7 +42,12 @@ class MillionSongDataset(Dataset):
     2  00007a02388c208ea7176479f6ae06f8224355b3  SOXNWYP12A6D4FBDC4          1
 
     """
-    def __init__(self, merge_kaggle_splits: bool = True, drop_mismatches: bool = True, path: str = None):
+    def __init__(
+            self,
+            merge_kaggle_splits: bool = True,
+            drop_mismatches: bool = True,
+            path: str = None
+    ):
         """
         :param merge_kaggle_splits:
             В `MSD Challenge на кэггл <https://www.kaggle.com/c/msdchallenge>`_
@@ -68,15 +77,20 @@ class MillionSongDataset(Dataset):
             self.val = pd.read_csv(join(processed, "val.csv"))
             self.test = pd.read_csv(join(processed, "test.csv"))
         else:
-            self.train = self._read_triplets(join(folder, "train_triplets.txt"))
-            val_vis = self._read_triplets(join(folder, "evaluation",
-                                               "year1_valid_triplets_visible.txt"))
-            val_hid = self._read_triplets(join(folder, "evaluation",
-                                               "year1_valid_triplets_hidden.txt"))
-            test_vis = self._read_triplets(join(folder, "evaluation",
-                                                "year1_test_triplets_visible.txt"))
-            test_hid = self._read_triplets(join(folder, "evaluation",
-                                                "year1_test_triplets_hidden.txt"))
+            self.train = self._read_triplets(
+                join(folder, "train_triplets.txt"))
+            val_vis = self._read_triplets(
+                join(folder, "evaluation",
+                     "year1_valid_triplets_visible.txt"))
+            val_hid = self._read_triplets(
+                join(folder, "evaluation",
+                     "year1_valid_triplets_hidden.txt"))
+            test_vis = self._read_triplets(
+                join(folder, "evaluation",
+                     "year1_test_triplets_visible.txt"))
+            test_hid = self._read_triplets(
+                join(folder, "evaluation",
+                     "year1_test_triplets_hidden.txt"))
             if drop_mismatches:
                 mismatches = self._read_mismatches(folder)
                 mismatches = set(mismatches.item_id)
@@ -114,7 +128,8 @@ class MillionSongDataset(Dataset):
         mismatches = []
         with open(file) as f:
             for line in f.readlines():
-                song, track = line[line.find("<") + 1: line.find(">")].split(" ")
+                song, track = line[
+                    line.find("<") + 1: line.find(">")].split(" ")
                 mismatches.append([song, track])
         return pd.DataFrame(mismatches, columns=["item_id", "track_id"])
 

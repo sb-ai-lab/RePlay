@@ -1,7 +1,11 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 import logging
 from glob import glob
 from os import mkdir, remove
-from os.path import join, exists
+from os.path import exists, join
+
 import pandas as pd
 from tqdm import tqdm
 
@@ -48,8 +52,9 @@ class Netflix(Dataset):
         path = join(folder, "clean")
         self.movies = pd.read_csv(join(path, "movies.csv"), sep="\t",
                                   names=["item_id", "year", "title"],
-                                  dtype={"item_id": "uint16",
-                                          "year": "float32"})
+                                  dtype={
+                                      "item_id": "uint16",
+                                      "year": "float32"})
         self.test = pd.read_csv(join(path, "test.csv"),
                                 names=["item_id", "user_id", "timestamp"],
                                 parse_dates=["timestamp"],
@@ -59,12 +64,13 @@ class Netflix(Dataset):
             self.train = pd.read_parquet(join(path, 'train.parquet'))
         else:
             logging.info("One time date parsing will take ≈ 7 minutes...")
-            self.train = pd.read_csv(join(path, "train.csv"),
-                                     names=["item_id", "user_id", "relevance", "timestamp"],
-                                     parse_dates=["timestamp"],
-                                     dtype={"user_id": "category",
-                                            "item_id": "category",
-                                            "relevance": "uint8"})
+            self.train = pd.read_csv(
+                join(path, "train.csv"),
+                names=["item_id", "user_id", "relevance", "timestamp"],
+                parse_dates=["timestamp"],
+                dtype={"user_id": "category",
+                       "item_id": "category",
+                       "relevance": "uint8"})
             self.train.to_parquet(join(path, "train.parquet"))
             remove(join(path, "train.csv"))
 
