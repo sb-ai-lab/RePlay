@@ -4,7 +4,7 @@
 import logging
 import os
 from datetime import datetime
-from typing import Dict, Optional, List, Any
+from typing import Any, Dict, List, Optional
 
 from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame, SparkSession
@@ -18,9 +18,7 @@ from sponge_bob_magic.models.knn_recommender import KNNRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
 from sponge_bob_magic.scenarios.base_scenario import Scenario
 from sponge_bob_magic.scenarios.main_scenario.main_objective import (
-    MainObjective,
-    SplitData
-)
+    MainObjective, SplitData)
 from sponge_bob_magic.splitters.base_splitter import Splitter
 from sponge_bob_magic.splitters.log_splitter import LogSplitByDateSplitter
 from sponge_bob_magic.utils import write_read_dataframe
@@ -28,8 +26,6 @@ from sponge_bob_magic.utils import write_read_dataframe
 
 class MainScenario(Scenario):
     """ Сценарий для простого обучения моделей рекомендаций с замесом. """
-
-    spark: SparkSession
     splitter: Splitter
     recommender: Recommender
     fallback_recommender: Recommender
@@ -47,19 +43,19 @@ class MainScenario(Scenario):
     ) -> SplitData:
         """ Делит лог и готовит объекти типа `SplitData`. """
         train, predict_input, test = self.splitter.split(log)
-
+        spark = SparkSession(log.rdd.context)
         train = write_read_dataframe(
-            self.spark, train,
-            os.path.join(self.spark.conf.get("spark.local.dir"), "train")
+            train,
+            os.path.join(spark.conf.get("spark.local.dir"), "train")
         )
         predict_input = write_read_dataframe(
-            self.spark, predict_input,
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            predict_input,
+            os.path.join(spark.conf.get("spark.local.dir"),
                          "predict_input")
         )
         test = write_read_dataframe(
-            self.spark, test,
-            os.path.join(self.spark.conf.get("spark.local.dir"), "test")
+            test,
+            os.path.join(spark.conf.get("spark.local.dir"), "test")
         )
 
         logging.debug(f"Длина трейна и теста: {train.count(), test.count()}")
@@ -100,13 +96,14 @@ class MainScenario(Scenario):
         n_unique_trials = 0
 
         while n_trials > n_unique_trials and count <= self.optuna_max_n_trials:
+            spark = SparkSession(split_data.train.rdd.context)
             self.study.optimize(
                 MainObjective(params_grid, self.study, split_data,
                               self.recommender, self.criterion, self.metrics,
                               k, context,
                               fallback_recs,
                               self.filter_seen_items,
-                              self.spark.conf.get("spark.local.dir")),
+                              spark.conf.get("spark.local.dir")),
                 n_trials=1,
                 n_jobs=self.optuna_n_jobs
             )
@@ -208,6 +205,8 @@ if __name__ == "__main__":
               .builder
               .master("local[4]")
               .config("spark.driver.memory", "2g")
+              .config(
+                  "spark.local.dir", os.path.join(os.environ["HOME"], "tmp"))
               .config("spark.sql.shuffle.partitions", "1")
               .appName("testing-pyspark")
               .enableHiveSupport()
@@ -243,22 +242,22 @@ if __name__ == "__main__":
     log_ = spark_.createDataFrame(data=data,
                                   schema=schema)
 
-    scenario = MainScenario(spark_)
-    scenario.splitter = LogSplitByDateSplitter(spark_, True, True,
+    scenario = MainScenario()
+    scenario.splitter = LogSplitByDateSplitter(True, True,
                                                datetime(2019, 10, 14))
-    scenario.criterion = HitRateMetric(spark_)
-    scenario.metrics = [NDCGMetric(spark_), PrecisionMetric(spark_)]
+    scenario.criterion = HitRateMetric()
+    scenario.metrics = [NDCGMetric(), PrecisionMetric()]
     scenario.optuna_max_n_trials = 10
     scenario.fallback_recommender = None
 
     flag = False
     if flag:
-        scenario.recommender = PopularRecommender(spark_)
+        scenario.recommender = PopularRecommender()
         grid = {"alpha": {"type": "int", "args": [0, 100]},
                 "beta": {"type": "int", "args": [0, 100]}}
     else:
-        scenario.recommender = KNNRecommender(spark_)
-        scenario.fallback_recommender = PopularRecommender(spark_)
+        scenario.recommender = KNNRecommender()
+        scenario.fallback_recommender = PopularRecommender()
         grid = {"num_neighbours": {"type": "categorical",
                                    "args": [[1]]}}
 

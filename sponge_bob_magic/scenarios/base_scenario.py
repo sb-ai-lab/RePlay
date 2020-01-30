@@ -2,10 +2,10 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
 from optuna import Study
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 
 
 class Scenario(ABC):
@@ -15,15 +15,6 @@ class Scenario(ABC):
     optuna_max_n_trials: int = 100
     optuna_n_jobs: int = 1
     filter_seen_items: bool = True
-
-    def __init__(self, spark: SparkSession, **kwargs):
-        """
-        Инициализирует сценарий и сохраняет параметры, если они есть.
-
-        :param spark: инициализированная спарк-сессия
-        :param kwargs: дополнительные параметры классов-наследников
-        """
-        self.spark = spark
 
     @abstractmethod
     def research(
