@@ -144,3 +144,4 @@ data/
 pyvenv.cfg
 *~
 tmp/
+docs/_build/
