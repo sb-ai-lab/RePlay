@@ -137,9 +137,8 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
     инициализирует и возращает SparkSession с "годными" параметрами по
     умолчанию (для пользователей, которые не хотят сами настраивать Spark)
 
-    :param spark_memory: количество гигабайт оперативной памяти, которую нужно
-    выделить под Spark; если не задано, выделяется половина всей доступной
-    памяти
+    :param spark_memory: количество гигабайт оперативной памяти, которую нужно выделить под Spark;
+        если не задано, выделяется половина всей доступной памяти
     """
     if spark_memory is None:
         spark_memory = floor(psutil.virtual_memory().total / 1024 ** 3 / 2)

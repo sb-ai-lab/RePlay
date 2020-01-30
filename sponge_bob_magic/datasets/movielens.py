@@ -87,8 +87,8 @@ class MovieLens(Dataset):
     ):
         """
         :param version: Конкретный вариант датасета
-        :param read_genome: Читать ли данные genome tag dataset (если включены
-            в датасет), по умолчанию не читаются для экономии памяти.
+        :param read_genome: Читать ли данные genome tag dataset (если включены в датасет),
+            по умолчанию не читаются для экономии памяти.
         :param path: где искать и куда класть датасет.
         """
         super().__init__(path)
