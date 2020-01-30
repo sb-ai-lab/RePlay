@@ -34,6 +34,14 @@ class NMF(Module):
             item_count: int,
             embedding_dimension: int
     ):
+        """
+        Инициализация модели. Создает эмбеддинги пользователей и объектов.
+
+        :param user_count: количество пользователей
+        :param item_count: количество объектов
+        :param embedding_dimension: размерность представления пользователей и
+            объектов
+        """
         super().__init__()
         user_embedding = Embedding(num_embeddings=user_count,
                                    embedding_dim=embedding_dimension)
