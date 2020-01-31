@@ -107,14 +107,22 @@ class MovieLens(Dataset):
             download_movielens(self.data_folder, dataset)
 
         if version == "100k":
-            self.ratings, self.users, self.items = self._read_100k(folder)
+            (self.ratings,
+             self.users,
+             self.items) = self._read_100k(folder)
         elif version == "1m":
-            self.ratings, self.users, self.items = self._read_1m(folder)
+            (self.ratings,
+             self.users,
+             self.items) = self._read_1m(folder)
         elif version == "10m":
-            self.ratings, self.items, self.tags = self._read_10m(folder)
+            (self.ratings,
+             self.items,
+             self.tags) = self._read_10m(folder)
         else:
             (self.ratings,
-             self.items, self.tags, self.links) = self._read_modern(folder)
+             self.items,
+             self.tags,
+             self.links) = self._read_modern(folder)
             if read_genome:
                 (self.genome_tags,
                  self.genome_scores) = self._read_genome(folder)
@@ -156,12 +164,16 @@ class MovieLens(Dataset):
     def _read_1m(folder: str) -> Tuple[DataFrame]:
         ratings = pd.read_csv(
             join(folder, "ratings.dat"), sep="\t",
-            names=["user_id", "item_id", "relevance", "timestamp"])
+            names=["user_id", "item_id", "relevance", "timestamp"]
+        )
         users = pd.read_csv(
             join(folder, "users.dat"), sep="\t",
-            names=["user_id", "gender", "age", "occupation", "zip_code"])
-        items = pd.read_csv(join(folder, "movies.dat"), sep="\t",
-                            names=["item_id", "title", "genres"])
+            names=["user_id", "gender", "age", "occupation", "zip_code"]
+        )
+        items = pd.read_csv(
+            join(folder, "movies.dat"), sep="\t",
+            names=["item_id", "title", "genres"]
+        )
         return ratings, users, items
 
     @staticmethod

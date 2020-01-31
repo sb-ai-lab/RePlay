@@ -38,8 +38,8 @@ def download_movielens(path: str = ".", dataset: str = "ml-latest-small"):
     elif dataset == "ml-1m":
         path = dirname(path)
         data_path = join(path, "ml-1m")
-        replace_separator(
-            join(data_path, "movies.dat"), "::", "\t", "ISO-8859-1")
+        replace_separator(join(data_path, "movies.dat"), "::", "\t",
+                          "ISO-8859-1")
         replace_separator(join(data_path, "ratings.dat"), "::", "\t")
         replace_separator(join(data_path, "users.dat"), "::", "\t")
 
