@@ -5,24 +5,13 @@ from datetime import datetime
 
 import numpy
 from parameterized import parameterized
-from pyspark.sql import DataFrame
+from tests.pyspark_testcase import PySparkTest
 
-from pyspark_testcase import PySparkTest
 from sponge_bob_magic.constants import LOG_SCHEMA
 from sponge_bob_magic.splitters.log_splitter import (
-    LogSplitByDateSplitter,
-    LogSplitRandomlySplitter,
-    ColdUsersExtractingSplitter
-)
-
-
-def get_distinct_values_in_column(df: DataFrame, column: str):
-    return set([row[column]
-                for row in (df
-                            .select(column)
-                            .distinct()
-                            .collect())
-                ])
+    ColdUsersExtractingSplitter, LogSplitByDateSplitter,
+    LogSplitRandomlySplitter)
+from sponge_bob_magic.utils import get_distinct_values_in_column
 
 
 class TestLogSplitByDateSplitter(PySparkTest):
@@ -39,8 +28,9 @@ class TestLogSplitByDateSplitter(PySparkTest):
             schema=LOG_SCHEMA
         )
         train, predict_input, test = (
-            LogSplitByDateSplitter(self.spark, False, False,
-                                   datetime(2019, 9, 15))
+            LogSplitByDateSplitter(
+                False, False,
+                datetime(2019, 9, 15))
             .split(log)
         )
 
@@ -65,9 +55,9 @@ class TestLogSplitByDateSplitter(PySparkTest):
         self.assertSparkDataFrameEqual(true_test, test)
 
         train, predict_input, test = (
-            LogSplitByDateSplitter(self.spark,
-                                   True, False,
-                                   datetime(2019, 9, 15))
+            LogSplitByDateSplitter(
+                True, False,
+                datetime(2019, 9, 15))
             .split(log)
         )
         true_test = self.spark.createDataFrame(
@@ -82,9 +72,9 @@ class TestLogSplitByDateSplitter(PySparkTest):
         self.assertSparkDataFrameEqual(true_test, test)
 
         train, predict_input, test = (
-            LogSplitByDateSplitter(self.spark,
-                                   False, True,
-                                   datetime(2019, 9, 15))
+            LogSplitByDateSplitter(
+                False, True,
+                datetime(2019, 9, 15))
             .split(log)
         )
         true_test = self.spark.createDataFrame(
@@ -99,9 +89,9 @@ class TestLogSplitByDateSplitter(PySparkTest):
         self.assertSparkDataFrameEqual(true_test, test)
 
         train, predict_input, test = (
-            LogSplitByDateSplitter(self.spark,
-                                   True, True,
-                                   datetime(2019, 9, 15))
+            LogSplitByDateSplitter(
+                True, True,
+                datetime(2019, 9, 15))
             .split(log)
         )
         true_test = self.spark.createDataFrame(
@@ -150,11 +140,11 @@ class TestLogSplitRandomlySplitter(PySparkTest):
         )
 
         train, test_input, test = (
-            LogSplitRandomlySplitter(self.spark,
-                                     drop_cold_items=drop_cold_items,
-                                     drop_cold_users=drop_cold_users,
-                                     test_size=test_size,
-                                     seed=seed)
+            LogSplitRandomlySplitter(
+                drop_cold_items=drop_cold_items,
+                drop_cold_users=drop_cold_users,
+                test_size=test_size,
+                seed=seed)
             .split(log)
         )
 
@@ -201,9 +191,9 @@ class TestColdUsersExtractingSplitter(PySparkTest):
         )
 
         train, test_input, test = (
-            ColdUsersExtractingSplitter(self.spark,
-                                        False, False,
-                                        test_size=1 / 4)
+            ColdUsersExtractingSplitter(
+                False, False,
+                test_size=1 / 4)
             .split(log=log)
         )
 

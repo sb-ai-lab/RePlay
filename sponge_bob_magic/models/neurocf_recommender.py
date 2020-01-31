@@ -86,20 +86,18 @@ class NeuroCFRecommender(Recommender):
     num_users: int
     num_items: int
 
-    def __init__(self, spark: SparkSession,
-                 learning_rate: float = 0.5,
-                 epochs: int = 1,
-                 embedding_dimension: int = 10):
+    def __init__(
+            self,
+            learning_rate: float = 0.5,
+            epochs: int = 1,
+            embedding_dimension: int = 10):
         """
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
         :param embedding_dimension: размер представления пользователей/объектов
-        :param spark: инициализированная спарк-сессия
         :param learning_rate: шаг обучения
         :param epochs: количество эпох, в течение которых учимся
         """
-        super().__init__(spark)
-
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.embedding_dimension = embedding_dimension
@@ -196,9 +194,10 @@ class NeuroCFRecommender(Recommender):
                                      lr=self.learning_rate)
 
         logging.debug("Составление батча:")
+        spark = SparkSession(log.rdd.context)
         tensor_data = NeuroCFRecommender.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
 
@@ -230,11 +229,11 @@ class NeuroCFRecommender(Recommender):
         self.model.eval()
 
         loss_value = 0.0
-
+        spark = SparkSession(log.rdd.context)
         logging.debug("Составление батча:")
         tensor_data = NeuroCFRecommender.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
 
@@ -265,8 +264,8 @@ class NeuroCFRecommender(Recommender):
 
         columns = ["user_idx", "item_idx", "relevance"]
         sep = ","
-
-        tmp_path = os.path.join(self.spark.conf.get("spark.local.dir"), "recs")
+        spark = SparkSession(log.rdd.context)
+        tmp_path = os.path.join(spark.conf.get("spark.local.dir"), "recs")
         if os.path.exists(tmp_path):
             shutil.rmtree(tmp_path)
         os.makedirs(tmp_path)
@@ -274,7 +273,7 @@ class NeuroCFRecommender(Recommender):
         logging.debug("Предсказание модели")
         for i, (user_ids, item_ids, num_users, num_items) in enumerate(
                 self._batch_generator(
-                    users, items, self.spark.conf.get("spark.local.dir")
+                    users, items, spark.conf.get("spark.local.dir")
                 )
         ):
             if i % 100 == 0:
@@ -301,9 +300,8 @@ class NeuroCFRecommender(Recommender):
                        fmt="%.5f",
                        header=sep.join(columns),
                        comments="")
-
-        recs = self.spark.read.csv(tmp_path, sep=sep, header=True,
-                                   inferSchema=True)
+        spark = SparkSession(users.rdd.context)
+        recs = spark.read.csv(tmp_path, sep=sep, header=True, inferSchema=True)
         recs = recs.withColumn("context", sf.lit(DEFAULT_CONTEXT))
 
         logging.debug("Обратное преобразование индексов")

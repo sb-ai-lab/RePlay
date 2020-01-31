@@ -16,17 +16,7 @@ from sponge_bob_magic.utils import write_read_dataframe
 
 class Recommender(ABC):
     """ Базовый класс-рекомендатель. """
-
     model: Any = None
-
-    def __init__(self, spark: SparkSession, **kwargs):
-        """
-        Инициализирует параметры модели и сохраняет спарк-сессию.
-
-        :param spark: инициализированная спарк-сессия
-        :param kwargs: параметры для модели
-        """
-        self.spark = spark
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
@@ -255,10 +245,10 @@ class Recommender(ABC):
 
         recs = self._predict(k, users, items, context, log, user_features,
                              item_features, filter_seen_items)
-
+        spark = SparkSession(recs.rdd.context)
         recs = write_read_dataframe(
-            self.spark, recs,
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            recs,
+            os.path.join(spark.conf.get("spark.local.dir"),
                          f"recs{uuid4()}.parquet")
         )
 

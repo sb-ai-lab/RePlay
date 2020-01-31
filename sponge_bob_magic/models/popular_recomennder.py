@@ -20,14 +20,14 @@ class PopularRecommender(Recommender):
     Простейший рекомендатель на основе сглаженной популярности.
 
     Популярность объекта определяется как:
-    popularity(i) = \dfrac{N_i + \alpha}{N + \beta},
+    popularity(i) = \\dfrac{N_i + \\alpha}{N + \\beta},
 
     где $ N_i $ - количество пользователей, у которых было взаимодействие с
     данным объектом $ i $, $ N $ - общее количество пользователей,
     которые как провзаимодействовали с объектом, так и нет,
-    $ \alpha, \beta \in [0, \infty) $ - параметры модели.
+    $ \\alpha, \\beta \\in [0, \\infty) $ - параметры модели.
 
-    Эвристика: размуным пределом для параметров $ \alpha $ и $ \beta $
+    Эвристика: размуным пределом для параметров $ \\alpha $ и $ \\beta $
     может стать среднее значение количества пользователей $ N_i $,
     которые провзаимодействовали с объектами.
     """
@@ -35,11 +35,10 @@ class PopularRecommender(Recommender):
     avg_num_items: int
     items_popularity: DataFrame
 
-    def __init__(self, spark: SparkSession,
-                 alpha: float = 1000,
-                 beta: float = 1000):
-        super().__init__(spark)
-
+    def __init__(
+            self,
+            alpha: float = 1000,
+            beta: float = 1000):
         self.alpha = alpha
         self.beta = beta
 
@@ -69,10 +68,10 @@ class PopularRecommender(Recommender):
         )
         logging.debug(
             "Среднее количество items у каждого user: %d", self.avg_num_items)
-
+        spark = SparkSession(log.rdd.context)
         self.items_popularity = write_read_dataframe(
-            self.spark, self.items_popularity,
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            self.items_popularity,
+            os.path.join(spark.conf.get("spark.local.dir"),
                          "items_popularity.parquet")
         )
 

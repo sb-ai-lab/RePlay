@@ -53,7 +53,6 @@ def get_top_k_rows(
 
 
 def write_read_dataframe(
-        spark: SparkSession,
         dataframe: DataFrame,
         path: Optional[str],
         to_overwrite_files: bool = True
@@ -64,7 +63,6 @@ def write_read_dataframe(
 
     :param to_overwrite_files: флажок, если True, то перезаписывает файл,
         если он существует; иначе - поднимается исключение
-    :param spark: инициализированная спарк-сессия
     :param dataframe: спарк-датафрейм
     :param path: путь, по которому происходит записаь датафрейма
     :return: оригинальный датафрейм; если `path` не пустой,
@@ -75,6 +73,7 @@ def write_read_dataframe(
          .write
          .mode("overwrite" if to_overwrite_files else "error")
          .parquet(path))
+        spark = SparkSession(dataframe.rdd.context)
         dataframe = spark.read.parquet(path)
     return dataframe
 

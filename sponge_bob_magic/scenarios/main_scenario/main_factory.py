@@ -32,27 +32,25 @@ class MainScenarioFactory(ScenarioFactory):
         metrics: Optional[List[Metric]] = None,
         fallback_recommender: Optional[Recommender] = None
     ) -> Scenario:
-        main_scenario = MainScenario(self.spark)
-
+        main_scenario = MainScenario()
         main_scenario.splitter = (
             splitter if splitter
-            else LogSplitRandomlySplitter(self.spark,
-                                          drop_cold_users=True,
-                                          drop_cold_items=True,
-                                          test_size=0.3,
-                                          seed=1234)
+            else LogSplitRandomlySplitter(
+                    drop_cold_users=True,
+                    drop_cold_items=True,
+                    test_size=0.3,
+                    seed=1234)
         )
         main_scenario.recommender = (
             recommender if recommender
-            else PopularRecommender(self.spark, alpha=0, beta=0)
+            else PopularRecommender(alpha=0, beta=0)
         )
         main_scenario.criterion = (
             criterion if criterion
-            else HitRateMetric(self.spark)
+            else HitRateMetric()
         )
         main_scenario.metrics = metrics if metrics else []
         main_scenario.fallback_recommender = fallback_recommender
-
         return main_scenario
 
 
@@ -100,18 +98,18 @@ if __name__ == "__main__":
 
     flag = True
     if flag:
-        recommender_ = PopularRecommender(spark_)
+        recommender_ = PopularRecommender()
         grid = {"alpha": {"type": "int", "args": [0, 100]},
                 "beta": {"type": "int", "args": [0, 100]}}
     else:
-        recommender_ = KNNRecommender(spark_)
+        recommender_ = KNNRecommender()
         grid = {"num_neighbours": {"type": "categorical",
                                    "args": [[1]]}}
 
-    factory = MainScenarioFactory(spark_)
+    factory = MainScenarioFactory()
 
     scenario = factory.get(
-        splitter=LogSplitByDateSplitter(spark_, True, True,
+        splitter=LogSplitByDateSplitter(True, True,
                                         datetime(2019, 10, 14)),
         criterion=None,
         metrics=None,

@@ -21,11 +21,10 @@ class KNNRecommender(Recommender):
     item_norms: Optional[DataFrame]
     similarity: Optional[DataFrame]
 
-    def __init__(self, spark: SparkSession,
-                 num_neighbours: int = 10,
-                 shrink: float = 0.0):
-        super().__init__(spark)
-
+    def __init__(
+            self,
+            num_neighbours: int = 10,
+            shrink: float = 0.0):
         self.shrink: float = shrink
         self.num_neighbours: int = num_neighbours
 
@@ -140,20 +139,20 @@ class KNNRecommender(Recommender):
             .cache()
         )
         self.all_items = log.select("item_id").distinct().cache()
-
+        spark = SparkSession(self.item_norms.rdd.context)
         self.dot_products = write_read_dataframe(
-            self.spark, self.dot_products,
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            self.dot_products,
+            os.path.join(spark.conf.get("spark.local.dir"),
                          "knn_dot_products.parquet")
         )
         self.item_norms = write_read_dataframe(
-            self.spark, self.item_norms,
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            self.item_norms,
+            os.path.join(spark.conf.get("spark.local.dir"),
                          "knn_item_norms.parquet")
         )
         self.all_items = write_read_dataframe(
-            self.spark, self.all_items,
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            self.all_items,
+            os.path.join(spark.conf.get("spark.local.dir"),
                          "knn_all_items.parquet")
         )
 
@@ -164,10 +163,10 @@ class KNNRecommender(Recommender):
         ).cache()
 
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()
-
+        spark = SparkSession(self.similarity.rdd.context)
         self.similarity = write_read_dataframe(
-            self.spark, self.similarity,
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            self.similarity,
+            os.path.join(spark.conf.get("spark.local.dir"),
                          "knn_similarity_matrix.parquet")
         )
 

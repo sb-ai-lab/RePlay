@@ -12,7 +12,7 @@ from sponge_bob_magic.models.knn_recommender import KNNRecommender
 
 class KNNRecommenderTestCase(PySparkTest):
     def setUp(self):
-        self.model = KNNRecommender(self.spark, 1)
+        self.model = KNNRecommender(1)
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [

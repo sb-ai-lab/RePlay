@@ -79,18 +79,22 @@ class MillionSongDataset(Dataset):
         else:
             self.train = self._read_triplets(
                 join(folder, "train_triplets.txt"))
-            val_vis = self._read_triplets(
-                join(folder, "evaluation",
-                     "year1_valid_triplets_visible.txt"))
-            val_hid = self._read_triplets(
-                join(folder, "evaluation",
-                     "year1_valid_triplets_hidden.txt"))
-            test_vis = self._read_triplets(
-                join(folder, "evaluation",
-                     "year1_test_triplets_visible.txt"))
-            test_hid = self._read_triplets(
-                join(folder, "evaluation",
-                     "year1_test_triplets_hidden.txt"))
+            val_vis = self._read_triplets(join(
+                folder, "evaluation",
+                "year1_valid_triplets_visible.txt")
+            )
+            val_hid = self._read_triplets(join(
+                folder, "evaluation",
+                "year1_valid_triplets_hidden.txt")
+            )
+            test_vis = self._read_triplets(join(
+                folder, "evaluation",
+                "year1_test_triplets_visible.txt")
+            )
+            test_hid = self._read_triplets(join(
+                folder, "evaluation",
+                "year1_test_triplets_hidden.txt")
+            )
             if drop_mismatches:
                 mismatches = self._read_mismatches(folder)
                 mismatches = set(mismatches.item_id)

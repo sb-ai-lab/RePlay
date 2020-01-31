@@ -12,7 +12,7 @@ from sponge_bob_magic.models.lightfm_recommender import LightFMRecommender
 
 class LightFMRecommenderTestCase(PySparkTest):
     def setUp(self):
-        self.lightfm_recommender = LightFMRecommender(self.spark, 1)
+        self.lightfm_recommender = LightFMRecommender(1)
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [

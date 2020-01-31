@@ -1,12 +1,12 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from typing import Union
 
 from pyspark.ml.feature import StringIndexer
 from pyspark.rdd import RDD
-from pyspark.sql import DataFrame, Window, SparkSession
+from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 
 NumType = Union[int, float]
@@ -14,12 +14,6 @@ NumType = Union[int, float]
 
 class Metric(ABC):
     """ Базовый класс метрик. """
-
-    def __init__(self, spark: SparkSession, **kwargs):
-        """
-        :param spark: инициализированная спарк-сессия
-        """
-        self.spark = spark
 
     def __call__(
             self,

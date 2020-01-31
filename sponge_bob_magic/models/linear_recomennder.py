@@ -18,16 +18,14 @@ from sponge_bob_magic.utils import func_get, get_feature_cols, get_top_k_recs
 
 class LinearRecommender(Recommender):
     """ Рекомендатель на основе линейной модели и эмбеддингов. """
-
     _model: LogisticRegressionModel
     augmented_data: DataFrame
 
-    def __init__(self, spark: SparkSession,
-                 lambda_param: float = 0.0,
-                 elastic_net_param: float = 0.0,
-                 num_iter: int = 100):
-        super().__init__(spark)
-
+    def __init__(
+            self,
+            lambda_param: float = 0.0,
+            elastic_net_param: float = 0.0,
+            num_iter: int = 100):
         self.lambda_param: float = lambda_param
         self.elastic_net_param: float = elastic_net_param
         self.num_iter: int = num_iter
@@ -56,8 +54,8 @@ class LinearRecommender(Recommender):
                 elasticNetParam=self.elastic_net_param)
             .fit(self.augmented_data)
         )
-
-        model_path = os.path.join(self.spark.conf.get("spark.local.dir"),
+        spark = SparkSession(log.rdd.context)
+        model_path = os.path.join(spark.conf.get("spark.local.dir"),
                                   "linear.model")
         self._model.write().overwrite().save(model_path)
         self._model = self._model.read().load(model_path)

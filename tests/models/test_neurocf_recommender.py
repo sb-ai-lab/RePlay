@@ -5,10 +5,10 @@ from datetime import datetime
 
 import numpy as np
 import torch
+from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
 from sponge_bob_magic.models.neurocf_recommender import NeuroCFRecommender
-from tests.pyspark_testcase import PySparkTest
 
 
 class NeuroCFRecommenderTestCase(PySparkTest):
@@ -18,7 +18,7 @@ class NeuroCFRecommenderTestCase(PySparkTest):
         torch.backends.cudnn.benchmark = False
         np.random.seed(0)
 
-        self.model = NeuroCFRecommender(self.spark)
+        self.model = NeuroCFRecommender()
         self.log = self.spark.createDataFrame(
             [
                 ("0", "0", datetime(2019, 1, 1), DEFAULT_CONTEXT, 1.0),

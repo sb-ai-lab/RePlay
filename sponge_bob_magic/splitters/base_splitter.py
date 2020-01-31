@@ -1,10 +1,10 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from typing import Tuple
 
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 
 SplitterReturnType = Tuple[DataFrame, DataFrame, DataFrame]
 
@@ -14,13 +14,11 @@ class Splitter(ABC):
 
     def __init__(
             self,
-            spark: SparkSession,
             drop_cold_items: bool,
             drop_cold_users: bool,
             **kwargs
     ):
         """
-        :param spark: инициализированная спарк-сессия
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
@@ -28,7 +26,6 @@ class Splitter(ABC):
         """
         self.drop_cold_users = drop_cold_users
         self.drop_cold_items = drop_cold_items
-        self.spark = spark
 
     @staticmethod
     def _filter_zero_relevance(dataframe: DataFrame) -> DataFrame:

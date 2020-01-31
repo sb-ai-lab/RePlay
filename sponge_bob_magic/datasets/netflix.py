@@ -52,9 +52,8 @@ class Netflix(Dataset):
         path = join(folder, "clean")
         self.movies = pd.read_csv(join(path, "movies.csv"), sep="\t",
                                   names=["item_id", "year", "title"],
-                                  dtype={
-                                      "item_id": "uint16",
-                                      "year": "float32"})
+                                  dtype={"item_id": "uint16",
+                                         "year": "float32"})
         self.test = pd.read_csv(join(path, "test.csv"),
                                 names=["item_id", "user_id", "timestamp"],
                                 parse_dates=["timestamp"],
