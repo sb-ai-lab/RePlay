@@ -11,7 +11,7 @@ from sponge_bob_magic.metrics.base_metrics import Metric, NumType
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class HitRateMetric(Metric):
+class HitRate(Metric):
     """
     Метрика HitRate@K:
     для какой доли пользователей удалось порекомендовать среди
@@ -40,7 +40,7 @@ class HitRateMetric(Metric):
         return users_hit / users_total
 
 
-class NDCGMetric(Metric):
+class NDCG(Metric):
     """
     Метрика nDCG@k:
     чем релевантнее элементы среди первых `k`, тем выше метрика.
@@ -64,7 +64,7 @@ class NDCGMetric(Metric):
         return metrics.ndcgAt(k)
 
 
-class PrecisionMetric(Metric):
+class Precision(Metric):
     """
     Метрика Precision@k:
     точность на `k` первых элементах выдачи.
@@ -88,7 +88,7 @@ class PrecisionMetric(Metric):
         return metrics.precisionAt(k)
 
 
-class MAPMetric(Metric):
+class MAP(Metric):
     """
     Метрика MAP@k (mean average precision):
     средняя точность на `k` первых элементах выдачи.
@@ -112,7 +112,7 @@ class MAPMetric(Metric):
         return metrics.meanAveragePrecision
 
 
-class RecallMetric(Metric):
+class Recall(Metric):
     """
     Метрика Recall@K:
     какую долю объектов из реального лога мы покажем в рекомендациях среди
