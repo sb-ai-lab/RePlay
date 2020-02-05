@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+import logging
 from abc import ABC, abstractmethod
 from math import log2
 from typing import Union
@@ -19,7 +20,6 @@ NumType = Union[int, float]
 class Metric(ABC):
     """ Базовый класс метрик. """
 
-    @abstractmethod
     def __call__(
             self,
             recommendations: DataFrame,
@@ -36,6 +36,23 @@ class Metric(ABC):
         :param k: какое максимальное количество объектов брать из топа
             рекомендованных для оценки
         :return: значение метрики
+        """
+        if not self._check_users(recommendations, ground_truth):
+            logging.warning(
+                "Значение метрики может быть неожиданным:"
+                "пользователи в recommendations и ground_truth различаются!"
+            )
+        return self._get_metric_value(recommendations, ground_truth, k)
+
+    @abstractmethod
+    def _get_metric_value(
+            self,
+            recommendations: DataFrame,
+            ground_truth: DataFrame,
+            k: int
+    ) -> NumType:
+        """
+        Расчёт значения метрики
         """
 
     @abstractmethod
@@ -122,7 +139,7 @@ class HitRate(Metric):
     def __str__(self):
         return "HitRate@K"
 
-    def __call__(
+    def _get_metric_value(
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
@@ -150,7 +167,7 @@ class NDCG(Metric):
     def __str__(self):
         return "nDCG@k"
 
-    def __call__(
+    def _get_metric_value(
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
@@ -174,7 +191,7 @@ class Precision(Metric):
     def __str__(self):
         return "Precision@k"
 
-    def __call__(
+    def _get_metric_value(
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
@@ -198,7 +215,7 @@ class MAP(Metric):
     def __str__(self):
         return "MAP@k"
 
-    def __call__(
+    def _get_metric_value(
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
@@ -223,7 +240,7 @@ class Recall(Metric):
     def __str__(self):
         return "Recall@K"
 
-    def __call__(
+    def _get_metric_value(
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
@@ -302,7 +319,7 @@ class Surprisal(Metric):
         self.normalize = normalize
         self.fill_value = 1.0 if normalize else max_value
 
-    def __call__(
+    def _get_metric_value(
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,

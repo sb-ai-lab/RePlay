@@ -26,15 +26,16 @@ class TestMetrics(PySparkTest):
                   ["user1", "item5", "night", 5.0]],
             schema=REC_SCHEMA)
         self.ground_truth_recs = self.spark.createDataFrame(
-            data=[["user1", "item1", datetime(2019, 9, 12), "day  ", 3.0],
-                  ["user1", "item5", datetime(2019, 9, 13), "night", 2.0],
-                  ["user1", "item2", datetime(2019, 9, 17), "night", 1.0],
-                  ["user2", "item6", datetime(2019, 9, 14), "day  ", 4.0],
-                  ["user2", "item1", datetime(2019, 9, 15), "night", 3.0]],
+            data=[
+                ["user1", "item1", datetime(2019, 9, 12), "day  ", 3.0],
+                ["user1", "item5", datetime(2019, 9, 13), "night", 2.0],
+                ["user1", "item2", datetime(2019, 9, 17), "night", 1.0],
+                ["user2", "item6", datetime(2019, 9, 14), "day  ", 4.0],
+                ["user2", "item1", datetime(2019, 9, 15), "night", 3.0],
+                ["user3", "item2", datetime(2019, 9, 15), "night", 3.0]
+            ],
             schema=LOG_SCHEMA)
-
         self.empty_df = self.spark.createDataFrame(data=[], schema=LOG_SCHEMA)
-
         self.log = self.spark.createDataFrame(
             data=[["user1", "item1", datetime(2019, 8, 22), "day  ", 4.0],
                   ["user1", "item3", datetime(2019, 8, 23), "night", 3.0],
@@ -60,13 +61,13 @@ class TestMetrics(PySparkTest):
         )
 
     def test_ndcg_at_k(self):
-        self.assertEqual(
+        self.assertAlmostEqual(
             NDCG()(self.recs, self.ground_truth_recs, 1),
-            1 / 2
+            1 / 3
         )
-        self.assertEqual(
+        self.assertAlmostEqual(
             NDCG()(self.recs, self.ground_truth_recs, 3),
-            1 / 2 * (
+            1 / 3 * (
                     1 / (1 / log(2) + 1 / log(3) + 1 / log(4)) *
                     (1 / log(2) + 1 / log(3)) +
                     1 / (1 / log(2) + 1 / log(3)) *
@@ -77,36 +78,36 @@ class TestMetrics(PySparkTest):
     def test_precision_at_k(self):
         self.assertAlmostEqual(
             Precision()(self.recs, self.ground_truth_recs, 3),
-            1 / 2
+            1 / 3
         )
-        self.assertEqual(
+        self.assertAlmostEqual(
             Precision()(self.recs, self.ground_truth_recs, 1),
-            1 / 2
+            1 / 3
         )
         self.assertAlmostEqual(
             Precision()(self.recs, self.ground_truth_recs, 2),
-            3 / 4
+            1 / 2
         )
 
     def test_map_at_k(self):
         self.assertAlmostEqual(
             MAP()(self.recs, self.ground_truth_recs, 3),
-            11 / 24
+            11 / 36
         )
 
         self.assertAlmostEqual(
             MAP()(self.recs, self.ground_truth_recs, 1),
-            1 / 2
+            1 / 3
         )
 
     def test_recall_at_k(self):
         self.assertEqual(
             Recall()(self.recs, self.ground_truth_recs, 10),
-            (1 / 2 + 2 / 3) / 2
+            (1 / 2 + 2 / 3) / 3
         )
         self.assertEqual(
             Recall()(self.recs, self.ground_truth_recs, 1),
-            1 / 6
+            1 / 9
         )
 
     def test_surprisal_at_k(self):
@@ -140,13 +141,13 @@ class TestMetrics(PySparkTest):
             def __str__(self):
                 return ""
 
-            def __call__(self, recommendations, ground_truth, k):
+            def _get_metric_value(self, recommendations, ground_truth, k):
                 return 1.0
-        self.assertFalse(NewMetric()._check_users(
+        self.assertTrue(NewMetric()._check_users(
             self.recs,
             self.ground_truth_recs
         ))
         self.assertTrue(NewMetric()._check_users(
             self.recs,
-            self.recs
+            self.log
         ))
