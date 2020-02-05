@@ -15,6 +15,7 @@ NumType = Union[int, float]
 class Metric(ABC):
     """ Базовый класс метрик. """
 
+    @abstractmethod
     def __call__(
             self,
             recommendations: DataFrame,
@@ -22,9 +23,6 @@ class Metric(ABC):
             k: int
     ) -> NumType:
         """
-        Call-метод, позволяет вызывать подсчет метрики сразу от инстанса
-        класса. Тип метрики определяется классом-наследником.
-
         :param recommendations: выдача рекомендательной системы,
             спарк-датарейм вида
             `[user_id, item_id, context, relevance]`
@@ -35,34 +33,10 @@ class Metric(ABC):
             рекомендованных для оценки
         :return: значение метрики
         """
-        return self.calculate(recommendations, ground_truth, k)
 
     @abstractmethod
     def __str__(self):
         """ Строковое представление метрики. """
-
-    @abstractmethod
-    def calculate(
-            self,
-            recommendations: DataFrame,
-            ground_truth: DataFrame,
-            k: int
-    ) -> NumType:
-        """
-        Абстрактный метод, который должны реализовать классы-наследники.
-
-        Считает метрику. Тип метрики определяется классом-наследником.
-
-        :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида
-            `[user_id, item_id, context, relevance]`
-        :param ground_truth: реальный лог действий пользователей,
-            спарк-датафрейм вида
-            `[user_id , item_id , timestamp , context , relevance]`
-        :param k: какое максимальное количество объектов брать из топа
-            рекомендованных для оценки
-        :return: значение метрики
-        """
 
     @staticmethod
     def _merge_prediction_and_truth(

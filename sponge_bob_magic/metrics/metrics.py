@@ -22,7 +22,7 @@ class HitRate(Metric):
     def __str__(self):
         return "HitRate@K"
 
-    def calculate(
+    def __call__(
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
@@ -50,7 +50,7 @@ class NDCG(Metric):
     def __str__(self):
         return "nDCG@k"
 
-    def calculate(
+    def __call__(
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
@@ -74,7 +74,7 @@ class Precision(Metric):
     def __str__(self):
         return "Precision@k"
 
-    def calculate(
+    def __call__(
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
@@ -98,7 +98,7 @@ class MAP(Metric):
     def __str__(self):
         return "MAP@k"
 
-    def calculate(
+    def __call__(
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
@@ -123,7 +123,7 @@ class Recall(Metric):
     def __str__(self):
         return "Recall@K"
 
-    def calculate(
+    def __call__(
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
@@ -202,7 +202,7 @@ class Surprisal(Metric):
         self.normalize = normalize
         self.fill_value = 1.0 if normalize else max_value
 
-    def calculate(
+    def __call__(
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
