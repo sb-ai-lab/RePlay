@@ -7,8 +7,8 @@ from math import log, log2
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.metrics import (MAP, NDCG, HitRate, Precision, Recall,
-                                      Surprisal)
+from sponge_bob_magic.metrics import (MAP, NDCG, HitRate, Metric, Precision,
+                                      Recall, Surprisal)
 
 
 class TestMetrics(PySparkTest):
@@ -134,3 +134,19 @@ class TestMetrics(PySparkTest):
                 surprisal_norm(self.recs2, self.empty_df, 1),
                 1.0
             )
+
+    def test_check_users(self):
+        class NewMetric(Metric):
+            def __str__(self):
+                return ""
+
+            def __call__(self, recommendations, ground_truth, k):
+                return 1.0
+        self.assertFalse(NewMetric()._check_users(
+            self.recs,
+            self.ground_truth_recs
+        ))
+        self.assertTrue(NewMetric()._check_users(
+            self.recs,
+            self.recs
+        ))
