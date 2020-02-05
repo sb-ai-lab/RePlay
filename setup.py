@@ -30,6 +30,7 @@ setuptools.setup(
         "pandas",
         "pyspark",
         "scipy",
-        "scikit-learn"
+        "scikit-learn",
+        "dash"
     ]
 )
