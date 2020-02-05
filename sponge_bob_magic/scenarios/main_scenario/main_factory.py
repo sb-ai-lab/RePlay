@@ -8,8 +8,7 @@ from typing import List, Optional
 
 from pyspark.sql import SparkSession
 
-from sponge_bob_magic.metrics.base_metrics import Metric
-from sponge_bob_magic.metrics.metrics import HitRate
+from sponge_bob_magic.metrics import HitRate, Metric
 from sponge_bob_magic.models.base_recommender import Recommender
 from sponge_bob_magic.models.knn_recommender import KNNRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender

@@ -42,23 +42,6 @@ class Metric(ABC):
     def __str__(self):
         """ Строковое представление метрики. """
 
-    def _check_users(
-            recommendations: DataFrame,
-            ground_truth: DataFrame
-    ) -> bool:
-        """
-        Вспомогательный метод, который сравнивает множества пользователей,
-        которым выдали рекомендации, и тех, кто есть в тестовых данных
-
-        :param recommendations: рекомендации
-        :param ground_truth: лог тестовых действий
-        :return: совпадают ли множества пользователей
-        """
-        users_in_recs = recommendations.select("user_id").distinct().cache()
-        return users_in_recs.join(
-            ground_truth.select("user_id").distinct()
-        ).count() == users_in_recs.count()
-
     @staticmethod
     def _merge_prediction_and_truth(
             recommendations: DataFrame,

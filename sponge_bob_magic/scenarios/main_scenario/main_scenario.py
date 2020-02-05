@@ -10,8 +10,7 @@ from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame, SparkSession
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
-from sponge_bob_magic.metrics.base_metrics import Metric
-from sponge_bob_magic.metrics.metrics import NDCG, HitRate, Precision
+from sponge_bob_magic.metrics import NDCG, HitRate, Metric, Precision
 from sponge_bob_magic.models.base_recommender import Recommender
 from sponge_bob_magic.models.knn_recommender import KNNRecommender
 from sponge_bob_magic.models.popular_recomennder import PopularRecommender
