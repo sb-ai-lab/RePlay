@@ -114,7 +114,3 @@ class RecommenderTestCase(PySparkTest):
                 data=[["1", "2"]],
                 schema=["item_id", "timestamp"])
         )
-
-
-if __name__ == "__main__":
-    unittest.main()
