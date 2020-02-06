@@ -143,11 +143,15 @@ class TestMetrics(PySparkTest):
 
             def _get_metric_value(self, recommendations, ground_truth, k):
                 return 1.0
-        self.assertTrue(NewMetric()._check_users(
-            self.recs,
-            self.ground_truth_recs
-        ))
-        self.assertTrue(NewMetric()._check_users(
-            self.recs,
-            self.log
-        ))
+        test_cases = [
+            [True, self.recs, self.ground_truth_recs],
+            [False, self.recs, self.log],
+            [False, self.log, self.recs]
+        ]
+        new_metric = NewMetric()
+        for correct_value, left, right in test_cases:
+            with self.subTest():
+                self.assertEqual(
+                    new_metric._check_users(left, right),
+                    correct_value
+                )

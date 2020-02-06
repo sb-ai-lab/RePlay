@@ -72,10 +72,12 @@ class Metric(ABC):
         :param ground_truth: лог тестовых действий
         :return: совпадают ли множества пользователей
         """
-        users_in_recs = recommendations.select("user_id").distinct().cache()
-        return users_in_recs.join(
-            ground_truth.select("user_id").distinct(), on="user_id"
-        ).count() == users_in_recs.count()
+        left = recommendations.select("user_id").distinct().cache()
+        right = ground_truth.select("user_id").distinct().cache()
+        left_count = left.count()
+        right_count = right.count()
+        inner_count = left.join(right, on="user_id").count()
+        return left_count == inner_count and right_count == inner_count
 
     @staticmethod
     def _merge_prediction_and_truth(
