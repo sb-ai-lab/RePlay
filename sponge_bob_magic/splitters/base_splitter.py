@@ -6,6 +6,8 @@ from typing import Tuple
 
 from pyspark.sql import DataFrame
 
+from sponge_bob_magic.converter import Converter
+
 SplitterReturnType = Tuple[DataFrame, DataFrame, DataFrame]
 
 
@@ -99,13 +101,14 @@ class Splitter(ABC):
             `predict_input` - выборка, которая известна на момент предсказания,
             `test` - тестовая выборка
         """
-        train, predict_input, test = self._core_split(log)
+        c = Converter(log)
+        train, predict_input, test = self._core_split(c(log))
 
         test = self._drop_cold_items_and_users(
             train, test,
             self.drop_cold_items, self.drop_cold_users
         )
 
-        return (train,
-                self._filter_zero_relevance(predict_input),
-                self._filter_zero_relevance(test))
+        return (c(train),
+                c(self._filter_zero_relevance(predict_input)),
+                c(self._filter_zero_relevance(test)))

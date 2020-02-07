@@ -9,6 +9,8 @@ from pyspark.rdd import RDD
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 
+from sponge_bob_magic.converter import Converter
+
 NumType = Union[int, float]
 
 
@@ -35,7 +37,8 @@ class Metric(ABC):
             рекомендованных для оценки
         :return: значение метрики
         """
-        return self.calculate(recommendations, ground_truth, k)
+        c = Converter(recommendations)
+        return self.calculate(c(recommendations), c(ground_truth), k)
 
     @abstractmethod
     def __str__(self):
