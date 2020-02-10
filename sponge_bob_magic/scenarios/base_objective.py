@@ -4,7 +4,7 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Any, List
+from typing import Any, Dict, List, Optional
 
 import joblib
 import optuna
@@ -12,7 +12,7 @@ from optuna import Study, Trial
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.metrics.base_metrics import Metric
+from sponge_bob_magic.metrics import Metric
 from sponge_bob_magic.utils import get_top_k_recs
 
 
