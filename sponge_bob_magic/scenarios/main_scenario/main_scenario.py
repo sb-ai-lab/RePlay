@@ -96,14 +96,15 @@ class MainScenario(Scenario):
         while n_trials > n_unique_trials and count <= self.optuna_max_n_trials:
             spark = SparkSession(split_data.train.rdd.context)
             self.study.optimize(
-                MainObjective(params_grid, self.study, split_data,
-                              self.recommender, self.criterion, self.metrics,
-                              k, context,
-                              fallback_recs,
-                              self.filter_seen_items,
-                              spark.conf.get("spark.local.dir")),
-                n_trials=1,
-                n_jobs=self.optuna_n_jobs
+                MainObjective(
+                    params_grid, self.study, split_data,
+                    self.recommender, self.criterion, self.metrics,
+                    k, context,
+                    fallback_recs,
+                    self.filter_seen_items,
+                    spark.conf.get("spark.local.dir")),
+                    n_trials=1,
+                    n_jobs=self.optuna_n_jobs
             )
 
             count += 1

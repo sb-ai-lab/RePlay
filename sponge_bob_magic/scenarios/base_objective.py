@@ -4,16 +4,27 @@
 import logging
 import os
 from abc import ABC, abstractmethod
+from collections import Iterable
 from typing import Any, Dict, List, Optional
 
 import joblib
 import optuna
+import pandas as pd
 from optuna import Study, Trial
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.metrics import Metric
 from sponge_bob_magic.utils import get_top_k_recs
+
+
+def performance(recommendations, ground_truth, metrics, k):
+    if not isinstance(metrics, Iterable):
+        metrics = [metrics]
+    res = pd.Series()
+    for metric in metrics:
+        res[f"{metric}@{k}"] = metric(recommendations, ground_truth, k)
+    return res
 
 
 class Objective(ABC):
@@ -88,17 +99,15 @@ class Objective(ABC):
     ) -> float:
         """ Подсчитывает все метрики и сохраняет их в `trial`. """
         result_string = "-- Метрики:"
+        result = performance(recommendations, ground_truth, [criterion].append(metrics), k)
 
-        criterion_value = criterion(recommendations, ground_truth, k=k)
-        result_string += f" {criterion}={criterion_value:.4f}"
-
-        for metric in metrics:
-            value = metric(recommendations, ground_truth, k=k)
-            trial.set_user_attr(str(metric), value)
-            result_string += f" {metric}={value:.4f}"
+        for metric in result.index:
+            result_string += f" {metric}={result[metric]:.4f}"
+            if metric != f"{criterion}@{k}":
+                trial.set_user_attr(metric, result[metric])
 
         logging.debug(result_string)
-        return criterion_value
+        return result[f"{criterion}@{k}"]
 
     @staticmethod
     def _join_fallback_recs(
