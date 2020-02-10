@@ -24,21 +24,21 @@ class MainScenarioFactory(ScenarioFactory):
     """ Класс фабрики для простого сценария с замесом. """
 
     def get(
-        self,
-        splitter: Optional[Splitter] = None,
-        recommender: Optional[Recommender] = None,
-        criterion: Optional[Metric] = None,
-        metrics: Optional[List[Metric]] = None,
-        fallback_recommender: Optional[Recommender] = None
+            self,
+            splitter: Optional[Splitter] = None,
+            recommender: Optional[Recommender] = None,
+            criterion: Optional[Metric] = None,
+            metrics: Optional[List[Metric]] = None,
+            fallback_recommender: Optional[Recommender] = None
     ) -> Scenario:
         main_scenario = MainScenario()
         main_scenario.splitter = (
             splitter if splitter
             else LogSplitRandomlySplitter(
-                    drop_cold_users=True,
-                    drop_cold_items=True,
-                    test_size=0.3,
-                    seed=1234)
+                drop_cold_users=True,
+                drop_cold_items=True,
+                test_size=0.3,
+                seed=None)
         )
         main_scenario.recommender = (
             recommender if recommender
