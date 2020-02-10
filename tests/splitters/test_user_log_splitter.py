@@ -108,7 +108,7 @@ class TestRandomUserLogSplitter(PySparkTest):
                 drop_cold_users=False,
                 item_test_size=item_test_size,
                 seed=1234)
-                .split(log=self.log)
+            .split(log=self.log)
         )
 
         self.assertSparkDataFrameEqual(train.union(test), self.log)
@@ -173,7 +173,7 @@ class TestByTimeUserLogSplitter(PySparkTest):
                 drop_cold_items=False,
                 drop_cold_users=False,
                 item_test_size=2)
-                .split(log=self.log)
+            .split(log=self.log)
         )
 
         true_train = self.spark.createDataFrame(
@@ -211,7 +211,7 @@ class TestByTimeUserLogSplitter(PySparkTest):
                 drop_cold_items=False,
                 drop_cold_users=False,
                 item_test_size=0.4)
-                .split(log=self.log)
+            .split(log=self.log)
         )
 
         true_train = self.spark.createDataFrame(
