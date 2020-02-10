@@ -24,21 +24,21 @@ class MainScenarioFactory(ScenarioFactory):
     """ Класс фабрики для простого сценария с замесом. """
 
     def get(
-        self,
-        splitter: Optional[Splitter] = None,
-        recommender: Optional[Recommender] = None,
-        criterion: Optional[Metric] = None,
-        metrics: Optional[List[Metric]] = None,
-        fallback_recommender: Optional[Recommender] = None
+            self,
+            splitter: Optional[Splitter] = None,
+            recommender: Optional[Recommender] = None,
+            criterion: Optional[Metric] = None,
+            metrics: Optional[List[Metric]] = None,
+            fallback_recommender: Optional[Recommender] = None
     ) -> Scenario:
         main_scenario = MainScenario()
         main_scenario.splitter = (
             splitter if splitter
             else LogSplitRandomlySplitter(
-                    drop_cold_users=True,
-                    drop_cold_items=True,
-                    test_size=0.3,
-                    seed=1234)
+                drop_cold_users=True,
+                drop_cold_items=True,
+                test_size=0.3,
+                seed=None)
         )
         main_scenario.recommender = (
             recommender if recommender
@@ -56,14 +56,14 @@ class MainScenarioFactory(ScenarioFactory):
 if __name__ == "__main__":
     spark_ = (
         SparkSession
-        .builder
-        .master("local[4]")
-        .config("spark.local.dir", os.path.join(os.environ["HOME"], "tmp"))
-        .config("spark.driver.memory", "2g")
-        .config("spark.sql.shuffle.partitions", "1")
-        .appName("testing-pyspark")
-        .enableHiveSupport()
-        .getOrCreate())
+            .builder
+            .master("local[4]")
+            .config("spark.local.dir", os.path.join(os.environ["HOME"], "tmp"))
+            .config("spark.driver.memory", "2g")
+            .config("spark.sql.shuffle.partitions", "1")
+            .appName("testing-pyspark")
+            .enableHiveSupport()
+            .getOrCreate())
     spark_logger = logging.getLogger("py4j")
     spark_logger.setLevel(logging.WARN)
 

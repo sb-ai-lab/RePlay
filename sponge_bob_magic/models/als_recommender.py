@@ -23,7 +23,8 @@ class ALSRecommender(Recommender):
     item_indexer_model: StringIndexerModel
 
     """ Обёртка вокруг ALS на Spark. """
-    def __init__(self, rank: int = 10):
+
+    def __init__(self, rank: int = 10, seed: int = None):
         """
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
@@ -34,6 +35,7 @@ class ALSRecommender(Recommender):
                                           outputCol="user_idx")
         self.item_indexer = StringIndexer(inputCol="item_id",
                                           outputCol="item_idx")
+        self._seed = seed
 
     def get_params(self) -> Dict[str, object]:
         return {
@@ -82,9 +84,9 @@ class ALSRecommender(Recommender):
 
         recs = (
             self.model.transform(log_indexed)
-            .withColumn("relevance", col("prediction").cast(DoubleType()))
-            .drop("user_idx", "item_idx", "prediction")
-            .cache()
+                .withColumn("relevance", col("prediction").cast(DoubleType()))
+                .drop("user_idx", "item_idx", "prediction")
+                .cache()
         )
         recs = get_top_k_recs(recs, k).withColumn(
             "context", lit(DEFAULT_CONTEXT)
