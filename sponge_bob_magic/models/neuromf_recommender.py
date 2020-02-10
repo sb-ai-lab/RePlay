@@ -86,7 +86,7 @@ class NMF(Module):
 
 
 class NeuroMFRecommender(Recommender):
-    """ Модель на нейросети. """
+    """ Модель матричной факторизации на нейросети. """
     num_workers: int = 10
     batch_size_fit_users: int = 100000
     batch_size_predict_users: int = 100
@@ -95,21 +95,18 @@ class NeuroMFRecommender(Recommender):
     item_indexer_model: StringIndexerModel
     num_users: int
     num_items: int
+    num_trees_annoy: int = 10
 
-    def __init__(self, spark: SparkSession,
-                 learning_rate: float = 0.5,
+    def __init__(self, learning_rate: float = 0.5,
                  epochs: int = 1,
                  embedding_dimension: int = 10):
         """
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
-        :param embedding_dimension: размер представления пользователей/объектов
-        :param spark: инициализированная спарк-сессия
         :param learning_rate: шаг обучения
         :param epochs: количество эпох, в течение которых учимся
+        :param embedding_dimension: размер представления пользователей/объектов
         """
-        super().__init__(spark)
-
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.embedding_dimension = embedding_dimension
@@ -208,9 +205,10 @@ class NeuroMFRecommender(Recommender):
                                      lr=self.learning_rate)
 
         logging.debug("Составление батча:")
+        spark = SparkSession(log.rdd.context)
         tensor_data = NeuroMFRecommender.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
 
@@ -228,7 +226,7 @@ class NeuroMFRecommender(Recommender):
         _, item_embs = self.model(user_batch, item_batch, get_embs=True)
         for item_id, item_emb in zip(tensor_data["item_idx"].values, item_embs.detach().numpy()):
             self.annoy_index.add_item(int(item_id), item_emb)
-        self.annoy_index.build(10)
+        self.annoy_index.build(self.num_trees_annoy)
 
     def get_loss(
             self,
@@ -249,11 +247,12 @@ class NeuroMFRecommender(Recommender):
         self.model.eval()
 
         loss_value = 0.0
+        spark = SparkSession(log.rdd.context)
 
         logging.debug("Составление батча:")
         tensor_data = NeuroMFRecommender.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
 
@@ -282,8 +281,8 @@ class NeuroMFRecommender(Recommender):
                  to_filter_seen_items: bool = True) -> DataFrame:
         self.model.eval()
         sep = ","
-
-        tmp_path = os.path.join(self.spark.conf.get("spark.local.dir"), "recs")
+        spark = SparkSession(users.rdd.context)
+        tmp_path = os.path.join(spark.conf.get("spark.local.dir"), "recs")
         if os.path.exists(tmp_path):
             shutil.rmtree(tmp_path)
         os.makedirs(tmp_path)
@@ -294,7 +293,7 @@ class NeuroMFRecommender(Recommender):
         logging.debug("Предсказание модели")
         tensor_data = NeuroMFRecommender.spark2pandas_csv(
             users.select("user_idx"),
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
 
@@ -318,7 +317,7 @@ class NeuroMFRecommender(Recommender):
         predictions.to_csv(os.path.join(tmp_path, "predict.csv"),
                            sep=sep, header=True, index=False)
 
-        recs = self.spark.read.csv(os.path.join(tmp_path, "predict.csv"),
+        recs = spark.read.csv(os.path.join(tmp_path, "predict.csv"),
                                    sep=sep,
                                    header=True,
                                    inferSchema=True)
