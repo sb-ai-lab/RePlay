@@ -1,3 +1,7 @@
+"""
+Этот модуль позволяет безболезненно создавать и получать спарк сессии.
+"""
+
 import logging
 import os
 from math import floor
@@ -57,7 +61,7 @@ class State(Borg):
     Каждый модуль, которому нужна спарк сессия, будет искать её здесь и создаст дефолтную сессию,
     если ни одной не было создано до сих пор.
     """
-    def __init__(self, session=None):
+    def __init__(self, session: Optional[SparkSession] = None):
         Borg.__init__(self)
         if session is None:
             if 'session' not in self.__dict__.keys():
