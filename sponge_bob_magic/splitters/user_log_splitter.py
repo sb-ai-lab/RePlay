@@ -69,7 +69,7 @@ class UserSplitter(Splitter):
     """
 
     def __init__(self, item_test_size: Union[float, int] = 1, user_test_size: Optional[Union[float, int]] = None,
-                 shuffle=False, drop_cold_items: bool = False, drop_cold_users: bool = False, seed: int = None):
+                 shuffle=False, drop_cold_items: bool = False, drop_cold_users: bool = False, seed: Optional[int] = None):
         """
         :param item_test_size: размер тестовой выборки; если от 0 до 1, то в
             тест попадает данная доля объектов у каждого пользователя: если целое
@@ -222,7 +222,7 @@ class UserSplitter(Splitter):
         return train, predict_input, test
 
     @staticmethod
-    def _add_random_partition(dataframe: DataFrame, seed: int = None) -> DataFrame:
+    def _add_random_partition(dataframe: DataFrame, seed: Optional[int] = None) -> DataFrame:
         """
         Добавляет в датафрейм колонку случайных чисел `rand` и колонку
         порядкового номера пользователя `row_num` на основе этого случайного
