@@ -25,7 +25,7 @@ class UserLogSplitter(Splitter):
             drop_cold_users: bool,
             item_test_size: Union[float, int] = 1,
             user_test_size: Optional[Union[float, int]] = None,
-            seed: int = None):
+            seed: Optional[int] = None):
         """
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
@@ -135,7 +135,7 @@ class RandomUserLogSplitter(UserLogSplitter):
     """ Класс для деления лога каждого пользователя случайно. """
 
     @staticmethod
-    def _add_random_partition(dataframe: DataFrame, seed: int = None) -> DataFrame:
+    def _add_random_partition(dataframe: DataFrame, seed: Optional[int] = None) -> DataFrame:
         """
         Добавляет в датафрейм колонку случайных чисел `rand` и колонку
         порядкового номера пользователя `row_num` на основе этого случайного

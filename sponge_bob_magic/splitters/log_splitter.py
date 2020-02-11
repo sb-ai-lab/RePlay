@@ -7,6 +7,7 @@
 когда в тестовую выборку попадают только холодные пользователи.
 """
 from datetime import datetime
+from typing import Optional
 
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, SparkSession, Window
@@ -56,7 +57,7 @@ class LogSplitRandomlySplitter(Splitter):
             drop_cold_items: bool,
             drop_cold_users: bool,
             test_size: float,
-            seed: int = None
+            seed: Optional[int] = None
     ):
         """
         :param seed: сид для разбиения
