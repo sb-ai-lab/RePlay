@@ -64,4 +64,3 @@ class UtilsTestCase(PySparkTest):
         spark = utils.get_spark_session(1)
         self.assertIsInstance(spark, SparkSession)
         self.assertEqual(spark.conf.get("spark.driver.memory"), "1g")
-        spark.stop()
