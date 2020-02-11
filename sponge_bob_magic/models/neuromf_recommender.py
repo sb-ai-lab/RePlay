@@ -73,16 +73,16 @@ class NMF(Module):
         :return: батч весов предсказанных взаимодействий пользователей и
             объектов или батч промежуточных эмбеддингов
         """
-        e1 = self.user_embedding(user)
-        e2 = self.item_embedding(item)
+        user_emb = self.user_embedding(user)
+        item_emb = self.item_embedding(item)
 
-        dot = (e1 * e2).sum(dim=1).squeeze()
-        dot1 = dot + self.item_biases(item).squeeze() + self.user_biases(user).squeeze()
+        dot = (user_emb * item_emb).sum(dim=1).squeeze()
+        relevance = dot + self.item_biases(item).squeeze() + self.user_biases(user).squeeze()
 
         if get_embs:
-            return e1, e2
+            return user_emb, item_emb
         else:
-            return dot1
+            return relevance
 
 
 class NeuroMFRecommender(Recommender):
@@ -228,50 +228,6 @@ class NeuroMFRecommender(Recommender):
             self.annoy_index.add_item(int(item_id), item_emb)
         self.annoy_index.build(self.num_trees_annoy)
 
-    def get_loss(
-            self,
-            log: DataFrame,
-            path: str
-    ) -> float:
-        """
-        Считает значение функции потерь на одной эпохе.
-        Записывает временные файлы.
-
-        :param path: путь, по которому записывается временные файлы
-        :param log: лог пользователей и объектов в стандартном формате
-        :return: значение функции потерь
-        """
-        log_indexed = self.user_indexer_model.transform(log)
-        log_indexed = self.user_indexer_model.transform(log_indexed)
-
-        self.model.eval()
-
-        loss_value = 0.0
-        spark = SparkSession(log.rdd.context)
-
-        logging.debug("Составление батча:")
-        tensor_data = NeuroMFRecommender.spark2pandas_csv(
-            log_indexed.select("user_idx", "item_idx"),
-            os.path.join(spark.conf.get("spark.local.dir"),
-                         "tmp_tensor_data")
-        )
-
-        user_batch = torch.LongTensor(tensor_data["user_idx"].values)
-        item_batch = torch.LongTensor(tensor_data["item_idx"].values)
-
-        data = DataLoader(
-            TensorDataset(user_batch, item_batch),
-            batch_size=self.batch_size_fit_users,
-            shuffle=True,
-            num_workers=self.num_workers
-        )
-        with torch.no_grad():
-            for batch in data:
-                loss = self._run_single_batch(batch)
-                loss_value += loss.item()
-
-        return loss_value / len(data)
-
     def _predict(self,
                  k: int,
                  users: DataFrame, items: DataFrame,
@@ -344,65 +300,6 @@ class NeuroMFRecommender(Recommender):
         recs = NeuroMFRecommender.min_max_scale_column(recs, "relevance")
 
         return recs
-
-    def _batch_generator(
-            self,
-            users: DataFrame,
-            items: DataFrame,
-            path: str
-    ) -> Generator[Tuple[Tensor, Tensor, int, int], None, None]:
-        """
-        Генератор батчей для пользователей и объектов.
-        Записывает временыне файлы на диск по пути `path`.
-        Размеры батчей регулируются параметрами класса -
-        `batch_size_predict_users` и `batch_size_predict_items`.
-
-        :param users: спарк-датафрейм с пользователями
-        :param items: спарк-датафрейм с объектами
-        :param path: путь, по которому записываются временные файлы
-        :return: батч пользователей, батч объектов и количество пользователей
-            и объектов в них
-        """
-        logging.debug("Индексирование пользователей и объектов")
-        users_indexed = NeuroMFRecommender.spark2pandas_csv(
-            self.user_indexer_model.transform(users),
-            os.path.join(path, "tmp_users_indexed")
-        )
-
-        items_indexed = NeuroMFRecommender.spark2pandas_csv(
-            self.item_indexer_model.transform(items),
-            os.path.join(path, "tmp_items_indexed")
-        )
-
-        users = list(users_indexed["user_idx"].values)
-        items = list(items_indexed["item_idx"].values)
-
-        logging.debug("Генерация тензоров")
-        num_user_batches = int(
-            np.ceil(len(users) / self.batch_size_predict_users))
-        num_item_batches = int(
-            np.ceil(len(items) / self.batch_size_predict_items))
-
-        logging.debug("-- Количество батчей для users: %d", num_user_batches)
-        logging.debug("-- Количество батчей для items: %d", num_item_batches)
-
-        user_batches = np.array_split(users, num_user_batches)
-        item_batches = np.array_split(items, num_item_batches)
-
-        for user_batch in user_batches:
-            for item_batch in item_batches:
-                num_users, num_items = len(user_batch), len(item_batch)
-
-                user_ids = torch.from_numpy(
-                    np.repeat(user_batch, num_items).astype(int)).cpu()
-                item_ids = torch.from_numpy(
-                    np.tile(item_batch, num_users).astype(int)).cpu()
-
-                if torch.cuda.is_available():
-                    user_ids = user_ids.cuda()
-                    item_ids = item_ids.cuda()
-
-                yield user_ids, item_ids, num_users, num_items
 
     @staticmethod
     def min_max_scale_column(dataframe: DataFrame, column: str) -> DataFrame:
