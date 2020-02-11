@@ -17,7 +17,6 @@ from pyspark.sql import functions as sf
 from sponge_bob_magic.metrics import Metric
 from sponge_bob_magic.utils import get_top_k_recs
 
-
 def performance(recommendations, ground_truth, metrics, k):
     if not isinstance(metrics, Iterable):
         metrics = [metrics]
