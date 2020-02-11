@@ -3,23 +3,27 @@ from pandas import DataFrame as PandasDataFrame
 
 from sponge_bob_magic.session_handler import State
 
-
-class Converter:
+def convert(df, type_out='spark'):
     """
     Обеспечивает конвертацию данных в спарк и обратно.
     """
-    def __init__(self, log):
-        if isinstance(log, SparkDataFrame):
-            self.type = 'spark'
-        elif isinstance(log, PandasDataFrame):
-            self.type = 'pandas'
+    type_in = type(df)
+    if type_in == type_out:
+        return df
+    elif type_out == 'spark':
+        spark = State().session
+        return spark.createDataFrame(df)
+    elif type_out == 'pandas':
+        return df.toPandas()
 
-    def __call__(self, log):
-        if self.type == 'spark':
-            return log
-        elif self.type == 'pandas':
-            spark = State().session
-            if isinstance(log, PandasDataFrame):
-                return spark.createDataFrame(log)
-            else:
-                return log.toPandas()
+def get_type(obj):
+    obj_type = type(obj)
+    if obj_type is PandasDataFrame:
+        res = 'pandas'
+    elif obj_type is SparkDataFrame:
+        res = 'spark'
+    else:
+        raise NotImplementedError(f'{obj_type} conversion is not implemented')
+    return res
+
+
