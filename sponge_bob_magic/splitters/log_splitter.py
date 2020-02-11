@@ -1,13 +1,11 @@
 """
-Данные сплиттеры делят лог оценок несколькими способами:
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 
-- по времени
-- по размеру теста случайно
-- так, чтобы в тестовую выборку попали только холодные пользователи
-
-Каждый может по запросу удалять холодных пользователей и предметы.
+В скрипте собраны классы по разбиению всего лога взаимодействий пользователей и
+объектов на обучающую и тестовую выборки.
+Способы разбиения - по времени и случайно, а также способ,
+когда в тестовую выборку попадают только холодные пользователи.
 """
-
 from datetime import datetime
 from typing import Optional
 
@@ -20,20 +18,24 @@ from sponge_bob_magic.splitters.base_splitter import (Splitter,
                                                       SplitterReturnType)
 
 
-class DateSplitter(Splitter):
+class LogSplitByDateSplitter(Splitter):
     """
-    Делит лог по дате, начиная с которой все записи будут отнесены к тесту.
+    Делит лог взаимодействия пользователей и объектов на обучающую и
+    тестовую выборки по времени.
     """
-    def __init__(self,
-                 test_start: datetime,
-                 drop_cold_items: bool = False,
-                 drop_cold_users: bool = False):
+    def __init__(
+            self,
+            drop_cold_items: bool,
+            drop_cold_users: bool,
+            test_start: datetime
+    ):
         """
         :param test_start: дата в формате ``yyyy-mm-dd``
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
            которых нет в обучающей
+        :param test_start: дата в формате `yyyy-mm-dd`
         """
         super().__init__(drop_cold_items, drop_cold_users)
         self.test_start = test_start
