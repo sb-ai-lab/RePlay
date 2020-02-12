@@ -4,7 +4,10 @@
 from abc import ABC, abstractmethod
 from typing import Tuple
 
+import pandas as pd
 from pyspark.sql import DataFrame
+
+from sponge_bob_magic.converter import convert, get_type
 
 SplitterReturnType = Tuple[DataFrame, DataFrame, DataFrame]
 
@@ -99,13 +102,16 @@ class Splitter(ABC):
             `predict_input` - выборка, которая известна на момент предсказания,
             `test` - тестовая выборка
         """
-        train, predict_input, test = self._core_split(log)
+        type_in = get_type(log)
+        train, predict_input, test = self._core_split(convert(log))
 
         test = self._drop_cold_items_and_users(
             train, test,
             self.drop_cold_items, self.drop_cold_users
         )
 
-        return (train,
-                self._filter_zero_relevance(predict_input),
-                self._filter_zero_relevance(test))
+        return (
+            convert(train, type_in),
+            convert(self._filter_zero_relevance(predict_input), type_in),
+            convert(self._filter_zero_relevance(test), type_in)
+        )
