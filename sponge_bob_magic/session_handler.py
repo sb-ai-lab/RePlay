@@ -51,6 +51,7 @@ class Borg:
     Обеспечивает доступ к расшаренному состоянию
     """
     _shared_state = {}
+
     def __init__(self):
         self.__dict__ = self._shared_state
 

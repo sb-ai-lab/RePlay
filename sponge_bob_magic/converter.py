@@ -6,18 +6,19 @@ from pandas import DataFrame as PandasDataFrame
 
 from sponge_bob_magic.session_handler import State
 
-SPARK = 'spark'
-PANDAS = 'pandas'
+SPARK = "spark"
+PANDAS = "pandas"
 
-def convert(df, type_out='spark'):
+
+def convert(df, type_out=SPARK):
     """
     Обеспечивает конвертацию данных в спарк и обратно.
 
     :param df: лог с данными в формате датафрейма пандас или спарк
-    :param type_out: текстовая строка, во что конвертировать ``{'pandas', 'spark'}``.
+    :param type_out: текстовая строка, во что конвертировать ``{"pandas", "spark"}``.
     :return: преобразованные данные
     """
-    type_in = type(df)
+    type_in = get_type(df)
     if type_in == type_out:
         return df
     elif type_out == SPARK:
@@ -25,6 +26,7 @@ def convert(df, type_out='spark'):
         return spark.createDataFrame(df)
     elif type_out == PANDAS:
         return df.toPandas()
+
 
 def get_type(obj):
     """Текстовое описание типа объекта"""
@@ -34,7 +36,5 @@ def get_type(obj):
     elif obj_type is SparkDataFrame:
         res = SPARK
     else:
-        raise NotImplementedError(f'{obj_type} conversion is not implemented')
+        raise NotImplementedError(f"{obj_type} conversion is not implemented")
     return res
-
-
