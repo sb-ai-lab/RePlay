@@ -3,11 +3,12 @@ from pandas import DataFrame as PandasDataFrame
 
 from sponge_bob_magic.session_handler import State
 
+
 def convert(df, type_out='spark'):
     """
     Обеспечивает конвертацию данных в спарк и обратно.
     """
-    type_in = type(df)
+    type_in = get_type(df)
     if type_in == type_out:
         return df
     elif type_out == 'spark':
@@ -15,6 +16,7 @@ def convert(df, type_out='spark'):
         return spark.createDataFrame(df)
     elif type_out == 'pandas':
         return df.toPandas()
+
 
 def get_type(obj):
     obj_type = type(obj)
@@ -25,5 +27,3 @@ def get_type(obj):
     else:
         raise NotImplementedError(f'{obj_type} conversion is not implemented')
     return res
-
-
