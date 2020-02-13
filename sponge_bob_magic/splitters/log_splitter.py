@@ -56,7 +56,7 @@ class LogSplitRandomlySplitter(Splitter):
             drop_cold_items: bool,
             drop_cold_users: bool,
             test_size: float,
-            seed: int
+            seed: int = None
     ):
         """
         :param seed: сид для разбиения

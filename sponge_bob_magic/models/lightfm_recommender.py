@@ -22,13 +22,14 @@ class LightFMRecommender(Recommender):
     user_indexer: StringIndexerModel
     item_indexer: StringIndexerModel
 
-    def __init__(self, rank: int = 10):
+    def __init__(self, rank: int = 10, seed: int = None):
         """
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
         :param rank: матрицей какого ранга приближаем исходную
         """
         self.rank = rank
+        self._seed = seed
 
     def get_params(self) -> Dict[str, object]:
         return {
