@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PACKAGE_NAME=sponge_bob_magic
-pycodestyle --max-doc-length=120 ${PACKAGE_NAME} tests
+pycodestyle --ignore=E501 --max-doc-length=120 ${PACKAGE_NAME} tests
 mypy --ignore-missing-imports ${PACKAGE_NAME} tests
 pylint --rcfile=.pylintrc ${PACKAGE_NAME}
 coverage run --source ${PACKAGE_NAME} -m unittest discover -s tests/
