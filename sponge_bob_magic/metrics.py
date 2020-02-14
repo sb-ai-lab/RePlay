@@ -139,7 +139,7 @@ class HitRate(Metric):
     """
 
     def __str__(self):
-        return "HitRate@K"
+        return "HitRate"
 
     def _get_metric_value(
             self,
@@ -167,7 +167,7 @@ class NDCG(Metric):
     """
 
     def __str__(self):
-        return "nDCG@k"
+        return "nDCG"
 
     def _get_metric_value(
             self,
@@ -191,7 +191,7 @@ class Precision(Metric):
     """
 
     def __str__(self):
-        return "Precision@k"
+        return "Precision"
 
     def _get_metric_value(
             self,
@@ -215,7 +215,7 @@ class MAP(Metric):
     """
 
     def __str__(self):
-        return "MAP@k"
+        return "MAP"
 
     def _get_metric_value(
             self,
@@ -240,7 +240,7 @@ class Recall(Metric):
     """
 
     def __str__(self):
-        return "Recall@K"
+        return "Recall"
 
     def _get_metric_value(
             self,
@@ -292,7 +292,7 @@ class Surprisal(Metric):
     """
 
     def __str__(self):
-        return "Surprisal@K"
+        return "Surprisal"
 
     def __init__(self,
                  log: DataFrame,
