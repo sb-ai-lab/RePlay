@@ -10,10 +10,10 @@ from tests.pyspark_testcase import PySparkTest
 from sponge_bob_magic.constants import LOG_SCHEMA
 from sponge_bob_magic.splitters.base_splitter import SplitterReturnType
 from sponge_bob_magic.splitters.user_log_splitter import (
-    ByTimeUserLogSplitter, RandomUserLogSplitter, UserLogSplitter)
+    TimeUserSplitter, RandomUserSplitter, UserSplitter)
 
 
-class TestSplitter(UserLogSplitter):
+class TestSplitter(UserSplitter):
     def _split_proportion(self, log: DataFrame) -> SplitterReturnType:
         return (log, log, log)
 
@@ -36,7 +36,7 @@ class TestUserLogSplitter(PySparkTest):
     def test_get_test_users(self, fraction):
         test_users = TestSplitter(
             False, False, 1, fraction, 1234
-        ).get_test_users(self.log)
+        )._get_test_users(self.log)
         self.assertEqual(test_users.count(), 2)
         self.assertSparkDataFrameEqual(
             test_users,
@@ -50,7 +50,7 @@ class TestUserLogSplitter(PySparkTest):
         with self.assertRaises(ValueError):
             TestSplitter(
                 False, False, 1, wrong_fraction
-            ).get_test_users(self.log)
+            )._get_test_users(self.log)
 
 
 class TestRandomUserLogSplitter(PySparkTest):
@@ -103,7 +103,7 @@ class TestRandomUserLogSplitter(PySparkTest):
     ])
     def test_split(self, item_test_size):
         train, predict_input, test = (
-            RandomUserLogSplitter(
+            RandomUserSplitter(
                 drop_cold_items=False,
                 drop_cold_users=False,
                 item_test_size=item_test_size,
@@ -139,7 +139,7 @@ class TestRandomUserLogSplitter(PySparkTest):
     def test_item_test_size_exception(self, item_test_size):
         self.assertRaises(
             ValueError,
-            RandomUserLogSplitter(
+            RandomUserSplitter(
                 self.spark, False, False, item_test_size, seed=1234
             ).split,
             log=self.log
@@ -169,7 +169,7 @@ class TestByTimeUserLogSplitter(PySparkTest):
 
     def test_split_quantity(self):
         train, predict_input, test = (
-            ByTimeUserLogSplitter(
+            TimeUserSplitter(
                 drop_cold_items=False,
                 drop_cold_users=False,
                 item_test_size=2)
@@ -207,7 +207,7 @@ class TestByTimeUserLogSplitter(PySparkTest):
 
     def test_split_proportion(self):
         train, predict_input, test = (
-            ByTimeUserLogSplitter(
+            TimeUserSplitter(
                 drop_cold_items=False,
                 drop_cold_users=False,
                 item_test_size=0.4)
@@ -256,7 +256,7 @@ class TestByTimeUserLogSplitter(PySparkTest):
     def test_item_test_size_exception(self, item_test_size):
         self.assertRaises(
             ValueError,
-            ByTimeUserLogSplitter(
+            TimeUserSplitter(
                 False, False, item_test_size
             ).split,
             log=self.log

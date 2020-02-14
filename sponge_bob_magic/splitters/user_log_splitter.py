@@ -1,10 +1,5 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-
-В скрипте собраны классы для разбиения лога взаимодействий пользователей и
-объектов на тестовую и обучающие выборки так, что делится лог каждого
-пользователя по отдельности.
-Способы разбиения - по времени и случайно.
+Юзер-сплиттеры разбивают лог, учитывая действия каждого пользователя независимо от остальных.
 """
 from abc import abstractmethod
 from typing import Optional, Union
@@ -15,22 +10,18 @@ from pyspark.sql import DataFrame, Window
 from sponge_bob_magic.splitters.base_splitter import (Splitter,
                                                       SplitterReturnType)
 
+#TODO: Должен быть сплиттер, который оставляет фиксированное количество айтемов у каждого юзера
 
-class UserLogSplitter(Splitter):
+class UserSplitter(Splitter):
     """ Абстрактный класс для деления лога каждого пользователя. """
 
-    def __init__(
-            self,
-            drop_cold_items: bool,
-            drop_cold_users: bool,
-            item_test_size: Union[float, int] = 1,
-            user_test_size: Optional[Union[float, int]] = None,
-            seed: int = None):
+    def __init__(self,
+                 item_test_size: Union[float, int] = 1,
+                 user_test_size: Optional[Union[float, int]] = None,
+                 drop_cold_items: bool = False,
+                 drop_cold_users: bool = False,
+                 seed: int = None):
         """
-        :param drop_cold_items: исключать ли из тестовой выборки объекты,
-           которых нет в обучающей
-        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
-           которых нет в обучающей
         :param item_test_size: размер тестовой выборки; если от 0 до 1, то в
             тест попадает данная доля объектов у каждого пользователя: если
             число большее 1, то в тест попадает заданное число объектов у
@@ -39,6 +30,10 @@ class UserLogSplitter(Splitter):
             объектов от каждого пользователя включать в тест, а сколько самих
             пользователей (доля либо количество); если None, то берутся все
             пользователи
+        :param drop_cold_items: исключать ли из тестовой выборки объекты,
+           которых нет в обучающей
+        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
+           которых нет в обучающей
         :param seed: сид для разбиения
         """
         super().__init__(drop_cold_users, drop_cold_items)
@@ -46,7 +41,7 @@ class UserLogSplitter(Splitter):
         self.user_test_size = user_test_size
         self.seed = seed
 
-    def get_test_users(
+    def _get_test_users(
             self,
             log: DataFrame,
     ) -> DataFrame:
@@ -131,8 +126,8 @@ class UserLogSplitter(Splitter):
         return train, predict_input, test
 
 
-class RandomUserLogSplitter(UserLogSplitter):
-    """ Класс для деления лога каждого пользователя случайно. """
+class RandomUserSplitter(UserSplitter):
+    """ Класс для деления лога каждого пользователя случайно по переданному значению размера теста. """
 
     @staticmethod
     def _add_random_partition(dataframe: DataFrame, seed: int = None) -> DataFrame:
@@ -154,7 +149,7 @@ class RandomUserLogSplitter(UserLogSplitter):
         return dataframe
 
     def _split_quantity(self, log: DataFrame) -> SplitterReturnType:
-        test_users = self.get_test_users(log).withColumn(
+        test_users = self._get_test_users(log).withColumn(
             "test_user", sf.lit(1)
         )
         res = self._add_random_partition(
@@ -173,7 +168,7 @@ class RandomUserLogSplitter(UserLogSplitter):
 
     def _split_proportion(self, log: DataFrame) -> SplitterReturnType:
         counts = log.groupBy("user_id").count()
-        test_users = self.get_test_users(log).withColumn(
+        test_users = self._get_test_users(log).withColumn(
             "test_user", sf.lit(1)
         )
         res = self._add_random_partition(
@@ -195,8 +190,9 @@ class RandomUserLogSplitter(UserLogSplitter):
         """).drop("rand", "row_num", "count", "frac", "test_user")
         return train, train, test
 
-
-class ByTimeUserLogSplitter(UserLogSplitter):
+#TODO: мне кажется, или это работает абсолютно идентично DateSplitter?
+# дата передается одна, тогда в чем отличие?
+class TimeUserSplitter(UserSplitter):
     """ Класс для деления лога каждого пользователя по времени. """
 
     @staticmethod
@@ -220,7 +216,7 @@ class ByTimeUserLogSplitter(UserLogSplitter):
         return res
 
     def _split_quantity(self, log: DataFrame) -> SplitterReturnType:
-        test_users = self.get_test_users(log).withColumn(
+        test_users = self._get_test_users(log).withColumn(
             "test_user", sf.lit(1)
         )
         res = self._add_time_partition(
@@ -237,7 +233,7 @@ class ByTimeUserLogSplitter(UserLogSplitter):
         return train, train, test
 
     def _split_proportion(self, log: DataFrame) -> SplitterReturnType:
-        test_users = self.get_test_users(log).withColumn(
+        test_users = self._get_test_users(log).withColumn(
             "test_user", sf.lit(1)
         )
         res = self._add_time_partition(

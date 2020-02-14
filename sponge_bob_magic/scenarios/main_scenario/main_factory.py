@@ -16,8 +16,8 @@ from sponge_bob_magic.scenarios.base_factory import ScenarioFactory
 from sponge_bob_magic.scenarios.base_scenario import Scenario
 from sponge_bob_magic.scenarios.main_scenario.main_scenario import MainScenario
 from sponge_bob_magic.splitters.base_splitter import Splitter
-from sponge_bob_magic.splitters.log_splitter import (LogSplitByDateSplitter,
-                                                     LogSplitRandomlySplitter)
+from sponge_bob_magic.splitters.log_splitter import (DateSplitter,
+                                                     RandomSplitter)
 
 
 class MainScenarioFactory(ScenarioFactory):
@@ -34,11 +34,7 @@ class MainScenarioFactory(ScenarioFactory):
         main_scenario = MainScenario()
         main_scenario.splitter = (
             splitter if splitter
-            else LogSplitRandomlySplitter(
-                drop_cold_users=True,
-                drop_cold_items=True,
-                test_size=0.3,
-                seed=None)
+            else RandomSplitter(test_size=0.3, drop_cold_items=True, drop_cold_users=True, seed=None)
         )
         main_scenario.recommender = (
             recommender if recommender
@@ -108,8 +104,7 @@ if __name__ == "__main__":
     factory = MainScenarioFactory()
 
     scenario = factory.get(
-        splitter=LogSplitByDateSplitter(True, True,
-                                        datetime(2019, 10, 14)),
+        splitter=DateSplitter(datetime(2019, 10, 14), True, True),
         criterion=None,
         metrics=None,
         recommender=recommender_

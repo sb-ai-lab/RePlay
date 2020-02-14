@@ -18,7 +18,7 @@ from sponge_bob_magic.scenarios.base_scenario import Scenario
 from sponge_bob_magic.scenarios.main_scenario.main_objective import (
     MainObjective, SplitData)
 from sponge_bob_magic.splitters.base_splitter import Splitter
-from sponge_bob_magic.splitters.log_splitter import LogSplitByDateSplitter
+from sponge_bob_magic.splitters.log_splitter import DateSplitter
 from sponge_bob_magic.utils import write_read_dataframe
 
 
@@ -241,8 +241,7 @@ if __name__ == "__main__":
                                   schema=schema)
 
     scenario = MainScenario()
-    scenario.splitter = LogSplitByDateSplitter(True, True,
-                                               datetime(2019, 10, 14))
+    scenario.splitter = DateSplitter(datetime(2019, 10, 14), True, True)
     scenario.criterion = HitRate()
     scenario.metrics = [NDCG(), Precision()]
     scenario.optuna_max_n_trials = 10
