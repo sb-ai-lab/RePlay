@@ -212,9 +212,6 @@ class NeuroMFRecommender(Recommender):
         )
         user_batch = torch.LongTensor(tensor_data["user_idx"].values)
         item_batch = torch.LongTensor(tensor_data["item_idx"].values)
-        # if torch.cuda.is_available():
-        #     user_batch = user_batch.cuda()
-        #     item_batch = item_batch.cuda()
         logging.debug("Обучение модели")
         for epoch in range(self.epochs):
             logging.debug("-- Эпоха %d", epoch)
