@@ -4,5 +4,5 @@
 """
 
 from sponge_bob_magic.splitters.log_splitter import *
-from sponge_bob_magic.splitters.user_log_splitter import RandomUserSplitter, TimeUserSplitter
+from sponge_bob_magic.splitters.user_log_splitter import UserSplitter
 from sponge_bob_magic.splitters.base_splitter import *

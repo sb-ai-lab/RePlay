@@ -1,4 +1,4 @@
-splitters
+Сплиттеры
 ==========
 
 .. automodule:: sponge_bob_magic.splitters
@@ -7,22 +7,18 @@ splitters
 
 .. autofunction:: sponge_bob_magic.splitters.base_splitter.Splitter.split
 
-Базовые сплиттеры
+Делим внутри пользователя
+--------------------------
+
+.. automodule:: sponge_bob_magic.splitters.user_log_splitter
+   :members: UserSplitter
+   :special-members: __init__
+
+Делим весь лог
 ------------------
 
 .. automodule:: sponge_bob_magic.splitters.log_splitter
    :members: DateSplitter, RandomSplitter, ColdUsersSplitter
    :special-members:
 
-Юзер-сплиттеры
------------------
 
-.. automodule:: sponge_bob_magic.splitters.user_log_splitter
-   :members: RandomUserSplitter, TimeUserSplitter
-
----------------
-
-Все сплиттеры этого вида унаследованы от ``UserSplitter`` и инициализируются одинаково:
-
-.. autoclass:: sponge_bob_magic.splitters.user_log_splitter.UserSplitter
-   :special-members: __init__

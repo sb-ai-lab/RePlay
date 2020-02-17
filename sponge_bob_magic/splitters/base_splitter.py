@@ -29,7 +29,7 @@ class Splitter(ABC):
         """
         self.drop_cold_users = drop_cold_users
         self.drop_cold_items = drop_cold_items
-    #TODO: вот честно говоря это вообще не работа сплиттера выкидывать такие записи
+
     @staticmethod
     def _filter_zero_relevance(dataframe: DataFrame) -> DataFrame:
         """

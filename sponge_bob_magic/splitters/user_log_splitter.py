@@ -1,6 +1,3 @@
-"""
-Юзер-сплиттеры разбивают лог, учитывая действия каждого пользователя независимо от остальных.
-"""
 from abc import abstractmethod
 from typing import Optional, Union
 
@@ -10,26 +7,79 @@ from pyspark.sql import DataFrame, Window
 from sponge_bob_magic.splitters.base_splitter import (Splitter,
                                                       SplitterReturnType)
 
-#TODO: Должен быть сплиттер, который оставляет фиксированное количество айтемов у каждого юзера
 
 class UserSplitter(Splitter):
-    """ Абстрактный класс для деления лога каждого пользователя. """
+    """
+    Данный сплиттер применяет логику разбиения не на весь лог сразу,
+    а для оценок каждого пользователя по отдельности.
 
-    def __init__(self,
-                 item_test_size: Union[float, int] = 1,
-                 user_test_size: Optional[Union[float, int]] = None,
-                 drop_cold_items: bool = False,
-                 drop_cold_users: bool = False,
-                 seed: int = None):
+    Например, можно отложить для теста последние/случайные k оценок для каждого пользователя.
+    Также с помощью параметра ``item_test_size`` можно задать долю оценок, которые необходимо отложить.
+
+    Примеры:
+
+    >>> from sponge_bob_magic.splitters import UserSplitter
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({"user_id": [1,1,1,2,2,2], "item_id": [1,2,3,1,2,3], "relevance": [1,2,3,4,5,6], "timestamp": [1,2,3,3,2,1]})
+    >>> df
+       user_id  item_id  relevance  timestamp
+    0        1        1          1          1
+    1        1        2          2          2
+    2        1        3          3          3
+    3        2        1          4          3
+    4        2        2          5          2
+    5        2        3          6          1
+
+    По умолчанию в тест откладывается 1 предмет для каждого пользователя
+    и реализуется сценарий деления по времени,
+    то есть для теста остаются самые последние предметы.
+
+    >>> UserSplitter(seed=80083).split(df)[-1]
+       user_id  item_id  relevance  timestamp
+    0        1        3          3          3
+    1        2        1          4          3
+
+    Взять случайные предметы, можно с помощью параметра ``shuffle``:
+
+    >>> UserSplitter(shuffle=True, seed=80083).split(df)[-1]
+       user_id  item_id  relevance  timestamp
+    0        1        2          2          2
+    1        2        2          5          2
+
+    Можно указать колчество айтемов, которые необходимо отложить для каждого пользователя:
+
+    >>> UserSplitter(item_test_size=3, shuffle=True, seed=80083).split(df)[-1]
+       user_id  item_id  relevance  timestamp
+    0        1        2          2          2
+    1        1        1          1          1
+    2        1        3          3          3
+    3        2        2          5          2
+    4        2        1          4          3
+    5        2        3          6          1
+
+    Либо долю:
+
+    >>> UserSplitter(item_test_size=0.67, shuffle=True, seed=80083).split(df)[-1]
+       user_id  item_id  relevance  timestamp
+    0        1        2          2          2
+    1        1        1          1          1
+    2        2        2          5          2
+    3        2        1          4          3
+
+    """
+
+    def __init__(self, item_test_size: Union[float, int] = 1, user_test_size: Optional[Union[float, int]] = None,
+                 shuffle=False, drop_cold_items: bool = False, drop_cold_users: bool = False, seed: int = None):
         """
         :param item_test_size: размер тестовой выборки; если от 0 до 1, то в
-            тест попадает данная доля объектов у каждого пользователя: если
+            тест попадает данная доля объектов у каждого пользователя: если целое
             число большее 1, то в тест попадает заданное число объектов у
             каждого пользователя
-        :param user_test_size: аналогично item_test_size, но не сколько
+        :param user_test_size: аналогично ``item_test_size``, но не сколько
             объектов от каждого пользователя включать в тест, а сколько самих
-            пользователей (доля либо количество); если None, то берутся все
+            пользователей (доля либо количество); если ``None``, то берутся все
             пользователи
+        :param shuffle: если ``True``, то берутся случайные оценки, иначе последние из колонки ``timestamp``.
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
@@ -39,6 +89,7 @@ class UserSplitter(Splitter):
         super().__init__(drop_cold_users, drop_cold_items)
         self.item_test_size = item_test_size
         self.user_test_size = user_test_size
+        self.shuffle = shuffle
         self.seed = seed
 
     def _get_test_users(
@@ -79,11 +130,8 @@ class UserSplitter(Splitter):
             test_users = all_users
         return test_users
 
-    @abstractmethod
     def _split_proportion(self, log: DataFrame) -> SplitterReturnType:
         """
-        Внутренний метод, который должны имплементировать классы-наследники.
-
         Разбивает лог действий пользователей на обучающую и тестовую
         выборки так, чтобы в тестовой выборке была фиксированная доля
         объектов для каждого пользователя. Способ разбиения определяется
@@ -95,11 +143,37 @@ class UserSplitter(Splitter):
             `train, predict_input, test`
         """
 
-    @abstractmethod
+        counts = log.groupBy("user_id").count()
+        test_users = self._get_test_users(log).withColumn(
+            "test_user", sf.lit(1)
+        )
+        if self.shuffle:
+            res = self._add_random_partition(
+                log.join(test_users, how="left", on="user_id"),
+                self.seed
+            )
+        else:
+            res = self._add_time_partition(
+                log.join(test_users, how="left", on="user_id")
+            )
+
+        res = res.join(counts, on="user_id", how="left")
+        res = res.withColumn(
+            "frac",
+            sf.col("row_num") / sf.col("count")
+        ).cache()
+        train = res.filter(f"""
+                    frac > {self.item_test_size} OR
+                    test_user IS NULL
+                """).drop("rand", "row_num", "count", "frac", "test_user")
+        test = res.filter(f"""
+                    frac <= {self.item_test_size} AND
+                    test_user IS NOT NULL
+                """).drop("rand", "row_num", "count", "frac", "test_user")
+        return train, train, test
+
     def _split_quantity(self, log: DataFrame) -> SplitterReturnType:
         """
-        Внутренний метод, который должны имплементировать классы-наследники.
-
         Разбивает лог действий пользователей на обучающую и тестовую
         выборки так, чтобы в тестовой выборке было фиксированное количество
         объектов для каждого пользователя. Способ разбиения определяется
@@ -111,6 +185,28 @@ class UserSplitter(Splitter):
             `train, predict_input, test`
         """
 
+        test_users = self._get_test_users(log).withColumn(
+            "test_user", sf.lit(1)
+        )
+        if self.shuffle:
+            res = self._add_random_partition(
+                log.join(test_users, how="left", on="user_id"),
+                self.seed
+            )
+        else:
+            res = self._add_time_partition(
+                log.join(test_users, how="left", on="user_id")
+            )
+        train = res.filter(f"""
+                    row_num > {self.item_test_size} OR
+                    test_user IS NULL
+                """).drop("rand", "row_num", "test_user")
+        test = res.filter(f"""
+                    row_num <= {self.item_test_size} AND
+                    test_user IS NOT NULL
+                """).drop("rand", "row_num", "test_user")
+        return train, train, test
+
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         if 0 <= self.item_test_size < 1.0:
             train, predict_input, test = self._split_proportion(log)
@@ -118,16 +214,12 @@ class UserSplitter(Splitter):
             train, predict_input, test = self._split_quantity(log)
         else:
             raise ValueError(
-                "Значение `test_size` должно быть в диапазоне [0, 1] или "
+                "Значение `test_size` должно быть в диапазоне [0, 1) или "
                 "быть целым числом больше 1; "
                 f"сейчас test_size={self.item_test_size}"
             )
 
         return train, predict_input, test
-
-
-class RandomUserSplitter(UserSplitter):
-    """ Класс для деления лога каждого пользователя случайно по переданному значению размера теста. """
 
     @staticmethod
     def _add_random_partition(dataframe: DataFrame, seed: int = None) -> DataFrame:
@@ -148,53 +240,6 @@ class RandomUserSplitter(UserSplitter):
         ).cache()
         return dataframe
 
-    def _split_quantity(self, log: DataFrame) -> SplitterReturnType:
-        test_users = self._get_test_users(log).withColumn(
-            "test_user", sf.lit(1)
-        )
-        res = self._add_random_partition(
-            log.join(test_users, how="left", on="user_id"),
-            self.seed
-        )
-        train = res.filter(f"""
-            row_num > {self.item_test_size} OR
-            test_user IS NULL
-        """).drop("rand", "row_num", "test_user")
-        test = res.filter(f"""
-            row_num <= {self.item_test_size} AND
-            test_user IS NOT NULL
-        """).drop("rand", "row_num", "test_user")
-        return train, train, test
-
-    def _split_proportion(self, log: DataFrame) -> SplitterReturnType:
-        counts = log.groupBy("user_id").count()
-        test_users = self._get_test_users(log).withColumn(
-            "test_user", sf.lit(1)
-        )
-        res = self._add_random_partition(
-            log.join(test_users, how="left", on="user_id"),
-            self.seed
-        )
-        res = res.join(counts, on="user_id", how="left")
-        res = res.withColumn(
-            "frac",
-            sf.col("row_num") / sf.col("count")
-        ).cache()
-        train = res.filter(f"""
-            frac > {self.item_test_size} OR
-            test_user IS NULL
-        """).drop("rand", "row_num", "count", "frac", "test_user")
-        test = res.filter(f"""
-            frac <= {self.item_test_size} AND
-            test_user IS NOT NULL
-        """).drop("rand", "row_num", "count", "frac", "test_user")
-        return train, train, test
-
-#TODO: мне кажется, или это работает абсолютно идентично DateSplitter?
-# дата передается одна, тогда в чем отличие?
-class TimeUserSplitter(UserSplitter):
-    """ Класс для деления лога каждого пользователя по времени. """
-
     @staticmethod
     def _add_time_partition(dataframe: DataFrame) -> DataFrame:
         """
@@ -214,43 +259,3 @@ class TimeUserSplitter(UserSplitter):
                                           .desc()))
         ).cache()
         return res
-
-    def _split_quantity(self, log: DataFrame) -> SplitterReturnType:
-        test_users = self._get_test_users(log).withColumn(
-            "test_user", sf.lit(1)
-        )
-        res = self._add_time_partition(
-            log.join(test_users, how="left", on="user_id")
-        )
-        train = res.filter(f"""
-            row_num > {self.item_test_size} OR
-            test_user IS NULL
-        """).drop("row_num", "test_user")
-        test = res.filter(f"""
-            row_num <= {self.item_test_size} AND
-            test_user IS NOT NULL
-        """).drop("row_num", "test_user")
-        return train, train, test
-
-    def _split_proportion(self, log: DataFrame) -> SplitterReturnType:
-        test_users = self._get_test_users(log).withColumn(
-            "test_user", sf.lit(1)
-        )
-        res = self._add_time_partition(
-            log.join(test_users, how="left", on="user_id")
-        )
-        counts = log.groupBy("user_id").count()
-        res = res.join(counts, on="user_id", how="left")
-        res = res.withColumn(
-            "frac",
-            sf.col("row_num") / sf.col("count")
-        ).cache()
-        train = res.filter(f"""
-            frac > {self.item_test_size} OR
-            test_user IS NULL
-        """).drop("row_num", "count", "frac", "test_user")
-        test = res.filter(f"""
-            frac <= {self.item_test_size} AND
-            test_user IS NOT NULL
-        """).drop("row_num", "count", "frac", "test_user")
-        return train, train, test
