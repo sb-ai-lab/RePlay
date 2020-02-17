@@ -4,7 +4,7 @@
 import logging
 import os
 import shutil
-from typing import Dict, Generator, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas
@@ -74,10 +74,11 @@ class NMF(Module):
         """
         user_emb = self.user_embedding(user)
         item_emb = self.item_embedding(item)
-
         dot = (user_emb * item_emb).sum(dim=1).squeeze()
-        relevance = dot + self.item_biases(item).squeeze() + self.user_biases(user).squeeze()
-
+        relevance = (
+            dot + self.item_biases(item).squeeze() +
+            self.user_biases(user).squeeze()
+        )
         if get_embs:
             return user_emb, item_emb
         else:
@@ -272,15 +273,15 @@ class NeuroMFRec(Recommender):
                 pandas.DataFrame({"user_idx": [user_id] * k,
                                   "item_idx": pred_for_user,
                                   "relevance": relevance
-                                  })
+                                  }), sort=False
             )
         predictions.to_csv(os.path.join(tmp_path, "predict.csv"),
                            sep=sep, header=True, index=False)
 
         recs = spark.read.csv(os.path.join(tmp_path, "predict.csv"),
-                                   sep=sep,
-                                   header=True,
-                                   inferSchema=True)
+                              sep=sep,
+                              header=True,
+                              inferSchema=True)
         recs = recs.withColumn("context", sf.lit(DEFAULT_CONTEXT))
 
         logging.debug("Обратное преобразование индексов")
@@ -317,8 +318,12 @@ class NeuroMFRec(Recommender):
         :return: исходный датафрейм с измененной колонкой
         """
         unlist = udf(lambda x: float(list(x)[0]), DoubleType())
-        assembler = VectorAssembler(inputCols=[column], outputCol=column+"_Vect")
-        scaler = MinMaxScaler(inputCol=column+"_Vect", outputCol=column+"_Scaled")
+        assembler = VectorAssembler(
+            inputCols=[column], outputCol=column+"_Vect"
+        )
+        scaler = MinMaxScaler(
+            inputCol=column+"_Vect", outputCol=column+"_Scaled"
+        )
         pipeline = Pipeline(stages=[assembler, scaler])
         dataframe = (pipeline
                      .fit(dataframe)
