@@ -10,12 +10,12 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
-from sponge_bob_magic.models.base_recommender import Recommender
+from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import (get_top_k_recs, get_top_k_rows,
                                     write_read_dataframe)
 
 
-class PopularRecommender(Recommender):
+class PopRec(Recommender):
     """
     Простейший рекомендатель на основе сглаженной популярности.
 

@@ -41,8 +41,8 @@ class TestUserLogSplitter(PySparkTest):
         self.assertSparkDataFrameEqual(
             test_users,
             self.spark.createDataFrame(
-                data=[{"user_id": "user4"}, {"user_id": "user5"}]
-            )
+                data=[("user4",), ("user5",)]
+            ).toDF("user_id")
         )
 
     @parameterized.expand([(5,), (1.0,)])

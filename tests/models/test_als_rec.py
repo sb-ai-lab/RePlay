@@ -7,12 +7,12 @@ import numpy as np
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.models.lightfm_recommender import LightFMRecommender
+from sponge_bob_magic.models.als_rec import ALSRec
 
 
-class LightFMRecommenderTestCase(PySparkTest):
+class ALSRecTestCase(PySparkTest):
     def setUp(self):
-        self.lightfm_recommender = LightFMRecommender(1)
+        self.als_rec = ALSRec(1)
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [
@@ -26,18 +26,21 @@ class LightFMRecommenderTestCase(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        self.lightfm_recommender._seed = 42
+        self.als_rec._seed = 42
 
     def test_fit(self):
-        self.lightfm_recommender.fit(self.log, None, None)
-        item_factors = self.lightfm_recommender.model.item_embeddings
+        self.als_rec.fit(self.log, None, None)
+        item_factors = np.array(
+            self.als_rec.model.itemFactors
+            .toPandas()["features"].tolist()
+        )
         self.assertTrue(np.allclose(
             item_factors,
-            [[-0.06065203], [0.5662015], [0.04397682]]
+            [[0.94725847],  [0.82681108], [0.75606781]]
         ))
 
     def test_predict(self):
-        recs = self.lightfm_recommender.fit_predict(
+        recs = self.als_rec.fit_predict(
             k=1,
             log=self.log,
             user_features=None,
@@ -50,13 +53,13 @@ class LightFMRecommenderTestCase(PySparkTest):
             recs,
             self.spark.createDataFrame(
                 [
-                    ["u1", "i3", DEFAULT_CONTEXT, -0.25914710760116577],
-                    ["u2", "i3", DEFAULT_CONTEXT, -0.2138521820306778],
-                    ["u3", "i4", DEFAULT_CONTEXT, -0.3359125852584839]
+                    ["u2", "i3", DEFAULT_CONTEXT, 0.8740121126174927],
+                    ["u1", "i3", DEFAULT_CONTEXT, 0.8812910318374634],
+                    ["u3", "i3", DEFAULT_CONTEXT, 1.0437875986099243]
                 ],
                 schema=REC_SCHEMA
             )
         )
 
     def test_get_params(self):
-        self.assertEqual(self.lightfm_recommender.get_params(), {"rank": 1})
+        self.assertEqual(self.als_rec.get_params(), {"rank": 1})

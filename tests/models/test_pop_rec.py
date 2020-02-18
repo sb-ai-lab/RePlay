@@ -6,12 +6,12 @@ from pyspark.sql import functions as sf
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic import constants
-from sponge_bob_magic.models.popular_recomennder import PopularRecommender
+from sponge_bob_magic.models.pop_rec import PopRec
 
 
-class PopularRecommenderTestCase(PySparkTest):
+class PopRecTestCase(PySparkTest):
     def setUp(self):
-        self.model = PopularRecommender()
+        self.model = PopRec()
 
     @parameterized.expand([
         # users, context, k, items_relevance

@@ -9,9 +9,9 @@ from typing import List, Optional
 from pyspark.sql import SparkSession
 
 from sponge_bob_magic.metrics import HitRate, Metric
-from sponge_bob_magic.models.base_recommender import Recommender
-from sponge_bob_magic.models.knn_recommender import KNNRecommender
-from sponge_bob_magic.models.popular_recomennder import PopularRecommender
+from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.models.knn_rec import KNNRec
+from sponge_bob_magic.models.pop_rec import PopRec
 from sponge_bob_magic.scenarios.base_factory import ScenarioFactory
 from sponge_bob_magic.scenarios.base_scenario import Scenario
 from sponge_bob_magic.scenarios.main_scenario.main_scenario import MainScenario
@@ -29,7 +29,7 @@ class MainScenarioFactory(ScenarioFactory):
             recommender: Optional[Recommender] = None,
             criterion: Optional[Metric] = None,
             metrics: Optional[List[Metric]] = None,
-            fallback_recommender: Optional[Recommender] = None
+            fallback_rec: Optional[Recommender] = None
     ) -> Scenario:
         main_scenario = MainScenario()
         main_scenario.splitter = (
@@ -38,14 +38,14 @@ class MainScenarioFactory(ScenarioFactory):
         )
         main_scenario.recommender = (
             recommender if recommender
-            else PopularRecommender(alpha=0, beta=0)
+            else PopRec(alpha=0, beta=0)
         )
         main_scenario.criterion = (
             criterion if criterion
             else HitRate()
         )
         main_scenario.metrics = metrics if metrics else []
-        main_scenario.fallback_recommender = fallback_recommender
+        main_scenario.fallback_rec = fallback_rec
         return main_scenario
 
 
@@ -93,11 +93,11 @@ if __name__ == "__main__":
 
     flag = True
     if flag:
-        recommender_ = PopularRecommender()
+        recommender_ = PopRec()
         grid = {"alpha": {"type": "int", "args": [0, 100]},
                 "beta": {"type": "int", "args": [0, 100]}}
     else:
-        recommender_ = KNNRecommender()
+        recommender_ = KNNRec()
         grid = {"num_neighbours": {"type": "categorical",
                                    "args": [[1]]}}
 

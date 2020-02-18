@@ -3,16 +3,16 @@
 """
 from datetime import datetime
 
-import numpy as np
+from pyspark.sql.types import DoubleType, StringType, StructField, StructType
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.models.als_recommender import ALSRecommender
+from sponge_bob_magic.models.knn_rec import KNNRec
 
 
-class ALSRecommenderTestCase(PySparkTest):
+class KNNRecTestCase(PySparkTest):
     def setUp(self):
-        self.als_recommender = ALSRecommender(1)
+        self.model = KNNRec(1)
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [
@@ -26,21 +26,26 @@ class ALSRecommenderTestCase(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        self.als_recommender._seed = 42
 
     def test_fit(self):
-        self.als_recommender.fit(self.log, None, None)
-        item_factors = np.array(
-            self.als_recommender.model.itemFactors
-            .toPandas()["features"].tolist()
+        self.model._pre_fit(self.log, None, None)
+        self.model._fit_partial(self.log, None, None)
+        self.assertSparkDataFrameEqual(
+            self.model.similarity,
+            self.spark.createDataFrame([
+                ("i1", "i4", 0.5),
+                ("i3", "i4", 0.18350341907227408),
+                ("i4", "i3", 0.18350341907227408)
+            ], schema=StructType([
+                StructField("item_id_one", StringType()),
+                StructField("item_id_two", StringType()),
+                StructField("similarity", DoubleType()),
+            ]))
         )
-        self.assertTrue(np.allclose(
-            item_factors,
-            [[0.94725847],  [0.82681108], [0.75606781]]
-        ))
 
     def test_predict(self):
-        recs = self.als_recommender.fit_predict(
+        self.model.fit(self.log, None, None)
+        recs = self.model._predict(
             k=1,
             log=self.log,
             user_features=None,
@@ -53,13 +58,15 @@ class ALSRecommenderTestCase(PySparkTest):
             recs,
             self.spark.createDataFrame(
                 [
-                    ["u2", "i3", DEFAULT_CONTEXT, 0.8740121126174927],
-                    ["u1", "i3", DEFAULT_CONTEXT, 0.8812910318374634],
-                    ["u3", "i3", DEFAULT_CONTEXT, 1.0437875986099243]
+                    ["u1", "i3", DEFAULT_CONTEXT, 0.18350341907227408],
+                    ["u2", "i4", DEFAULT_CONTEXT, 0.6835034190722742],
                 ],
                 schema=REC_SCHEMA
             )
         )
 
     def test_get_params(self):
-        self.assertEqual(self.als_recommender.get_params(), {"rank": 1})
+        self.assertEqual(
+            self.model.get_params(),
+            {"shrink": 0.0, "num_neighbours": 1}
+        )
