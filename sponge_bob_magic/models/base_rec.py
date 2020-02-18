@@ -116,8 +116,8 @@ class Recommender(ABC):
         )
 
     def fit(self, log: DataFrame,
-            user_features: Optional[DataFrame],
-            item_features: Optional[DataFrame]) -> None:
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None) -> None:
         """
         Обучает модель на логе и признаках пользователей и объектов.
 
