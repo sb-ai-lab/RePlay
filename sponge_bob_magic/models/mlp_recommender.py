@@ -4,10 +4,11 @@
 import logging
 import os
 import shutil
-from typing import Dict, Generator, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas
+import torch.nn as nn
 import torch.optim
 from annoy import AnnoyIndex
 from pyspark.ml import Pipeline
@@ -20,7 +21,6 @@ from pyspark.sql.functions import udf
 from pyspark.sql.types import DoubleType
 from torch import Tensor
 from torch.nn import DataParallel, Embedding, Module
-import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
@@ -28,7 +28,7 @@ from sponge_bob_magic.models.base_recommender import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class NMF(Module):
+class MLP(Module):
     def __init__(
             self,
             user_count: int,
@@ -63,11 +63,12 @@ class NMF(Module):
 
         self.item_embedding = item_embedding
         self.item_biases = item_biases
-
         self.linears = nn.Sequential(
-            nn.Dropout(0.5),
             nn.Linear(embedding_dimension, 128),
-            nn.Tanh(),
+            nn.Sigmoid(),
+            nn.Dropout(0.3),
+            nn.Linear(128, 64),
+            nn.Sigmoid(),
         )
 
     def forward(self, user: torch.Tensor, item: torch.Tensor, get_embs=False
@@ -81,18 +82,16 @@ class NMF(Module):
         :return: батч весов предсказанных взаимодействий пользователей и
             объектов или батч промежуточных эмбеддингов
         """
-        e1 = self.user_embedding(user) + self.user_biases(user)
-        e1 = self.linears(e1)
+        user_embed = self.user_embedding(user) + self.user_biases(user)
+        user_embed = self.linears(user_embed)
 
-        e2 = self.item_embedding(item) + self.item_biases(item)
-        e2 = self.linears(e2)
+        item_embed = self.item_embedding(item) + self.item_biases(item)
+        item_embed = self.linears(item_embed)
 
-        # dot = (e1 * e2).sum(dim=1).squeeze()
-        # dot1 = dot + self.item_biases(item).squeeze() + self.user_biases(user).squeeze()
-        return e1, e2
+        return user_embed, item_embed
 
 
-class NeuroMFRecommender(Recommender):
+class MLPRecommender(Recommender):
     """ Модель на нейросети. """
     num_workers: int = 10
     batch_size_fit_users: int = 100000
@@ -102,9 +101,9 @@ class NeuroMFRecommender(Recommender):
     item_indexer_model: StringIndexerModel
     num_users: int
     num_items: int
-    num_annoy_trees: int = 10
+    num_trees_annoy: int = 10
 
-    def __init__(self, spark: SparkSession,
+    def __init__(self,
                  learning_rate: float = 0.5,
                  epochs: int = 1,
                  embedding_dimension: int = 10):
@@ -112,12 +111,9 @@ class NeuroMFRecommender(Recommender):
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
         :param embedding_dimension: размер представления пользователей/объектов
-        :param spark: инициализированная спарк-сессия
         :param learning_rate: шаг обучения
         :param epochs: количество эпох, в течение которых учимся
         """
-        super().__init__(spark)
-
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.embedding_dimension = embedding_dimension
@@ -148,7 +144,7 @@ class NeuroMFRecommender(Recommender):
         self.num_users = log_indexed.select("user_idx").distinct().count()
         self.num_items = log_indexed.select("item_idx").distinct().count()
 
-        model = NMF(
+        model = MLP(
             user_count=self.num_users,
             item_count=self.num_items,
             embedding_dimension=self.embedding_dimension
@@ -177,13 +173,9 @@ class NeuroMFRecommender(Recommender):
 
         positive_embeddings = self.model.forward(batch[0], batch[1])
         negative_embeddings = self.model.forward(batch[0], negative_items)
-        # loss = torch.clamp(
-        #     negative_relevance - positive_relevance + 1.0, 0.0, 1.0
-        # ).mean()
         dim = batch[0].size()[0]
-        # print(dim)
         loss = self.loss(*positive_embeddings, torch.ones(dim)) / 2
-        loss += self.loss(*negative_embeddings, torch.ones(dim)*(-1)) / 2
+        loss += self.loss(*negative_embeddings, torch.ones(dim) * (-1)) / 2
         return loss
 
     def _run_epoch(self,
@@ -221,9 +213,10 @@ class NeuroMFRecommender(Recommender):
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.9)
 
         logging.debug("Составление батча:")
-        tensor_data = NeuroMFRecommender.spark2pandas_csv(
+        spark = SparkSession(log.rdd.context)
+        tensor_data = MLPRecommender.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
 
@@ -243,50 +236,7 @@ class NeuroMFRecommender(Recommender):
         self.annoy_index = AnnoyIndex(item_embs.size()[1], "angular")
         for item_id, item_emb in zip(tensor_data["item_idx"].values, item_embs.detach().numpy()):
             self.annoy_index.add_item(int(item_id), item_emb)
-        self.annoy_index.build(self.num_annoy_trees)
-
-    def get_loss(
-            self,
-            log: DataFrame,
-            path: str
-    ) -> float:
-        """
-        Считает значение функции потерь на одной эпохе.
-        Записывает временные файлы.
-
-        :param path: путь, по которому записывается временные файлы
-        :param log: лог пользователей и объектов в стандартном формате
-        :return: значение функции потерь
-        """
-        log_indexed = self.user_indexer_model.transform(log)
-        log_indexed = self.user_indexer_model.transform(log_indexed)
-
-        self.model.eval()
-
-        loss_value = 0.0
-
-        logging.debug("Составление батча:")
-        tensor_data = NeuroMFRecommender.spark2pandas_csv(
-            log_indexed.select("user_idx", "item_idx"),
-            os.path.join(self.spark.conf.get("spark.local.dir"),
-                         "tmp_tensor_data")
-        )
-
-        user_batch = torch.LongTensor(tensor_data["user_idx"].values)
-        item_batch = torch.LongTensor(tensor_data["item_idx"].values)
-
-        data = DataLoader(
-            TensorDataset(user_batch, item_batch),
-            batch_size=self.batch_size_fit_users,
-            shuffle=True,
-            num_workers=self.num_workers
-        )
-        with torch.no_grad():
-            for batch in data:
-                loss = self._run_single_batch(batch)
-                loss_value += loss.item()
-
-        return loss_value / len(data)
+        self.annoy_index.build(self.num_trees_annoy)
 
     def _predict(self,
                  k: int,
@@ -297,8 +247,8 @@ class NeuroMFRecommender(Recommender):
                  to_filter_seen_items: bool = True) -> DataFrame:
         self.model.eval()
         sep = ","
-
-        tmp_path = os.path.join(self.spark.conf.get("spark.local.dir"), "recs")
+        spark = SparkSession(users.rdd.context)
+        tmp_path = os.path.join(spark.conf.get("spark.local.dir"), "recs")
         if os.path.exists(tmp_path):
             shutil.rmtree(tmp_path)
         os.makedirs(tmp_path)
@@ -307,9 +257,9 @@ class NeuroMFRecommender(Recommender):
         users = self.user_indexer_model.transform(users)
 
         logging.debug("Предсказание модели")
-        tensor_data = NeuroMFRecommender.spark2pandas_csv(
+        tensor_data = MLPRecommender.spark2pandas_csv(
             users.select("user_idx"),
-            os.path.join(self.spark.conf.get("spark.local.dir"),
+            os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
 
@@ -333,10 +283,10 @@ class NeuroMFRecommender(Recommender):
         predictions.to_csv(os.path.join(tmp_path, "predict.csv"),
                            sep=sep, header=True, index=False)
 
-        recs = self.spark.read.csv(os.path.join(tmp_path, "predict.csv"),
-                                   sep=sep,
-                                   header=True,
-                                   inferSchema=True)
+        recs = spark.read.csv(os.path.join(tmp_path, "predict.csv"),
+                              sep=sep,
+                              header=True,
+                              inferSchema=True)
         recs = recs.withColumn("context", sf.lit(DEFAULT_CONTEXT))
 
         logging.debug("Обратное преобразование индексов")
@@ -357,68 +307,9 @@ class NeuroMFRecommender(Recommender):
         recs = get_top_k_recs(recs, k)
 
         logging.debug("Преобразование отрицательных relevance")
-        recs = NeuroMFRecommender.min_max_scale_column(recs, "relevance")
+        recs = MLPRecommender.min_max_scale_column(recs, "relevance")
 
         return recs
-
-    def _batch_generator(
-            self,
-            users: DataFrame,
-            items: DataFrame,
-            path: str
-    ) -> Generator[Tuple[Tensor, Tensor, int, int], None, None]:
-        """
-        Генератор батчей для пользователей и объектов.
-        Записывает временыне файлы на диск по пути `path`.
-        Размеры батчей регулируются параметрами класса -
-        `batch_size_predict_users` и `batch_size_predict_items`.
-
-        :param users: спарк-датафрейм с пользователями
-        :param items: спарк-датафрейм с объектами
-        :param path: путь, по которому записываются временные файлы
-        :return: батч пользователей, батч объектов и количество пользователей
-            и объектов в них
-        """
-        logging.debug("Индексирование пользователей и объектов")
-        users_indexed = NeuroMFRecommender.spark2pandas_csv(
-            self.user_indexer_model.transform(users),
-            os.path.join(path, "tmp_users_indexed")
-        )
-
-        items_indexed = NeuroMFRecommender.spark2pandas_csv(
-            self.item_indexer_model.transform(items),
-            os.path.join(path, "tmp_items_indexed")
-        )
-
-        users = list(users_indexed["user_idx"].values)
-        items = list(items_indexed["item_idx"].values)
-
-        logging.debug("Генерация тензоров")
-        num_user_batches = int(
-            np.ceil(len(users) / self.batch_size_predict_users))
-        num_item_batches = int(
-            np.ceil(len(items) / self.batch_size_predict_items))
-
-        logging.debug("-- Количество батчей для users: %d", num_user_batches)
-        logging.debug("-- Количество батчей для items: %d", num_item_batches)
-
-        user_batches = np.array_split(users, num_user_batches)
-        item_batches = np.array_split(items, num_item_batches)
-
-        for user_batch in user_batches:
-            for item_batch in item_batches:
-                num_users, num_items = len(user_batch), len(item_batch)
-
-                user_ids = torch.from_numpy(
-                    np.repeat(user_batch, num_items).astype(int)).cpu()
-                item_ids = torch.from_numpy(
-                    np.tile(item_batch, num_users).astype(int)).cpu()
-
-                if torch.cuda.is_available():
-                    user_ids = user_ids.cuda()
-                    item_ids = item_ids.cuda()
-
-                yield user_ids, item_ids, num_users, num_items
 
     @staticmethod
     def min_max_scale_column(dataframe: DataFrame, column: str) -> DataFrame:
@@ -432,14 +323,14 @@ class NeuroMFRecommender(Recommender):
         :return: исходный датафрейм с измененной колонкой
         """
         unlist = udf(lambda x: float(list(x)[0]), DoubleType())
-        assembler = VectorAssembler(inputCols=[column], outputCol=column+"_Vect")
-        scaler = MinMaxScaler(inputCol=column+"_Vect", outputCol=column+"_Scaled")
+        assembler = VectorAssembler(inputCols=[column], outputCol=column + "_Vect")
+        scaler = MinMaxScaler(inputCol=column + "_Vect", outputCol=column + "_Scaled")
         pipeline = Pipeline(stages=[assembler, scaler])
         dataframe = (pipeline
                      .fit(dataframe)
                      .transform(dataframe)
-                     .withColumn(column, unlist(column+"_Scaled"))
-                     .drop(column+"_Vect", column+"_Scaled"))
+                     .withColumn(column, unlist(column + "_Scaled"))
+                     .drop(column + "_Vect", column + "_Scaled"))
 
         return dataframe
 
