@@ -8,10 +8,10 @@ import torch
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
-from sponge_bob_magic.models.neuromf_recommender import NeuroMFRecommender
+from sponge_bob_magic.models.neuromf_rec import NeuroMFRec
 
 
-class NeuroCFRecommenderTestCase(PySparkTest):
+class NeuroCFRecTestCase(PySparkTest):
     def setUp(self):
         torch.manual_seed(7)
         torch.backends.cudnn.deterministic = True
@@ -21,7 +21,7 @@ class NeuroCFRecommenderTestCase(PySparkTest):
         params = {"learning_rate": 0.5,
                   "epochs": 1,
                   "embedding_dimension": 2}
-        self.model = NeuroMFRecommender(**params)
+        self.model = NeuroMFRec(**params)
         self.log = self.spark.createDataFrame(
             [
                 ("0", "0", datetime(2019, 1, 1), DEFAULT_CONTEXT, 1.0),

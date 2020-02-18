@@ -22,7 +22,7 @@ from torch.nn import DataParallel, Embedding, Module
 from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
-from sponge_bob_magic.models.base_recommender import Recommender
+from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
 
@@ -84,7 +84,7 @@ class NMF(Module):
             return relevance
 
 
-class NeuroMFRecommender(Recommender):
+class NeuroMFRec(Recommender):
     """ Модель матричной факторизации на нейросети. """
     num_workers: int = 10
     batch_size_fit_users: int = 100000
@@ -205,7 +205,7 @@ class NeuroMFRecommender(Recommender):
 
         logging.debug("Составление батча:")
         spark = SparkSession(log.rdd.context)
-        tensor_data = NeuroMFRecommender.spark2pandas_csv(
+        tensor_data = NeuroMFRec.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
             os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
@@ -250,7 +250,7 @@ class NeuroMFRecommender(Recommender):
         users = self.user_indexer_model.transform(users)
 
         logging.debug("Предсказание модели")
-        tensor_data = NeuroMFRecommender.spark2pandas_csv(
+        tensor_data = NeuroMFRec.spark2pandas_csv(
             users.select("user_idx"),
             os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
@@ -301,7 +301,7 @@ class NeuroMFRecommender(Recommender):
         recs = get_top_k_recs(recs, k)
 
         logging.debug("Преобразование отрицательных relevance")
-        recs = NeuroMFRecommender.min_max_scale_column(recs, "relevance")
+        recs = NeuroMFRec.min_max_scale_column(recs, "relevance")
 
         return recs
 

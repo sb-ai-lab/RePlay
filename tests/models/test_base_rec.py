@@ -8,12 +8,12 @@ from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.models.base_recommender import Recommender
+from sponge_bob_magic.models.base_rec import Recommender
 
 
-class RecommenderTestCase(PySparkTest):
+class RecTestCase(PySparkTest):
     def setUp(self):
-        class DerivedRecommender(Recommender):
+        class DerivedRec(Recommender):
             def _pre_fit(self, log: DataFrame,
                          user_features: Optional[DataFrame],
                          item_features: Optional[DataFrame]) -> None:
@@ -38,7 +38,7 @@ class RecommenderTestCase(PySparkTest):
             def get_params(self) -> Dict[str, object]:
                 pass
 
-        self.model = DerivedRecommender()
+        self.model = DerivedRec()
         self.empty_df = self.spark.createDataFrame(data=[],
                                                    schema=StructType([]))
 

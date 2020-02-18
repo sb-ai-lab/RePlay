@@ -9,12 +9,12 @@ from pyspark.sql.types import (ArrayType, FloatType, IntegerType, StringType,
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
-from sponge_bob_magic.models.linear_recomennder import LinearRecommender
+from sponge_bob_magic.models.linear_rec import LinearRec
 
 
-class LinearRecommenderTestCase(PySparkTest):
+class LinearRecTestCase(PySparkTest):
     def setUp(self):
-        self.model = LinearRecommender()
+        self.model = LinearRec()
         self.user_features = self.spark.createDataFrame(
             [("1", datetime(2019, 1, 1), 1)],
             schema=StructType([
@@ -47,7 +47,7 @@ class LinearRecommenderTestCase(PySparkTest):
         self.assertEqual(self.model.get_params(), params)
 
     def test_get_params(self):
-        model = LinearRecommender(lambda_param=1e-4,
+        model = LinearRec(lambda_param=1e-4,
                                   elastic_net_param=0.1, num_iter=1)
 
         params = {"lambda_param": 1e-4,

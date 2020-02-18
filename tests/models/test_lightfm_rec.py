@@ -3,16 +3,16 @@
 """
 from datetime import datetime
 
-from pyspark.sql.types import DoubleType, StringType, StructField, StructType
+import numpy as np
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.models.knn_recommender import KNNRecommender
+from sponge_bob_magic.models.lightfm_rec import LightFMRec
 
 
-class KNNRecommenderTestCase(PySparkTest):
+class LightFMRecTestCase(PySparkTest):
     def setUp(self):
-        self.model = KNNRecommender(1)
+        self.lightfm_rec = LightFMRec(1)
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [
@@ -26,26 +26,18 @@ class KNNRecommenderTestCase(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
+        self.lightfm_rec._seed = 42
 
     def test_fit(self):
-        self.model._pre_fit(self.log, None, None)
-        self.model._fit_partial(self.log, None, None)
-        self.assertSparkDataFrameEqual(
-            self.model.similarity,
-            self.spark.createDataFrame([
-                ("i1", "i4", 0.5),
-                ("i3", "i4", 0.18350341907227408),
-                ("i4", "i3", 0.18350341907227408)
-            ], schema=StructType([
-                StructField("item_id_one", StringType()),
-                StructField("item_id_two", StringType()),
-                StructField("similarity", DoubleType()),
-            ]))
-        )
+        self.lightfm_rec.fit(self.log, None, None)
+        item_factors = self.lightfm_rec.model.item_embeddings
+        self.assertTrue(np.allclose(
+            item_factors,
+            [[-0.06065203], [0.5662015], [0.04397682]]
+        ))
 
     def test_predict(self):
-        self.model.fit(self.log, None, None)
-        recs = self.model._predict(
+        recs = self.lightfm_rec.fit_predict(
             k=1,
             log=self.log,
             user_features=None,
@@ -58,15 +50,13 @@ class KNNRecommenderTestCase(PySparkTest):
             recs,
             self.spark.createDataFrame(
                 [
-                    ["u1", "i3", DEFAULT_CONTEXT, 0.18350341907227408],
-                    ["u2", "i4", DEFAULT_CONTEXT, 0.6835034190722742],
+                    ["u1", "i3", DEFAULT_CONTEXT, -0.25914710760116577],
+                    ["u2", "i3", DEFAULT_CONTEXT, -0.2138521820306778],
+                    ["u3", "i4", DEFAULT_CONTEXT, -0.3359125852584839]
                 ],
                 schema=REC_SCHEMA
             )
         )
 
     def test_get_params(self):
-        self.assertEqual(
-            self.model.get_params(),
-            {"shrink": 0.0, "num_neighbours": 1}
-        )
+        self.assertEqual(self.lightfm_rec.get_params(), {"rank": 1})
