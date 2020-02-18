@@ -28,6 +28,7 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
         .builder
         .config("spark.driver.memory", f"{spark_memory}g")
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
+        .config("spark.driver.bindAddress", "127.0.0.1")
         .master(f"local[{spark_cores}]")
         .enableHiveSupport()
         .getOrCreate()
