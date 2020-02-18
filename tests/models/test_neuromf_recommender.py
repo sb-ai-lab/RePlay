@@ -5,10 +5,10 @@ from datetime import datetime
 
 import numpy as np
 import torch
+from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
 from sponge_bob_magic.models.neuromf_recommender import NeuroMFRecommender
-from tests.pyspark_testcase import PySparkTest
 
 
 class NeuroCFRecommenderTestCase(PySparkTest):
@@ -71,7 +71,8 @@ class NeuroCFRecommenderTestCase(PySparkTest):
         )
         self.assertTrue(
             np.allclose(
-                predictions.toPandas()[["user_id", "item_id"]].astype(int).values,
+                predictions.toPandas()
+                [["user_id", "item_id"]].astype(int).values,
                 [[0, 2], [1, 1], [2, 0]],
                 atol=1.e-3
             )

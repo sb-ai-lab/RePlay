@@ -9,10 +9,9 @@ import pyspark
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (IntegerType, StringType, StructField,
                                StructType, TimestampType)
-
-import sponge_bob_magic.session_handler
 from tests.pyspark_testcase import PySparkTest
 
+import sponge_bob_magic.session_handler
 from sponge_bob_magic import utils
 
 
@@ -66,4 +65,3 @@ class UtilsTestCase(PySparkTest):
         spark = sponge_bob_magic.session_handler.get_spark_session(1)
         self.assertIsInstance(spark, SparkSession)
         self.assertEqual(spark.conf.get("spark.driver.memory"), "1g")
-        spark.stop()

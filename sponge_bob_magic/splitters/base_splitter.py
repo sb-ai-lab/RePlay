@@ -96,11 +96,11 @@ class Splitter(ABC):
         Разбивает лог действий пользователей на обучающую и тестовую выборки.
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
-           `[timestamp, user_id, item_id, context, relevance]`
+           ``[timestamp, user_id, item_id, context, relevance]``
         :returns: тройка спарк-датафреймов структуры, аналогичной входной,
-            `train, predict_input, test`, где `train` - обучающая выборка,
-            `predict_input` - выборка, которая известна на момент предсказания,
-            `test` - тестовая выборка
+            ``train, predict_input, test``, где ``train`` - обучающая выборка,
+            ``predict_input`` - выборка, которая известна на момент предсказания,
+            ``test`` - тестовая выборка
         """
         type_in = get_type(log)
         train, predict_input, test = self._core_split(convert(log))

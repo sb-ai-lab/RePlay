@@ -11,9 +11,8 @@ import pandas
 import torch.optim
 from annoy import AnnoyIndex
 from pyspark.ml import Pipeline
-from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
-from pyspark.ml.feature import MinMaxScaler
-from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.feature import (IndexToString, MinMaxScaler, StringIndexer,
+                                StringIndexerModel, VectorAssembler)
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.functions import udf
@@ -211,10 +210,11 @@ class NeuroMFRecommender(Recommender):
             os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
-
         user_batch = torch.LongTensor(tensor_data["user_idx"].values)
         item_batch = torch.LongTensor(tensor_data["item_idx"].values)
-
+        # if torch.cuda.is_available():
+        #     user_batch = user_batch.cuda()
+        #     item_batch = item_batch.cuda()
         logging.debug("Обучение модели")
         for epoch in range(self.epochs):
             logging.debug("-- Эпоха %d", epoch)
@@ -223,8 +223,14 @@ class NeuroMFRecommender(Recommender):
 
         self.model.eval()
         logging.debug("-- Запись annoy индексов")
+        if torch.cuda.is_available():
+            user_batch = user_batch.cuda()
+            item_batch = item_batch.cuda()
         _, item_embs = self.model(user_batch, item_batch, get_embs=True)
-        for item_id, item_emb in zip(tensor_data["item_idx"].values, item_embs.detach().numpy()):
+        for item_id, item_emb in zip(
+                tensor_data["item_idx"].values,
+                item_embs.detach().cpu().numpy()
+        ):
             self.annoy_index.add_item(int(item_id), item_emb)
         self.annoy_index.build(self.num_trees_annoy)
 
@@ -252,15 +258,16 @@ class NeuroMFRecommender(Recommender):
             os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
-
         user_batch = torch.LongTensor(tensor_data["user_idx"].values)
         item_batch = torch.ones_like(user_batch)
-
+        if torch.cuda.is_available():
+            user_batch = user_batch.cuda()
+            item_batch = item_batch.cuda()
         user_embs, _ = self.model(user_batch, item_batch, get_embs=True)
         predictions = pandas.DataFrame(columns=["user_idx", "item_idx"])
         logging.debug("Поиск ближайших айтемов с помощью annoy")
         for user_id, user_emb in zip(tensor_data["user_idx"].values,
-                                     user_embs.detach().numpy()):
+                                     user_embs.detach().cpu().numpy()):
             pred_for_user, relevance = self.annoy_index.get_nns_by_vector(
                 user_emb, k, include_distances=True
             )

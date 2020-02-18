@@ -1,11 +1,13 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+Данные сплиттеры делят лог оценок несколькими способами:
 
-В скрипте собраны классы по разбиению всего лога взаимодействий пользователей и
-объектов на обучающую и тестовую выборки.
-Способы разбиения - по времени и случайно, а также способ,
-когда в тестовую выборку попадают только холодные пользователи.
+- по времени
+- по размеру теста случайно
+- так, чтобы в тестовую выборку попали только холодные пользователи
+
+Каждый может по запросу удалять холодных пользователей и предметы.
 """
+
 from datetime import datetime
 
 import pyspark.sql.functions as sf
@@ -17,23 +19,20 @@ from sponge_bob_magic.splitters.base_splitter import (Splitter,
                                                       SplitterReturnType)
 
 
-class LogSplitByDateSplitter(Splitter):
+class DateSplitter(Splitter):
     """
-    Делит лог взаимодействия пользователей и объектов на обучающую и
-    тестовую выборки по времени.
+    Делит лог по дате, начиная с которой все записи будут отнесены к тесту.
     """
-    def __init__(
-            self,
-            drop_cold_items: bool,
-            drop_cold_users: bool,
-            test_start: datetime
-    ):
+    def __init__(self,
+                 test_start: datetime,
+                 drop_cold_items: bool = False,
+                 drop_cold_users: bool = False):
         """
+        :param test_start: дата в формате ``yyyy-mm-dd``
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
            которых нет в обучающей
-        :param test_start: дата в формате `yyyy-mm-dd`
         """
         super().__init__(drop_cold_items, drop_cold_users)
         self.test_start = test_start
@@ -49,22 +48,20 @@ class LogSplitByDateSplitter(Splitter):
         return train, train, test
 
 
-class LogSplitRandomlySplitter(Splitter):
-    """ Делит лог взаимодействия случайно на обучающую и тестовую выборки. """
-    def __init__(
-            self,
-            drop_cold_items: bool,
-            drop_cold_users: bool,
-            test_size: float,
-            seed: int = None
-    ):
+class RandomSplitter(Splitter):
+    """ Случайным образом распределяет записи на трейн и тест по переданному значению размера теста. """
+    def __init__(self,
+                 test_size: float,
+                 drop_cold_items: bool = False,
+                 drop_cold_users: bool = False,
+                 seed: int = None):
         """
-        :param seed: сид для разбиения
+        :param test_size: размер тестовой выборки, от 0 до 1
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
            которых нет в обучающей
-        :param test_size: размер тестовой выборки, от 0 до 1
+        :param seed: сид для разбиения
         """
         super().__init__(drop_cold_items, drop_cold_users)
         self.seed = seed
@@ -78,27 +75,23 @@ class LogSplitRandomlySplitter(Splitter):
         return train, train, test
 
 
-class ColdUsersExtractingSplitter(Splitter):
+class ColdUsersSplitter(Splitter):
     """
-    Делит лог взаимодействия на обучающую и тестовую выборки,
-    таким образом, чтобы в тестовой выборке оказались холодные пользователи.
     На основе желаемого размера тестовой выборки подбирается дата,
     и пользователи, появившиеся после этой даты, считаются холодными, и
     их лог попадает в тестовую выборку.
     """
 
-    def __init__(
-            self,
-            drop_cold_items: bool,
-            drop_cold_users: bool,
-            test_size: float
-    ):
+    def __init__(self,
+                 test_size: float,
+                 drop_cold_items: bool = False,
+                 drop_cold_users: bool = False):
         """
+        :param test_size: размер тестовой выборки, от 0 до 1
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
            которых нет в обучающей
-        :param test_size: размер тестовой выборки, от 0 до 1
         """
         super().__init__(drop_cold_items, drop_cold_users)
         self.test_size = test_size
