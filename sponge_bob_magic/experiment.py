@@ -17,7 +17,7 @@ class Experiment:
     >>> from sponge_bob_magic.experiment import Experiment
     >>> test = pd.DataFrame({"user_id": [1,1,1], "item_id": [1,2,3], "relevance": [5,3,4]})
     >>> pred = pd.DataFrame({"user_id": [1,1,1], "item_id": [1,2,4], "relevance": [5,4,5]})
-    >>> ex = Experiment(test, NDCG)
+    >>> ex = Experiment(test, NDCG())
     >>> ex.add_result('my_model', pred, 3)
     >>> ex.df
                 nDCG@3
@@ -32,7 +32,7 @@ class Experiment:
         self.test = convert(test)
         if not isinstance(metrics, Iterable):
             metrics = [metrics]
-        self.metrics = [metric() for metric in metrics]
+        self.metrics = metrics
         self.df = pd.DataFrame()
 
     def add_result(self, name: str, pred: Any, k: int):
