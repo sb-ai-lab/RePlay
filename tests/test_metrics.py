@@ -2,7 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 from datetime import datetime
-from math import log, log2
+from math import log2
 
 from tests.pyspark_testcase import PySparkTest
 
@@ -19,7 +19,10 @@ class TestMetrics(PySparkTest):
                   ["user1", "item3", "night", 1.0],
                   ["user2", "item1", "night", 3.0],
                   ["user2", "item2", "night", 4.0],
-                  ["user3", "item1", "day  ", 5.0]],
+                  ["user2", "item5", "night", 1.0],
+                  ["user3", "item1", "day  ", 5.0],
+                  ["user3", "item3", "day  ", 1.0],
+                  ["user3", "item4", "night", 2.0]],
             schema=REC_SCHEMA)
         self.recs2 = self.spark.createDataFrame(
             data=[["user1", "item4", "day  ", 4.0],
@@ -35,7 +38,6 @@ class TestMetrics(PySparkTest):
                 ["user3", "item2", datetime(2019, 9, 15), "night", 3.0]
             ],
             schema=LOG_SCHEMA)
-        self.empty_df = self.spark.createDataFrame(data=[], schema=LOG_SCHEMA)
         self.log = self.spark.createDataFrame(
             data=[["user1", "item1", datetime(2019, 8, 22), "day  ", 4.0],
                   ["user1", "item3", datetime(2019, 8, 23), "night", 3.0],
@@ -51,90 +53,56 @@ class TestMetrics(PySparkTest):
             schema=LOG_SCHEMA)
 
     def test_hit_rate_at_k(self):
-        self.assertEqual(
-            HitRate()(self.recs, self.ground_truth_recs, 10),
-            2 / 3
-        )
-        self.assertEqual(
-            HitRate()(self.recs, self.ground_truth_recs, 1),
-            1 / 3
+        self.assertDictAlmostEqual(
+            HitRate()(self.recs, self.ground_truth_recs, [3, 1]),
+            {3: 2 / 3, 1: 1 / 3}
         )
 
     def test_ndcg_at_k(self):
-        self.assertAlmostEqual(
-            NDCG()(self.recs, self.ground_truth_recs, 1),
-            1 / 3
-        )
-        self.assertAlmostEqual(
-            NDCG()(self.recs, self.ground_truth_recs, 3),
-            1 / 3 * (
-                    1 / (1 / log(2) + 1 / log(3) + 1 / log(4)) *
-                    (1 / log(2) + 1 / log(3)) +
-                    1 / (1 / log(2) + 1 / log(3)) *
-                    (1 / log(3))
-            )
+        self.assertDictAlmostEqual(
+            NDCG()(self.recs, self.ground_truth_recs, [1, 3]),
+            {1: 1 / 3,
+             3: 1 / 3 * (
+                 1 / (1 / log2(2) + 1 / log2(3) + 1 / log2(4)) *
+                 (1 / log2(2) + 1 / log2(3)) +
+                 1 / (1 / log2(2) + 1 / log2(3)) *
+                 (1 / log2(3))
+             )}
         )
 
     def test_precision_at_k(self):
-        self.assertAlmostEqual(
-            Precision()(self.recs, self.ground_truth_recs, 3),
-            1 / 3
-        )
-        self.assertAlmostEqual(
-            Precision()(self.recs, self.ground_truth_recs, 1),
-            1 / 3
-        )
-        self.assertAlmostEqual(
-            Precision()(self.recs, self.ground_truth_recs, 2),
-            1 / 2
+        self.assertDictAlmostEqual(
+            Precision()(self.recs, self.ground_truth_recs, [1, 2, 3]),
+            {3: 1 / 3,
+             1: 1 / 3,
+             2: 1 / 2}
         )
 
     def test_map_at_k(self):
-        self.assertAlmostEqual(
-            MAP()(self.recs, self.ground_truth_recs, 3),
-            11 / 36
-        )
-
-        self.assertAlmostEqual(
-            MAP()(self.recs, self.ground_truth_recs, 1),
-            1 / 3
+        self.assertDictAlmostEqual(
+            MAP()(self.recs, self.ground_truth_recs, [1, 3]),
+            {3: 7 / 12,
+             1: 1 / 3}
         )
 
     def test_recall_at_k(self):
-        self.assertEqual(
-            Recall()(self.recs, self.ground_truth_recs, 10),
-            (1 / 2 + 2 / 3) / 3
-        )
-        self.assertEqual(
-            Recall()(self.recs, self.ground_truth_recs, 1),
-            1 / 9
+        self.assertDictAlmostEqual(
+            Recall()(self.recs, self.ground_truth_recs, [1, 3]),
+            {3: (1 / 2 + 2 / 3) / 3,
+             1: 1 / 9}
         )
 
     def test_surprisal_at_k(self):
-        surprisal = Surprisal(self.log)
-        surprisal_norm = Surprisal(self.log, normalize=True)
+        self.assertDictAlmostEqual(
+            Surprisal()(self.recs2, self.ground_truth_recs, [1, 2]),
+            {1: 1.0,
+             2: 1.0}
+        )
 
-        test_cases = [
-            [1, (-log2(0.75)) / 3],
-            [2, (-log2(0.75)) / 3],
-            [3, ((1 - log2(0.75)) / 3 - log2(0.75) / 2) / 3]
-        ]
-        for k, correct_value in test_cases:
-            with self.subTest(f"recs, k={k}"):
-                self.assertAlmostEqual(surprisal(self.recs, self.empty_df, k),
-                                       correct_value)
-
-        with self.subTest("recs2, k=2"):
-            self.assertAlmostEqual(
-                surprisal(self.recs2, self.empty_df, 2),
-                2.0
-            )
-
-        with self.subTest("Normalized, recs2, k=1"):
-            self.assertAlmostEqual(
-                surprisal_norm(self.recs2, self.empty_df, 1),
-                1.0
-            )
+        self.assertDictAlmostEqual(
+            Surprisal()(self.recs, self.ground_truth_recs, 3),
+            {3: 5 * (1 - 1/log2(3)) / 9 + 4 / 9}
+        )
 
     def test_check_users(self):
         class NewMetric(Metric):
@@ -143,6 +111,11 @@ class TestMetrics(PySparkTest):
 
             def _get_metric_value(self, recommendations, ground_truth, k):
                 return 1.0
+
+            @staticmethod
+            def _get_metric_value_by_user(pdf):
+                return pdf
+
         test_cases = [
             [True, self.recs, self.ground_truth_recs],
             [False, self.recs, self.log],
