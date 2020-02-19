@@ -7,11 +7,11 @@ import numpy as np
 import torch
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
-from sponge_bob_magic.models.mlp_recommender import MLPRecommender
+from sponge_bob_magic.models.mlp_rec import MLPRec
 from tests.pyspark_testcase import PySparkTest
 
 
-class MLPRecommenderTestCase(PySparkTest):
+class MLPRecTestCase(PySparkTest):
     def setUp(self):
         torch.manual_seed(7)
         torch.backends.cudnn.deterministic = True
@@ -21,7 +21,7 @@ class MLPRecommenderTestCase(PySparkTest):
         params = {"learning_rate": 0.5,
                   "epochs": 1,
                   "embedding_dimension": 2}
-        self.model = MLPRecommender(**params)
+        self.model = MLPRec(**params)
         self.log = self.spark.createDataFrame(
             [
                 ("0", "0", datetime(2019, 1, 1), DEFAULT_CONTEXT, 1.0),

@@ -24,7 +24,7 @@ from torch.nn import DataParallel, Embedding, Module
 from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
-from sponge_bob_magic.models.base_recommender import Recommender
+from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
 
@@ -91,7 +91,7 @@ class MLP(Module):
         return user_embed, item_embed
 
 
-class MLPRecommender(Recommender):
+class MLPRec(Recommender):
     """ Модель на нейросети. """
     num_workers: int = 10
     batch_size_fit_users: int = 100000
@@ -214,7 +214,7 @@ class MLPRecommender(Recommender):
 
         logging.debug("Составление батча:")
         spark = SparkSession(log.rdd.context)
-        tensor_data = MLPRecommender.spark2pandas_csv(
+        tensor_data = MLPRec.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
             os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
@@ -257,7 +257,7 @@ class MLPRecommender(Recommender):
         users = self.user_indexer_model.transform(users)
 
         logging.debug("Предсказание модели")
-        tensor_data = MLPRecommender.spark2pandas_csv(
+        tensor_data = MLPRec.spark2pandas_csv(
             users.select("user_idx"),
             os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
@@ -307,7 +307,7 @@ class MLPRecommender(Recommender):
         recs = get_top_k_recs(recs, k)
 
         logging.debug("Преобразование отрицательных relevance")
-        recs = MLPRecommender.min_max_scale_column(recs, "relevance")
+        recs = MLPRec.min_max_scale_column(recs, "relevance")
 
         return recs
 
