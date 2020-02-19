@@ -11,7 +11,12 @@ class Experiment:
     """
     Обеспечивает подсчет и хранение значений метрик.
 
+    Инициализируется тестом, на котором нужно считать метрики и словарём метрики-значения k.
+
+    Результаты доступны в атрибуте ``df`` в виде pandas.DataFrame.
+
     Пример:
+
     >>> import pandas as pd
     >>> from sponge_bob_magic.metrics import NDCG, Surprisal
     >>> from sponge_bob_magic.experiment import Experiment
@@ -29,9 +34,9 @@ class Experiment:
     """
     def __init__(self, test: Any, metrics: Dict[Metric, Union[int, List[int]]]):
         """
-        :param test: Данные для теста в формате pandas или pyspark DataFrame
+        :param test: Данные для теста в формате ``pandas`` или ``pyspark`` DataFrame
         :param metrics: Словарь метрик, которые необходимо считать.
-            Ключ -- метрика, значение -- int или список интов, обозначающих k,
+            Ключ -- метрика, значение -- ``int`` или список интов, обозначающих ``k``,
             для которых необходимо посчитать метрику.
         """
         self.test = convert(test)
@@ -51,6 +56,7 @@ class Experiment:
     def add_result(self, name: str, pred: Any):
         """
         Подсчитать метрики для переданного списка рекомендаций
+
         :param name: имя модели/эксперимента для сохранения результатов
         :param pred: список рекомендаций для подсчета метрик
         """
