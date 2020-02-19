@@ -4,7 +4,7 @@
 import os
 import unittest
 import warnings
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 import pandas as pd
 from pyspark.ml.linalg import DenseVector
@@ -43,6 +43,19 @@ class PySparkTest(unittest.TestCase):
                                           check_like=True)
         except AssertionError as e:
             raise self.failureException(msg) from e
+
+    def assertDictAlmostEqual(
+            self,
+            d1: Dict,
+            d2: Dict,
+            msg: Optional[str] = None) -> None:
+        try:
+            self.assertSetEqual(set(d1.keys()), set(d2.keys()))
+            for key in d1:
+                self.assertAlmostEqual(d1[key], d2[key])
+        except AssertionError as e:
+            raise self.failureException(msg) from e
+
 
     @classmethod
     def create_testing_pyspark_session(cls):

@@ -3,18 +3,16 @@
 """
 import logging
 from abc import ABC, abstractmethod
-from math import log2
-from typing import Union, Iterable, Dict, Callable
+from typing import Union, Iterable, Dict
 
-from pyspark.ml.feature import StringIndexer
-from pyspark.mllib.evaluation import RankingMetrics
-from pyspark.rdd import RDD
-from pyspark.sql import DataFrame, Window, Column
+import numpy as np
+import pandas as pd
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-
-from sponge_bob_magic.utils import get_top_k_recs
+from pyspark.sql import types as st
 
 NumType = Union[int, float]
+IterOrList = Union[Iterable[int], int]
 
 
 class Metric(ABC):
@@ -25,7 +23,7 @@ class Metric(ABC):
             recommendations: DataFrame,
             ground_truth: DataFrame,
             k: Iterable[int]
-    ) -> NumType:
+    ) -> Dict[int, NumType]:
         """
         :param recommendations: выдача рекомендательной системы,
             спарк-датарейм вида
@@ -44,15 +42,79 @@ class Metric(ABC):
             )
         return self._get_metric_value(recommendations, ground_truth, k)
 
-    @abstractmethod
+    def _get_enriched_recommendations(
+            self,
+            recommendations: DataFrame,
+            ground_truth: DataFrame
+    ) -> DataFrame:
+        """
+        Рассчет весов для items и добавление их к рекомендациям
+
+        :param recommendations: рекомендации
+        :param ground_truth: лог тестовых действий
+        :return: рекомендации с весами items
+            спарк-датафрейм вида
+            `[user_id , item_id , context , relevance, *columns]`
+        """
+        true_items_by_users = (ground_truth
+                               .groupby("user_id").agg(
+                                   sf.collect_set("item_id").alias("items_id")))
+
+        return recommendations.join(
+            true_items_by_users,
+            how="inner",
+            on=["user_id"]
+        )
+
     def _get_metric_value(
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
-            k: Iterable[int]
-    ) -> NumType:
+            k: IterOrList
+    ) -> Dict[int, NumType]:
         """
         Расчёт значения метрики
+
+        :param recommendations: рекомендации
+        :param ground_truth: лог тестовых действий
+        :param k: набор чисел или одно число, по которому рассчитывается метрика
+        :return: значения метрики для разных k
+        """
+        if isinstance(k, int):
+            k_set = {k}
+        else:
+            k_set = set(k)
+        users_count = recommendations.select("user_id").distinct().count()
+        agg_fn = self._get_metric_value_by_user
+
+        @sf.pandas_udf(st.StructType([st.StructField("user_id", st.StringType(), True),
+                                      st.StructField("cum_agg", st.DoubleType(), True),
+                                      st.StructField("k", st.LongType(), True)
+                                      ]),
+                       sf.PandasUDFType.GROUPED_MAP)
+        def grouped_map(pdf):
+            pdf = (pdf.sort_values("relevance", ascending=False)
+                   .reset_index(drop=True)
+                   .assign(k=pdf.index + 1))
+            return agg_fn(pdf)[["user_id", "cum_agg", "k"]]
+
+        recs = self._get_enriched_recommendations(recommendations, ground_truth)
+        recs = recs.groupby("user_id").apply(grouped_map).where(sf.col("k").isin(k_set))
+        total_metric = (recs
+                        .groupby("k").agg(sf.sum("cum_agg").alias("total_metric"))
+                        .withColumn("total_metric", sf.col("total_metric") / users_count)
+                        .select("total_metric", "k").collect())
+
+        return {row["k"]: row["total_metric"] for row in total_metric}
+
+    @staticmethod
+    @abstractmethod
+    def _get_metric_value_by_user(pdf: pd.DataFrame) -> pd.DataFrame:
+        """
+        Расчёт значения метрики для каждого пользователя
+
+        :param pdf: DataFrame, содержащий рекомендации по каждому пользователю
+        :return: DataFrame c рассчитанным полем cum_agg
         """
 
     @abstractmethod
@@ -79,110 +141,6 @@ class Metric(ABC):
         inner_count = left.join(right, on="user_id").count()
         return left_count == inner_count and right_count == inner_count
 
-    @staticmethod
-    def _merge_prediction_and_truth(
-            recommendations: DataFrame,
-            ground_truth: DataFrame
-    ) -> RDD:
-        """
-        Вспомогательный метод-трансформер,
-        который джойнит входную истинную выдачу с выдачей модели.
-        Нужен для использование встроенных метрик RankingMetrics
-        (см. `pyspark.mllib.evaluation.RankingMetrics`).
-
-        :param recommendations: выдача рекомендательной системы,
-            спарк-датафрейм вида
-            `[user_id, item_id, context, relevance]`
-        :param ground_truth: реальный лог действий пользователей,
-            спарк-датафрейм вида
-            `[user_id , item_id , timestamp , context , relevance]`
-        :return: rdd-датафрейм, который является джойном входных датафреймов,
-            пригодный для использования в RankingMetrics
-        """
-        indexer = (
-            StringIndexer(
-                inputCol="item_id",
-                outputCol="item_idx",
-                handleInvalid="keep"
-            )
-                .fit(ground_truth)
-        )
-        df_true = indexer.transform(ground_truth)
-        df_pred = indexer.transform(recommendations)
-        window = Window.partitionBy('user_id').orderBy(
-            sf.col('relevance').desc()
-        )
-        df_pred = (df_pred
-                   .withColumn('pred_items',
-                               sf.collect_list('item_idx').over(window))
-                   .groupby("user_id")
-                   .agg(sf.max('pred_items').alias('pred_items')))
-        df_true = (df_true
-                   .withColumn('true_items',
-                               sf.collect_list('item_idx').over(window))
-                   .groupby("user_id")
-                   .agg(sf.max('true_items').alias('true_items')))
-        prediction_and_labels = (
-            df_pred
-                .join(df_true, ["user_id"], how="inner")
-                .rdd
-        )
-        return prediction_and_labels
-
-    @staticmethod
-    def _get_metrics_diff_top_k(metric_elements: DataFrame,
-                                k: Iterable[int],
-                                agg_fn: Callable[[Column], Column]
-                                ) -> Dict[int, NumType]:
-        """
-            Рассчитывает усредненную метрику по различным топ-k рекомендаций из набора.
-
-            :param metric_elements: элеменеты ряда для расчета метрики, спарк-датафрейм с колонками
-                `[user_id , item_id , context , metric]`
-            :param k: набор количеств рекомендаций, по которым необходимо подсчитать метрики
-            :return: топ-k рекомендации, словарь с key - количество рекомендаций и value - значение метрики
-        """
-        k_set = set(k)
-        window = (Window
-                  .partitionBy(metric_elements["user_id"])
-                  .orderBy(metric_elements["relevance"].desc()))
-
-        cum_agg = (metric_elements
-                   .withColumn('k',
-                               sf.count(metric_elements.relevance).over(window))
-                   .withColumn('cum_agg',
-                               agg_fn(metric_elements.metric).over(window))
-                   .where(sf.col("k").isin(k_set)))
-        total_metric = (cum_agg
-                        .groupby("k").agg(
-            sf.avg("cum_agg").alias("total_metric"))
-                        .select("total_metric", "k")).collect()
-
-        return {row["k"]: row["total_metric"] for row in total_metric}
-
-    @staticmethod
-    def _merge_prediction_and_truth_top_k(
-            recommendations: DataFrame,
-            ground_truth: DataFrame,
-            k: int
-    ) -> DataFrame:
-        top_k_recommendations = get_top_k_recs(recommendations, k)
-        true_items_by_users = (ground_truth
-            .groupby("user_id").agg(
-                sf.collect_set("item_id").alias("items_id")))
-
-        @sf.udf("int")
-        def check_is_in(item_id,items_id):
-            return int(item_id in items_id)
-
-        merged_dataframe = top_k_recommendations.join(
-            true_items_by_users,
-            how="inner",
-            on=["user_id"]
-        ).withColumn("metric", check_is_in(sf.col("item_id"),sf.col("items_id")))
-
-        return merged_dataframe
-
 
 class HitRate(Metric):
     """
@@ -195,15 +153,12 @@ class HitRate(Metric):
     def __str__(self):
         return "HitRate"
 
-    def _get_metric_value(
-            self,
-            recommendations: DataFrame,
-            ground_truth: DataFrame,
-            k: Iterable[int]
-    ) -> Dict[int, NumType]:
-        dataframe = self._merge_prediction_and_truth_top_k(recommendations, ground_truth, max(k))
+    @staticmethod
+    def _get_metric_value_by_user(pdf):
+        pdf = pdf.assign(is_good_item=pdf[["item_id", "items_id"]]
+                         .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
 
-        return self._get_metrics_diff_top_k(dataframe, k, sf.max)
+        return pdf.assign(cum_agg=pdf.is_good_item.cummax())
 
 
 class NDCG(Metric):
@@ -216,35 +171,14 @@ class NDCG(Metric):
     def __str__(self):
         return "nDCG"
 
-    def _get_metric_value(
-            self,
-            recommendations: DataFrame,
-            ground_truth: DataFrame,
-            k: Iterable[int]
-    ) -> Dict[int, NumType]:
-        dataframe = NDCG._merge_prediction_and_truth_top_k(recommendations, ground_truth, max(k))
+    @staticmethod
+    def _get_metric_value_by_user(pdf):
+        pdf = pdf.assign(is_good_item=pdf[["item_id", "items_id"]]
+                         .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
+        pdf = pdf.assign(sorted_good_item=pdf["k"].le(pdf["items_id"].str.len()))
 
-        #@sf.pandas_udf("double", sf.PandasUDFType.GROUPED_MAP)
-        @sf.udf("double")
-        def mean_udf(v):
-            return v.mean()
-
-        return self._get_metrics_diff_top_k(dataframe, k, mean_udf)
-
-        # dataframe = self._merge_prediction_and_truth(
-        #     recommendations, ground_truth
-        # )
-        #
-        # def _calc_metric_elem(row):
-        #     true_items_set = set(row[2])
-        #     return [{"user_id": row["user_id"], "item_id": item_id, "metric": int(item_id in true_items_set),
-        #              "relevance": ind} for ind, item_id in enumerate(row["pred_items"])]
-        #
-        # dataframe = dataframe.flatMap(_calc_metric_elem).toDF()
-        # # dataframe = dataframe.map(lambda row: (row[1], row[2]))
-        # # print(dataframe.take(10))
-        # # metrics = RankingMetrics(dataframe)
-        # return dataframe  # metrics.ndcgAt(k)
+        return pdf.assign(cum_agg=(pdf["is_good_item"] / np.log2(pdf.k + 1)).cumsum() /
+                          (pdf["sorted_good_item"] / np.log2(pdf.k + 1)).cumsum())
 
 
 class Precision(Metric):
@@ -257,18 +191,12 @@ class Precision(Metric):
     def __str__(self):
         return "Precision"
 
-    def _get_metric_value(
-            self,
-            recommendations: DataFrame,
-            ground_truth: DataFrame,
-            k: int
-    ) -> NumType:
-        dataframe = self._merge_prediction_and_truth(
-            recommendations, ground_truth
-        )
-        dataframe = dataframe.map(lambda row: (row[1], row[2]))
-        metrics = RankingMetrics(dataframe)
-        return metrics.precisionAt(k)
+    @staticmethod
+    def _get_metric_value_by_user(pdf):
+        pdf = pdf.assign(is_good_item=pdf[["item_id", "items_id"]]
+                         .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
+
+        return pdf.assign(cum_agg=pdf["is_good_item"].cumsum() / pdf.k)
 
 
 class MAP(Metric):
@@ -281,18 +209,17 @@ class MAP(Metric):
     def __str__(self):
         return "MAP"
 
-    def _get_metric_value(
-            self,
-            recommendations: DataFrame,
-            ground_truth: DataFrame,
-            k: int
-    ) -> NumType:
-        dataframe = self._merge_prediction_and_truth(
-            recommendations, ground_truth
-        )
-        dataframe = dataframe.map(lambda row: (row[1][:k], row[2][:k]))
-        metrics = RankingMetrics(dataframe)
-        return metrics.meanAveragePrecision
+    @staticmethod
+    def _get_metric_value_by_user(pdf):
+        pdf = pdf.assign(
+            is_good_item=pdf[["item_id", "items_id"]].apply(
+                lambda x: int(x["item_id"] in x["items_id"]), 1),
+            good_items_count=pdf["items_id"].str.len())
+
+        return pdf.assign(cum_agg=(pdf["is_good_item"].cumsum()
+                                   * pdf["is_good_item"]
+                                   / pdf.k
+                                   / pdf[["k", "good_items_count"]].min(axis=1)).cumsum())
 
 
 class Recall(Metric):
@@ -306,37 +233,12 @@ class Recall(Metric):
     def __str__(self):
         return "Recall"
 
-    def _get_metric_value(
-            self,
-            recommendations: DataFrame,
-            ground_truth: DataFrame,
-            k: int
-    ) -> NumType:
-        top_k_recommendations = get_top_k_recs(recommendations, k)
-        hits = top_k_recommendations.join(
-            ground_truth,
-            how="inner",
-            on=["user_id", "item_id"]
-        ).groupby("user_id").agg(sf.count("item_id").alias("hits"))
-        totals = (
-            ground_truth
-                .groupby("user_id")
-                .agg(sf.count("item_id").alias("totals"))
-        )
-        total_recall, total_users = (
-            totals.join(hits, on=["user_id"], how="left")
-                .withColumn(
-                "recall",
-                sf.coalesce(sf.col("hits") / sf.col("totals"), sf.lit(0))
-            )
-                .agg(
-                sf.sum("recall").alias("total_hits"),
-                sf.count("recall").alias("total_users")
-            )
-                .select("total_hits", "total_users")
-                .head()[:2]
-        )
-        return total_recall / total_users
+    @staticmethod
+    def _get_metric_value_by_user(pdf):
+        pdf = pdf.assign(is_good_item=pdf[["item_id", "items_id"]]
+                         .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
+
+        return pdf.assign(cum_agg=pdf["is_good_item"].cumsum() / pdf["items_id"].str.len())
 
 
 class Surprisal(Metric):
@@ -358,57 +260,19 @@ class Surprisal(Metric):
     def __str__(self):
         return "Surprisal"
 
-    def __init__(self,
-                 log: DataFrame,
-                 normalize: bool = False):
-        """
-        Считает популярность и собственную информацию каждого объета.
+    @staticmethod
+    def _get_metric_value_by_user(pdf):
+        return pdf.assign(cum_agg=pdf["rec_weight"].cumsum() / pdf["k"])
 
-        :param log: спарк-датафрейм вида
-            `[user_id, item_id, timestamp, context, relevance]`;
-            содержит информацию о взаимодействии пользователей с объектами
-        """
-        n_users = log.select("user_id").distinct().count()
-        max_value = -log2(1 / n_users)
-        stats = log.groupby("item_id").agg(
-            sf.countDistinct("user_id").alias("count")
-        )
-
-        stats = stats.withColumn("popularity", stats["count"] / n_users)
-        stats = stats.withColumn("self-information", -sf.log2("popularity"))
-        stats = stats.withColumn(
-            "normalized_si",
-            stats["self-information"] / max_value
-        )
-
-        self.stats = stats
-        self.normalize = normalize
-        self.fill_value = 1.0 if normalize else max_value
-
-    def _get_metric_value(
+    def _get_enriched_recommendations(
             self,
             recommendations: DataFrame,
-            ground_truth: DataFrame,
-            k: int
-    ) -> NumType:
-        metric = "normalized_si" if self.normalize else "self-information"
+            ground_truth: DataFrame
+    ) -> DataFrame:
+        n_users = ground_truth.select("user_id").distinct().count()
+        item_weights = ground_truth.groupby("item_id").agg(
+            (sf.log2(n_users / sf.countDistinct("user_id"))/np.log2(n_users)).alias("rec_weight"))
 
-        self_information = self.stats.select(["item_id", metric])
-        top_k_recommendations = get_top_k_recs(recommendations, k)
-
-        recs = top_k_recommendations.join(self_information,
-                                          on="item_id",
-                                          how="left").fillna(self.fill_value)
-        list_mean = (
-            recs
-                .groupby("user_id")
-                .agg(sf.mean(metric).alias(metric))
-        )
-
-        global_mean = (
-            list_mean
-                .select(sf.mean(metric).alias("mean"))
-                .collect()[0]["mean"]
-        )
-
-        return global_mean
+        return (recommendations.join(item_weights,
+                                     on="item_id",
+                                     how="left").fillna(1))
