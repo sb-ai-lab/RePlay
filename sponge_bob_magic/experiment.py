@@ -32,7 +32,9 @@ class Experiment:
     my_model     0.666667  0.613147  0.703918
 
     """
-    def __init__(self, test: Any, metrics: Dict[Metric, Union[int, List[int]]]):
+    def __init__(self,
+                 test: Any,
+                 metrics: Dict[Metric, Union[int, List[int]]]):
         """
         :param test: Данные для теста в формате ``pandas`` или ``pyspark`` DataFrame
         :param metrics: Словарь метрик, которые необходимо считать.
@@ -44,8 +46,8 @@ class Experiment:
         self.df = pd.DataFrame()
 
     @staticmethod
-    def _verify(metrics):
-        """Проверяет корректность аргумента"""
+    def _verify(metrics: Dict[Metric, Union[int, List[int]]]):
+        """Проверяет корректность аргумента, конвертит инт в лист"""
         if not isinstance(metrics, dict):
             raise TypeError(f"metrics argument must be a dictionary, got {type(metrics)}")
         for metric, k in metrics.items():
@@ -62,7 +64,7 @@ class Experiment:
         """
         res = pd.Series(name=name)
         recs = convert(pred)
-        for metric, ks in self.metrics.items():
-            for k in ks:
+        for metric, k_list in self.metrics.items():
+            for k in k_list:
                 res[f"{metric}@{k}"] = metric(recs, self.test, k)
         self.df = self.df.append(res)

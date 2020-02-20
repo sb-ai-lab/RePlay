@@ -1,3 +1,8 @@
+"""
+Дашборд, рисует дашборд.
+в параметрах запуска нужно указать путь до csv с результатами и полями model_name и метриками
+``python app.py ../../res.csv``
+"""
 import argparse
 
 import dash
@@ -5,25 +10,23 @@ import dash_core_components as dcc
 import dash_html_components as html
 import dash_table
 import pandas as pd
+import plotly.express as px
 from dash_table.Format import Format, Scheme
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+external_stylesheets = ['style.css']
 
 parser = argparse.ArgumentParser(description='Launch DashBoard')
 parser.add_argument("path", help='path to results csv')
 args = parser.parse_args()
 
 df = pd.read_csv(args.path)
-# df = pd.DataFrame({"model_name": ["NeuMF", "CML", "LRML"],
-#                    "nDCG@10": [0.4450, 0.5413, 0.5453],
-#                    "HR@10": [0.7260, 0.7216, 0.7397]})
 
 metrics = df.columns[df.columns != 'model_name']
 dff = pd.melt(df, id_vars=['model_name'], value_vars=metrics)
 dff = dff.rename(columns={"variable": "metric"})
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-import plotly.express as px
+
 fig = px.bar(
     dff,
     x="metric",
@@ -64,7 +67,7 @@ app.layout = html.Div(children=[
         figure=fig
     )
 ],
-style={'width': '50%', 'margin': 'auto'})
+    style={'width': '50%', 'margin': 'auto'})
 
 if __name__ == '__main__':
     app.run_server(debug=True)
