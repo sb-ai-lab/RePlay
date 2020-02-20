@@ -27,10 +27,10 @@ class Metric(ABC):
         """
         :param recommendations: выдача рекомендательной системы,
             спарк-датарейм вида
-            `[user_id, item_id, context, relevance]`
+            ``[user_id, item_id, context, relevance]``
         :param ground_truth: реальный лог действий пользователей,
             спарк-датафрейм вида
-            `[user_id , item_id , timestamp , context , relevance]`
+            ``[user_id , item_id , timestamp , context , relevance]``
         :param k: список индексов, показывающий какое максимальное количество объектов брать из топа
             рекомендованных для оценки
         :return: значение метрики
@@ -48,13 +48,13 @@ class Metric(ABC):
             ground_truth: DataFrame
     ) -> DataFrame:
         """
-        Рассчет весов для items и добавление их к рекомендациям
+        Расчет весов для items и добавление их к рекомендациям
 
         :param recommendations: рекомендации
         :param ground_truth: лог тестовых действий
         :return: рекомендации с весами items
             спарк-датафрейм вида
-            `[user_id , item_id , context , relevance, *columns]`
+            ``[user_id , item_id , context , relevance, *columns]``
         """
         true_items_by_users = (ground_truth
                                .groupby("user_id").agg(
@@ -92,11 +92,11 @@ class Metric(ABC):
                                       st.StructField("k", st.LongType(), True)
                                       ]),
                        sf.PandasUDFType.GROUPED_MAP)
-        def grouped_map(pdf):
-            pdf = (pdf.sort_values("relevance", ascending=False)
-                   .reset_index(drop=True)
-                   .assign(k=pdf.index + 1))
-            return agg_fn(pdf)[["user_id", "cum_agg", "k"]]
+        def grouped_map(pandas_df):
+            pandas_df = (pandas_df.sort_values("relevance", ascending=False)
+                         .reset_index(drop=True)
+                         .assign(k=pandas_df.index + 1))
+            return agg_fn(pandas_df)[["user_id", "cum_agg", "k"]]
 
         recs = self._get_enriched_recommendations(recommendations, ground_truth)
         recs = recs.groupby("user_id").apply(grouped_map).where(sf.col("k").isin(k_set))
@@ -109,11 +109,11 @@ class Metric(ABC):
 
     @staticmethod
     @abstractmethod
-    def _get_metric_value_by_user(pdf: pd.DataFrame) -> pd.DataFrame:
+    def _get_metric_value_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
         """
         Расчёт значения метрики для каждого пользователя
 
-        :param pdf: DataFrame, содержащий рекомендации по каждому пользователю
+        :param pandas_df: DataFrame, содержащий рекомендации по каждому пользователю
         :return: DataFrame c рассчитанным полем cum_agg
         """
 
@@ -146,7 +146,7 @@ class HitRate(Metric):
     """
     Метрика HitRate@K:
     для какой доли пользователей удалось порекомендовать среди
-    первых `k` хотя бы один объект из реального лога.
+    первых ``k`` хотя бы один объект из реального лога.
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
 
@@ -154,17 +154,17 @@ class HitRate(Metric):
         return "HitRate"
 
     @staticmethod
-    def _get_metric_value_by_user(pdf):
-        pdf = pdf.assign(is_good_item=pdf[["item_id", "items_id"]]
-                         .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
+    def _get_metric_value_by_user(pandas_df):
+        pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
+                                     .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
 
-        return pdf.assign(cum_agg=pdf.is_good_item.cummax())
+        return pandas_df.assign(cum_agg=pandas_df.is_good_item.cummax())
 
 
 class NDCG(Metric):
     """
     Метрика nDCG@k:
-    чем релевантнее элементы среди первых `k`, тем выше метрика.
+    чем релевантнее элементы среди первых ``k``, тем выше метрика.
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
 
@@ -172,19 +172,19 @@ class NDCG(Metric):
         return "nDCG"
 
     @staticmethod
-    def _get_metric_value_by_user(pdf):
-        pdf = pdf.assign(is_good_item=pdf[["item_id", "items_id"]]
-                         .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
-        pdf = pdf.assign(sorted_good_item=pdf["k"].le(pdf["items_id"].str.len()))
+    def _get_metric_value_by_user(pandas_df):
+        pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
+                                     .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
+        pandas_df = pandas_df.assign(sorted_good_item=pandas_df["k"].le(pandas_df["items_id"].str.len()))
 
-        return pdf.assign(cum_agg=(pdf["is_good_item"] / np.log2(pdf.k + 1)).cumsum() /
-                          (pdf["sorted_good_item"] / np.log2(pdf.k + 1)).cumsum())
+        return pandas_df.assign(cum_agg=(pandas_df["is_good_item"] / np.log2(pandas_df.k + 1)).cumsum() /
+                          (pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)).cumsum())
 
 
 class Precision(Metric):
     """
     Метрика Precision@k:
-    точность на `k` первых элементах выдачи.
+    точность на ``k`` первых элементах выдачи.
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
 
@@ -192,17 +192,17 @@ class Precision(Metric):
         return "Precision"
 
     @staticmethod
-    def _get_metric_value_by_user(pdf):
-        pdf = pdf.assign(is_good_item=pdf[["item_id", "items_id"]]
-                         .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
+    def _get_metric_value_by_user(pandas_df):
+        pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
+                                     .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
 
-        return pdf.assign(cum_agg=pdf["is_good_item"].cumsum() / pdf.k)
+        return pandas_df.assign(cum_agg=pandas_df["is_good_item"].cumsum() / pandas_df.k)
 
 
 class MAP(Metric):
     """
     Метрика MAP@k (mean average precision):
-    средняя точность на `k` первых элементах выдачи.
+    средняя точность на ``k`` первых элементах выдачи.
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
 
@@ -210,23 +210,23 @@ class MAP(Metric):
         return "MAP"
 
     @staticmethod
-    def _get_metric_value_by_user(pdf):
-        pdf = pdf.assign(
-            is_good_item=pdf[["item_id", "items_id"]].apply(
+    def _get_metric_value_by_user(pandas_df):
+        pandas_df = pandas_df.assign(
+            is_good_item=pandas_df[["item_id", "items_id"]].apply(
                 lambda x: int(x["item_id"] in x["items_id"]), 1),
-            good_items_count=pdf["items_id"].str.len())
+            good_items_count=pandas_df["items_id"].str.len())
 
-        return pdf.assign(cum_agg=(pdf["is_good_item"].cumsum()
-                                   * pdf["is_good_item"]
-                                   / pdf.k
-                                   / pdf[["k", "good_items_count"]].min(axis=1)).cumsum())
+        return pandas_df.assign(cum_agg=(pandas_df["is_good_item"].cumsum()
+                                * pandas_df["is_good_item"]
+                                / pandas_df.k
+                                / pandas_df[["k", "good_items_count"]].min(axis=1)).cumsum())
 
 
 class Recall(Metric):
     """
     Метрика Recall@K:
     какую долю объектов из реального лога мы покажем в рекомендациях среди
-    первых `k` (в среднем по пользователям).
+    первых ``k`` (в среднем по пользователям).
     Диапазон значений [0, 1], чем выше метрика, тем лучше.
     """
 
@@ -234,11 +234,11 @@ class Recall(Metric):
         return "Recall"
 
     @staticmethod
-    def _get_metric_value_by_user(pdf):
-        pdf = pdf.assign(is_good_item=pdf[["item_id", "items_id"]]
-                         .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
+    def _get_metric_value_by_user(pandas_df):
+        pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
+                                     .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
 
-        return pdf.assign(cum_agg=pdf["is_good_item"].cumsum() / pdf["items_id"].str.len())
+        return pandas_df.assign(cum_agg=pandas_df["is_good_item"].cumsum() / pandas_df["items_id"].str.len())
 
 
 class Surprisal(Metric):
@@ -261,8 +261,8 @@ class Surprisal(Metric):
         return "Surprisal"
 
     @staticmethod
-    def _get_metric_value_by_user(pdf):
-        return pdf.assign(cum_agg=pdf["rec_weight"].cumsum() / pdf["k"])
+    def _get_metric_value_by_user(pandas_df):
+        return pandas_df.assign(cum_agg=pandas_df["rec_weight"].cumsum() / pandas_df["k"])
 
     def _get_enriched_recommendations(
             self,
