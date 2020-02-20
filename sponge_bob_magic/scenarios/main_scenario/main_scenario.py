@@ -11,14 +11,14 @@ from pyspark.sql import DataFrame, SparkSession
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.metrics import NDCG, HitRate, Metric, Precision
-from sponge_bob_magic.models.base_recommender import Recommender
-from sponge_bob_magic.models.knn_recommender import KNNRecommender
-from sponge_bob_magic.models.popular_recomennder import PopularRecommender
+from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.models.knn_rec import KNNRec
+from sponge_bob_magic.models.pop_rec import PopRec
 from sponge_bob_magic.scenarios.base_scenario import Scenario
 from sponge_bob_magic.scenarios.main_scenario.main_objective import (
     MainObjective, SplitData)
 from sponge_bob_magic.splitters.base_splitter import Splitter
-from sponge_bob_magic.splitters.log_splitter import LogSplitByDateSplitter
+from sponge_bob_magic.splitters.log_splitter import DateSplitter
 from sponge_bob_magic.utils import write_read_dataframe
 
 
@@ -26,7 +26,7 @@ class MainScenario(Scenario):
     """ Сценарий для простого обучения моделей рекомендаций с замесом. """
     splitter: Splitter
     recommender: Recommender
-    fallback_recommender: Recommender
+    fallback_rec: Recommender
     criterion: Metric
     metrics: List[Metric]
     study: Study
@@ -96,14 +96,15 @@ class MainScenario(Scenario):
         while n_trials > n_unique_trials and count <= self.optuna_max_n_trials:
             spark = SparkSession(split_data.train.rdd.context)
             self.study.optimize(
-                MainObjective(params_grid, self.study, split_data,
-                              self.recommender, self.criterion, self.metrics,
-                              k, context,
-                              fallback_recs,
-                              self.filter_seen_items,
-                              spark.conf.get("spark.local.dir")),
-                n_trials=1,
-                n_jobs=self.optuna_n_jobs
+                MainObjective(
+                    params_grid, self.study, split_data,
+                    self.recommender, self.criterion, self.metrics,
+                    k, context,
+                    fallback_recs,
+                    self.filter_seen_items,
+                    spark.conf.get("spark.local.dir")),
+                    n_trials=1,
+                    n_jobs=self.optuna_n_jobs
             )
 
             count += 1
@@ -138,7 +139,7 @@ class MainScenario(Scenario):
                                         user_features, item_features)
 
         logging.debug("Обучение и предсказание дополнительной модели")
-        fallback_recs = self._predict_fallback_recs(self.fallback_recommender,
+        fallback_recs = self._predict_fallback_recs(self.fallback_rec,
                                                     split_data, k, context)
 
         logging.debug("Пре-фит модели")
@@ -157,7 +158,7 @@ class MainScenario(Scenario):
 
     def _predict_fallback_recs(
             self,
-            fallback_recommender: Recommender,
+            fallback_rec: Recommender,
             split_data: SplitData,
             k: int,
             context: Optional[str] = None
@@ -165,9 +166,9 @@ class MainScenario(Scenario):
         """ Обучает fallback модель и возвращает ее рекомендации. """
         fallback_recs = None
 
-        if fallback_recommender is not None:
+        if fallback_rec is not None:
             fallback_recs = (
-                fallback_recommender
+                fallback_rec
                 .fit_predict(k,
                              split_data.users, split_data.items,
                              context,
@@ -241,21 +242,20 @@ if __name__ == "__main__":
                                   schema=schema)
 
     scenario = MainScenario()
-    scenario.splitter = LogSplitByDateSplitter(True, True,
-                                               datetime(2019, 10, 14))
+    scenario.splitter = DateSplitter(datetime(2019, 10, 14), True, True)
     scenario.criterion = HitRate()
     scenario.metrics = [NDCG(), Precision()]
     scenario.optuna_max_n_trials = 10
-    scenario.fallback_recommender = None
+    scenario.fallback_rec = None
 
     flag = False
     if flag:
-        scenario.recommender = PopularRecommender()
+        scenario.recommender = PopRec()
         grid = {"alpha": {"type": "int", "args": [0, 100]},
                 "beta": {"type": "int", "args": [0, 100]}}
     else:
-        scenario.recommender = KNNRecommender()
-        scenario.fallback_recommender = PopularRecommender()
+        scenario.recommender = KNNRec()
+        scenario.fallback_rec = PopRec()
         grid = {"num_neighbours": {"type": "categorical",
                                    "args": [[1]]}}
 

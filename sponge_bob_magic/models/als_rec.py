@@ -11,11 +11,11 @@ from pyspark.sql.functions import col, lit
 from pyspark.sql.types import DoubleType
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
-from sponge_bob_magic.models.base_recommender import Recommender
+from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class ALSRecommender(Recommender):
+class ALSRec(Recommender):
     """ Обёртка вокруг реализации ALS на Spark. """
 
     _seed: Optional[int] = None

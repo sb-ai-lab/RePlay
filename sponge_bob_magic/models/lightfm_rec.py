@@ -12,11 +12,11 @@ from pyspark.sql.functions import lit
 from scipy.sparse import coo_matrix
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
-from sponge_bob_magic.models.base_recommender import Recommender
+from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class LightFMRecommender(Recommender):
+class LightFMRec(Recommender):
     """ Обёртка вокруг стандартной реализации LightFM. """
     _seed: Optional[int] = None
     user_indexer: StringIndexerModel

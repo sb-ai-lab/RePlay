@@ -9,10 +9,9 @@ import pyspark
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (IntegerType, StringType, StructField,
                                StructType, TimestampType)
-
-import sponge_bob_magic.session_handler
 from tests.pyspark_testcase import PySparkTest
 
+import sponge_bob_magic.session_handler
 from sponge_bob_magic import utils
 
 

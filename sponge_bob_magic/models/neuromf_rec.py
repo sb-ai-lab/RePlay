@@ -4,16 +4,15 @@
 import logging
 import os
 import shutil
-from typing import Dict, Generator, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas
 import torch.optim
 from annoy import AnnoyIndex
 from pyspark.ml import Pipeline
-from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
-from pyspark.ml.feature import MinMaxScaler
-from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.feature import (IndexToString, MinMaxScaler, StringIndexer,
+                                StringIndexerModel, VectorAssembler)
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.functions import udf
@@ -23,7 +22,7 @@ from torch.nn import DataParallel, Embedding, Module
 from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
-from sponge_bob_magic.models.base_recommender import Recommender
+from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
 
@@ -75,17 +74,18 @@ class NMF(Module):
         """
         user_emb = self.user_embedding(user)
         item_emb = self.item_embedding(item)
-
         dot = (user_emb * item_emb).sum(dim=1).squeeze()
-        relevance = dot + self.item_biases(item).squeeze() + self.user_biases(user).squeeze()
-
+        relevance = (
+            dot + self.item_biases(item).squeeze() +
+            self.user_biases(user).squeeze()
+        )
         if get_embs:
             return user_emb, item_emb
         else:
             return relevance
 
 
-class NeuroMFRecommender(Recommender):
+class NeuroMFRec(Recommender):
     """ Модель матричной факторизации на нейросети. """
     num_workers: int = 10
     batch_size_fit_users: int = 100000
@@ -206,15 +206,13 @@ class NeuroMFRecommender(Recommender):
 
         logging.debug("Составление батча:")
         spark = SparkSession(log.rdd.context)
-        tensor_data = NeuroMFRecommender.spark2pandas_csv(
+        tensor_data = NeuroMFRec.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
             os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
-
         user_batch = torch.LongTensor(tensor_data["user_idx"].values)
         item_batch = torch.LongTensor(tensor_data["item_idx"].values)
-
         logging.debug("Обучение модели")
         for epoch in range(self.epochs):
             logging.debug("-- Эпоха %d", epoch)
@@ -223,8 +221,14 @@ class NeuroMFRecommender(Recommender):
 
         self.model.eval()
         logging.debug("-- Запись annoy индексов")
+        if torch.cuda.is_available():
+            user_batch = user_batch.cuda()
+            item_batch = item_batch.cuda()
         _, item_embs = self.model(user_batch, item_batch, get_embs=True)
-        for item_id, item_emb in zip(tensor_data["item_idx"].values, item_embs.detach().numpy()):
+        for item_id, item_emb in zip(
+                tensor_data["item_idx"].values,
+                item_embs.detach().cpu().numpy()
+        ):
             self.annoy_index.add_item(int(item_id), item_emb)
         self.annoy_index.build(self.num_trees_annoy)
 
@@ -247,20 +251,21 @@ class NeuroMFRecommender(Recommender):
         users = self.user_indexer_model.transform(users)
 
         logging.debug("Предсказание модели")
-        tensor_data = NeuroMFRecommender.spark2pandas_csv(
+        tensor_data = NeuroMFRec.spark2pandas_csv(
             users.select("user_idx"),
             os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
-
         user_batch = torch.LongTensor(tensor_data["user_idx"].values)
         item_batch = torch.ones_like(user_batch)
-
+        if torch.cuda.is_available():
+            user_batch = user_batch.cuda()
+            item_batch = item_batch.cuda()
         user_embs, _ = self.model(user_batch, item_batch, get_embs=True)
         predictions = pandas.DataFrame(columns=["user_idx", "item_idx"])
         logging.debug("Поиск ближайших айтемов с помощью annoy")
         for user_id, user_emb in zip(tensor_data["user_idx"].values,
-                                     user_embs.detach().numpy()):
+                                     user_embs.detach().cpu().numpy()):
             pred_for_user, relevance = self.annoy_index.get_nns_by_vector(
                 user_emb, k, include_distances=True
             )
@@ -268,15 +273,15 @@ class NeuroMFRecommender(Recommender):
                 pandas.DataFrame({"user_idx": [user_id] * k,
                                   "item_idx": pred_for_user,
                                   "relevance": relevance
-                                  })
+                                  }), sort=False
             )
         predictions.to_csv(os.path.join(tmp_path, "predict.csv"),
                            sep=sep, header=True, index=False)
 
         recs = spark.read.csv(os.path.join(tmp_path, "predict.csv"),
-                                   sep=sep,
-                                   header=True,
-                                   inferSchema=True)
+                              sep=sep,
+                              header=True,
+                              inferSchema=True)
         recs = recs.withColumn("context", sf.lit(DEFAULT_CONTEXT))
 
         logging.debug("Обратное преобразование индексов")
@@ -297,7 +302,7 @@ class NeuroMFRecommender(Recommender):
         recs = get_top_k_recs(recs, k)
 
         logging.debug("Преобразование отрицательных relevance")
-        recs = NeuroMFRecommender.min_max_scale_column(recs, "relevance")
+        recs = NeuroMFRec.min_max_scale_column(recs, "relevance")
 
         return recs
 
@@ -313,8 +318,12 @@ class NeuroMFRecommender(Recommender):
         :return: исходный датафрейм с измененной колонкой
         """
         unlist = udf(lambda x: float(list(x)[0]), DoubleType())
-        assembler = VectorAssembler(inputCols=[column], outputCol=column+"_Vect")
-        scaler = MinMaxScaler(inputCol=column+"_Vect", outputCol=column+"_Scaled")
+        assembler = VectorAssembler(
+            inputCols=[column], outputCol=column+"_Vect"
+        )
+        scaler = MinMaxScaler(
+            inputCol=column+"_Vect", outputCol=column+"_Scaled"
+        )
         pipeline = Pipeline(stages=[assembler, scaler])
         dataframe = (pipeline
                      .fit(dataframe)
