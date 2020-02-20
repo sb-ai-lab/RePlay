@@ -19,7 +19,7 @@ from pyspark.sql.functions import udf
 from pyspark.sql.types import DoubleType
 from torch import Tensor
 from torch.nn import DataParallel, Embedding, Module
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset, random_split
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_rec import Recommender
@@ -179,20 +179,40 @@ class NeuroMFRec(Recommender):
                    item_batch: torch.LongTensor,
                    optimizer: torch.optim.Optimizer) -> float:
         loss_value = 0.0
-        data = DataLoader(
-            TensorDataset(user_batch, item_batch),
+        full_dataset = TensorDataset(user_batch, item_batch)
+        train_size = int(0.8 * len(full_dataset))
+        val_size = len(full_dataset) - train_size
+        train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+        train_data = DataLoader(
+            train_dataset,
             batch_size=self.batch_size_fit_users,
             shuffle=True,
             num_workers=self.num_workers
         )
+        val_data = DataLoader(
+            train_dataset,
+            batch_size=self.batch_size_fit_users,
+            shuffle=False,
+            num_workers=self.num_workers
+        )
         current_loss = 0.0
-        for batch in data:
+        self.model.train()
+        for batch in train_data:
             loss = self._run_single_batch(batch)
             loss_value += loss.item()
-            current_loss = loss_value / len(data)
+            current_loss = loss_value / len(train_data)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+        logging.debug("-- Текущее значение train loss: %.4f", current_loss)
+        self.model.eval()
+        current_val_loss = 0.0
+        val_loss_value = 0.0
+        for batch in val_data:
+            val_loss = self._run_single_batch(batch)
+            val_loss_value += val_loss.item()
+            current_val_loss = val_loss_value / len(val_data)
+        logging.debug("-- Текущее значение val loss: %.4f", current_val_loss)
         return current_loss
 
     def _fit_partial(self,
