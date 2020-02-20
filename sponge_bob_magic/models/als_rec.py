@@ -22,7 +22,7 @@ class ALSRec(Recommender):
     user_indexer_model: StringIndexerModel
     item_indexer_model: StringIndexerModel
 
-    def __init__(self, rank: int = 10, seed: int = None):
+    def __init__(self, rank: int = 10, seed: Optional[int] = None):
         """
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
