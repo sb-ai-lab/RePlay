@@ -51,6 +51,7 @@ jupyter==1.0.0
 jupyter-client==5.3.1
 jupyter-console==6.0.0
 jupyter-core==4.5.0
+jupyterlab==1.2.6
 kiwisolver==1.1.0
 lazy-object-proxy==1.4.2
 lightfm==1.15

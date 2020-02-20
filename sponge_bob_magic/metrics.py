@@ -22,7 +22,7 @@ class Metric(ABC):
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
-            k: Iterable[int]
+            k: IterOrList
     ) -> Dict[int, NumType]:
         """
         :param recommendations: выдача рекомендательной системы,
