@@ -4,7 +4,7 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Union, Optional, Iterable
 
 from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame, SparkSession
@@ -21,6 +21,8 @@ from sponge_bob_magic.splitters.base_splitter import Splitter
 from sponge_bob_magic.splitters.log_splitter import DateSplitter
 from sponge_bob_magic.utils import write_read_dataframe
 
+IterOrList = Union[Iterable[int], int]
+
 
 class MainScenario(Scenario):
     """ Сценарий для простого обучения моделей рекомендаций с замесом. """
@@ -28,7 +30,7 @@ class MainScenario(Scenario):
     recommender: Recommender
     fallback_rec: Recommender
     criterion: Metric
-    metrics: List[Metric]
+    metrics: Dict[Metric, IterOrList]
     study: Study
 
     def _prepare_data(
@@ -103,8 +105,8 @@ class MainScenario(Scenario):
                     fallback_recs,
                     self.filter_seen_items,
                     spark.conf.get("spark.local.dir")),
-                    n_trials=1,
-                    n_jobs=self.optuna_n_jobs
+                n_trials=1,
+                n_jobs=self.optuna_n_jobs
             )
 
             count += 1

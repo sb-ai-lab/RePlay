@@ -4,7 +4,7 @@
 import logging
 import os
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, Optional, Union, Iterable
 
 from pyspark.sql import SparkSession
 
@@ -19,6 +19,8 @@ from sponge_bob_magic.splitters.base_splitter import Splitter
 from sponge_bob_magic.splitters.log_splitter import (DateSplitter,
                                                      RandomSplitter)
 
+IterOrList = Union[Iterable[int], int]
+
 
 class MainScenarioFactory(ScenarioFactory):
     """ Класс фабрики для простого сценария с замесом. """
@@ -28,7 +30,7 @@ class MainScenarioFactory(ScenarioFactory):
             splitter: Optional[Splitter] = None,
             recommender: Optional[Recommender] = None,
             criterion: Optional[Metric] = None,
-            metrics: Optional[List[Metric]] = None,
+            metrics: Optional[Dict[Metric, IterOrList]] = None,
             fallback_rec: Optional[Recommender] = None
     ) -> Scenario:
         main_scenario = MainScenario()
@@ -44,7 +46,7 @@ class MainScenarioFactory(ScenarioFactory):
             criterion if criterion
             else HitRate()
         )
-        main_scenario.metrics = metrics if metrics else []
+        main_scenario.metrics = metrics if metrics else {}
         main_scenario.fallback_rec = fallback_rec
         return main_scenario
 
