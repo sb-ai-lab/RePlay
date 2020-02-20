@@ -9,6 +9,7 @@
 """
 
 from datetime import datetime
+from typing import Optional
 
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, SparkSession, Window
@@ -54,7 +55,7 @@ class RandomSplitter(Splitter):
                  test_size: float,
                  drop_cold_items: bool = False,
                  drop_cold_users: bool = False,
-                 seed: int = None):
+                 seed: Optional[int] = None):
         """
         :param test_size: размер тестовой выборки, от 0 до 1
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
