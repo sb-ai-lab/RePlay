@@ -3,11 +3,12 @@
 """
 import collections
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from optuna import Study, Trial
 from pyspark.sql import DataFrame
 
+from sponge_bob_magic.constants import IterOrList
 from sponge_bob_magic.metrics import Metric
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.scenarios.base_objective import Objective
@@ -28,7 +29,7 @@ class MainObjective(Objective):
             split_data: SplitData,
             recommender: Recommender,
             criterion: Metric,
-            metrics: List[Metric],
+            metrics: Dict[Metric, IterOrList],
             k: int = 10,
             context: Optional[str] = None,
             fallback_recs: Optional[DataFrame] = None,

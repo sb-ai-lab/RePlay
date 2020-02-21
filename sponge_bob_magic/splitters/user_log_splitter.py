@@ -68,8 +68,13 @@ class UserSplitter(Splitter):
 
     """
 
-    def __init__(self, item_test_size: Union[float, int] = 1, user_test_size: Optional[Union[float, int]] = None,
-                 shuffle=False, drop_cold_items: bool = False, drop_cold_users: bool = False, seed: Optional[int] = None):
+    def __init__(self,
+                 item_test_size: Union[float, int] = 1,
+                 user_test_size: Optional[Union[float, int]] = None,
+                 shuffle=False,
+                 drop_cold_items: bool = False,
+                 drop_cold_users: bool = False,
+                 seed: Optional[int] = None):
         """
         :param item_test_size: размер тестовой выборки; если от 0 до 1, то в
             тест попадает данная доля объектов у каждого пользователя: если целое

@@ -4,7 +4,7 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import joblib
 import optuna
@@ -12,6 +12,7 @@ from optuna import Study, Trial
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
+from sponge_bob_magic.constants import IterOrList
 from sponge_bob_magic.metrics import Metric
 from sponge_bob_magic.utils import get_top_k_recs
 
@@ -83,19 +84,20 @@ class Objective(ABC):
             recommendations: DataFrame,
             ground_truth: DataFrame,
             criterion: Metric,
-            metrics: List[Metric],
+            metrics: Dict[Metric, IterOrList],
             k: int
     ) -> float:
         """ Подсчитывает все метрики и сохраняет их в `trial`. """
         result_string = "-- Метрики:"
 
-        criterion_value = criterion(recommendations, ground_truth, k=k)
+        criterion_value = criterion(recommendations, ground_truth, k=k)[k]
         result_string += f" {criterion}={criterion_value:.4f}"
 
         for metric in metrics:
-            value = metric(recommendations, ground_truth, k=k)
-            trial.set_user_attr(str(metric), value)
-            result_string += f" {metric}={value:.4f}"
+            values = metric(recommendations, ground_truth, k=metrics[metric])
+            trial.set_user_attr(str(metric), values)
+            values_str = ", ".join(f"{key}: {values[key]:.4f}" for key in values)
+            result_string += f" {metric}={values_str}; "
 
         logging.debug(result_string)
         return criterion_value

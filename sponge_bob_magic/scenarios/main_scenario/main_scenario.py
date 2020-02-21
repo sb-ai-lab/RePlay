@@ -4,12 +4,12 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame, SparkSession
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT
+from sponge_bob_magic.constants import DEFAULT_CONTEXT, IterOrList
 from sponge_bob_magic.metrics import NDCG, HitRate, Metric, Precision
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.models.knn_rec import KNNRec
@@ -28,7 +28,7 @@ class MainScenario(Scenario):
     recommender: Recommender
     fallback_rec: Recommender
     criterion: Metric
-    metrics: List[Metric]
+    metrics: Dict[Metric, IterOrList]
     study: Study
 
     def _prepare_data(
@@ -103,8 +103,8 @@ class MainScenario(Scenario):
                     fallback_recs,
                     self.filter_seen_items,
                     spark.conf.get("spark.local.dir")),
-                    n_trials=1,
-                    n_jobs=self.optuna_n_jobs
+                n_trials=1,
+                n_jobs=self.optuna_n_jobs
             )
 
             count += 1
