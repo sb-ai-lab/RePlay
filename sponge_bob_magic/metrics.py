@@ -3,7 +3,7 @@
 """
 import logging
 from abc import ABC, abstractmethod
-from typing import Union, Iterable, Dict
+from typing import Dict, Union
 
 import numpy as np
 import pandas as pd
@@ -11,8 +11,9 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
+from sponge_bob_magic.constants import IterOrList
+
 NumType = Union[int, float]
-IterOrList = Union[Iterable[int], int]
 
 
 class Metric(ABC):
@@ -175,10 +176,12 @@ class NDCG(Metric):
     def _get_metric_value_by_user(pandas_df):
         pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
                                      .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
-        pandas_df = pandas_df.assign(sorted_good_item=pandas_df["k"].le(pandas_df["items_id"].str.len()))
+        pandas_df = pandas_df.assign(
+            sorted_good_item=pandas_df["k"].le(pandas_df["items_id"].str.len()))
 
-        return pandas_df.assign(cum_agg=(pandas_df["is_good_item"] / np.log2(pandas_df.k + 1)).cumsum() /
-                          (pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)).cumsum())
+        return pandas_df.assign(
+            cum_agg=(pandas_df["is_good_item"] / np.log2(pandas_df.k + 1)).cumsum() /
+            (pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)).cumsum())
 
 
 class Precision(Metric):
@@ -217,9 +220,10 @@ class MAP(Metric):
             good_items_count=pandas_df["items_id"].str.len())
 
         return pandas_df.assign(cum_agg=(pandas_df["is_good_item"].cumsum()
-                                * pandas_df["is_good_item"]
-                                / pandas_df.k
-                                / pandas_df[["k", "good_items_count"]].min(axis=1)).cumsum())
+                                         * pandas_df["is_good_item"]
+                                         / pandas_df.k
+                                         / pandas_df[["k", "good_items_count"]].min(axis=1))
+                                .cumsum())
 
 
 class Recall(Metric):
@@ -238,7 +242,8 @@ class Recall(Metric):
         pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
                                      .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
 
-        return pandas_df.assign(cum_agg=pandas_df["is_good_item"].cumsum() / pandas_df["items_id"].str.len())
+        return pandas_df.assign(
+            cum_agg=pandas_df["is_good_item"].cumsum() / pandas_df["items_id"].str.len())
 
 
 class Surprisal(Metric):

@@ -1,6 +1,8 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+from typing import Union, Iterable
+
 from pyspark.sql.types import (DoubleType, FloatType, StringType, StructField,
                                StructType, TimestampType)
 
@@ -20,3 +22,5 @@ REC_SCHEMA = StructType([
     StructField("context", StringType()),
     StructField("relevance", DoubleType())
 ])
+
+IterOrList = Union[Iterable[int], int]

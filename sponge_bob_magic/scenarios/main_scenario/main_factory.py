@@ -4,10 +4,11 @@
 import logging
 import os
 from datetime import datetime
-from typing import Dict, Optional, Union, Iterable
+from typing import Dict, Optional
 
 from pyspark.sql import SparkSession
 
+from sponge_bob_magic.constants import IterOrList
 from sponge_bob_magic.metrics import HitRate, Metric
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.models.knn_rec import KNNRec
@@ -18,8 +19,6 @@ from sponge_bob_magic.scenarios.main_scenario.main_scenario import MainScenario
 from sponge_bob_magic.splitters.base_splitter import Splitter
 from sponge_bob_magic.splitters.log_splitter import (DateSplitter,
                                                      RandomSplitter)
-
-IterOrList = Union[Iterable[int], int]
 
 
 class MainScenarioFactory(ScenarioFactory):

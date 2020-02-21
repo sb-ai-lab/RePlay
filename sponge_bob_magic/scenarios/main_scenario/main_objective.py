@@ -3,16 +3,16 @@
 """
 import collections
 import logging
-from typing import Any, Dict, Union, Optional, Iterable
+from typing import Any, Dict, Optional
 
 from optuna import Study, Trial
 from pyspark.sql import DataFrame
 
+from sponge_bob_magic.constants import IterOrList
 from sponge_bob_magic.metrics import Metric
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.scenarios.base_objective import Objective
 
-IterOrList = Union[Iterable[int], int]
 SplitData = collections.namedtuple(
     "SplitData",
     "train predict_input test users items user_features item_features"

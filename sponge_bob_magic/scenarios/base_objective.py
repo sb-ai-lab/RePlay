@@ -4,7 +4,7 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Union, Optional, Iterable
+from typing import Any, Dict, Optional
 
 import joblib
 import optuna
@@ -12,10 +12,9 @@ from optuna import Study, Trial
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
+from sponge_bob_magic.constants import IterOrList
 from sponge_bob_magic.metrics import Metric
 from sponge_bob_magic.utils import get_top_k_recs
-
-IterOrList = Union[Iterable[int], int]
 
 
 class Objective(ABC):
