@@ -1,10 +1,10 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+import collections
 import logging
 import os
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import joblib
 import optuna
@@ -12,11 +12,18 @@ from optuna import Study, Trial
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
+from sponge_bob_magic.constants import IterOrList
 from sponge_bob_magic.metrics import Metric
+from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
+SplitData = collections.namedtuple(
+    "SplitData",
+    "train predict_input test users items user_features item_features"
+)
 
-class Objective(ABC):
+
+class MainObjective:
     """
     Класс функции, которая оптимизируется при подборе параметров (критерий).
     Принимает на вход объект класса `optuna.Trial` и возвращает значение
@@ -26,6 +33,91 @@ class Objective(ABC):
     один аргумент. Вызов подсчета критерия происходит через `__call__`,
     а все остальные аргументы передаются через `__init__`.
     """
+
+    def __init__(
+            self,
+            params_grid: Dict[str, Dict[str, Any]],
+            study: Study,
+            split_data: SplitData,
+            recommender: Recommender,
+            criterion: Metric,
+            metrics: Dict[Metric, IterOrList],
+            k: int = 10,
+            context: Optional[str] = None,
+            fallback_recs: Optional[DataFrame] = None,
+            filter_seen_items: bool = False,
+            path: str = None
+    ):
+        self.path = path
+        self.metrics = metrics
+        self.criterion = criterion
+        self.context = context
+        self.k = k
+        self.split_data = split_data
+        self.recommender = recommender
+        self.study = study
+        self.params_grid = params_grid
+        self.filter_seen_items = filter_seen_items
+
+        self.max_in_fallback_recs = (
+            fallback_recs
+            .agg({"relevance": "max"})
+            .collect()[0][0]
+        ) if fallback_recs is not None else 0
+
+        self.fallback_recs = (
+            fallback_recs
+            .withColumnRenamed("context", "context_fallback")
+            .withColumnRenamed("relevance", "relevance_fallback")
+        ) if fallback_recs is not None else None
+
+    def __call__(
+            self,
+            trial: Trial,
+    ) -> float:
+        """
+        Основная функция, которую должны реализовать классы-наследники.
+        Именно она вызывается при вычилении критерия в переборе параметров
+        optuna. Сигнатура функции совапдает с той, что описана в документации
+        к optuna.
+
+        :param trial: текущее испытание
+        :return: значение критерия, который оптимизируется
+        """
+        params = self._suggest_all_params(trial, self.params_grid)
+        self.recommender.set_params(**params)
+
+        self._check_trial_on_duplicates(trial)
+        self._save_study(self.study, self.path)
+
+        logging.debug("-- Второй фит модели в оптимизации")
+        self.recommender._fit_partial(self.split_data.train,
+                                      self.split_data.user_features,
+                                      self.split_data.item_features)
+
+        logging.debug("-- Предикт модели в оптимизации")
+        recs = self.recommender.predict(
+            k=self.k,
+            users=self.split_data.users,
+            items=self.split_data.items,
+            context=self.context,
+            log=self.split_data.predict_input,
+            user_features=self.split_data.user_features,
+            item_features=self.split_data.item_features,
+            filter_seen_items=self.filter_seen_items
+        )
+
+        logging.debug("-- Дополняем рекомендации fallback рекомендациями")
+        recs = self._join_fallback_recs(recs, self.fallback_recs, self.k,
+                                        self.max_in_fallback_recs)
+
+        logging.debug("-- Подсчет метрики в оптимизации")
+        criterion_value = self._calculate_metrics(trial, recs,
+                                                  self.split_data.test,
+                                                  self.criterion, self.metrics,
+                                                  self.k)
+
+        return criterion_value
 
     @staticmethod
     def _suggest_param(
@@ -37,7 +129,7 @@ class Objective(ABC):
         distribution_type = param_dict["type"]
 
         param = getattr(trial, f"suggest_{distribution_type}")(
-            param_name, *param_dict["args"]
+                param_name, *param_dict["args"]
         )
         return param
 
@@ -49,7 +141,7 @@ class Objective(ABC):
         """ Сэмплит все параметры модели в соответствии с заданной сеткой. """
         params = dict()
         for param_name, param_dict in params_grid.items():
-            param = Objective._suggest_param(trial, param_name, param_dict)
+            param = MainObjective._suggest_param(trial, param_name, param_dict)
             params[param_name] = param
 
         logging.debug(f"-- Параметры: {params}")
@@ -63,7 +155,7 @@ class Objective(ABC):
             if (another_trial.state == optuna.structs.TrialState.COMPLETE and
                     another_trial.params == trial.params):
                 raise optuna.exceptions.TrialPruned(
-                    "Повторные значения параметров"
+                        "Повторные значения параметров"
                 )
 
     @staticmethod
@@ -83,19 +175,20 @@ class Objective(ABC):
             recommendations: DataFrame,
             ground_truth: DataFrame,
             criterion: Metric,
-            metrics: List[Metric],
+            metrics: Dict[Metric, IterOrList],
             k: int
     ) -> float:
         """ Подсчитывает все метрики и сохраняет их в `trial`. """
         result_string = "-- Метрики:"
 
-        criterion_value = criterion(recommendations, ground_truth, k=k)
+        criterion_value = criterion(recommendations, ground_truth, k=k)[k]
         result_string += f" {criterion}={criterion_value:.4f}"
 
         for metric in metrics:
-            value = metric(recommendations, ground_truth, k=k)
-            trial.set_user_attr(str(metric), value)
-            result_string += f" {metric}={value:.4f}"
+            values = metric(recommendations, ground_truth, k=metrics[metric])
+            trial.set_user_attr(str(metric), values)
+            values_str = ", ".join(f"{key}: {values[key]:.4f}" for key in values)
+            result_string += f" {metric}={values_str}; "
 
         logging.debug(result_string)
         return criterion_value
@@ -114,8 +207,8 @@ class Objective(ABC):
             # добавим максимум из fallback реков,
             # чтобы сохранить порядок при заборе топ-k
             recs = recs.withColumn(
-                "relevance",
-                sf.col("relevance") + 10 * max_in_fallback_recs
+                    "relevance",
+                    sf.col("relevance") + 10 * max_in_fallback_recs
             )
 
             recs = recs.join(fallback_recs,
@@ -131,23 +224,8 @@ class Objective(ABC):
             recs = get_top_k_recs(recs, k)
 
             logging.debug(
-                "-- Длина рекомендаций после добавления fallback-рекомендаций:"
-                f" {recs.count()}"
+                    "-- Длина рекомендаций после добавления fallback-рекомендаций:"
+                    f" {recs.count()}"
             )
 
         return recs
-
-    @abstractmethod
-    def __call__(
-            self,
-            trial: Trial,
-    ) -> float:
-        """
-        Основная функция, которую должны реализовать классы-наследники.
-        Именно она вызывается при вычилении критерия в переборе параметров
-        optuna. Сигнатура функции совапдает с той, что описана в документации
-        к optuna.
-
-        :param trial: текущее испытание
-        :return: значение критерия, который оптимизируется
-        """

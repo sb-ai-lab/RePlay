@@ -3,32 +3,54 @@
 """
 import logging
 import os
+from abc import ABCMeta
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame, SparkSession
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT
+from sponge_bob_magic.constants import DEFAULT_CONTEXT, IterOrList
 from sponge_bob_magic.metrics import NDCG, HitRate, Metric, Precision
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.models.knn_rec import KNNRec
 from sponge_bob_magic.models.pop_rec import PopRec
-from sponge_bob_magic.scenarios.base_scenario import Scenario
-from sponge_bob_magic.scenarios.main_scenario.main_objective import (
+from sponge_bob_magic.scenarios.main_objective import (
     MainObjective, SplitData)
 from sponge_bob_magic.splitters.base_splitter import Splitter
-from sponge_bob_magic.splitters.log_splitter import DateSplitter
+from sponge_bob_magic.splitters.log_splitter import DateSplitter, RandomSplitter
 from sponge_bob_magic.utils import write_read_dataframe
 
 
-class MainScenario(Scenario):
+class MainScenario:
     """ Сценарий для простого обучения моделей рекомендаций с замесом. """
-    splitter: Splitter
-    recommender: Recommender
-    fallback_rec: Recommender
-    criterion: Metric
-    metrics: List[Metric]
+    def __init__(
+            self,
+            splitter: Optional[Splitter] = None,
+            recommender: Optional[Recommender] = None,
+            criterion: Optional[ABCMeta] = None,
+            metrics: Optional[Dict[ABCMeta, IterOrList]] = None,
+            fallback_rec: Optional[Recommender] = None
+    ):
+        self.splitter = (
+            splitter if splitter
+            else RandomSplitter(test_size=0.3, drop_cold_items=True, drop_cold_users=True, seed=None)
+        )
+        self.recommender = (
+            recommender if recommender
+            else PopRec(alpha=0, beta=0)
+        )
+        self.criterion = (
+            criterion if criterion
+            else HitRate
+        )
+        self.metrics = metrics if metrics else {}
+        self.fallback_rec = fallback_rec
+
+    optuna_study: Optional[Study]
+    optuna_max_n_trials: int = 100
+    optuna_n_jobs: int = 1
+    filter_seen_items: bool = True
     study: Study
 
     def _prepare_data(
@@ -80,9 +102,12 @@ class MainScenario(Scenario):
             n_trials: int,
             params_grid: Dict[str, Dict[str, Any]],
             split_data: SplitData,
+            criterion: Metric,
+            metrics: Dict[Metric, IterOrList],
             k: int = 10,
             context: Optional[str] = None,
             fallback_recs: Optional[DataFrame] = None
+
     ) -> Dict[str, Any]:
         """ Запускает подбор параметров в optuna. """
         sampler = samplers.RandomSampler()
@@ -98,13 +123,13 @@ class MainScenario(Scenario):
             self.study.optimize(
                 MainObjective(
                     params_grid, self.study, split_data,
-                    self.recommender, self.criterion, self.metrics,
+                    self.recommender, criterion, metrics,
                     k, context,
                     fallback_recs,
                     self.filter_seen_items,
                     spark.conf.get("spark.local.dir")),
-                    n_trials=1,
-                    n_jobs=self.optuna_n_jobs
+                n_trials=1,
+                n_jobs=self.optuna_n_jobs
             )
 
             count += 1
@@ -128,15 +153,58 @@ class MainScenario(Scenario):
             item_features: Optional[DataFrame] = None,
             k: int = 10,
             context: Optional[str] = None,
-            n_trials: int = 10,
-            path: Optional[str] = None,
+            n_trials: int = 10
     ) -> Dict[str, Any]:
+        """
+        Обучает и подбирает параметры для модели.
+
+        :param params_grid: сетка параметров, задается словарем, где ключ -
+            название параметра (должен совпадать с одним из параметров модели,
+            которые возвращает ``get_params()``), значение - словарь с двумя
+            ключами "type" и "args", где они должны принимать следующие
+            значения в соответствии с optuna.trial.Trial.suggest_*
+            (строковое значение "type" и список значений аргументов "args"):
+            "uniform" -> [low, high],
+            "loguniform" -> [low, high],
+            "discrete_uniform" -> [low, high, q],
+            "int" -> [low, high],
+            "categorical" -> [choices]
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_id , item_id , timestamp , context , relevance]``
+        :param users: список пользователей, для которых необходимо получить
+            рекомендации, спарк-датафрейм с колонкой ``[user_id]``;
+            если None, выбираются все пользователи из тестовой выборки
+        :param items: список объектов, которые необходимо рекомендовать;
+            спарк-датафрейм с колонкой ``[item_id]``;
+            если None, выбираются все объекты из тестовой выборки
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            ``[user_id , timestamp]`` и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            ``[item_id , timestamp]`` и колонки с признаками
+        :param k: количество рекомендаций для каждого пользователя;
+            должно быть не больше, чем количество объектов в ``items``
+        :param context: контекст, в котором нужно получить рекомендации
+        :param n_trials: количество уникальных испытаний; должно быть от 1
+            до значения параметра ``optuna_max_n_trials``
+        :return: словарь оптимальных значений параметров для модели; ключ -
+            название параметра (совпадают с параметрами модели,
+            которые возвращает ``get_params()``), значение - значение параметра
+        """
         context = context if context else DEFAULT_CONTEXT
 
         logging.debug("Деление лога на обучающую и тестовую выборку")
         split_data = self._prepare_data(log,
                                         users, items,
                                         user_features, item_features)
+
+        logging.debug("Инициализация метрик")
+        metrics = {}
+        for metric in self.metrics:
+            metrics[metric(split_data.train)] = self.metrics[metric]
+        criterion = self.criterion(split_data.train)
 
         logging.debug("Обучение и предсказание дополнительной модели")
         fallback_recs = self._predict_fallback_recs(self.fallback_rec,
@@ -153,7 +221,8 @@ class MainScenario(Scenario):
             "(чтобы поменять его, задайте параметр 'optuna_max_n_trials')")
 
         best_params = self.run_optimization(n_trials, params_grid, split_data,
-                                            k, context, fallback_recs)
+                                            criterion, metrics, k, context,
+                                            fallback_recs)
         return best_params
 
     def _predict_fallback_recs(
@@ -190,6 +259,35 @@ class MainScenario(Scenario):
             k: int = 10,
             context: Optional[str] = None
     ) -> DataFrame:
+        """
+        Обучает модель с нуля при заданных параметрах ``params`` и формирует
+        рекомендации для ``users`` и ``items``.
+        В качестве выборки для обучения используется весь лог, без деления.
+
+        :param params: словарь значений параметров для модели; ключ -
+            название параметра (должен совпадать с одним из параметров модели,
+            которые возвращает ``get_params()``), значение - значение параметра
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_id , item_id , timestamp , context , relevance]``
+        :param users: список пользователей, для которых необходимо получить
+            рекомендации, спарк-датафрейм с колонкой ``[user_id]``;
+            если None, выбираются все пользователи из тестовой выборки
+        :param items: список объектов, которые необходимо рекомендовать;
+            спарк-датафрейм с колонкой ``[item_id]``;
+            если None, выбираются все объекты из тестовой выборки
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            ``[user_id , timestamp]`` и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            ``[item_id , timestamp]`` и колонки с признаками
+        :param k: количество рекомендаций для каждого пользователя;
+            должно быть не больше, чем количество объектов в ``items``
+        :param context: контекст, в котором нужно получить рекомендации
+        :return: рекомендации, спарк-датафрейм с колонками
+            ``[user_id , item_id , context , relevance]``
+        """
         self.recommender.set_params(**params)
 
         return self.recommender.fit_predict(
@@ -243,8 +341,8 @@ if __name__ == "__main__":
 
     scenario = MainScenario()
     scenario.splitter = DateSplitter(datetime(2019, 10, 14), True, True)
-    scenario.criterion = HitRate()
-    scenario.metrics = [NDCG(), Precision()]
+    scenario.criterion = HitRate
+    scenario.metrics = [NDCG, Precision]
     scenario.optuna_max_n_trials = 10
     scenario.fallback_rec = None
 

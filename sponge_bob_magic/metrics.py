@@ -1,9 +1,12 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+Метрики необходимы для определния качества модели.
+Для рассчета большинства метрик требуются таблица с рекомендациями и таблица с реальными значениями - списком айтемов, с которыми провзаимодействовал пользователь.
+Все метрики рассчитываются не для общего списка рекомендаций, а только для первых top@k, k задается в качестве параметра.
+
 """
 import logging
 from abc import ABC, abstractmethod
-from typing import Union, Iterable, Dict
+from typing import Dict, Union
 
 import numpy as np
 import pandas as pd
@@ -11,8 +14,9 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
+from sponge_bob_magic.constants import IterOrList
+
 NumType = Union[int, float]
-IterOrList = Union[Iterable[int], int]
 
 
 class Metric(ABC):
@@ -25,7 +29,7 @@ class Metric(ABC):
             recommendations: DataFrame,
             ground_truth: DataFrame,
             k: IterOrList
-    ) -> Dict[int, NumType]:
+    ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: выдача рекомендательной системы,
             спарк-датарейм вида
@@ -73,14 +77,15 @@ class Metric(ABC):
             recommendations: DataFrame,
             ground_truth: DataFrame,
             k: IterOrList
-    ) -> Dict[int, NumType]:
+    ) -> Union[Dict[int, NumType], NumType]:
         """
         Расчёт значения метрики
 
         :param recommendations: рекомендации
         :param ground_truth: лог тестовых действий
         :param k: набор чисел или одно число, по которому рассчитывается метрика
-        :return: значения метрики для разных k
+        :return: значения метрики для разных k в виде словаря, если был передан список к,
+         иначе просто значение метрики
         """
         if isinstance(k, int):
             k_set = {k}
@@ -107,7 +112,10 @@ class Metric(ABC):
                         .withColumn("total_metric", sf.col("total_metric") / users_count)
                         .select("total_metric", "k").collect())
 
-        return {row["k"]: row["total_metric"] for row in total_metric}
+        res = {row["k"]: row["total_metric"] for row in total_metric}
+        if isinstance(k, int):
+            res = res[k]
+        return res
 
     @staticmethod
     @abstractmethod
@@ -177,10 +185,12 @@ class NDCG(Metric):
     def _get_metric_value_by_user(pandas_df):
         pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
                                      .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
-        pandas_df = pandas_df.assign(sorted_good_item=pandas_df["k"].le(pandas_df["items_id"].str.len()))
+        pandas_df = pandas_df.assign(
+            sorted_good_item=pandas_df["k"].le(pandas_df["items_id"].str.len()))
 
-        return pandas_df.assign(cum_agg=(pandas_df["is_good_item"] / np.log2(pandas_df.k + 1)).cumsum() /
-                          (pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)).cumsum())
+        return pandas_df.assign(
+            cum_agg=(pandas_df["is_good_item"] / np.log2(pandas_df.k + 1)).cumsum() /
+            (pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)).cumsum())
 
 
 class Precision(Metric):
@@ -219,9 +229,10 @@ class MAP(Metric):
             good_items_count=pandas_df["items_id"].str.len())
 
         return pandas_df.assign(cum_agg=(pandas_df["is_good_item"].cumsum()
-                                * pandas_df["is_good_item"]
-                                / pandas_df.k
-                                / pandas_df[["k", "good_items_count"]].min(axis=1)).cumsum())
+                                         * pandas_df["is_good_item"]
+                                         / pandas_df.k
+                                         / pandas_df[["k", "good_items_count"]].min(axis=1))
+                                .cumsum())
 
 
 class Recall(Metric):
@@ -240,7 +251,8 @@ class Recall(Metric):
         pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
                                      .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
 
-        return pandas_df.assign(cum_agg=pandas_df["is_good_item"].cumsum() / pandas_df["items_id"].str.len())
+        return pandas_df.assign(
+            cum_agg=pandas_df["is_good_item"].cumsum() / pandas_df["items_id"].str.len())
 
 
 class Surprisal(Metric):
@@ -262,6 +274,13 @@ class Surprisal(Metric):
     def __str__(self):
         return "Surprisal"
 
+    def __init__(self, log: DataFrame):
+        super().__init__(log)
+        n_users = log.select("user_id").distinct().count()
+        self.item_weights = log.groupby("item_id").agg(
+                (sf.log2(n_users / sf.countDistinct("user_id"))
+                 / np.log2(n_users)).alias("rec_weight"))
+
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         return pandas_df.assign(cum_agg=pandas_df["rec_weight"].cumsum() / pandas_df["k"])
@@ -271,10 +290,7 @@ class Surprisal(Metric):
             recommendations: DataFrame,
             ground_truth: DataFrame
     ) -> DataFrame:
-        n_users = ground_truth.select("user_id").distinct().count()
-        item_weights = ground_truth.groupby("item_id").agg(
-            (sf.log2(n_users / sf.countDistinct("user_id"))/np.log2(n_users)).alias("rec_weight"))
 
-        return (recommendations.join(item_weights,
+        return (recommendations.join(self.item_weights,
                                      on="item_id",
                                      how="left").fillna(1))

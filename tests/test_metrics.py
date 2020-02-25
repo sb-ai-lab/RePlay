@@ -38,6 +38,16 @@ class TestMetrics(PySparkTest):
                 ["user3", "item2", datetime(2019, 9, 15), "night", 3.0]
             ],
             schema=LOG_SCHEMA)
+        self.log2 = self.spark.createDataFrame(
+                data=[
+                    ["user1", "item1", datetime(2019, 9, 12), "day  ", 3.0],
+                    ["user1", "item5", datetime(2019, 9, 13), "night", 2.0],
+                    ["user1", "item2", datetime(2019, 9, 17), "night", 1.0],
+                    ["user2", "item6", datetime(2019, 9, 14), "day  ", 4.0],
+                    ["user2", "item1", datetime(2019, 9, 15), "night", 3.0],
+                    ["user3", "item2", datetime(2019, 9, 15), "night", 3.0]
+                ],
+                schema=LOG_SCHEMA)
         self.log = self.spark.createDataFrame(
             data=[["user1", "item1", datetime(2019, 8, 22), "day  ", 4.0],
                   ["user1", "item3", datetime(2019, 8, 23), "night", 3.0],
@@ -54,25 +64,25 @@ class TestMetrics(PySparkTest):
 
     def test_hit_rate_at_k(self):
         self.assertDictAlmostEqual(
-            HitRate()(self.recs, self.ground_truth_recs, [3, 1]),
+            HitRate(self.log)(self.recs, self.ground_truth_recs, [3, 1]),
             {3: 2 / 3, 1: 1 / 3}
         )
 
     def test_ndcg_at_k(self):
         self.assertDictAlmostEqual(
-            NDCG()(self.recs, self.ground_truth_recs, [1, 3]),
+            NDCG(self.log)(self.recs, self.ground_truth_recs, [1, 3]),
             {1: 1 / 3,
              3: 1 / 3 * (
-                 1 / (1 / log2(2) + 1 / log2(3) + 1 / log2(4)) *
-                 (1 / log2(2) + 1 / log2(3)) +
-                 1 / (1 / log2(2) + 1 / log2(3)) *
-                 (1 / log2(3))
+                 1 / (1/log2(2) + 1/log2(3) + 1/log2(4)) *
+                 (1/log2(2) + 1/log2(3)) +
+                 1/(1/log2(2) + 1/log2(3)) *
+                 (1/log2(3))
              )}
         )
 
     def test_precision_at_k(self):
         self.assertDictAlmostEqual(
-            Precision()(self.recs, self.ground_truth_recs, [1, 2, 3]),
+            Precision(self.log)(self.recs, self.ground_truth_recs, [1, 2, 3]),
             {3: 1 / 3,
              1: 1 / 3,
              2: 1 / 2}
@@ -80,21 +90,21 @@ class TestMetrics(PySparkTest):
 
     def test_map_at_k(self):
         self.assertDictAlmostEqual(
-            MAP()(self.recs, self.ground_truth_recs, [1, 3]),
+            MAP(self.log)(self.recs, self.ground_truth_recs, [1, 3]),
             {3: 7 / 12,
              1: 1 / 3}
         )
 
     def test_recall_at_k(self):
         self.assertDictAlmostEqual(
-            Recall()(self.recs, self.ground_truth_recs, [1, 3]),
-            {3: (1 / 2 + 2 / 3) / 3,
+            Recall(self.log)(self.recs, self.ground_truth_recs, [1, 3]),
+            {3: (1/2 + 2/3) / 3,
              1: 1 / 9}
         )
 
     def test_surprisal_at_k(self):
         self.assertDictAlmostEqual(
-            Surprisal()(self.recs2, self.ground_truth_recs, [1, 2]),
+            Surprisal(self.log2)(self.recs2, self.ground_truth_recs, [1, 2]),
             {1: 1.0,
              2: 1.0}
         )
