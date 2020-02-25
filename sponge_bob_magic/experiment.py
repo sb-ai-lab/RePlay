@@ -50,9 +50,6 @@ class Experiment:
         """Проверяет корректность аргумента, конвертит инт в лист"""
         if not isinstance(metrics, dict):
             raise TypeError(f"metrics argument must be a dictionary, got {type(metrics)}")
-        for metric, k in metrics.items():
-            if not isinstance(k, Iterable):
-                metrics[metric] = [k]
         return metrics
 
     def add_result(self, name: str, pred: Any):
@@ -65,6 +62,10 @@ class Experiment:
         res = pd.Series(name=name)
         recs = convert(pred)
         for metric, k_list in self.metrics.items():
-            for k in k_list:
-                res[f"{metric}@{k}"] = metric(recs, self.test, k)
+            values = metric(recs, self.test, k_list)
+            if isinstance(k_list, int):
+                res[f"{metric}@{k_list}"] = values
+            else:
+                for k, val in values.items():
+                    res[f"{metric}@{k}"] = val
         self.df = self.df.append(res)
