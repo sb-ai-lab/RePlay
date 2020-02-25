@@ -20,9 +20,7 @@ class Experiment:
     >>> import pandas as pd
     >>> from sponge_bob_magic.metrics import NDCG, Surprisal
     >>> from sponge_bob_magic.experiment import Experiment
-    >>> from sponge_bob_magic.converter import convert
     >>> log = pd.DataFrame({"user_id": [2,2,2,1], "item_id": [1,2,3,3], "relevance": [5,5,5,5]})
-    >>> log = convert(log)
     >>> test = pd.DataFrame({"user_id": [1,1,1], "item_id": [1,2,3], "relevance": [5,3,4]})
     >>> pred = pd.DataFrame({"user_id": [1,1,1], "item_id": [1,3,4], "relevance": [5,4,5]})
     >>> ex = Experiment(test, {NDCG(): [2,3], Surprisal(log): 3})
