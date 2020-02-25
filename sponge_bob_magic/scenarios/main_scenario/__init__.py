@@ -1,3 +1,0 @@
-from sponge_bob_magic.scenarios.main_scenario.main_factory import MainScenarioFactory
-from sponge_bob_magic.scenarios.main_scenario.main_objective import MainObjective
-from sponge_bob_magic.scenarios.main_scenario.main_scenario import MainScenario

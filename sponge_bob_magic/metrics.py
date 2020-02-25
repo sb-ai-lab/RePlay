@@ -1,5 +1,8 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+Метрики необходимы для определния качества модели.
+Для рассчета большинства метрик требуются таблица с рекомендациями и таблица с реальными значениями - списком айтемов, с которыми провзаимодействовал пользователь.
+Все метрики рассчитываются не для общего списка рекомендаций, а только для первых top@k, k задается в качестве параметра.
+
 """
 import logging
 from abc import ABC, abstractmethod
@@ -18,6 +21,8 @@ NumType = Union[int, float]
 
 class Metric(ABC):
     """ Базовый класс метрик. """
+    def __init__(self, log: DataFrame):
+        pass
 
     def __call__(
             self,
@@ -269,6 +274,13 @@ class Surprisal(Metric):
     def __str__(self):
         return "Surprisal"
 
+    def __init__(self, log: DataFrame):
+        super().__init__(log)
+        n_users = log.select("user_id").distinct().count()
+        self.item_weights = log.groupby("item_id").agg(
+                (sf.log2(n_users / sf.countDistinct("user_id"))
+                 / np.log2(n_users)).alias("rec_weight"))
+
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         return pandas_df.assign(cum_agg=pandas_df["rec_weight"].cumsum() / pandas_df["k"])
@@ -278,10 +290,7 @@ class Surprisal(Metric):
             recommendations: DataFrame,
             ground_truth: DataFrame
     ) -> DataFrame:
-        n_users = ground_truth.select("user_id").distinct().count()
-        item_weights = ground_truth.groupby("item_id").agg(
-            (sf.log2(n_users / sf.countDistinct("user_id"))/np.log2(n_users)).alias("rec_weight"))
 
-        return (recommendations.join(item_weights,
+        return (recommendations.join(self.item_weights,
                                      on="item_id",
                                      how="left").fillna(1))
