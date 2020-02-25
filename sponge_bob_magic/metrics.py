@@ -106,7 +106,10 @@ class Metric(ABC):
                         .withColumn("total_metric", sf.col("total_metric") / users_count)
                         .select("total_metric", "k").collect())
 
-        return {row["k"]: row["total_metric"] for row in total_metric}
+        res = {row["k"]: row["total_metric"] for row in total_metric}
+        if len(res) == 1:
+            res = res[k]
+        return res
 
     @staticmethod
     @abstractmethod
