@@ -24,7 +24,7 @@ class Metric(ABC):
             recommendations: DataFrame,
             ground_truth: DataFrame,
             k: IterOrList
-    ) -> Dict[int, NumType]:
+    ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: выдача рекомендательной системы,
             спарк-датарейм вида
@@ -72,14 +72,15 @@ class Metric(ABC):
             recommendations: DataFrame,
             ground_truth: DataFrame,
             k: IterOrList
-    ) -> Dict[int, NumType]:
+    ) -> Union[Dict[int, NumType], NumType]:
         """
         Расчёт значения метрики
 
         :param recommendations: рекомендации
         :param ground_truth: лог тестовых действий
         :param k: набор чисел или одно число, по которому рассчитывается метрика
-        :return: значения метрики для разных k
+        :return: значения метрики для разных k в виде словаря, если был передан список к,
+         иначе просто значение метрики
         """
         if isinstance(k, int):
             k_set = {k}
@@ -106,7 +107,10 @@ class Metric(ABC):
                         .withColumn("total_metric", sf.col("total_metric") / users_count)
                         .select("total_metric", "k").collect())
 
-        return {row["k"]: row["total_metric"] for row in total_metric}
+        res = {row["k"]: row["total_metric"] for row in total_metric}
+        if isinstance(k, int):
+            res = res[k]
+        return res
 
     @staticmethod
     @abstractmethod
