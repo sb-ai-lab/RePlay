@@ -30,7 +30,6 @@ dash-core-components==1.7.0
 dash-html-components==1.0.2
 dash-renderer==1.2.3
 dash-table==4.6.0
-decorator==4.4.1
 defusedxml==0.6.0
 dill==0.3.1.1
 docker==4.1.0
