@@ -63,10 +63,10 @@ class TestMetrics(PySparkTest):
             NDCG()(self.recs, self.ground_truth_recs, [1, 3]),
             {1: 1 / 3,
              3: 1 / 3 * (
-                 1 / (1 / log2(2) + 1 / log2(3) + 1 / log2(4)) *
-                 (1 / log2(2) + 1 / log2(3)) +
-                 1 / (1 / log2(2) + 1 / log2(3)) *
-                 (1 / log2(3))
+                 1 / (1/log2(2) + 1/log2(3) + 1/log2(4)) *
+                 (1/log2(2) + 1/log2(3)) +
+                 1/(1/log2(2) + 1/log2(3)) *
+                 (1/log2(3))
              )}
         )
 
@@ -88,7 +88,7 @@ class TestMetrics(PySparkTest):
     def test_recall_at_k(self):
         self.assertDictAlmostEqual(
             Recall()(self.recs, self.ground_truth_recs, [1, 3]),
-            {3: (1 / 2 + 2 / 3) / 3,
+            {3: (1/2 + 2/3) / 3,
              1: 1 / 9}
         )
 
@@ -101,7 +101,7 @@ class TestMetrics(PySparkTest):
 
         self.assertAlmostEqual(
             Surprisal()(self.recs, self.ground_truth_recs, 3),
-            5 * (1 - 1/log2(3)) / 9 + 4 / 9
+            5 * (1 - 1/log2(3))/9 + 4/9
         )
 
     def test_check_users(self):
