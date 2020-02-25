@@ -99,9 +99,9 @@ class TestMetrics(PySparkTest):
              2: 1.0}
         )
 
-        self.assertDictAlmostEqual(
-            Surprisal()(self.recs, self.ground_truth_recs, 3),
-            {3: 5 * (1 - 1/log2(3)) / 9 + 4 / 9}
+        self.assertAlmostEqual(
+            Surprisal(self.log2)(self.recs, self.log, 3),
+            5 * (1 - 1/log2(3))/9 + 4/9
         )
 
     def test_check_users(self):

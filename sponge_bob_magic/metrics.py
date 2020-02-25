@@ -17,6 +17,8 @@ IterOrList = Union[Iterable[int], int]
 
 class Metric(ABC):
     """ Базовый класс метрик. """
+    def __init__(self, log: DataFrame = None):
+        pass
 
     def __call__(
             self,
