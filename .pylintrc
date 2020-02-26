@@ -6,3 +6,4 @@
 ignored-modules=pyspark.sql.functions,torch
 ignore-long-lines=^.*[А-Яа-я].*$
 max-line-length=79
+disable=W504

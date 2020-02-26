@@ -126,9 +126,8 @@ class MainObjective:
     ) -> Any:
         """ Сэмплит заданный параметр в соответствии с сеткой. """
         distribution_type = param_dict["type"]
-
         param = getattr(trial, f"suggest_{distribution_type}")(
-                param_name, *param_dict["args"]
+            param_name, *param_dict["args"]
         )
         return param
 
@@ -142,8 +141,7 @@ class MainObjective:
         for param_name, param_dict in params_grid.items():
             param = MainObjective._suggest_param(trial, param_name, param_dict)
             params[param_name] = param
-
-        logging.debug(f"-- Параметры: {params}")
+        logging.debug("-- Параметры: %s", params)
         return params
 
     @staticmethod
@@ -154,8 +152,7 @@ class MainObjective:
             if (another_trial.state == optuna.structs.TrialState.COMPLETE and
                     another_trial.params == trial.params):
                 raise optuna.exceptions.TrialPruned(
-                        "Повторные значения параметров"
-                )
+                    "Повторные значения параметров")
 
     @staticmethod
     def _save_study(
@@ -179,16 +176,14 @@ class MainObjective:
     ) -> float:
         """ Подсчитывает все метрики и сохраняет их в `trial`. """
         result_string = "-- Метрики:"
-
         criterion_value = criterion(recommendations, ground_truth, k=k)
         result_string += f" {criterion}={criterion_value:.4f}"
-
         for metric in metrics:
             values = metric(recommendations, ground_truth, k=metrics[metric])
             trial.set_user_attr(str(metric), values)
-            values_str = ", ".join(f"{key}: {values[key]:.4f}" for key in values)
+            values_str = ", ".join(
+                f"{key}: {values[key]:.4f}" for key in values)
             result_string += f" {metric}={values_str}; "
-
         logging.debug(result_string)
         return criterion_value
 
@@ -200,16 +195,14 @@ class MainObjective:
             max_in_fallback_recs: float
     ) -> DataFrame:
         """ Добавляет к рекомендациям fallback-рекомендации. """
-        logging.debug(f"-- Длина рекомендаций: {recs.count()}")
-
+        logging.debug("-- Длина рекомендаций: %d", recs.count())
         if fallback_recs is not None:
             # добавим максимум из fallback реков,
             # чтобы сохранить порядок при заборе топ-k
             recs = recs.withColumn(
-                    "relevance",
-                    sf.col("relevance") + 10 * max_in_fallback_recs
+                "relevance",
+                sf.col("relevance") + 10 * max_in_fallback_recs
             )
-
             recs = recs.join(fallback_recs,
                              on=["user_id", "item_id"],
                              how="full_outer")
@@ -219,12 +212,10 @@ class MainObjective:
                     .withColumn("relevance",
                                 sf.coalesce("relevance", "relevance_fallback"))
                     .select("user_id", "item_id", "context", "relevance"))
-
             recs = get_top_k_recs(recs, k)
-
             logging.debug(
-                    "-- Длина рекомендаций после добавления fallback-рекомендаций:"
-                    f" {recs.count()}"
+                "-- Длина рекомендаций после добавления %s: %d",
+                "fallback-рекомендаций",
+                recs.count()
             )
-
         return recs
