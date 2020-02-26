@@ -46,9 +46,10 @@ class PopRec(Recommender):
         return {"alpha": self.alpha,
                 "beta": self.beta}
 
-    def _pre_fit(self, log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame]) -> None:
+    def _pre_fit(self,
+                 log: DataFrame,
+                 user_features: Optional[DataFrame] = None,
+                 item_features: Optional[DataFrame] = None) -> None:
         popularity = (log
                       .groupBy("item_id", "context")
                       .count())
@@ -75,9 +76,10 @@ class PopRec(Recommender):
                          "items_popularity.parquet")
         )
 
-    def _fit_partial(self, log: DataFrame,
-                     user_features: Optional[DataFrame],
-                     item_features: Optional[DataFrame]) -> None:
+    def _fit_partial(self,
+                     log: DataFrame,
+                     user_features: Optional[DataFrame] = None,
+                     item_features: Optional[DataFrame] = None) -> None:
         pass
 
     def _predict(self, log: DataFrame, k: int, users: DataFrame = None, items: DataFrame = None, context: str = None,
