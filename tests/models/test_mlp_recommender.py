@@ -51,16 +51,9 @@ class MLPRecTestCase(PySparkTest):
 
     def test_predict(self):
         self.model.fit(log=self.log, user_features=None, item_features=None)
-        predictions = self.model.predict(
-            k=1,
-            users=self.log.select('user_id').distinct(),
-            items=self.log.select('item_id').distinct(),
-            context='no_context',
-            log=self.log,
-            user_features=None,
-            item_features=None,
-            filter_seen_items=True
-        )
+        predictions = self.model.predict(log=self.log, k=1, users=self.log.select('user_id').distinct(),
+                                         items=self.log.select('item_id').distinct(), context='no_context',
+                                         user_features=None, item_features=None, filter_seen_items=True)
         self.assertTrue(
             np.allclose(
                 predictions.toPandas()[["user_id", "item_id"]].astype(int).values,

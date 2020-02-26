@@ -71,15 +71,11 @@ class LightFMRec(Recommender):
             num_threads=1
         )
 
-    def _predict(self,
-                 k: int,
-                 users: DataFrame, items: DataFrame,
-                 context: str, log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame],
-                 to_filter_seen_items: bool = True) -> DataFrame:
+    def _predict(self, log: DataFrame, k: int, users: DataFrame = None, items: DataFrame = None, context: str = None,
+                 user_features: Optional[DataFrame] = None, item_features: Optional[DataFrame] = None,
+                 filter_seen_items: bool = True) -> DataFrame:
         test_data = users.crossJoin(items).withColumn("relevance", lit(1))
-        if to_filter_seen_items:
+        if filter_seen_items:
             test_data = self._filter_seen_recs(
                 test_data,
                 log
@@ -87,8 +83,7 @@ class LightFMRec(Recommender):
         log_indexed = self.user_indexer.transform(test_data)
         log_indexed = self.item_indexer.transform(log_indexed)
         prediction = log_indexed.toPandas()
-        prediction["relevance"] = self.model.predict(
-            np.array(prediction.user_idx), np.array(prediction.item_idx))
+        prediction["relevance"] = self.model.predict(, np.array(prediction.user_idx), np.array(prediction.item_idx)
         spark = SparkSession(test_data.rdd.context)
         recs = spark.createDataFrame(
             prediction[["user_id", "item_id", "relevance"]]

@@ -40,15 +40,9 @@ class ALSRecTestCase(PySparkTest):
         ))
 
     def test_predict(self):
-        recs = self.als_rec.fit_predict(
-            k=1,
-            log=self.log,
-            user_features=None,
-            item_features=None,
-            context=DEFAULT_CONTEXT,
-            users=self.log.select("user_id").distinct(),
-            items=self.log.select("item_id").distinct()
-        )
+        recs = self.als_rec.fit_predict(log=self.log, k=1, users=self.log.select("user_id").distinct(),
+                                        items=self.log.select("item_id").distinct(), context=DEFAULT_CONTEXT,
+                                        user_features=None, item_features=None)
         self.assertSparkDataFrameEqual(
             recs,
             self.spark.createDataFrame(

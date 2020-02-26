@@ -24,15 +24,10 @@ class RecTestCase(PySparkTest):
                              item_features: Optional[DataFrame]) -> None:
                 pass
 
-            def _predict(self,
-                         k: int,
-                         users: Iterable or DataFrame,
-                         items: Iterable or DataFrame,
-                         context: str,
-                         log: DataFrame,
-                         user_features: Optional[DataFrame],
-                         item_features: Optional[DataFrame],
-                         to_filter_seen_items: bool = True) -> DataFrame:
+            def _predict(self, log: DataFrame, k: int, users: Iterable or DataFrame = None,
+                         items: Iterable or DataFrame = None, context: str = None,
+                         user_features: Optional[DataFrame] = None, item_features: Optional[DataFrame] = None,
+                         filter_seen_items: bool = True) -> DataFrame:
                 pass
 
             def get_params(self) -> Dict[str, object]:

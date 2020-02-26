@@ -73,27 +73,13 @@ class LinearRecTestCase(PySparkTest):
             user_features=self.user_features,
             item_features=self.item_features
         )
-        prediction = self.model._predict(
-            k=2,
-            user_features=self.user_features,
-            item_features=self.item_features,
-            log=self.log,
-            context=DEFAULT_CONTEXT,
-            users=self.user_features.select("user_id"),
-            items=self.item_features.select("item_id"),
-            to_filter_seen_items=False
-        )
+        prediction = self.model._predict(log=self.log, k=2, users=self.user_features.select("user_id"),
+                                         items=self.item_features.select("item_id"), context=DEFAULT_CONTEXT,
+                                         user_features=self.user_features, item_features=self.item_features)
         self.assertSparkDataFrameEqual(self.log.drop("timestamp"), prediction)
-        empty_prediction = self.model._predict(
-            k=2,
-            user_features=self.user_features,
-            item_features=self.item_features,
-            log=self.log,
-            context=DEFAULT_CONTEXT,
-            users=self.user_features.select("user_id"),
-            items=self.item_features.select("item_id"),
-            to_filter_seen_items=True
-        )
+        empty_prediction = self.model._predict(log=self.log, k=2, users=self.user_features.select("user_id"),
+                                               items=self.item_features.select("item_id"), context=DEFAULT_CONTEXT,
+                                               user_features=self.user_features, item_features=self.item_features)
         self.assertEqual(
             sorted([(field.name, field.dataType) for field in
                     self.log.drop("timestamp").schema.fields],

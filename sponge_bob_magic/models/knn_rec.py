@@ -170,11 +170,9 @@ class KNNRec(Recommender):
                          "knn_similarity_matrix.parquet")
         )
 
-    def _predict(self, k: int, users: DataFrame, items: DataFrame,
-                 context: str, log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame],
-                 to_filter_seen_items: bool = True) -> DataFrame:
+    def _predict(self, log: DataFrame, k: int, users: DataFrame = None, items: DataFrame = None, context: str = None,
+                 user_features: Optional[DataFrame] = None, item_features: Optional[DataFrame] = None,
+                 filter_seen_items: bool = True) -> DataFrame:
         recs = (
             log
             .join(
@@ -194,7 +192,7 @@ class KNNRec(Recommender):
             .cache()
         )
 
-        if to_filter_seen_items:
+        if filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
 
         recs = get_top_k_recs(recs, k)

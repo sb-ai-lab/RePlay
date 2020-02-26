@@ -87,15 +87,9 @@ class LinearRec(Recommender):
             .join(item_features.drop("timestamp"), on="item_id", how="inner")
         )
 
-    def _predict(self,
-                 k: int,
-                 users: DataFrame,
-                 items: DataFrame,
-                 context: Optional[str],
-                 log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame],
-                 to_filter_seen_items: bool = True) -> DataFrame:
+    def _predict(self, log: DataFrame, k: int, users: DataFrame = None, items: DataFrame = None,
+                 context: Optional[str] = None, user_features: Optional[DataFrame] = None,
+                 item_features: Optional[DataFrame] = None, filter_seen_items: bool = True) -> DataFrame:
         data = (
             self._augment_data(
                 users.crossJoin(items), user_features, item_features
@@ -103,7 +97,7 @@ class LinearRec(Recommender):
             .select("features", "item_id", "user_id")
         )
 
-        if to_filter_seen_items:
+        if filter_seen_items:
             data = data.join(log, on=["user_id", "item_id"], how="left_anti")
 
         recs = (
