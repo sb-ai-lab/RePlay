@@ -15,13 +15,14 @@ from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
 from sponge_bob_magic.constants import IterOrList
+from sponge_bob_magic.converter import convert
 
 NumType = Union[int, float]
 
 
 class Metric(ABC):
     """ Базовый класс метрик. """
-    def __init__(self, log: DataFrame):
+    def __init__(self, log: DataFrame = None):
         pass
 
     def __call__(
@@ -275,7 +276,7 @@ class Surprisal(Metric):
         return "Surprisal"
 
     def __init__(self, log: DataFrame):
-        super().__init__(log)
+        log = convert(log)
         n_users = log.select("user_id").distinct().count()
         self.item_weights = log.groupby("item_id").agg(
                 (sf.log2(n_users / sf.countDistinct("user_id"))

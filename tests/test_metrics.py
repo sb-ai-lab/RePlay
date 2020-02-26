@@ -110,7 +110,7 @@ class TestMetrics(PySparkTest):
         )
 
         self.assertAlmostEqual(
-            Surprisal(self.log)(self.recs, self.ground_truth_recs, 3),
+            Surprisal(self.log2)(self.recs, self.log, 3),
             5 * (1 - 1/log2(3))/9 + 4/9
         )
 
