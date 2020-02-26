@@ -96,11 +96,15 @@ class MainObjective:
                                       self.split_data.item_features)
 
         logging.debug("-- Предикт модели в оптимизации")
-        recs = self.recommender.predict(log=self.split_data.predict_input, k=self.k, users=self.split_data.users,
-                                        items=self.split_data.items, context=self.context,
-                                        user_features=self.split_data.user_features,
-                                        item_features=self.split_data.item_features,
-                                        filter_seen_items=self.filter_seen_items)
+        recs = self.recommender.predict(
+            log=self.split_data.predict_input,
+            k=self.k,
+            users=self.split_data.users,
+            items=self.split_data.items,
+            context=self.context,
+            user_features=self.split_data.user_features,
+            item_features=self.split_data.item_features,
+            filter_seen_items=self.filter_seen_items)
 
         logging.debug("-- Дополняем рекомендации fallback рекомендациями")
         recs = self._join_fallback_recs(recs, self.fallback_recs, self.k,
