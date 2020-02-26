@@ -37,10 +37,10 @@ class Metric(ABC):
         if log:
             self.log = convert(log)
 
-        if log:
+        if user_features:
             self.user_features = convert(user_features)
 
-        if log:
+        if item_features:
             self.item_features = convert(item_features)
 
     def __call__(
@@ -80,7 +80,7 @@ class Metric(ABC):
 
         :param recommendations: рекомендации
         :param ground_truth: лог тестовых действий
-        :return: рекомендации с весами items
+        :return: рекомендации обогащенные дополнительной информацией
             спарк-датафрейм вида
             ``[user_id , item_id , context , relevance, *columns]``
         """
@@ -145,8 +145,10 @@ class Metric(ABC):
         """
         Расчёт значения метрики для каждого пользователя
 
-        :param pandas_df: DataFrame, содержащий рекомендации по каждому пользователю
-        :return: DataFrame c рассчитанным полем ``cum_agg``
+        :param pandas_df: DataFrame, содержащий рекомендации по каждому пользователю --
+            pandas-датафрейм вида ``[user_id , item_id , context , relevance, k, *columns]``
+        :return: DataFrame c рассчитанным полем ``cum_agg`` --
+            pandas-датафрейм вида ``[user_id , item_id , cum_agg, *columns]``
         """
 
     @abstractmethod
