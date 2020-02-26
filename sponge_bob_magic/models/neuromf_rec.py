@@ -17,9 +17,10 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.functions import udf
 from pyspark.sql.types import DoubleType
+from sklearn.model_selection import train_test_split
 from torch import Tensor
 from torch.nn import DataParallel, Embedding, Module
-from torch.utils.data import DataLoader, TensorDataset, random_split
+from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_rec import Recommender
@@ -175,26 +176,26 @@ class NeuroMFRec(Recommender):
         return loss
 
     def _run_epoch(self,
-                   user_batch: torch.LongTensor,
-                   item_batch: torch.LongTensor,
+                   train_user_batch: torch.LongTensor,
+                   train_item_batch: torch.LongTensor,
+                   valid_user_batch: torch.LongTensor,
+                   valid_item_batch: torch.LongTensor,
                    optimizer: torch.optim.Optimizer) -> float:
-        loss_value = 0.0
-        full_dataset = TensorDataset(user_batch, item_batch)
-        train_size = int(0.8 * len(full_dataset))
-        val_size = len(full_dataset) - train_size
-        train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+        train_dataset = TensorDataset(train_user_batch, train_item_batch)
         train_data = DataLoader(
             train_dataset,
             batch_size=self.batch_size_fit_users,
             shuffle=True,
             num_workers=self.num_workers
         )
+        valid_dataset = TensorDataset(valid_user_batch, valid_item_batch)
         val_data = DataLoader(
-            train_dataset,
+            valid_dataset,
             batch_size=self.batch_size_fit_users,
             shuffle=False,
             num_workers=self.num_workers
         )
+        loss_value = 0.0
         current_loss = 0.0
         self.model.train()
         for batch in train_data:
@@ -212,8 +213,8 @@ class NeuroMFRec(Recommender):
             val_loss = self._run_single_batch(batch)
             val_loss_value += val_loss.item()
             current_val_loss = val_loss_value / len(val_data)
-        logging.debug("-- Текущее значение val loss: %.4f", current_val_loss)
-        return current_loss
+        logging.debug("-- Текущее значение val loss  : %.4f", current_val_loss)
+        return current_loss, current_val_loss
 
     def _fit_partial(self,
                      log: DataFrame,
@@ -226,7 +227,8 @@ class NeuroMFRec(Recommender):
         self.model.train()
         optimizer = torch.optim.Adam(self.model.parameters(),
                                      lr=self.learning_rate)
-
+        lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer,
+                                                              gamma=0.95)
         logging.debug("Составление батча:")
         spark = SparkSession(log.rdd.context)
         tensor_data = NeuroMFRec.spark2pandas_csv(
@@ -234,30 +236,61 @@ class NeuroMFRec(Recommender):
             os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
-        user_batch = torch.LongTensor(tensor_data["user_idx"].values)
-        item_batch = torch.LongTensor(tensor_data["item_idx"].values)
+        train_tensor_data, valid_tensor_data = train_test_split(
+            tensor_data, stratify=tensor_data["user_idx"], test_size=0.1,
+            random_state=42)
+        train_user_batch = torch.LongTensor(train_tensor_data["user_idx"].values)
+        train_item_batch = torch.LongTensor(train_tensor_data["item_idx"].values)
+        valid_user_batch = torch.LongTensor(valid_tensor_data["user_idx"].values)
+        valid_item_batch = torch.LongTensor(valid_tensor_data["item_idx"].values)
         logging.debug("Обучение модели")
+        val_losses = []
+        early_stopping = 3
         for epoch in range(self.epochs):
             logging.debug("-- Эпоха %d", epoch)
-            current_loss = self._run_epoch(user_batch, item_batch, optimizer)
-            logging.debug("-- Текущее значение: %.4f", current_loss)
+            current_loss, current_val_loss = self._run_epoch(
+                train_user_batch,
+                train_item_batch,
+                valid_user_batch,
+                valid_item_batch,
+                optimizer
+            )
+            val_losses.append(current_val_loss)
+            best_loss = current_val_loss if len(val_losses) == 1 else min(val_losses[:-1])
+            if current_val_loss < best_loss:
+                self.save_model(
+                    os.path.join(
+                        spark.conf.get("spark.local.dir"),
+                        "best_nmf.pth"
+                    )
+                )
+            if (len(val_losses) > early_stopping and
+                    min(val_losses[-early_stopping:]) == val_losses[-early_stopping]):
+                logging.debug(f"-- Early stopping! Лучшая эпоха {epoch} "
+                              f"с лоссом {val_losses[-early_stopping]}")
+                break
+            lr_scheduler.step()
 
         self.model.eval()
         logging.debug("-- Запись annoy индексов")
         if torch.cuda.is_available():
-            user_batch = user_batch.cuda()
-            item_batch = item_batch.cuda()
-        _, item_embs = self.model(user_batch, item_batch, get_embs=True)
+            train_user_batch = train_user_batch.cuda()
+            train_item_batch = train_item_batch.cuda()
+        _, item_embs = self.model(train_user_batch, train_item_batch, get_embs=True)
         for item_id, item_emb in zip(
-                tensor_data["item_idx"].values,
+                train_tensor_data["item_idx"].values,
                 item_embs.detach().cpu().numpy()
         ):
             self.annoy_index.add_item(int(item_id), item_emb)
         self.annoy_index.build(self.num_trees_annoy)
 
-    def _predict(self, log: DataFrame, k: int, users: DataFrame = None, items: DataFrame = None, context: str = None,
-                 user_features: Optional[DataFrame] = None, item_features: Optional[DataFrame] = None,
-                 filter_seen_items: bool = True) -> DataFrame:
+    def _predict(self,
+                 k: int,
+                 users: DataFrame, items: DataFrame,
+                 context: str, log: DataFrame,
+                 user_features: Optional[DataFrame],
+                 item_features: Optional[DataFrame],
+                 to_filter_seen_items: bool = True) -> DataFrame:
         self.model.eval()
         sep = ","
         spark = SparkSession(users.rdd.context)
@@ -273,7 +306,7 @@ class NeuroMFRec(Recommender):
         tensor_data = NeuroMFRec.spark2pandas_csv(
             users.select("user_idx"),
             os.path.join(spark.conf.get("spark.local.dir"),
-                         "tmp_tensor_data")
+                         "tmp_tensor_users_data")
         )
         user_batch = torch.LongTensor(tensor_data["user_idx"].values)
         item_batch = torch.ones_like(user_batch)
@@ -315,7 +348,7 @@ class NeuroMFRec(Recommender):
         recs = item_converter.transform(recs)
         recs = recs.drop("user_idx", "item_idx")
 
-        if filter_seen_items:
+        if to_filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
 
         recs = get_top_k_recs(recs, k)
@@ -378,3 +411,23 @@ class NeuroMFRec(Recommender):
                                     if file.endswith(".csv")][0])
         pandas_dataframe = pandas.read_csv(pandas_path)
         return pandas_dataframe
+
+    def save_model(self, path: str) -> None:
+        """
+        Сохранить веса модели в файл
+
+        :param path: путь к файлу, куда сохранять
+        :return:
+        """
+        logging.debug("-- Сохранение лучшей модели в файл")
+        torch.save(self.model.state_dict(), path)
+
+    def load_model(self, path: str) -> None:
+        """
+        Загрузка весов модели из файла
+
+        :param path: путь к файлу, откуда загружать
+        :return:
+        """
+        logging.debug("-- Загрузка модели из файла")
+        self.model.load_state_dict(torch.load(path))
