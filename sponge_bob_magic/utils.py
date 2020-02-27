@@ -1,11 +1,30 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Any, List, Optional, Set, Tuple
+from typing import Any, List, Optional, Set, Tuple, Iterable
 
 import numpy as np
 from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as sf
+
+
+def flat_list(list_object: Iterable):
+    """
+    Генератор.
+    Из неоднородного листа с вложенными листами делает однородный лист.
+    Например, [1, [2], [3, 4], 5] -> [1, 2, 3, 4, 5].
+
+    :param list_object: лист
+    :return: преобразованный лист
+    """
+    for item in list_object:
+        if (
+                isinstance(item, collections.abc.Iterable) and
+                not isinstance(item, (str, bytes))
+        ):
+            yield from flat_list(item)
+        else:
+            yield item
 
 
 def get_distinct_values_in_column(
