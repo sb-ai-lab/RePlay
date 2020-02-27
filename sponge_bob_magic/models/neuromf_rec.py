@@ -126,10 +126,9 @@ class NeuroMFRec(Recommender):
             "embedding_dimension": self.embedding_dimension
         }
 
-    def _pre_fit(self,
-                 log: DataFrame,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None) -> None:
+    def _pre_fit(self, log: DataFrame,
+                 user_features: Optional[DataFrame],
+                 item_features: Optional[DataFrame]) -> None:
         self.user_indexer_model = self.user_indexer.fit(log)
         self.item_indexer_model = self.item_indexer.fit(log)
 
