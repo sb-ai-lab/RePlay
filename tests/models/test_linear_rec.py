@@ -48,7 +48,7 @@ class LinearRecTestCase(PySparkTest):
 
     def test_get_params(self):
         model = LinearRec(lambda_param=1e-4,
-                                  elastic_net_param=0.1, num_iter=1)
+                          elastic_net_param=0.1, num_iter=1)
 
         params = {"lambda_param": 1e-4,
                   "elastic_net_param": 0.1,
@@ -74,26 +74,18 @@ class LinearRecTestCase(PySparkTest):
             item_features=self.item_features
         )
         prediction = self.model._predict(
-            k=2,
-            user_features=self.user_features,
-            item_features=self.item_features,
             log=self.log,
-            context=DEFAULT_CONTEXT,
+            k=2,
             users=self.user_features.select("user_id"),
             items=self.item_features.select("item_id"),
-            to_filter_seen_items=False
+            context=DEFAULT_CONTEXT,
+            user_features=self.user_features,
+            item_features=self.item_features
         )
         self.assertSparkDataFrameEqual(self.log.drop("timestamp"), prediction)
-        empty_prediction = self.model._predict(
-            k=2,
-            user_features=self.user_features,
-            item_features=self.item_features,
-            log=self.log,
-            context=DEFAULT_CONTEXT,
-            users=self.user_features.select("user_id"),
-            items=self.item_features.select("item_id"),
-            to_filter_seen_items=True
-        )
+        empty_prediction = self.model._predict(log=self.log, k=2, users=self.user_features.select("user_id"),
+                                               items=self.item_features.select("item_id"), context=DEFAULT_CONTEXT,
+                                               user_features=self.user_features, item_features=self.item_features)
         self.assertEqual(
             sorted([(field.name, field.dataType) for field in
                     self.log.drop("timestamp").schema.fields],

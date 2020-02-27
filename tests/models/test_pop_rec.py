@@ -88,21 +88,25 @@ class PopRecTestCase(PySparkTest):
 
         # два вызова нужны, чтобы проверить, что они возващают одно и то же
         test_recs_first = self.model.fit_predict(
-            k=k, users=users,
+            log=log,
+            k=k,
+            users=users,
             items=items_relevance.select("item_id"),
             context=context,
-            log=log,
             user_features=None,
             item_features=None,
-            to_filter_seen_items=False)
+            filter_seen_items=False
+        )
         test_recs_second = self.model.fit_predict(
-            k=k, users=users,
+            log=log,
+            k=k,
+            users=users,
             items=items_relevance.select("item_id"),
             context=context,
-            log=log,
             user_features=None,
             item_features=None,
-            to_filter_seen_items=False)
+            filter_seen_items=False
+        )
 
         self.assertSparkDataFrameEqual(true_recs, test_recs_second)
         self.assertSparkDataFrameEqual(true_recs, test_recs_first)
@@ -146,14 +150,8 @@ class PopRecTestCase(PySparkTest):
             data=[[item] for item in ["i1", "i2", "i3", "i4"]],
             schema=["item_id"])
 
-        test_recs = self.model.fit_predict(
-            k=2, users=users,
-            items=items,
-            context=context,
-            log=log,
-            user_features=None,
-            item_features=None,
-            to_filter_seen_items=True)
+        test_recs = self.model.fit_predict(log=log, k=2, users=users, items=items, context=context, user_features=None,
+                                           item_features=None, filter_seen_items=True)
 
         self.assertSparkDataFrameEqual(true_recs, test_recs)
 
@@ -205,14 +203,8 @@ class PopRecTestCase(PySparkTest):
 
         self.model.set_params(**{"alpha": alpha, "beta": beta})
 
-        test_recs = self.model.fit_predict(
-            k=4, users=None,
-            items=None,
-            context=context,
-            log=log,
-            user_features=None,
-            item_features=None,
-            to_filter_seen_items=False)
+        test_recs = self.model.fit_predict(log=log, k=4, users=None, items=None, context=context, user_features=None,
+                                           item_features=None, filter_seen_items=False)
 
         self.assertSparkDataFrameEqual(true_recs, test_recs)
 
@@ -256,13 +248,7 @@ class PopRecTestCase(PySparkTest):
 
         self.model.set_params(**{"alpha": 0, "beta": 0})
 
-        test_recs = self.model.fit_predict(
-            k=4, users=None,
-            items=None,
-            context=context,
-            log=log,
-            user_features=None,
-            item_features=None,
-            to_filter_seen_items=False)
+        test_recs = self.model.fit_predict(log=log, k=4, users=None, items=None, context=context, user_features=None,
+                                           item_features=None, filter_seen_items=False)
 
         self.assertSparkDataFrameEqual(true_recs, test_recs)

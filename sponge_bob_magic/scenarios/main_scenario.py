@@ -238,13 +238,6 @@ class MainScenario:
         if fallback_rec is not None:
             fallback_recs = (
                 fallback_rec
-                .fit_predict(k,
-                             split_data.users, split_data.items,
-                             context,
-                             split_data.predict_input,
-                             split_data.user_features,
-                             split_data.item_features,
-                             self.filter_seen_items)
             )
         return fallback_recs
 
@@ -290,11 +283,8 @@ class MainScenario:
         """
         self.recommender.set_params(**params)
 
-        return self.recommender.fit_predict(
-            k, users, items, context, log,
-            user_features, item_features,
-            self.filter_seen_items
-        )
+        return self.recommender.fit_predict(log, k, users, items, context, user_features, item_features,
+                                            self.filter_seen_items)
 
 
 if __name__ == "__main__":
