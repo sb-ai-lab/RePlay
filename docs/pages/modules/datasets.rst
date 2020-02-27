@@ -1,4 +1,4 @@
-datasets
+Датасеты
 ========
 
 .. automodule:: sponge_bob_magic.datasets
