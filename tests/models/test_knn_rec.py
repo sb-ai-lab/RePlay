@@ -45,9 +45,14 @@ class KNNRecTestCase(PySparkTest):
 
     def test_predict(self):
         self.model.fit(self.log, None, None)
-        recs = self.model._predict(log=self.log, k=1, users=self.log.select("user_id").distinct(),
-                                   items=self.log.select("item_id").distinct(), context=DEFAULT_CONTEXT,
-                                   user_features=None, item_features=None)
+        recs = self.model._predict(
+            log=self.log,
+            k=1,
+            users=self.log.select("user_id").distinct(),
+            items=self.log.select("item_id").distinct(),
+            context=DEFAULT_CONTEXT,
+            user_features=None, item_features=None
+        )
         self.assertSparkDataFrameEqual(
             recs,
             self.spark.createDataFrame(

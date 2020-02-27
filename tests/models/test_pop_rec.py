@@ -87,12 +87,26 @@ class PopRecTestCase(PySparkTest):
         self.model.set_params(**{"alpha": 0, "beta": 0})
 
         # два вызова нужны, чтобы проверить, что они возващают одно и то же
-        test_recs_first = self.model.fit_predict(log=log, k=k, users=users, items=items_relevance.select("item_id"),
-                                                 context=context, user_features=None, item_features=None,
-                                                 filter_seen_items=False)
-        test_recs_second = self.model.fit_predict(log=log, k=k, users=users, items=items_relevance.select("item_id"),
-                                                  context=context, user_features=None, item_features=None,
-                                                  filter_seen_items=False)
+        test_recs_first = self.model.fit_predict(
+            log=log,
+            k=k,
+            users=users,
+            items=items_relevance.select("item_id"),
+            context=context,
+            user_features=None,
+            item_features=None,
+            filter_seen_items=False
+        )
+        test_recs_second = self.model.fit_predict(
+            log=log,
+            k=k,
+            users=users,
+            items=items_relevance.select("item_id"),
+            context=context,
+            user_features=None,
+            item_features=None,
+            filter_seen_items=False
+        )
 
         self.assertSparkDataFrameEqual(true_recs, test_recs_second)
         self.assertSparkDataFrameEqual(true_recs, test_recs_first)
