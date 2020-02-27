@@ -382,7 +382,10 @@ class Surprisal(Metric):
     def __str__(self):
         return "Surprisal"
 
-    def __init__(self, log: CommonDataFrame):
+    def __init__(self,
+                 log: CommonDataFrame,
+                 user_features: Optional[CommonDataFrame] = None,
+                 item_features: Optional[CommonDataFrame] = None):
         """
         Предрасчет весов всех items, в зависимости от их популярности
         """
