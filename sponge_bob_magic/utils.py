@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+import collections
 from typing import Any, List, Optional, Set, Tuple, Iterable
 
 import numpy as np

@@ -211,7 +211,7 @@ class DataPreparator:
                             optional_columns={"timestamp", "context",
                                               "relevance"})
 
-        if log:
+        if log is not None:
             dataframe = convert(log)
         elif path and format_type:
             dataframe = self._read_data(path, format_type, **kwargs)
@@ -251,7 +251,7 @@ class DataPreparator:
             обязательными являются только
             `[user_id]` или `[item_id]` (должен быть один из них);
             если `features` нет в ключах,
-            то призанками фичей явлются все оставшиеся колонки;
+            то признаками фичей явлются все оставшиеся колонки;
             в качестве `features` может подаваться как список, так и отдельное
             значение колонки (если признак один);
             значения - колонки в табличке признаков
@@ -278,7 +278,7 @@ class DataPreparator:
         self._check_columns(set(columns_names.keys()),
                             required_columns=required_columns,
                             optional_columns={"timestamp", "features"})
-        if log:
+        if log is not None:
             dataframe = convert(log)
         elif path and format_type:
             dataframe = self._read_data(path, format_type, **kwargs)
