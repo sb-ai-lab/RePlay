@@ -10,7 +10,7 @@ from pyspark.sql.types import StringType, StructType
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
-from sponge_bob_magic.data_preparator.data_preparator import DataPreparator
+from sponge_bob_magic.data_preparator import DataPreparator
 
 
 class DataPreparatorTest(PySparkTest):
@@ -150,10 +150,8 @@ class DataPreparatorTest(PySparkTest):
         true_log = self.spark.createDataFrame(data=true_log_data,
                                               schema=LOG_SCHEMA)
 
-        self.dp._read_data = Mock(return_value=log)
-
         test_log = self.dp.transform_log(
-            path="", format_type="",
+            log=log,
             columns_names=columns_names)
 
         self.assertSparkDataFrameEqual(true_log, test_log)
@@ -184,10 +182,8 @@ class DataPreparatorTest(PySparkTest):
         true_log = self.spark.createDataFrame(data=true_log_data,
                                               schema=LOG_SCHEMA)
 
-        self.dp._read_data = Mock(return_value=log)
-
         test_log = self.dp.transform_log(
-            path="", format_type="",
+            log=log,
             columns_names=columns_names)
 
         self.assertSparkDataFrameEqual(true_log, test_log)
@@ -352,10 +348,8 @@ class DataPreparatorTest(PySparkTest):
                          .withColumn("timestamp", sf.to_timestamp("timestamp"))
                          )
 
-        self.dp._read_data = Mock(return_value=features)
-
         test_features = self.dp.transform_features(
-            path="", format_type="",
+            log=features,
             columns_names=columns_names)
 
         self.assertSparkDataFrameEqual(true_features, test_features)
@@ -394,10 +388,9 @@ class DataPreparatorTest(PySparkTest):
                                      sf.col("user_id").cast(StringType()))
                          .withColumn("timestamp", sf.to_timestamp("timestamp"))
                          )
-        self.dp._read_data = Mock(return_value=features)
 
         test_features = self.dp.transform_features(
-            path="", format_type="",
+            log=features,
             columns_names=columns_names)
         self.assertSparkDataFrameEqual(true_features, test_features)
 
@@ -443,7 +436,7 @@ class DataPreparatorTest(PySparkTest):
         self.dp._read_data = Mock(return_value=features)
 
         test_features = self.dp.transform_features(
-            path="", format_type="",
+            log=features,
             columns_names=columns_names,
             date_format="yyyy-MM-dd HH:mm:ss")
 
