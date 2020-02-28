@@ -4,41 +4,32 @@
 
 HitRate
 --------
-.. _HitRate:
 .. autoclass:: sponge_bob_magic.metrics.HitRate
 
 Precision
 ---------
-.. _Precision:
 .. autoclass:: sponge_bob_magic.metrics.Precision
 
 MAP
 ---
-.. _MAP:
 .. autoclass:: sponge_bob_magic.metrics.MAP
 
 Recall
 ------
-.. _Recall:
 .. autoclass:: sponge_bob_magic.metrics.Recall
 
 NDCG
 -----
-.. _NDCG:
 .. autoclass:: sponge_bob_magic.metrics.NDCG
 
 Surprisal
 ----------
-.. _Surprisal:
 .. autoclass:: sponge_bob_magic.metrics.Surprisal
    :special-members: __init__
 
 Unexpectedness
 ---------------
-.. _Unexpectedness:
 .. autoclass:: sponge_bob_magic.metrics.Unexpectedness
-
-.. _new-metric:
 
 Своя метрика
 ----------------------
