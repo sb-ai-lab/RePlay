@@ -22,7 +22,7 @@ Recall
 .. _Recall:
 .. autoclass:: sponge_bob_magic.metrics.Recall
 
-nDCG
+NDCG
 -----
 .. _NDCG:
 .. autoclass:: sponge_bob_magic.metrics.NDCG
@@ -32,6 +32,11 @@ Surprisal
 .. _Surprisal:
 .. autoclass:: sponge_bob_magic.metrics.Surprisal
    :special-members: __init__
+
+Unexpectedness
+---------------
+.. _Unexpectedness:
+.. autoclass:: sponge_bob_magic.metrics.Unexpectedness
 
 .. _new-metric:
 

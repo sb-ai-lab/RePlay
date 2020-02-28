@@ -6,16 +6,7 @@
 Поддерживается возможность рассчета метрик сразу по нескольким ``K``,
 в таком случае будет возвращен словарь с результатами, а не число.
 
-Реализованы следующие метрики:
-
-- :ref:`HitRate <HitRate>`
-- :ref:`Precision <Precision>`
-- :ref:`MAP <MAP>`
-- :ref:`Recall <Recall>`
-- :ref:`NDCG <NDCG>`
-- :ref:`Surprisal <Surprisal>`
-
-В случае, если указанных метрик недостаточно, библиотека поддерживает возможность
+Если реализованных метрик недостаточно, библиотека поддерживает возможность
 :ref:`добавления своих метрик <new-metric>`.
 """
 import logging
@@ -199,6 +190,9 @@ class HitRate(Metric):
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
 
+    def __init__(self):
+        pass
+
     def __str__(self):
         return "HitRate"
 
@@ -242,6 +236,9 @@ class NDCG(Metric):
         nDCG@K = \\frac {\sum_{i=1}^{N}nDCG@K(i)}{N}
     """
 
+    def __init__(self):
+        pass
+
     def __str__(self):
         return "nDCG"
 
@@ -270,6 +267,9 @@ class Precision(Metric):
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
 
+    def __init__(self):
+        pass
+
     def __str__(self):
         return "Precision"
 
@@ -292,6 +292,9 @@ class MAP(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
     """
+
+    def __init__(self):
+        pass
 
     def __str__(self):
         return "MAP"
@@ -324,6 +327,9 @@ class Recall(Metric):
 
     :math:`|Rel_i|` -- количество элементов, с которыми взаимодействовал пользователь :math:`i`
     """
+
+    def __init__(self):
+        pass
 
     def __str__(self):
         return "Recall"
@@ -371,10 +377,7 @@ class Surprisal(Metric):
     def __str__(self):
         return "Surprisal"
 
-    def __init__(self,
-                 log: CommonDataFrame,
-                 user_features: Optional[CommonDataFrame] = None,
-                 item_features: Optional[CommonDataFrame] = None):
+    def __init__(self, log: CommonDataFrame):
         """
         Чтобы посчитать метрику, необходимо предрассчитать собственную информацию каждого объекта.
 
@@ -398,3 +401,10 @@ class Surprisal(Metric):
         return (recommendations.join(self.item_weights,
                                      on="item_id",
                                      how="left").fillna(1))
+
+class Unexpectedness(Metric):
+    """
+    Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.
+    По умолчанию используется рекомендатель по популярности.
+    """
+    pass
