@@ -30,6 +30,7 @@ Surprisal
 Unexpectedness
 ---------------
 .. autoclass:: sponge_bob_magic.metrics.Unexpectedness
+   :special-members: __init__
 
 .. _new-metric:
 

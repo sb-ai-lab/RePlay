@@ -21,6 +21,8 @@ from pyspark.sql import types as st
 
 from sponge_bob_magic.constants import IterOrList
 from sponge_bob_magic.converter import convert
+from sponge_bob_magic.models import PopRec
+from sponge_bob_magic.models.base_rec import Recommender
 
 NumType = Union[int, float]
 CommonDataFrame = Union[DataFrame, pd.DataFrame]
@@ -113,6 +115,7 @@ class Metric(ABC):
             k_set = {k}
         else:
             k_set = set(k)
+        self.max_k = max(k_set)
         users_count = recommendations.select("user_id").distinct().count()
         agg_fn = self._get_metric_value_by_user
 
@@ -407,4 +410,53 @@ class Unexpectedness(Metric):
     Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.
     По умолчанию используется рекомендатель по популярности.
     """
-    pass
+
+    def __init__(self, log: CommonDataFrame, rec: Recommender = PopRec()):
+        """
+        Есть два варианта инициализации в зависимости от значения параметра ``rec``.
+        Если ``rec`` -- рекомендатель, то ``log`` считается данными для обучения.
+        Если ``rec is None``, то ``log`` считается готовыми предсказаниями какой-то внешней модели,
+        с которой необходимо сравниться.
+
+        :param log: пандас или спарк датафрейм
+        :param rec: одна из проинициализированных моделей библиотеки, либо ``None``
+        """
+        self.log = convert(log)
+        if rec is None:
+            self.train_model = False
+        else:
+            self.train_model = True
+            rec.fit(log=self.log)
+            self.model = rec
+
+    def __str__(self):
+        return "Unexpectedness"
+
+    def _get_metric_value_by_user(self, pandas_df):
+        pandas_df["pos"] = pandas_df.apply(
+            lambda row:
+            row.x.index(row["item"]) if row["item"] in row.x
+            else self.max_k,
+            axis=1)
+        pandas_df = pandas_df.assign(unexpected=int(pandas_df["pos"] < pandas_df["k"]))
+        return pandas_df.assign(cum_agg=pandas_df["rec_weight"].cumsum() / pandas_df["k"])
+
+    def _get_enriched_recommendations(
+            self,
+            recommendations: DataFrame,
+            ground_truth: DataFrame
+    ) -> DataFrame:
+        if self.train_model:
+            pred = self.model.predict(log=self.log, k=self.max_k)
+        else:
+            pred = self.log
+
+        items_by_users = (pred
+            .groupby("user_id").agg(
+            sf.collect_list("item_id").alias("items_id")))
+
+        return recommendations.join(
+            items_by_users,
+            how="inner",
+            on=["user_id"]
+        )
