@@ -132,9 +132,10 @@ class MLPRec(Recommender):
             "embedding_dimension": self.embedding_dimension
         }
 
-    def _pre_fit(self, log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame]) -> None:
+    def _pre_fit(self,
+                 log: DataFrame,
+                 user_features: Optional[DataFrame] = None,
+                 item_features: Optional[DataFrame] = None) -> None:
         self.user_indexer_model = self.user_indexer.fit(log)
         self.item_indexer_model = self.item_indexer.fit(log)
 
@@ -201,8 +202,10 @@ class MLPRec(Recommender):
         scheduler.step()
         return current_loss
 
-    def _fit_partial(self, log: DataFrame, user_features: Optional[DataFrame],
-                     item_features: Optional[DataFrame]) -> None:
+    def _fit_partial(self,
+                     log: DataFrame,
+                     user_features: Optional[DataFrame] = None,
+                     item_features: Optional[DataFrame] = None) -> None:
         logging.debug("Индексирование данных")
         log_indexed = self.user_indexer_model.transform(log)
         log_indexed = self.item_indexer_model.transform(log_indexed)
@@ -238,13 +241,9 @@ class MLPRec(Recommender):
             self.annoy_index.add_item(int(item_id), item_emb)
         self.annoy_index.build(self.num_trees_annoy)
 
-    def _predict(self,
-                 k: int,
-                 users: DataFrame, items: DataFrame,
-                 context: str, log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame],
-                 to_filter_seen_items: bool = True) -> DataFrame:
+    def _predict(self, log: DataFrame, k: int, users: DataFrame = None, items: DataFrame = None, context: str = None,
+                 user_features: Optional[DataFrame] = None, item_features: Optional[DataFrame] = None,
+                 filter_seen_items: bool = True) -> DataFrame:
         self.model.eval()
         sep = ","
         spark = SparkSession(users.rdd.context)
@@ -301,7 +300,7 @@ class MLPRec(Recommender):
         recs = item_converter.transform(recs)
         recs = recs.drop("user_idx", "item_idx")
 
-        if to_filter_seen_items:
+        if filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
 
         recs = get_top_k_recs(recs, k)

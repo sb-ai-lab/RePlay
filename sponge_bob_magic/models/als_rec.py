@@ -40,14 +40,17 @@ class ALSRec(Recommender):
             "rank": self.rank
         }
 
-    def _pre_fit(self, log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame]) -> None:
+    def _pre_fit(self,
+                 log: DataFrame,
+                 user_features: Optional[DataFrame] = None,
+                 item_features: Optional[DataFrame] = None) -> None:
         self.user_indexer_model = self.user_indexer.fit(log)
         self.item_indexer_model = self.item_indexer.fit(log)
 
-    def _fit_partial(self, log: DataFrame, user_features: Optional[DataFrame],
-                     item_features: Optional[DataFrame]) -> None:
+    def _fit_partial(self,
+                     log: DataFrame,
+                     user_features: Optional[DataFrame] = None,
+                     item_features: Optional[DataFrame] = None) -> None:
         logging.debug("Индексирование данных")
         log_indexed = self.user_indexer_model.transform(log)
         log_indexed = self.item_indexer_model.transform(log_indexed)
@@ -63,15 +66,17 @@ class ALSRec(Recommender):
         ).fit(log_indexed)
 
     def _predict(self,
+                 log: DataFrame,
                  k: int,
-                 users: DataFrame, items: DataFrame,
-                 context: str, log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame],
-                 to_filter_seen_items: bool = True) -> DataFrame:
+                 users: DataFrame = None,
+                 items: DataFrame = None,
+                 context: str = None,
+                 user_features: Optional[DataFrame] = None,
+                 item_features: Optional[DataFrame] = None,
+                 filter_seen_items: bool = True) -> DataFrame:
         test_data = users.crossJoin(items).withColumn("relevance", lit(1))
 
-        if to_filter_seen_items:
+        if filter_seen_items:
             test_data = self._filter_seen_recs(
                 test_data,
                 log

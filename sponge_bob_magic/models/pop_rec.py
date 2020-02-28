@@ -46,9 +46,10 @@ class PopRec(Recommender):
         return {"alpha": self.alpha,
                 "beta": self.beta}
 
-    def _pre_fit(self, log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame]) -> None:
+    def _pre_fit(self,
+                 log: DataFrame,
+                 user_features: Optional[DataFrame] = None,
+                 item_features: Optional[DataFrame] = None) -> None:
         popularity = (log
                       .groupBy("item_id", "context")
                       .count())
@@ -75,20 +76,21 @@ class PopRec(Recommender):
                          "items_popularity.parquet")
         )
 
-    def _fit_partial(self, log: DataFrame,
-                     user_features: Optional[DataFrame],
-                     item_features: Optional[DataFrame]) -> None:
+    def _fit_partial(self,
+                     log: DataFrame,
+                     user_features: Optional[DataFrame] = None,
+                     item_features: Optional[DataFrame] = None) -> None:
         pass
 
     def _predict(self,
-                 k: int,
-                 users: DataFrame,
-                 items: DataFrame,
-                 context: str,
                  log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame],
-                 to_filter_seen_items: bool = True) -> DataFrame:
+                 k: int,
+                 users: DataFrame = None,
+                 items: DataFrame = None,
+                 context: str = None,
+                 user_features: Optional[DataFrame] = None,
+                 item_features: Optional[DataFrame] = None,
+                 filter_seen_items: bool = True) -> DataFrame:
         items_to_rec = self.items_popularity
 
         if context == DEFAULT_CONTEXT:
@@ -131,7 +133,7 @@ class PopRec(Recommender):
         # (user_id, item_id, context, relevance)
         recs = users.crossJoin(items)
 
-        if to_filter_seen_items:
+        if filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
 
         # берем топ-к

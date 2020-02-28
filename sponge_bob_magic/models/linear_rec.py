@@ -35,9 +35,10 @@ class LinearRec(Recommender):
                 "elastic_net_param": self.elastic_net_param,
                 "num_iter": self.num_iter}
 
-    def _pre_fit(self, log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame]) -> None:
+    def _pre_fit(self,
+                 log: DataFrame,
+                 user_features: Optional[DataFrame] = None,
+                 item_features: Optional[DataFrame] = None) -> None:
         # TODO: добавить проверку, что в логе есть только нули и единицы
         self.augmented_data = (
             self._augment_data(log, user_features, item_features)
@@ -45,8 +46,10 @@ class LinearRec(Recommender):
             .select("label", "features")
         ).cache()
 
-    def _fit_partial(self, log: DataFrame, user_features: DataFrame,
-                     item_features: DataFrame) -> None:
+    def _fit_partial(self,
+                     log: DataFrame,
+                     user_features: Optional[DataFrame] = None,
+                     item_features: Optional[DataFrame] = None) -> None:
         self._model = (
             LogisticRegression(
                 maxIter=self.num_iter,
@@ -88,14 +91,14 @@ class LinearRec(Recommender):
         )
 
     def _predict(self,
-                 k: int,
-                 users: DataFrame,
-                 items: DataFrame,
-                 context: Optional[str],
                  log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame],
-                 to_filter_seen_items: bool = True) -> DataFrame:
+                 k: int,
+                 users: Optional[DataFrame] = None,
+                 items: Optional[DataFrame] = None,
+                 context: Optional[str] = None,
+                 user_features: Optional[DataFrame] = None,
+                 item_features: Optional[DataFrame] = None,
+                 filter_seen_items: bool = True) -> DataFrame:
         data = (
             self._augment_data(
                 users.crossJoin(items), user_features, item_features
@@ -103,7 +106,7 @@ class LinearRec(Recommender):
             .select("features", "item_id", "user_id")
         )
 
-        if to_filter_seen_items:
+        if filter_seen_items:
             data = data.join(log, on=["user_id", "item_id"], how="left_anti")
 
         recs = (
