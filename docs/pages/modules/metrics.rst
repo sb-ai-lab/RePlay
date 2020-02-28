@@ -31,6 +31,8 @@ Unexpectedness
 ---------------
 .. autoclass:: sponge_bob_magic.metrics.Unexpectedness
 
+.. _new-metric:
+
 Своя метрика
 ----------------------
 Для добавления необходимо унаследоваться от класса ``Metric`` и реализовать/переопределить следующие методы
