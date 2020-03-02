@@ -31,20 +31,6 @@ CommonDataFrame = Union[DataFrame, pd.DataFrame]
 class Metric(ABC):
     """ Базовый класс метрик. """
 
-    def __init__(self,
-                 log: Optional[CommonDataFrame] = None,
-                 user_features: Optional[CommonDataFrame] = None,
-                 item_features: Optional[CommonDataFrame] = None
-                 ):
-        if log is not None:
-            self.log = convert(log)
-
-        if user_features is not None:
-            self.user_features = convert(user_features)
-
-        if item_features is not None:
-            self.item_features = convert(item_features)
-
     def __call__(
             self,
             recommendations: CommonDataFrame,

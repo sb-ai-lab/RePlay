@@ -42,8 +42,8 @@ Unexpectedness
 - **_get_enriched_recommendations**
 - **_get_metric_value_by_user**
 
-Первые два метода уже реализованы, их стоит переопределять только в случае необходимости.
-Последний метод необходимо реализовать для всех метрик.
+``_get_enriched_recommendations`` уже реализован, и его стоит переопределять только в случае необходимости.
+Последний метод необходимо реализовать для всех метрик, так как в нём происходит основное вычисление метрики.
 
 .. autoclass:: sponge_bob_magic.metrics.Metric
    :special-members: _get_enriched_recommendations, _get_metric_value_by_user
