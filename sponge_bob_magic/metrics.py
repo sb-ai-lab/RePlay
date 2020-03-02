@@ -36,13 +36,13 @@ class Metric(ABC):
                  user_features: Optional[CommonDataFrame] = None,
                  item_features: Optional[CommonDataFrame] = None
                  ):
-        if log:
+        if log is not None:
             self.log = convert(log)
 
-        if user_features:
+        if user_features is not None:
             self.user_features = convert(user_features)
 
-        if item_features:
+        if item_features is not None:
             self.item_features = convert(item_features)
 
     def __call__(
@@ -128,7 +128,7 @@ class Metric(ABC):
             pandas_df = (pandas_df.sort_values("relevance", ascending=False)
                          .reset_index(drop=True)
                          .assign(k=pandas_df.index + 1))
-            return agg_fn(pandas_df)[["user_id", "cum_agg", "k"]]
+            return agg_fn(pandas_df)[["user_id","cum_agg","k"]]
 
         recs = self._get_enriched_recommendations(recommendations, ground_truth)
         recs = recs.groupby("user_id").apply(grouped_map).where(sf.col("k").isin(k_set))
@@ -409,6 +409,13 @@ class Unexpectedness(Metric):
     """
     Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.
     По умолчанию используется рекомендатель по популярности.
+
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({"user_id": [1,1,2,3], "item_id": [1,2,1,3], "relevance": [5.,5.,5.,5.], "timestamp": [1,1,1,1], "context": [1, 1, 1, 1]})
+    >>> dd = pd.DataFrame({"user_id": [1,2,1,2], "item_id": [1,2,3,1], "relevance": [5.,5.,5.,5.], "timestamp": [1,1,1,1], "context": [1, 1, 1, 1]})
+    >>> m = Unexpectedness(df)
+    >>> m(dd, dd, [1, 2])
+    {1: 1.0, 2: 0.25}
     """
 
     def __init__(self, log: CommonDataFrame, rec: Recommender = PopRec()):
@@ -421,7 +428,9 @@ class Unexpectedness(Metric):
         :param log: пандас или спарк датафрейм
         :param rec: одна из проинициализированных моделей библиотеки, либо ``None``
         """
-        self.log = convert(log)
+
+        super().__init__(log=log)
+        #self.log = convert(log)
         if rec is None:
             self.train_model = False
         else:
@@ -432,14 +441,20 @@ class Unexpectedness(Metric):
     def __str__(self):
         return "Unexpectedness"
 
-    def _get_metric_value_by_user(self, pandas_df):
-        pandas_df["pos"] = pandas_df.apply(
+    @staticmethod
+    def _get_metric_value_by_user(pandas_df):
+        recs = pandas_df["item_id"]
+        pandas_df["cum_agg"] = pandas_df.apply(
             lambda row:
-            row.x.index(row["item"]) if row["item"] in row.x
-            else self.max_k,
+            (
+                 row["k"] -
+                 np.isin(
+                     recs[:row["k"]],
+                     row["items_id"][:row["k"]]
+                 ).sum()
+             )/row["k"],
             axis=1)
-        pandas_df = pandas_df.assign(unexpected=int(pandas_df["pos"] < pandas_df["k"]))
-        return pandas_df.assign(cum_agg=pandas_df["rec_weight"].cumsum() / pandas_df["k"])
+        return pandas_df
 
     def _get_enriched_recommendations(
             self,
@@ -450,13 +465,12 @@ class Unexpectedness(Metric):
             pred = self.model.predict(log=self.log, k=self.max_k)
         else:
             pred = self.log
-
         items_by_users = (pred
             .groupby("user_id").agg(
             sf.collect_list("item_id").alias("items_id")))
-
-        return recommendations.join(
+        res = recommendations.join(
             items_by_users,
             how="inner",
             on=["user_id"]
         )
+        return res
