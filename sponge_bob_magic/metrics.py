@@ -31,16 +31,17 @@ CommonDataFrame = Union[DataFrame, pd.DataFrame]
 class Metric(ABC):
     """ Базовый класс метрик. """
 
-    def __init__(self, **kwargs):
-        log = kwargs.get("log")
+    def __init__(self,
+                 log: Optional[CommonDataFrame] = None,
+                 user_features: Optional[CommonDataFrame] = None,
+                 item_features: Optional[CommonDataFrame] = None
+                 ):
         if log is not None:
             self.log = convert(log)
 
-        user_features = kwargs.get("user_features")
         if user_features is not None:
             self.user_features = convert(user_features)
 
-        item_features = kwargs.get("item_features")
         if item_features is not None:
             self.item_features = convert(item_features)
 
@@ -192,6 +193,9 @@ class HitRate(Metric):
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
 
+    def __init__(self):
+        pass
+
     def __str__(self):
         return "HitRate"
 
@@ -235,6 +239,9 @@ class NDCG(Metric):
         nDCG@K = \\frac {\sum_{i=1}^{N}nDCG@K(i)}{N}
     """
 
+    def __init__(self):
+        pass
+
     def __str__(self):
         return "nDCG"
 
@@ -263,6 +270,9 @@ class Precision(Metric):
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
 
+    def __init__(self):
+        pass
+
     def __str__(self):
         return "Precision"
 
@@ -285,6 +295,9 @@ class MAP(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
     """
+
+    def __init__(self):
+        pass
 
     def __str__(self):
         return "MAP"
@@ -317,6 +330,9 @@ class Recall(Metric):
 
     :math:`|Rel_i|` -- количество элементов, с которыми взаимодействовал пользователь :math:`i`
     """
+
+    def __init__(self):
+        pass
 
     def __str__(self):
         return "Recall"
@@ -364,7 +380,7 @@ class Surprisal(Metric):
     def __str__(self):
         return "Surprisal"
 
-    def __init__(self, log: CommonDataFrame, **kwargs):
+    def __init__(self, log: CommonDataFrame):
         """
         Чтобы посчитать метрику, необходимо предрассчитать собственную информацию каждого объекта.
 
@@ -411,7 +427,7 @@ class Unexpectedness(Metric):
     0.67
     """
 
-    def __init__(self, log: CommonDataFrame, rec: Recommender = PopRec(), **kwargs):
+    def __init__(self, log: CommonDataFrame, rec: Recommender = PopRec()):
         """
         Есть два варианта инициализации в зависимости от значения параметра ``rec``.
         Если ``rec`` -- рекомендатель, то ``log`` считается данными для обучения.
