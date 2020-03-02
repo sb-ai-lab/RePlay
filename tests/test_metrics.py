@@ -104,13 +104,13 @@ class TestMetrics(PySparkTest):
 
     def test_surprisal_at_k(self):
         self.assertDictAlmostEqual(
-            Surprisal(self.log2)(self.recs2, self.ground_truth_recs, [1, 2]),
+            Surprisal(self.log2)(self.recs2, [1, 2]),
             {1: 1.0,
              2: 1.0}
         )
 
         self.assertAlmostEqual(
-            Surprisal(self.log2)(self.recs, self.log, 3),
+            Surprisal(self.log2)(self.recs, 3),
             5 * (1 - 1/log2(3))/9 + 4/9
         )
 

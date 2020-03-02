@@ -351,13 +351,20 @@ class Surprisal(Metric):
     def __str__(self):
         return "Surprisal"
 
+    def __call__(
+                self,
+                recommendations: CommonDataFrame,
+                k: IterOrList
+        ) -> Union[Dict[int, NumType], NumType]:
+            return super().__call__(recommendations, recommendations, k)
+
     def __init__(self, log: CommonDataFrame):
         """
         Чтобы посчитать метрику, необходимо предрассчитать собственную информацию каждого объекта.
 
         :param log: датафрейм с логом действий пользователей
         """
-        super().__init__(log=log)
+        self.log = convert(log)
         n_users = self.log.select("user_id").distinct().count()
         self.item_weights = log.groupby("item_id").agg(
                 (sf.log2(n_users / sf.countDistinct("user_id"))
@@ -385,7 +392,7 @@ class Unexpectedness(Metric):
     >>> df = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": [1, 2, 1, 3], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1], "context": [1, 1, 1, 1]})
     >>> dd = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": [1, 2, 3, 1], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1], "context": [1, 1, 1, 1]})
     >>> m = Unexpectedness(df)
-    >>> m(dd, dd, [1, 2])
+    >>> m(dd, [1, 2])
     {1: 1.0, 2: 0.25}
 
 
@@ -394,7 +401,7 @@ class Unexpectedness(Metric):
     >>> de = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 5, 5], "timestamp": [1, 1, 1], "context": [1, 1, 1]})
     >>> dr = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [0, 0, 1], "relevance": [5, 5, 5], "timestamp": [1, 1, 1], "context": [1, 1, 1]})
     >>> m = Unexpectedness(dr, None)
-    >>> round(m(de, de, 3), 2)
+    >>> round(m(de, 3), 2)
     0.67
     """
 
@@ -424,7 +431,6 @@ class Unexpectedness(Metric):
     def __call__(
             self,
             recommendations: CommonDataFrame,
-            ground_truth: CommonDataFrame,
             k: IterOrList
     ) -> Union[Dict[int, NumType], NumType]:
         return super().__call__(recommendations, recommendations, k)
