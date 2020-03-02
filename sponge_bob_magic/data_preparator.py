@@ -3,32 +3,18 @@
 """
 import collections
 import logging
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
+import pandas as pd
 from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.types import FloatType, StringType, TimestampType
 
 from sponge_bob_magic import constants
+from sponge_bob_magic.converter import convert
+from sponge_bob_magic.utils import flat_list
 
-
-def flat_list(list_object: Iterable):
-    """
-    Генератор.
-    Из неоднородного листа с вложенными листами делает однородный лист.
-    Например, [1, [2], [3, 4], 5] -> [1, 2, 3, 4, 5].
-
-    :param list_object: лист
-    :return: преобразованный лист
-    """
-    for item in list_object:
-        if (
-                isinstance(item, collections.abc.Iterable) and
-                not isinstance(item, (str, bytes))
-        ):
-            yield from flat_list(item)
-        else:
-            yield item
+CommonDataFrame = Union[DataFrame, pd.DataFrame]
 
 
 class DataPreparator:
@@ -189,10 +175,12 @@ class DataPreparator:
                 )
         return dataframe
 
+
     def transform_log(self,
-                      path: str,
-                      format_type: str,
                       columns_names: Dict[str, Union[str, List[str]]],
+                      log: Optional[CommonDataFrame] = None,
+                      path: Optional[str] = None,
+                      format_type: Optional[str] = None,
                       date_format: Optional[str] = None,
                       **kwargs) -> DataFrame:
         """
@@ -200,15 +188,16 @@ class DataPreparator:
         в файле по пути `path` в спарк-датафрейм вида
         `[user_id, item_id, timestamp, context, relevance]`.
 
-        :param path: путь к файлу с логом
-        :param format_type: тип файла, принимает значения из списка
-            `[csv , parquet , json , table]`
         :param columns_names: маппинг колонок, ключ - значения из списка
             `[user_id , item_id , timestamp , context , relevance]`;
             обязательными являются только `[user_id , item_id]`;
             значения - колонки в логе; в `timestamp` может быть числовая
             колонка, которая обозначает порядок записей,
             она будет преобразована в даты
+        :param log: dataframe с логом
+        :param path: путь к файлу с логом
+        :param format_type: тип файла, принимает значения из списка
+            `[csv , parquet , json , table]`
         :param date_format: формат даты, нужен, если формат даты особенный
         :param kwargs: дополнительные аргументы, которые передаются в функцию
             `spark.read.csv(path, **kwargs)`
@@ -222,7 +211,13 @@ class DataPreparator:
                             optional_columns={"timestamp", "context",
                                               "relevance"})
 
-        dataframe = self._read_data(path, format_type, **kwargs)
+        if log is not None:
+            dataframe = convert(log)
+        elif path and format_type:
+            dataframe = self._read_data(path, format_type, **kwargs)
+        else:
+            raise ValueError("Один из параметров log, path должны быть отличным от None")
+
         self._check_dataframe(dataframe, columns_names)
 
         log_schema = {
@@ -240,9 +235,10 @@ class DataPreparator:
         return dataframe
 
     def transform_features(self,
-                           path: str,
-                           format_type: str,
                            columns_names: Dict[str, Union[str, List[str]]],
+                           log: Optional[CommonDataFrame] = None,
+                           path: Optional[str] = None,
+                           format_type: Optional[str] = None,
                            date_format: Optional[str] = None,
                            **kwargs) -> DataFrame:
         """
@@ -250,18 +246,19 @@ class DataPreparator:
         в файле по пути `path` в спарк-датафрейм вида
         `[user_id, timestamp, features]` или `[item_id, timestamp, features]`.
 
-        :param path: путь к файлу с признаками
-        :param format_type: тип файла, принимает значения из списка
-            `[csv , parquet , json , table]`
         :param columns_names: маппинг колонок, ключ - значения из списка
             `[user_id` / `item_id , timestamp , features]`;
             обязательными являются только
             `[user_id]` или `[item_id]` (должен быть один из них);
             если `features` нет в ключах,
-            то призанками фичей явлются все оставшиеся колонки;
+            то признаками фичей явлются все оставшиеся колонки;
             в качестве `features` может подаваться как список, так и отдельное
             значение колонки (если признак один);
             значения - колонки в табличке признаков
+        :param log: dataframe с логом
+        :param path: путь к файлу с признаками
+        :param format_type: тип файла, принимает значения из списка
+            `[csv , parquet , json , table]`
         :param date_format: формат даты; нужен,
             если формат колонки `timestamp` особенный
         :param kwargs: дополнительные аргументы, которые передаются в функцию
@@ -281,7 +278,12 @@ class DataPreparator:
         self._check_columns(set(columns_names.keys()),
                             required_columns=required_columns,
                             optional_columns={"timestamp", "features"})
-        dataframe = self._read_data(path, format_type, **kwargs)
+        if log is not None:
+            dataframe = convert(log)
+        elif path and format_type:
+            dataframe = self._read_data(path, format_type, **kwargs)
+        else:
+            raise ValueError("Один из параметров log, path должны быть отличным от None")
         # если фичей нет в данных юзером колонках, вставляем все оставшиеся
         # нужно, чтобы проверить, что там нет нуллов
         if "features" not in columns_names:

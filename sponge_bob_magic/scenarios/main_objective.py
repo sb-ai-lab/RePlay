@@ -180,7 +180,7 @@ class MainObjective:
         """ Подсчитывает все метрики и сохраняет их в `trial`. """
         result_string = "-- Метрики:"
 
-        criterion_value = criterion(recommendations, ground_truth, k=k)[k]
+        criterion_value = criterion(recommendations, ground_truth, k=k)
         result_string += f" {criterion}={criterion_value:.4f}"
 
         for metric in metrics:

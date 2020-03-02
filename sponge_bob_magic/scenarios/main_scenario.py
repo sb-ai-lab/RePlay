@@ -237,7 +237,13 @@ class MainScenario:
 
         if fallback_rec is not None:
             fallback_recs = (
-                fallback_rec
+                fallback_rec.fit_predict(split_data.predict_input,
+                             k,
+                             split_data.users, split_data.items,
+                             context,
+                             split_data.user_features,
+                             split_data.item_features,
+                             self.filter_seen_items)
             )
         return fallback_recs
 
