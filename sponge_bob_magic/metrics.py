@@ -179,9 +179,6 @@ class HitRate(Metric):
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
 
-    def __init__(self):
-        pass
-
     def __str__(self):
         return "HitRate"
 
@@ -225,9 +222,6 @@ class NDCG(Metric):
         nDCG@K = \\frac {\sum_{i=1}^{N}nDCG@K(i)}{N}
     """
 
-    def __init__(self):
-        pass
-
     def __str__(self):
         return "nDCG"
 
@@ -256,9 +250,6 @@ class Precision(Metric):
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
 
-    def __init__(self):
-        pass
-
     def __str__(self):
         return "Precision"
 
@@ -281,9 +272,6 @@ class MAP(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
     """
-
-    def __init__(self):
-        pass
 
     def __str__(self):
         return "MAP"
@@ -316,9 +304,6 @@ class Recall(Metric):
 
     :math:`|Rel_i|` -- количество элементов, с которыми взаимодействовал пользователь :math:`i`
     """
-
-    def __init__(self):
-        pass
 
     def __str__(self):
         return "Recall"
