@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, List, Union, Dict
+from typing import Any, Dict, List, Union
 
 import pandas as pd
 
@@ -20,10 +20,10 @@ class Experiment:
     >>> import pandas as pd
     >>> from sponge_bob_magic.metrics import NDCG, Surprisal
     >>> from sponge_bob_magic.experiment import Experiment
-    >>> log = pd.DataFrame({"user_id": [2,2,2,1], "item_id": [1,2,3,3], "relevance": [5,5,5,5]})
-    >>> test = pd.DataFrame({"user_id": [1,1,1], "item_id": [1,2,3], "relevance": [5,3,4]})
-    >>> pred = pd.DataFrame({"user_id": [1,1,1], "item_id": [1,3,4], "relevance": [5,4,5]})
-    >>> ex = Experiment(test, {NDCG(): [2,3], Surprisal(log): 3})
+    >>> log = pd.DataFrame({"user_id": [2, 2, 2, 1], "item_id": [1, 2, 3, 3], "relevance": [5, 5, 5, 5]})
+    >>> test = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 3, 4]})
+    >>> pred = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 3, 4], "relevance": [5, 4, 5]})
+    >>> ex = Experiment(test, {NDCG(): [2, 3], Surprisal(log): 3})
     >>> ex.add_result('my_model', pred)
     >>> ex.df
               Surprisal@3    nDCG@2    nDCG@3

@@ -11,7 +11,7 @@
 """
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Union, Optional
+from typing import Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -366,7 +366,7 @@ class Surprisal(Metric):
         """
         self.log = convert(log)
         n_users = self.log.select("user_id").distinct().count()
-        self.item_weights = log.groupby("item_id").agg(
+        self.item_weights = self.log.groupby("item_id").agg(
                 (sf.log2(n_users / sf.countDistinct("user_id"))
                  / np.log2(n_users)).alias("rec_weight"))
 
