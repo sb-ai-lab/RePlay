@@ -408,14 +408,23 @@ class Surprisal(Metric):
 class Unexpectedness(Metric):
     """
     Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.
-    По умолчанию используется рекомендатель по популярности.
+    По умолчанию используется рекомендатель по популярности ``PopRec``.
 
     >>> import pandas as pd
-    >>> df = pd.DataFrame({"user_id": [1,1,2,3], "item_id": [1,2,1,3], "relevance": [5.,5.,5.,5.], "timestamp": [1,1,1,1], "context": [1, 1, 1, 1]})
-    >>> dd = pd.DataFrame({"user_id": [1,2,1,2], "item_id": [1,2,3,1], "relevance": [5.,5.,5.,5.], "timestamp": [1,1,1,1], "context": [1, 1, 1, 1]})
+    >>> df = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": [1, 2, 1, 3], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1], "context": [1, 1, 1, 1]})
+    >>> dd = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": [1, 2, 3, 1], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1], "context": [1, 1, 1, 1]})
     >>> m = Unexpectedness(df)
     >>> m(dd, dd, [1, 2])
     {1: 1.0, 2: 0.25}
+
+
+    Возможен так же режим, в котором рекомендации базового алгоритма передаются сразу при инициализации и рекомендатель не обучается
+
+    >>> de = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 5, 5], "timestamp": [1, 1, 1], "context": [1, 1, 1]})
+    >>> dr = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [0, 0, 1], "relevance": [5, 5, 5], "timestamp": [1, 1, 1], "context": [1, 1, 1]})
+    >>> m = Unexpectedness(dr, None)
+    >>> round(m(de, de, 3), 2)
+    0.67
     """
 
     def __init__(self, log: CommonDataFrame, rec: Recommender = PopRec()):
@@ -429,8 +438,8 @@ class Unexpectedness(Metric):
         :param rec: одна из проинициализированных моделей библиотеки, либо ``None``
         """
 
-        super().__init__(log=log)
-        #self.log = convert(log)
+        # super().__init__(log=log)
+        self.log = convert(log)
         if rec is None:
             self.train_model = False
         else:
@@ -440,6 +449,14 @@ class Unexpectedness(Metric):
 
     def __str__(self):
         return "Unexpectedness"
+
+    def __call__(
+            self,
+            recommendations: CommonDataFrame,
+            ground_truth: CommonDataFrame,
+            k: IterOrList
+    ) -> Union[Dict[int, NumType], NumType]:
+        return super().__call__(recommendations, recommendations, k)
 
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
