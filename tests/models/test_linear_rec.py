@@ -80,12 +80,19 @@ class LinearRecTestCase(PySparkTest):
             items=self.item_features.select("item_id"),
             context=DEFAULT_CONTEXT,
             user_features=self.user_features,
-            item_features=self.item_features
+            item_features=self.item_features,
+            filter_seen_items=False
         )
         self.assertSparkDataFrameEqual(self.log.drop("timestamp"), prediction)
-        empty_prediction = self.model._predict(log=self.log, k=2, users=self.user_features.select("user_id"),
-                                               items=self.item_features.select("item_id"), context=DEFAULT_CONTEXT,
-                                               user_features=self.user_features, item_features=self.item_features)
+        empty_prediction = self.model._predict(
+            log=self.log,
+            k=2,
+            users=self.user_features.select("user_id"),
+            items=self.item_features.select("item_id"),
+            context=DEFAULT_CONTEXT,
+            user_features=self.user_features,
+            item_features=self.item_features
+        )
         self.assertEqual(
             sorted([(field.name, field.dataType) for field in
                     self.log.drop("timestamp").schema.fields],
