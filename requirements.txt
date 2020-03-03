@@ -19,7 +19,6 @@ cloudpickle==1.2.2
 cmd2==0.8.9
 colorama==0.4.3
 colorlog==4.0.2
-commonmark==0.9.1
 configparser==4.0.2
 coverage==4.5.4
 cycler==0.10.0
