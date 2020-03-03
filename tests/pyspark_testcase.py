@@ -79,7 +79,3 @@ class PySparkTest(unittest.TestCase):
         warnings.filterwarnings(action="ignore", category=ResourceWarning)
         cls.spark = State(cls.create_testing_pyspark_session()).session
         cls.spark.sparkContext.setLogLevel("ERROR")
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.spark.stop()
