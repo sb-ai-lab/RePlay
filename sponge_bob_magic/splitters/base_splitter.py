@@ -9,7 +9,7 @@ from pyspark.sql import DataFrame
 
 from sponge_bob_magic.converter import convert, get_type
 
-SplitterReturnType = Tuple[DataFrame, DataFrame, DataFrame]
+SplitterReturnType = Tuple[DataFrame, DataFrame]
 
 
 class Splitter(ABC):
@@ -112,6 +112,5 @@ class Splitter(ABC):
 
         return (
             convert(train, type_in),
-            convert(self._filter_zero_relevance(predict_input), type_in),
             convert(self._filter_zero_relevance(test), type_in)
         )

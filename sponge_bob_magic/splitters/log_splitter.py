@@ -46,7 +46,7 @@ class DateSplitter(Splitter):
             sf.col("timestamp") >= sf.lit(self.test_start).cast(
                 TimestampType())
         )
-        return train, train, test
+        return train, test
 
 
 class RandomSplitter(Splitter):
@@ -73,7 +73,7 @@ class RandomSplitter(Splitter):
             [1 - self.test_size, self.test_size],
             self.seed
         )
-        return train, train, test
+        return train, test
 
 
 class ColdUsersSplitter(Splitter):
@@ -135,7 +135,5 @@ class ColdUsersSplitter(Splitter):
             .drop("start_dt")
             .cache()
         )
-        predict_input = SparkSession(train.rdd.context).createDataFrame(
-            data=[], schema=LOG_SCHEMA
-        )
-        return train, predict_input, test
+
+        return train, test

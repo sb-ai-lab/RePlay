@@ -175,7 +175,7 @@ class UserSplitter(Splitter):
                     frac <= {self.item_test_size} AND
                     test_user IS NOT NULL
                 """).drop("rand", "row_num", "count", "frac", "test_user")
-        return train, train, test
+        return train, test
 
     def _split_quantity(self, log: DataFrame) -> SplitterReturnType:
         """
@@ -210,13 +210,13 @@ class UserSplitter(Splitter):
                     row_num <= {self.item_test_size} AND
                     test_user IS NOT NULL
                 """).drop("rand", "row_num", "test_user")
-        return train, train, test
+        return train, test
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         if 0 <= self.item_test_size < 1.0:
-            train, predict_input, test = self._split_proportion(log)
+            train, test = self._split_proportion(log)
         elif self.item_test_size >= 1 and isinstance(self.item_test_size, int):
-            train, predict_input, test = self._split_quantity(log)
+            train, test = self._split_quantity(log)
         else:
             raise ValueError(
                 "Значение `test_size` должно быть в диапазоне [0, 1) или "
@@ -224,7 +224,7 @@ class UserSplitter(Splitter):
                 f"сейчас test_size={self.item_test_size}"
             )
 
-        return train, predict_input, test
+        return train, test
 
     @staticmethod
     def _add_random_partition(dataframe: DataFrame, seed: int = None) -> DataFrame:
