@@ -144,8 +144,8 @@ class UserSplitter(Splitter):
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
             `[timestamp, user_id, item_id, context, relevance]`
-        :return: тройка спарк-датафреймов структуры, аналогичной входной
-            `train, predict_input, test`
+        :return: спарк-датафреймы структуры, аналогичной входной
+            `train, test`
         """
 
         counts = log.groupBy("user_id").count()
@@ -186,8 +186,8 @@ class UserSplitter(Splitter):
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
             `[timestamp, user_id, item_id, context, relevance]`
-        :return: тройка спарк-датафреймов структуры, аналогичной входной
-            `train, predict_input, test`
+        :return: спарк-датафреймы структуры, аналогичной входной
+            `train, test`
         """
 
         test_users = self._get_test_users(log).withColumn(

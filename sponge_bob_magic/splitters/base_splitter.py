@@ -83,8 +83,7 @@ class Splitter(ABC):
         :param log: лог взаимодействия, спарк-датафрейм с колонками
             `[timestamp, user_id, item_id, context, relevance]`
         :returns: тройка спарк-датафреймов структуры, аналогичной входной,
-            `train, predict_input, test`, где `train` - обучающая выборка,
-            `predict_input` - выборка, которая известна на момент предсказания,
+            `train, test`, где `train` - обучающая выборка,
             `test` - тестовая выборка
         """
 
@@ -98,12 +97,11 @@ class Splitter(ABC):
         :param log: лог взаимодействия, спарк-датафрейм с колонками
            ``[timestamp, user_id, item_id, context, relevance]``
         :returns: тройка спарк-датафреймов структуры, аналогичной входной,
-            ``train, predict_input, test``, где ``train`` - обучающая выборка,
-            ``predict_input`` - выборка, которая известна на момент предсказания,
+            ``train, test``, где ``train`` - обучающая выборка,
             ``test`` - тестовая выборка
         """
         type_in = get_type(log)
-        train, predict_input, test = self._core_split(convert(log))
+        train, test = self._core_split(convert(log))
 
         test = self._drop_cold_items_and_users(
             train, test,
