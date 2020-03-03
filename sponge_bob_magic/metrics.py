@@ -114,7 +114,7 @@ class Metric(ABC):
             pandas_df = (pandas_df.sort_values("relevance", ascending=False)
                          .reset_index(drop=True)
                          .assign(k=pandas_df.index + 1))
-            return agg_fn(pandas_df)[["user_id","cum_agg","k"]]
+            return agg_fn(pandas_df)[["user_id", "cum_agg", "k"]]
 
         recs = self._get_enriched_recommendations(recommendations, ground_truth)
         recs = recs.groupby("user_id").apply(grouped_map).where(sf.col("k").isin(k_set))
@@ -416,7 +416,6 @@ class Unexpectedness(Metric):
         :param rec: одна из проинициализированных моделей библиотеки, либо ``None``
         """
 
-        # super().__init__(log=log)
         self.log = convert(log)
         if rec is None:
             self.train_model = False
