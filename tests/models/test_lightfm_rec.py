@@ -33,7 +33,7 @@ class LightFMRecTestCase(PySparkTest):
         item_factors = self.lightfm_rec.model.item_embeddings
         self.assertTrue(np.allclose(
             item_factors,
-            [[-0.06065203], [0.5662015], [0.04397682]]
+            [[-0.0770841], [0.30166334], [0.32802925]]
         ))
 
     def test_predict(self):
@@ -50,9 +50,9 @@ class LightFMRecTestCase(PySparkTest):
             recs,
             self.spark.createDataFrame(
                 [
-                    ["u1", "i3", DEFAULT_CONTEXT, -0.25914710760116577],
-                    ["u2", "i3", DEFAULT_CONTEXT, -0.2138521820306778],
-                    ["u3", "i4", DEFAULT_CONTEXT, -0.3359125852584839]
+                    ["u3", "i3", DEFAULT_CONTEXT, -0.34175461530685425],
+                    ["u1", "i3", DEFAULT_CONTEXT, -0.2539006471633911],
+                    ["u2", "i3", DEFAULT_CONTEXT, -0.22212029993534088]
                 ],
                 schema=REC_SCHEMA
             )
