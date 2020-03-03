@@ -15,10 +15,10 @@ from sponge_bob_magic.splitters.user_log_splitter import UserSplitter
 
 class TestSplitter(UserSplitter):
     def _split_proportion(self, log: DataFrame) -> SplitterReturnType:
-        return (log, log, log)
+        return (log, log)
 
     def _split_quantity(self, log: DataFrame) -> SplitterReturnType:
-        return (log, log, log)
+        return (log, log)
 
 
 class TestUserLogSplitter(PySparkTest):
@@ -102,7 +102,7 @@ class TestRandomUserLogSplitter(PySparkTest):
         (4,),
     ])
     def test_split(self, item_test_size):
-        train, predict_input, test = (
+        train, test = (
             UserSplitter(
                 drop_cold_items=False,
                 drop_cold_users=False,
@@ -113,10 +113,7 @@ class TestRandomUserLogSplitter(PySparkTest):
         )
 
         self.assertSparkDataFrameEqual(train.union(test), self.log)
-        self.assertSparkDataFrameEqual(predict_input.union(test), self.log)
-
         self.assertEqual(test.intersect(train).count(), 0)
-        self.assertEqual(test.intersect(predict_input).count(), 0)
 
         if isinstance(item_test_size, int):
             #  это грубая проверка; чтобы она была верна, необходимо
@@ -125,8 +122,6 @@ class TestRandomUserLogSplitter(PySparkTest):
             self.assertEqual(num_users * item_test_size, test.count())
             self.assertEqual(self.log.count() - num_users * item_test_size,
                              train.count())
-            self.assertEqual(self.log.count() - num_users * item_test_size,
-                             predict_input.count())
 
     @parameterized.expand([
         # item_test_size
@@ -172,7 +167,7 @@ class TestByTimeUserLogSplitter(PySparkTest):
             schema=LOG_SCHEMA)
 
     def test_split_quantity(self):
-        train, predict_input, test = (
+        train, test = (
             UserSplitter(
                 drop_cold_items=False,
                 drop_cold_users=False,
@@ -207,10 +202,9 @@ class TestByTimeUserLogSplitter(PySparkTest):
             schema=LOG_SCHEMA)
         self.assertSparkDataFrameEqual(true_train, train)
         self.assertSparkDataFrameEqual(true_test, test)
-        self.assertSparkDataFrameEqual(true_train, predict_input)
 
     def test_split_proportion(self):
-        train, predict_input, test = (
+        train, test = (
             UserSplitter(
                 drop_cold_items=False,
                 drop_cold_users=False,
@@ -246,7 +240,6 @@ class TestByTimeUserLogSplitter(PySparkTest):
 
         self.assertSparkDataFrameEqual(true_train, train)
         self.assertSparkDataFrameEqual(true_test, test)
-        self.assertSparkDataFrameEqual(true_train, predict_input)
 
     @parameterized.expand([
         # item_test_size
