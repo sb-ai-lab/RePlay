@@ -1,19 +1,21 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+import logging
 import os
 import unittest
 import warnings
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
 import pandas as pd
 from pyspark.ml.linalg import DenseVector
 from pyspark.sql import DataFrame, SparkSession
 
+from sponge_bob_magic.session_handler import State
+
 
 class PySparkTest(unittest.TestCase):
     spark: SparkSession = None
-    spark_log_level: str = "ERROR"
 
     def assertSparkDataFrameEqual(
             self,
@@ -72,9 +74,11 @@ class PySparkTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        logger = logging.getLogger()
+        logger.setLevel("WARN")
         warnings.filterwarnings(action="ignore", category=ResourceWarning)
-        cls.spark = cls.create_testing_pyspark_session()
-        cls.spark.sparkContext.setLogLevel(cls.spark_log_level)
+        cls.spark = State(cls.create_testing_pyspark_session()).session
+        cls.spark.sparkContext.setLogLevel("ERROR")
 
     @classmethod
     def tearDownClass(cls):
