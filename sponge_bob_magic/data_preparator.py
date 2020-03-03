@@ -20,7 +20,7 @@ CommonDataFrame = Union[DataFrame, pd.DataFrame]
 
 
 class DataPreparator:
-    """ Класс для считывания различных типов данных. """
+    """ Класс для преобразования различных типов данных. """
     spark: SparkSession
 
     def __init__(self, spark: SparkSession):
@@ -179,15 +179,17 @@ class DataPreparator:
                   path: Optional[str] = None,
                   format_type: Optional[str] = None,
                   date_format: Optional[str] = None,
-                  features_columns: Optional[Iterable[str]] = None,
+                  features_columns: Optional[Union[str, Iterable[str]]] = None,
                   **kwargs) -> DataFrame:
         """
-        Преобразовывает признаки пользователей или объектов формата ``format_type``
-        в файле по пути ``path`` в спарк-датафрейм вида
-        ``[user_id, timestamp, features]`` или ``[item_id, timestamp, features]``.
-
+        Преобразовывает лог, либо признаки пользователей или объектов
+        в спарк-датафрейм вида
+        ``[user_id, timestamp, features]`` или ``[item_id, timestamp, features]``
+        или ``[user_id, user_id, timestamp, context , relevance]``.
+        На вход необходимо передать либо файл формата ``format_type``
+        по пути ``path``, либо ``pandas.DataFrame`` или ``spark.DataFrame``
         :param columns_names: маппинг колонок, ключ - значения из списка
-            ``[user_id`` / ``item_id , timestamp , features]``;
+            ``[user_id`` / ``item_id , timestamp , *columns]``;
             обязательными являются только
             ``[user_id]`` или ``[item_id]`` (должен быть один из них);
             если ``features`` нет в ключах,
@@ -195,17 +197,19 @@ class DataPreparator:
             в качестве ``features`` может подаваться как список, так и отдельное
             значение колонки (если признак один);
             значения - колонки в табличке признаков
-        :param log: dataframe с логом
+        :param data: dataframe с логом
         :param path: путь к файлу с признаками
         :param format_type: тип файла, принимает значения из списка
             ``[csv , parquet , json , table]``
         :param date_format: формат даты; нужен,
             если формат колонки ``timestamp`` особенный
+        :param features_columns: столбец либо список столбцов, в которых хранятся
+            признаки пользователей/объектов
         :param kwargs: дополнительные аргументы, которые передаются в функцию
             ``spark.read.csv(path, **kwargs)``
         :return: спарк-датафрейм с колонками
-            ``[user_id / item_id , timestamp]`` и колонки с признаками;
-            колонка ``timestamp``, если ее нет в ``columns_names``,
+            ``[user_id / item_id , timestamp]`` и прочие колонки из ``columns_names``;
+            колонки, не предоставленные в ``columns_names``,
             заполянются дефолтными значениями
         """
         if data is not None:
