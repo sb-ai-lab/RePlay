@@ -1,21 +1,13 @@
 """
-Метрики необходимы для определния качества модели.
-Для рассчета большинства метрик требуются таблица с рекомендациями и таблица с реальными значениями -- списком айтемов,
+Для рассчета большинства метрик требуется таблица с рекомендациями и таблица с реальными значениями -- списком айтемов,
 с которыми провзаимодействовал пользователь.
-Все метрики рассчитываются не для общего списка рекомендаций, а только для первых top-K,
-``K`` задается в качестве параметра. Возможно передавать как набор разных K, так и одно значение
 
-Реализованы следующие метрики
+Все метрики рассчитываются для первых ``K`` объектов в рекомендации.
+Поддерживается возможность рассчета метрик сразу по нескольким ``K``,
+в таком случае будет возвращен словарь с результатами, а не число.
 
-- :ref:`HitRate <HitRate>`
-- :ref:`Precision <Precision>`
-- :ref:`MAP <MAP>`
-- :ref:`Recall <Recall>`
-- :ref:`NDCG <NDCG>`
-- :ref:`Surprisal <Surprisal>`
-
-В случае, если указанных метрик недостаточно, библиотека поддерживает возможность
-:ref:`создания новых метрик <new-metric>`.
+Если реализованных метрик недостаточно, библиотека поддерживает возможность
+:ref:`добавления своих метрик <new-metric>`.
 """
 import logging
 from abc import ABC, abstractmethod
@@ -29,6 +21,8 @@ from pyspark.sql import types as st
 
 from sponge_bob_magic.constants import IterOrList
 from sponge_bob_magic.converter import convert
+from sponge_bob_magic.models import PopRec
+from sponge_bob_magic.models.base_rec import Recommender
 
 NumType = Union[int, float]
 CommonDataFrame = Union[DataFrame, pd.DataFrame]
@@ -36,20 +30,6 @@ CommonDataFrame = Union[DataFrame, pd.DataFrame]
 
 class Metric(ABC):
     """ Базовый класс метрик. """
-
-    def __init__(self,
-                 log: Optional[CommonDataFrame] = None,
-                 user_features: Optional[CommonDataFrame] = None,
-                 item_features: Optional[CommonDataFrame] = None
-                 ):
-        if log:
-            self.log = convert(log)
-
-        if user_features:
-            self.user_features = convert(user_features)
-
-        if item_features:
-            self.item_features = convert(item_features)
 
     def __call__(
             self,
@@ -121,6 +101,7 @@ class Metric(ABC):
             k_set = {k}
         else:
             k_set = set(k)
+        self.max_k = max(k_set)
         users_count = recommendations.select("user_id").distinct().count()
         agg_fn = self._get_metric_value_by_user
 
@@ -186,22 +167,16 @@ class Metric(ABC):
 
 class HitRate(Metric):
     """
-    Метрика HitRate@K:
-    для какой доли пользователей удалось порекомендовать среди
-    первых ``K`` хотя бы один объект из реального лога.
-    Диапазон значений [0, 1], чем выше метрика, тем лучше.
-
-    Для каждого пользователя метрика считается следующим образом
+    Доля пользователей, для которой хотя бы одна рекомендация из
+    первых ``K`` была успешна.
 
     .. math::
         HitRate@K(i) = \max_{j \in [1..K]}\mathbb{1}_{r_{ij}}
 
-    Здесь :math:`r_{ij}` -- индикатор было ли взаимодействие с рекомендацией :math:`j` у пользователя :math:`i`.
-
-    Для расчета метрики по всем пользователям достаточно усреднить её значение
-
     .. math::
         HitRate@K = \\frac {\sum_{i=1}^{N}HitRate@K(i)}{N}
+
+    :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
 
     def __str__(self):
@@ -217,24 +192,31 @@ class HitRate(Metric):
 
 class NDCG(Metric):
     """
-    Метрика nDCG@k:
-    чем релевантнее элементы среди первых ``K``, тем выше метрика.
-    Здесь реализован бинарный вариант релевантности а не произвольный из диапазона [0, 1].
-    Диапазон значений [0, 1], чем выше метрика, тем лучше.
+    Normalized Discounted Cumulative Gain учитывает порядок в списке рекомендаций --
+    чем ближе к началу списка полезные рекомендации, тем больше значение метрики.
 
-    Для каждого пользователя метрика считается следующим образом
+    Реализован бинарный вариант релевантности -- был объект или нет,
+    не произвольная шкала полезности вроде оценок.
+
+    Метрика определяется следующим образом:
 
     .. math::
-        &DCG@K(i) = \sum_{j=1}^{K}\\frac{\mathbb{1}_{r_{ij}}}{\log_2 (j+1)}
+        DCG@K(i) = \sum_{j=1}^{K}\\frac{\mathbb{1}_{r_{ij}}}{\log_2 (j+1)}
 
-        &IDCG@K(i) = \sum_{j=1}^{K}\\frac{\mathbb{1}_{j\le|Rel_i|}}{\log_2 (j+1)}
 
-        &nDCG@K(i) = \\frac {DCG@K(i)}{IDCG@K(i)}
+    :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 
-    Здесь :math:`r_{ij}` -- индикатор было ли взаимодействие с рекомендацией :math:`j` у пользователя :math:`i`,
+    Для перехода от :math:`DCG` к :math:`nDCG` необходимо подсчитать максимальное значение метрики для пользователя :math:`i` и  длины рекомендаций :math:`K`
+
+    .. math::
+        IDCG@K(i) = max(DCG@K(i)) = \sum_{j=1}^{K}\\frac{\mathbb{1}_{j\le|Rel_i|}}{\log_2 (j+1)}
+
+    .. math::
+        nDCG@K(i) = \\frac {DCG@K(i)}{IDCG@K(i)}
+
     :math:`|Rel_i|` -- количество элементов, с которыми пользовтель :math:`i` взаимодействовал
 
-    Для расчета метрики по всем пользователям достаточно усреднить её значение
+    Для расчета итоговой метрики усредняем по всем пользователям
 
     .. math::
         nDCG@K = \\frac {\sum_{i=1}^{N}nDCG@K(i)}{N}
@@ -257,21 +239,15 @@ class NDCG(Metric):
 
 class Precision(Metric):
     """
-    Метрика Precision@k:
-    точность на ``K`` первых элементах выдачи.
-    Диапазон значений [0, 1], чем выше метрика, тем лучше.
-
-    Для каждого пользователя метрика считается следующим образом
+    Средняя доля успешных рекомендаций среди первых ``K`` элементов выдачи.
 
     .. math::
         Precision@K(i) = \\frac {\sum_{j=1}^{K}\mathbb{1}_{r_{ij}}}{K}
 
-    Здесь :math:`r_{ij}` -- индикатор было ли взаимодействие с рекомендацией :math:`j` у пользователя :math:`i`.
-
-    Для расчета метрики по всем пользователям достаточно усреднить её значение
-
     .. math::
         Precision@K = \\frac {\sum_{i=1}^{N}Precision@K(i)}{N}
+
+    :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
 
     def __str__(self):
@@ -287,23 +263,14 @@ class Precision(Metric):
 
 class MAP(Metric):
     """
-    Метрика MAP@k (mean average precision):
-    средняя точность на ``K`` первых элементах выдачи.
-    Диапазон значений [0, 1], чем выше метрика, тем лучше.
-
-    Для каждого пользователя метрика считается следующим образом
+    Mean Average Precision -- усреднение ``Precision`` по целым числам от 1 до ``K``, усреднённое по пользователям.
 
     .. math::
-        &AP@K(i) = \\frac 1K \sum_{j=1}^{K}\mathbb{1}_{r_{ij}}Precision@j_i
+        &AP@K(i) = \\frac 1K \sum_{j=1}^{K}\mathbb{1}_{r_{ij}}Precision@j(i)
 
-        &MAP@K(i) = \\frac 1K \sum_{j=1}^{K}AP@k_i
+        &MAP@K = \\frac {\sum_{i=1}^{N}AP@K(i)}{N}
 
-    Здесь :math:`r_{ij}` -- индикатор было ли взаимодействие с рекомендацией :math:`j` у пользователя :math:`i`
-
-    Для расчета метрики по всем пользователям достаточно усреднить её значение
-
-    .. math::
-        MAP@K = \\frac {\sum_{i=1}^{N}MAP@K(i)}{N}
+    :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
     """
 
     def __str__(self):
@@ -325,22 +292,17 @@ class MAP(Metric):
 
 class Recall(Metric):
     """
-    Метрика Recall@K:
-    доля объектов из реального лога, которые мы покажем в рекомендациях среди
-    первых ``K`` (в среднем по пользователям).
-    Диапазон значений [0, 1], чем выше метрика, тем лучше.
-    Для каждого пользователя метрика считается следующим образом
+    Какая доля объектов, с которыми взаимодействовал пользователь в тестовых данных, была показана ему в списке рекомендаций длины ``K``?
 
     .. math::
         Recall@K(i) = \\frac {\sum_{j=1}^{K}\mathbb{1}_{r_{ij}}}{|Rel_i|}
 
-    Здесь :math:`r_{ij}` -- индикатор было ли взаимодействие с рекомендацией :math:`j` у пользователя :math:`i`,
-    :math:`|Rel_i|` -- количество элементов, с которыми пользовтель :math:`i` взаимодействовал
-
-    Для расчета метрики по всем пользователям достаточно усреднить её значение
-
     .. math::
         Recall@K = \\frac {\sum_{i=1}^{N}Recall@K(i)}{N}
+
+    :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
+
+    :math:`|Rel_i|` -- количество элементов, с которыми взаимодействовал пользователь :math:`i`
     """
 
     def __str__(self):
@@ -357,23 +319,30 @@ class Recall(Metric):
 
 class Surprisal(Metric):
     """
-    Метрика Surprisal@k:
-    суммарная популярность объектов, показаных пользовтелю в рекомендациях среди
-    первых ``K`` (в среднем по пользователям).
-    Чем выше метрика, тем больше непопулярных объектов попадают в рекомендации.
-    Для каждого пользователя метрика считается следующим образом
+    Показывает насколько редкие предметы выдаются в рекомендациях.
+    В качестве оценки редкости используется собственная информация объекта,
+    превращающая популярность объекта в его неожиданность.
 
     .. math::
-        &Weight_{ij}= -\log_2 \\frac {u_j}{N}
+        \\textit{Self-Information}(j)= -\log_2 \\frac {u_j}{N}
 
-        &Weight_{ij,norm}= \\frac {Weight_ij}{log_2 N}
+    :math:`u_j` -- количество пользователей, которые взаимодействовали с объектом :math:`j`.
+    Для холодных объектов количество взаимодействий считается равным 1,
+    то есть их появление в рекомендациях будет считаться крайне неожиданным.
 
-        &Surprisal@K(i) = \sum_{j=1}^{K}Weight_{ij,norm}
+    Чтобы метрику было проще интерпретировать, это значение нормируется.
 
-    Здесь :math:`u_j` -- количество пользователей, которе взаимодействовали с элементом :math:`j`.
-    Для холодных объектов количество взаимодействий считается равным 1.
+    Таким образом редкость объекта :math:`j` определяется как
 
-    Для расчета метрики по всем пользователям достаточно усреднить её значение
+    .. math::
+        Surprisal(j)= \\frac {\\textit{Self-Information}(j)}{log_2 N}
+
+    Для списка рекомендаций длины :math:`K` значение метрики определяется как среднее значение редкости.
+
+    .. math::
+        Surprisal@K(i) = \\frac {\sum_{j=1}^{K}Surprisal(j)} {K}
+
+    Итоговое значение усредняется по пользователям
 
     .. math::
         Surprisal@K = \\frac {\sum_{i=1}^{N}Surprisal@K(i)}{N}
@@ -382,14 +351,20 @@ class Surprisal(Metric):
     def __str__(self):
         return "Surprisal"
 
-    def __init__(self,
-                 log: CommonDataFrame,
-                 user_features: Optional[CommonDataFrame] = None,
-                 item_features: Optional[CommonDataFrame] = None):
+    def __call__(
+                self,
+                recommendations: CommonDataFrame,
+                k: IterOrList
+        ) -> Union[Dict[int, NumType], NumType]:
+            return super().__call__(recommendations, recommendations, k)
+
+    def __init__(self, log: CommonDataFrame):
         """
-        Предрасчет весов всех items, в зависимости от их популярности
+        Чтобы посчитать метрику, необходимо предрассчитать собственную информацию каждого объекта.
+
+        :param log: датафрейм с логом действий пользователей
         """
-        super().__init__(log=log)
+        self.log = convert(log)
         n_users = self.log.select("user_id").distinct().count()
         self.item_weights = log.groupby("item_id").agg(
                 (sf.log2(n_users / sf.countDistinct("user_id"))
@@ -407,3 +382,88 @@ class Surprisal(Metric):
         return (recommendations.join(self.item_weights,
                                      on="item_id",
                                      how="left").fillna(1))
+
+class Unexpectedness(Metric):
+    """
+    Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.
+    По умолчанию используется рекомендатель по популярности ``PopRec``.
+
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": [1, 2, 1, 3], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1], "context": [1, 1, 1, 1]})
+    >>> dd = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": [1, 2, 3, 1], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1], "context": [1, 1, 1, 1]})
+    >>> m = Unexpectedness(df)
+    >>> m(dd, [1, 2])
+    {1: 1.0, 2: 0.25}
+
+
+    Возможен так же режим, в котором рекомендации базового алгоритма передаются сразу при инициализации и рекомендатель не обучается
+
+    >>> de = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 5, 5], "timestamp": [1, 1, 1], "context": [1, 1, 1]})
+    >>> dr = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [0, 0, 1], "relevance": [5, 5, 5], "timestamp": [1, 1, 1], "context": [1, 1, 1]})
+    >>> m = Unexpectedness(dr, None)
+    >>> round(m(de, 3), 2)
+    0.67
+    """
+
+    def __init__(self, log: CommonDataFrame, rec: Recommender = PopRec()):
+        """
+        Есть два варианта инициализации в зависимости от значения параметра ``rec``.
+        Если ``rec`` -- рекомендатель, то ``log`` считается данными для обучения.
+        Если ``rec is None``, то ``log`` считается готовыми предсказаниями какой-то внешней модели,
+        с которой необходимо сравниться.
+
+        :param log: пандас или спарк датафрейм
+        :param rec: одна из проинициализированных моделей библиотеки, либо ``None``
+        """
+
+        self.log = convert(log)
+        if rec is None:
+            self.train_model = False
+        else:
+            self.train_model = True
+            rec.fit(log=self.log)
+            self.model = rec
+
+    def __str__(self):
+        return "Unexpectedness"
+
+    def __call__(
+            self,
+            recommendations: CommonDataFrame,
+            k: IterOrList
+    ) -> Union[Dict[int, NumType], NumType]:
+        return super().__call__(recommendations, recommendations, k)
+
+    @staticmethod
+    def _get_metric_value_by_user(pandas_df):
+        recs = pandas_df["item_id"]
+        pandas_df["cum_agg"] = pandas_df.apply(
+            lambda row:
+            (
+                 row["k"] -
+                 np.isin(
+                     recs[:row["k"]],
+                     row["items_id"][:row["k"]]
+                 ).sum()
+             )/row["k"],
+            axis=1)
+        return pandas_df
+
+    def _get_enriched_recommendations(
+            self,
+            recommendations: DataFrame,
+            ground_truth: DataFrame
+    ) -> DataFrame:
+        if self.train_model:
+            pred = self.model.predict(log=self.log, k=self.max_k)
+        else:
+            pred = self.log
+        items_by_users = (pred
+            .groupby("user_id").agg(
+            sf.collect_list("item_id").alias("items_id")))
+        res = recommendations.join(
+            items_by_users,
+            how="inner",
+            on=["user_id"]
+        )
+        return res
