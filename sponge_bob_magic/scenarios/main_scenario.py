@@ -34,7 +34,10 @@ class MainScenario:
     ):
         self.splitter = (
             splitter if splitter
-            else RandomSplitter(test_size=0.3, drop_cold_items=True, drop_cold_users=True, seed=None)
+            else RandomSplitter(test_size=0.3,
+                                drop_cold_items=True,
+                                drop_cold_users=True,
+                                seed=None)
         )
         self.recommender = (
             recommender if recommender
@@ -62,16 +65,11 @@ class MainScenario:
             item_features: Optional[DataFrame] = None,
     ) -> SplitData:
         """ Делит лог и готовит объекти типа `SplitData`. """
-        train, predict_input, test = self.splitter.split(log)
+        train, test = self.splitter.split(log)
         spark = SparkSession(log.rdd.context)
         train = write_read_dataframe(
             train,
             os.path.join(spark.conf.get("spark.local.dir"), "train")
-        )
-        predict_input = write_read_dataframe(
-            predict_input,
-            os.path.join(spark.conf.get("spark.local.dir"),
-                         "predict_input")
         )
         test = write_read_dataframe(
             test,
@@ -91,7 +89,7 @@ class MainScenario:
         users = users if users else test.select("user_id").distinct().cache()
         items = items if items else test.select("item_id").distinct().cache()
 
-        split_data = SplitData(train, predict_input, test,
+        split_data = SplitData(train, test,
                                users, items,
                                user_features, item_features)
 
@@ -237,7 +235,7 @@ class MainScenario:
 
         if fallback_rec is not None:
             fallback_recs = (
-                fallback_rec.fit_predict(split_data.predict_input,
+                fallback_rec.fit_predict(split_data.train,
                              k,
                              split_data.users, split_data.items,
                              context,

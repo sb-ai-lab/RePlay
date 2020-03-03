@@ -97,7 +97,7 @@ class MainObjective:
 
         logging.debug("-- Предикт модели в оптимизации")
         recs = self.recommender.predict(
-            log=self.split_data.predict_input,
+            log=self.split_data.train,
             k=self.k,
             users=self.split_data.users,
             items=self.split_data.items,
