@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Union
 import pandas as pd
 
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.metrics import Metric
+from sponge_bob_magic.metrics import Metric, Surprisal, Unexpectedness
 
 
 class Experiment:
@@ -60,7 +60,10 @@ class Experiment:
         res = pd.Series(name=name)
         recs = convert(pred)
         for metric, k_list in self.metrics.items():
-            values = metric(recs, self.test, k_list)
+            if isinstance(metric, (Surprisal, Unexpectedness)):
+                values = metric(recs, k_list)
+            else:
+                values = metric(recs, self.test, k_list)
             if isinstance(k_list, int):
                 res[f"{metric}@{k_list}"] = values
             else:

@@ -6,7 +6,7 @@ from datetime import datetime
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, REC_SCHEMA
-from sponge_bob_magic.metrics import NDCG, HitRate, Precision
+from sponge_bob_magic.metrics import NDCG, HitRate, Precision, Surprisal
 from sponge_bob_magic.models.knn_rec import KNNRec
 from sponge_bob_magic.models.pop_rec import PopRec
 from sponge_bob_magic.scenarios.main_scenario import MainScenario
@@ -38,7 +38,7 @@ class MainScenarioTestCase(PySparkTest):
             drop_cold_items=True
         )
         self.scenario.criterion = HitRate
-        self.scenario.metrics = {NDCG: [2], Precision: [2]}
+        self.scenario.metrics = {NDCG: [2], Precision: [2], Surprisal: [2]}
         self.scenario.optuna_max_n_trials = 10
         self.scenario.fallback_rec = None
         self.scenario._optuna_seed = 42

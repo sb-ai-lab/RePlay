@@ -10,7 +10,7 @@ from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame, SparkSession
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, IterOrList
-from sponge_bob_magic.metrics import HitRate, Metric
+from sponge_bob_magic.metrics import HitRate, Metric, Surprisal, Unexpectedness
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.models.pop_rec import PopRec
 from sponge_bob_magic.scenarios.main_objective import MainObjective, SplitData
@@ -202,8 +202,11 @@ class MainScenario:
         logging.debug("Инициализация метрик")
         metrics = {}
         for metric in self.metrics:
-            metrics[metric(split_data.train)] = self.metrics[metric]
-        criterion = self.criterion(split_data.train)
+            if metric in {Surprisal, Unexpectedness}:
+                metrics[metric(split_data.train)] = self.metrics[metric]
+            else:
+                metrics[metric()] = self.metrics[metric]
+        criterion = self.criterion()
         logging.debug("Обучение и предсказание дополнительной модели")
         fallback_recs = self._predict_fallback_recs(self.fallback_rec,
                                                     split_data, k, context)

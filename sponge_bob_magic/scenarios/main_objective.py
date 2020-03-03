@@ -13,7 +13,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.constants import IterOrList
-from sponge_bob_magic.metrics import Metric
+from sponge_bob_magic.metrics import Metric, Surprisal, Unexpectedness
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
@@ -179,7 +179,13 @@ class MainObjective:
         criterion_value = criterion(recommendations, ground_truth, k=k)
         result_string += f" {criterion}={criterion_value:.4f}"
         for metric in metrics:
-            values = metric(recommendations, ground_truth, k=metrics[metric])
+            if isinstance(metric, (Surprisal, Unexpectedness)):
+                values = metric(recommendations, k=metrics[metric])
+            else:
+                values = metric(
+                    recommendations=recommendations,
+                    ground_truth=ground_truth,
+                    k=metrics[metric])
             trial.set_user_attr(str(metric), values)
             values_str = ", ".join(
                 f"{key}: {values[key]:.4f}" for key in values)
