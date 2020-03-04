@@ -1,14 +1,16 @@
-import unittest
 import doctest
-from sponge_bob_magic import experiment
+from unittest import TestSuite, TextTestRunner
+
 import pandas as pd
+from tests.pyspark_testcase import PySparkTest
 
+from sponge_bob_magic import experiment
 
-suite = unittest.TestSuite()
+suite = TestSuite()
 suite.addTests(doctest.DocTestSuite(experiment))
 
 
-class TestConverter(unittest.TestCase):
+class TestConverter(PySparkTest):
     def runTest(self):
         with self.assertRaises(TypeError):
             experiment.Experiment(
@@ -20,5 +22,5 @@ class TestConverter(unittest.TestCase):
 
 
 suite.addTest(TestConverter())
-runner = unittest.TextTestRunner(verbosity=2)
+runner = TextTestRunner()
 runner.run(suite)
