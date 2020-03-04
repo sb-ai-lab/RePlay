@@ -10,6 +10,8 @@ from sponge_bob_magic.datasets.data_loader.archives import (extract,
 from sponge_bob_magic.datasets.data_loader.loaders import (download_dataset,
                                                            download_url)
 
+logging.getLogger().setLevel(logging.INFO)
+
 
 def download_movielens(path: str = ".", dataset: str = "ml-latest-small"):
     """

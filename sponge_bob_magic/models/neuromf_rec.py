@@ -18,8 +18,9 @@ from pyspark.sql import functions as sf
 from pyspark.sql.functions import udf
 from pyspark.sql.types import DoubleType
 from sklearn.model_selection import train_test_split
-from torch import Tensor
+from torch import Tensor, LongTensor
 from torch.nn import DataParallel, Embedding, Module
+from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
@@ -69,7 +70,8 @@ class NMF(Module):
 
         :param user: батч ID пользователей
         :param item: батч ID объектов
-        :type get_embs: флаг, указывающий, возвращать ли промежуточные эмбеддинги
+        :type get_embs: флаг, указывающий, возвращать ли промежуточные
+            эмбеддинги
         :return: батч весов предсказанных взаимодействий пользователей и
             объектов или батч промежуточных эмбеддингов
         """
@@ -77,8 +79,8 @@ class NMF(Module):
         item_emb = self.item_embedding(item)
         dot = (user_emb * item_emb).sum(dim=1).squeeze()
         relevance = (
-            dot + self.item_biases(item).squeeze() +
-            self.user_biases(user).squeeze()
+                dot + self.item_biases(item).squeeze() +
+                self.user_biases(user).squeeze()
         )
         if get_embs:
             return user_emb, item_emb
@@ -175,11 +177,11 @@ class NeuroMFRec(Recommender):
         return loss
 
     def _run_epoch(self,
-                   train_user_batch: torch.LongTensor,
-                   train_item_batch: torch.LongTensor,
-                   valid_user_batch: torch.LongTensor,
-                   valid_item_batch: torch.LongTensor,
-                   optimizer: torch.optim.Optimizer) -> float:
+                   train_user_batch: LongTensor,
+                   train_item_batch: LongTensor,
+                   valid_user_batch: LongTensor,
+                   valid_item_batch: LongTensor,
+                   optimizer: torch.optim.Optimizer) -> Tuple[float, float]:
         train_dataset = TensorDataset(train_user_batch, train_item_batch)
         train_data = DataLoader(
             train_dataset,
@@ -226,8 +228,7 @@ class NeuroMFRec(Recommender):
         self.model.train()
         optimizer = torch.optim.Adam(self.model.parameters(),
                                      lr=self.learning_rate)
-        lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer,
-                                                              gamma=0.95)
+        lr_scheduler = ExponentialLR(optimizer, gamma=0.95)
         logging.debug("Составление батча:")
         spark = SparkSession(log.rdd.context)
         tensor_data = NeuroMFRec.spark2pandas_csv(
@@ -238,16 +239,16 @@ class NeuroMFRec(Recommender):
         train_tensor_data, valid_tensor_data = train_test_split(
             tensor_data, stratify=tensor_data["user_idx"], test_size=0.1,
             random_state=42)
-        train_user_batch = torch.LongTensor(train_tensor_data["user_idx"].values)
-        train_item_batch = torch.LongTensor(train_tensor_data["item_idx"].values)
-        valid_user_batch = torch.LongTensor(valid_tensor_data["user_idx"].values)
-        valid_item_batch = torch.LongTensor(valid_tensor_data["item_idx"].values)
+        train_user_batch = LongTensor(train_tensor_data["user_idx"].values)
+        train_item_batch = LongTensor(train_tensor_data["item_idx"].values)
+        valid_user_batch = LongTensor(valid_tensor_data["user_idx"].values)
+        valid_item_batch = LongTensor(valid_tensor_data["item_idx"].values)
         logging.debug("Обучение модели")
         val_losses = []
         early_stopping = 3
         for epoch in range(self.epochs):
             logging.debug("-- Эпоха %d", epoch)
-            current_loss, current_val_loss = self._run_epoch(
+            _, current_val_loss = self._run_epoch(
                 train_user_batch,
                 train_item_batch,
                 valid_user_batch,
@@ -255,8 +256,9 @@ class NeuroMFRec(Recommender):
                 optimizer
             )
             val_losses.append(current_val_loss)
-            best_loss = current_val_loss if len(val_losses) == 1 else min(val_losses[:-1])
-            if current_val_loss < best_loss:
+            best_loss = current_val_loss if len(val_losses) == 1 \
+                else min(val_losses[:-1])
+            if current_val_loss <= best_loss:
                 self.save_model(
                     os.path.join(
                         spark.conf.get("spark.local.dir"),
@@ -264,7 +266,8 @@ class NeuroMFRec(Recommender):
                     )
                 )
             if (len(val_losses) > early_stopping and
-                    min(val_losses[-early_stopping:]) == val_losses[-early_stopping]):
+                    min(val_losses[-early_stopping:]) ==
+                    val_losses[-early_stopping]):
                 logging.debug(f"-- Early stopping! Лучшая эпоха {epoch} "
                               f"с лоссом {val_losses[-early_stopping]}")
                 break
@@ -275,7 +278,9 @@ class NeuroMFRec(Recommender):
         if torch.cuda.is_available():
             train_user_batch = train_user_batch.cuda()
             train_item_batch = train_item_batch.cuda()
-        _, item_embs = self.model(train_user_batch, train_item_batch, get_embs=True)
+        _, item_embs = self.model(train_user_batch,
+                                  train_item_batch,
+                                  get_embs=True)
         for item_id, item_emb in zip(
                 train_tensor_data["item_idx"].values,
                 item_embs.detach().cpu().numpy()
@@ -307,7 +312,7 @@ class NeuroMFRec(Recommender):
             os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_users_data")
         )
-        user_batch = torch.LongTensor(tensor_data["user_idx"].values)
+        user_batch = LongTensor(tensor_data["user_idx"].values)
         item_batch = torch.ones_like(user_batch)
         if torch.cuda.is_available():
             user_batch = user_batch.cuda()
@@ -351,7 +356,6 @@ class NeuroMFRec(Recommender):
             recs = self._filter_seen_recs(recs, log)
 
         recs = get_top_k_recs(recs, k)
-
         logging.debug("Преобразование отрицательных relevance")
         recs = NeuroMFRec.min_max_scale_column(recs, "relevance")
 
