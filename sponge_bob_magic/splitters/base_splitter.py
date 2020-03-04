@@ -6,6 +6,7 @@ from typing import Tuple
 
 import pandas as pd
 from pyspark.sql import DataFrame
+from pyspark.sql import functions as sf
 
 from sponge_bob_magic.converter import convert, get_type
 
@@ -59,17 +60,17 @@ class Splitter(ABC):
         :return: тестовая выборка без холодных users / items
         """
         if drop_cold_items:
+            train_tmp = train.select(sf.col("item_id").alias("item")).distinct()
             test = test.join(
-                train.select("item_id").distinct(),
-                how="inner",
-                on="item_id"
+                train_tmp,
+                train_tmp.item == test.item_id
             )
 
         if drop_cold_users:
+            train_tmp = train.select(sf.col("user_id").alias("user")).distinct()
             test = test.join(
-                train.select("user_id").distinct(),
-                how="inner",
-                on="user_id"
+                train_tmp,
+                train_tmp.user == test.user_id
             )
         return test
 

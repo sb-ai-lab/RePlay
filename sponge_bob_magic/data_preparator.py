@@ -1,9 +1,11 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+Для получения рекомендаций данные необходимо предварительно обработать.
+Они должны соответствовать определенной структуре. Перед тем как обучить модель
+необходимо воспользоваться классом ``DataPreparator``. Данные пользователя могут храниться в файле
+либо содержаться внутри объекта ``pandas.DataFrame`` или ``spark.DataFrame``.
 """
-import collections
 import logging
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, Iterable
 
 import pandas as pd
 from pyspark.sql import Column, DataFrame, SparkSession
@@ -18,7 +20,7 @@ CommonDataFrame = Union[DataFrame, pd.DataFrame]
 
 
 class DataPreparator:
-    """ Основной класс для считывания различных типов данных. """
+    """ Класс для преобразования различных типов данных. """
     spark: SparkSession
 
     def __init__(self, spark: SparkSession):
@@ -64,13 +66,13 @@ class DataPreparator:
 
     @staticmethod
     def _check_dataframe(dataframe: DataFrame,
-                         columns_names: Dict[str, Union[str, List[str]]]):
+                         columns_names: Dict[str, str]):
         # чекаем, что датафрейм не пустой
         if len(dataframe.head(1)) == 0:
             raise ValueError("Датафрейм пустой")
 
         # чекаем, что данные юзером колонки реально есть в датафрейме
-        given_columns = set((flat_list(list(columns_names.values()))))
+        given_columns = set(columns_names.values())
         dataframe_columns = set(dataframe.columns)
         if not given_columns.issubset(dataframe_columns):
             raise ValueError(
@@ -143,24 +145,20 @@ class DataPreparator:
 
     @staticmethod
     def _rename_columns(dataframe: DataFrame,
-                        columns_names: Dict[str, Union[str, List[str]]],
+                        columns_names: Dict[str, str],
+                        features_columns: List[str],
                         default_schema: Dict[str, Tuple[Any, Any]],
                         date_format: Optional[str] = None):
-        # колонки с фичами не будут переименованы, их надо просто селектить
-        features_columns = columns_names.get("features", [])
-        if not isinstance(features_columns, list):
-            features_columns = [features_columns]
         # переименовываем колонки
         dataframe = dataframe.select([
             sf.col(column).alias(new_name)
             for new_name, column in columns_names.items()
-            if new_name != "features"
         ] + features_columns)
-        # добавляем необязательные дефолтные колонки, если их нет,
+        # добавляем необязательные дефолтные колонки, если они есть,
         # и задаем тип для тех колонок, что есть
         for column_name, (default_value,
                           default_type) in default_schema.items():
-            if column_name not in dataframe .columns:
+            if column_name not in dataframe.columns:
                 column = sf.lit(default_value)
             else:
                 column = sf.col(column_name)
@@ -169,142 +167,100 @@ class DataPreparator:
                     dataframe, column_name, column, date_format,
                     default_value)
             else:
-                dataframe = dataframe .withColumn(
+                dataframe = dataframe.withColumn(
                     column_name,
                     column.cast(default_type)
                 )
         return dataframe
 
-
-    def transform_log(self,
-                      columns_names: Dict[str, Union[str, List[str]]],
-                      log: Optional[CommonDataFrame] = None,
-                      path: Optional[str] = None,
-                      format_type: Optional[str] = None,
-                      date_format: Optional[str] = None,
-                      **kwargs) -> DataFrame:
+    def transform(self,
+                  columns_names: Dict[str, str],
+                  data: Optional[CommonDataFrame] = None,
+                  path: Optional[str] = None,
+                  format_type: Optional[str] = None,
+                  date_format: Optional[str] = None,
+                  features_columns: Optional[Union[str, Iterable[str]]] = None,
+                  **kwargs) -> DataFrame:
         """
-        Преобразовывает лог формата `format_type`
-        в файле по пути `path` в спарк-датафрейм вида
-        `[user_id, item_id, timestamp, context, relevance]`.
-
+        Преобразовывает лог, либо признаки пользователей или объектов
+        в спарк-датафрейм вида
+        ``[user_id, timestamp, features]`` или ``[item_id, timestamp, features]``
+        или ``[user_id, user_id, timestamp, context , relevance]``.
+        На вход необходимо передать либо файл формата ``format_type``
+        по пути ``path``, либо ``pandas.DataFrame`` или ``spark.DataFrame``
         :param columns_names: маппинг колонок, ключ - значения из списка
-            `[user_id , item_id , timestamp , context , relevance]`;
-            обязательными являются только `[user_id , item_id]`;
-            значения - колонки в логе; в `timestamp` может быть числовая
-            колонка, которая обозначает порядок записей,
-            она будет преобразована в даты
-        :param log: dataframe с логом
-        :param path: путь к файлу с логом
+            ``[user_id`` / ``item_id , timestamp , *columns]``;
+            обязательными являются только
+            ``[user_id]`` или ``[item_id]`` (должен быть один из них);
+            если ``features`` нет в ключах,
+            то признаками фичей явлются все оставшиеся колонки;
+            в качестве ``features`` может подаваться как список, так и отдельное
+            значение колонки (если признак один);
+            значения - колонки в табличке признаков
+        :param data: dataframe с логом
+        :param path: путь к файлу с признаками
         :param format_type: тип файла, принимает значения из списка
-            `[csv , parquet , json , table]`
-        :param date_format: формат даты, нужен, если формат даты особенный
+            ``[csv , parquet , json , table]``
+        :param date_format: формат даты; нужен,
+            если формат колонки ``timestamp`` особенный
+        :param features_columns: столбец либо список столбцов, в которых хранятся
+            признаки пользователей/объектов
         :param kwargs: дополнительные аргументы, которые передаются в функцию
-            `spark.read.csv(path, **kwargs)`
-        :return: спарк-датафрейм вида
-            `[user_id , item_id , timestamp , context , relevance]`;
-            колонки, не предоставленные в `columns_names`,
+            ``spark.read.csv(path, **kwargs)``
+        :return: спарк-датафрейм с колонками
+            ``[user_id / item_id , timestamp]`` и прочие колонки из ``columns_names``;
+            колонки, не предоставленные в ``columns_names``,
             заполянются дефолтными значениями
         """
-        self._check_columns(set(columns_names.keys()),
-                            required_columns={"user_id", "item_id"},
-                            optional_columns={"timestamp", "context",
-                                              "relevance"})
-
-        if log is not None:
-            dataframe = convert(log)
+        if data is not None:
+            dataframe = convert(data)
         elif path and format_type:
             dataframe = self._read_data(path, format_type, **kwargs)
         else:
-            raise ValueError("Один из параметров log, path должны быть отличным от None")
+            raise ValueError("Один из параметров data, path должен быть отличным от None")
+
+        if "user_id" in columns_names and "item_id" in columns_names:
+            required_columns = {"user_id": (None, StringType()),
+                                "item_id": (None, StringType())}
+            optional_columns = {"timestamp": ("1999-05-01", TimestampType()),
+                                "context": (constants.DEFAULT_CONTEXT, StringType()),
+                                "relevance": (1.0, FloatType())}
+            if features_columns is None:
+                features_columns = []
+            else:
+                raise ValueError("В данной таблице features не используются")
+        else:
+            optional_columns = {"timestamp": ("1999-05-01", TimestampType())}
+            if "user_id" in columns_names:
+                required_columns = {"user_id": (None, StringType())}
+            elif "item_id" in columns_names:
+                required_columns = {"item_id": (None, StringType())}
+            else:
+                raise ValueError("В columns_names нет ни 'user_id', ни 'item_id'")
+
+            # если фичей нет в данных пользователем колонках, вставляем все оставшиеся
+            # нужно, чтобы проверить, что там нет нуллов
+            if features_columns is None:
+                given_columns = set(columns_names.values())
+                dataframe_columns = set(dataframe.columns)
+                features_columns = list(dataframe_columns.difference(given_columns))
+                if features_columns:
+                    raise ValueError("В датафрейме нет колонок с фичами")
+
+            else:
+                if isinstance(features_columns,str):
+                    features_columns = [features_columns]
+                else:
+                    features_columns = list(features_columns)
+
+        self._check_columns(set(columns_names.keys()),
+                            required_columns=set(required_columns),
+                            optional_columns=set(optional_columns))
 
         self._check_dataframe(dataframe, columns_names)
 
-        log_schema = {
-            "timestamp": ("1999-05-01", TimestampType()),
-            "context": (constants.DEFAULT_CONTEXT, StringType()),
-            "relevance": (1.0, FloatType()),
-            "user_id": (None, StringType()),
-            "item_id": (None, StringType()),
-        }
-        dataframe = self._rename_columns(
-            dataframe, columns_names,
-            default_schema=log_schema,
-            date_format=date_format
-        ).cache()
-        return dataframe
-
-    def transform_features(self,
-                           columns_names: Dict[str, Union[str, List[str]]],
-                           log: Optional[CommonDataFrame] = None,
-                           path: Optional[str] = None,
-                           format_type: Optional[str] = None,
-                           date_format: Optional[str] = None,
-                           **kwargs) -> DataFrame:
-        """
-        Преобразовывает признаки формата `format_type`
-        в файле по пути `path` в спарк-датафрейм вида
-        `[user_id, timestamp, features]` или `[item_id, timestamp, features]`.
-
-        :param columns_names: маппинг колонок, ключ - значения из списка
-            `[user_id` / `item_id , timestamp , features]`;
-            обязательными являются только
-            `[user_id]` или `[item_id]` (должен быть один из них);
-            если `features` нет в ключах,
-            то признаками фичей явлются все оставшиеся колонки;
-            в качестве `features` может подаваться как список, так и отдельное
-            значение колонки (если признак один);
-            значения - колонки в табличке признаков
-        :param log: dataframe с логом
-        :param path: путь к файлу с признаками
-        :param format_type: тип файла, принимает значения из списка
-            `[csv , parquet , json , table]`
-        :param date_format: формат даты; нужен,
-            если формат колонки `timestamp` особенный
-        :param kwargs: дополнительные аргументы, которые передаются в функцию
-            `spark.read.csv(path, **kwargs)`
-        :return: спарк-датафрейм с колонками
-            `[user_id / item_id , timestamp]` и колонки с признаками;
-            колонка `timestamp`, если ее нет в `columns_names`,
-            заполянются дефолтными значениями
-        """
-        if "user_id" in columns_names:
-            required_columns = {"user_id"}
-        elif "item_id" in columns_names:
-            required_columns = {"item_id"}
-        else:
-            raise ValueError("В columns_names нет ни 'user_id', ни 'item_id'")
-
-        self._check_columns(set(columns_names.keys()),
-                            required_columns=required_columns,
-                            optional_columns={"timestamp", "features"})
-        if log is not None:
-            dataframe = convert(log)
-        elif path and format_type:
-            dataframe = self._read_data(path, format_type, **kwargs)
-        else:
-            raise ValueError("Один из параметров log, path должны быть отличным от None")
-        # если фичей нет в данных юзером колонках, вставляем все оставшиеся
-        # нужно, чтобы проверить, что там нет нуллов
-        if "features" not in columns_names:
-            given_columns = flat_list(list(columns_names.values()))
-            dataframe_columns = dataframe.columns
-            feature_columns = list(
-                set(dataframe_columns).difference(given_columns)
-            )
-            if len(feature_columns) == 0:
-                raise ValueError("В датафрейме нет колонок с фичами")
-            features_dict = {"features": feature_columns}
-        else:
-            features_dict = dict()
-        self._check_dataframe(dataframe, {**columns_names, **features_dict})
-        features_schema = {
-            "timestamp": ("1999-05-01", TimestampType()),
-            ("user_id" if "user_id" in columns_names else "item_id"):
-                (None, StringType()),
-        }
-        dataframe = self._rename_columns(
-            dataframe, columns_names,
-            default_schema=features_schema,
+        dataframe2 = self._rename_columns(
+            dataframe, columns_names, [],
+            default_schema={**required_columns, **optional_columns},
             date_format=date_format).cache()
-        return dataframe
+        return dataframe2

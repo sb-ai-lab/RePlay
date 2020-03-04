@@ -350,10 +350,13 @@ class Recommender(ABC):
             `[user_id , item_id , context , relevance]`
         """
         user_item_log = (log
-                         .select("item_id", "user_id")
+                         .select(sf.col("item_id").alias("item"),
+                                 sf.col("user_id").alias("user"))
                          .withColumn("in_log", sf.lit(True)))
         recs = (recs
-                .join(user_item_log, on=["item_id", "user_id"], how="left"))
+                .join(user_item_log,
+                      (recs.item_id == user_item_log.item) &
+                      (recs.user_id == user_item_log.user), how="left"))
         recs = (recs
                 .withColumn("relevance",
                             sf.when(recs["in_log"], -1)
