@@ -129,8 +129,8 @@ class NeuroMFRec(Recommender):
         }
 
     def _pre_fit(self, log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame]) -> None:
+                 user_features: Optional[DataFrame] = None,
+                 item_features: Optional[DataFrame] = None) -> None:
         self.user_indexer_model = self.user_indexer.fit(log)
         self.item_indexer_model = self.item_indexer.fit(log)
 
@@ -289,12 +289,14 @@ class NeuroMFRec(Recommender):
         self.annoy_index.build(self.num_trees_annoy)
 
     def _predict(self,
+                 log: DataFrame,
                  k: int,
-                 users: DataFrame, items: DataFrame,
-                 context: str, log: DataFrame,
-                 user_features: Optional[DataFrame],
-                 item_features: Optional[DataFrame],
-                 to_filter_seen_items: bool = True) -> DataFrame:
+                 users: Optional[DataFrame] = None,
+                 items: Optional[DataFrame] = None,
+                 context: Optional[str] = None,
+                 user_features: Optional[DataFrame] = None,
+                 item_features: Optional[DataFrame] = None,
+                 filter_seen_items: bool = True) -> DataFrame:
         self.model.eval()
         sep = ","
         spark = SparkSession(users.rdd.context)
@@ -352,7 +354,7 @@ class NeuroMFRec(Recommender):
         recs = item_converter.transform(recs)
         recs = recs.drop("user_idx", "item_idx")
 
-        if to_filter_seen_items:
+        if filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
 
         recs = get_top_k_recs(recs, k)
@@ -374,17 +376,17 @@ class NeuroMFRec(Recommender):
         """
         unlist = udf(lambda x: float(list(x)[0]), DoubleType())
         assembler = VectorAssembler(
-            inputCols=[column], outputCol=column+"_Vect"
+            inputCols=[column], outputCol=column + "_Vect"
         )
         scaler = MinMaxScaler(
-            inputCol=column+"_Vect", outputCol=column+"_Scaled"
+            inputCol=column + "_Vect", outputCol=column + "_Scaled"
         )
         pipeline = Pipeline(stages=[assembler, scaler])
         dataframe = (pipeline
                      .fit(dataframe)
                      .transform(dataframe)
-                     .withColumn(column, unlist(column+"_Scaled"))
-                     .drop(column+"_Vect", column+"_Scaled"))
+                     .withColumn(column, unlist(column + "_Scaled"))
+                     .drop(column + "_Vect", column + "_Scaled"))
 
         return dataframe
 
