@@ -24,6 +24,7 @@ class DataPreparator:
     Примеры использования:
 
     Загрузка таблицы с логом
+
     >>> import pandas as pd
     >>> from sponge_bob_magic.data_preparator import DataPreparator
     >>> from sponge_bob_magic.session_handler import State
@@ -50,7 +51,8 @@ class DataPreparator:
     <BLANKLINE>
 
 
-    Загрузка таблицы с признакми пользоватея
+    Загрузка таблицы с признакми пользователя
+
     >>> import pandas as pd
     >>> from sponge_bob_magic.data_preparator import DataPreparator
     >>> from sponge_bob_magic.session_handler import State
@@ -75,6 +77,33 @@ class DataPreparator:
     |  user1|2019-01-01 00:00:00|feature2|
     |  user2|2019-01-01 00:00:00|feature1|
     +-------+-------------------+--------+
+    <BLANKLINE>
+
+    Загрузка таблицы с признакми пользователя без явной передачи списка признаков
+
+    >>> import pandas as pd
+    >>> from sponge_bob_magic.data_preparator import DataPreparator
+    >>> from sponge_bob_magic.session_handler import State
+    >>>
+    >>> spark = State().session
+    >>> log = pd.DataFrame({"user": ["user1", "user1", "user2"],
+    ...                     "f0": ["feature1","feature2","feature1"],
+    ...                     "f1": ["left","left","center"],
+    ...                     "ts": ["2019-01-01","2019-01-01","2019-01-01"]}
+    ...             )
+    >>> dp = DataPreparator(spark)
+    >>> correct_log = dp.transform(data=log,
+    ...                            columns_names={"user_id": "user",
+    ...                                           "timestamp": "ts"}
+    ...                             )
+    >>> correct_log.show(3)
+    +-------+-------------------+--------+------+
+    |user_id|          timestamp|      f0|    f1|
+    +-------+-------------------+--------+------+
+    |  user1|2019-01-01 00:00:00|feature1|  left|
+    |  user1|2019-01-01 00:00:00|feature2|  left|
+    |  user2|2019-01-01 00:00:00|feature1|center|
+    +-------+-------------------+--------+------+
     <BLANKLINE>
     """
     spark: SparkSession
@@ -306,7 +335,7 @@ class DataPreparator:
             if features_columns is None:
                 given_columns = set(columns_names.values())
                 dataframe_columns = set(dataframe.columns)
-                features_columns = list(dataframe_columns.difference(given_columns))
+                features_columns = sorted(list(dataframe_columns.difference(given_columns)))
                 if not features_columns:
                     raise ValueError("В датафрейме нет колонок с фичами")
 
