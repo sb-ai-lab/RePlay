@@ -26,8 +26,8 @@ class Experiment:
     >>> ex = Experiment(test, {NDCG(): [2, 3], Surprisal(log): 3})
     >>> ex.add_result('my_model', pred)
     >>> ex.df
-              Surprisal@3    nDCG@2    nDCG@3
-    my_model     0.666667  0.613147  0.703918
+                NDCG@2    NDCG@3  Surprisal@3
+    my_model  0.613147  0.703918     0.666667
 
     """
     def __init__(self,

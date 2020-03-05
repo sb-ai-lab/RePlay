@@ -177,10 +177,6 @@ class HitRate(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
-
-    def __str__(self):
-        return "HitRate"
-
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
@@ -220,10 +216,6 @@ class NDCG(Metric):
     .. math::
         nDCG@K = \\frac {\sum_{i=1}^{N}nDCG@K(i)}{N}
     """
-
-    def __str__(self):
-        return "nDCG"
-
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
@@ -248,10 +240,6 @@ class Precision(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
-
-    def __str__(self):
-        return "Precision"
-
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
@@ -271,10 +259,6 @@ class MAP(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
     """
-
-    def __str__(self):
-        return "MAP"
-
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         pandas_df = pandas_df.assign(
@@ -303,10 +287,6 @@ class Recall(Metric):
 
     :math:`|Rel_i|` -- количество элементов, с которыми взаимодействовал пользователь :math:`i`
     """
-
-    def __str__(self):
-        return "Recall"
-
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
@@ -346,10 +326,6 @@ class Surprisal(Metric):
     .. math::
         Surprisal@K = \\frac {\sum_{i=1}^{N}Surprisal@K(i)}{N}
     """
-
-    def __str__(self):
-        return "Surprisal"
-
     def __call__(
                 self,
                 recommendations: CommonDataFrame,
@@ -422,9 +398,6 @@ class Unexpectedness(Metric):
             self.train_model = True
             rec.fit(log=self.log)
             self.model = rec
-
-    def __str__(self):
-        return "Unexpectedness"
 
     def __call__(
             self,
