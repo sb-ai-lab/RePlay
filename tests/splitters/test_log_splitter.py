@@ -48,8 +48,11 @@ class TestLogSplitByDateSplitter(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        self.assertSparkDataFrameEqual(true_train, train)
-        self.assertSparkDataFrameEqual(true_test, test)
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_train, train)
+
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_test, test)
 
         train, test = (
             DateSplitter(datetime(2019, 9, 15), True, False)
@@ -62,8 +65,11 @@ class TestLogSplitByDateSplitter(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        self.assertSparkDataFrameEqual(true_train, train)
-        self.assertSparkDataFrameEqual(true_test, test)
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_train, train)
+
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_test, test)
 
         train, test = (
             DateSplitter(datetime(2019, 9, 15), False, True)
@@ -76,8 +82,11 @@ class TestLogSplitByDateSplitter(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        self.assertSparkDataFrameEqual(true_train, train)
-        self.assertSparkDataFrameEqual(true_test, test)
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_train, train)
+
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_test, test)
 
         train, test = (
             DateSplitter(datetime(2019, 9, 15), True, True)
@@ -89,8 +98,11 @@ class TestLogSplitByDateSplitter(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        self.assertSparkDataFrameEqual(true_train, train)
-        self.assertSparkDataFrameEqual(true_test, test)
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_train, train)
+
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_test, test)
 
 
 class TestLogSplitRandomlySplitter(PySparkTest):

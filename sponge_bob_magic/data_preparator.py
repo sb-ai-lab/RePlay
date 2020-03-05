@@ -244,7 +244,7 @@ class DataPreparator:
                 given_columns = set(columns_names.values())
                 dataframe_columns = set(dataframe.columns)
                 features_columns = list(dataframe_columns.difference(given_columns))
-                if features_columns:
+                if not features_columns:
                     raise ValueError("В датафрейме нет колонок с фичами")
 
             else:
@@ -260,7 +260,7 @@ class DataPreparator:
         self._check_dataframe(dataframe, columns_names)
 
         dataframe2 = self._rename_columns(
-            dataframe, columns_names, [],
+            dataframe, columns_names, features_columns,
             default_schema={**required_columns, **optional_columns},
             date_format=date_format).cache()
         return dataframe2
