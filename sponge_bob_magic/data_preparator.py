@@ -20,7 +20,63 @@ CommonDataFrame = Union[DataFrame, pd.DataFrame]
 
 
 class DataPreparator:
-    """ Класс для преобразования различных типов данных. """
+    """ Класс для преобразования различных типов данных.
+    Примеры использования:
+
+    Загрузка таблицы с логом
+    >>> import pandas as pd
+    >>> from sponge_bob_magic.data_preparator import DataPreparator
+    >>> from sponge_bob_magic.session_handler import State
+    >>>
+    >>> spark = State().session
+    >>> log = pd.DataFrame({"user_id": [2, 2, 2, 1],
+    ...                     "item_id": [1, 2, 3, 3],
+    ...                     "relevance": [5, 5, 5, 5]}
+    ...                    )
+    >>> dp = DataPreparator(spark)
+    >>> correct_log = dp.transform(data=log,
+    ...                            columns_names={"user_id": "user_id",
+    ...                                           "item_id": "item_id",
+    ...                                           "relevance": "relevance"}
+    ...                             )
+    >>> correct_log.show(2)
+    +-------+-------+---------+-------------------+----------+
+    |user_id|item_id|relevance|          timestamp|   context|
+    +-------+-------+---------+-------------------+----------+
+    |      2|      1|      5.0|1999-05-01 00:00:00|no_context|
+    |      2|      2|      5.0|1999-05-01 00:00:00|no_context|
+    +-------+-------+---------+-------------------+----------+
+    only showing top 2 rows
+    <BLANKLINE>
+
+
+    Загрузка таблицы с признакми пользоватея
+    >>> import pandas as pd
+    >>> from sponge_bob_magic.data_preparator import DataPreparator
+    >>> from sponge_bob_magic.session_handler import State
+    >>>
+    >>> spark = State().session
+    >>> log = pd.DataFrame({"user": ["user1", "user1", "user2"],
+    ...                     "f0": ["feature1","feature2","feature1"],
+    ...                     "f1": ["left","left","center"],
+    ...                     "ts": ["2019-01-01","2019-01-01","2019-01-01"]}
+    ...             )
+    >>> dp = DataPreparator(spark)
+    >>> correct_log = dp.transform(data=log,
+    ...                            columns_names={"user_id": "user",
+    ...                                           "timestamp": "ts"},
+    ...                            features_columns=["f0"]
+    ...                             )
+    >>> correct_log.show(3)
+    +-------+-------------------+--------+
+    |user_id|          timestamp|      f0|
+    +-------+-------------------+--------+
+    |  user1|2019-01-01 00:00:00|feature1|
+    |  user1|2019-01-01 00:00:00|feature2|
+    |  user2|2019-01-01 00:00:00|feature1|
+    +-------+-------------------+--------+
+    <BLANKLINE>
+    """
     spark: SparkSession
 
     def __init__(self, spark: SparkSession):
@@ -184,19 +240,21 @@ class DataPreparator:
         """
         Преобразовывает лог, либо признаки пользователей или объектов
         в спарк-датафрейм вида
-        ``[user_id, timestamp, features]`` или ``[item_id, timestamp, features]``
+        ``[user_id, timestamp, *features]`` или ``[item_id, timestamp, *features]``
         или ``[user_id, user_id, timestamp, context , relevance]``.
         На вход необходимо передать либо файл формата ``format_type``
-        по пути ``path``, либо ``pandas.DataFrame`` или ``spark.DataFrame``
-        :param columns_names: маппинг колонок, ключ - значения из списка
-            ``[user_id`` / ``item_id , timestamp , *columns]``;
-            обязательными являются только
-            ``[user_id]`` или ``[item_id]`` (должен быть один из них);
-            если ``features`` нет в ключах,
-            то признаками фичей явлются все оставшиеся колонки;
-            в качестве ``features`` может подаваться как список, так и отдельное
-            значение колонки (если признак один);
-            значения - колонки в табличке признаков
+        по пути ``path``, либо ``pandas.DataFrame`` или ``spark.DataFrame``.
+
+        :param columns_names: маппинг колонок, ключ-значение из списка
+            ``[user_id / item_id , timestamp , *columns]``;
+            обязательными являются только ``[user_id]`` или ``[item_id]``
+            (должен быть хотя бы один из них);
+            В зависимости от маппинга определяется какого типа таблица передана.
+
+            - Если присутствуют оба столбца ``[user_id, item_id]``, то передана таблица с логом
+            - Если присутствует только ``[user_id]``, то передана таблица с признаками пользователей
+            - Если присутствует только ``[item_id]``, то передана таблица с признаками объектов
+
         :param data: dataframe с логом
         :param path: путь к файлу с признаками
         :param format_type: тип файла, принимает значения из списка
@@ -204,7 +262,12 @@ class DataPreparator:
         :param date_format: формат даты; нужен,
             если формат колонки ``timestamp`` особенный
         :param features_columns: столбец либо список столбцов, в которых хранятся
-            признаки пользователей/объектов
+            признаки пользователей/объектов. Если ``features`` пуст и при этом
+            передается таблица с признаками пользователей или объектов,
+            то признаками фичей явлются все оставшиеся колонки;
+            в качестве ``features`` может подаваться как список, так и отдельное
+            значение колонки (если признак один);
+            значения - колонки в табличке признаков
         :param kwargs: дополнительные аргументы, которые передаются в функцию
             ``spark.read.csv(path, **kwargs)``
         :return: спарк-датафрейм с колонками
