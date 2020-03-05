@@ -64,14 +64,14 @@ class Splitter(ABC):
             test = test.join(
                 train_tmp,
                 train_tmp.item == test.item_id
-            )
+            ).drop("item")
 
         if drop_cold_users:
             train_tmp = train.select(sf.col("user_id").alias("user")).distinct()
             test = test.join(
                 train_tmp,
                 train_tmp.user == test.user_id
-            )
+            ).drop("user")
         return test
 
     @abstractmethod

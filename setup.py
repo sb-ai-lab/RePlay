@@ -12,8 +12,8 @@ setuptools.setup(
     description="библиотека рекомендательных систем",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://sbtatlas.sigma.sbrf.ru/stash/projects/AILAB/repos/sponge-bob-magic",
-    packages=setuptools.find_packages(),
+    url="https://sbtatlas.sigma.sbrf.ru/stash/scm/ailab/sponge-bob-magic",
+    packages=['sponge-bob-magic'],
     classifiers=[
         "Programming Language :: Python :: 3.7",
         "Operating System :: OS Independent",
