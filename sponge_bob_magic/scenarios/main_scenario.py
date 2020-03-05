@@ -65,16 +65,11 @@ class MainScenario:
             item_features: Optional[DataFrame] = None,
     ) -> SplitData:
         """ Делит лог и готовит объекти типа `SplitData`. """
-        train, predict_input, test = self.splitter.split(log)
+        train, test = self.splitter.split(log)
         spark = SparkSession(log.rdd.context)
         train = write_read_dataframe(
             train,
             os.path.join(spark.conf.get("spark.local.dir"), "train")
-        )
-        predict_input = write_read_dataframe(
-            predict_input,
-            os.path.join(spark.conf.get("spark.local.dir"),
-                         "predict_input")
         )
         test = write_read_dataframe(
             test,
@@ -97,7 +92,8 @@ class MainScenario:
         # чтобы не делать на каждый trial их заново
         users = users if users else test.select("user_id").distinct().cache()
         items = items if items else test.select("item_id").distinct().cache()
-        split_data = SplitData(train, predict_input, test,
+
+        split_data = SplitData(train, test,
                                users, items,
                                user_features, item_features)
         return split_data
@@ -121,6 +117,7 @@ class MainScenario:
         # не используем максимально попыток
         count = 1
         n_unique_trials = 0
+
         while n_trials > n_unique_trials and count <= self.optuna_max_n_trials:
             spark = SparkSession(split_data.train.rdd.context)
             self.study.optimize(
@@ -199,6 +196,7 @@ class MainScenario:
         split_data = self._prepare_data(log,
                                         users, items,
                                         user_features, item_features)
+
         logging.debug("Инициализация метрик")
         metrics = {}
         for metric in self.metrics:
@@ -210,9 +208,11 @@ class MainScenario:
         logging.debug("Обучение и предсказание дополнительной модели")
         fallback_recs = self._predict_fallback_recs(self.fallback_rec,
                                                     split_data, k, context)
+
         logging.debug("Пре-фит модели")
         self.recommender._pre_fit(split_data.train, split_data.user_features,
                                   split_data.item_features)
+
         logging.debug("-------------")
         logging.debug("Оптимизация параметров")
         logging.debug(
@@ -236,7 +236,7 @@ class MainScenario:
 
         if fallback_rec is not None:
             fallback_recs = (
-                fallback_rec.fit_predict(split_data.predict_input,
+                fallback_rec.fit_predict(split_data.train,
                              k,
                              split_data.users, split_data.items,
                              context,

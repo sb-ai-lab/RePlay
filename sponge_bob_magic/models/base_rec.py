@@ -361,5 +361,5 @@ class Recommender(ABC):
                 .withColumn("relevance",
                             sf.when(recs["in_log"], -1)
                             .otherwise(recs["relevance"]))
-                .drop("in_log"))
+                .drop("in_log", "item", "user"))
         return recs

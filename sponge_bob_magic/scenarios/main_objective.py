@@ -19,7 +19,7 @@ from sponge_bob_magic.utils import get_top_k_recs
 
 SplitData = collections.namedtuple(
     "SplitData",
-    "train predict_input test users items user_features item_features"
+    "train test users items user_features item_features"
 )
 
 
@@ -97,7 +97,7 @@ class MainObjective:
 
         logging.debug("-- Предикт модели в оптимизации")
         recs = self.recommender.predict(
-            log=self.split_data.predict_input,
+            log=self.split_data.train,
             k=self.k,
             users=self.split_data.users,
             items=self.split_data.items,

@@ -10,7 +10,7 @@ from pyspark.sql import functions as sf
 
 from sponge_bob_magic.converter import convert, get_type
 
-SplitterReturnType = Tuple[DataFrame, DataFrame, DataFrame]
+SplitterReturnType = Tuple[DataFrame, DataFrame]
 
 
 class Splitter(ABC):
@@ -64,14 +64,14 @@ class Splitter(ABC):
             test = test.join(
                 train_tmp,
                 train_tmp.item == test.item_id
-            )
+            ).drop("item")
 
         if drop_cold_users:
             train_tmp = train.select(sf.col("user_id").alias("user")).distinct()
             test = test.join(
                 train_tmp,
                 train_tmp.user == test.user_id
-            )
+            ).drop("user")
         return test
 
     @abstractmethod
@@ -83,9 +83,8 @@ class Splitter(ABC):
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
             `[timestamp, user_id, item_id, context, relevance]`
-        :returns: тройка спарк-датафреймов структуры, аналогичной входной,
-            `train, predict_input, test`, где `train` - обучающая выборка,
-            `predict_input` - выборка, которая известна на момент предсказания,
+        :returns: спарк-датафреймы структуры, аналогичной входной,
+            `train, test`, где `train` - обучающая выборка,
             `test` - тестовая выборка
         """
 
@@ -98,13 +97,12 @@ class Splitter(ABC):
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
            ``[timestamp, user_id, item_id, context, relevance]``
-        :returns: тройка спарк-датафреймов структуры, аналогичной входной,
-            ``train, predict_input, test``, где ``train`` - обучающая выборка,
-            ``predict_input`` - выборка, которая известна на момент предсказания,
+        :returns: спарк-датафреймы структуры, аналогичной входной,
+            ``train, test``, где ``train`` - обучающая выборка,
             ``test`` - тестовая выборка
         """
         type_in = get_type(log)
-        train, predict_input, test = self._core_split(convert(log))
+        train, test = self._core_split(convert(log))
 
         test = self._drop_cold_items_and_users(
             train, test,
@@ -113,6 +111,5 @@ class Splitter(ABC):
 
         return (
             convert(train, type_in),
-            convert(self._filter_zero_relevance(predict_input), type_in),
             convert(self._filter_zero_relevance(test), type_in)
         )

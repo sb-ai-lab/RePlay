@@ -27,7 +27,7 @@ class TestLogSplitByDateSplitter(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        train, predict_input, test = (
+        train, test = (
             DateSplitter(datetime(2019, 9, 15), False, False)
             .split(log)
         )
@@ -48,11 +48,13 @@ class TestLogSplitByDateSplitter(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        self.assertSparkDataFrameEqual(true_train, train)
-        self.assertSparkDataFrameEqual(train, predict_input)
-        self.assertSparkDataFrameEqual(true_test, test)
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_train, train)
 
-        train, predict_input, test = (
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_test, test)
+
+        train, test = (
             DateSplitter(datetime(2019, 9, 15), True, False)
             .split(log)
         )
@@ -63,11 +65,13 @@ class TestLogSplitByDateSplitter(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        self.assertSparkDataFrameEqual(true_train, train)
-        self.assertSparkDataFrameEqual(train, predict_input)
-        self.assertSparkDataFrameEqual(true_test, test)
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_train, train)
 
-        train, predict_input, test = (
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_test, test)
+
+        train, test = (
             DateSplitter(datetime(2019, 9, 15), False, True)
             .split(log)
         )
@@ -78,11 +82,13 @@ class TestLogSplitByDateSplitter(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        self.assertSparkDataFrameEqual(true_train, train)
-        self.assertSparkDataFrameEqual(train, predict_input)
-        self.assertSparkDataFrameEqual(true_test, test)
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_train, train)
 
-        train, predict_input, test = (
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_test, test)
+
+        train, test = (
             DateSplitter(datetime(2019, 9, 15), True, True)
             .split(log)
         )
@@ -92,9 +98,11 @@ class TestLogSplitByDateSplitter(PySparkTest):
             ],
             schema=LOG_SCHEMA
         )
-        self.assertSparkDataFrameEqual(true_train, train)
-        self.assertSparkDataFrameEqual(train, predict_input)
-        self.assertSparkDataFrameEqual(true_test, test)
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_train, train)
+
+        with self.subTest():
+            self.assertSparkDataFrameEqual(true_test, test)
 
 
 class TestLogSplitRandomlySplitter(PySparkTest):
@@ -131,8 +139,10 @@ class TestLogSplitRandomlySplitter(PySparkTest):
             schema=LOG_SCHEMA
         )
 
-        train, test_input, test = (
-            RandomSplitter(test_size=test_size, drop_cold_items=drop_cold_items, drop_cold_users=drop_cold_users,
+        train, test = (
+            RandomSplitter(test_size=test_size,
+                           drop_cold_items=drop_cold_items,
+                           drop_cold_users=drop_cold_users,
                            seed=seed)
             .split(log)
         )
@@ -140,7 +150,7 @@ class TestLogSplitRandomlySplitter(PySparkTest):
         if not drop_cold_items and not drop_cold_users:
             self.assertSparkDataFrameEqual(log, train.union(test))
             self.assertSparkDataFrameEqual(
-                log, test.union(test_input)
+                log, test.union(train)
             )
             self.assertEqual(
                 test.count(), numpy.ceil(log.count() * test_size)
@@ -179,14 +189,10 @@ class TestColdUsersExtractingSplitter(PySparkTest):
             schema=LOG_SCHEMA
         )
 
-        train, test_input, test = (
+        train, test = (
             ColdUsersSplitter(test_size=1 / 4, drop_cold_items=False, drop_cold_users=False)
             .split(log=log)
         )
-
-        self.assertSparkDataFrameEqual(
-            self.spark.createDataFrame(data=[], schema=LOG_SCHEMA),
-            test_input)
 
         true_train = self.spark.createDataFrame(
             data=[

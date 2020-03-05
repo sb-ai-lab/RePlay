@@ -12,10 +12,9 @@ from datetime import datetime
 from typing import Optional
 
 import pyspark.sql.functions as sf
-from pyspark.sql import DataFrame, SparkSession, Window
+from pyspark.sql import DataFrame, Window
 from pyspark.sql.types import TimestampType
 
-from sponge_bob_magic.constants import LOG_SCHEMA
 from sponge_bob_magic.splitters.base_splitter import (Splitter,
                                                       SplitterReturnType)
 
@@ -46,7 +45,7 @@ class DateSplitter(Splitter):
             sf.col("timestamp") >= sf.lit(self.test_start).cast(
                 TimestampType())
         )
-        return train, train, test
+        return train, test
 
 
 class RandomSplitter(Splitter):
@@ -73,7 +72,7 @@ class RandomSplitter(Splitter):
             [1 - self.test_size, self.test_size],
             self.seed
         )
-        return train, train, test
+        return train, test
 
 
 class ColdUsersSplitter(Splitter):
@@ -135,7 +134,5 @@ class ColdUsersSplitter(Splitter):
             .drop("start_dt")
             .cache()
         )
-        predict_input = SparkSession(train.rdd.context).createDataFrame(
-            data=[], schema=LOG_SCHEMA
-        )
-        return train, predict_input, test
+
+        return train, test
