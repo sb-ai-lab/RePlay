@@ -19,7 +19,7 @@ from sponge_bob_magic.utils import get_top_k_recs
 
 SplitData = collections.namedtuple(
     "SplitData",
-    "train predict_input test users items user_features item_features"
+    "train test users items user_features item_features"
 )
 
 

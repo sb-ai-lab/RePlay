@@ -12,10 +12,9 @@ from datetime import datetime
 from typing import Optional
 
 import pyspark.sql.functions as sf
-from pyspark.sql import DataFrame, SparkSession, Window
+from pyspark.sql import DataFrame, Window
 from pyspark.sql.types import TimestampType
 
-from sponge_bob_magic.constants import LOG_SCHEMA
 from sponge_bob_magic.splitters.base_splitter import (Splitter,
                                                       SplitterReturnType)
 

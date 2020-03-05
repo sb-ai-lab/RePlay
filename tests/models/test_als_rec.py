@@ -29,7 +29,7 @@ class ALSRecTestCase(PySparkTest):
         self.als_rec._seed = 42
 
     def test_fit(self):
-        self.als_rec.fit(self.log, None, None)
+        self.als_rec.fit(self.log)
         item_factors = np.array(
             self.als_rec.model.itemFactors
             .toPandas()["features"].tolist()
