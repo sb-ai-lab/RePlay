@@ -7,8 +7,8 @@ from math import log2
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.metrics import (MAP, NDCG, HitRate, Metric, Precision,
-                                      Recall, Surprisal)
+from sponge_bob_magic.metrics import (MAP, NDCG, Coverage, HitRate, Metric,
+                                      Precision, Recall, Surprisal)
 
 
 class TestMetrics(PySparkTest):
@@ -138,3 +138,9 @@ class TestMetrics(PySparkTest):
                     new_metric._check_users(left, right),
                     correct_value
                 )
+
+    def test_coverage(self):
+        self.assertDictAlmostEqual(
+            Coverage()(self.recs, self.ground_truth_recs, [1, 3]),
+            {1: 0.3333333333333333, 3: 0.8333333333333334}
+        )

@@ -11,11 +11,11 @@
 """
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Set, Union
 
 import numpy as np
 import pandas as pd
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
@@ -30,6 +30,9 @@ CommonDataFrame = Union[DataFrame, pd.DataFrame]
 
 class Metric(ABC):
     """ Базовый класс метрик. """
+    def __str__(self):
+        """ Строковое представление метрики. """
+        return type(self).__name__
 
     def __call__(
             self,
@@ -139,10 +142,6 @@ class Metric(ABC):
         :return: DataFrame c рассчитанным полем ``cum_agg`` --
             pandas-датафрейм вида ``[user_id , item_id , cum_agg, *columns]``
         """
-
-    @abstractmethod
-    def __str__(self):
-        """ Строковое представление метрики. """
 
     @staticmethod
     def _check_users(
@@ -466,4 +465,49 @@ class Unexpectedness(Metric):
             how="inner",
             on=["user_id"]
         )
+        return res
+
+
+class Coverage(Metric):
+    """
+    Отношения общего количества объектов, попавших в рекомендации при заданном их количестве на пользователя ``K``,
+    к общему количеству объектов, с которыми взаимодействовали пользователи на самом деле.
+    """
+    def _get_metric_value_by_user(pandas_df):
+        # эта метрика не является средним по всем пользователям
+        pass
+
+    def _get_metric_value(
+            self,
+            recommendations: DataFrame,
+            ground_truth: DataFrame,
+            k: IterOrList
+    ) -> Union[Dict[int, NumType], NumType]:
+        if isinstance(k, int):
+            k_set = {k}
+        else:
+            k_set = set(k)
+        item_count = recommendations.select("item_id").union(
+            ground_truth.select("item_id")
+        ).distinct().count()
+        item_sets = (
+            recommendations
+            .withColumn(
+                "row_num",
+                sf.row_number().over(
+                    Window.partitionBy("user_id").orderBy(sf.desc("relevance"))
+                )
+            )
+            .groupBy("row_num")
+            .agg(sf.collect_set("item_id").alias("items"))
+            .orderBy("row_num")
+        ).collect()
+        cum_set: Set[str] = set()
+        res = {}
+        for row in item_sets:
+            cum_set = cum_set.union(set(row.items))
+            if row.row_num in k_set:
+                res[row.row_num] = len(cum_set) / item_count
+        if isinstance(k, int):
+            res = res[k]
         return res
