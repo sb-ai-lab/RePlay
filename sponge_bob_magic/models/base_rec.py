@@ -9,8 +9,10 @@ from uuid import uuid4
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
+import pandas as pd
 
 from sponge_bob_magic import constants
+from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import write_read_dataframe
 
 
@@ -201,12 +203,12 @@ class Recommender(ABC):
         :param k: количество рекомендаций для каждого пользователя;
             должно быть не больше, чем количество объектов в `items`
         :param users: список пользователей, для которых необходимо получить
-            рекомендации, спарк-датафрейм с колонкой `[user_id]`;
+            рекомендации, спарк-датафрейм с колонкой `[user_id]` или ``array-like``;
             если None, выбираются все пользователи из лога;
             если в этом списке есть пользователи, про которых модель ничего
             не знает, то вызывается ошибка
         :param items: список объектов, которые необходимо рекомендовать;
-            спарк-датафрейм с колонкой `[item_id]`;
+            спарк-датафрейм с колонкой `[item_id]` или ``array-like``;
             если None, выбираются все объекты из лога;
             если в этом списке есть объекты, про которых модель ничего
             не знает, то в relevance в рекомендациях к ним будет стоять 0
@@ -225,14 +227,16 @@ class Recommender(ABC):
         """
         logging.debug("Проверка датафреймов")
         self._check_input_dataframes(log, user_features, item_features)
+        spark = State().session
 
-        if users is None:
-            logging.debug("Выделение дефолтных юзеров")
-            users = log.select("user_id").distinct()
+        users = self._extract_if_needed(log, users, "user_id")
+        items = self._extract_if_needed(log, items, "item_id")
 
         if items is None:
             logging.debug("Выделение дефолтных айтемов")
             items = log.select("item_id").distinct()
+        else:
+            items = spark.createDataFrame(data=np.unique(items), schema=["item_id"])
 
         num_items = items.count()
         if num_items < k:
@@ -252,6 +256,19 @@ class Recommender(ABC):
         )
 
         return recs
+
+    @staticmethod
+    def _extract_if_needed(log, array, column):
+        spark = State().session
+        if array is None:
+            logging.debug("Выделение дефолтных юзеров")
+            array = log.select(column).distinct()
+        elif not isinstance(array, (DataFrame)):
+            if hasattr(array, "__iter__"):
+                array = spark.createDataFrame(data=pd.DataFrame(pd.unique(array), columns=[column]))
+            else:
+                raise TypeError(f"Плохой аргумент {array}")
+        return array
 
     @abstractmethod
     def _predict(self,
