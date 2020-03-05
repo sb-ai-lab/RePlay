@@ -140,7 +140,14 @@ class TestMetrics(PySparkTest):
                 )
 
     def test_coverage(self):
+        coverage = Coverage(self.recs.union(
+            self.ground_truth_recs.drop("timestamp")
+        ))
         self.assertDictAlmostEqual(
-            Coverage()(self.recs, self.ground_truth_recs, [1, 3]),
+            coverage(self.recs, [1, 3]),
             {1: 0.3333333333333333, 3: 0.8333333333333334}
+        )
+        self.assertEqual(
+            Coverage(self.ground_truth_recs)(self.recs, 3),
+            1.25
         )

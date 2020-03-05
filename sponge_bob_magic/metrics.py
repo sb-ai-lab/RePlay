@@ -469,13 +469,32 @@ class Unexpectedness(Metric):
 
 class Coverage(Metric):
     """
-    Отношения общего количества объектов, попавших в рекомендации при заданном их количестве на пользователя ``K``,
-    к общему количеству объектов, с которыми взаимодействовали пользователи на самом деле.
+    Метрика вычисляется так:
+
+    * берём ``K`` рекомендаций с наибольшей ``relevance`` для каждого ``user_id``
+    * считаем, сколько всего различных ``item_id`` встречается в отобранных рекомендациях
+    * делим полученное количество объектов в рекомендациях на количество объектов в изначальном логе (до разбиения на train и test)
+
     """
+    def __init__(self, log: CommonDataFrame):
+        """
+        :param log: pandas или Spark DataFrame, содержащий лог *до* разбиения на train и test.
+                    Важно, чтобы log содержал все доступные объекты (items). Coverage будет рассчитываться как доля по отношению к ним.
+        """
+        self.items = convert(log).select("item_id").distinct().cache()
+        self.item_count = self.items.count()
+
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         # эта метрика не является средним по всем пользователям
         pass
+
+    def __call__(
+            self,
+            recommendations: CommonDataFrame,
+            k: IterOrList
+    ) -> Union[Dict[int, NumType], NumType]:
+        return super().__call__(recommendations, recommendations, k)
 
     def _get_metric_value(
             self,
@@ -487,9 +506,15 @@ class Coverage(Metric):
             k_set = {k}
         else:
             k_set = set(k)
-        item_count = recommendations.select("item_id").union(
-            ground_truth.select("item_id")
-        ).distinct().count()
+        unknows_item_count = (
+            recommendations.select("item_id").distinct()
+            .exceptAll(self.items).count()
+        )
+        if unknows_item_count > 0:
+            logging.warning(
+                "В рекомендациях есть объекты, которых не было в изначальном логе! "
+                "Значение метрики может получиться больше единицы ¯\_(ツ)_/¯"
+            )
         item_sets = (
             recommendations
             .withColumn(
@@ -507,7 +532,7 @@ class Coverage(Metric):
         for row in item_sets:
             cum_set = cum_set.union(set(row.items))
             if row.row_num in k_set:
-                res[row.row_num] = len(cum_set) / item_count
+                res[row.row_num] = len(cum_set) / self.item_count
         if isinstance(k, int):
             res = res[k]
         return res
