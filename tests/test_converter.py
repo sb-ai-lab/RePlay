@@ -1,26 +1,26 @@
-import unittest
-
 import pandas as pd
+from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.converter import PANDAS, convert
-from sponge_bob_magic.session_handler import State
 
 
-class TestConverter(unittest.TestCase):
+class TestConverter(PySparkTest):
     def setUp(self):
-        self.spark = State().session
-        self.df = pd.DataFrame([[1, 2, 3],
-                                [3, 4, 5]])
+        self.pandas_data_frame = pd.DataFrame([
+            [1, 2, 3],
+            [3, 4, 5]
+        ])
 
     def test_pandas_inversion(self):
-        self.assertTrue(
-            (self.df.values == convert(convert(self.df), PANDAS).values).all()
-        )
+        self.assertTrue((
+            self.pandas_data_frame.values ==
+            convert(convert(self.pandas_data_frame), PANDAS).values
+        ).all())
 
     def test_unknown_type(self):
         with self.assertRaises(NotImplementedError):
             convert(1, "unknown_type")
 
     def test_spark_is_unchanged(self):
-        spark = convert(self.df)
-        self.assertEqual(spark, convert(spark))
+        spark_data_frame = convert(self.pandas_data_frame)
+        self.assertEqual(spark_data_frame, convert(spark_data_frame))

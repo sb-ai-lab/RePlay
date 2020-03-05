@@ -2,37 +2,48 @@
 =======
 .. automodule:: sponge_bob_magic.metrics
 
-.. _HitRate:
+HitRate
+--------
 .. autoclass:: sponge_bob_magic.metrics.HitRate
 
-.. _Precision:
+Precision
+---------
 .. autoclass:: sponge_bob_magic.metrics.Precision
 
-.. _MAP:
+MAP
+---
 .. autoclass:: sponge_bob_magic.metrics.MAP
 
-.. _Recall:
+Recall
+------
 .. autoclass:: sponge_bob_magic.metrics.Recall
 
-.. _NDCG:
+NDCG
+-----
 .. autoclass:: sponge_bob_magic.metrics.NDCG
 
-.. _Surprisal:
+Surprisal
+----------
 .. autoclass:: sponge_bob_magic.metrics.Surprisal
+   :special-members: __init__
+
+Unexpectedness
+---------------
+.. autoclass:: sponge_bob_magic.metrics.Unexpectedness
    :special-members: __init__
 
 .. _new-metric:
 
-Создание новой метрики
+Своя метрика
 ----------------------
-Для создания новой метрики достаточно унаследоваться от класса ``Metric`` и реализовать/переопределить следующшие методы
+Для добавления необходимо унаследоваться от класса ``Metric`` и реализовать/переопределить следующие методы
 
 - **__init__**
 - **_get_enriched_recommendations**
 - **_get_metric_value_by_user**
 
-Первые два метода уже реализованы, их стоит переопределять только в случае необходимости.
-Последний метод необходимо реализовать для всех метрик.
+``_get_enriched_recommendations`` уже реализован, и его стоит переопределять только в случае необходимости.
+Последний метод необходимо реализовать для всех метрик, так как в нём происходит основное вычисление метрики.
 
 .. autoclass:: sponge_bob_magic.metrics.Metric
    :special-members: _get_enriched_recommendations, _get_metric_value_by_user

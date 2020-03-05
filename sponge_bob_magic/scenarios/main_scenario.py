@@ -4,21 +4,18 @@
 import logging
 import os
 from abc import ABCMeta
-from datetime import datetime
 from typing import Any, Dict, Optional
 
 from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame, SparkSession
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, IterOrList
-from sponge_bob_magic.metrics import NDCG, HitRate, Metric, Precision
+from sponge_bob_magic.metrics import HitRate, Metric, Surprisal, Unexpectedness
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.models.knn_rec import KNNRec
 from sponge_bob_magic.models.pop_rec import PopRec
-from sponge_bob_magic.scenarios.main_objective import (
-    MainObjective, SplitData)
+from sponge_bob_magic.scenarios.main_objective import MainObjective, SplitData
 from sponge_bob_magic.splitters.base_splitter import Splitter
-from sponge_bob_magic.splitters.log_splitter import DateSplitter, RandomSplitter
+from sponge_bob_magic.splitters.log_splitter import RandomSplitter
 from sponge_bob_magic.utils import write_read_dataframe
 
 
@@ -34,10 +31,12 @@ class MainScenario:
     ):
         self.splitter = (
             splitter if splitter
-            else RandomSplitter(test_size=0.3,
-                                drop_cold_items=True,
-                                drop_cold_users=True,
-                                seed=None)
+            else RandomSplitter(
+                test_size=0.3,
+                drop_cold_items=True,
+                drop_cold_users=True,
+                seed=None
+            )
         )
         self.recommender = (
             recommender if recommender
@@ -55,6 +54,7 @@ class MainScenario:
     optuna_n_jobs: int = 1
     filter_seen_items: bool = True
     study: Study
+    _optuna_seed: Optional[int] = None
 
     def _prepare_data(
             self,
@@ -75,15 +75,19 @@ class MainScenario:
             test,
             os.path.join(spark.conf.get("spark.local.dir"), "test")
         )
-
-        logging.debug(f"Длина трейна и теста: {train.count(), test.count()}")
-        logging.debug("Количество пользователей в трейне и тесте: "
-                      f"{train.select('user_id').distinct().count()}, "
-                      f"{test.select('user_id').distinct().count()}")
-        logging.debug("Количество объектов в трейне и тесте: "
-                      f"{train.select('item_id').distinct().count()}, "
-                      f"{test.select('item_id').distinct().count()}")
-
+        logging.debug(
+            "Длина трейна и теста: %d %d", train.count(), test.count()
+        )
+        logging.debug(
+            "Количество пользователей в трейне и тесте: %d, %d",
+            train.select('user_id').distinct().count(),
+            test.select('user_id').distinct().count()
+        )
+        logging.debug(
+            "Количество объектов в трейне и тесте: %d, %d",
+            train.select('item_id').distinct().count(),
+            test.select('item_id').distinct().count()
+        )
         # если users или items нет, возьмем всех из теста,
         # чтобы не делать на каждый trial их заново
         users = users if users else test.select("user_id").distinct().cache()
@@ -92,7 +96,6 @@ class MainScenario:
         split_data = SplitData(train, test,
                                users, items,
                                user_features, item_features)
-
         return split_data
 
     def run_optimization(
@@ -105,10 +108,9 @@ class MainScenario:
             k: int = 10,
             context: Optional[str] = None,
             fallback_recs: Optional[DataFrame] = None
-
     ) -> Dict[str, Any]:
         """ Запускает подбор параметров в optuna. """
-        sampler = samplers.RandomSampler()
+        sampler = samplers.RandomSampler(seed=self._optuna_seed)
         self.study = create_study(direction="maximize", sampler=sampler)
 
         # делаем триалы до тех пор, пока не засемплим уникальных n_trials или
@@ -135,10 +137,8 @@ class MainScenario:
                 set(str(t.params)
                     for t in self.study.trials)
             )
-
-        logging.debug(f"Лучшие значения метрики: {self.study.best_value}")
-        logging.debug(f"Лучшие параметры: {self.study.best_params}")
-
+        logging.debug("Лучшие значения метрики: %d", self.study.best_value)
+        logging.debug("Лучшие параметры: %s", self.study.best_params)
         return self.study.best_params
 
     def research(
@@ -192,7 +192,6 @@ class MainScenario:
             которые возвращает ``get_params()``), значение - значение параметра
         """
         context = context if context else DEFAULT_CONTEXT
-
         logging.debug("Деление лога на обучающую и тестовую выборку")
         split_data = self._prepare_data(log,
                                         users, items,
@@ -201,9 +200,11 @@ class MainScenario:
         logging.debug("Инициализация метрик")
         metrics = {}
         for metric in self.metrics:
-            metrics[metric(split_data.train)] = self.metrics[metric]
-        criterion = self.criterion(split_data.train)
-
+            if metric in {Surprisal, Unexpectedness}:
+                metrics[metric(split_data.train)] = self.metrics[metric]
+            else:
+                metrics[metric()] = self.metrics[metric]
+        criterion = self.criterion()
         logging.debug("Обучение и предсказание дополнительной модели")
         fallback_recs = self._predict_fallback_recs(self.fallback_rec,
                                                     split_data, k, context)
@@ -215,9 +216,9 @@ class MainScenario:
         logging.debug("-------------")
         logging.debug("Оптимизация параметров")
         logging.debug(
-            f"Максимальное количество попыток: {self.optuna_max_n_trials} "
-            "(чтобы поменять его, задайте параметр 'optuna_max_n_trials')")
-
+            "Максимальное количество попыток: %d %s", self.optuna_max_n_trials,
+            "(чтобы поменять его, задайте параметр 'optuna_max_n_trials')"
+        )
         best_params = self.run_optimization(n_trials, params_grid, split_data,
                                             criterion, metrics, k, context,
                                             fallback_recs)
@@ -286,78 +287,6 @@ class MainScenario:
             ``[user_id , item_id , context , relevance]``
         """
         self.recommender.set_params(**params)
-
-        return self.recommender.fit_predict(log, k, users, items, context, user_features, item_features,
-                                            self.filter_seen_items)
-
-
-if __name__ == "__main__":
-    spark_ = (SparkSession
-              .builder
-              .master("local[4]")
-              .config("spark.driver.memory", "2g")
-              .config(
-                  "spark.local.dir", os.path.join(os.environ["HOME"], "tmp"))
-              .config("spark.sql.shuffle.partitions", "1")
-              .appName("testing-pyspark")
-              .enableHiveSupport()
-              .getOrCreate())
-    spark_logger = logging.getLogger("py4j")
-    spark_logger.setLevel(logging.WARN)
-
-    logger = logging.getLogger()
-    formatter = logging.Formatter(
-        "%(asctime)s, %(name)s, %(levelname)s: %(message)s",
-        datefmt="%d-%b-%y %H:%M:%S"
-    )
-    hdlr = logging.StreamHandler()
-    hdlr.setFormatter(formatter)
-    logger.addHandler(hdlr)
-    logger.setLevel(logging.DEBUG)
-
-    data = [
-        ["user1", "item1", 1.0, "no_context", datetime(2019, 10, 8)],
-        ["user1", "item2", 2.0, "no_context", datetime(2019, 10, 9)],
-        ["user1", "item3", 1.0, "no_context", datetime(2019, 10, 10)],
-        ["user2", "item1", 1.0, "no_context", datetime(2019, 10, 11)],
-        ["user2", "item3", 1.0, "no_context", datetime(2019, 10, 12)],
-        ["user3", "item2", 1.0, "no_context", datetime(2019, 10, 13)],
-        ["user3", "item1", 1.0, "no_context", datetime(2019, 10, 14)],
-
-        ["user1", "item1", 1.0, "no_context", datetime(2019, 10, 15)],
-        ["user1", "item2", 1.0, "no_context", datetime(2019, 10, 16)],
-        ["user2", "item3", 2.0, "no_context", datetime(2019, 10, 17)],
-        ["user3", "item2", 2.0, "no_context", datetime(2019, 10, 18)],
-    ]
-    schema = ["user_id", "item_id", "relevance", "context", "timestamp"]
-    log_ = spark_.createDataFrame(data=data,
-                                  schema=schema)
-
-    scenario = MainScenario()
-    scenario.splitter = DateSplitter(datetime(2019, 10, 14), True, True)
-    scenario.criterion = HitRate
-    scenario.metrics = [NDCG, Precision]
-    scenario.optuna_max_n_trials = 10
-    scenario.fallback_rec = None
-
-    flag = False
-    if flag:
-        scenario.recommender = PopRec()
-        grid = {"alpha": {"type": "int", "args": [0, 100]},
-                "beta": {"type": "int", "args": [0, 100]}}
-    else:
-        scenario.recommender = KNNRec()
-        scenario.fallback_rec = PopRec()
-        grid = {"num_neighbours": {"type": "categorical",
-                                   "args": [[1]]}}
-
-    best_params_ = scenario.research(grid, log_,
-                                     k=2, n_trials=4)
-
-    recs_ = scenario.production(best_params_, log_,
-                                users=None, items=None,
-                                k=2)
-
-    recs_.show()
-
-    print(scenario.study.trials_dataframe())
+        return self.recommender.fit_predict(
+            log, k, users, items, context, user_features, item_features,
+            self.filter_seen_items)

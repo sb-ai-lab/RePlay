@@ -36,7 +36,7 @@ class ALSRecTestCase(PySparkTest):
         )
         self.assertTrue(np.allclose(
             item_factors,
-            [[0.94725847],  [0.82681108], [0.75606781]]
+            [[0.98743868], [0.78736824], [0.86209506]]
         ))
 
     def test_predict(self):
@@ -53,9 +53,9 @@ class ALSRecTestCase(PySparkTest):
             recs,
             self.spark.createDataFrame(
                 [
-                    ["u2", "i3", DEFAULT_CONTEXT, 0.8740121126174927],
-                    ["u1", "i3", DEFAULT_CONTEXT, 0.8812910318374634],
-                    ["u3", "i3", DEFAULT_CONTEXT, 1.0437875986099243]
+                    ["u2", "i3", DEFAULT_CONTEXT, 0.8770313858985901],
+                    ["u1", "i3", DEFAULT_CONTEXT, 0.8846386075019836],
+                    ["u3", "i3", DEFAULT_CONTEXT, 1.047261357307434]
                 ],
                 schema=REC_SCHEMA
             )

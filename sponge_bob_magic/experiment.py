@@ -1,10 +1,10 @@
 from collections.abc import Iterable
-from typing import Any, List, Union, Dict
+from typing import Any, Dict, List, Union
 
 import pandas as pd
 
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.metrics import Metric
+from sponge_bob_magic.metrics import Metric, Surprisal, Unexpectedness
 
 
 class Experiment:
@@ -20,10 +20,10 @@ class Experiment:
     >>> import pandas as pd
     >>> from sponge_bob_magic.metrics import NDCG, Surprisal
     >>> from sponge_bob_magic.experiment import Experiment
-    >>> log = pd.DataFrame({"user_id": [2,2,2,1], "item_id": [1,2,3,3], "relevance": [5,5,5,5]})
-    >>> test = pd.DataFrame({"user_id": [1,1,1], "item_id": [1,2,3], "relevance": [5,3,4]})
-    >>> pred = pd.DataFrame({"user_id": [1,1,1], "item_id": [1,3,4], "relevance": [5,4,5]})
-    >>> ex = Experiment(test, {NDCG(): [2,3], Surprisal(log): 3})
+    >>> log = pd.DataFrame({"user_id": [2, 2, 2, 1], "item_id": [1, 2, 3, 3], "relevance": [5, 5, 5, 5]})
+    >>> test = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 3, 4]})
+    >>> pred = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 3, 4], "relevance": [5, 4, 5]})
+    >>> ex = Experiment(test, {NDCG(): [2, 3], Surprisal(log): 3})
     >>> ex.add_result('my_model', pred)
     >>> ex.df
               Surprisal@3    nDCG@2    nDCG@3
@@ -60,7 +60,10 @@ class Experiment:
         res = pd.Series(name=name)
         recs = convert(pred)
         for metric, k_list in self.metrics.items():
-            values = metric(recs, self.test, k_list)
+            if isinstance(metric, (Surprisal, Unexpectedness)):
+                values = metric(recs, k_list)
+            else:
+                values = metric(recs, self.test, k_list)
             if isinstance(k_list, int):
                 res[f"{metric}@{k_list}"] = values
             else:
