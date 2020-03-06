@@ -147,6 +147,8 @@ class TestMetrics(PySparkTest):
             coverage(self.recs, [1, 3]),
             {1: 0.3333333333333333, 3: 0.8333333333333334}
         )
+
+    def test_bad_coverage(self):
         self.assertEqual(
             Coverage(self.ground_truth_recs)(self.recs, 3),
             1.25
