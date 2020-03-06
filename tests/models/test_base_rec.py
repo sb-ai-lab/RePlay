@@ -114,3 +114,12 @@ class RecTestCase(PySparkTest):
                 data=[["1", "2"]],
                 schema=["item_id", "timestamp"])
         )
+
+    def test_extract_if_needed(self):
+        log = self.spark.createDataFrame(
+            data=[[1], [2], [3]],
+            schema=["test"])
+
+        for array in [log, None, [1, 2, 2, 3]]:
+            with self.subTest():
+                self.assertSparkDataFrameEqual(log, self.model._extract_unique(log, array, "test"))
