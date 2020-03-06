@@ -262,13 +262,11 @@ class Recommender(ABC):
             logging.debug("Выделение дефолтных юзеров")
             unique = log.select(column).distinct()
         elif not isinstance(array, DataFrame):
-            if hasattr(array, "__iter__"):
+            if isinstance(array, Iterable):
                 unique = spark.createDataFrame(
-                    data=pd.DataFrame(pd.unique(array),
+                    data=pd.DataFrame(pd.unique(list(array)),
                     columns=[column])
                 )
-            else:
-                raise TypeError(f"Плохой аргумент {array}")
         return unique
 
     @abstractmethod
