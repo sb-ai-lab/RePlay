@@ -122,4 +122,4 @@ class RecTestCase(PySparkTest):
 
         for array in [log, None, [1, 2, 2, 3]]:
             with self.subTest():
-                self.assertSparkDataFrameEqual(log, self.model._extract_unique_if_needed(log, array, "test"))
+                self.assertSparkDataFrameEqual(log, self.model._extract_unique(log, array, "test"))

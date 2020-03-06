@@ -229,8 +229,8 @@ class Recommender(ABC):
         self._check_input_dataframes(log, user_features, item_features)
         spark = State().session
 
-        users = self._extract_unique_if_needed(log, users, "user_id")
-        items = self._extract_unique_if_needed(log, items, "item_id")
+        users = self._extract_unique(log, users, "user_id")
+        items = self._extract_unique(log, items, "item_id")
 
         num_items = items.count()
         if num_items < k:
@@ -252,7 +252,7 @@ class Recommender(ABC):
         return recs
 
     @staticmethod
-    def _extract_unique_if_needed(log: DataFrame, array: Iterable, column: str):
+    def _extract_unique(log: DataFrame, array: Iterable, column: str) -> DataFrame:
         """
         Получить уникальные значения из ``array`` и положить в датафрейм с колонкой ``column``.
         Если ``array is None``, то вытащить значение из ``log``.
@@ -260,16 +260,16 @@ class Recommender(ABC):
         spark = State().session
         if array is None:
             logging.debug("Выделение дефолтных юзеров")
-            array = log.select(column).distinct()
+            unique = log.select(column).distinct()
         elif not isinstance(array, DataFrame):
             if hasattr(array, "__iter__"):
-                array = spark.createDataFrame(
+                unique = spark.createDataFrame(
                     data=pd.DataFrame(pd.unique(array),
                     columns=[column])
                 )
             else:
                 raise TypeError(f"Плохой аргумент {array}")
-        return array
+        return unique
 
     @abstractmethod
     def _predict(self,
