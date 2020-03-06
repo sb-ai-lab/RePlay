@@ -4,7 +4,7 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Optional, Set, Iterable
 from uuid import uuid4
 
 from pyspark.sql import DataFrame, SparkSession
@@ -229,14 +229,8 @@ class Recommender(ABC):
         self._check_input_dataframes(log, user_features, item_features)
         spark = State().session
 
-        users = self._extract_if_needed(log, users, "user_id")
-        items = self._extract_if_needed(log, items, "item_id")
-
-        if items is None:
-            logging.debug("Выделение дефолтных айтемов")
-            items = log.select("item_id").distinct()
-        else:
-            items = spark.createDataFrame(data=np.unique(items), schema=["item_id"])
+        users = self._extract_unique_if_needed(log, users, "user_id")
+        items = self._extract_unique_if_needed(log, items, "item_id")
 
         num_items = items.count()
         if num_items < k:
@@ -258,12 +252,16 @@ class Recommender(ABC):
         return recs
 
     @staticmethod
-    def _extract_if_needed(log, array, column):
+    def _extract_unique_if_needed(log: DataFrame, array: Iterable, column: str):
+        """
+        Получить уникальные значения из ``array`` и положить в датафрейм с колонкой ``column``.
+        Если ``array is None``, то вытащить значение из ``log``.
+        """
         spark = State().session
         if array is None:
             logging.debug("Выделение дефолтных юзеров")
             array = log.select(column).distinct()
-        elif not isinstance(array, (DataFrame)):
+        elif not isinstance(array, DataFrame):
             if hasattr(array, "__iter__"):
                 array = spark.createDataFrame(data=pd.DataFrame(pd.unique(array), columns=[column]))
             else:
