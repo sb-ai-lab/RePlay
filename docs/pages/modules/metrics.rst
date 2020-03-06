@@ -32,6 +32,11 @@ Unexpectedness
 .. autoclass:: sponge_bob_magic.metrics.Unexpectedness
    :special-members: __init__
 
+Coverage
+---------
+.. autoclass:: sponge_bob_magic.metrics.Coverage
+   :special-members: __init__
+
 .. _new-metric:
 
 Своя метрика

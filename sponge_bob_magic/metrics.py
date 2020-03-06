@@ -11,11 +11,11 @@
 """
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Union
+from typing import Dict, Set, Union
 
 import numpy as np
 import pandas as pd
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
@@ -30,6 +30,9 @@ CommonDataFrame = Union[DataFrame, pd.DataFrame]
 
 class Metric(ABC):
     """ Базовый класс метрик. """
+    def __str__(self):
+        """ Строковое представление метрики. """
+        return type(self).__name__
 
     def __call__(
             self,
@@ -52,10 +55,11 @@ class Metric(ABC):
         ground_truth_spark = convert(ground_truth)
         if not self._check_users(recommendations_spark, ground_truth_spark):
             logging.warning(
-                    "Значение метрики может быть неожиданным:"
-                    "пользователи в recommendations и ground_truth различаются!"
+                "Значение метрики может быть неожиданным:"
+                "пользователи в recommendations и ground_truth различаются!"
             )
-        return self._get_metric_value(recommendations_spark, ground_truth_spark, k)
+        return self._get_metric_value(
+            recommendations_spark, ground_truth_spark, k)
 
     def _get_enriched_recommendations(
             self,
@@ -72,9 +76,11 @@ class Metric(ABC):
             спарк-датафрейм вида
             ``[user_id , item_id , context , relevance, *columns]``
         """
-        true_items_by_users = (ground_truth
-                               .groupby("user_id").agg(
-                                   sf.collect_set("item_id").alias("items_id")))
+        true_items_by_users = (
+            ground_truth
+            .groupby("user_id").agg(
+                sf.collect_set("item_id").alias("items_id"))
+        )
 
         return recommendations.join(
             true_items_by_users,
@@ -105,24 +111,32 @@ class Metric(ABC):
         users_count = recommendations.select("user_id").distinct().count()
         agg_fn = self._get_metric_value_by_user
 
-        @sf.pandas_udf(st.StructType([st.StructField("user_id", st.StringType(), True),
-                                      st.StructField("cum_agg", st.DoubleType(), True),
-                                      st.StructField("k", st.LongType(), True)
-                                      ]),
-                       sf.PandasUDFType.GROUPED_MAP)
+        @sf.pandas_udf(
+            st.StructType(
+                [st.StructField("user_id", st.StringType(), True),
+                 st.StructField("cum_agg", st.DoubleType(), True),
+                 st.StructField("k", st.LongType(), True)
+                ]),
+            sf.PandasUDFType.GROUPED_MAP)
         def grouped_map(pandas_df):
             pandas_df = (pandas_df.sort_values("relevance", ascending=False)
                          .reset_index(drop=True)
                          .assign(k=pandas_df.index + 1))
             return agg_fn(pandas_df)[["user_id", "cum_agg", "k"]]
 
-        recs = self._get_enriched_recommendations(recommendations, ground_truth)
-        recs = recs.groupby("user_id").apply(grouped_map).where(sf.col("k").isin(k_set))
-        total_metric = (recs
-                        .groupby("k").agg(sf.sum("cum_agg").alias("total_metric"))
-                        .withColumn("total_metric", sf.col("total_metric") / users_count)
-                        .select("total_metric", "k").collect())
-
+        recs = self._get_enriched_recommendations(
+            recommendations, ground_truth)
+        recs = (
+            recs.groupby("user_id")
+            .apply(grouped_map)
+            .where(sf.col("k").isin(k_set))
+        )
+        total_metric = (
+            recs
+            .groupby("k").agg(sf.sum("cum_agg").alias("total_metric"))
+            .withColumn("total_metric", sf.col("total_metric") / users_count)
+            .select("total_metric", "k").collect()
+        )
         res = {row["k"]: row["total_metric"] for row in total_metric}
         if isinstance(k, int):
             res = res[k]
@@ -139,10 +153,6 @@ class Metric(ABC):
         :return: DataFrame c рассчитанным полем ``cum_agg`` --
             pandas-датафрейм вида ``[user_id , item_id , cum_agg, *columns]``
         """
-
-    @abstractmethod
-    def __str__(self):
-        """ Строковое представление метрики. """
 
     @staticmethod
     def _check_users(
@@ -178,15 +188,12 @@ class HitRate(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
-
-    def __str__(self):
-        return "HitRate"
-
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
-        pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
-                                     .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
-
+        pandas_df = pandas_df.assign(
+            is_good_item=pandas_df[["item_id", "items_id"]]
+            .apply(lambda x: int(x["item_id"] in x["items_id"]), 1)
+        )
         return pandas_df.assign(cum_agg=pandas_df.is_good_item.cummax())
 
 
@@ -221,20 +228,21 @@ class NDCG(Metric):
     .. math::
         nDCG@K = \\frac {\sum_{i=1}^{N}nDCG@K(i)}{N}
     """
-
-    def __str__(self):
-        return "nDCG"
-
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
-        pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
-                                     .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
         pandas_df = pandas_df.assign(
-            sorted_good_item=pandas_df["k"].le(pandas_df["items_id"].str.len()))
-
+            is_good_item=pandas_df[["item_id", "items_id"]]
+            .apply(lambda x: int(x["item_id"] in x["items_id"]), 1)
+        )
+        pandas_df = pandas_df.assign(
+            sorted_good_item=pandas_df["k"].le(pandas_df["items_id"].str.len())
+        )
         return pandas_df.assign(
-            cum_agg=(pandas_df["is_good_item"] / np.log2(pandas_df.k + 1)).cumsum() /
-            (pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)).cumsum())
+            cum_agg=(
+                pandas_df["is_good_item"] /
+                np.log2(pandas_df.k + 1)).cumsum() /
+            (pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)).cumsum()
+        )
 
 
 class Precision(Metric):
@@ -249,16 +257,15 @@ class Precision(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
-
-    def __str__(self):
-        return "Precision"
-
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
-        pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
-                                     .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
-
-        return pandas_df.assign(cum_agg=pandas_df["is_good_item"].cumsum() / pandas_df.k)
+        pandas_df = pandas_df.assign(
+            is_good_item=pandas_df[["item_id", "items_id"]]
+            .apply(lambda x: int(x["item_id"] in x["items_id"]), 1)
+        )
+        return pandas_df.assign(
+            cum_agg=pandas_df["is_good_item"].cumsum() / pandas_df.k
+        )
 
 
 class MAP(Metric):
@@ -272,10 +279,6 @@ class MAP(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
     """
-
-    def __str__(self):
-        return "MAP"
-
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         pandas_df = pandas_df.assign(
@@ -283,11 +286,12 @@ class MAP(Metric):
                 lambda x: int(x["item_id"] in x["items_id"]), 1),
             good_items_count=pandas_df["items_id"].str.len())
 
-        return pandas_df.assign(cum_agg=(pandas_df["is_good_item"].cumsum()
-                                         * pandas_df["is_good_item"]
-                                         / pandas_df.k
-                                         / pandas_df[["k", "good_items_count"]].min(axis=1))
-                                .cumsum())
+        return pandas_df.assign(
+            cum_agg=(pandas_df["is_good_item"].cumsum() *
+                     pandas_df["is_good_item"] /
+                     pandas_df.k /
+                     pandas_df[["k", "good_items_count"]].min(axis=1))
+            .cumsum())
 
 
 class Recall(Metric):
@@ -304,17 +308,16 @@ class Recall(Metric):
 
     :math:`|Rel_i|` -- количество элементов, с которыми взаимодействовал пользователь :math:`i`
     """
-
-    def __str__(self):
-        return "Recall"
-
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
-        pandas_df = pandas_df.assign(is_good_item=pandas_df[["item_id", "items_id"]]
-                                     .apply(lambda x: int(x["item_id"] in x["items_id"]), 1))
-
+        pandas_df = pandas_df.assign(
+            is_good_item=pandas_df[["item_id", "items_id"]]
+            .apply(lambda x: int(x["item_id"] in x["items_id"]), 1)
+        )
         return pandas_df.assign(
-            cum_agg=pandas_df["is_good_item"].cumsum() / pandas_df["items_id"].str.len())
+            cum_agg=pandas_df["is_good_item"].cumsum() /
+            pandas_df["items_id"].str.len()
+        )
 
 
 class Surprisal(Metric):
@@ -347,16 +350,12 @@ class Surprisal(Metric):
     .. math::
         Surprisal@K = \\frac {\sum_{i=1}^{N}Surprisal@K(i)}{N}
     """
-
-    def __str__(self):
-        return "Surprisal"
-
     def __call__(
-                self,
-                recommendations: CommonDataFrame,
-                k: IterOrList
-        ) -> Union[Dict[int, NumType], NumType]:
-            return super().__call__(recommendations, recommendations, k)
+            self,
+            recommendations: CommonDataFrame,
+            k: IterOrList
+    ) -> Union[Dict[int, NumType], NumType]:
+        return super().__call__(recommendations, recommendations, k)
 
     def __init__(self, log: CommonDataFrame):
         """
@@ -367,12 +366,14 @@ class Surprisal(Metric):
         self.log = convert(log)
         n_users = self.log.select("user_id").distinct().count()
         self.item_weights = self.log.groupby("item_id").agg(
-                (sf.log2(n_users / sf.countDistinct("user_id"))
-                 / np.log2(n_users)).alias("rec_weight"))
+            (sf.log2(n_users / sf.countDistinct("user_id")) /
+             np.log2(n_users)).alias("rec_weight"))
 
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
-        return pandas_df.assign(cum_agg=pandas_df["rec_weight"].cumsum() / pandas_df["k"])
+        return pandas_df.assign(
+            cum_agg=pandas_df["rec_weight"].cumsum() / pandas_df["k"]
+        )
 
     def _get_enriched_recommendations(
             self,
@@ -382,6 +383,7 @@ class Surprisal(Metric):
         return (recommendations.join(self.item_weights,
                                      on="item_id",
                                      how="left").fillna(1))
+
 
 class Unexpectedness(Metric):
     """
@@ -415,7 +417,6 @@ class Unexpectedness(Metric):
         :param log: пандас или спарк датафрейм
         :param rec: одна из проинициализированных моделей библиотеки, либо ``None``
         """
-
         self.log = convert(log)
         if rec is None:
             self.train_model = False
@@ -423,9 +424,6 @@ class Unexpectedness(Metric):
             self.train_model = True
             rec.fit(log=self.log)
             self.model = rec
-
-    def __str__(self):
-        return "Unexpectedness"
 
     def __call__(
             self,
@@ -440,12 +438,12 @@ class Unexpectedness(Metric):
         pandas_df["cum_agg"] = pandas_df.apply(
             lambda row:
             (
-                 row["k"] -
-                 np.isin(
-                     recs[:row["k"]],
-                     row["items_id"][:row["k"]]
-                 ).sum()
-             )/row["k"],
+                row["k"] -
+                np.isin(
+                    recs[:row["k"]],
+                    row["items_id"][:row["k"]]
+                ).sum()
+            ) / row["k"],
             axis=1)
         return pandas_df
 
@@ -459,11 +457,82 @@ class Unexpectedness(Metric):
         else:
             pred = self.log
         items_by_users = (pred
-            .groupby("user_id").agg(
-            sf.collect_list("item_id").alias("items_id")))
+                          .groupby("user_id").agg(
+                              sf.collect_list("item_id").alias("items_id")))
         res = recommendations.join(
             items_by_users,
             how="inner",
             on=["user_id"]
         )
+        return res
+
+
+class Coverage(Metric):
+    """
+    Метрика вычисляется так:
+
+    * берём ``K`` рекомендаций с наибольшей ``relevance`` для каждого ``user_id``
+    * считаем, сколько всего различных ``item_id`` встречается в отобранных рекомендациях
+    * делим полученное количество объектов в рекомендациях на количество объектов в изначальном логе (до разбиения на train и test)
+
+    """
+    def __init__(self, log: CommonDataFrame):
+        """
+        :param log: pandas или Spark DataFrame, содержащий лог *до* разбиения на train и test.
+                    Важно, чтобы log содержал все доступные объекты (items). Coverage будет рассчитываться как доля по отношению к ним.
+        """
+        self.items = convert(log).select("item_id").distinct().cache()
+        self.item_count = self.items.count()
+
+    @staticmethod
+    def _get_metric_value_by_user(pandas_df):
+        # эта метрика не является средним по всем пользователям
+        pass
+
+    def __call__(
+            self,
+            recommendations: CommonDataFrame,
+            k: IterOrList
+    ) -> Union[Dict[int, NumType], NumType]:
+        return super().__call__(recommendations, recommendations, k)
+
+    def _get_metric_value(
+            self,
+            recommendations: DataFrame,
+            ground_truth: DataFrame,
+            k: IterOrList
+    ) -> Union[Dict[int, NumType], NumType]:
+        if isinstance(k, int):
+            k_set = {k}
+        else:
+            k_set = set(k)
+        unknows_item_count = (
+            recommendations.select("item_id").distinct()
+            .exceptAll(self.items).count()
+        )
+        if unknows_item_count > 0:
+            logging.warning(
+                "В рекомендациях есть объекты, которых не было в изначальном логе! "
+                "Значение метрики может получиться больше единицы ¯\_(ツ)_/¯"
+            )
+        item_sets = (
+            recommendations
+            .withColumn(
+                "row_num",
+                sf.row_number().over(
+                    Window.partitionBy("user_id").orderBy(sf.desc("relevance"))
+                )
+            )
+            .groupBy("row_num")
+            .agg(sf.collect_set("item_id").alias("items"))
+            .orderBy("row_num")
+        ).collect()
+        cum_set: Set[str] = set()
+        res = {}
+        for row in item_sets:
+            cum_set = cum_set.union(set(row.items))
+            if row.row_num in k_set:
+                res[row.row_num] = len(cum_set) / self.item_count
+        if isinstance(k, int):
+            res = res[k]
         return res
