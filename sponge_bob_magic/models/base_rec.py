@@ -227,7 +227,6 @@ class Recommender(ABC):
         """
         logging.debug("Проверка датафреймов")
         self._check_input_dataframes(log, user_features, item_features)
-        spark = State().session
 
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
@@ -267,6 +266,8 @@ class Recommender(ABC):
                     data=pd.DataFrame(pd.unique(list(array)),
                     columns=[column])
                 )
+        else:
+            unique = array.select(column).distinct()
         return unique
 
     @abstractmethod
