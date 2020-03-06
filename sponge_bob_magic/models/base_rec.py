@@ -263,7 +263,10 @@ class Recommender(ABC):
             array = log.select(column).distinct()
         elif not isinstance(array, DataFrame):
             if hasattr(array, "__iter__"):
-                array = spark.createDataFrame(data=pd.DataFrame(pd.unique(array), columns=[column]))
+                array = spark.createDataFrame(
+                    data=pd.DataFrame(pd.unique(array),
+                    columns=[column])
+                )
             else:
                 raise TypeError(f"Плохой аргумент {array}")
         return array
