@@ -14,7 +14,6 @@ from pyspark.sql.types import FloatType, StringType, TimestampType
 
 from sponge_bob_magic import constants
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.utils import flat_list
 
 CommonDataFrame = Union[DataFrame, pd.DataFrame]
 
@@ -315,7 +314,8 @@ class DataPreparator:
             required_columns = {"user_id": (None, StringType()),
                                 "item_id": (None, StringType())}
             optional_columns = {"timestamp": ("1999-05-01", TimestampType()),
-                                "context": (constants.DEFAULT_CONTEXT, StringType()),
+                                "context": (constants.DEFAULT_CONTEXT,
+                                            StringType()),
                                 "relevance": (1.0, FloatType())}
             if features_columns is None:
                 features_columns = []
@@ -335,12 +335,13 @@ class DataPreparator:
             if features_columns is None:
                 given_columns = set(columns_names.values())
                 dataframe_columns = set(dataframe.columns)
-                features_columns = sorted(list(dataframe_columns.difference(given_columns)))
+                features_columns = sorted(list(dataframe_columns.
+                                               difference(given_columns)))
                 if not features_columns:
                     raise ValueError("В датафрейме нет колонок с фичами")
 
             else:
-                if isinstance(features_columns,str):
+                if isinstance(features_columns, str):
                     features_columns = [features_columns]
                 else:
                     features_columns = list(features_columns)

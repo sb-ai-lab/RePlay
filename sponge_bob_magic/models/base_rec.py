@@ -263,8 +263,8 @@ class Recommender(ABC):
         elif not isinstance(array, DataFrame):
             if isinstance(array, Iterable):
                 unique = spark.createDataFrame(
-                    data=pd.DataFrame(pd.unique(list(array)),
-                    columns=[column])
+                                      data=pd.DataFrame(pd.unique(list(array)),
+                                      columns=[column])
                 )
         else:
             unique = array.select(column).distinct()
