@@ -10,7 +10,8 @@ git clone ssh://git@10.21.25.60:8878/ailab/sponge-bob-magic.git
 cd sponge-bob-magic
 python3 -m venv .
 source ./bin/activate
-pip install -r requirements.txt
+pip install poetry
+poetry install
 ```
 
 ## Как проверить качество кода

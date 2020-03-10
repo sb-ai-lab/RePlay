@@ -5,17 +5,21 @@ import os
 from os.path import join
 
 import pandas as pd
-from IPython.core.display import display
 from pandas import DataFrame
 
 
 class Dataset:
     def __init__(self, path: str = None):
-        data_folder = (path or os.getenv("KRUSTY_KRABS", None)
-                       or self.default_folder)
+        data_folder = (path or os.getenv("KRUSTY_KRABS", None) or
+                       self.default_folder)
         if not os.path.exists(data_folder):
             os.makedirs(data_folder)
         self.data_folder = data_folder
+        try:
+            display = __import__('IPython.core.display', globals(), locals(), ['display'])
+            self.display = display.display
+        except:
+            self.display = print
 
     @property
     def default_folder(self):
@@ -27,5 +31,5 @@ class Dataset:
             for name, df in self.__dict__.items():
                 if isinstance(df, DataFrame):
                     print(name)
-                    display(df.head(3))
+                    self.display(df.head(3))
                     print()

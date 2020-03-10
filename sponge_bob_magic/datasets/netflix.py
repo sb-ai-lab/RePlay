@@ -119,7 +119,7 @@ class Netflix(Dataset):
                 first = line.find(",")
                 second = first + 5
                 m_id = line[:first]
-                year = line[first+1:second]
-                title = line[second+1:]
+                year = line[first + 1:second]
+                title = line[second + 1:]
                 dest.write("\t".join([m_id, year, title]) + "\n")
         dest.close()
