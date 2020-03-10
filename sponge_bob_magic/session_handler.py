@@ -5,7 +5,7 @@
 import logging
 import os
 from math import floor
-from typing import Optional
+from typing import Dict, Optional
 
 import psutil
 from pyspark.sql import SparkSession
@@ -67,7 +67,7 @@ class State(Borg):
     def __init__(self, session: Optional[SparkSession] = None):
         Borg.__init__(self)
         if session is None:
-            if 'session' not in self.__dict__.keys():
+            if not hasattr(self, "session"):
                 self.session = get_spark_session()
         else:
             self.session = session
