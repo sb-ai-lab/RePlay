@@ -23,6 +23,7 @@ classifiers = [
 [tool.poetry.dependencies]
 python = "^3.7"
 annoy = "1.16.3"
+Cython = "0.29.14"
 dash = "1.8.0"
 joblib = "0.14.1"
 lightfm = "1.15"
@@ -36,6 +37,7 @@ pyarrow = "0.14.1"
 scipy = "1.4.1"
 torch = "1.4.0"
 tqdm = "4.42.1"
+
 
 [tool.poetry.dev-dependencies]
 autopep8 = "1.4.4"
