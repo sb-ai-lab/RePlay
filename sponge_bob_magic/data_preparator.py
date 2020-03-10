@@ -3,6 +3,7 @@
 Они должны соответствовать определенной структуре. Перед тем как обучить модель
 необходимо воспользоваться классом ``DataPreparator``. Данные пользователя могут храниться в файле
 либо содержаться внутри объекта ``pandas.DataFrame`` или ``spark.DataFrame``.
+
 """
 import logging
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, Iterable
@@ -14,26 +15,32 @@ from pyspark.sql.types import FloatType, StringType, TimestampType
 
 from sponge_bob_magic import constants
 from sponge_bob_magic.converter import convert
+from sponge_bob_magic.session_handler import State
 
 CommonDataFrame = Union[DataFrame, pd.DataFrame]
 
 
 class DataPreparator:
     """ Класс для преобразования различных типов данных.
+    Для преобразования данных необходимо иницализировать объект класс
+    ``DataPreparator`` и вызвать метод ``transform``. В случае, если в нем указан мапинг
+    столбцов  "user_id" и "item_id", то считается, что пользователь передал таблицу с логом,
+    если же в мапинге указан только один из столбцов "user_id"/"item_id", то передана
+    таблица с признаками пользователей/объектов соответственно.
+
     Примеры использования:
 
-    Загрузка таблицы с логом
+    Загрузка таблицы с логом (слобцы "user_id" и "item_id" обязательны).
 
     >>> import pandas as pd
     >>> from sponge_bob_magic.data_preparator import DataPreparator
     >>> from sponge_bob_magic.session_handler import State
     >>>
-    >>> spark = State().session
     >>> log = pd.DataFrame({"user_id": [2, 2, 2, 1],
     ...                     "item_id": [1, 2, 3, 3],
     ...                     "relevance": [5, 5, 5, 5]}
     ...                    )
-    >>> dp = DataPreparator(spark)
+    >>> dp = DataPreparator()
     >>> correct_log = dp.transform(data=log,
     ...                            columns_names={"user_id": "user_id",
     ...                                           "item_id": "item_id",
@@ -50,19 +57,18 @@ class DataPreparator:
     <BLANKLINE>
 
 
-    Загрузка таблицы с признакми пользователя
+    Загрузка таблицы с признакми пользователя (обязателен один из столбцов "user_id" и "item_id").
 
     >>> import pandas as pd
     >>> from sponge_bob_magic.data_preparator import DataPreparator
     >>> from sponge_bob_magic.session_handler import State
     >>>
-    >>> spark = State().session
     >>> log = pd.DataFrame({"user": ["user1", "user1", "user2"],
     ...                     "f0": ["feature1","feature2","feature1"],
     ...                     "f1": ["left","left","center"],
     ...                     "ts": ["2019-01-01","2019-01-01","2019-01-01"]}
     ...             )
-    >>> dp = DataPreparator(spark)
+    >>> dp = DataPreparator()
     >>> correct_log = dp.transform(data=log,
     ...                            columns_names={"user_id": "user",
     ...                                           "timestamp": "ts"},
@@ -78,19 +84,19 @@ class DataPreparator:
     +-------+-------------------+--------+
     <BLANKLINE>
 
-    Загрузка таблицы с признакми пользователя без явной передачи списка признаков
+    Загрузка таблицы с признакми пользователя без явной передачи списка признаков.
+    В случае если параметр features_columns не задан, признаками считаются все остальные столбцы.
 
     >>> import pandas as pd
     >>> from sponge_bob_magic.data_preparator import DataPreparator
     >>> from sponge_bob_magic.session_handler import State
     >>>
-    >>> spark = State().session
     >>> log = pd.DataFrame({"user": ["user1", "user1", "user2"],
     ...                     "f0": ["feature1","feature2","feature1"],
     ...                     "f1": ["left","left","center"],
     ...                     "ts": ["2019-01-01","2019-01-01","2019-01-01"]}
     ...             )
-    >>> dp = DataPreparator(spark)
+    >>> dp = DataPreparator()
     >>> correct_log = dp.transform(data=log,
     ...                            columns_names={"user_id": "user",
     ...                                           "timestamp": "ts"}
@@ -107,13 +113,13 @@ class DataPreparator:
     """
     spark: SparkSession
 
-    def __init__(self, spark: SparkSession):
+    def __init__(self):
         """
         Сохраняет спарк-сессию в качестве параметра.
 
         :param spark: инициализированная спарк-сессия
         """
-        self.spark = spark
+        self.spark = State().session
 
     def _read_data(self,
                    path: str,
