@@ -20,6 +20,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Typing :: Typed"
 ]
+
 [tool.poetry.dependencies]
 python = "^3.7"
 annoy = "1.16.3"
@@ -37,7 +38,6 @@ pyarrow = "0.14.1"
 scipy = "1.4.1"
 torch = "1.4.0"
 tqdm = "4.42.1"
-
 
 [tool.poetry.dev-dependencies]
 autopep8 = "1.4.4"
