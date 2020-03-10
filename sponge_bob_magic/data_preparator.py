@@ -15,7 +15,6 @@ from pyspark.sql.types import FloatType, StringType, TimestampType
 
 from sponge_bob_magic import constants
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.session_handler import State
 
 CommonDataFrame = Union[DataFrame, pd.DataFrame]
 
@@ -113,13 +112,13 @@ class DataPreparator:
     """
     spark: SparkSession
 
-    def __init__(self):
+    def __init__(self, spark: SparkSession):
         """
         Сохраняет спарк-сессию в качестве параметра.
 
         :param spark: инициализированная спарк-сессия
         """
-        self.spark = State().session
+        self.spark = spark
 
     def _read_data(self,
                    path: str,
