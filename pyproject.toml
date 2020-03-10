@@ -7,7 +7,6 @@ authors = ["Шминке Борис <Shminke.B.A@sberbank.ru>",
            "Тамм Ян-Мартин <YYTamm@sberbank.ru>",
            "Сидоренко Александр",
            "Айсина Роза"]
-license = "MIT"
 readme = "README.md"
 homepage = "https://sbtatlas.sigma.sbrf.ru/stash/scm/ailab/sponge-bob-magic"
 repository = "https://sbtatlas.sigma.sbrf.ru/stash/scm/ailab/sponge-bob-magic"
