@@ -33,7 +33,6 @@ class DataPreparator:
 
     >>> import pandas as pd
     >>> from sponge_bob_magic.data_preparator import DataPreparator
-    >>> from sponge_bob_magic.session_handler import State
     >>>
     >>> log = pd.DataFrame({"user_id": [2, 2, 2, 1],
     ...                     "item_id": [1, 2, 3, 3],
@@ -60,7 +59,6 @@ class DataPreparator:
 
     >>> import pandas as pd
     >>> from sponge_bob_magic.data_preparator import DataPreparator
-    >>> from sponge_bob_magic.session_handler import State
     >>>
     >>> log = pd.DataFrame({"user": ["user1", "user1", "user2"],
     ...                     "f0": ["feature1","feature2","feature1"],
@@ -88,7 +86,6 @@ class DataPreparator:
 
     >>> import pandas as pd
     >>> from sponge_bob_magic.data_preparator import DataPreparator
-    >>> from sponge_bob_magic.session_handler import State
     >>>
     >>> log = pd.DataFrame({"user": ["user1", "user1", "user2"],
     ...                     "f0": ["feature1","feature2","feature1"],

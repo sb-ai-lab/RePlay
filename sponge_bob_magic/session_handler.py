@@ -11,7 +11,7 @@ import psutil
 from pyspark.sql import SparkSession
 
 
-def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
+def init_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
     """
     инициализирует и возращает SparkSession с "годными" параметрами по
     умолчанию (для пользователей, которые не хотят сами настраивать Spark)
@@ -68,6 +68,9 @@ class State(Borg):
         Borg.__init__(self)
         if session is None:
             if 'session' not in self.__dict__.keys():
-                self.session = get_spark_session()
+                self.session = init_spark_session()
         else:
             self.session = session
+
+def get_session():
+    return State().session

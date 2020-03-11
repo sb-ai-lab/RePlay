@@ -4,7 +4,7 @@
 from pyspark.sql import DataFrame as SparkDataFrame
 from pandas import DataFrame as PandasDataFrame
 
-from sponge_bob_magic.session_handler import State
+from sponge_bob_magic.session_handler import get_session
 
 SPARK = "spark"
 PANDAS = "pandas"
@@ -22,7 +22,7 @@ def convert(df, type_out=SPARK):
     if type_in == type_out:
         return df
     elif type_out == SPARK:
-        spark = State().session
+        spark = get_session()
         return spark.createDataFrame(df)
     elif type_out == PANDAS:
         return df.toPandas()
