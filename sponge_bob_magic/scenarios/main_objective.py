@@ -91,9 +91,9 @@ class MainObjective:
         self._save_study(self.study, self.path)
 
         logging.debug("-- Второй фит модели в оптимизации")
-        self.recommender._fit_partial(self.split_data.train,
-                                      self.split_data.user_features,
-                                      self.split_data.item_features)
+        self.recommender._fit(self.split_data.train,
+                              self.split_data.user_features,
+                              self.split_data.item_features)
 
         logging.debug("-- Предикт модели в оптимизации")
         recs = self.recommender.predict(

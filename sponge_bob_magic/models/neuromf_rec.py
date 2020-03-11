@@ -217,10 +217,10 @@ class NeuroMFRec(Recommender):
         logging.debug("-- Текущее значение val loss  : %.4f", current_val_loss)
         return current_loss, current_val_loss
 
-    def _fit_partial(self,
-                     log: DataFrame,
-                     user_features: Optional[DataFrame] = None,
-                     item_features: Optional[DataFrame] = None) -> None:
+    def _fit(self,
+             log: DataFrame,
+             user_features: Optional[DataFrame] = None,
+             item_features: Optional[DataFrame] = None) -> None:
         logging.debug("Индексирование данных")
         log_indexed = self.user_indexer_model.transform(log)
         log_indexed = self.item_indexer_model.transform(log_indexed)
