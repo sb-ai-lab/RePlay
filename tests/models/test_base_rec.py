@@ -42,30 +42,6 @@ class RecTestCase(PySparkTest):
         self.empty_df = self.spark.createDataFrame(data=[],
                                                    schema=StructType([]))
 
-    def test_fit_predict_log_exception(self):
-        # log is None
-        self.assertRaises(ValueError, self.model.fit_predict,
-                          log=None, user_features=None, item_features=None,
-                          k=10, users=None, items=None, context=None)
-
-        # log пустой
-        self.assertRaises(ValueError, self.model.fit_predict,
-                          log=self.empty_df, user_features=None,
-                          item_features=None,
-                          k=10, users=None, items=None, context=None)
-
-        # log с недостающими колонкнами
-        log_required_columns = ["item_id", "user_id", "timestamp",
-                                "relevance", "context"]
-        for i in range(1, len(log_required_columns) - 1):
-            log = self.spark.createDataFrame(
-                data=[["1", "2", "3", "4", "5"]],
-                schema=log_required_columns[:i] + log_required_columns[i + 1:]
-            )
-            self.assertRaises(ValueError, self.model.fit_predict,
-                              log=log, user_features=None, item_features=None,
-                              k=10, users=None, items=None, context=None)
-
     def test_fit_predict_feature_exception(self):
         log = self.spark.createDataFrame(
             data=[["1", "2", "3", "4", "5", "6"]],
