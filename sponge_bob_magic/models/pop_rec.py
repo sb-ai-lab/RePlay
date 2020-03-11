@@ -17,34 +17,18 @@ from sponge_bob_magic.utils import (get_top_k_recs, get_top_k_rows,
 
 class PopRec(Recommender):
     """
-    Простейший рекомендатель на основе сглаженной популярности.
+    Простейший рекомендатель на основе популярности.
 
     Популярность объекта определяется как:
-    popularity(i) = \\dfrac{N_i + \\alpha}{N + \\beta},
+    popularity(i) = \\dfrac{N_i}{N},
 
     где $ N_i $ - количество пользователей, у которых было взаимодействие с
     данным объектом $ i $, $ N $ - общее количество пользователей,
-    которые как провзаимодействовали с объектом, так и нет,
-    $ \\alpha, \\beta \\in [0, \\infty) $ - параметры модели.
-
-    Эвристика: размуным пределом для параметров $ \\alpha $ и $ \\beta $
-    может стать среднее значение количества пользователей $ N_i $,
-    которые провзаимодействовали с объектами.
+    которые как провзаимодействовали с объектом, так и нет.
     """
 
     avg_num_items: int
     items_popularity: DataFrame
-
-    def __init__(
-            self,
-            alpha: float = 1000,
-            beta: float = 1000):
-        self.alpha = alpha
-        self.beta = beta
-
-    def get_params(self) -> Dict[str, object]:
-        return {"alpha": self.alpha,
-                "beta": self.beta}
 
     def _pre_fit(self,
                  log: DataFrame,
@@ -111,9 +95,7 @@ class PopRec(Recommender):
                      .collect()[0][0])
 
         items_to_rec = (items_to_rec
-                        .withColumn("relevance",
-                                    (sf.col("count") + self.alpha) /
-                                    (count_sum + self.beta))
+                        .withColumn("relevance", sf.col("count") / count_sum)
                         .drop("count"))
 
         # удаляем ненужные items и добавляем нулевые
