@@ -18,13 +18,14 @@ from pyspark.sql import functions as sf
 from pyspark.sql.functions import udf
 from pyspark.sql.types import DoubleType
 from sklearn.model_selection import train_test_split
-from torch import Tensor, LongTensor
-from torch.nn import DataParallel, Embedding, Module
+from torch import LongTensor, Tensor
+from torch.nn import Embedding, Module
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import get_top_k_recs
 
 
@@ -79,13 +80,12 @@ class NMF(Module):
         item_emb = self.item_embedding(item)
         dot = (user_emb * item_emb).sum(dim=1).squeeze()
         relevance = (
-                dot + self.item_biases(item).squeeze() +
-                self.user_biases(user).squeeze()
+            dot + self.item_biases(item).squeeze() +
+            self.user_biases(user).squeeze()
         )
         if get_embs:
             return user_emb, item_emb
-        else:
-            return relevance
+        return relevance
 
 
 class NeuroMFRec(Recommender):
@@ -110,6 +110,7 @@ class NeuroMFRec(Recommender):
         :param epochs: количество эпох, в течение которых учимся
         :param embedding_dimension: размер представления пользователей/объектов
         """
+        self.device = State().device
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.embedding_dimension = embedding_dimension
@@ -140,36 +141,19 @@ class NeuroMFRec(Recommender):
         self.num_users = log_indexed.select("user_idx").distinct().count()
         self.num_items = log_indexed.select("item_idx").distinct().count()
 
-        model = NMF(
+        self.model = NMF(
             user_count=self.num_users,
             item_count=self.num_items,
             embedding_dimension=self.embedding_dimension
-        )
-
-        if torch.cuda.is_available():
-            if torch.cuda.device_count() > 1:
-                self.model = DataParallel(
-                    model,
-                    device_ids=list(range(torch.cuda.device_count()))
-                ).cuda()
-            else:
-                self.model = model.cuda()
-        else:
-            self.model = model
+        ).to(self.device)
 
     def _run_single_batch(self, batch: Tensor) -> Tensor:
         negative_items = torch.from_numpy(
             np.random.randint(low=0, high=self.num_items - 1,
                               size=batch[0].shape[0])
-        )
-
-        if torch.cuda.is_available():
-            batch = [item.cuda() for item in batch]
-            negative_items = negative_items.cuda()
-
+        ).to(self.device)
         positive_relevance = self.model.forward(batch[0], batch[1])
         negative_relevance = self.model.forward(batch[0], negative_items)
-
         loss = torch.clamp(
             negative_relevance - positive_relevance + 1.0, 0.0, 1.0
         ).mean()
@@ -177,10 +161,10 @@ class NeuroMFRec(Recommender):
         return loss
 
     def _run_epoch(self,
-                   train_user_batch: LongTensor,
-                   train_item_batch: LongTensor,
-                   valid_user_batch: LongTensor,
-                   valid_item_batch: LongTensor,
+                   train_user_batch: Tensor,
+                   train_item_batch: Tensor,
+                   valid_user_batch: Tensor,
+                   valid_item_batch: Tensor,
                    optimizer: torch.optim.Optimizer) -> Tuple[float, float]:
         train_dataset = TensorDataset(train_user_batch, train_item_batch)
         train_data = DataLoader(
@@ -239,10 +223,18 @@ class NeuroMFRec(Recommender):
         train_tensor_data, valid_tensor_data = train_test_split(
             tensor_data, stratify=tensor_data["user_idx"], test_size=0.1,
             random_state=42)
-        train_user_batch = LongTensor(train_tensor_data["user_idx"].values)
-        train_item_batch = LongTensor(train_tensor_data["item_idx"].values)
-        valid_user_batch = LongTensor(valid_tensor_data["user_idx"].values)
-        valid_item_batch = LongTensor(valid_tensor_data["item_idx"].values)
+        train_user_batch = LongTensor(
+            train_tensor_data["user_idx"].values
+        ).to(self.device)
+        train_item_batch = LongTensor(
+            train_tensor_data["item_idx"].values
+        ).to(self.device)
+        valid_user_batch = LongTensor(
+            valid_tensor_data["user_idx"].values
+        ).to(self.device)
+        valid_item_batch = LongTensor(
+            valid_tensor_data["item_idx"].values
+        ).to(self.device)
         logging.debug("Обучение модели")
         val_losses = []
         early_stopping = 3
@@ -275,9 +267,6 @@ class NeuroMFRec(Recommender):
 
         self.model.eval()
         logging.debug("-- Запись annoy индексов")
-        if torch.cuda.is_available():
-            train_user_batch = train_user_batch.cuda()
-            train_item_batch = train_item_batch.cuda()
         _, item_embs = self.model(train_user_batch,
                                   train_item_batch,
                                   get_embs=True)
@@ -299,7 +288,7 @@ class NeuroMFRec(Recommender):
                  filter_seen_items: bool = True) -> DataFrame:
         self.model.eval()
         sep = ","
-        spark = SparkSession(users.rdd.context)
+        spark = State().session
         tmp_path = os.path.join(spark.conf.get("spark.local.dir"), "recs")
         if os.path.exists(tmp_path):
             shutil.rmtree(tmp_path)
@@ -314,11 +303,8 @@ class NeuroMFRec(Recommender):
             os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_users_data")
         )
-        user_batch = LongTensor(tensor_data["user_idx"].values)
-        item_batch = torch.ones_like(user_batch)
-        if torch.cuda.is_available():
-            user_batch = user_batch.cuda()
-            item_batch = item_batch.cuda()
+        user_batch = LongTensor(tensor_data["user_idx"].values).to(self.device)
+        item_batch = torch.ones_like(user_batch).to(self.device)
         user_embs, _ = self.model(user_batch, item_batch, get_embs=True)
         predictions = pandas.DataFrame(columns=["user_idx", "item_idx"])
         logging.debug("Поиск ближайших айтемов с помощью annoy")
