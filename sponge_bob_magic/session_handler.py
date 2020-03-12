@@ -8,6 +8,7 @@ from math import floor
 from typing import Dict, Optional
 
 import psutil
+import torch
 from pyspark.sql import SparkSession
 
 
@@ -63,11 +64,28 @@ class State(Borg):
     В этот класс можно положить свою спарк сессию, чтобы она была доступна модулям библиотеки.
     Каждый модуль, которому нужна спарк сессия, будет искать её здесь и создаст дефолтную сессию,
     если ни одной не было создано до сих пор.
+
+    Здесь же хранится default device для pytorch (CPU или CUDA, если доступна).
     """
-    def __init__(self, session: Optional[SparkSession] = None):
+    def __init__(
+            self,
+            session: Optional[SparkSession] = None,
+            device: Optional[torch.device] = None
+    ):
         Borg.__init__(self)
         if session is None:
             if not hasattr(self, "session"):
                 self.session = get_spark_session()
         else:
             self.session = session
+
+        if device is None:
+            if not hasattr(self, "device"):
+                if torch.cuda.is_available():
+                    self.device = torch.device(
+                        f"cuda:{torch.cuda.current_device()}"
+                    )
+                else:
+                    self.device = torch.device("cpu")
+        else:
+            self.device = device
