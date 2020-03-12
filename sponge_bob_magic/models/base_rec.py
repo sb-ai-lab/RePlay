@@ -40,6 +40,7 @@ class Recommender(ABC):
 
             setattr(self, param, value)
 
+    @abstractmethod
     def get_params(self) -> Dict[str, object]:
         """
         Возвращает параметры рекоммендера в виде словаря.
@@ -47,7 +48,6 @@ class Recommender(ABC):
         :return: словарь параметров, ключ - название параметра,
             значение - значение параметра
         """
-        return {}
 
     @staticmethod
     def _check_dataframe(dataframe: DataFrame,

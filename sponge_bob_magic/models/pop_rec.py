@@ -30,6 +30,9 @@ class PopRec(Recommender):
     avg_num_items: int
     items_popularity: DataFrame
 
+    def get_params(self) -> Dict[str, object]:
+        return {}
+
     def _pre_fit(self,
                  log: DataFrame,
                  user_features: Optional[DataFrame] = None,
