@@ -15,14 +15,12 @@ from pyspark.ml import Pipeline
 from pyspark.ml.feature import (IndexToString, MinMaxScaler, StringIndexer,
                                 StringIndexerModel, VectorAssembler)
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql import functions as sf
 from pyspark.sql.functions import udf
 from pyspark.sql.types import DoubleType
 from torch import Tensor
 from torch.nn import Embedding, Module
 from torch.utils.data import DataLoader, TensorDataset
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import get_top_k_recs
@@ -288,7 +286,6 @@ class MLPRec(Recommender):
                               sep=sep,
                               header=True,
                               inferSchema=True)
-        recs = recs.withColumn("context", sf.lit(DEFAULT_CONTEXT))
 
         logging.debug("Обратное преобразование индексов")
         user_converter = IndexToString(inputCol="user_idx",

@@ -11,7 +11,6 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 import pandas as pd
 
-from sponge_bob_magic import constants
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import write_read_dataframe
 
@@ -164,9 +163,6 @@ class Recommender(ABC):
             raise ValueError(
                 "Значение k больше, чем множество объектов; "
                 f"k = {k}, number of items = {num_items}")
-
-        if context is None:
-            context = constants.DEFAULT_CONTEXT
 
         recs = self._predict(log, k, users, items, context, user_features, item_features, filter_seen_items)
         spark = SparkSession(recs.rdd.context)

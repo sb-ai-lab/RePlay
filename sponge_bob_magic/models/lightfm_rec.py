@@ -11,7 +11,6 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import lit
 from scipy.sparse import coo_matrix
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
@@ -98,7 +97,5 @@ class LightFMRec(Recommender):
         recs = spark.createDataFrame(
             prediction[["user_id", "item_id", "relevance"]]
         ).cache()
-        recs = get_top_k_recs(recs, k).withColumn(
-            "context", lit(DEFAULT_CONTEXT)
-        )
+        recs = get_top_k_recs(recs, k)
         return recs

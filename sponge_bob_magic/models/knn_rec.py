@@ -8,7 +8,6 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs, write_read_dataframe
 
@@ -196,7 +195,6 @@ class KNNRec(Recommender):
             .groupby("user_id", "item_id_two")
             .agg(sf.sum("similarity").alias("relevance"))
             .withColumnRenamed("item_id_two", "item_id")
-            .withColumn("context", sf.lit(DEFAULT_CONTEXT))
             .cache()
         )
 
