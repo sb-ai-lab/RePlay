@@ -58,6 +58,7 @@ torchvision = "0.3.0"
 parameterized = "0.7.1"
 rope = "0.16.0"
 virtualenv = "20.0.8"
+pytest = "5.3.5"
 
 [build-system]
 requires = ["poetry>=0.12"]
