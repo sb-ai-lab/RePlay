@@ -202,10 +202,10 @@ class MLPRec(Recommender):
         scheduler.step()
         return current_loss
 
-    def _fit_partial(self,
-                     log: DataFrame,
-                     user_features: Optional[DataFrame] = None,
-                     item_features: Optional[DataFrame] = None) -> None:
+    def _fit(self,
+             log: DataFrame,
+             user_features: Optional[DataFrame] = None,
+             item_features: Optional[DataFrame] = None) -> None:
         logging.debug("Индексирование данных")
         log_indexed = self.user_indexer_model.transform(log)
         log_indexed = self.item_indexer_model.transform(log_indexed)

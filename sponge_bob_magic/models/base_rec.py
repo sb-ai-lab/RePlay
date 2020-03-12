@@ -4,7 +4,7 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Set, Iterable
+from typing import Any, Dict, Optional, Iterable
 from uuid import uuid4
 
 from pyspark.sql import DataFrame, SparkSession
@@ -49,74 +49,6 @@ class Recommender(ABC):
             значение - значение параметра
         """
 
-    @staticmethod
-    def _check_dataframe(dataframe: DataFrame,
-                         required_columns: Set[str],
-                         optional_columns: Set[str]) -> None:
-        if dataframe is None:
-            raise ValueError("Датафрейм есть None")
-
-        # чекаем, что датафрейм не пустой
-        if len(dataframe.head(1)) == 0:
-            raise ValueError("Датафрейм пустой")
-
-        df_columns = dataframe.columns
-
-        # чекаем на нуллы
-        for column in df_columns:
-            if dataframe.where(sf.col(column).isNull()).count() > 0:
-                raise ValueError(f"В колонке '{column}' есть значения NULL")
-
-        # чекаем колонки
-        if not required_columns.issubset(df_columns):
-            raise ValueError(
-                f"В датафрейме нет обязательных колонок ({required_columns})")
-
-        wrong_columns = (set(df_columns)
-                         .difference(required_columns)
-                         .difference(optional_columns))
-        if len(wrong_columns) > 0:
-            raise ValueError(
-                f"В датафрейме есть лишние колонки: {wrong_columns}")
-
-    @staticmethod
-    def _check_feature_dataframe(features: DataFrame,
-                                 required_columns: Set[str],
-                                 optional_columns: Set[str]) -> None:
-        if features is None:
-            return
-
-        columns = set(features.columns).difference(required_columns)
-        if len(columns) == 0:
-            raise ValueError("В датафрейме features нет колонок с фичами")
-
-        Recommender._check_dataframe(
-            features,
-            required_columns=required_columns.union(columns),
-            optional_columns=optional_columns
-        )
-
-    @staticmethod
-    def _check_input_dataframes(log: DataFrame,
-                                user_features: DataFrame,
-                                item_features: DataFrame) -> None:
-        Recommender._check_dataframe(
-            log,
-            required_columns={"item_id", "user_id", "timestamp", "relevance",
-                              "context"},
-            optional_columns=set()
-        )
-        Recommender._check_feature_dataframe(
-            user_features,
-            optional_columns=set(),
-            required_columns={"user_id", "timestamp"}
-        )
-        Recommender._check_feature_dataframe(
-            item_features,
-            optional_columns=set(),
-            required_columns={"item_id", "timestamp"}
-        )
-
     def fit(self, log: DataFrame,
             user_features: Optional[DataFrame] = None,
             item_features: Optional[DataFrame] = None) -> None:
@@ -134,24 +66,21 @@ class Recommender(ABC):
             `[item_id , timestamp]` и колонки с признаками
         :return:
         """
-        logging.debug("Проверка датафреймов")
-        self._check_input_dataframes(log, user_features, item_features)
 
         logging.debug("Предварительная стадия обучения (pre-fit)")
         self._pre_fit(log, user_features, item_features)
 
         logging.debug("Основная стадия обучения (fit)")
-        self._fit_partial(log, user_features, item_features)
+        self._fit(log, user_features, item_features)
 
-    @abstractmethod
     def _pre_fit(self, log: DataFrame,
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None) -> None:
         """
-        Метод-helper для обучения модели, в которой параметры не используются.
+        Метод-helper для обучения модели, в котором параметры не используются.
         Нужен для того, чтобы вынести вычисление трудоемких агрегатов
         в отдельный метод, который по возможности будет вызываться один раз.
-        Должен быть имплементирован наследниками.
+        Может быть имплементирован наследниками.
 
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
@@ -164,13 +93,14 @@ class Recommender(ABC):
             `[item_id , timestamp]` и колонки с признаками
         :return:
         """
+        pass
 
     @abstractmethod
-    def _fit_partial(self, log: DataFrame,
-                     user_features: Optional[DataFrame] = None,
-                     item_features: Optional[DataFrame] = None) -> None:
+    def _fit(self, log: DataFrame,
+             user_features: Optional[DataFrame] = None,
+             item_features: Optional[DataFrame] = None) -> None:
         """
-        Метод-helper для обучения модели, в которой используются параметры.
+        Метод для обучения модели.
         Должен быть имплементирован наследниками.
 
         :param log: лог взаимодействий пользователей и объектов,
@@ -225,8 +155,6 @@ class Recommender(ABC):
         :return: рекомендации, спарк-датафрейм с колонками
             `[user_id , item_id , context , relevance]`
         """
-        logging.debug("Проверка датафреймов")
-        self._check_input_dataframes(log, user_features, item_features)
 
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
@@ -263,7 +191,7 @@ class Recommender(ABC):
         elif not isinstance(array, DataFrame):
             if isinstance(array, Iterable):
                 unique = spark.createDataFrame(
-                                      data=pd.DataFrame(pd.unique(list(array)),
+                    data=pd.DataFrame(pd.unique(list(array)),
                                       columns=[column])
                 )
         else:

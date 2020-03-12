@@ -156,10 +156,10 @@ class KNNRec(Recommender):
                          "knn_all_items.parquet")
         )
 
-    def _fit_partial(self,
-                     log: DataFrame,
-                     user_features: Optional[DataFrame] = None,
-                     item_features: Optional[DataFrame] = None) -> None:
+    def _fit(self,
+             log: DataFrame,
+             user_features: Optional[DataFrame] = None,
+             item_features: Optional[DataFrame] = None) -> None:
         similarity_matrix = self._get_similarity_matrix(
             self.all_items, self.dot_products, self.item_norms
         ).cache()
