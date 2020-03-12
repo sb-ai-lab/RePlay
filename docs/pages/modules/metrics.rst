@@ -18,6 +18,10 @@ Recall
 ------
 .. autoclass:: sponge_bob_magic.metrics.Recall
 
+MRR
+----
+.. autoclass:: sponge_bob_magic.metrics.MRR
+
 NDCG
 -----
 .. autoclass:: sponge_bob_magic.metrics.NDCG
