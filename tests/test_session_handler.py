@@ -1,6 +1,6 @@
 import unittest
 
-from sponge_bob_magic.session_handler import State, init_spark_session
+from sponge_bob_magic.session_handler import State, get_spark_session
 
 
 class TestConverter(unittest.TestCase):
@@ -14,6 +14,6 @@ class TestConverter(unittest.TestCase):
         self.assertTrue(s1 is s2)
 
     def test_initialization(self):
-        s1 = init_spark_session()
+        s1 = get_spark_session()
         s2 = State(s1).session
         self.assertTrue(s1 is s2)
