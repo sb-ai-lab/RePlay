@@ -12,7 +12,7 @@ from pyspark.sql import functions as sf
 import pandas as pd
 
 from sponge_bob_magic import constants
-from sponge_bob_magic.session_handler import get_session
+from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import write_read_dataframe
 
 
@@ -184,7 +184,7 @@ class Recommender(ABC):
         Получить уникальные значения из ``array`` и положить в датафрейм с колонкой ``column``.
         Если ``array is None``, то вытащить значение из ``log``.
         """
-        spark = get_session()
+        spark = State().session
         if array is None:
             logging.debug("Выделение дефолтных юзеров")
             unique = log.select(column).distinct()

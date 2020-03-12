@@ -71,6 +71,3 @@ class State(Borg):
                 self.session = init_spark_session()
         else:
             self.session = session
-
-def get_session():
-    return State().session
