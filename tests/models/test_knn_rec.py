@@ -16,13 +16,13 @@ class KNNRecTestCase(PySparkTest):
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [
-                ["u1", "i1", self.some_date, "c1", 1.0],
-                ["u2", "i1", self.some_date, "c1", 1.0],
-                ["u3", "i3", self.some_date, "c1", 2.0],
-                ["u3", "i3", self.some_date, "c1", 2.0],
-                ["u2", "i3", self.some_date, "c1", 2.0],
-                ["u3", "i4", self.some_date, "c1", 2.0],
-                ["u1", "i4", self.some_date, "c1", 2.0]
+                ["u1", "i1", self.some_date, 1.0],
+                ["u2", "i1", self.some_date, 1.0],
+                ["u3", "i3", self.some_date, 2.0],
+                ["u3", "i3", self.some_date, 2.0],
+                ["u2", "i3", self.some_date, 2.0],
+                ["u3", "i4", self.some_date, 2.0],
+                ["u1", "i4", self.some_date, 2.0]
             ],
             schema=LOG_SCHEMA
         )

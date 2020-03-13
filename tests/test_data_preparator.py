@@ -9,7 +9,7 @@ from pyspark.sql import functions as sf
 from pyspark.sql.types import StringType, StructType
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
+from sponge_bob_magic.constants import LOG_SCHEMA
 from sponge_bob_magic.data_preparator import DataPreparator
 
 
@@ -63,11 +63,11 @@ class DataPreparatorTest(PySparkTest):
           ["2", "3", "2019-01-01"], ],
          ["user", "item", "ts"],
          {"user_id": "user", "item_id": "item", "timestamp": "ts"}),
-        ([["1", "1", None],
-          ["1", "2", "fggg"],
-          ["2", "3", "2019-01-01"], ],
-         ["user", "item", "context"],
-         {"user_id": "user", "item_id": "item", "context": "context"}),
+        ([["1", "1"],
+          ["1", "2"],
+          ["2", "3"], ],
+         ["user", "item"],
+         {"user_id": "user", "item_id": "item"}),
         ([["1", "1", 1.0],
           ["1", "2", 1.0],
           ["2", "3", None], ],
@@ -90,9 +90,9 @@ class DataPreparatorTest(PySparkTest):
         # columns_names для необязательных колонок
         ({"blabla": ""},),
         ({"timestamp": "", "blabla": ""},),
-        ({"relevance": "", "context": "", "blabla": ""},),
-        ({"timestamp": "", "context": "", "blabla": ""},),
-        ({"timestamp": "", "context": "", "relevance": "", "blabla": ""},),
+        ({"relevance": "", "blabla": ""},),
+        ({"timestamp": "", "blabla": ""},),
+        ({"timestamp": "", "relevance": "", "blabla": ""},),
     ])
     def test_transform_log_redundant_columns_exception(self, columns_names):
         # добавим обязательные колонки
@@ -110,35 +110,34 @@ class DataPreparatorTest(PySparkTest):
         ([["user1", "item1"],
           ["user1", "item2"],
           ["user2", "item1"], ], ["user", "item"],
-         [["user1", "item1", datetime(1999, 5, 1), DEFAULT_CONTEXT, 1.0],
-          ["user1", "item2", datetime(1999, 5, 1), DEFAULT_CONTEXT, 1.0],
-          ["user2", "item1", datetime(1999, 5, 1), DEFAULT_CONTEXT, 1.0], ],
+         [["user1", "item1", datetime(1999, 5, 1), 1.0],
+          ["user1", "item2", datetime(1999, 5, 1), 1.0],
+          ["user2", "item1", datetime(1999, 5, 1), 1.0], ],
          {"user_id": "user", "item_id": "item"}),
         ([["u1", "i10", "2045-09-18"],
           ["u2", "12", "1935-12-15"],
           ["u5", "303030", "1989-06-26"], ],
          ["user_like", "item_like", "ts"],
-         [["u1", "i10", datetime(2045, 9, 18), DEFAULT_CONTEXT, 1.0],
-          ["u2", "12", datetime(1935, 12, 15), DEFAULT_CONTEXT, 1.0],
-          ["u5", "303030", datetime(1989, 6, 26), DEFAULT_CONTEXT, 1.0], ],
+         [["u1", "i10", datetime(2045, 9, 18), 1.0],
+          ["u2", "12", datetime(1935, 12, 15), 1.0],
+          ["u5", "303030", datetime(1989, 6, 26), 1.0], ],
          {"user_id": "user_like", "item_id": "item_like", "timestamp": "ts"}),
-        ([["1010", "4944", "1945-05-25", "day"],
-          ["4565", "134232", "2045-11-18", "night"],
-          ["56756", "item1", "2019-02-05", "evening"], ],
-         ["a", "b", "c", "d"],
-         [["1010", "4944", datetime(1945, 5, 25), "day", 1.0],
-          ["4565", "134232", datetime(2045, 11, 18), "night", 1.0],
-          ["56756", "item1", datetime(2019, 2, 5), "evening", 1.0], ],
-         {"user_id": "a", "item_id": "b", "timestamp": "c", "context": "d"}),
-        ([["1945-01-25", "day111_", 123.0, "12", "ue123"],
-          ["2045-07-18", "night57", 1.0, "1", "u6788888"],
-          ["2019-09-30", "evening", 0.001, "item10000", "1222222"], ],
-         ["d", "c", "r", "i", "u"],
-         [["ue123", "12", datetime(1945, 1, 25), "day111_", 123.0, ],
-          ["u6788888", "1", datetime(2045, 7, 18), "night57", 1.0, ],
-          ["1222222", "item10000", datetime(2019, 9, 30), "evening", 0.001], ],
-         {"user_id": "u", "item_id": "i", "timestamp": "d",
-          "context": "c", "relevance": "r"}),
+        ([["1010", "4944", "1945-05-25"],
+          ["4565", "134232", "2045-11-18"],
+          ["56756", "item1", "2019-02-05"], ],
+         ["a", "b", "c"],
+         [["1010", "4944", datetime(1945, 5, 25), 1.0],
+          ["4565", "134232", datetime(2045, 11, 18), 1.0],
+          ["56756", "item1", datetime(2019, 2, 5), 1.0], ],
+         {"user_id": "a", "item_id": "b", "timestamp": "c"}),
+        ([["1945-01-25", 123.0, "12", "ue123"],
+          ["2045-07-18", 1.0, "1", "u6788888"],
+          ["2019-09-30", 0.001, "item10000", "1222222"], ],
+         ["d", "r", "i", "u"],
+         [["ue123", "12", datetime(1945, 1, 25), 123.0, ],
+          ["u6788888", "1", datetime(2045, 7, 18), 1.0, ],
+          ["1222222", "item10000", datetime(2019, 9, 30), 0.001], ],
+         {"user_id": "u", "item_id": "i", "timestamp": "d", "relevance": "r"}),
     ])
     def test_transform_log(self, log_data, log_schema,
                            true_log_data, columns_names):
@@ -153,7 +152,6 @@ class DataPreparatorTest(PySparkTest):
         test_log = self.data_preparator.transform(
             data=log,
             columns_names=columns_names)
-
         self.assertSparkDataFrameEqual(true_log, test_log)
 
     @parameterized.expand([
@@ -161,18 +159,16 @@ class DataPreparatorTest(PySparkTest):
         ([["user1", "item1", 32],
           ["user1", "item2", 12],
           ["user2", "item1", 0], ], ["user", "item", "ts"],
-         [["user1", "item1", datetime.fromtimestamp(32), DEFAULT_CONTEXT, 1.0],
-          ["user1", "item2", datetime.fromtimestamp(12), DEFAULT_CONTEXT, 1.0],
-          ["user2", "item1", datetime.fromtimestamp(0), DEFAULT_CONTEXT, 1.0]],
+         [["user1", "item1", datetime.fromtimestamp(32), 1.0],
+          ["user1", "item2", datetime.fromtimestamp(12), 1.0],
+          ["user2", "item1", datetime.fromtimestamp(0), 1.0]],
          {"user_id": "user", "item_id": "item", "timestamp": "ts"}),
         ([["user1", "item1", 3],
           ["user1", "item2", 2 * 365],
           ["user2", "item1", 365], ], ["user", "item", "ts"],
-         [["user1", "item1", datetime.fromtimestamp(3), DEFAULT_CONTEXT, 1.0],
-          ["user1", "item2", datetime.fromtimestamp(730), DEFAULT_CONTEXT,
-           1.0],
-          ["user2", "item1", datetime.fromtimestamp(365), DEFAULT_CONTEXT,
-           1.0]],
+         [["user1", "item1", datetime.fromtimestamp(3), 1.0],
+          ["user1", "item2", datetime.fromtimestamp(730), 1.0],
+          ["user2", "item1", datetime.fromtimestamp(365), 1.0]],
          {"user_id": "user", "item_id": "item", "timestamp": "ts"}),
     ])
     def test_transform_log_timestamp_column(self, log_data, log_schema,
@@ -185,7 +181,6 @@ class DataPreparatorTest(PySparkTest):
         test_log = self.data_preparator.transform(
             data=log,
             columns_names=columns_names)
-
         self.assertSparkDataFrameEqual(true_log, test_log)
 
     # тестим преобразование фичей

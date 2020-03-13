@@ -263,7 +263,7 @@ class DataPreparator:
         Преобразовывает лог, либо признаки пользователей или объектов
         в спарк-датафрейм вида
         ``[user_id, timestamp, *features]`` или ``[item_id, timestamp, *features]``
-        или ``[user_id, user_id, timestamp, context , relevance]``.
+        или ``[user_id, user_id, timestamp, relevance]``.
         На вход необходимо передать либо файл формата ``format_type``
         по пути ``path``, либо ``pandas.DataFrame`` или ``spark.DataFrame``.
 
@@ -308,8 +308,6 @@ class DataPreparator:
             required_columns = {"user_id": (None, StringType()),
                                 "item_id": (None, StringType())}
             optional_columns = {"timestamp": ("1999-05-01", TimestampType()),
-                                "context": (constants.DEFAULT_CONTEXT,
-                                            StringType()),
                                 "relevance": (1.0, FloatType())}
             if features_columns is None:
                 features_columns = []
