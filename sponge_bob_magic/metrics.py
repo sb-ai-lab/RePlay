@@ -392,8 +392,8 @@ class Unexpectedness(Metric):
     По умолчанию используется рекомендатель по популярности ``PopRec``.
 
     >>> import pandas as pd
-    >>> df = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": [1, 2, 1, 3], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1], "context": [1, 1, 1, 1]})
-    >>> dd = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": [1, 2, 3, 1], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1], "context": [1, 1, 1, 1]})
+    >>> df = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": [1, 2, 1, 3], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
+    >>> dd = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": [1, 2, 3, 1], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
     >>> m = Unexpectedness(df)
     >>> m(dd, [1, 2])
     {1: 1.0, 2: 0.25}
@@ -401,8 +401,8 @@ class Unexpectedness(Metric):
 
     Возможен так же режим, в котором рекомендации базового алгоритма передаются сразу при инициализации и рекомендатель не обучается
 
-    >>> de = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 5, 5], "timestamp": [1, 1, 1], "context": [1, 1, 1]})
-    >>> dr = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [0, 0, 1], "relevance": [5, 5, 5], "timestamp": [1, 1, 1], "context": [1, 1, 1]})
+    >>> de = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
+    >>> dr = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [0, 0, 1], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
     >>> m = Unexpectedness(dr, None)
     >>> round(m(de, 3), 2)
     0.67

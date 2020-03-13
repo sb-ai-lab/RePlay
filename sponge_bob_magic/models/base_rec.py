@@ -65,7 +65,6 @@ class Recommender(ABC):
             `[item_id , timestamp]` и колонки с признаками
         :return:
         """
-
         logging.debug("Предварительная стадия обучения (pre-fit)")
         self._pre_fit(log, user_features, item_features)
 
@@ -154,7 +153,6 @@ class Recommender(ABC):
         :return: рекомендации, спарк-датафрейм с колонками
             `[user_id , item_id , context , relevance]`
         """
-
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
 
