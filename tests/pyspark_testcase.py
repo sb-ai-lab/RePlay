@@ -2,6 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
+import multiprocessing
 import os
 import unittest
 import warnings
@@ -15,8 +16,6 @@ from sponge_bob_magic.session_handler import State
 
 
 class PySparkTest(unittest.TestCase):
-    spark: SparkSession = None
-
     def assertSparkDataFrameEqual(
             self,
             df1: DataFrame,
@@ -74,6 +73,7 @@ class PySparkTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        multiprocessing.set_start_method("spawn", force=True)
         logger = logging.getLogger()
         logger.setLevel("WARN")
         warnings.filterwarnings(action="ignore", category=ResourceWarning)

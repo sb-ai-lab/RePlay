@@ -45,10 +45,10 @@ class LightFMRec(Recommender):
         self.item_indexer = StringIndexer(
             inputCol="item_id", outputCol="item_idx").fit(log)
 
-    def _fit_partial(self,
-                     log: DataFrame,
-                     user_features: Optional[DataFrame] = None,
-                     item_features: Optional[DataFrame] = None) -> None:
+    def _fit(self,
+             log: DataFrame,
+             user_features: Optional[DataFrame] = None,
+             item_features: Optional[DataFrame] = None) -> None:
         logging.debug("Построение модели LightFM")
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)

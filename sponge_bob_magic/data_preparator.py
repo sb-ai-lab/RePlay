@@ -6,7 +6,7 @@
 
 """
 import logging
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, Iterable
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pandas as pd
 from pyspark.sql import Column, DataFrame, SparkSession
@@ -15,6 +15,7 @@ from pyspark.sql.types import FloatType, StringType, TimestampType
 
 from sponge_bob_magic import constants
 from sponge_bob_magic.converter import convert
+from sponge_bob_magic.session_handler import State
 
 CommonDataFrame = Union[DataFrame, pd.DataFrame]
 
@@ -33,7 +34,6 @@ class DataPreparator:
 
     >>> import pandas as pd
     >>> from sponge_bob_magic.data_preparator import DataPreparator
-    >>> from sponge_bob_magic.session_handler import State
     >>>
     >>> log = pd.DataFrame({"user_id": [2, 2, 2, 1],
     ...                     "item_id": [1, 2, 3, 3],
@@ -60,7 +60,6 @@ class DataPreparator:
 
     >>> import pandas as pd
     >>> from sponge_bob_magic.data_preparator import DataPreparator
-    >>> from sponge_bob_magic.session_handler import State
     >>>
     >>> log = pd.DataFrame({"user": ["user1", "user1", "user2"],
     ...                     "f0": ["feature1","feature2","feature1"],
@@ -88,7 +87,6 @@ class DataPreparator:
 
     >>> import pandas as pd
     >>> from sponge_bob_magic.data_preparator import DataPreparator
-    >>> from sponge_bob_magic.session_handler import State
     >>>
     >>> log = pd.DataFrame({"user": ["user1", "user1", "user2"],
     ...                     "f0": ["feature1","feature2","feature1"],
@@ -110,28 +108,19 @@ class DataPreparator:
     +-------+-------------------+--------+------+
     <BLANKLINE>
     """
-    spark: SparkSession
-
-    def __init__(self, spark: SparkSession):
-        """
-        Сохраняет спарк-сессию в качестве параметра.
-
-        :param spark: инициализированная спарк-сессия
-        """
-        self.spark = spark
-
     def _read_data(self,
                    path: str,
                    format_type: str,
                    **kwargs) -> DataFrame:
+        spark = State().session
         if format_type == "csv":
-            dataframe = self.spark.read.csv(path, inferSchema=True, **kwargs)
+            dataframe = spark.read.csv(path, inferSchema=True, **kwargs)
         elif format_type == "parquet":
-            dataframe = self.spark.read.parquet(path)
+            dataframe = spark.read.parquet(path)
         elif format_type == "json":
-            dataframe = self.spark.read.json(path, **kwargs)
+            dataframe = spark.read.json(path, **kwargs)
         elif format_type == "table":
-            dataframe = self.spark.read.table(path)
+            dataframe = spark.read.table(path)
         else:
             raise ValueError(f"Invalid value of format_type='{format_type}'")
 
@@ -149,7 +138,7 @@ class DataPreparator:
         excess_columns = (given_columns
                           .difference(required_columns)
                           .difference(optional_columns))
-        if len(excess_columns) > 0:
+        if excess_columns:
             raise ValueError("В 'columns_names' есть лишние колонки: "
                              f"{excess_columns}")
 
@@ -157,7 +146,7 @@ class DataPreparator:
     def _check_dataframe(dataframe: DataFrame,
                          columns_names: Dict[str, str]):
         # чекаем, что датафрейм не пустой
-        if len(dataframe.head(1)) == 0:
+        if not dataframe.head(1):
             raise ValueError("Датафрейм пустой")
 
         # чекаем, что данные юзером колонки реально есть в датафрейме

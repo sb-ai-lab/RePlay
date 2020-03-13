@@ -21,6 +21,11 @@ classifiers = [
     "Typing :: Typed"
 ]
 
+[[tool.poetry.source]]
+name = "private-pypi"
+url = "http://mirror.sigma.sbrf.ru/pypi/simple/"
+default = true
+
 [tool.poetry.dependencies]
 python = "^3.7"
 annoy = "1.16.3"
@@ -50,6 +55,10 @@ pylint = "2.3.1"
 scikit-learn = "0.21.3"
 sphinx-rtd-theme = "0.4.3"
 torchvision = "0.3.0"
+parameterized = "0.7.1"
+rope = "0.16.0"
+virtualenv = "20.0.8"
+pytest = "5.3.5"
 
 [build-system]
 requires = ["poetry>=0.12"]

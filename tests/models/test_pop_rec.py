@@ -49,9 +49,9 @@ class PopRecTestCase(PySparkTest):
         (["u3", "u2"], constants.DEFAULT_CONTEXT, 3,
          [["i1", 3 / 14], ["i3", 4 / 14], ["i4", 5 / 14]]),
     ])
-    def test_popularity_recs_no_params(self,
-                                       users, context, k,
-                                       items_relevance):
+    def test_popularity_recs(self,
+                             users, context, k,
+                             items_relevance):
         log_data = [
             ["u1", "i1", 1.0, "c1", "2019-01-01"],
             ["u2", "i1", 1.0, "c1", "2019-01-01"],
@@ -84,8 +84,6 @@ class PopRecTestCase(PySparkTest):
         true_recs = (true_recs
                      .withColumn("context", sf.lit(context)))
 
-        self.model.set_params(**{"alpha": 0, "beta": 0})
-
         # два вызова нужны, чтобы проверить, что они возващают одно и то же
         test_recs_first = self.model.fit_predict(
             log=log,
@@ -112,7 +110,7 @@ class PopRecTestCase(PySparkTest):
         self.assertSparkDataFrameEqual(true_recs, test_recs_first)
         self.assertSparkDataFrameEqual(test_recs_first, test_recs_second)
 
-    def test_popularity_recs_no_params_to_filter_seen_items(self):
+    def test_popularity_recs_filter_seen_items(self):
         log_data = [
             ["u1", "i1", 1.0, "c1", "2019-01-01"],
             ["u1", "i4", 2.0, "c1", "2019-01-01"],
@@ -141,8 +139,6 @@ class PopRecTestCase(PySparkTest):
         true_recs = self.spark.createDataFrame(data=true_recs_data,
                                                schema=true_recs_schema)
 
-        self.model.set_params(**{"alpha": 0, "beta": 0})
-
         users = self.spark.createDataFrame(
             data=[[user] for user in ["u1", "u2", "u3"]],
             schema=["user_id"])
@@ -152,59 +148,6 @@ class PopRecTestCase(PySparkTest):
 
         test_recs = self.model.fit_predict(log=log, k=2, users=users, items=items, context=context, user_features=None,
                                            item_features=None, filter_seen_items=True)
-
-        self.assertSparkDataFrameEqual(true_recs, test_recs)
-
-    @parameterized.expand([
-        # alpha, beta
-        (1, 1),
-        (10, 100),
-        (999, 0),
-        (0, 19999),
-        (0.0009, 0.4),
-    ])
-    def test_popularity_recs_with_params(self, alpha, beta):
-        log_data = [
-            ["u2", "i1", 1.0, "c1", "2019-01-01"],
-            ["u3", "i3", 2.0, "c1", "2019-01-01"],
-            ["u1", "i4", 2.0, "c1", "2019-01-01"],
-
-            ["u1", "i1", 1.0, "c2", "2019-01-01"],
-            ["u3", "i1", 2.0, "c2", "2019-01-01"],
-            ["u2", "i2", 1.0, "c2", "2019-01-01"],
-            ["u2", "i3", 3.0, "c2", "2019-01-01"],
-            ["u3", "i4", 2.0, "c2", "2019-01-01"],
-            ["u1", "i4", 2.0, "c2", "2019-01-01"],
-            ["u3", "i4", 4.0, "c2", "2019-01-01"],
-        ]
-        log_schema = ["user_id", "item_id", "relevance",
-                      "context", "timestamp"]
-        log = self.spark.createDataFrame(data=log_data,
-                                         schema=log_schema)
-        context = "c2"
-
-        true_recs_data = [
-            ["u1", "i1", (2 + alpha) / (beta + 7), context],
-            ["u1", "i2", (1 + alpha) / (beta + 7), context],
-            ["u1", "i3", (1 + alpha) / (beta + 7), context],
-            ["u1", "i4", (3 + alpha) / (beta + 7), context],
-            ["u2", "i1", (2 + alpha) / (beta + 7), context],
-            ["u2", "i2", (1 + alpha) / (beta + 7), context],
-            ["u2", "i3", (1 + alpha) / (beta + 7), context],
-            ["u2", "i4", (3 + alpha) / (beta + 7), context],
-            ["u3", "i1", (2 + alpha) / (beta + 7), context],
-            ["u3", "i2", (1 + alpha) / (beta + 7), context],
-            ["u3", "i3", (1 + alpha) / (beta + 7), context],
-            ["u3", "i4", (3 + alpha) / (beta + 7), context],
-        ]
-        true_recs_schema = ["user_id", "item_id", "relevance", "context"]
-        true_recs = self.spark.createDataFrame(data=true_recs_data,
-                                               schema=true_recs_schema)
-
-        self.model.set_params(**{"alpha": alpha, "beta": beta})
-
-        test_recs = self.model.fit_predict(log=log, k=4, users=None, items=None, context=context, user_features=None,
-                                           item_features=None, filter_seen_items=False)
 
         self.assertSparkDataFrameEqual(true_recs, test_recs)
 
@@ -245,8 +188,6 @@ class PopRecTestCase(PySparkTest):
         true_recs_schema = ["user_id", "item_id", "relevance", "context"]
         true_recs = self.spark.createDataFrame(data=true_recs_data,
                                                schema=true_recs_schema)
-
-        self.model.set_params(**{"alpha": 0, "beta": 0})
 
         test_recs = self.model.fit_predict(log=log, k=4, users=None, items=None, context=context, user_features=None,
                                            item_features=None, filter_seen_items=False)
