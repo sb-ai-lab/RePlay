@@ -57,7 +57,6 @@ class PySparkTest(unittest.TestCase):
         except AssertionError as e:
             raise self.failureException(msg) from e
 
-
     @classmethod
     def create_testing_pyspark_session(cls):
         return (SparkSession

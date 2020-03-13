@@ -4,9 +4,9 @@
 import os
 import tarfile
 from os.path import splitext
+from tarfile import TarFile
 from typing import Union
 from zipfile import ZipFile
-from tarfile import TarFile
 
 
 def extract(archive_name: str, manage_folder: bool = True) -> None:
@@ -26,7 +26,7 @@ def extract(archive_name: str, manage_folder: bool = True) -> None:
     else:
         try:
             archive = tarfile.open(archive_name)
-        except:
+        except Exception:
             raise NotImplementedError(f"Can\'t extract {archive_name}")
 
     name = os.path.dirname(archive_name)
