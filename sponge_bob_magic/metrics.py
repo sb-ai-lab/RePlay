@@ -553,15 +553,8 @@ class MRR(Metric):
     """
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
-        pred = pandas_df["item_id"]
-        true = pandas_df["items_id"].iloc[0]
-        res = 0
-        p = set()
-        for k in pandas_df["k"]:
-            el = true[k - 1]
-            p.add(pred[k - 1])
-            if el in p:
-                k = list(pred[:k]).index(el) + 1
-                res = 1 / k
-                break
-        return pandas_df.assign(cum_agg=(pandas_df["k"] >= k).astype(int) * res)
+        pandas_df = pandas_df.assign(
+                is_good_item=pandas_df[["item_id", "items_id", "k"]]
+                    .apply(lambda x: int(x["item_id"] in x["items_id"]) / x["k"], 1)
+            )
+        return pandas_df.assign(cum_agg=pandas_df.is_good_item.cummax())
