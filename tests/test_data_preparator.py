@@ -337,8 +337,8 @@ class DataPreparatorTest(PySparkTest):
                                            sf.col(column).cast(StringType()))
 
         schema = (
-                ["user_id", "timestamp"] +
-                [f"f{i}" for i in range(len(true_feature_data[0]) - 2)]
+            ["user_id", "timestamp"] +
+            [f"f{i}" for i in range(len(true_feature_data[0]) - 2)]
         )
         true_features = self.spark.createDataFrame(data=true_feature_data,
                                                    schema=schema)
@@ -379,8 +379,8 @@ class DataPreparatorTest(PySparkTest):
                                               schema=feature_schema)
 
         schema = (
-                ["user_id", "timestamp"] +
-                [f"f{i}" for i in range(len(true_feature_data[0]) - 2)]
+            ["user_id", "timestamp"] +
+            [f"f{i}" for i in range(len(true_feature_data[0]) - 2)]
         )
         true_features = self.spark.createDataFrame(data=true_feature_data,
                                                    schema=schema)
@@ -424,8 +424,8 @@ class DataPreparatorTest(PySparkTest):
                     .drop("string_time"))
 
         schema = (
-                ["user_id", "timestamp"] +
-                [f"f{i}" for i in range(len(true_feature_data[0]) - 2)]
+            ["user_id", "timestamp"] +
+            [f"f{i}" for i in range(len(true_feature_data[0]) - 2)]
         )
         true_features = self.spark.createDataFrame(data=true_feature_data,
                                                    schema=schema)

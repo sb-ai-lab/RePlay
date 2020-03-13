@@ -18,7 +18,7 @@ class Dataset:
         try:
             display = __import__('IPython.core.display', globals(), locals(), ['display'])
             self.display = display.display
-        except:
+        except Exception:
             self.display = print
 
     @property

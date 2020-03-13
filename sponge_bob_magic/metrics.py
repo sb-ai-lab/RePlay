@@ -112,12 +112,13 @@ class Metric(ABC):
         agg_fn = self._get_metric_value_by_user
 
         @sf.pandas_udf(
-            st.StructType(
-                [st.StructField("user_id", st.StringType(), True),
-                 st.StructField("cum_agg", st.DoubleType(), True),
-                 st.StructField("k", st.LongType(), True)
-                ]),
-            sf.PandasUDFType.GROUPED_MAP)
+            st.StructType([
+                st.StructField("user_id", st.StringType(), True),
+                st.StructField("cum_agg", st.DoubleType(), True),
+                st.StructField("k", st.LongType(), True)
+            ]),
+            sf.PandasUDFType.GROUPED_MAP
+        )
         def grouped_map(pandas_df):
             pandas_df = (pandas_df.sort_values("relevance", ascending=False)
                          .reset_index(drop=True)
@@ -537,6 +538,7 @@ class Coverage(Metric):
             res = res[k]
         return res
 
+
 class MRR(Metric):
     """
     Mean Reciprocal Rank --
@@ -554,7 +556,7 @@ class MRR(Metric):
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         pandas_df = pandas_df.assign(
-                is_good_item=pandas_df[["item_id", "items_id", "k"]]
-                    .apply(lambda x: int(x["item_id"] in x["items_id"]) / x["k"], 1)
-            )
+            is_good_item=pandas_df[["item_id", "items_id", "k"]]
+            .apply(lambda x: int(x["item_id"] in x["items_id"]) / x["k"], 1)
+        )
         return pandas_df.assign(cum_agg=pandas_df.is_good_item.cummax())
