@@ -15,13 +15,13 @@ from sponge_bob_magic.data_preparator import DataPreparator
 
 class DataPreparatorTest(PySparkTest):
     def setUp(self):
-        self.dp = DataPreparator(self.spark)
+        self.data_preparator = DataPreparator()
 
     # тестим read данных
     def test_read_data_wrong_columns_exception(self):
         self.assertRaises(
             ValueError,
-            self.dp._read_data,
+            self.data_preparator._read_data,
             path="", format_type="blabla"
         )
 
@@ -29,11 +29,11 @@ class DataPreparatorTest(PySparkTest):
     # тестим эксепшены
     def test_transform_log_empty_dataframe_exception(self):
         log = self.spark.createDataFrame(data=[], schema=StructType([]))
-        self.dp._read_data = Mock(return_value=log)
+        self.data_preparator._read_data = Mock(return_value=log)
 
         self.assertRaises(
             ValueError,
-            self.dp.transform,
+            self.data_preparator.transform,
             path="", format_type="",
             columns_names={"user_id": "", "item_id": ""}
         )
@@ -46,7 +46,7 @@ class DataPreparatorTest(PySparkTest):
     def test_transform_log_required_columns_exception(self, columns_names):
         self.assertRaises(
             ValueError,
-            self.dp.transform,
+            self.data_preparator.transform,
             path="", format_type="",
             columns_names=columns_names
         )
@@ -77,11 +77,11 @@ class DataPreparatorTest(PySparkTest):
     def test_transform_log_null_column_exception(self, log_data, log_schema,
                                                  columns_names):
         log = self.spark.createDataFrame(data=log_data, schema=log_schema)
-        self.dp._read_data = Mock(return_value=log)
+        self.data_preparator._read_data = Mock(return_value=log)
 
         self.assertRaises(
             ValueError,
-            self.dp.transform,
+            self.data_preparator.transform,
             path="", format_type="",
             columns_names=columns_names
         )
@@ -99,7 +99,7 @@ class DataPreparatorTest(PySparkTest):
         columns_names.update({"user_id": "", "item_id": ""})
         self.assertRaises(
             ValueError,
-            self.dp.transform,
+            self.data_preparator.transform,
             path="", format_type="",
             columns_names=columns_names
         )
@@ -150,7 +150,7 @@ class DataPreparatorTest(PySparkTest):
         true_log = self.spark.createDataFrame(data=true_log_data,
                                               schema=LOG_SCHEMA)
 
-        test_log = self.dp.transform(
+        test_log = self.data_preparator.transform(
             data=log,
             columns_names=columns_names)
 
@@ -182,7 +182,7 @@ class DataPreparatorTest(PySparkTest):
         true_log = self.spark.createDataFrame(data=true_log_data,
                                               schema=LOG_SCHEMA)
 
-        test_log = self.dp.transform(
+        test_log = self.data_preparator.transform(
             data=log,
             columns_names=columns_names)
 
@@ -192,11 +192,11 @@ class DataPreparatorTest(PySparkTest):
     # тестим эксепшены
     def test_transform_features_empty_dataframe_exception(self):
         features = self.spark.createDataFrame(data=[], schema=StructType([]))
-        self.dp._read_data = Mock(return_value=features)
+        self.data_preparator._read_data = Mock(return_value=features)
 
         self.assertRaises(
             ValueError,
-            self.dp.transform,
+            self.data_preparator.transform,
             path="", format_type="",
             columns_names={"user_id": ""}
         )
@@ -211,7 +211,7 @@ class DataPreparatorTest(PySparkTest):
                                                            columns_names):
         self.assertRaises(
             ValueError,
-            self.dp.transform,
+            self.data_preparator.transform,
             path="", format_type="",
             columns_names=columns_names
         )
@@ -245,11 +245,11 @@ class DataPreparatorTest(PySparkTest):
                                                       columns_names):
         features = self.spark.createDataFrame(data=feature_data,
                                               schema=feature_schema)
-        self.dp._read_data = Mock(return_value=features)
+        self.data_preparator._read_data = Mock(return_value=features)
 
         self.assertRaises(
             ValueError,
-            self.dp.transform,
+            self.data_preparator.transform,
             path="", format_type="",
             columns_names=columns_names
         )
@@ -265,7 +265,7 @@ class DataPreparatorTest(PySparkTest):
                                                             columns_names):
         self.assertRaises(
             ValueError,
-            self.dp.transform,
+            self.data_preparator.transform,
             path="", format_type="",
             columns_names=columns_names
         )
@@ -292,11 +292,11 @@ class DataPreparatorTest(PySparkTest):
             features = features.withColumn(column,
                                            sf.col(column).cast(StringType()))
 
-        self.dp._read_data = Mock(return_value=features)
+        self.data_preparator._read_data = Mock(return_value=features)
 
         self.assertRaises(
             ValueError,
-            self.dp.transform,
+            self.data_preparator.transform,
             path="", format_type="",
             columns_names=columns_names
         )
@@ -348,7 +348,7 @@ class DataPreparatorTest(PySparkTest):
                          .withColumn("timestamp", sf.to_timestamp("timestamp"))
                          )
 
-        test_features = self.dp.transform(
+        test_features = self.data_preparator.transform(
             data=features,
             columns_names=columns_names,
             features_columns=features_columns)
@@ -390,7 +390,7 @@ class DataPreparatorTest(PySparkTest):
                          .withColumn("timestamp", sf.to_timestamp("timestamp"))
                          )
 
-        test_features = self.dp.transform(
+        test_features = self.data_preparator.transform(
             data=features,
             columns_names=columns_names,
             features_columns=features_columns)
@@ -435,9 +435,9 @@ class DataPreparatorTest(PySparkTest):
                          .withColumn("timestamp", sf.to_timestamp("timestamp"))
                          )
 
-        self.dp._read_data = Mock(return_value=features)
+        self.data_preparator._read_data = Mock(return_value=features)
 
-        test_features = self.dp.transform(
+        test_features = self.data_preparator.transform(
             data=features,
             columns_names=columns_names,
             features_columns=features_columns,

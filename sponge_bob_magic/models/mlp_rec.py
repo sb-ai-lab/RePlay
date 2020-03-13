@@ -12,19 +12,19 @@ import torch.nn as nn
 import torch.optim
 from annoy import AnnoyIndex
 from pyspark.ml import Pipeline
-from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
-from pyspark.ml.feature import MinMaxScaler
-from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.feature import (IndexToString, MinMaxScaler, StringIndexer,
+                                StringIndexerModel, VectorAssembler)
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.functions import udf
 from pyspark.sql.types import DoubleType
 from torch import Tensor
-from torch.nn import DataParallel, Embedding, Module
+from torch.nn import Embedding, Module
 from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import get_top_k_recs
 
 
@@ -114,6 +114,7 @@ class MLPRec(Recommender):
         :param learning_rate: шаг обучения
         :param epochs: количество эпох, в течение которых учимся
         """
+        self.device = State().device
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.embedding_dimension = embedding_dimension
@@ -145,43 +146,31 @@ class MLPRec(Recommender):
         self.num_users = log_indexed.select("user_idx").distinct().count()
         self.num_items = log_indexed.select("item_idx").distinct().count()
 
-        model = MLP(
+        self.model = MLP(
             user_count=self.num_users,
             item_count=self.num_items,
             embedding_dimension=self.embedding_dimension
-        )
-
-        if torch.cuda.is_available():
-            if torch.cuda.device_count() > 1:
-                self.model = DataParallel(
-                    model,
-                    device_ids=list(range(torch.cuda.device_count()))
-                ).cuda()
-            else:
-                self.model = model.cuda()
-        else:
-            self.model = model
+        ).to(self.device)
 
     def _run_single_batch(self, batch: Tensor) -> Tensor:
         negative_items = torch.from_numpy(
             np.random.randint(low=0, high=self.num_items - 1,
                               size=batch[0].shape[0])
-        )
-
-        if torch.cuda.is_available():
-            batch = [item.cuda() for item in batch]
-            negative_items = negative_items.cuda()
-
+        ).to(self.device)
         positive_embeddings = self.model.forward(batch[0], batch[1])
         negative_embeddings = self.model.forward(batch[0], negative_items)
         dim = batch[0].size()[0]
-        loss = self.loss(*positive_embeddings, torch.ones(dim)) / 2
-        loss += self.loss(*negative_embeddings, torch.ones(dim) * (-1)) / 2
+        loss = self.loss(
+            *positive_embeddings, torch.ones(dim).to(self.device)
+        ) / 2
+        loss += self.loss(
+            *negative_embeddings, torch.ones(dim).to(self.device) * (-1)
+        ) / 2
         return loss
 
     def _run_epoch(self,
-                   user_batch: torch.LongTensor,
-                   item_batch: torch.LongTensor,
+                   user_batch: torch.Tensor,
+                   item_batch: torch.Tensor,
                    optimizer: torch.optim.Optimizer,
                    scheduler: torch.optim.lr_scheduler._LRScheduler) -> float:
         loss_value = 0.0
@@ -222,10 +211,12 @@ class MLPRec(Recommender):
             os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
-
-        user_batch = torch.LongTensor(tensor_data["user_idx"].values)
-        item_batch = torch.LongTensor(tensor_data["item_idx"].values)
-
+        user_batch = torch.LongTensor(
+            tensor_data["user_idx"].values
+        ).to(self.device)
+        item_batch = torch.LongTensor(
+            tensor_data["item_idx"].values
+        ).to(self.device)
         logging.debug("Обучение модели")
         for epoch in range(self.epochs):
             logging.debug("-- Эпоха %d", epoch)
@@ -237,16 +228,27 @@ class MLPRec(Recommender):
         logging.debug("-- Запись annoy индексов")
         _, item_embs = self.model(user_batch, item_batch, get_embs=True)
         self.annoy_index = AnnoyIndex(item_embs.size()[1], "angular")
-        for item_id, item_emb in zip(tensor_data["item_idx"].values, item_embs.detach().numpy()):
+        for item_id, item_emb in zip(
+                tensor_data["item_idx"].values,
+                item_embs.cpu().detach().numpy()
+        ):
             self.annoy_index.add_item(int(item_id), item_emb)
         self.annoy_index.build(self.num_trees_annoy)
 
-    def _predict(self, log: DataFrame, k: int, users: DataFrame = None, items: DataFrame = None, context: str = None,
-                 user_features: Optional[DataFrame] = None, item_features: Optional[DataFrame] = None,
-                 filter_seen_items: bool = True) -> DataFrame:
+    def _predict(
+            self,
+            log: DataFrame,
+            k: int,
+            users: DataFrame = None,
+            items: DataFrame = None,
+            context: str = None,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None,
+            filter_seen_items: bool = True
+    ) -> DataFrame:
         self.model.eval()
         sep = ","
-        spark = SparkSession(users.rdd.context)
+        spark = State().session
         tmp_path = os.path.join(spark.conf.get("spark.local.dir"), "recs")
         if os.path.exists(tmp_path):
             shutil.rmtree(tmp_path)
@@ -261,15 +263,15 @@ class MLPRec(Recommender):
             os.path.join(spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
-
-        user_batch = torch.LongTensor(tensor_data["user_idx"].values)
-        item_batch = torch.ones_like(user_batch)
-
+        user_batch = torch.LongTensor(
+            tensor_data["user_idx"].values
+        ).to(self.device)
+        item_batch = torch.ones_like(user_batch).to(self.device)
         user_embs, _ = self.model(user_batch, item_batch, get_embs=True)
         predictions = pandas.DataFrame(columns=["user_idx", "item_idx"])
         logging.debug("Поиск ближайших айтемов с помощью annoy")
         for user_id, user_emb in zip(tensor_data["user_idx"].values,
-                                     user_embs.detach().numpy()):
+                                     user_embs.cpu().detach().numpy()):
             pred_for_user, relevance = self.annoy_index.get_nns_by_vector(
                 user_emb, k, include_distances=True
             )
@@ -322,8 +324,14 @@ class MLPRec(Recommender):
         :return: исходный датафрейм с измененной колонкой
         """
         unlist = udf(lambda x: float(list(x)[0]), DoubleType())
-        assembler = VectorAssembler(inputCols=[column], outputCol=column + "_Vect")
-        scaler = MinMaxScaler(inputCol=column + "_Vect", outputCol=column + "_Scaled")
+        assembler = VectorAssembler(
+            inputCols=[column],
+            outputCol=column + "_Vect"
+        )
+        scaler = MinMaxScaler(
+            inputCol=column + "_Vect",
+            outputCol=column + "_Scaled"
+        )
         pipeline = Pipeline(stages=[assembler, scaler])
         dataframe = (pipeline
                      .fit(dataframe)

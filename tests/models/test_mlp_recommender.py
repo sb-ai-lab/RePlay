@@ -5,10 +5,10 @@ from datetime import datetime
 
 import numpy as np
 import torch
+from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
 from sponge_bob_magic.models.mlp_rec import MLPRec
-from tests.pyspark_testcase import PySparkTest
 
 
 class MLPRecTestCase(PySparkTest):
@@ -38,10 +38,10 @@ class MLPRecTestCase(PySparkTest):
         self.model.fit(log=self.log, user_features=None, item_features=None)
 
         true_parameters = [[
-            [1.7252257, 0.5128725],
-            [1.3812021, -0.9589134],
-            [-0.7288457, 0.13769689]]]
-
+            [0.7254042, 1.5127127],
+            [0.38963357, 0.04098175],
+            [0.27102482, -0.8621659]
+        ]]
         for i, parameter in enumerate(self.model.model.parameters()):
             self.assertTrue(np.allclose(
                 parameter.detach().cpu().numpy(), true_parameters[i],
@@ -64,7 +64,7 @@ class MLPRecTestCase(PySparkTest):
         self.assertTrue(
             np.allclose(
                 predictions.toPandas()[["user_id", "item_id"]].astype(int).values,
-                [[0, 2], [1, 1], [2, 0]],
+                [[0, 2], [1, 2], [2, 0]],
                 atol=1.e-3
             )
         )
