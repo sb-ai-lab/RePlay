@@ -6,7 +6,7 @@ from datetime import datetime
 import numpy as np
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA, REC_SCHEMA
+from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
 from sponge_bob_magic.models.als_rec import ALSRec
 
 
@@ -36,7 +36,7 @@ class ALSRecTestCase(PySparkTest):
         )
         self.assertTrue(np.allclose(
             item_factors,
-            [[0.98743868], [0.78736824], [0.86209506]]
+            [[0.94725847], [0.82681108], [0.75606781]]
         ))
 
     def test_predict(self):
@@ -45,7 +45,6 @@ class ALSRecTestCase(PySparkTest):
             k=1,
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
-            context=DEFAULT_CONTEXT,
             user_features=None,
             item_features=None
         )
@@ -53,9 +52,9 @@ class ALSRecTestCase(PySparkTest):
             recs,
             self.spark.createDataFrame(
                 [
-                    ["u2", "i3", DEFAULT_CONTEXT, 0.8770313858985901],
-                    ["u1", "i3", DEFAULT_CONTEXT, 0.8846386075019836],
-                    ["u3", "i3", DEFAULT_CONTEXT, 1.047261357307434]
+                    ["u2", "i3", 0.8740121126174927],
+                    ["u1", "i3", 0.8812910318374634],
+                    ["u3", "i3", 1.0437875986099243]
                 ],
                 schema=REC_SCHEMA
             )

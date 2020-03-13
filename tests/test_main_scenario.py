@@ -58,8 +58,8 @@ class MainScenarioTestCase(PySparkTest):
         )
         data = self.spark.createDataFrame(
             [
-                ["user2", "item2", DEFAULT_CONTEXT, 0.3452994616207483],
-                ["user3", "item3", DEFAULT_CONTEXT, 0.6905989232414966]
+                ["user2", "item2", 0.3452994616207483],
+                ["user3", "item3", 0.6905989232414966]
             ],
             REC_SCHEMA
         )

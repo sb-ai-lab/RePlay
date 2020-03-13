@@ -50,15 +50,14 @@ class KNNRecTestCase(PySparkTest):
             k=1,
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
-            context=DEFAULT_CONTEXT,
             user_features=None, item_features=None
         )
         self.assertSparkDataFrameEqual(
             recs,
             self.spark.createDataFrame(
                 [
-                    ["u1", "i3", DEFAULT_CONTEXT, 0.18350341907227408],
-                    ["u2", "i4", DEFAULT_CONTEXT, 0.6835034190722742],
+                    ["u1", "i3", 0.18350341907227408],
+                    ["u2", "i4", 0.6835034190722742],
                 ],
                 schema=REC_SCHEMA
             )

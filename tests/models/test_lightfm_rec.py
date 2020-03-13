@@ -42,7 +42,6 @@ class LightFMRecTestCase(PySparkTest):
             k=1,
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
-            context=DEFAULT_CONTEXT,
             user_features=None,
             item_features=None
         )
@@ -50,9 +49,9 @@ class LightFMRecTestCase(PySparkTest):
             recs,
             self.spark.createDataFrame(
                 [
-                    ["u3", "i3", DEFAULT_CONTEXT, -0.34175461530685425],
-                    ["u1", "i3", DEFAULT_CONTEXT, -0.2539006471633911],
-                    ["u2", "i3", DEFAULT_CONTEXT, -0.22212029993534088]
+                    ["u3", "i3", -0.34175461530685425],
+                    ["u1", "i3", -0.2539006471633911],
+                    ["u2", "i4", -0.22212029993534088]
                 ],
                 schema=REC_SCHEMA
             )
