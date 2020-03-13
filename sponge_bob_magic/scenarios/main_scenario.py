@@ -40,7 +40,7 @@ class MainScenario:
         )
         self.recommender = (
             recommender if recommender
-            else PopRec(alpha=0, beta=0)
+            else PopRec()
         )
         self.criterion = (
             criterion if criterion
