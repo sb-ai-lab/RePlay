@@ -6,7 +6,6 @@ from typing import Dict, Optional
 
 import numpy as np
 from lightfm import LightFM
-from pyspark.ml.feature import StringIndexer, StringIndexerModel
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import lit
 from scipy.sparse import coo_matrix
@@ -18,8 +17,6 @@ from sponge_bob_magic.utils import get_top_k_recs
 class LightFMRec(Recommender):
     """ Обёртка вокруг стандартной реализации LightFM. """
     _seed: Optional[int] = None
-    user_indexer: StringIndexerModel
-    item_indexer: StringIndexerModel
 
     def __init__(self, rank: int = 10, seed: Optional[int] = None):
         """
@@ -34,15 +31,6 @@ class LightFMRec(Recommender):
         return {
             "rank": self.rank
         }
-
-    def _pre_fit(self,
-                 log: DataFrame,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None) -> None:
-        self.user_indexer = StringIndexer(
-            inputCol="user_id", outputCol="user_idx").fit(log)
-        self.item_indexer = StringIndexer(
-            inputCol="item_id", outputCol="item_idx").fit(log)
 
     def _fit(self,
              log: DataFrame,

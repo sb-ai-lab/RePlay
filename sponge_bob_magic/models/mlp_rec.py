@@ -12,8 +12,7 @@ import torch.nn as nn
 import torch.optim
 from annoy import AnnoyIndex
 from pyspark.ml import Pipeline
-from pyspark.ml.feature import (IndexToString, MinMaxScaler, StringIndexer,
-                                StringIndexerModel, VectorAssembler)
+from pyspark.ml.feature import MinMaxScaler, VectorAssembler
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import udf
 from pyspark.sql.types import DoubleType
@@ -95,8 +94,6 @@ class MLPRec(Recommender):
     batch_size_fit_users: int = 100000
     batch_size_predict_users: int = 100
     batch_size_predict_items: int = 10000
-    user_indexer_model: StringIndexerModel
-    item_indexer_model: StringIndexerModel
     num_users: int
     num_items: int
     num_trees_annoy: int = 10
@@ -116,12 +113,6 @@ class MLPRec(Recommender):
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.embedding_dimension = embedding_dimension
-
-        self.user_indexer = StringIndexer(inputCol="user_id",
-                                          outputCol="user_idx")
-        self.item_indexer = StringIndexer(inputCol="item_id",
-                                          outputCol="item_idx")
-
         self.loss = nn.CosineEmbeddingLoss()
 
     def get_params(self) -> Dict[str, object]:
@@ -135,15 +126,11 @@ class MLPRec(Recommender):
                  log: DataFrame,
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None) -> None:
-        self.user_indexer_model = self.user_indexer.fit(log)
-        self.item_indexer_model = self.item_indexer.fit(log)
-
-        log_indexed = self.user_indexer_model.transform(log)
-        log_indexed = self.item_indexer_model.transform(log_indexed)
-
+        super()._pre_fit(log, user_features, item_features)
+        log_indexed = self.user_indexer.transform(log)
+        log_indexed = self.item_indexer.transform(log_indexed)
         self.num_users = log_indexed.select("user_idx").distinct().count()
         self.num_items = log_indexed.select("item_idx").distinct().count()
-
         self.model = MLP(
             user_count=self.num_users,
             item_count=self.num_items,
@@ -194,9 +181,8 @@ class MLPRec(Recommender):
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
         logging.debug("Индексирование данных")
-        log_indexed = self.user_indexer_model.transform(log)
-        log_indexed = self.item_indexer_model.transform(log_indexed)
-
+        log_indexed = self.user_indexer.transform(log)
+        log_indexed = self.item_indexer.transform(log_indexed)
         self.model.train()
         optimizer = torch.optim.Adam(self.model.parameters(),
                                      lr=self.learning_rate)
@@ -253,7 +239,7 @@ class MLPRec(Recommender):
         os.makedirs(tmp_path)
 
         logging.debug("Индексирование данных")
-        users = self.user_indexer_model.transform(users)
+        users = self.user_indexer.transform(users)
 
         logging.debug("Предсказание модели")
         tensor_data = MLPRec.spark2pandas_csv(
@@ -288,17 +274,9 @@ class MLPRec(Recommender):
                               inferSchema=True)
 
         logging.debug("Обратное преобразование индексов")
-        user_converter = IndexToString(inputCol="user_idx",
-                                       outputCol="user_id",
-                                       labels=self.user_indexer_model.labels)
-        item_converter = IndexToString(inputCol="item_idx",
-                                       outputCol="item_id",
-                                       labels=self.item_indexer_model.labels)
-
-        recs = user_converter.transform(recs)
-        recs = item_converter.transform(recs)
+        recs = self.inv_item_indexer.transform(recs)
+        recs = self.inv_user_indexer.transform(recs)
         recs = recs.drop("user_idx", "item_idx")
-
         if filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
 
