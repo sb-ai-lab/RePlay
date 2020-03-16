@@ -8,7 +8,7 @@ from pyspark.sql.types import (ArrayType, FloatType, IntegerType, StringType,
                                StructField, StructType, TimestampType)
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
+from sponge_bob_magic.constants import LOG_SCHEMA
 from sponge_bob_magic.models.linear_rec import LinearRec
 
 
@@ -33,8 +33,8 @@ class LinearRecTestCase(PySparkTest):
         )
         self.log = self.spark.createDataFrame(
             [
-                ("1", "1", datetime(2019, 1, 1), DEFAULT_CONTEXT, 1.0),
-                ("1", "2", datetime(2019, 1, 1), DEFAULT_CONTEXT, 0.0)
+                ("1", "1", datetime(2019, 1, 1), 1.0),
+                ("1", "2", datetime(2019, 1, 1), 0.0)
             ],
             schema=LOG_SCHEMA
         )
@@ -78,24 +78,22 @@ class LinearRecTestCase(PySparkTest):
             k=2,
             users=self.user_features.select("user_id"),
             items=self.item_features.select("item_id"),
-            context=DEFAULT_CONTEXT,
             user_features=self.user_features,
             item_features=self.item_features,
             filter_seen_items=False
         )
-        self.assertSparkDataFrameEqual(self.log.drop("timestamp"), prediction)
+        self.assertSparkDataFrameEqual(self.log.drop("timestamp", "context"), prediction)
         empty_prediction = self.model._predict(
             log=self.log,
             k=2,
             users=self.user_features.select("user_id"),
             items=self.item_features.select("item_id"),
-            context=DEFAULT_CONTEXT,
             user_features=self.user_features,
             item_features=self.item_features
         )
         self.assertEqual(
             sorted([(field.name, field.dataType) for field in
-                    self.log.drop("timestamp").schema.fields],
+                    self.log.drop("timestamp", "context").schema.fields],
                    key=lambda pair: pair[0]),
             sorted([(field.name, field.dataType) for field in
                     empty_prediction.schema.fields],
@@ -109,16 +107,13 @@ class LinearRecTestCase(PySparkTest):
         )
         true_value = self.spark.createDataFrame(
             [
-                ("1", "1", datetime(2019, 1, 1), DEFAULT_CONTEXT, 1.0, 1, 1,
-                 [1, 1]),
-                ("1", "2", datetime(2019, 1, 1), DEFAULT_CONTEXT, 0.0, 1, 0,
-                 [1, 0])
+                ("1", "1", datetime(2019, 1, 1), 1.0, 1, 1, [1, 1]),
+                ("1", "2", datetime(2019, 1, 1), 0.0, 1, 0, [1, 0])
             ],
             schema=StructType([
                 StructField("user_id", StringType()),
                 StructField("item_id", StringType()),
                 StructField("timestamp", TimestampType()),
-                StructField("context", StringType()),
                 StructField("relevance", FloatType()),
                 StructField("feature1", IntegerType()),
                 StructField("feature2", IntegerType()),

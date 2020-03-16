@@ -14,52 +14,52 @@ from sponge_bob_magic.metrics import (MAP, NDCG, Coverage, HitRate, Metric,
 class TestMetrics(PySparkTest):
     def setUp(self) -> None:
         self.recs = self.spark.createDataFrame(
-            data=[["user1", "item1", "day  ", 3.0],
-                  ["user1", "item2", "night", 2.0],
-                  ["user1", "item3", "night", 1.0],
-                  ["user2", "item1", "night", 3.0],
-                  ["user2", "item2", "night", 4.0],
-                  ["user2", "item5", "night", 1.0],
-                  ["user3", "item1", "day  ", 5.0],
-                  ["user3", "item3", "day  ", 1.0],
-                  ["user3", "item4", "night", 2.0]],
+            data=[["user1", "item1", 3.0],
+                  ["user1", "item2", 2.0],
+                  ["user1", "item3", 1.0],
+                  ["user2", "item1", 3.0],
+                  ["user2", "item2", 4.0],
+                  ["user2", "item5", 1.0],
+                  ["user3", "item1", 5.0],
+                  ["user3", "item3", 1.0],
+                  ["user3", "item4", 2.0]],
             schema=REC_SCHEMA)
         self.recs2 = self.spark.createDataFrame(
-            data=[["user1", "item4", "day  ", 4.0],
-                  ["user1", "item5", "night", 5.0]],
+            data=[["user1", "item4", 4.0],
+                  ["user1", "item5", 5.0]],
             schema=REC_SCHEMA)
         self.ground_truth_recs = self.spark.createDataFrame(
             data=[
-                ["user1", "item1", datetime(2019, 9, 12), "day  ", 3.0],
-                ["user1", "item5", datetime(2019, 9, 13), "night", 2.0],
-                ["user1", "item2", datetime(2019, 9, 17), "night", 1.0],
-                ["user2", "item6", datetime(2019, 9, 14), "day  ", 4.0],
-                ["user2", "item1", datetime(2019, 9, 15), "night", 3.0],
-                ["user3", "item2", datetime(2019, 9, 15), "night", 3.0]
+                ["user1", "item1", datetime(2019, 9, 12), 3.0],
+                ["user1", "item5", datetime(2019, 9, 13), 2.0],
+                ["user1", "item2", datetime(2019, 9, 17), 1.0],
+                ["user2", "item6", datetime(2019, 9, 14), 4.0],
+                ["user2", "item1", datetime(2019, 9, 15), 3.0],
+                ["user3", "item2", datetime(2019, 9, 15), 3.0]
             ],
             schema=LOG_SCHEMA)
         self.log2 = self.spark.createDataFrame(
             data=[
-                ["user1", "item1", datetime(2019, 9, 12), "day  ", 3.0],
-                ["user1", "item5", datetime(2019, 9, 13), "night", 2.0],
-                ["user1", "item2", datetime(2019, 9, 17), "night", 1.0],
-                ["user2", "item6", datetime(2019, 9, 14), "day  ", 4.0],
-                ["user2", "item1", datetime(2019, 9, 15), "night", 3.0],
-                ["user3", "item2", datetime(2019, 9, 15), "night", 3.0]
+                ["user1", "item1", datetime(2019, 9, 12), 3.0],
+                ["user1", "item5", datetime(2019, 9, 13), 2.0],
+                ["user1", "item2", datetime(2019, 9, 17), 1.0],
+                ["user2", "item6", datetime(2019, 9, 14), 4.0],
+                ["user2", "item1", datetime(2019, 9, 15), 3.0],
+                ["user3", "item2", datetime(2019, 9, 15), 3.0]
             ],
             schema=LOG_SCHEMA)
         self.log = self.spark.createDataFrame(
-            data=[["user1", "item1", datetime(2019, 8, 22), "day  ", 4.0],
-                  ["user1", "item3", datetime(2019, 8, 23), "night", 3.0],
-                  ["user1", "item2", datetime(2019, 8, 27), "night", 2.0],
-                  ["user2", "item4", datetime(2019, 8, 24), "day  ", 3.0],
-                  ["user2", "item1", datetime(2019, 8, 25), "night", 4.0],
-                  ["user3", "item2", datetime(2019, 8, 26), "day", 5.0],
-                  ["user3", "item1", datetime(2019, 8, 26), "day", 5.0],
-                  ["user3", "item3", datetime(2019, 8, 26), "day", 3.0],
-                  ["user4", "item2", datetime(2019, 8, 26), "day", 5.0],
-                  ["user4", "item1", datetime(2019, 8, 26), "day", 5.0],
-                  ["user4", "item1", datetime(2019, 8, 26), "night", 1.0]],
+            data=[["user1", "item1", datetime(2019, 8, 22), 4.0],
+                  ["user1", "item3", datetime(2019, 8, 23), 3.0],
+                  ["user1", "item2", datetime(2019, 8, 27), 2.0],
+                  ["user2", "item4", datetime(2019, 8, 24), 3.0],
+                  ["user2", "item1", datetime(2019, 8, 25), 4.0],
+                  ["user3", "item2", datetime(2019, 8, 26), 5.0],
+                  ["user3", "item1", datetime(2019, 8, 26), 5.0],
+                  ["user3", "item3", datetime(2019, 8, 26), 3.0],
+                  ["user4", "item2", datetime(2019, 8, 26), 5.0],
+                  ["user4", "item1", datetime(2019, 8, 26), 5.0],
+                  ["user4", "item1", datetime(2019, 8, 26), 1.0]],
             schema=LOG_SCHEMA)
 
     def test_hit_rate_at_k(self):

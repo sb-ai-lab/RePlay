@@ -10,7 +10,6 @@ from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import DoubleType
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
@@ -91,8 +90,5 @@ class ALSRec(Recommender):
             .drop("user_idx", "item_idx", "prediction")
             .cache()
         )
-        recs = get_top_k_recs(recs, k).withColumn(
-            "context", lit(DEFAULT_CONTEXT)
-        )
-
+        recs = get_top_k_recs(recs, k)
         return recs

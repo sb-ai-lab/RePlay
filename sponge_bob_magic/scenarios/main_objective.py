@@ -213,11 +213,9 @@ class MainObjective:
                              on=["user_id", "item_id"],
                              how="full_outer")
             recs = (recs
-                    .withColumn("context",
-                                sf.coalesce("context", "context_fallback"))
                     .withColumn("relevance",
                                 sf.coalesce("relevance", "relevance_fallback"))
-                    .select("user_id", "item_id", "context", "relevance"))
+                    .select("user_id", "item_id", "relevance"))
             recs = get_top_k_recs(recs, k)
             logging.debug(
                 "-- Длина рекомендаций после добавления %s: %d",

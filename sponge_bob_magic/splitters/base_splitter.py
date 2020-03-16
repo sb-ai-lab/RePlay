@@ -4,7 +4,6 @@
 from abc import ABC, abstractmethod
 from typing import Tuple
 
-import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 

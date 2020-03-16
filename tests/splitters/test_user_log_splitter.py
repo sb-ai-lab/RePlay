@@ -24,11 +24,11 @@ class TestSplitter(UserSplitter):
 class TestUserLogSplitter(PySparkTest):
     def setUp(self):
         data = [
-            ["user1", "item4", datetime(2019, 9, 12), "day", 1.0],
-            ["user2", "item5", datetime(2019, 9, 13), "night", 2.0],
-            ["user3", "item7", datetime(2019, 9, 17), "night", 1.0],
-            ["user4", "item6", datetime(2019, 9, 17), "night", 1.0],
-            ["user5", "item6", datetime(2019, 9, 17), "night", 1.0]
+            ["user1", "item4", datetime(2019, 9, 12), 1.0],
+            ["user2", "item5", datetime(2019, 9, 13), 2.0],
+            ["user3", "item7", datetime(2019, 9, 17), 1.0],
+            ["user4", "item6", datetime(2019, 9, 17), 1.0],
+            ["user5", "item6", datetime(2019, 9, 17), 1.0]
         ]
         self.log = self.spark.createDataFrame(data=data, schema=LOG_SCHEMA)
 
@@ -57,30 +57,30 @@ class TestRandomUserLogSplitter(PySparkTest):
     def setUp(self):
         self.log = self.spark.createDataFrame(
             data=[
-                ["user1", "item4", datetime(2019, 9, 12), "day", 1.0],
-                ["user1", "item5", datetime(2019, 9, 13), "night", 2.0],
-                ["user1", "item7", datetime(2019, 9, 17), "night", 1.0],
-                ["user1", "item6", datetime(2019, 9, 17), "night", 1.0],
+                ["user1", "item4", datetime(2019, 9, 12), 1.0],
+                ["user1", "item5", datetime(2019, 9, 13), 2.0],
+                ["user1", "item7", datetime(2019, 9, 17), 1.0],
+                ["user1", "item6", datetime(2019, 9, 17), 1.0],
 
-                ["user2", "item4", datetime(2019, 9, 12), "day", 1.0],
-                ["user2", "item5", datetime(2019, 9, 13), "night", 2.0],
-                ["user2", "item6", datetime(2019, 9, 14), "day", 3.0],
-                ["user2", "item2", datetime(2019, 9, 15), "night", 4.0],
-                ["user2", "item3", datetime(2019, 9, 15), "night", 4.0],
+                ["user2", "item4", datetime(2019, 9, 12), 1.0],
+                ["user2", "item5", datetime(2019, 9, 13), 2.0],
+                ["user2", "item6", datetime(2019, 9, 14), 3.0],
+                ["user2", "item2", datetime(2019, 9, 15), 4.0],
+                ["user2", "item3", datetime(2019, 9, 15), 4.0],
 
-                ["user3", "item4", datetime(2019, 9, 12), "day", 1.0],
-                ["user3", "item5", datetime(2019, 9, 13), "night", 2.0],
-                ["user3", "item6", datetime(2019, 9, 14), "day", 3.0],
-                ["user3", "item2", datetime(2019, 9, 14), "day", 3.0],
-                ["user3", "item7", datetime(2019, 9, 17), "night", 1.0],
+                ["user3", "item4", datetime(2019, 9, 12), 1.0],
+                ["user3", "item5", datetime(2019, 9, 13), 2.0],
+                ["user3", "item6", datetime(2019, 9, 14), 3.0],
+                ["user3", "item2", datetime(2019, 9, 14), 3.0],
+                ["user3", "item7", datetime(2019, 9, 17), 1.0],
 
-                ["user4", "item2", datetime(2019, 9, 15), "night", 4.0],
-                ["user4", "item1", datetime(2019, 9, 16), "night", 4.0],
-                ["user4", "item4", datetime(2019, 9, 17), "night", 4.0],
-                ["user4", "item5", datetime(2019, 9, 18), "night", 4.0],
-                ["user4", "item8", datetime(2019, 9, 19), "night", 4.0],
-                ["user4", "item4", datetime(2019, 9, 20), "night", 4.0],
-                ["user4", "item1", datetime(2019, 9, 21), "night", 4.0],
+                ["user4", "item2", datetime(2019, 9, 15), 4.0],
+                ["user4", "item1", datetime(2019, 9, 16), 4.0],
+                ["user4", "item4", datetime(2019, 9, 17), 4.0],
+                ["user4", "item5", datetime(2019, 9, 18), 4.0],
+                ["user4", "item8", datetime(2019, 9, 19), 4.0],
+                ["user4", "item4", datetime(2019, 9, 20), 4.0],
+                ["user4", "item1", datetime(2019, 9, 21), 4.0],
             ],
             schema=LOG_SCHEMA)
 
@@ -149,20 +149,20 @@ class TestByTimeUserLogSplitter(PySparkTest):
     def setUp(self):
         self.log = self.spark.createDataFrame(
             data=[
-                ["1", "1", datetime(2019, 1, 1), "", 1.0],
-                ["1", "2", datetime(2019, 1, 2), "", 1.0],
-                ["1", "3", datetime(2019, 1, 3), "", 1.0],
-                ["1", "4", datetime(2019, 1, 4), "", 1.0],
+                ["1", "1", datetime(2019, 1, 1), 1.0],
+                ["1", "2", datetime(2019, 1, 2), 1.0],
+                ["1", "3", datetime(2019, 1, 3), 1.0],
+                ["1", "4", datetime(2019, 1, 4), 1.0],
 
-                ["2", "0", datetime(2020, 2, 5), "", 1.0],
-                ["2", "4", datetime(2020, 2, 4), "", 1.0],
-                ["2", "3", datetime(2020, 2, 3), "", 1.0],
-                ["2", "2", datetime(2020, 2, 2), "", 1.0],
-                ["2", "1", datetime(2020, 2, 1), "", 1.0],
+                ["2", "0", datetime(2020, 2, 5), 1.0],
+                ["2", "4", datetime(2020, 2, 4), 1.0],
+                ["2", "3", datetime(2020, 2, 3), 1.0],
+                ["2", "2", datetime(2020, 2, 2), 1.0],
+                ["2", "1", datetime(2020, 2, 1), 1.0],
 
-                ["3", "1", datetime(1995, 1, 1), "", 1.0],
-                ["3", "2", datetime(1995, 1, 2), "", 1.0],
-                ["3", "3", datetime(1995, 1, 3), "", 1.0],
+                ["3", "1", datetime(1995, 1, 1), 1.0],
+                ["3", "2", datetime(1995, 1, 2), 1.0],
+                ["3", "3", datetime(1995, 1, 3), 1.0],
             ],
             schema=LOG_SCHEMA)
 
@@ -177,27 +177,27 @@ class TestByTimeUserLogSplitter(PySparkTest):
 
         true_train = self.spark.createDataFrame(
             data=[
-                ["1", "1", datetime(2019, 1, 1), "", 1.0],
-                ["1", "2", datetime(2019, 1, 2), "", 1.0],
+                ["1", "1", datetime(2019, 1, 1), 1.0],
+                ["1", "2", datetime(2019, 1, 2), 1.0],
 
-                ["2", "3", datetime(2020, 2, 3), "", 1.0],
-                ["2", "2", datetime(2020, 2, 2), "", 1.0],
-                ["2", "1", datetime(2020, 2, 1), "", 1.0],
+                ["2", "3", datetime(2020, 2, 3), 1.0],
+                ["2", "2", datetime(2020, 2, 2), 1.0],
+                ["2", "1", datetime(2020, 2, 1), 1.0],
 
-                ["3", "1", datetime(1995, 1, 1), "", 1.0],
+                ["3", "1", datetime(1995, 1, 1), 1.0],
             ],
             schema=LOG_SCHEMA)
 
         true_test = self.spark.createDataFrame(
             data=[
-                ["1", "3", datetime(2019, 1, 3), "", 1.0],
-                ["1", "4", datetime(2019, 1, 4), "", 1.0],
+                ["1", "3", datetime(2019, 1, 3), 1.0],
+                ["1", "4", datetime(2019, 1, 4), 1.0],
 
-                ["2", "0", datetime(2020, 2, 5), "", 1.0],
-                ["2", "4", datetime(2020, 2, 4), "", 1.0],
+                ["2", "0", datetime(2020, 2, 5), 1.0],
+                ["2", "4", datetime(2020, 2, 4), 1.0],
 
-                ["3", "2", datetime(1995, 1, 2), "", 1.0],
-                ["3", "3", datetime(1995, 1, 3), "", 1.0],
+                ["3", "2", datetime(1995, 1, 2), 1.0],
+                ["3", "3", datetime(1995, 1, 3), 1.0],
             ],
             schema=LOG_SCHEMA)
         self.assertSparkDataFrameEqual(true_train, train)
@@ -214,27 +214,27 @@ class TestByTimeUserLogSplitter(PySparkTest):
 
         true_train = self.spark.createDataFrame(
             data=[
-                ["1", "1", datetime(2019, 1, 1), "", 1.0],
-                ["1", "2", datetime(2019, 1, 2), "", 1.0],
-                ["1", "3", datetime(2019, 1, 3), "", 1.0],
+                ["1", "1", datetime(2019, 1, 1), 1.0],
+                ["1", "2", datetime(2019, 1, 2), 1.0],
+                ["1", "3", datetime(2019, 1, 3), 1.0],
 
-                ["2", "3", datetime(2020, 2, 3), "", 1.0],
-                ["2", "2", datetime(2020, 2, 2), "", 1.0],
-                ["2", "1", datetime(2020, 2, 1), "", 1.0],
+                ["2", "3", datetime(2020, 2, 3), 1.0],
+                ["2", "2", datetime(2020, 2, 2), 1.0],
+                ["2", "1", datetime(2020, 2, 1), 1.0],
 
-                ["3", "1", datetime(1995, 1, 1), "", 1.0],
-                ["3", "2", datetime(1995, 1, 2), "", 1.0],
+                ["3", "1", datetime(1995, 1, 1), 1.0],
+                ["3", "2", datetime(1995, 1, 2), 1.0],
             ],
             schema=LOG_SCHEMA)
 
         true_test = self.spark.createDataFrame(
             data=[
-                ["1", "4", datetime(2019, 1, 4), "", 1.0],
+                ["1", "4", datetime(2019, 1, 4), 1.0],
 
-                ["2", "0", datetime(2020, 2, 5), "", 1.0],
-                ["2", "4", datetime(2020, 2, 4), "", 1.0],
+                ["2", "0", datetime(2020, 2, 5), 1.0],
+                ["2", "4", datetime(2020, 2, 4), 1.0],
 
-                ["3", "3", datetime(1995, 1, 3), "", 1.0],
+                ["3", "3", datetime(1995, 1, 3), 1.0],
             ],
             schema=LOG_SCHEMA)
 

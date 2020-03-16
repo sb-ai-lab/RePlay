@@ -37,6 +37,10 @@ class PopRec(Recommender):
                  log: DataFrame,
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None) -> None:
+
+        if "context" not in log.columns:
+            log = log.withColumn("context", sf.lit(DEFAULT_CONTEXT))
+
         popularity = (log
                       .groupBy("item_id", "context")
                       .count())
@@ -80,7 +84,7 @@ class PopRec(Recommender):
                  filter_seen_items: bool = True) -> DataFrame:
         items_to_rec = self.items_popularity
 
-        if context == DEFAULT_CONTEXT:
+        if context is None or context == DEFAULT_CONTEXT:
             items_to_rec = (items_to_rec
                             .select("item_id", "count")
                             .groupBy("item_id")
@@ -88,6 +92,7 @@ class PopRec(Recommender):
             items_to_rec = (items_to_rec
                             .withColumn("context",
                                         sf.lit(DEFAULT_CONTEXT)))
+            context = DEFAULT_CONTEXT
         else:
             items_to_rec = (items_to_rec
                             .filter(items_to_rec["context"] == context))

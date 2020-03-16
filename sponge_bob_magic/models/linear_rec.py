@@ -11,7 +11,6 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import lit, udf, when
 from pyspark.sql.types import DoubleType, FloatType
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import func_get, get_feature_cols, get_top_k_recs
 
@@ -119,7 +118,6 @@ class LinearRec(Recommender):
                 .alias("relevance")
                 .cast(FloatType())
             )
-            .withColumn("context", lit(DEFAULT_CONTEXT))
         )
 
         recs = get_top_k_recs(recs, k)

@@ -6,7 +6,7 @@ from datetime import datetime
 import numpy as np
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA, REC_SCHEMA
+from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
 from sponge_bob_magic.models.lightfm_rec import LightFMRec
 
 
@@ -16,13 +16,13 @@ class LightFMRecTestCase(PySparkTest):
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [
-                ["u1", "i1", self.some_date, "c1", 1.0],
-                ["u2", "i1", self.some_date, "c1", 1.0],
-                ["u3", "i3", self.some_date, "c1", 2.0],
-                ["u3", "i3", self.some_date, "c1", 2.0],
-                ["u2", "i3", self.some_date, "c1", 2.0],
-                ["u3", "i4", self.some_date, "c1", 2.0],
-                ["u1", "i4", self.some_date, "c1", 2.0]
+                ["u1", "i1", self.some_date, 1.0],
+                ["u2", "i1", self.some_date, 1.0],
+                ["u3", "i3", self.some_date, 2.0],
+                ["u3", "i3", self.some_date, 2.0],
+                ["u2", "i3", self.some_date, 2.0],
+                ["u3", "i4", self.some_date, 2.0],
+                ["u1", "i4", self.some_date, 2.0]
             ],
             schema=LOG_SCHEMA
         )
@@ -42,7 +42,6 @@ class LightFMRecTestCase(PySparkTest):
             k=1,
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
-            context=DEFAULT_CONTEXT,
             user_features=None,
             item_features=None
         )
@@ -50,9 +49,9 @@ class LightFMRecTestCase(PySparkTest):
             recs,
             self.spark.createDataFrame(
                 [
-                    ["u3", "i3", DEFAULT_CONTEXT, -0.34175461530685425],
-                    ["u1", "i3", DEFAULT_CONTEXT, -0.2539006471633911],
-                    ["u2", "i3", DEFAULT_CONTEXT, -0.22212029993534088]
+                    ["u1", "i3", -0.25914710760116577],
+                    ["u2", "i3", -0.2138521820306778],
+                    ["u3", "i4", -0.3359125852584839]
                 ],
                 schema=REC_SCHEMA
             )
