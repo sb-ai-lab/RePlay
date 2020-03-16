@@ -3,8 +3,10 @@
 """
 from typing import Union, Iterable
 
+import pandas as pd
 from pyspark.sql.types import (DoubleType, FloatType, StringType, StructField,
                                StructType, TimestampType)
+from pyspark.sql import DataFrame
 
 LOG_SCHEMA = StructType([
     StructField("user_id", StringType()),
@@ -22,3 +24,5 @@ REC_SCHEMA = StructType([
 ])
 
 IterOrList = Union[Iterable[int], int]
+NumType = Union[int, float]
+CommonDataFrame = Union[DataFrame, pd.DataFrame]
