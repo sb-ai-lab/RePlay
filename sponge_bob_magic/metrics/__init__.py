@@ -17,5 +17,6 @@ from sponge_bob_magic.metrics.mrr import MRR
 from sponge_bob_magic.metrics.ndcg import NDCG
 from sponge_bob_magic.metrics.precision import Precision
 from sponge_bob_magic.metrics.recall import Recall
+from sponge_bob_magic.metrics.rocauc import RocAuc
 from sponge_bob_magic.metrics.surprisal import Surprisal
 from sponge_bob_magic.metrics.unexpectedness import Unexpectedness

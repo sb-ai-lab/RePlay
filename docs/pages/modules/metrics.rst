@@ -18,6 +18,10 @@ Recall
 ------
 .. autoclass:: sponge_bob_magic.metrics.Recall
 
+ROC-AUC
+-------
+.. autoclass:: sponge_bob_magic.metrics.RocAuc
+
 MRR
 ----
 .. autoclass:: sponge_bob_magic.metrics.MRR
