@@ -19,10 +19,10 @@ from sponge_bob_magic.utils import write_read_dataframe
 class Recommender(ABC):
     """ Базовый класс-рекомендатель. """
     model: Any = None
-    user_index: StringIndexerModel
+    user_indexer: StringIndexerModel
     item_index: StringIndexerModel
-    inv_user_index: IndexToString
-    inv_item_index: IndexToString
+    inv_user_indexer: IndexToString
+    inv_item_indexer: IndexToString
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
@@ -95,23 +95,23 @@ class Recommender(ABC):
             `[item_id , timestamp]` и колонки с признаками
         :return:
         """
-        self.user_index = StringIndexer(
+        self.user_indexer = StringIndexer(
             inputCol="user_id",
             outputCol="user_idx"
         ).fit(log)
-        self.item_index = StringIndexer(
+        self.item_indexer = StringIndexer(
             inputCol="item_id",
             outputCol="item_idx"
         ).fit(log)
-        self.inv_user_index = IndexToString(
+        self.inv_user_indexer = IndexToString(
             inputCol="user_idx",
             outputCol="user_id",
-            labels=self.user_index.labels
+            labels=self.user_indexer.labels
         )
-        self.inv_item_index = IndexToString(
+        self.inv_item_indexer = IndexToString(
             inputCol="item_idx",
             outputCol="item_id",
-            labels=self.item_index.labels
+            labels=self.item_indexer.labels
         )
 
     @abstractmethod

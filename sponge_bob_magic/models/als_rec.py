@@ -36,8 +36,8 @@ class ALSRec(Recommender):
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
         logging.debug("Индексирование данных")
-        log_indexed = self.user_index.transform(log)
-        log_indexed = self.item_index.transform(log_indexed)
+        log_indexed = self.user_indexer.transform(log)
+        log_indexed = self.item_indexer.transform(log_indexed)
 
         logging.debug("Обучение модели")
         self.model = ALS(
@@ -66,8 +66,8 @@ class ALSRec(Recommender):
                 log
             ).drop("relevance")
 
-        log_indexed = self.user_index.transform(test_data)
-        log_indexed = self.item_index.transform(log_indexed)
+        log_indexed = self.user_indexer.transform(test_data)
+        log_indexed = self.item_indexer.transform(log_indexed)
 
         recs = (
             self.model.transform(log_indexed)

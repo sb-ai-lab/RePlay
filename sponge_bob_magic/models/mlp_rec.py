@@ -127,8 +127,8 @@ class MLPRec(Recommender):
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None) -> None:
         super()._pre_fit(log, user_features, item_features)
-        log_indexed = self.user_index.transform(log)
-        log_indexed = self.item_index.transform(log_indexed)
+        log_indexed = self.user_indexer.transform(log)
+        log_indexed = self.item_indexer.transform(log_indexed)
         self.num_users = log_indexed.select("user_idx").distinct().count()
         self.num_items = log_indexed.select("item_idx").distinct().count()
         self.model = MLP(
@@ -181,8 +181,8 @@ class MLPRec(Recommender):
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
         logging.debug("Индексирование данных")
-        log_indexed = self.user_index.transform(log)
-        log_indexed = self.item_index.transform(log_indexed)
+        log_indexed = self.user_indexer.transform(log)
+        log_indexed = self.item_indexer.transform(log_indexed)
         self.model.train()
         optimizer = torch.optim.Adam(self.model.parameters(),
                                      lr=self.learning_rate)
@@ -239,7 +239,7 @@ class MLPRec(Recommender):
         os.makedirs(tmp_path)
 
         logging.debug("Индексирование данных")
-        users = self.user_index.transform(users)
+        users = self.user_indexer.transform(users)
 
         logging.debug("Предсказание модели")
         tensor_data = MLPRec.spark2pandas_csv(
@@ -274,8 +274,8 @@ class MLPRec(Recommender):
                               inferSchema=True)
 
         logging.debug("Обратное преобразование индексов")
-        recs = self.inv_item_index.transform(recs)
-        recs = self.inv_user_index.transform(recs)
+        recs = self.inv_item_indexer.transform(recs)
+        recs = self.inv_user_indexer.transform(recs)
         recs = recs.drop("user_idx", "item_idx")
         if filter_seen_items:
             recs = self._filter_seen_recs(recs, log)

@@ -37,8 +37,8 @@ class LightFMRec(Recommender):
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
         logging.debug("Построение модели LightFM")
-        log_indexed = self.user_index.transform(log)
-        log_indexed = self.item_index.transform(log_indexed)
+        log_indexed = self.user_indexer.transform(log)
+        log_indexed = self.item_indexer.transform(log_indexed)
         pandas_log = log_indexed.select(
             "user_idx", "item_idx", "relevance").toPandas()
         interactions_matrix = coo_matrix(
@@ -47,8 +47,8 @@ class LightFMRec(Recommender):
                 (pandas_log.user_idx, pandas_log.item_idx)
             ),
             shape=(
-                len(self.user_index.labels),
-                len(self.item_index.labels)
+                len(self.user_indexer.labels),
+                len(self.item_indexer.labels)
             )
         )
         self.model = LightFM(
@@ -76,8 +76,8 @@ class LightFMRec(Recommender):
                 test_data,
                 log
             ).drop("relevance")
-        log_indexed = self.user_index.transform(test_data)
-        log_indexed = self.item_index.transform(log_indexed)
+        log_indexed = self.user_indexer.transform(test_data)
+        log_indexed = self.item_indexer.transform(log_indexed)
         prediction = log_indexed.toPandas()
         prediction["relevance"] = self.model.predict(
             np.array(prediction.user_idx), np.array(prediction.item_idx))
