@@ -4,7 +4,6 @@
 import logging
 from typing import Dict, Optional
 
-from pyspark.ml.feature import StringIndexer, StringIndexerModel
 from pyspark.ml.recommendation import ALS
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit
@@ -16,10 +15,7 @@ from sponge_bob_magic.utils import get_top_k_recs
 
 class ALSRec(Recommender):
     """ Обёртка вокруг реализации ALS на Spark. """
-
     _seed: Optional[int] = None
-    user_indexer_model: StringIndexerModel
-    item_indexer_model: StringIndexerModel
 
     def __init__(self, rank: int = 10, seed: Optional[int] = None):
         """
@@ -28,10 +24,6 @@ class ALSRec(Recommender):
         :param rank: матрицей какого ранга приближаем исходную
         """
         self.rank = rank
-        self.user_indexer = StringIndexer(inputCol="user_id",
-                                          outputCol="user_idx")
-        self.item_indexer = StringIndexer(inputCol="item_id",
-                                          outputCol="item_idx")
         self._seed = seed
 
     def get_params(self) -> Dict[str, object]:
@@ -39,20 +31,13 @@ class ALSRec(Recommender):
             "rank": self.rank
         }
 
-    def _pre_fit(self,
-                 log: DataFrame,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None) -> None:
-        self.user_indexer_model = self.user_indexer.fit(log)
-        self.item_indexer_model = self.item_indexer.fit(log)
-
     def _fit(self,
              log: DataFrame,
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
         logging.debug("Индексирование данных")
-        log_indexed = self.user_indexer_model.transform(log)
-        log_indexed = self.item_indexer_model.transform(log_indexed)
+        log_indexed = self.user_index.transform(log)
+        log_indexed = self.item_index.transform(log_indexed)
 
         logging.debug("Обучение модели")
         self.model = ALS(
@@ -81,8 +66,8 @@ class ALSRec(Recommender):
                 log
             ).drop("relevance")
 
-        log_indexed = self.user_indexer_model.transform(test_data)
-        log_indexed = self.item_indexer_model.transform(log_indexed)
+        log_indexed = self.user_index.transform(test_data)
+        log_indexed = self.item_index.transform(log_indexed)
 
         recs = (
             self.model.transform(log_indexed)

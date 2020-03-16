@@ -4,12 +4,13 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Iterable
+from typing import Any, Dict, Iterable, Optional
 from uuid import uuid4
 
+import pandas as pd
+from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
-import pandas as pd
 
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import write_read_dataframe
@@ -18,6 +19,10 @@ from sponge_bob_magic.utils import write_read_dataframe
 class Recommender(ABC):
     """ Базовый класс-рекомендатель. """
     model: Any = None
+    user_index: StringIndexerModel
+    item_index: StringIndexerModel
+    inv_user_index: IndexToString
+    inv_item_index: IndexToString
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
@@ -67,7 +72,6 @@ class Recommender(ABC):
         """
         logging.debug("Предварительная стадия обучения (pre-fit)")
         self._pre_fit(log, user_features, item_features)
-
         logging.debug("Основная стадия обучения (fit)")
         self._fit(log, user_features, item_features)
 
@@ -91,7 +95,24 @@ class Recommender(ABC):
             `[item_id , timestamp]` и колонки с признаками
         :return:
         """
-        pass
+        self.user_index = StringIndexer(
+            inputCol="user_id",
+            outputCol="user_idx"
+        ).fit(log)
+        self.item_index = StringIndexer(
+            inputCol="item_id",
+            outputCol="item_idx"
+        ).fit(log)
+        self.inv_user_index = IndexToString(
+            inputCol="user_idx",
+            outputCol="user_id",
+            labels=self.user_index.labels
+        )
+        self.inv_item_index = IndexToString(
+            inputCol="item_idx",
+            outputCol="item_id",
+            labels=self.item_index.labels
+        )
 
     @abstractmethod
     def _fit(self, log: DataFrame,
