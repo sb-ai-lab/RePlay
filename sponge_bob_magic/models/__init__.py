@@ -1,4 +1,9 @@
-"""Документация для модуля models"""
+"""
+Данный модуль содержит обертки для известных моделей, вроде light.fm,
+и реализует некоторые классические алгоритмы.
+
+Модели используют в реализации либо спарк, либо пайторч.
+"""
 
 from sponge_bob_magic.models.als_rec import ALSRec
 from sponge_bob_magic.models.base_rec import Recommender

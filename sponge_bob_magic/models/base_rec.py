@@ -61,13 +61,13 @@ class Recommender(ABC):
 
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            `[user_id , item_id , timestamp , context , relevance]`
+            ``[user_id , item_id , timestamp , context , relevance]``
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
-            `[user_id , timestamp]` и колонки с признаками
+            ``[user_id , timestamp]`` и колонки с признаками
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
-            `[item_id , timestamp]` и колонки с признаками
+            ``[item_id , timestamp]`` и колонки с признаками
         :return:
         """
         logging.debug("Предварительная стадия обучения (pre-fit)")
@@ -86,13 +86,13 @@ class Recommender(ABC):
 
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            `[user_id , item_id , timestamp , context , relevance]`
+            ``[user_id , item_id , timestamp , context , relevance]``
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
-            `[user_id , timestamp]` и колонки с признаками
+            ``[user_id , timestamp]`` и колонки с признаками
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
-            `[item_id , timestamp]` и колонки с признаками
+            ``[item_id , timestamp]`` и колонки с признаками
         :return:
         """
         self.user_indexer = StringIndexer(
@@ -124,13 +124,13 @@ class Recommender(ABC):
 
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            `[user_id , item_id , timestamp , context , relevance]`
+            ``[user_id , item_id , timestamp , context , relevance]``
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
-            `[user_id , timestamp]` и колонки с признаками
+            ``[user_id , timestamp]`` и колонки с признаками
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
-            `[item_id , timestamp]` и колонки с признаками
+            ``[item_id , timestamp]`` и колонки с признаками
         :return:
         """
 
@@ -148,31 +148,31 @@ class Recommender(ABC):
 
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            `[user_id , item_id , timestamp , context , relevance]`
+            ``[user_id , item_id , timestamp , context , relevance]``
         :param k: количество рекомендаций для каждого пользователя;
-            должно быть не больше, чем количество объектов в `items`
+            должно быть не больше, чем количество объектов в ``items``
         :param users: список пользователей, для которых необходимо получить
-            рекомендации, спарк-датафрейм с колонкой `[user_id]` или ``array-like``;
-            если None, выбираются все пользователи из лога;
+            рекомендации, спарк-датафрейм с колонкой ``[user_id]`` или ``array-like``;
+            если ``None``, выбираются все пользователи из лога;
             если в этом списке есть пользователи, про которых модель ничего
             не знает, то вызывается ошибка
         :param items: список объектов, которые необходимо рекомендовать;
-            спарк-датафрейм с колонкой `[item_id]` или ``array-like``;
-            если None, выбираются все объекты из лога;
+            спарк-датафрейм с колонкой ``[item_id]`` или ``array-like``;
+            если ``None``, выбираются все объекты из лога;
             если в этом списке есть объекты, про которых модель ничего
-            не знает, то в relevance в рекомендациях к ним будет стоять 0
+            не знает, то в ``relevance`` в рекомендациях к ним будет стоять ``0``
         :param context: контекст, в котором нужно получить рекомендации;
             если None, контекст не будет использоваться
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
-            `[user_id , timestamp]` и колонки с признаками
+            ``[user_id , timestamp]`` и колонки с признаками
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
-            `[item_id , timestamp]` и колонки с признаками
+            ``[item_id , timestamp]`` и колонки с признаками
         :param filter_seen_items: если True, из рекомендаций каждому
             пользователю удаляются виденные им объекты на основе лога
         :return: рекомендации, спарк-датафрейм с колонками
-            `[user_id , item_id , context , relevance]`
+            ``[user_id , item_id , context , relevance]``
         """
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
@@ -229,29 +229,29 @@ class Recommender(ABC):
 
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            `[user_id , item_id , timestamp , context , relevance]`
+            ``[user_id , item_id , timestamp , context , relevance]``
         :param k: количество рекомендаций для каждого пользователя;
-            должно быть не больше, чем количество объектов в `items`
+            должно быть не больше, чем количество объектов в ``items``
         :param users: список пользователей, для которых необходимо получить
-            рекомендации; если None, выбираются все пользователи из лога;
+            рекомендации; если ``None``, выбираются все пользователи из лога;
             если в этом списке есть пользователи, про которых модель ничего
             не знает, то вызывается ошибка
         :param items: список объектов, которые необходимо рекомендовать;
-            если None, выбираются все объекты из лога;
+            если ``None``, выбираются все объекты из лога;
             если в этом списке есть объекты, про которых модель ничего
-            не знает, то в рекомендациях к ним будет стоять 0
+            не знает, то в рекомендациях к ним будет стоять ``0``
         :param context: контекст, в котором нужно получить рекомендоции;
             если None, контекст не будет использоваться
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
-            `[user_id , timestamp]` и колонки с признаками
+            ``[user_id , timestamp]`` и колонки с признаками
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
-            `[item_id , timestamp]` и колонки с признаками
-        :param filter_seen_items: если True, из рекомендаций каждому
+            ``[item_id , timestamp]`` и колонки с признаками
+        :param filter_seen_items: если ``True``, из рекомендаций каждому
             пользователю удаляются виденные им объекты на основе лога
         :return: рекомендации, спарк-датафрейм с колонками
-            `[user_id , item_id , context , relevance]`
+            ``[user_id , item_id , context , relevance]``
         """
 
     def fit_predict(self,
@@ -268,29 +268,29 @@ class Recommender(ABC):
 
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            `[user_id , item_id , timestamp , context , relevance]`
+            ``[user_id , item_id , timestamp , context , relevance]``
         :param k: количество рекомендаций для каждого пользователя;
-            должно быть не больше, чем количество объектов в `items`
+            должно быть не больше, чем количество объектов в ``items``
         :param users: список пользователей, для которых необходимо получить
-            рекомендации; если None, выбираются все пользователи из лога;
+            рекомендации; если ``None``, выбираются все пользователи из лога;
             если в этом списке есть пользователи, про которых модель ничего
             не знает, то поднмиается исключение
         :param items: список объектов, которые необходимо рекомендовать;
-            если None, выбираются все объекты из лога;
+            если ``None``, выбираются все объекты из лога;
             если в этом списке есть объекты, про которых модель ничего
-            не знает, то в рекомендациях к ним будет стоять 0
+            не знает, то в рекомендациях к ним будет стоять ``0``
         :param context: контекст, в котором нужно получить рекомендоции;
-            если None, контекст не будет использоваться
+            если ``None``, контекст не будет использоваться
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
-            `[user_id , timestamp]` и колонки с признаками
+            ``[user_id , timestamp]`` и колонки с признаками
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
-            `[item_id , timestamp]` и колонки с признаками
-        :param filter_seen_items: если True, из рекомендаций каждому
+            ``[item_id , timestamp]`` и колонки с признаками
+        :param filter_seen_items: если ``True``, из рекомендаций каждому
             пользователю удаляются виденные им объекты на основе лога
         :return: рекомендации, спарк-датафрейм с колонками
-            `[user_id , item_id , context , relevance]`
+            ``[user_id , item_id , context , relevance]``
         """
         self.fit(log, user_features, item_features)
         return self.predict(log, k, users, items, context, user_features, item_features, filter_seen_items)
@@ -302,12 +302,12 @@ class Recommender(ABC):
         relevance уже виденных им объекты (на основе лога) на -1.
 
         :param recs: рекомендации, спарк-датафрейм с колонками
-            `[user_id , item_id , context , relevance]`
+            ``[user_id , item_id , context , relevance]``
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            `[user_id , item_id , timestamp , context , relevance]`
+            ``[user_id , item_id , timestamp , context , relevance]``
         :return: измененные рекомендации, спарк-датафрейм с колонками
-            `[user_id , item_id , context , relevance]`
+            ``[user_id , item_id , context , relevance]``
         """
         user_item_log = (log
                          .select(sf.col("item_id").alias("item"),

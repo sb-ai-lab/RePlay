@@ -86,7 +86,10 @@ class NMF(Module):
 
 
 class NeuroMFRec(Recommender):
-    """ Модель матричной факторизации на нейросети. """
+    """
+    Эта модель является вариацей на модель из статьи Neural Matrix Factorization
+    (NeuMF, NCF)
+    """
     num_workers: int = 10
     batch_size_fit_users: int = 100000
     batch_size_predict_users: int = 100

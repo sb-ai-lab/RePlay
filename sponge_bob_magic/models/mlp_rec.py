@@ -89,7 +89,10 @@ class MLP(Module):
 
 
 class MLPRec(Recommender):
-    """ Модель на нейросети. """
+    """
+    Получает эмбеддинги пользователей и объектов с помощью перцептрона
+    и ищет приближенных ближайших соседей annoy.
+    """
     num_workers: int = 10
     batch_size_fit_users: int = 100000
     batch_size_predict_users: int = 100
