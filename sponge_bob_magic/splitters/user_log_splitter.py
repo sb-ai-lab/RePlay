@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 from abc import abstractmethod
 from typing import Optional, Union
 
@@ -66,6 +69,14 @@ class UserSplitter(Splitter):
     2        2        2          5          2
     3        2        1          4          3
 
+    Параметр `user_test_size` позволяет отобрать для теста заданное количество пользователей
+
+    >>> UserSplitter(user_test_size=1, item_test_size=2, seed=42).split(df)[-1].user_id.nunique()
+    1
+
+    >>> UserSplitter(user_test_size=0.5, item_test_size=2, seed=42).split(df)[-1].user_id.nunique()
+    1
+
     """
 
     def __init__(self,
@@ -116,12 +127,12 @@ class UserSplitter(Splitter):
                         self.user_test_size >= 1 and
                         self.user_test_size < user_count
                 ):
-                    fraction = self.user_test_size / user_count
+                    test_user_count = self.user_test_size
                 else:
                     value_error = True
             else:
                 if self.user_test_size < 1 and self.user_test_size > 0:
-                    fraction = self.user_test_size
+                    test_user_count = all_users.count() * self.user_test_size
                 else:
                     value_error = True
             if value_error:
@@ -129,8 +140,18 @@ class UserSplitter(Splitter):
                 Недопустимое значение параметра
                 user_test_size: {self.user_test_size}
                 """)
-            test_users = all_users.sample(
-                fraction=fraction, seed=self.seed, withReplacement=False)
+            test_users = (
+                all_users
+                .withColumn("rand", sf.rand(self.seed))
+                .withColumn(
+                    "row_num",
+                    sf.row_number().over(
+                        Window.orderBy("rand")
+                    )
+                )
+                .filter(f"row_num <= {test_user_count}")
+                .drop("rand", "row_num")
+            )
         else:
             test_users = all_users
         return test_users
