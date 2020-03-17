@@ -23,8 +23,8 @@ class MillionSongDataset(Dataset):
     Пример загрузки:
 
     >>> from sponge_bob_magic.datasets import MillionSongDataset
-    >>> msd = MillionSongDataset()
-    >>> msd.info()
+    >>> msd = MillionSongDataset()  # doctest: +SKIP
+    >>> msd.info()  # doctest: +SKIP
     train
                                         user_id             item_id  relevance
     0  b80344d063b5ccb3212f76538f3d9e43d87dca9e  SOAKIMP12A8C130995          1

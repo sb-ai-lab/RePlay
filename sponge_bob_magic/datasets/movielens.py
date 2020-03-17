@@ -56,8 +56,8 @@ class MovieLens(Dataset):
     Пример загрузки:
 
     >>> from sponge_bob_magic.datasets import MovieLens
-    >>> ml = MovieLens("10m")
-    >>> ml.info()
+    >>> ml = MovieLens("10m")  # doctest: +SKIP
+    >>> ml.info()  # doctest: +SKIP
     ratings
        user_id  item_id  relevance  timestamp
     0        1      122        5.0  838985046
