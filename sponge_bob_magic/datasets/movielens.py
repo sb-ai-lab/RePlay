@@ -63,21 +63,24 @@ class MovieLens(Dataset):
     0        1      122        5.0  838985046
     1        1      185        5.0  838983525
     2        1      231        5.0  838983392
+    <BLANKLINE>
     items
        item_id                    title  \\
     0        1         Toy Story (1995)
     1        2           Jumanji (1995)
     2        3  Grumpier Old Men (1995)
+    <BLANKLINE>
                                             genres
     0  Adventure|Animation|Children|Comedy|Fantasy
     1                   Adventure|Children|Fantasy
     2                               Comedy|Romance
+    <BLANKLINE>
     tags
        user_id  item_id         tag   timestamp
     0       15     4973  excellent!  1215184630
     1       20     1747    politics  1188263867
     2       20     1747      satire  1188263867
-
+    <BLANKLINE>
     """
     def __init__(
             self,

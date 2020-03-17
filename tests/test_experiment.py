@@ -1,13 +1,7 @@
-import doctest
-from unittest import TestSuite, TextTestRunner
-
 import pandas as pd
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic import experiment
-
-suite = TestSuite()
-suite.addTests(doctest.DocTestSuite(experiment))
 
 
 class TestConverter(PySparkTest):
@@ -19,8 +13,3 @@ class TestConverter(PySparkTest):
                               "relevance": [5, 3, 4]}),
                 "ᕕ( ᐛ )ᕗ"
             )
-
-
-suite.addTest(TestConverter())
-runner = TextTestRunner()
-runner.run(suite)

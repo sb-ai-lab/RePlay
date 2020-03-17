@@ -30,17 +30,19 @@ class MillionSongDataset(Dataset):
     0  b80344d063b5ccb3212f76538f3d9e43d87dca9e  SOAKIMP12A8C130995          1
     1  b80344d063b5ccb3212f76538f3d9e43d87dca9e  SOAPDEY12A81C210A9          1
     2  b80344d063b5ccb3212f76538f3d9e43d87dca9e  SOBBMDR12A8C13253B          2
+    <BLANKLINE>
     val
                                         user_id             item_id  relevance
     0  0007140a3796e901f3190f12e9de6d7548d4ac4a  SONVMBN12AC9075271          1
     1  0007140a3796e901f3190f12e9de6d7548d4ac4a  SOVIGZG12A6D4FB188          1
     2  0007140a3796e901f3190f12e9de6d7548d4ac4a  SOZGXYF12AB0185579          2
+    <BLANKLINE>
     test
                                         user_id             item_id  relevance
     0  00007a02388c208ea7176479f6ae06f8224355b3  SOAITVD12A6D4F824B          3
     1  00007a02388c208ea7176479f6ae06f8224355b3  SONZGLW12A6D4FBBC1          1
     2  00007a02388c208ea7176479f6ae06f8224355b3  SOXNWYP12A6D4FBDC4          1
-
+    <BLANKLINE>
     """
     def __init__(
             self,
