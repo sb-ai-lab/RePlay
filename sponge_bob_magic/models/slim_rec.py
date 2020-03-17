@@ -52,15 +52,17 @@ class SlimRec(Recommender):
 
     def __init__(
             self,
-            beta: float = 0.0,
-            lambda_: float = 1.0,
-            tolerance: float = 1e-6):
+            beta: float = 0.01,
+            lambda_: float = 0.0,
+            tolerance: float = 1e-6,
+            seed: Optional[int] = None):
         if beta < 0 or lambda_ < 0 or (beta == 0 and lambda_ == 0) or \
                 tolerance <= 0:
             raise ValueError("Неверно указаны параметры для регуляризации")
         self.beta = beta
         self.lambda_ = lambda_
         self.tolerance = tolerance
+        self.seed = seed
         self.spark = State().session
 
     def get_params(self) -> Dict[str, object]:
@@ -104,16 +106,17 @@ class SlimRec(Recommender):
             )
         )
         similarity = (self.spark
-                      .createDataFrame(range(len(self.item_indexer.labels)),
-                                       st.StringType())
+                      .createDataFrame(pandas_log.item_idx, st.FloatType())
                       .withColumnRenamed("value", "item_id_one"))
-
-        sgd = SGDRegressor(penalty='elasticnet',
+        sgd = SGDRegressor(penalty="elasticnet",
                            alpha=alpha,
                            l1_ratio=l1_ratio,
-                           fit_intercept=False)
+                           fit_intercept=False,
+                           random_state=self.seed)
+        tolerance = self.tolerance
 
-        @sf.pandas_udf("item_id_one long, item_id_two long, relevance double",
+        @sf.pandas_udf("item_id_one float, item_id_two float, similarity "
+                       "double",
                        sf.PandasUDFType.GROUPED_MAP)
         def slim_row(pandas_df):
             """
@@ -123,19 +126,17 @@ class SlimRec(Recommender):
             :return: pd.Dataframe
             """
             idx = int(pandas_df["item_id_one"][0])
-            column = interactions_matrix[idx]
-            column_arr = column.toarray().reshape(-1)
-            interactions_matrix.data[
-                interactions_matrix.indptr[idx]:
-                interactions_matrix.indptr[idx + 1]] = 0
+            column = interactions_matrix[:, idx]
+            column_arr = column.toarray().ravel()
+            interactions_matrix[interactions_matrix[:, idx].nonzero(), idx] = 0
 
-            sgd.fit(interactions_matrix.T, column_arr)
-            interactions_matrix[idx] = column
-            good_idx = np.argwhere(sgd.coef_ > self.tolerance).reshape(-1)
+            sgd.fit(interactions_matrix, column_arr)
+            interactions_matrix[:, idx] = column
+            good_idx = np.argwhere(sgd.coef_ > tolerance).reshape(-1)
             good_values = sgd.coef_[good_idx]
             similarity_row = {'item_id_one': idx,
                               'item_id_two': good_idx,
-                              'relevance': good_values}
+                              'similarity': good_values}
             return pd.DataFrame(data=similarity_row)
 
         self.similarity = (similarity.groupby("item_id_one")
@@ -150,23 +151,31 @@ class SlimRec(Recommender):
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None,
                  filter_seen_items: bool = True) -> DataFrame:
+
+        log_indexed = self.user_indexer.transform(log)
+        log_indexed = self.item_indexer.transform(log_indexed)
+        item_indexed = self.item_indexer.transform(items)
         recs = (
-            log
+            log_indexed.withColumnRenamed("item_id", "item")
             .join(
-                users,
+                users.withColumnRenamed("user_id", "user"),
                 how="inner",
-                on="user_id"
+                on=sf.col("user") == sf.col("user_id")
             )
             .join(
                 self.similarity,
-                how="left",
-                on=sf.col("item_id") == sf.col("item_id_one")
+                how="inner",
+                on=sf.col("item_idx") == sf.col("item_id_one")
+            ).join(
+                item_indexed
+                .withColumnRenamed("item_idx", "item_idx_"),
+                how="inner",
+                on=sf.col("item_idx_") == sf.col("item_id_two")
             )
-            .groupby("user_id", "item_id_two")
+            .groupby("user_id", "item_id")
             .agg(sf.sum("similarity").alias("relevance"))
-            .withColumnRenamed("item_id_two", "item_id")
-            .cache()
-        )
+            .select("user_id", "item_id", "relevance").cache()
+        ).cache()
 
         if filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
