@@ -8,6 +8,7 @@ import unittest
 import warnings
 from typing import Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 from pyspark.ml.linalg import DenseVector
 from pyspark.sql import DataFrame, SparkSession
@@ -30,7 +31,8 @@ class PySparkTest(unittest.TestCase):
                 columns_to_sort_by = pandas_df.columns
             else:
                 for column in pandas_df.columns:
-                    if not type(pandas_df[column][0]) in {DenseVector, list}:
+                    if not type(pandas_df[column][0]) in {
+                            DenseVector, list, np.ndarray}:
                         columns_to_sort_by.append(column)
 
             return (pandas_df
@@ -64,6 +66,7 @@ class PySparkTest(unittest.TestCase):
                 .master("local[1]")
                 .config("spark.driver.memory", "512m")
                 .config("spark.sql.shuffle.partitions", "1")
+                .config("spark.sql.execution.arrow.enabled", "true")
                 .config("spark.local.dir",
                         os.path.join(os.environ["HOME"], "tmp"))
                 .appName("testing-pyspark")
