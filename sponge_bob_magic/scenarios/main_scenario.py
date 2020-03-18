@@ -148,7 +148,8 @@ class MainScenario:
             название параметра (должен совпадать с одним из параметров модели,
             которые возвращает ``get_params()``), значение - словарь с двумя
             ключами "type" и "args", где они должны принимать следующие
-            значения в соответствии с `optuna.trial.Trial.suggest_* <https://optuna.readthedocs.io/en/stable/reference/trial.html#optuna.trial.Trial.suggest_categorical>`_
+            значения в соответствии
+            с `optuna.trial.Trial.suggest_* <https://optuna.readthedocs.io/en/stable/reference/trial.html#optuna.trial.Trial.suggest_categorical>`_
             (строковое значение "type" и список значений аргументов "args"):
             "uniform" -> [low, high],
             "loguniform" -> [low, high],
