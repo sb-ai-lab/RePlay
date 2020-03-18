@@ -9,8 +9,7 @@ from pyspark.sql import DataFrame
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, IterOrList
 from sponge_bob_magic.metrics import HitRate, Metric, Surprisal, Unexpectedness
-from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.models.pop_rec import PopRec
+from sponge_bob_magic.models import KNNRec, PopRec, Recommender
 from sponge_bob_magic.scenarios.main_objective import MainObjective, SplitData
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.splitters.base_splitter import Splitter
@@ -21,26 +20,27 @@ class MainScenario:
     """
     Основной сценарий. По умолчанию делает следующее:
 
-    * разбивает лог случайно 30/70 (холодных пользователей и объекты просто выбрасывает)
-    * обучает рекомендатель популярного
-    * оптимизирует и включает в отчёт только HitRate
+    * разбивает лог случайно 70/30 (холодных пользователей и объекты просто выбрасывает)
+    * обучает дефолтный рекомендатель (:ref:`KNN <knn-model>`)
+    * для тех случаев, когда `KNN` выдаёт слишком мало рекомендаций (мешьше, top-N, которые требуются), добирает рекомендации из fallback-рекомендателя (:ref:`PopRec <pop-rec>`)
+    * оптимизирует, подбирая гиперпараметры, и включает в отчёт только :ref:`HitRate <hit-rate>`
     """
     def __init__(
             self,
             splitter: Splitter = RandomSplitter(0.3, True, True),
-            recommender: Recommender = PopRec(),
+            recommender: Recommender = KNNRec(),
             criterion: type = HitRate,
             metrics: Dict[type, IterOrList] = dict(),
-            fallback_rec: Optional[Recommender] = None
+            fallback_rec: Recommender = PopRec()
     ):
         """
         Отдельные блоки сценария можно изменять по своему усмотрению
 
         :param splitter: как разбивать на train/test
-        :param recommender: бейзлайн какого класса хочется получить
-        :param criterion: какую метрику нужно оптимизировать при переборе гипер-параметров
+        :param recommender: Бейзлайн; объект класса, который необходимо обучить
+        :param criterion: метрика, которая будет оптимизироваться при переборе гипер-параметров
         :param metrics: какие ещё метрики, кроме критерия оптимизации, включить в отчёт об эксперименте
-        :param fallback_rec: дополнительный рекомендатель (обычно `PopRec`), с помощью которого можно дополнять выдачу базового рекомендателя, если вдруг он выдаёт меньшее количество объектов, чем было запрошено
+        :param fallback_rec: "запасной" рекомендатель, с помощью которого можно дополнять выдачу базового рекомендателя, если вдруг он выдаёт меньшее количество объектов, чем было запрошено
         """
         self.splitter = splitter
         self.recommender = recommender

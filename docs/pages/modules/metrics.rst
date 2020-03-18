@@ -4,6 +4,8 @@
 =======
 .. automodule:: sponge_bob_magic.metrics
 
+.. _hit-rate:
+
 HitRate
 --------
 .. autoclass:: sponge_bob_magic.metrics.HitRate
