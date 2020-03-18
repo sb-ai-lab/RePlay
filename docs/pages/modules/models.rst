@@ -39,6 +39,10 @@ Multi Layer Perceptron Recommender
 .. autoclass:: sponge_bob_magic.models.MLPRec
     :special-members: __init__
 
+SLIM
+--------
+.. autoclass:: sponge_bob_magic.models.SlimRec
+
 light.fm
 -----------
 
