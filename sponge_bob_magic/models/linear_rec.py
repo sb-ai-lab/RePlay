@@ -25,6 +25,15 @@ class LinearRec(Recommender):
             lambda_param: float = 0.0,
             elastic_net_param: float = 0.0,
             num_iter: int = 100):
+        """
+        Параметры `логистической регрессии
+        <https://spark.apache.org/docs/2.2.0/api/python/pyspark.ml.html#pyspark.ml.classification.LogisticRegression>`_
+
+        :param lambda_param: параметр регуляризации
+        :param elastic_net_param: параметр смешения ElasticNet, [0, 1].
+            alpha = 0, для L2 регуляризации, alpha = 1, для L1 регуляризации.
+        :param num_iter: максимальное количество итераций
+        """
         self.lambda_param: float = lambda_param
         self.elastic_net_param: float = elastic_net_param
         self.num_iter: int = num_iter

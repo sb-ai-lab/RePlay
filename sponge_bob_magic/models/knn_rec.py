@@ -26,7 +26,7 @@ class KNNRec(Recommender):
             shrink: float = 0.0):
         """
         :param num_neighbours:  ограничение на количество рассматриваемых соседей
-        :param shrink:
+        :param shrink: добавляется в знаменатель при подсчете сходства айтемов
         """
         self.shrink: float = shrink
         self.num_neighbours: int = num_neighbours

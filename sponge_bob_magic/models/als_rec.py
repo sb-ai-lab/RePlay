@@ -24,6 +24,7 @@ class ALSRec(Recommender):
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
         :param rank: матрицей какого ранга приближаем исходную
+        :param seed: random seed
         """
         self.rank = rank
         self._seed = seed

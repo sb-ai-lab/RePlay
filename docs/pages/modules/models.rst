@@ -13,6 +13,7 @@ K Nearest Neighbours
 ----------------------
 
 .. autoclass:: sponge_bob_magic.models.KNNRec
+    :special-members: __init__
 
 Linear Recommender
 -------------------
