@@ -2,18 +2,15 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
-import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, Optional
-from uuid import uuid4
 
 import pandas as pd
 from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.session_handler import State
-from sponge_bob_magic.utils import write_read_dataframe
 
 
 class Recommender(ABC):
@@ -176,21 +173,12 @@ class Recommender(ABC):
         """
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
-
         num_items = items.count()
         if num_items < k:
             raise ValueError(
                 "Значение k больше, чем множество объектов; "
                 f"k = {k}, number of items = {num_items}")
-
         recs = self._predict(log, k, users, items, context, user_features, item_features, filter_seen_items)
-        spark = SparkSession(recs.rdd.context)
-        recs = write_read_dataframe(
-            recs,
-            os.path.join(spark.conf.get("spark.local.dir"),
-                         f"recs{uuid4()}.parquet")
-        )
-
         return recs
 
     @staticmethod

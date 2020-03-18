@@ -2,7 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import collections
-from typing import Any, List, Optional, Set, Tuple, Iterable
+from typing import Any, Iterable, List, Optional, Set, Tuple
 
 import numpy as np
 from pyspark.sql import DataFrame, SparkSession, Window
@@ -66,32 +66,6 @@ def get_top_k_rows(
                         sf.row_number().over(window))
             .filter(sf.col("rank") <= k)
             .drop("rank"))
-
-
-def write_read_dataframe(
-        dataframe: DataFrame,
-        path: Optional[str],
-        to_overwrite_files: bool = True
-) -> DataFrame:
-    """
-    Записывает спарк-датафрейм на диск и считывает его обратно и возвращает.
-    Если путь равен None, то возвращается спарк-датафрейм, поданный на вход.
-
-    :param to_overwrite_files: флажок, если True, то перезаписывает файл,
-        если он существует; иначе - поднимается исключение
-    :param dataframe: спарк-датафрейм
-    :param path: путь, по которому происходит записаь датафрейма
-    :return: оригинальный датафрейм; если `path` не пустой,
-        то lineage датафрейма обнуляется
-    """
-    if path is not None:
-        (dataframe
-         .write
-         .mode("overwrite" if to_overwrite_files else "error")
-         .parquet(path))
-        spark = SparkSession(dataframe.rdd.context)
-        dataframe = spark.read.parquet(path)
-    return dataframe
 
 
 def func_get(vector: np.ndarray, i: int) -> float:

@@ -6,7 +6,7 @@ from datetime import datetime
 import numpy as np
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
+from sponge_bob_magic.constants import LOG_SCHEMA
 from sponge_bob_magic.models.als_rec import ALSRec
 
 
@@ -45,8 +45,10 @@ class ALSRecTestCase(PySparkTest):
             user_features=None,
             item_features=None
         )
-        # проверяем только формат ответа
-        self.assertEqual(recs.schema, REC_SCHEMA)
+        self.assertEqual(
+            list(recs.toPandas()),
+            ["user_id", "item_id", "relevance"]
+        )
 
     def test_get_params(self):
         self.assertEqual(self.als_rec.get_params(), {"rank": 1})

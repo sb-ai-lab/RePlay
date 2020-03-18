@@ -1,11 +1,9 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
 """
-import os
 from datetime import datetime
 
 import numpy as np
-import pyspark
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (IntegerType, StringType, StructField,
                                StructType, TimestampType)
@@ -42,24 +40,6 @@ class UtilsTestCase(PySparkTest):
         )
         self.assertEqual(user_feature_cols, ["feature1"])
         self.assertEqual(item_feature_cols, ["feature2"])
-
-    def test_write_read_dataframe(self):
-        dataframe = self.spark.createDataFrame(data=[
-            ["user1", "feature1", "2019-01-01"],
-            ["user1", "feature2", "2019-01-01"],
-            ["user2", "feature1", "2019-01-01"]
-        ], schema=["user_id", "features", "timestamp"])
-        path = os.path.join(self.spark.conf.get("spark.local.dir"),
-                            "tmp_test_write_read_df.parquet")
-        test_df = utils.write_read_dataframe(dataframe, path,
-                                             to_overwrite_files=True)
-        self.assertSparkDataFrameEqual(dataframe, test_df)
-        self.assertRaises(
-            pyspark.sql.utils.AnalysisException,
-            utils.write_read_dataframe,
-            dataframe=dataframe, path=path,
-            to_overwrite_files=False
-        )
 
     def test_get_spark_session(self):
         spark = sponge_bob_magic.session_handler.get_spark_session(1)
