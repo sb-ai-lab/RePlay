@@ -14,7 +14,9 @@ from sponge_bob_magic.utils import get_top_k_recs
 
 
 class ALSRec(Recommender):
-    """ Обёртка вокруг реализации ALS на Spark. """
+    """ Обёртка для матричной факторизации `ALS на Spark
+    <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
+    """
     _seed: Optional[int] = None
 
     def __init__(self, rank: int = 10, seed: Optional[int] = None):
@@ -22,6 +24,7 @@ class ALSRec(Recommender):
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
         :param rank: матрицей какого ранга приближаем исходную
+        :param seed: random seed
         """
         self.rank = rank
         self._seed = seed

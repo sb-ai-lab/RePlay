@@ -22,7 +22,7 @@ class SlimRec(Recommender):
     """ SLIM Recommender основан на обучении матрицы близости объектов
     :math:`W`.
 
-    Оптимизирует следующий функционал:
+    Оптимизируется следующий функционал:
 
     .. math::
         L = \\frac 12||A - A W||^2_F + \\frac \\beta 2 ||W||_F^2+
@@ -34,7 +34,7 @@ class SlimRec(Recommender):
     :math:`A` -- матрица взаимодействия пользователей/объектов
 
     Задачу нахождения матрицы :math:`W` можно разбить на множество
-    задач линейной регрессии с ElasticNet регуляризацией. Таким образом,
+    задач линейной регрессии с регуляризацией ElasticNet. Таким образом,
     для каждой строки матрицы :math:`W` необходимо оптимизировать следующий
     функционал
 
@@ -56,6 +56,13 @@ class SlimRec(Recommender):
             lambda_: float = 0.0,
             tolerance: float = 1e-6,
             seed: Optional[int] = None):
+        """
+        :param beta: параметр l2 регуляризации
+        :param lambda_: параметр l1 регуляризации
+        :param tolerance: уровень отсечения маленьких значений из итоговой матрицы.
+            Повышает разреженность.
+        :param seed: random seed
+        """
         if beta < 0 or lambda_ < 0 or (beta == 0 and lambda_ == 0) or \
                 tolerance <= 0:
             raise ValueError("Неверно указаны параметры для регуляризации")
