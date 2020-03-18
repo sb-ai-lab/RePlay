@@ -2,17 +2,15 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
-import os
 from typing import Dict, Optional
 
 import numpy as np
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import (get_top_k_recs, get_top_k_rows,
-                                    write_read_dataframe)
+from sponge_bob_magic.utils import get_top_k_recs, get_top_k_rows
 
 
 class PopRec(Recommender):
@@ -60,12 +58,6 @@ class PopRec(Recommender):
         )
         logging.debug(
             "Среднее количество items у каждого user: %d", self.avg_num_items)
-        spark = SparkSession(log.rdd.context)
-        self.items_popularity = write_read_dataframe(
-            self.items_popularity,
-            os.path.join(spark.conf.get("spark.local.dir"),
-                         "items_popularity.parquet")
-        )
 
     def _fit(self,
              log: DataFrame,

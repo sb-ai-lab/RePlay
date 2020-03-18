@@ -1,15 +1,14 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import os
 from typing import Dict, Optional
 
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import get_top_k_recs, write_read_dataframe
+from sponge_bob_magic.utils import get_top_k_recs
 
 
 class KNNRec(Recommender):
@@ -138,22 +137,6 @@ class KNNRec(Recommender):
             .cache()
         )
         self.all_items = log.select("item_id").distinct().cache()
-        spark = SparkSession(self.item_norms.rdd.context)
-        self.dot_products = write_read_dataframe(
-            self.dot_products,
-            os.path.join(spark.conf.get("spark.local.dir"),
-                         "knn_dot_products.parquet")
-        )
-        self.item_norms = write_read_dataframe(
-            self.item_norms,
-            os.path.join(spark.conf.get("spark.local.dir"),
-                         "knn_item_norms.parquet")
-        )
-        self.all_items = write_read_dataframe(
-            self.all_items,
-            os.path.join(spark.conf.get("spark.local.dir"),
-                         "knn_all_items.parquet")
-        )
 
     def _fit(self,
              log: DataFrame,
@@ -164,12 +147,6 @@ class KNNRec(Recommender):
         ).cache()
 
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()
-        spark = SparkSession(self.similarity.rdd.context)
-        self.similarity = write_read_dataframe(
-            self.similarity,
-            os.path.join(spark.conf.get("spark.local.dir"),
-                         "knn_similarity_matrix.parquet")
-        )
 
     def _predict(self,
                  log: DataFrame,

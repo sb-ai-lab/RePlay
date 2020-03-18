@@ -2,21 +2,20 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
-import os
 from abc import ABCMeta
 from typing import Any, Dict, Optional
 
 from optuna import Study, create_study, samplers
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, IterOrList
 from sponge_bob_magic.metrics import HitRate, Metric, Surprisal, Unexpectedness
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.models.pop_rec import PopRec
 from sponge_bob_magic.scenarios.main_objective import MainObjective, SplitData
+from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.splitters.base_splitter import Splitter
 from sponge_bob_magic.splitters.log_splitter import RandomSplitter
-from sponge_bob_magic.utils import write_read_dataframe
 
 
 class MainScenario:
@@ -66,15 +65,6 @@ class MainScenario:
     ) -> SplitData:
         """ Делит лог и готовит объекти типа `SplitData`. """
         train, test = self.splitter.split(log)
-        spark = SparkSession(log.rdd.context)
-        train = write_read_dataframe(
-            train,
-            os.path.join(spark.conf.get("spark.local.dir"), "train")
-        )
-        test = write_read_dataframe(
-            test,
-            os.path.join(spark.conf.get("spark.local.dir"), "test")
-        )
         logging.debug(
             "Длина трейна и теста: %d %d", train.count(), test.count()
         )
@@ -119,7 +109,7 @@ class MainScenario:
         n_unique_trials = 0
 
         while n_trials > n_unique_trials and count <= self.optuna_max_n_trials:
-            spark = SparkSession(split_data.train.rdd.context)
+            spark = State().session
             self.study.optimize(
                 MainObjective(
                     params_grid, self.study, split_data,
