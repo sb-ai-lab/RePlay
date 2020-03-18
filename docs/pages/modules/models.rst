@@ -3,6 +3,8 @@
 
 .. automodule:: sponge_bob_magic.models
 
+.. autoclass:: sponge_bob_magic.models.Recommender
+    :members:
 
 Popular Recommender
 --------------------
@@ -42,6 +44,7 @@ Multi Layer Perceptron Recommender
 SLIM
 --------
 .. autoclass:: sponge_bob_magic.models.SlimRec
+    :special-members: __init__
 
 light.fm
 -----------
