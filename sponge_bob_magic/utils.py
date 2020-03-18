@@ -2,7 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import collections
-from typing import Any, Iterable, List, Optional, Set, Tuple
+from typing import Any, Iterable, List, Set, Tuple
 
 import numpy as np
 from pyspark.sql import DataFrame, SparkSession, Window

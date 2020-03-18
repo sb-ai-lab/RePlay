@@ -9,11 +9,10 @@ import logging
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pandas as pd
-from pyspark.sql import Column, DataFrame, SparkSession
+from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.types import FloatType, StringType, TimestampType
 
-from sponge_bob_magic import constants
 from sponge_bob_magic.converter import convert
 from sponge_bob_magic.session_handler import State
 

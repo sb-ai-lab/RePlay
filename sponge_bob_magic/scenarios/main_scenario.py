@@ -205,9 +205,9 @@ class MainScenario:
             "Максимальное количество попыток: %d %s", self.optuna_max_n_trials,
             "(чтобы поменять его, задайте параметр 'optuna_max_n_trials')"
         )
-        best_params = self.run_optimization(n_trials, params_grid, split_data,
-                                            criterion, metrics, k, context,
-                                            fallback_recs)
+        best_params = self._run_optimization(n_trials, params_grid, split_data,
+                                             criterion, metrics, k, context,
+                                             fallback_recs)
         return best_params
 
     def _predict_fallback_recs(
