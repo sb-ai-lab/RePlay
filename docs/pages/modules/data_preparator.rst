@@ -1,3 +1,5 @@
+.. _data-preparator:
+
 Подготовка данных
 =================
 .. automodule:: sponge_bob_magic.data_preparator

@@ -1,3 +1,5 @@
+.. _metrics:
+
 Метрики
 =======
 .. automodule:: sponge_bob_magic.metrics

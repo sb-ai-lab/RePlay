@@ -25,15 +25,11 @@ SplitData = collections.namedtuple(
 
 class MainObjective:
     """
-    Класс функции, которая оптимизируется при подборе параметров (критерий).
-    Принимает на вход объект класса `optuna.Trial` и возвращает значение
-    метрики, которая оптимизируется.
+    Данный класс реализован в соответствии с `инструкцией <https://optuna.readthedocs.io/en/stable/faq.html#how-to-define-objective-functions-that-have-own-arguments>`_ по интеграции произвольной библиотеки машинного обучения с `optuna`.
 
-    Вынесена в отдельный класс, так как она должна принимать только
-    один аргумент. Вызов подсчета критерия происходит через `__call__`,
+    Вызов подсчета критерия происходит через `__call__`,
     а все остальные аргументы передаются через `__init__`.
     """
-
     def __init__(
             self,
             params_grid: Dict[str, Dict[str, Any]],
@@ -76,25 +72,20 @@ class MainObjective:
             trial: Trial,
     ) -> float:
         """
-        Основная функция, которую должны реализовать классы-наследники.
-        Именно она вызывается при вычилении критерия в переборе параметров
-        optuna. Сигнатура функции совапдает с той, что описана в документации
-        к optuna.
+        Эта функция вызывается при вычислении критерия в переборе параметров с помощью optuna.
+        Сигнатура функции совапдает с той, что описана в документации optuna.
 
         :param trial: текущее испытание
         :return: значение критерия, который оптимизируется
         """
         params = self._suggest_all_params(trial, self.params_grid)
         self.recommender.set_params(**params)
-
         self._check_trial_on_duplicates(trial)
         self._save_study(self.study, self.path)
-
         logging.debug("-- Второй фит модели в оптимизации")
         self.recommender._fit(self.split_data.train,
                               self.split_data.user_features,
                               self.split_data.item_features)
-
         logging.debug("-- Предикт модели в оптимизации")
         recs = self.recommender.predict(
             log=self.split_data.train,
@@ -105,17 +96,14 @@ class MainObjective:
             user_features=self.split_data.user_features,
             item_features=self.split_data.item_features,
             filter_seen_items=self.filter_seen_items)
-
         logging.debug("-- Дополняем рекомендации fallback рекомендациями")
         recs = self._join_fallback_recs(recs, self.fallback_recs, self.k,
                                         self.max_in_fallback_recs)
-
         logging.debug("-- Подсчет метрики в оптимизации")
         criterion_value = self._calculate_metrics(trial, recs,
                                                   self.split_data.test,
                                                   self.criterion, self.metrics,
                                                   self.k)
-
         return criterion_value
 
     @staticmethod
