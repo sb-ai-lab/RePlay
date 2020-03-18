@@ -50,7 +50,7 @@ SLIM
 .. autoclass:: sponge_bob_magic.models.SlimRec
     :special-members: __init__
 
-light.fm
+LightFM
 -----------
 
 .. autoclass:: sponge_bob_magic.models.LightFMRec
