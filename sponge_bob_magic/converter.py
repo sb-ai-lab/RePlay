@@ -12,6 +12,7 @@ PANDAS = "pandas"
 DATASET = "dataset"
 supported_types = [SPARK, PANDAS, DATASET]
 
+
 def convert(df, type_out=SPARK):
     """
     Обеспечивает конвертацию данных в спарк и обратно.
@@ -33,6 +34,7 @@ def convert(df, type_out=SPARK):
         return spark.createDataFrame(df)
     elif type_out == PANDAS:
         return df.toPandas()
+
 
 def get_type(obj, except_unknown=True):
     """Текстовое описание типа объекта"""
