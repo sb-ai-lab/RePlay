@@ -65,7 +65,7 @@ class MainScenario:
             user_features: Optional[DataFrame] = None,
             item_features: Optional[DataFrame] = None,
     ) -> SplitData:
-        """ Делит лог и готовит объекти типа `SplitData`. """
+        """ Делит лог и готовит объекти типа ``SplitData``. """
         train, test = self.splitter.split(log)
         logging.debug(
             "Длина трейна и теста: %d %d", train.count(), test.count()
@@ -100,7 +100,7 @@ class MainScenario:
             context: Optional[str] = None,
             fallback_recs: Optional[DataFrame] = None
     ) -> Dict[str, Any]:
-        """ Запускает подбор параметров в optuna. """
+        """ Запускает подбор параметров в ``optuna``. """
         sampler = samplers.RandomSampler(seed=self._optuna_seed)
         self.study = create_study(direction="maximize", sampler=sampler)
         # делаем триалы до тех пор, пока не засемплим уникальных n_trials или
@@ -150,21 +150,23 @@ class MainScenario:
             ключами "type" и "args", где они должны принимать следующие
             значения в соответствии
             с `optuna.trial.Trial.suggest_* <https://optuna.readthedocs.io/en/stable/reference/trial.html#optuna.trial.Trial.suggest_categorical>`_
-            (строковое значение "type" и список значений аргументов "args"):
-            "uniform" -> [low, high],
-            "loguniform" -> [low, high],
-            "discrete_uniform" -> [low, high, q],
-            "int" -> [low, high],
-            "categorical" -> [choices]
+            (строковое значение ``type`` и список значений аргументов ``args``): ::
+
+                "uniform" -> [low, high],
+                "loguniform" -> [low, high],
+                "discrete_uniform" -> [low, high, q],
+                "int" -> [low, high],
+                "categorical" -> [choices]
+
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             ``[user_id , item_id , timestamp , context , relevance]``
         :param users: список пользователей, для которых необходимо получить
             рекомендации, спарк-датафрейм с колонкой ``[user_id]``;
-            если None, выбираются все пользователи из тестовой выборки
+            если ``None``, выбираются все пользователи из тестовой выборки
         :param items: список объектов, которые необходимо рекомендовать;
             спарк-датафрейм с колонкой ``[item_id]``;
-            если None, выбираются все объекты из тестовой выборки
+            если ``None``, выбираются все объекты из тестовой выборки
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
             ``[user_id , timestamp]`` и колонки с признаками
@@ -255,10 +257,10 @@ class MainScenario:
             ``[user_id , item_id , timestamp , context , relevance]``
         :param users: список пользователей, для которых необходимо получить
             рекомендации, спарк-датафрейм с колонкой ``[user_id]``;
-            если None, выбираются все пользователи из тестовой выборки
+            если ``None``, выбираются все пользователи из тестовой выборки
         :param items: список объектов, которые необходимо рекомендовать;
             спарк-датафрейм с колонкой ``[item_id]``;
-            если None, выбираются все объекты из тестовой выборки
+            если ``None``, выбираются все объекты из тестовой выборки
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
             ``[user_id , timestamp]`` и колонки с признаками
