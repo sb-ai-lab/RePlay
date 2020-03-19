@@ -7,8 +7,6 @@ from os.path import join
 import pandas as pd
 from pandas import DataFrame
 
-from sponge_bob_magic.converter import convert
-
 
 class Dataset:
     def __init__(self, path: str = None):
@@ -35,10 +33,3 @@ class Dataset:
                     print(name)
                     self.display(df.head(3))
                     print()
-
-    def to_spark(self):
-        """Преобразовать все загруженные данные в спарк"""
-        for name, df in self.__dict__.items():
-            if isinstance(df, DataFrame):
-                self.__dict__[name] = convert(df)
-
