@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 from collections.abc import Iterable
 from typing import Any, Dict, List, Union
 
@@ -13,7 +16,7 @@ class Experiment:
 
     Инициализируется тестом, на котором нужно считать метрики и словарём метрики-значения k.
 
-    Результаты доступны в атрибуте ``df`` в виде pandas.DataFrame.
+    Результаты доступны в атрибуте ``pandas_df`` в виде pandas.DataFrame.
 
     Пример:
 
@@ -25,7 +28,7 @@ class Experiment:
     >>> pred = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 3, 4], "relevance": [5, 4, 5]})
     >>> ex = Experiment(test, {NDCG(): [2, 3], Surprisal(log): 3})
     >>> ex.add_result('my_model', pred)
-    >>> ex.df
+    >>> ex.pandas_df
                 NDCG@2    NDCG@3  Surprisal@3
     my_model  0.613147  0.703918     0.666667
 
@@ -41,13 +44,15 @@ class Experiment:
         """
         self.test = convert(test)
         self.metrics = self._verify(metrics)
-        self.df = pd.DataFrame()
+        self.pandas_df = pd.DataFrame()
 
     @staticmethod
     def _verify(metrics: Dict[Metric, Union[int, List[int]]]):
         """Проверяет корректность аргумента, конвертит инт в лист"""
         if not isinstance(metrics, dict):
-            raise TypeError(f"metrics argument must be a dictionary, got {type(metrics)}")
+            raise TypeError(
+                f"metrics argument must be a dictionary, got {type(metrics)}"
+            )
         return metrics
 
     def add_result(self, name: str, pred: Any):
@@ -69,4 +74,4 @@ class Experiment:
             else:
                 for k, val in values.items():
                     res[f"{metric}@{k}"] = val
-        self.df = self.df.append(res)
+        self.pandas_df = self.pandas_df.append(res)

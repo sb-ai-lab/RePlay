@@ -2,7 +2,6 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
-from abc import ABCMeta
 from typing import Any, Dict, Optional
 
 from optuna import Study, create_study, samplers
@@ -10,8 +9,7 @@ from pyspark.sql import DataFrame
 
 from sponge_bob_magic.constants import DEFAULT_CONTEXT, IterOrList
 from sponge_bob_magic.metrics import HitRate, Metric, Surprisal, Unexpectedness
-from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.models.pop_rec import PopRec
+from sponge_bob_magic.models import KNNRec, PopRec, Recommender
 from sponge_bob_magic.scenarios.main_objective import MainObjective, SplitData
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.splitters.base_splitter import Splitter
@@ -19,33 +17,37 @@ from sponge_bob_magic.splitters.log_splitter import RandomSplitter
 
 
 class MainScenario:
-    """ Сценарий для простого обучения моделей рекомендаций с замесом. """
+    """
+    Основной сценарий. По умолчанию делает следующее:
+
+    * разбивает лог случайно 70/30 (холодных пользователей и объекты просто выбрасывает)
+    * обучает дефолтный рекомендатель (:ref:`KNN <knn-model>`)
+    * для тех случаев, когда `KNN` выдаёт слишком мало рекомендаций (мешьше, top-N, которые требуются), добирает рекомендации из fallback-рекомендателя
+      (:ref:`PopRec <pop-rec>`)
+    * оптимизирует, подбирая гиперпараметры, и включает в отчёт только :ref:`HitRate <hit-rate>`
+    """
     def __init__(
             self,
-            splitter: Optional[Splitter] = None,
-            recommender: Optional[Recommender] = None,
-            criterion: Optional[ABCMeta] = None,
-            metrics: Optional[Dict[ABCMeta, IterOrList]] = None,
-            fallback_rec: Optional[Recommender] = None
+            splitter: Splitter = RandomSplitter(0.3, True, True),
+            recommender: Recommender = KNNRec(),
+            criterion: type = HitRate,
+            metrics: Dict[type, IterOrList] = dict(),
+            fallback_rec: Recommender = PopRec()
     ):
-        self.splitter = (
-            splitter if splitter
-            else RandomSplitter(
-                test_size=0.3,
-                drop_cold_items=True,
-                drop_cold_users=True,
-                seed=None
-            )
-        )
-        self.recommender = (
-            recommender if recommender
-            else PopRec()
-        )
-        self.criterion = (
-            criterion if criterion
-            else HitRate
-        )
-        self.metrics = metrics if metrics else {}
+        """
+        Отдельные блоки сценария можно изменять по своему усмотрению
+
+        :param splitter: как разбивать на train/test
+        :param recommender: Бейзлайн; объект класса, который необходимо обучить
+        :param criterion: метрика, которая будет оптимизироваться при переборе гипер-параметров
+        :param metrics: какие ещё метрики, кроме критерия оптимизации, включить в отчёт об эксперименте
+        :param fallback_rec: "запасной" рекомендатель, с помощью которого можно дополнять выдачу базового рекомендателя,
+                             если вдруг он выдаёт меньшее количество объектов, чем было запрошено
+        """
+        self.splitter = splitter
+        self.recommender = recommender
+        self.criterion = criterion
+        self.metrics = metrics
         self.fallback_rec = fallback_rec
 
     optuna_study: Optional[Study]
@@ -63,7 +65,7 @@ class MainScenario:
             user_features: Optional[DataFrame] = None,
             item_features: Optional[DataFrame] = None,
     ) -> SplitData:
-        """ Делит лог и готовит объекти типа `SplitData`. """
+        """ Делит лог и готовит объекти типа ``SplitData``. """
         train, test = self.splitter.split(log)
         logging.debug(
             "Длина трейна и теста: %d %d", train.count(), test.count()
@@ -82,13 +84,12 @@ class MainScenario:
         # чтобы не делать на каждый trial их заново
         users = users if users else test.select("user_id").distinct().cache()
         items = items if items else test.select("item_id").distinct().cache()
-
         split_data = SplitData(train, test,
                                users, items,
                                user_features, item_features)
         return split_data
 
-    def run_optimization(
+    def _run_optimization(
             self,
             n_trials: int,
             params_grid: Dict[str, Dict[str, Any]],
@@ -99,15 +100,13 @@ class MainScenario:
             context: Optional[str] = None,
             fallback_recs: Optional[DataFrame] = None
     ) -> Dict[str, Any]:
-        """ Запускает подбор параметров в optuna. """
+        """ Запускает подбор параметров в ``optuna``. """
         sampler = samplers.RandomSampler(seed=self._optuna_seed)
         self.study = create_study(direction="maximize", sampler=sampler)
-
         # делаем триалы до тех пор, пока не засемплим уникальных n_trials или
         # не используем максимально попыток
         count = 1
         n_unique_trials = 0
-
         while n_trials > n_unique_trials and count <= self.optuna_max_n_trials:
             spark = State().session
             self.study.optimize(
@@ -121,7 +120,6 @@ class MainScenario:
                 n_trials=1,
                 n_jobs=self.optuna_n_jobs
             )
-
             count += 1
             n_unique_trials = len(
                 set(str(t.params)
@@ -150,22 +148,25 @@ class MainScenario:
             название параметра (должен совпадать с одним из параметров модели,
             которые возвращает ``get_params()``), значение - словарь с двумя
             ключами "type" и "args", где они должны принимать следующие
-            значения в соответствии с optuna.trial.Trial.suggest_*
-            (строковое значение "type" и список значений аргументов "args"):
-            "uniform" -> [low, high],
-            "loguniform" -> [low, high],
-            "discrete_uniform" -> [low, high, q],
-            "int" -> [low, high],
-            "categorical" -> [choices]
+            значения в соответствии
+            с `optuna.trial.Trial.suggest_* <https://optuna.readthedocs.io/en/stable/reference/trial.html#optuna.trial.Trial.suggest_categorical>`_
+            (строковое значение ``type`` и список значений аргументов ``args``): ::
+
+                "uniform" -> [low, high],
+                "loguniform" -> [low, high],
+                "discrete_uniform" -> [low, high, q],
+                "int" -> [low, high],
+                "categorical" -> [choices]
+
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             ``[user_id , item_id , timestamp , context , relevance]``
         :param users: список пользователей, для которых необходимо получить
             рекомендации, спарк-датафрейм с колонкой ``[user_id]``;
-            если None, выбираются все пользователи из тестовой выборки
+            если ``None``, выбираются все пользователи из тестовой выборки
         :param items: список объектов, которые необходимо рекомендовать;
             спарк-датафрейм с колонкой ``[item_id]``;
-            если None, выбираются все объекты из тестовой выборки
+            если ``None``, выбираются все объекты из тестовой выборки
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
             ``[user_id , timestamp]`` и колонки с признаками
@@ -186,7 +187,6 @@ class MainScenario:
         split_data = self._prepare_data(log,
                                         users, items,
                                         user_features, item_features)
-
         logging.debug("Инициализация метрик")
         metrics = {}
         for metric in self.metrics:
@@ -198,20 +198,18 @@ class MainScenario:
         logging.debug("Обучение и предсказание дополнительной модели")
         fallback_recs = self._predict_fallback_recs(self.fallback_rec,
                                                     split_data, k, context)
-
         logging.debug("Пре-фит модели")
         self.recommender._pre_fit(split_data.train, split_data.user_features,
                                   split_data.item_features)
-
         logging.debug("-------------")
         logging.debug("Оптимизация параметров")
         logging.debug(
             "Максимальное количество попыток: %d %s", self.optuna_max_n_trials,
             "(чтобы поменять его, задайте параметр 'optuna_max_n_trials')"
         )
-        best_params = self.run_optimization(n_trials, params_grid, split_data,
-                                            criterion, metrics, k, context,
-                                            fallback_recs)
+        best_params = self._run_optimization(n_trials, params_grid, split_data,
+                                             criterion, metrics, k, context,
+                                             fallback_recs)
         return best_params
 
     def _predict_fallback_recs(
@@ -223,7 +221,6 @@ class MainScenario:
     ) -> Optional[DataFrame]:
         """ Обучает fallback модель и возвращает ее рекомендации. """
         fallback_recs = None
-
         if fallback_rec is not None:
             fallback_recs = fallback_rec.fit_predict(
                 split_data.train,
@@ -260,10 +257,10 @@ class MainScenario:
             ``[user_id , item_id , timestamp , context , relevance]``
         :param users: список пользователей, для которых необходимо получить
             рекомендации, спарк-датафрейм с колонкой ``[user_id]``;
-            если None, выбираются все пользователи из тестовой выборки
+            если ``None``, выбираются все пользователи из тестовой выборки
         :param items: список объектов, которые необходимо рекомендовать;
             спарк-датафрейм с колонкой ``[item_id]``;
-            если None, выбираются все объекты из тестовой выборки
+            если ``None``, выбираются все объекты из тестовой выборки
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
             ``[user_id , timestamp]`` и колонки с признаками

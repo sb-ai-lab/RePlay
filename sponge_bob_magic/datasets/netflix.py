@@ -112,10 +112,10 @@ class Netflix(Dataset):
         `72,1974,At Home Among Strangers, A Stranger Among His Own`
         Разделитель запятая заменяется на табуляцию, для простоты парсинга.
         """
-        file = join(raw, "movie_titles.txt")
+        filename = join(raw, "movie_titles.txt")
         dest = open(join(clean, "movies.csv"), "w")
-        with open(file, encoding="ISO-8859-1") as f:
-            for line in f.readlines():
+        with open(filename, encoding="ISO-8859-1") as file:
+            for line in file.readlines():
                 first = line.find(",")
                 second = first + 5
                 m_id = line[:first]

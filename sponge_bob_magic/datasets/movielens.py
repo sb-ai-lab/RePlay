@@ -131,7 +131,9 @@ class MovieLens(Dataset):
                  self.genome_scores) = self._read_genome(folder)
 
     @staticmethod
-    def _read_modern(folder: str) -> Tuple[DataFrame]:
+    def _read_modern(
+            folder: str
+    ) -> Tuple[DataFrame, DataFrame, DataFrame, DataFrame]:
         ratings = pd.read_csv(
             join(folder, "ratings.csv"), header=0,
             names=["user_id", "item_id", "relevance", "timestamp"])
@@ -144,7 +146,7 @@ class MovieLens(Dataset):
         return ratings, items, tags, links
 
     @staticmethod
-    def _read_genome(folder: str) -> Tuple[DataFrame]:
+    def _read_genome(folder: str) -> Tuple[DataFrame, DataFrame]:
         genome_tags = pd.read_csv(join(folder, "genome-tags.csv"), header=0,
                                   names=["tag_id", "tag"])
         genome_scores = pd.read_csv(
@@ -153,7 +155,7 @@ class MovieLens(Dataset):
         return genome_tags, genome_scores
 
     @staticmethod
-    def _read_10m(folder: str) -> Tuple[DataFrame]:
+    def _read_10m(folder: str) -> Tuple[DataFrame, DataFrame, DataFrame]:
         ratings = pd.read_csv(
             join(folder, "ratings.dat"), sep="\t",
             names=["user_id", "item_id", "relevance", "timestamp"])
@@ -164,7 +166,7 @@ class MovieLens(Dataset):
         return ratings, items, tags
 
     @staticmethod
-    def _read_1m(folder: str) -> Tuple[DataFrame]:
+    def _read_1m(folder: str) -> Tuple[DataFrame, DataFrame, DataFrame]:
         ratings = pd.read_csv(
             join(folder, "ratings.dat"), sep="\t",
             names=["user_id", "item_id", "relevance", "timestamp"]
@@ -180,7 +182,7 @@ class MovieLens(Dataset):
         return ratings, users, items
 
     @staticmethod
-    def _read_100k(folder: str) -> Tuple[DataFrame]:
+    def _read_100k(folder: str) -> Tuple[DataFrame, DataFrame, DataFrame]:
         ratings = pd.read_csv(
             join(folder, "u.data"), sep="\t",
             names=["user_id", "item_id", "relevance", "timestamp"])

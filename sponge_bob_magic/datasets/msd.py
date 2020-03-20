@@ -81,21 +81,17 @@ class MillionSongDataset(Dataset):
         else:
             self.train = self._read_triplets(
                 join(folder, "train_triplets.txt"))
-            val_vis = self._read_triplets(join(
-                folder, "evaluation",
-                "year1_valid_triplets_visible.txt")
+            val_vis = self._read_triplets(
+                join(folder, "evaluation", "year1_valid_triplets_visible.txt")
             )
-            val_hid = self._read_triplets(join(
-                folder, "evaluation",
-                "year1_valid_triplets_hidden.txt")
+            val_hid = self._read_triplets(
+                join(folder, "evaluation", "year1_valid_triplets_hidden.txt")
             )
-            test_vis = self._read_triplets(join(
-                folder, "evaluation",
-                "year1_test_triplets_visible.txt")
+            test_vis = self._read_triplets(
+                join(folder, "evaluation", "year1_test_triplets_visible.txt")
             )
-            test_hid = self._read_triplets(join(
-                folder, "evaluation",
-                "year1_test_triplets_hidden.txt")
+            test_hid = self._read_triplets(
+                join(folder, "evaluation", "year1_test_triplets_hidden.txt")
             )
             if drop_mismatches:
                 mismatches = self._read_mismatches(folder)
@@ -130,15 +126,15 @@ class MillionSongDataset(Dataset):
     @staticmethod
     def _read_mismatches(path):
         name = "sid_mismatches.txt"
-        file = join(path, name)
+        filename = join(path, name)
         mismatches = []
-        with open(file) as f:
-            for line in f.readlines():
+        with open(filename) as file:
+            for line in file.readlines():
                 song, track = line[
                     line.find("<") + 1: line.find(">")].split(" ")
                 mismatches.append([song, track])
         return pd.DataFrame(mismatches, columns=["item_id", "track_id"])
 
     @staticmethod
-    def _drop_mismatches(df, mismatches):
-        return df[~df.item_id.isin(mismatches)]
+    def _drop_mismatches(data_frame, mismatches):
+        return data_frame[~data_frame.item_id.isin(mismatches)]
