@@ -6,10 +6,14 @@
 .. autoclass:: sponge_bob_magic.models.Recommender
     :members:
 
+.. _pop-rec:
+
 Popular Recommender
 --------------------
 
 .. autoclass:: sponge_bob_magic.models.PopRec
+
+.. _knn-model:
 
 K Nearest Neighbours
 ----------------------
@@ -46,7 +50,7 @@ SLIM
 .. autoclass:: sponge_bob_magic.models.SlimRec
     :special-members: __init__
 
-light.fm
+LightFM
 -----------
 
 .. autoclass:: sponge_bob_magic.models.LightFMRec

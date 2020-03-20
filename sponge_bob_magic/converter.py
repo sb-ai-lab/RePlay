@@ -1,8 +1,8 @@
 """
 Модуль содержит функции, относящиеся к автоматической конвертации между форматами данных.
 """
-from pyspark.sql import DataFrame as SparkDataFrame
 from pandas import DataFrame as PandasDataFrame
+from pyspark.sql import DataFrame as SparkDataFrame
 
 from sponge_bob_magic.session_handler import State
 
@@ -10,22 +10,22 @@ SPARK = "spark"
 PANDAS = "pandas"
 
 
-def convert(df, type_out=SPARK):
+def convert(data_frame, type_out=SPARK):
     """
     Обеспечивает конвертацию данных в спарк и обратно.
 
-    :param df: лог с данными в формате датафрейма пандас или спарк
+    :param data_frame: лог с данными в формате датафрейма пандас или спарк
     :param type_out: текстовая строка, во что конвертировать ``{"pandas", "spark"}``.
     :return: преобразованные данные
     """
-    type_in = get_type(df)
+    type_in = get_type(data_frame)
     if type_in == type_out:
-        return df
-    elif type_out == SPARK:
+        return data_frame
+    if type_out == SPARK:
         spark = State().session
-        return spark.createDataFrame(df)
-    elif type_out == PANDAS:
-        return df.toPandas()
+        return spark.createDataFrame(data_frame)
+    if type_out == PANDAS:
+        return data_frame.toPandas()
 
 
 def get_type(obj):
