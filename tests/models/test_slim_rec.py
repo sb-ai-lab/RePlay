@@ -6,7 +6,7 @@ from datetime import datetime
 from pyspark.sql.types import DoubleType, FloatType, StructField, StructType
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA, REC_SCHEMA
+from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
 from sponge_bob_magic.models.slim_rec import SlimRec
 
 
@@ -53,7 +53,6 @@ class SlimRecTestCase(PySparkTest):
             k=1,
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
-            context=DEFAULT_CONTEXT,
             user_features=None, item_features=None
         )
         self.assertSparkDataFrameEqual(

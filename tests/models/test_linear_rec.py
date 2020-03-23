@@ -82,7 +82,7 @@ class LinearRecTestCase(PySparkTest):
             item_features=self.item_features,
             filter_seen_items=False
         )
-        self.assertSparkDataFrameEqual(self.log.drop("timestamp", "context"), prediction)
+        self.assertSparkDataFrameEqual(self.log.drop("timestamp"), prediction)
         empty_prediction = self.model._predict(
             log=self.log,
             k=2,
@@ -93,7 +93,7 @@ class LinearRecTestCase(PySparkTest):
         )
         self.assertEqual(
             sorted([(field.name, field.dataType) for field in
-                    self.log.drop("timestamp", "context").schema.fields],
+                    self.log.drop("timestamp").schema.fields],
                    key=lambda pair: pair[0]),
             sorted([(field.name, field.dataType) for field in
                     empty_prediction.schema.fields],

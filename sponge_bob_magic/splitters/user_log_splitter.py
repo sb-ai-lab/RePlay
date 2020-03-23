@@ -164,7 +164,7 @@ class UserSplitter(Splitter):
         классом-наследником.
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
-            `[timestamp, user_id, item_id, context, relevance]`
+            `[timestamp, user_id, item_id, relevance]`
         :return: спарк-датафреймы структуры, аналогичной входной
             `train, test`
         """
@@ -206,7 +206,7 @@ class UserSplitter(Splitter):
         классом-наследником.
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
-            `[timestamp, user_id, item_id, context, relevance]`
+            `[timestamp, user_id, item_id, relevance]`
         :return: спарк-датафреймы структуры, аналогичной входной
             `train, test`
         """

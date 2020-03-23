@@ -10,7 +10,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
-from sponge_bob_magic.constants import IterOrList, NumType, CommonDataFrame
+from sponge_bob_magic.constants import CommonDataFrame, IterOrList, NumType
 from sponge_bob_magic.converter import convert
 
 
@@ -29,10 +29,10 @@ class Metric(ABC):
         """
         :param recommendations: выдача рекомендательной системы,
             спарк-датарейм вида
-            ``[user_id, item_id, context, relevance]``
+            ``[user_id, item_id, relevance]``
         :param ground_truth: реальный лог действий пользователей,
             спарк-датафрейм вида
-            ``[user_id , item_id , timestamp , context , relevance]``
+            ``[user_id, item_id, timestamp, relevance]``
         :param k: список индексов, показывающий какое максимальное количество объектов брать из топа
             рекомендованных для оценки
         :return: значение метрики
@@ -60,7 +60,7 @@ class Metric(ABC):
         :param ground_truth: лог тестовых действий
         :return: рекомендации обогащенные дополнительной информацией
             спарк-датафрейм вида
-            ``[user_id , item_id , context , relevance, *columns]``
+            ``[user_id, item_id, relevance, *columns]``
         """
         true_items_by_users = (
             ground_truth
@@ -136,7 +136,7 @@ class Metric(ABC):
         Расчёт значения метрики для каждого пользователя
 
         :param pandas_df: DataFrame, содержащий рекомендации по каждому пользователю --
-            pandas-датафрейм вида ``[user_id , item_id , context , relevance, k, *columns]``
+            pandas-датафрейм вида ``[user_id, item_id, relevance, k, *columns]``
         :return: DataFrame c рассчитанным полем ``cum_agg`` --
             pandas-датафрейм вида ``[user_id , item_id , cum_agg, *columns]``
         """

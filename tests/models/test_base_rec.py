@@ -29,7 +29,6 @@ class RecTestCase(PySparkTest):
                          k: int,
                          users: Iterable or DataFrame = None,
                          items: Iterable or DataFrame = None,
-                         context: str = None,
                          user_features: Optional[DataFrame] = None,
                          item_features: Optional[DataFrame] = None,
                          filter_seen_items: bool = True) -> DataFrame:
@@ -45,17 +44,17 @@ class RecTestCase(PySparkTest):
     def test_fit_predict_feature_exception(self):
         log = self.spark.createDataFrame(
             data=[["1", "2", "3", "4", "5", "6"]],
-            schema=["item_id", "user_id", "timestamp", "relevance", "context"])
+            schema=["item_id", "user_id", "timestamp", "relevance"])
 
         # user_features пустой | item_features пустой
         self.assertRaises(ValueError, self.model.fit_predict,
                           log=log, user_features=self.empty_df,
                           item_features=None,
-                          k=10, users=None, items=None, context=None)
+                          k=10, users=None, items=None)
         self.assertRaises(ValueError, self.model.fit_predict,
                           log=log, user_features=None,
                           item_features=self.empty_df,
-                          k=10, users=None, items=None, context=None)
+                          k=10, users=None, items=None)
 
         # в user_features | item_features не достает колонок
         self.assertRaises(
@@ -63,21 +62,21 @@ class RecTestCase(PySparkTest):
             log=log, item_features=None,
             user_features=self.spark.createDataFrame(data=[["1", "2"]],
                                                      schema=["user_id", "f"]),
-            k=10, users=None, items=None, context=None,
+            k=10, users=None, items=None
         )
         self.assertRaises(
             ValueError, self.model.fit_predict,
             log=log, user_features=None,
             item_features=self.spark.createDataFrame(data=[["1", "2"]],
                                                      schema=["item_id", "f"]),
-            k=10, users=None, items=None, context=None
+            k=10, users=None, items=None
         )
 
         # в user_features | item_features не достает колонок с фичами
         self.assertRaises(
             ValueError, self.model.fit_predict,
             log=log, item_features=None,
-            k=10, users=None, items=None, context=None,
+            k=10, users=None, items=None,
             user_features=self.spark.createDataFrame(
                 data=[["1", "2"]],
                 schema=["user_id", "timestamp"])
@@ -85,7 +84,7 @@ class RecTestCase(PySparkTest):
         self.assertRaises(
             ValueError, self.model.fit_predict,
             log=log, item_features=None,
-            k=10, users=None, items=None, context=None,
+            k=10, users=None, items=None,
             user_features=self.spark.createDataFrame(
                 data=[["1", "2"]],
                 schema=["item_id", "timestamp"])

@@ -5,7 +5,7 @@ from datetime import datetime
 
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT, REC_SCHEMA
+from sponge_bob_magic.constants import REC_SCHEMA
 from sponge_bob_magic.metrics import NDCG, HitRate, Precision, Surprisal
 from sponge_bob_magic.models.knn_rec import KNNRec
 from sponge_bob_magic.models.pop_rec import PopRec
@@ -16,20 +16,20 @@ from sponge_bob_magic.splitters.log_splitter import DateSplitter
 class MainScenarioTestCase(PySparkTest):
     def setUp(self):
         data = [
-            ["user1", "item1", 1.0, "no_context", datetime(2019, 10, 8)],
-            ["user1", "item2", 2.0, "no_context", datetime(2019, 10, 9)],
-            ["user1", "item3", 1.0, "no_context", datetime(2019, 10, 10)],
-            ["user2", "item1", 1.0, "no_context", datetime(2019, 10, 11)],
-            ["user2", "item3", 1.0, "no_context", datetime(2019, 10, 12)],
-            ["user3", "item2", 1.0, "no_context", datetime(2019, 10, 13)],
-            ["user3", "item1", 1.0, "no_context", datetime(2019, 10, 14)],
+            ["user1", "item1", 1.0, datetime(2019, 10, 8)],
+            ["user1", "item2", 2.0, datetime(2019, 10, 9)],
+            ["user1", "item3", 1.0, datetime(2019, 10, 10)],
+            ["user2", "item1", 1.0, datetime(2019, 10, 11)],
+            ["user2", "item3", 1.0, datetime(2019, 10, 12)],
+            ["user3", "item2", 1.0, datetime(2019, 10, 13)],
+            ["user3", "item1", 1.0, datetime(2019, 10, 14)],
 
-            ["user1", "item1", 1.0, "no_context", datetime(2019, 10, 15)],
-            ["user1", "item2", 1.0, "no_context", datetime(2019, 10, 16)],
-            ["user2", "item3", 2.0, "no_context", datetime(2019, 10, 17)],
-            ["user3", "item2", 2.0, "no_context", datetime(2019, 10, 18)],
+            ["user1", "item1", 1.0, datetime(2019, 10, 15)],
+            ["user1", "item2", 1.0, datetime(2019, 10, 16)],
+            ["user2", "item3", 2.0, datetime(2019, 10, 17)],
+            ["user3", "item2", 2.0, datetime(2019, 10, 18)],
         ]
-        schema = ["user_id", "item_id", "relevance", "context", "timestamp"]
+        schema = ["user_id", "item_id", "relevance", "timestamp"]
         self.log = self.spark.createDataFrame(data=data, schema=schema)
         self.scenario = MainScenario()
         self.scenario.splitter = DateSplitter(

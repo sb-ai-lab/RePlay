@@ -7,10 +7,10 @@ from datetime import datetime
 import numpy as np
 import torch
 from pyspark.sql import SparkSession
-
-from sponge_bob_magic.constants import DEFAULT_CONTEXT, LOG_SCHEMA
-from sponge_bob_magic.models.neuromf_rec import NeuroMFRec, NMF
 from tests.pyspark_testcase import PySparkTest
+
+from sponge_bob_magic.constants import LOG_SCHEMA
+from sponge_bob_magic.models.neuromf_rec import NMF, NeuroMFRec
 
 
 class NeuroCFRecTestCase(PySparkTest):
@@ -71,7 +71,6 @@ class NeuroCFRecTestCase(PySparkTest):
             k=1,
             users=self.log.select('user_id').distinct(),
             items=self.log.select('item_id').distinct(),
-            context='no_context',
             user_features=None,
             item_features=None,
             filter_seen_items=True
