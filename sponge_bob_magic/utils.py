@@ -106,10 +106,10 @@ def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
     Выбирает из рекомендаций топ-k штук на основе `relevance`.
 
     :param recs: рекомендации, спарк-датафрейм с колонками
-        `[user_id , item_id , context , relevance]`
+        `[user_id, item_id, relevance]`
     :param k: число рекомендаций для каждого юзера
     :return: топ-k рекомендации, спарк-датафрейм с колонками
-        `[user_id , item_id , context , relevance]`
+        `[user_id, item_id, relevance]`
     """
     window = (Window
               .partitionBy(recs["user_id"])

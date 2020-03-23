@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame
 
-from sponge_bob_magic.constants import DEFAULT_CONTEXT, IterOrList
+from sponge_bob_magic.constants import IterOrList
 from sponge_bob_magic.metrics import HitRate, Metric, Surprisal, Unexpectedness
 from sponge_bob_magic.models import KNNRec, PopRec, Recommender
 from sponge_bob_magic.scenarios.main_objective import MainObjective, SplitData
@@ -97,7 +97,6 @@ class MainScenario:
             criterion: Metric,
             metrics: Dict[Metric, IterOrList],
             k: int = 10,
-            context: Optional[str] = None,
             fallback_recs: Optional[DataFrame] = None
     ) -> Dict[str, Any]:
         """ Запускает подбор параметров в ``optuna``. """
@@ -113,7 +112,7 @@ class MainScenario:
                 MainObjective(
                     params_grid, self.study, split_data,
                     self.recommender, criterion, metrics,
-                    k, context,
+                    k,
                     fallback_recs,
                     self.filter_seen_items,
                     spark.conf.get("spark.local.dir")),
@@ -138,7 +137,6 @@ class MainScenario:
             user_features: Optional[DataFrame] = None,
             item_features: Optional[DataFrame] = None,
             k: int = 10,
-            context: Optional[str] = None,
             n_trials: int = 10
     ) -> Dict[str, Any]:
         """
@@ -160,7 +158,7 @@ class MainScenario:
 
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            ``[user_id , item_id , timestamp , context , relevance]``
+            ``[user_id, item_id, timestamp, relevance]``
         :param users: список пользователей, для которых необходимо получить
             рекомендации, спарк-датафрейм с колонкой ``[user_id]``;
             если ``None``, выбираются все пользователи из тестовой выборки
@@ -175,14 +173,12 @@ class MainScenario:
             ``[item_id , timestamp]`` и колонки с признаками
         :param k: количество рекомендаций для каждого пользователя;
             должно быть не больше, чем количество объектов в ``items``
-        :param context: контекст, в котором нужно получить рекомендации
         :param n_trials: количество уникальных испытаний; должно быть от 1
             до значения параметра ``optuna_max_n_trials``
         :return: словарь оптимальных значений параметров для модели; ключ -
             название параметра (совпадают с параметрами модели,
             которые возвращает ``get_params()``), значение - значение параметра
         """
-        context = context if context else DEFAULT_CONTEXT
         logging.debug("Деление лога на обучающую и тестовую выборку")
         split_data = self._prepare_data(log,
                                         users, items,
@@ -197,7 +193,7 @@ class MainScenario:
         criterion = self.criterion()
         logging.debug("Обучение и предсказание дополнительной модели")
         fallback_recs = self._predict_fallback_recs(self.fallback_rec,
-                                                    split_data, k, context)
+                                                    split_data, k)
         logging.debug("Пре-фит модели")
         self.recommender._pre_fit(split_data.train, split_data.user_features,
                                   split_data.item_features)
@@ -208,7 +204,7 @@ class MainScenario:
             "(чтобы поменять его, задайте параметр 'optuna_max_n_trials')"
         )
         best_params = self._run_optimization(n_trials, params_grid, split_data,
-                                             criterion, metrics, k, context,
+                                             criterion, metrics, k,
                                              fallback_recs)
         return best_params
 
@@ -216,8 +212,7 @@ class MainScenario:
             self,
             fallback_rec: Recommender,
             split_data: SplitData,
-            k: int,
-            context: Optional[str] = None
+            k: int
     ) -> Optional[DataFrame]:
         """ Обучает fallback модель и возвращает ее рекомендации. """
         fallback_recs = None
@@ -226,7 +221,6 @@ class MainScenario:
                 split_data.train,
                 k,
                 split_data.users, split_data.items,
-                context,
                 split_data.user_features,
                 split_data.item_features,
                 self.filter_seen_items
@@ -241,8 +235,7 @@ class MainScenario:
             items: Optional[DataFrame],
             user_features: Optional[DataFrame] = None,
             item_features: Optional[DataFrame] = None,
-            k: int = 10,
-            context: Optional[str] = None
+            k: int = 10
     ) -> DataFrame:
         """
         Обучает модель с нуля при заданных параметрах ``params`` и формирует
@@ -254,7 +247,7 @@ class MainScenario:
             которые возвращает ``get_params()``), значение - значение параметра
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            ``[user_id , item_id , timestamp , context , relevance]``
+            ``[user_id, item_id, timestamp, relevance]``
         :param users: список пользователей, для которых необходимо получить
             рекомендации, спарк-датафрейм с колонкой ``[user_id]``;
             если ``None``, выбираются все пользователи из тестовой выборки
@@ -269,11 +262,10 @@ class MainScenario:
             ``[item_id , timestamp]`` и колонки с признаками
         :param k: количество рекомендаций для каждого пользователя;
             должно быть не больше, чем количество объектов в ``items``
-        :param context: контекст, в котором нужно получить рекомендации
         :return: рекомендации, спарк-датафрейм с колонками
-            ``[user_id , item_id , context , relevance]``
+            ``[user_id, item_id, relevance]``
         """
         self.recommender.set_params(**params)
         return self.recommender.fit_predict(
-            log, k, users, items, context, user_features, item_features,
+            log, k, users, items, user_features, item_features,
             self.filter_seen_items)

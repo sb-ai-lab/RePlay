@@ -43,7 +43,6 @@ class MainObjective:
             criterion: Metric,
             metrics: Dict[Metric, IterOrList],
             k: int = 10,
-            context: Optional[str] = None,
             fallback_recs: Optional[DataFrame] = None,
             filter_seen_items: bool = False,
             path: str = None
@@ -51,7 +50,6 @@ class MainObjective:
         self.path = path
         self.metrics = metrics
         self.criterion = criterion
-        self.context = context
         self.k = k
         self.split_data = split_data
         self.recommender = recommender
@@ -67,7 +65,6 @@ class MainObjective:
 
         self.fallback_recs = (
             fallback_recs
-            .withColumnRenamed("context", "context_fallback")
             .withColumnRenamed("relevance", "relevance_fallback")
         ) if fallback_recs is not None else None
 
@@ -96,7 +93,6 @@ class MainObjective:
             k=self.k,
             users=self.split_data.users,
             items=self.split_data.items,
-            context=self.context,
             user_features=self.split_data.user_features,
             item_features=self.split_data.item_features,
             filter_seen_items=self.filter_seen_items)

@@ -103,7 +103,6 @@ class LinearRec(Recommender):
                  k: int,
                  users: Optional[DataFrame] = None,
                  items: Optional[DataFrame] = None,
-                 context: Optional[str] = None,
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None,
                  filter_seen_items: bool = True) -> DataFrame:

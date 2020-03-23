@@ -52,7 +52,7 @@ class Splitter(ABC):
         Удаляет из тестовой выборки холодных users и холодные items.
 
         :param train: обучающая выборка, спарк-датафрейм с колонками
-            `[timestamp, user_id, item_id, context, relevance]`
+            `[timestamp, user_id, item_id, relevance]`
         :param test: тестовая выборка как train
         :param drop_cold_items: если True, удаляет холодные items
         :param drop_cold_users: если True, удаляет холодные users
@@ -81,7 +81,7 @@ class Splitter(ABC):
         Разбивает лог действий пользователей на обучающую и тестовую выборки.
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
-            `[timestamp, user_id, item_id, context, relevance]`
+            `[timestamp, user_id, item_id, relevance]`
         :returns: спарк-датафреймы структуры, аналогичной входной,
             `train, test`, где `train` - обучающая выборка,
             `test` - тестовая выборка
@@ -95,7 +95,7 @@ class Splitter(ABC):
         Разбивает лог действий пользователей на обучающую и тестовую выборки.
 
         :param log: лог взаимодействия, спарк-датафрейм с колонками
-           ``[timestamp, user_id, item_id, context, relevance]``
+           ``[timestamp, user_id, item_id, relevance]``
         :returns: спарк-датафреймы структуры, аналогичной входной,
             ``train, test``, где ``train`` - обучающая выборка,
             ``test`` - тестовая выборка

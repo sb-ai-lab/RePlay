@@ -154,7 +154,6 @@ class SlimRec(Recommender):
                  k: int,
                  users: DataFrame = None,
                  items: DataFrame = None,
-                 context: str = None,
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None,
                  filter_seen_items: bool = True) -> DataFrame:

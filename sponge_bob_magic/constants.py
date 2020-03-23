@@ -1,12 +1,12 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Union, Iterable
+from typing import Iterable, Union
 
 import pandas as pd
+from pyspark.sql import DataFrame
 from pyspark.sql.types import (DoubleType, FloatType, StringType, StructField,
                                StructType, TimestampType)
-from pyspark.sql import DataFrame
 
 LOG_SCHEMA = StructType([
     StructField("user_id", StringType()),
@@ -14,8 +14,6 @@ LOG_SCHEMA = StructType([
     StructField("timestamp", TimestampType()),
     StructField("relevance", FloatType())
 ])
-
-DEFAULT_CONTEXT = "no_context"
 
 REC_SCHEMA = StructType([
     StructField("user_id", StringType()),
