@@ -313,7 +313,25 @@ class Recommender(ABC):
         return self._logger
 
     @property
+    def users_count(self) -> int:
+        """
+        :returns: количество пользователей в обучающей выборке либо ``-1``, если модель не обучена
+        """
+        if "user_indexer" in self.__dict__:
+            return len(self.user_indexer.labels)
+        return -1
+
+    @property
     def spark(self):
         if self._spark is None:
             self._spark = State().session
         return self._spark
+
+    @property
+    def items_count(self) -> int:
+        """
+        :returns: количество объектов в обучающей выборке либо ``-1``, если модель не обучена
+        """
+        if "item_indexer" in self.__dict__:
+            return len(self.item_indexer.labels)
+        return -1
