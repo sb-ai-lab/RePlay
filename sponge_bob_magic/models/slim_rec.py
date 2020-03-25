@@ -52,8 +52,8 @@ class SlimRec(Recommender):
 
     def __init__(
             self,
-            beta: float = 0.01,
-            lambda_: float = 0.0,
+            beta: float = 2.0,
+            lambda_: float = 0.5,
             seed: Optional[int] = None):
         """
         :param beta: параметр l2 регуляризации
