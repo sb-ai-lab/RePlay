@@ -296,7 +296,7 @@ class NeuroMFRec(Recommender):
             global_step_transform=global_step_from_engine(self.trainer))
 
         self.val_evaluator.add_event_handler(Events.EPOCH_COMPLETED,
-                                       checkpoint, {"nmf": self.model})
+                                             checkpoint, {"nmf": self.model})
         self.trainer.run(train_data_loader, max_epochs=self.epochs)
 
         self.model.eval()
