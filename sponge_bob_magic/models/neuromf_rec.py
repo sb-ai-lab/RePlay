@@ -16,7 +16,7 @@ from ignite.handlers import (EarlyStopping, ModelCheckpoint,
 from ignite.metrics import Loss
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import MinMaxScaler, VectorAssembler
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql.functions import udf
 from pyspark.sql.types import DoubleType
 from sklearn.model_selection import train_test_split
@@ -353,9 +353,9 @@ class NeuroMFRec(Recommender):
                            sep=sep, header=True, index=False)
 
         recs = self.spark.read.csv(os.path.join(tmp_path, "predict.csv"),
-                              sep=sep,
-                              header=True,
-                              inferSchema=True)
+                                   sep=sep,
+                                   header=True,
+                                   inferSchema=True)
 
         logging.debug("Обратное преобразование индексов")
         recs = self.inv_item_indexer.transform(recs)
