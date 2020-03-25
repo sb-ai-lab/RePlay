@@ -105,7 +105,7 @@ class NeuroMFRec(Recommender):
     val_evaluator: Engine
     train_evaluator: Engine
     patience: int = 3
-    n_saved: int = 1
+    n_saved: int = 2
 
     def __init__(self, learning_rate: float = 0.05,
                  epochs: int = 1,
@@ -291,8 +291,7 @@ class NeuroMFRec(Recommender):
             require_empty=False,
             n_saved=self.n_saved,
             filename_prefix='best',
-            global_step_transform=global_step_from_engine(
-                self.trainer))
+            global_step_transform=global_step_from_engine(self.trainer))
 
         self.trainer.add_event_handler(Events.EPOCH_COMPLETED,
                                        checkpoint, {'nmf': self.model})
