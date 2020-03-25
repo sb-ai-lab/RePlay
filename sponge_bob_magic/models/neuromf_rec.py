@@ -8,14 +8,19 @@ from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas
-import torch.optim
 from annoy import AnnoyIndex
+from ignite.contrib.handlers.param_scheduler import LRScheduler
+from ignite.engine import Engine, Events
+from ignite.handlers import (EarlyStopping, ModelCheckpoint,
+                             global_step_from_engine)
+from ignite.metrics import Loss
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import MinMaxScaler, VectorAssembler
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import udf
 from pyspark.sql.types import DoubleType
 from sklearn.model_selection import train_test_split
+import torch.optim
 from torch import LongTensor, Tensor
 from torch.nn import Embedding, Module
 from torch.optim.lr_scheduler import ExponentialLR
@@ -27,6 +32,7 @@ from sponge_bob_magic.utils import get_top_k_recs
 
 
 class NMF(Module):
+    "Простая нейронная сеть, соответствующая колоборативной фильтрации"
     def __init__(
             self,
             user_count: int,
@@ -76,10 +82,8 @@ class NMF(Module):
         user_emb = self.user_embedding(user)
         item_emb = self.item_embedding(item)
         dot = (user_emb * item_emb).sum(dim=1).squeeze()
-        relevance = (
-            dot + self.item_biases(item).squeeze() +
-            self.user_biases(user).squeeze()
-        )
+        relevance = (dot + self.item_biases(item).squeeze() +
+                     self.user_biases(user).squeeze())
         if get_embs:
             return user_emb, item_emb
         return relevance
@@ -97,8 +101,13 @@ class NeuroMFRec(Recommender):
     num_users: int
     num_items: int
     num_trees_annoy: int = 10
+    trainer: Engine
+    val_evaluator: Engine
+    train_evaluator: Engine
+    patience: int = 3
+    n_saved: int = 2
 
-    def __init__(self, learning_rate: float = 0.5,
+    def __init__(self, learning_rate: float = 0.05,
                  epochs: int = 1,
                  embedding_dimension: int = 10):
         """
@@ -112,7 +121,9 @@ class NeuroMFRec(Recommender):
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.embedding_dimension = embedding_dimension
+        self.count_negative_sample = 1
         self.annoy_index = AnnoyIndex(embedding_dimension, "angular")
+        self.spark = State().session
 
     def get_params(self) -> Dict[str, object]:
         return {
@@ -135,59 +146,26 @@ class NeuroMFRec(Recommender):
             embedding_dimension=self.embedding_dimension
         ).to(self.device)
 
-    def _run_single_batch(self, batch: Tensor) -> Tensor:
-        negative_items = torch.from_numpy(
-            np.random.randint(low=0, high=self.num_items - 1,
-                              size=batch[0].shape[0])
-        ).to(self.device)
-        positive_relevance = self.model.forward(batch[0], batch[1])
-        negative_relevance = self.model.forward(batch[0], negative_items)
-        loss = torch.clamp(
-            negative_relevance - positive_relevance + 1.0, 0.0, 1.0
-        ).mean()
+    def _data_loader(self,
+                     user_batch: Tensor,
+                     item_batch: Tensor):
+        dataset = TensorDataset(user_batch, item_batch)
 
-        return loss
-
-    def _run_epoch(self,
-                   train_user_batch: Tensor,
-                   train_item_batch: Tensor,
-                   valid_user_batch: Tensor,
-                   valid_item_batch: Tensor,
-                   optimizer: torch.optim.Optimizer) -> Tuple[float, float]:
-        train_dataset = TensorDataset(train_user_batch, train_item_batch)
-        train_data = DataLoader(
-            train_dataset,
+        loader = DataLoader(
+            dataset,
             batch_size=self.batch_size_fit_users,
             shuffle=True,
             num_workers=self.num_workers
         )
-        valid_dataset = TensorDataset(valid_user_batch, valid_item_batch)
-        val_data = DataLoader(
-            valid_dataset,
-            batch_size=self.batch_size_fit_users,
-            shuffle=False,
-            num_workers=self.num_workers
-        )
-        loss_value = 0.0
-        current_loss = 0.0
-        self.model.train()
-        for batch in train_data:
-            loss = self._run_single_batch(batch)
-            loss_value += loss.item()
-            current_loss = loss_value / len(train_data)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-        logging.debug("-- Текущее значение train loss: %.4f", current_loss)
-        self.model.eval()
-        current_val_loss = 0.0
-        val_loss_value = 0.0
-        for batch in val_data:
-            val_loss = self._run_single_batch(batch)
-            val_loss_value += val_loss.item()
-            current_val_loss = val_loss_value / len(val_data)
-        logging.debug("-- Текущее значение val loss  : %.4f", current_val_loss)
-        return current_loss, current_val_loss
+        return loader
+
+    def _get_neg_batch(self, batch):
+        negative_items = torch.from_numpy(
+            np.random.randint(low=0, high=self.num_items - 1,
+                              size=batch.shape[0] *
+                              self.count_negative_sample)
+        ).to(self.device)
+        return negative_items
 
     def _fit(self,
              log: DataFrame,
@@ -197,15 +175,10 @@ class NeuroMFRec(Recommender):
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
 
-        self.model.train()
-        optimizer = torch.optim.Adam(self.model.parameters(),
-                                     lr=self.learning_rate)
-        lr_scheduler = ExponentialLR(optimizer, gamma=0.95)
         logging.debug("Составление батча:")
-        spark = SparkSession(log.rdd.context)
         tensor_data = NeuroMFRec.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
-            os.path.join(spark.conf.get("spark.local.dir"),
+            os.path.join(self.spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
         train_tensor_data, valid_tensor_data = train_test_split(
@@ -224,34 +197,106 @@ class NeuroMFRec(Recommender):
             valid_tensor_data["item_idx"].values
         ).to(self.device)
         logging.debug("Обучение модели")
-        val_losses = []
-        early_stopping = 3
-        for epoch in range(self.epochs):
-            logging.debug("-- Эпоха %d", epoch)
-            _, current_val_loss = self._run_epoch(
-                train_user_batch,
-                train_item_batch,
-                valid_user_batch,
-                valid_item_batch,
-                optimizer
-            )
-            val_losses.append(current_val_loss)
-            best_loss = current_val_loss if len(val_losses) == 1 \
-                else min(val_losses[:-1])
-            if current_val_loss <= best_loss:
-                self.save_model(
-                    os.path.join(
-                        spark.conf.get("spark.local.dir"),
-                        "best_nmf.pth"
-                    )
-                )
-            if (len(val_losses) > early_stopping and
-                    min(val_losses[-early_stopping:]) ==
-                    val_losses[-early_stopping]):
-                logging.debug(f"-- Early stopping! Лучшая эпоха {epoch} "
-                              f"с лоссом {val_losses[-early_stopping]}")
-                break
-            lr_scheduler.step()
+
+        train_data_loader = DataLoader(
+            TensorDataset(train_user_batch, train_item_batch),
+            batch_size=self.batch_size_fit_users,
+            shuffle=True,
+            num_workers=self.num_workers
+        )
+        val_data_loader = DataLoader(
+            TensorDataset(valid_user_batch, valid_item_batch),
+            batch_size=self.batch_size_fit_users,
+            shuffle=False,
+            num_workers=self.num_workers
+        )
+
+        optimizer = torch.optim.Adam(self.model.parameters(),
+                                     lr=self.learning_rate)
+        lr_scheduler = ExponentialLR(optimizer, gamma=0.95)
+        scheduler = LRScheduler(lr_scheduler)
+        y_true = torch.ones(self.batch_size_fit_users *
+                            (1 + self.count_negative_sample)).to(self.device)
+        y_true[self.batch_size_fit_users:] = -1
+
+        def _loss(y_pred, y_true):
+            pos_len = y_pred.shape[0] // (self.count_negative_sample + 1)
+            negative_relevance = y_pred[pos_len:]
+            positive_relevance = y_pred[:pos_len]
+            return torch.clamp(
+                negative_relevance - positive_relevance + 1.0, 0.0, 1.0
+            ).mean()
+
+        def _run_train_step(engine, batch):
+            self.model.train()
+            optimizer.zero_grad()
+            user_batch, pos_item_batch = batch
+            neg_item_batch = self._get_neg_batch(user_batch)
+            pos_relevance = self.model(user_batch, pos_item_batch)
+            neg_relevance = self.model(user_batch, neg_item_batch)
+            y_pred = torch.cat((pos_relevance, neg_relevance), 0)
+            loss = _loss(y_pred, y_true)
+            loss.backward()
+            optimizer.step()
+            return loss.item()
+
+        def _run_val_step(engine, batch):
+            self.model.eval()
+            with torch.no_grad():
+                user_batch, pos_item_batch = batch
+                neg_item_batch = self._get_neg_batch(user_batch)
+                pos_relevance = self.model(user_batch, pos_item_batch)
+                neg_relevance = self.model(user_batch, neg_item_batch)
+                y_pred = torch.cat((pos_relevance, neg_relevance), 0)
+                return y_pred, y_true
+
+        self.trainer = Engine(_run_train_step)
+        self.train_evaluator = Engine(_run_val_step)
+        self.val_evaluator = Engine(_run_val_step)
+
+        Loss(_loss).attach(self.train_evaluator, 'loss')
+        Loss(_loss).attach(self.val_evaluator, 'loss')
+        self.trainer.add_event_handler(Events.EPOCH_COMPLETED, scheduler)
+
+        @self.trainer.on(Events.EPOCH_COMPLETED)
+        def log_training_loss(trainer):
+            print("Epoch[{}] Loss: {:.4f}".format(
+                trainer.state.epoch, trainer.state.output))
+
+        @self.trainer.on(Events.EPOCH_COMPLETED)
+        def log_training_results(trainer):
+            self.train_evaluator.run(train_data_loader)
+            metrics = self.train_evaluator.state.metrics
+            print("Training set Results - Epoch: {} Avg loss: {:.4f}"
+                  .format(trainer.state.epoch, metrics['loss']))
+
+        @self.trainer.on(Events.EPOCH_COMPLETED)
+        def log_validation_results(trainer):
+            self.val_evaluator.run(val_data_loader)
+            metrics = self.val_evaluator.state.metrics
+            print("Validation set Results - Epoch: {} Avg loss: {:.4f}"
+                  .format(trainer.state.epoch, metrics['loss']))
+
+        def score_function(engine):
+            return -engine.state.metrics['loss']
+
+        early_stopping = EarlyStopping(patience=self.patience,
+                                       score_function=score_function,
+                                       trainer=self.trainer)
+        self.val_evaluator.add_event_handler(Events.COMPLETED,
+                                             early_stopping)
+        checkpoint = ModelCheckpoint(
+            self.spark.conf.get("spark.local.dir"),
+            create_dir=True,
+            require_empty=False,
+            n_saved=self.n_saved,
+            filename_prefix='best',
+            global_step_transform=global_step_from_engine(
+                self.trainer))
+
+        self.trainer.add_event_handler(Events.EPOCH_COMPLETED,
+                                       checkpoint, {'model': self.model})
+        self.trainer.run(train_data_loader, max_epochs=self.epochs)
 
         self.model.eval()
         logging.debug("-- Запись annoy индексов")
@@ -275,8 +320,7 @@ class NeuroMFRec(Recommender):
                  filter_seen_items: bool = True) -> DataFrame:
         self.model.eval()
         sep = ","
-        spark = State().session
-        tmp_path = os.path.join(spark.conf.get("spark.local.dir"), "recs")
+        tmp_path = os.path.join(self.spark.conf.get("spark.local.dir"), "recs")
         if os.path.exists(tmp_path):
             shutil.rmtree(tmp_path)
         os.makedirs(tmp_path)
@@ -287,7 +331,7 @@ class NeuroMFRec(Recommender):
         logging.debug("Предсказание модели")
         tensor_data = NeuroMFRec.spark2pandas_csv(
             users.select("user_idx"),
-            os.path.join(spark.conf.get("spark.local.dir"),
+            os.path.join(self.spark.conf.get("spark.local.dir"),
                          "tmp_tensor_users_data")
         )
         user_batch = LongTensor(tensor_data["user_idx"].values).to(self.device)
@@ -309,7 +353,7 @@ class NeuroMFRec(Recommender):
         predictions.to_csv(os.path.join(tmp_path, "predict.csv"),
                            sep=sep, header=True, index=False)
 
-        recs = spark.read.csv(os.path.join(tmp_path, "predict.csv"),
+        recs = self.spark.read.csv(os.path.join(tmp_path, "predict.csv"),
                               sep=sep,
                               header=True,
                               inferSchema=True)
@@ -381,16 +425,6 @@ class NeuroMFRec(Recommender):
                                     if file.endswith(".csv")][0])
         pandas_dataframe = pandas.read_csv(pandas_path)
         return pandas_dataframe
-
-    def save_model(self, path: str) -> None:
-        """
-        Сохранить веса модели в файл
-
-        :param path: путь к файлу, куда сохранять
-        :return:
-        """
-        logging.debug("-- Сохранение лучшей модели в файл")
-        torch.save(self.model.state_dict(), path)
 
     def load_model(self, path: str) -> None:
         """
