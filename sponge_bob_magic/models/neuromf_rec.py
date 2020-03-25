@@ -105,7 +105,7 @@ class NeuroMFRec(Recommender):
     val_evaluator: Engine
     train_evaluator: Engine
     patience: int = 3
-    n_saved: int = 2
+    n_saved: int = 1
 
     def __init__(self, learning_rate: float = 0.05,
                  epochs: int = 1,
@@ -295,7 +295,7 @@ class NeuroMFRec(Recommender):
                 self.trainer))
 
         self.trainer.add_event_handler(Events.EPOCH_COMPLETED,
-                                       checkpoint, {'model': self.model})
+                                       checkpoint, {'nmf': self.model})
         self.trainer.run(train_data_loader, max_epochs=self.epochs)
 
         self.model.eval()

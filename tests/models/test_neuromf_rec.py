@@ -88,7 +88,7 @@ class NeuroCFRecTestCase(PySparkTest):
         spark = SparkSession(self.log.rdd.context)
         path = os.path.join(
             spark.conf.get("spark.local.dir"),
-            "best_nmf.pth"
+            "best_nmf_1.pth"
         )
         if os.path.exists(path):
             os.remove(path)
