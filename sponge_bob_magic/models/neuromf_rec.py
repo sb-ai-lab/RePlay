@@ -94,7 +94,7 @@ class NeuroMFRec(Recommender):
     Эта модель является вариацей на модель из статьи Neural Matrix Factorization
     (NeuMF, NCF)
     """
-    num_workers: int = 10
+    num_workers: int = 8
     batch_size_fit_users: int = 100000
     batch_size_predict_users: int = 100
     batch_size_predict_items: int = 10000
@@ -290,11 +290,13 @@ class NeuroMFRec(Recommender):
             create_dir=True,
             require_empty=False,
             n_saved=self.n_saved,
-            filename_prefix='best',
+            score_function=score_function,
+            score_name="loss",
+            filename_prefix="best",
             global_step_transform=global_step_from_engine(self.trainer))
 
-        self.trainer.add_event_handler(Events.EPOCH_COMPLETED,
-                                       checkpoint, {'nmf': self.model})
+        self.val_evaluator.add_event_handler(Events.EPOCH_COMPLETED,
+                                       checkpoint, {"nmf": self.model})
         self.trainer.run(train_data_loader, max_epochs=self.epochs)
 
         self.model.eval()
