@@ -117,6 +117,7 @@ class MLPRec(Recommender):
         self.epochs = epochs
         self.embedding_dimension = embedding_dimension
         self.loss = nn.CosineEmbeddingLoss()
+        self.spark = State().session
 
     def get_params(self) -> Dict[str, object]:
         return {
@@ -192,10 +193,9 @@ class MLPRec(Recommender):
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.9)
 
         logging.debug("Составление батча:")
-        spark = SparkSession(log.rdd.context)
         tensor_data = MLPRec.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
-            os.path.join(spark.conf.get("spark.local.dir"),
+            os.path.join(self.spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
         user_batch = torch.LongTensor(
@@ -234,8 +234,7 @@ class MLPRec(Recommender):
     ) -> DataFrame:
         self.model.eval()
         sep = ","
-        spark = State().session
-        tmp_path = os.path.join(spark.conf.get("spark.local.dir"), "recs")
+        tmp_path = os.path.join(self.spark.conf.get("spark.local.dir"), "recs")
         if os.path.exists(tmp_path):
             shutil.rmtree(tmp_path)
         os.makedirs(tmp_path)
@@ -246,7 +245,7 @@ class MLPRec(Recommender):
         logging.debug("Предсказание модели")
         tensor_data = MLPRec.spark2pandas_csv(
             users.select("user_idx"),
-            os.path.join(spark.conf.get("spark.local.dir"),
+            os.path.join(self.spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
         )
         user_batch = torch.LongTensor(
@@ -270,10 +269,10 @@ class MLPRec(Recommender):
         predictions.to_csv(os.path.join(tmp_path, "predict.csv"),
                            sep=sep, header=True, index=False)
 
-        recs = spark.read.csv(os.path.join(tmp_path, "predict.csv"),
-                              sep=sep,
-                              header=True,
-                              inferSchema=True)
+        recs = self.spark.read.csv(os.path.join(tmp_path, "predict.csv"),
+                                   sep=sep,
+                                   header=True,
+                                   inferSchema=True)
 
         logging.debug("Обратное преобразование индексов")
         recs = self.inv_item_indexer.transform(recs)

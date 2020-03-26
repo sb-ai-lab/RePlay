@@ -5,7 +5,7 @@
 import logging
 import os
 from math import floor
-from typing import Dict, Optional
+from typing import Optional
 
 import psutil
 import torch
@@ -36,8 +36,15 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
         .enableHiveSupport()
         .getOrCreate()
     )
+    return spark
+
+
+def logger_settings():
+    """Настройка логгеров и изменение их уровня"""
     spark_logger = logging.getLogger("py4j")
     spark_logger.setLevel(logging.WARN)
+    ignite_engine_logger = logging.getLogger("ignite.engine.engine.Engine")
+    ignite_engine_logger.setLevel(logging.WARN)
     logger = logging.getLogger()
     formatter = logging.Formatter(
         "%(asctime)s, %(name)s, %(levelname)s: %(message)s",
@@ -47,7 +54,6 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
     logger.setLevel(logging.DEBUG)
-    return spark
 
 
 class Borg:
@@ -74,6 +80,10 @@ class State(Borg):
             device: Optional[torch.device] = None
     ):
         Borg.__init__(self)
+        if not hasattr(self, "logger_set"):
+            logger_settings()
+            self.logger_set = True
+
         if session is None:
             if not hasattr(self, "session"):
                 self.session = get_spark_session()

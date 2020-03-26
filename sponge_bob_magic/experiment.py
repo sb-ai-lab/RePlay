@@ -62,16 +62,15 @@ class Experiment:
         :param name: имя модели/эксперимента для сохранения результатов
         :param pred: список рекомендаций для подсчета метрик
         """
-        res = pd.Series(name=name)
         recs = convert(pred)
-        for metric, k_list in self.metrics.items():
+        for metric, k_list in sorted(self.metrics.items(),
+                                     key=lambda x: str(x[0])):
             if isinstance(metric, (Surprisal, Unexpectedness)):
                 values = metric(recs, k_list)
             else:
                 values = metric(recs, self.test, k_list)
             if isinstance(k_list, int):
-                res[f"{metric}@{k_list}"] = values
+                self.pandas_df.at[name, f"{metric}@{k_list}"] = values
             else:
-                for k, val in values.items():
-                    res[f"{metric}@{k}"] = val
-        self.pandas_df = self.pandas_df.append(res)
+                for k, val in sorted(values.items(), key=lambda x: x[0]):
+                    self.pandas_df.at[name, f"{metric}@{k}"] = val

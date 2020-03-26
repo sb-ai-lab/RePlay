@@ -6,11 +6,11 @@ from datetime import datetime
 
 import numpy as np
 import torch
-from pyspark.sql import SparkSession
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA
 from sponge_bob_magic.models.neuromf_rec import NMF, NeuroMFRec
+from sponge_bob_magic.session_handler import State
 
 
 class NeuroCFRecTestCase(PySparkTest):
@@ -85,9 +85,8 @@ class NeuroCFRecTestCase(PySparkTest):
         )
 
     def test_save_load(self):
-        spark = SparkSession(self.log.rdd.context)
         path = os.path.join(
-            spark.conf.get("spark.local.dir"),
+            self.spark.conf.get("spark.local.dir"),
             "best_nmf_1_loss=-0.0.pth"
         )
         if os.path.exists(path):
