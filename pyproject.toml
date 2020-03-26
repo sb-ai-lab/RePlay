@@ -43,6 +43,7 @@ pyarrow = "0.14.1"
 scipy = "1.4.1"
 torch = "1.4.0"
 tqdm = "4.42.1"
+pytorch-ignite = "^0.3.0"
 
 [tool.poetry.dev-dependencies]
 autopep8 = "1.4.4"

@@ -11,7 +11,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 from scipy.sparse import csc_matrix
-from sklearn.linear_model import SGDRegressor
+from sklearn.linear_model import ElasticNet
 
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.session_handler import State
@@ -52,23 +52,18 @@ class SlimRec(Recommender):
 
     def __init__(
             self,
-            beta: float = 0.01,
-            lambda_: float = 0.0,
-            tolerance: float = 1e-6,
+            beta: float = 2.0,
+            lambda_: float = 0.5,
             seed: Optional[int] = None):
         """
         :param beta: параметр l2 регуляризации
         :param lambda_: параметр l1 регуляризации
-        :param tolerance: уровень отсечения маленьких значений из итоговой матрицы.
-            Повышает разреженность.
         :param seed: random seed
         """
-        if beta < 0 or lambda_ < 0 or (beta == 0 and lambda_ == 0) or \
-                tolerance <= 0:
+        if beta < 0 or lambda_ <= 0:
             raise ValueError("Неверно указаны параметры для регуляризации")
         self.beta = beta
         self.lambda_ = lambda_
-        self.tolerance = tolerance
         self.seed = seed
         self.spark = State().session
 
@@ -91,9 +86,6 @@ class SlimRec(Recommender):
              item_features: Optional[DataFrame] = None) -> None:
         logging.debug("Построение модели SLIM")
 
-        alpha = self.beta + self.lambda_
-        l1_ratio = self.lambda_ / alpha
-
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
         pandas_log = log_indexed.select(
@@ -115,12 +107,15 @@ class SlimRec(Recommender):
         similarity = (self.spark
                       .createDataFrame(pandas_log.item_idx, st.FloatType())
                       .withColumnRenamed("value", "item_id_one"))
-        sgd = SGDRegressor(penalty="elasticnet",
-                           alpha=alpha,
-                           l1_ratio=l1_ratio,
-                           fit_intercept=False,
-                           random_state=self.seed)
-        tolerance = self.tolerance
+
+        alpha = self.beta + self.lambda_
+        l1_ratio = self.lambda_ / alpha
+
+        regression = ElasticNet(alpha=alpha,
+                                l1_ratio=l1_ratio,
+                                fit_intercept=False,
+                                random_state=self.seed,
+                                positive=True)
 
         @sf.pandas_udf("item_id_one float, item_id_two float, similarity "
                        "double",
@@ -137,10 +132,10 @@ class SlimRec(Recommender):
             column_arr = column.toarray().ravel()
             interactions_matrix[interactions_matrix[:, idx].nonzero(), idx] = 0
 
-            sgd.fit(interactions_matrix, column_arr)
+            regression.fit(interactions_matrix, column_arr)
             interactions_matrix[:, idx] = column
-            good_idx = np.argwhere(sgd.coef_ > tolerance).reshape(-1)
-            good_values = sgd.coef_[good_idx]
+            good_idx = np.argwhere(regression.coef_ > 0).reshape(-1)
+            good_values = regression.coef_[good_idx]
             similarity_row = {'item_id_one': idx,
                               'item_id_two': good_idx,
                               'similarity': good_values}
