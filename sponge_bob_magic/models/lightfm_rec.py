@@ -6,11 +6,12 @@ from typing import Dict, Optional
 
 import numpy as np
 from lightfm import LightFM
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql.functions import lit
 from scipy.sparse import coo_matrix
 
 from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import get_top_k_recs
 
 
@@ -80,7 +81,7 @@ class LightFMRec(Recommender):
         prediction = log_indexed.toPandas()
         prediction["relevance"] = self.model.predict(
             np.array(prediction.user_idx), np.array(prediction.item_idx))
-        spark = SparkSession(test_data.rdd.context)
+        spark = State().session
         recs = spark.createDataFrame(
             prediction[["user_id", "item_id", "relevance"]]
         ).cache()
