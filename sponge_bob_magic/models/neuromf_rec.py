@@ -259,21 +259,22 @@ class NeuroMFRec(Recommender):
         @self.trainer.on(Events.EPOCH_COMPLETED)
         def log_training_loss(trainer):
             self.logger.debug("Epoch[{}] current loss: {:.4f}"
-                          .format(trainer.state.epoch, trainer.state.output))
+                              .format(trainer.state.epoch,
+                                      trainer.state.output))
 
         @self.trainer.on(Events.EPOCH_COMPLETED)
         def log_training_results(trainer):
             self.train_evaluator.run(train_data_loader)
             metrics = self.train_evaluator.state.metrics
             self.logger.debug("Epoch[{}] training average loss: {:.4f}"
-                          .format(trainer.state.epoch, metrics['loss']))
+                              .format(trainer.state.epoch, metrics['loss']))
 
         @self.trainer.on(Events.EPOCH_COMPLETED)
         def log_validation_results(trainer):
             self.val_evaluator.run(val_data_loader)
             metrics = self.val_evaluator.state.metrics
             self.logger.debug("Epoch[{}] validation average loss: {:.4f}"
-                          .format(trainer.state.epoch, metrics['loss']))
+                              .format(trainer.state.epoch, metrics['loss']))
 
         def score_function(engine):
             return -engine.state.metrics['loss']
