@@ -13,6 +13,12 @@ Popular Recommender
 
 .. autoclass:: sponge_bob_magic.models.PopRec
 
+Random Popularity
+-----------------
+
+.. autoclass:: sponge_bob_magic.models.RandomPop
+   :special-members: __init__
+
 .. _knn-model:
 
 K Nearest Neighbours

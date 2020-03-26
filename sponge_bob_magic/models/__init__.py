@@ -13,4 +13,5 @@ from sponge_bob_magic.models.linear_rec import LinearRec
 from sponge_bob_magic.models.mlp_rec import MLPRec
 from sponge_bob_magic.models.neuromf_rec import NeuroMFRec
 from sponge_bob_magic.models.pop_rec import PopRec
+from sponge_bob_magic.models.random_pop import RandomPop
 from sponge_bob_magic.models.slim_rec import SlimRec
