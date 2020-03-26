@@ -270,9 +270,9 @@ class MLPRec(Recommender):
                            sep=sep, header=True, index=False)
 
         recs = self.spark.read.csv(os.path.join(tmp_path, "predict.csv"),
-                              sep=sep,
-                              header=True,
-                              inferSchema=True)
+                                   sep=sep,
+                                   header=True,
+                                   inferSchema=True)
 
         logging.debug("Обратное преобразование индексов")
         recs = self.inv_item_indexer.transform(recs)
