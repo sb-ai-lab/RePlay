@@ -76,7 +76,7 @@ class PySparkTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         multiprocessing.set_start_method("spawn", force=True)
-        logger = logging.getLogger()
+        logger = logging.getLogger("sponge_bob_magic")
         logger.setLevel("WARN")
         warnings.filterwarnings(action="ignore", category=ResourceWarning)
         cls.spark = State(cls.create_testing_pyspark_session()).session

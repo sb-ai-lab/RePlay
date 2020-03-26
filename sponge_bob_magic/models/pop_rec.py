@@ -1,15 +1,13 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import logging
 from typing import Dict, Optional
 
-import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import get_top_k_recs, get_top_k_rows
+from sponge_bob_magic.utils import get_top_k_recs
 
 
 class PopRec(Recommender):

@@ -28,6 +28,7 @@ class Coverage(Metric):
         """
         self.items = convert(log).select("item_id").distinct().cache()
         self.item_count = self.items.count()
+        self.logger = logging.getLogger("sponge_bob_magic")
 
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
@@ -56,9 +57,9 @@ class Coverage(Metric):
             .exceptAll(self.items).count()
         )
         if unknows_item_count > 0:
-            logging.warning(
-                "В рекомендациях есть объекты, которых не было в изначальном логе! "
-                "Значение метрики может получиться больше единицы ¯\_(ツ)_/¯"
+            self.logger.warning(
+                    "В рекомендациях есть объекты, которых не было в изначальном логе! "
+                    "Значение метрики может получиться больше единицы ¯\_(ツ)_/¯"
             )
         item_sets = (
             recommendations

@@ -67,6 +67,7 @@ class MainObjective:
             fallback_recs
             .withColumnRenamed("relevance", "relevance_fallback")
         ) if fallback_recs is not None else None
+        self.logger = logging.getLogger("sponge_bob_magic")
 
     def __call__(
             self,
@@ -83,11 +84,11 @@ class MainObjective:
         self.recommender.set_params(**params)
         self._check_trial_on_duplicates(trial)
         self._save_study(self.study, self.path)
-        logging.debug("-- Второй фит модели в оптимизации")
+        self.logger.debug("-- Второй фит модели в оптимизации")
         self.recommender._fit(self.split_data.train,
                               self.split_data.user_features,
                               self.split_data.item_features)
-        logging.debug("-- Предикт модели в оптимизации")
+        self.logger.debug("-- Предикт модели в оптимизации")
         recs = self.recommender.predict(
             log=self.split_data.train,
             k=self.k,
@@ -96,10 +97,10 @@ class MainObjective:
             user_features=self.split_data.user_features,
             item_features=self.split_data.item_features,
             filter_seen_items=self.filter_seen_items)
-        logging.debug("-- Дополняем рекомендации fallback рекомендациями")
+        self.logger.debug("-- Дополняем рекомендации fallback рекомендациями")
         recs = self._join_fallback_recs(recs, self.fallback_recs, self.k,
                                         self.max_in_fallback_recs)
-        logging.debug("-- Подсчет метрики в оптимизации")
+        self.logger.debug("-- Подсчет метрики в оптимизации")
         criterion_value = self._calculate_metrics(trial, recs,
                                                   self.split_data.test,
                                                   self.criterion, self.metrics,
@@ -119,8 +120,8 @@ class MainObjective:
         )
         return param
 
-    @staticmethod
     def _suggest_all_params(
+            self,
             trial: Trial,
             params_grid: Dict[str, Dict[str, Any]]
     ) -> Dict[str, Any]:
@@ -129,7 +130,7 @@ class MainObjective:
         for param_name, param_dict in params_grid.items():
             param = MainObjective._suggest_param(trial, param_name, param_dict)
             params[param_name] = param
-        logging.debug("-- Параметры: %s", params)
+        self.logger.debug("-- Параметры: %s", params)
         return params
 
     @staticmethod
@@ -142,19 +143,19 @@ class MainObjective:
                 raise optuna.exceptions.TrialPruned(
                     "Повторные значения параметров")
 
-    @staticmethod
     def _save_study(
+            self,
             study: Study,
             path: Optional[str]
     ):
         """ Сохраняет объект исследования `study` на диск. """
         if path is not None:
-            logging.debug("-- Сохраняем optuna study на диск")
+            self.logger.debug("-- Сохраняем optuna study на диск")
             joblib.dump(study,
                         os.path.join(path, "optuna_study.joblib"))
 
-    @staticmethod
     def _calculate_metrics(
+            self,
             trial: Trial,
             recommendations: DataFrame,
             ground_truth: DataFrame,
@@ -178,18 +179,18 @@ class MainObjective:
             values_str = ", ".join(
                 f"{key}: {values[key]:.4f}" for key in values)
             result_string += f" {metric}={values_str}; "
-        logging.debug(result_string)
+        self.logger.debug(result_string)
         return criterion_value
 
-    @staticmethod
     def _join_fallback_recs(
+            self,
             recs: DataFrame,
             fallback_recs: Optional[DataFrame],
             k: int,
             max_in_fallback_recs: float
     ) -> DataFrame:
         """ Добавляет к рекомендациям fallback-рекомендации. """
-        logging.debug("-- Длина рекомендаций: %d", recs.count())
+        self.logger.debug("-- Длина рекомендаций: %d", recs.count())
         if fallback_recs is not None:
             # добавим максимум из fallback реков,
             # чтобы сохранить порядок при заборе топ-k
@@ -205,7 +206,7 @@ class MainObjective:
                                 sf.coalesce("relevance", "relevance_fallback"))
                     .select("user_id", "item_id", "relevance"))
             recs = get_top_k_recs(recs, k)
-            logging.debug(
+            self.logger.debug(
                 "-- Длина рекомендаций после добавления %s: %d",
                 "fallback-рекомендаций",
                 recs.count()

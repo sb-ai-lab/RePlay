@@ -1,7 +1,6 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import logging
 from typing import Dict, Optional
 
 import numpy as np
@@ -14,7 +13,6 @@ from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import get_top_k_recs
 
 
@@ -65,7 +63,6 @@ class SlimRec(Recommender):
         self.beta = beta
         self.lambda_ = lambda_
         self.seed = seed
-        self.spark = State().session
 
     def get_params(self) -> Dict[str, object]:
         return {"lambda": self.lambda_,
@@ -84,7 +81,7 @@ class SlimRec(Recommender):
              log: DataFrame,
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
-        logging.debug("Построение модели SLIM")
+        self.logger.debug("Построение модели SLIM")
 
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)

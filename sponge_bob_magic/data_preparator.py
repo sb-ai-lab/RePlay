@@ -192,7 +192,8 @@ class DataPreparator:
                 .collect()[0]
             )
             if is_null_column[tmp_column]:
-                logging.warning(
+                logger = logging.getLogger("sponge_bob_magic")
+                logger.warning(
                     "Колонка со временем не содержит unix time; "
                     "чиселки в этой колонке будут добавлены к "
                     "дефолтной дате")
