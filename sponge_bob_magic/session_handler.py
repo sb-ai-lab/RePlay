@@ -5,7 +5,7 @@
 import logging
 import os
 from math import floor
-from typing import Dict, Optional
+from typing import Optional
 
 import psutil
 import torch
@@ -54,7 +54,6 @@ def logger_settings():
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
     logger.setLevel(logging.DEBUG)
-    return
 
 
 class Borg:
@@ -81,6 +80,10 @@ class State(Borg):
             device: Optional[torch.device] = None
     ):
         Borg.__init__(self)
+        if not hasattr(self, "logger_set"):
+            logger_settings()
+            self.logger_set = True
+
         if session is None:
             if not hasattr(self, "session"):
                 self.session = get_spark_session()
@@ -97,4 +100,3 @@ class State(Borg):
                     self.device = torch.device("cpu")
         else:
             self.device = device
-        logger_settings()
