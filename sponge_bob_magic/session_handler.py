@@ -36,8 +36,15 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
         .enableHiveSupport()
         .getOrCreate()
     )
+    return spark
+
+
+def logger_settings():
+    """Настройка логгеров и изменение их уровня"""
     spark_logger = logging.getLogger("py4j")
     spark_logger.setLevel(logging.WARN)
+    ignite_engine_logger = logging.getLogger("ignite.engine.engine.Engine")
+    ignite_engine_logger.setLevel(logging.WARN)
     logger = logging.getLogger()
     formatter = logging.Formatter(
         "%(asctime)s, %(name)s, %(levelname)s: %(message)s",
@@ -47,7 +54,7 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
     logger.setLevel(logging.DEBUG)
-    return spark
+    return
 
 
 class Borg:
@@ -90,3 +97,4 @@ class State(Borg):
                     self.device = torch.device("cpu")
         else:
             self.device = device
+        logger_settings()
