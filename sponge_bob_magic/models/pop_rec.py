@@ -89,10 +89,13 @@ class PopRec(Recommender):
                  filter_seen_items: bool = True) -> DataFrame:
         # удаляем ненужные items и добавляем нулевые
         items = items.join(
-            self.items_popularity,
-            on="item_id",
+            self.items_popularity.select(
+                sf.col("item_id").alias("item_id_2"),
+                "relevance"
+            ),
+            on=sf.col("item_id") == sf.col("item_id_2"),
             how="left"
-        )
+        ).drop("item_id_2")
         items = items.na.fill({"relevance": 0})
         # (user_id, item_id, relevance)
         recs = users.crossJoin(items)
