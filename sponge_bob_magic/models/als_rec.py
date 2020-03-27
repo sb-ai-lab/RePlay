@@ -1,7 +1,6 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import logging
 from typing import Dict, Optional
 
 from pyspark.ml.recommendation import ALS
@@ -38,11 +37,11 @@ class ALSRec(Recommender):
              log: DataFrame,
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
-        logging.debug("Индексирование данных")
+        self.logger.debug("Индексирование данных")
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
 
-        logging.debug("Обучение модели")
+        self.logger.debug("Обучение модели")
         self.model = ALS(
             rank=self.rank,
             userCol="user_idx",

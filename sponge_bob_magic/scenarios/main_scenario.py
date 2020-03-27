@@ -49,6 +49,7 @@ class MainScenario:
         self.criterion = criterion
         self.metrics = metrics
         self.fallback_rec = fallback_rec
+        self.logger = logging.getLogger("sponge_bob_magic")
 
     optuna_study: Optional[Study]
     optuna_max_n_trials: int = 100
@@ -67,15 +68,15 @@ class MainScenario:
     ) -> SplitData:
         """ Делит лог и готовит объекти типа ``SplitData``. """
         train, test = self.splitter.split(log)
-        logging.debug(
+        self.logger.debug(
             "Длина трейна и теста: %d %d", train.count(), test.count()
         )
-        logging.debug(
+        self.logger.debug(
             "Количество пользователей в трейне и тесте: %d, %d",
             train.select('user_id').distinct().count(),
             test.select('user_id').distinct().count()
         )
-        logging.debug(
+        self.logger.debug(
             "Количество объектов в трейне и тесте: %d, %d",
             train.select('item_id').distinct().count(),
             test.select('item_id').distinct().count()
@@ -124,8 +125,8 @@ class MainScenario:
                 set(str(t.params)
                     for t in self.study.trials)
             )
-        logging.debug("Лучшие значения метрики: %d", self.study.best_value)
-        logging.debug("Лучшие параметры: %s", self.study.best_params)
+        self.logger.debug("Лучшие значения метрики: %d", self.study.best_value)
+        self.logger.debug("Лучшие параметры: %s", self.study.best_params)
         return self.study.best_params
 
     def research(
@@ -179,11 +180,11 @@ class MainScenario:
             название параметра (совпадают с параметрами модели,
             которые возвращает ``get_params()``), значение - значение параметра
         """
-        logging.debug("Деление лога на обучающую и тестовую выборку")
+        self.logger.debug("Деление лога на обучающую и тестовую выборку")
         split_data = self._prepare_data(log,
                                         users, items,
                                         user_features, item_features)
-        logging.debug("Инициализация метрик")
+        self.logger.debug("Инициализация метрик")
         metrics = {}
         for metric in self.metrics:
             if metric in {Surprisal, Unexpectedness}:
@@ -191,15 +192,15 @@ class MainScenario:
             else:
                 metrics[metric()] = self.metrics[metric]
         criterion = self.criterion()
-        logging.debug("Обучение и предсказание дополнительной модели")
+        self.logger.debug("Обучение и предсказание дополнительной модели")
         fallback_recs = self._predict_fallback_recs(self.fallback_rec,
                                                     split_data, k)
-        logging.debug("Пре-фит модели")
+        self.logger.debug("Пре-фит модели")
         self.recommender._pre_fit(split_data.train, split_data.user_features,
                                   split_data.item_features)
-        logging.debug("-------------")
-        logging.debug("Оптимизация параметров")
-        logging.debug(
+        self.logger.debug("-------------")
+        self.logger.debug("Оптимизация параметров")
+        self.logger.debug(
             "Максимальное количество попыток: %d %s", self.optuna_max_n_trials,
             "(чтобы поменять его, задайте параметр 'optuna_max_n_trials')"
         )

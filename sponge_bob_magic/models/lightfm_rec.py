@@ -1,7 +1,6 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import logging
 from typing import Dict, Optional
 
 import numpy as np
@@ -11,7 +10,6 @@ from pyspark.sql.functions import lit
 from scipy.sparse import coo_matrix
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import get_top_k_recs
 
 
@@ -37,7 +35,7 @@ class LightFMRec(Recommender):
              log: DataFrame,
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
-        logging.debug("Построение модели LightFM")
+        self.logger.debug("Построение модели LightFM")
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
         pandas_log = log_indexed.select(
@@ -81,8 +79,7 @@ class LightFMRec(Recommender):
         prediction = log_indexed.toPandas()
         prediction["relevance"] = self.model.predict(
             np.array(prediction.user_idx), np.array(prediction.item_idx))
-        spark = State().session
-        recs = spark.createDataFrame(
+        recs = self.spark.createDataFrame(
             prediction[["user_id", "item_id", "relevance"]]
         ).cache()
         recs = get_top_k_recs(recs, k)

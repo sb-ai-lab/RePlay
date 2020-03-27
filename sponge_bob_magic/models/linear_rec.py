@@ -11,9 +11,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql.functions import lit, udf, when
 from pyspark.sql.types import DoubleType, FloatType
 
-
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import func_get, get_feature_cols, get_top_k_recs
 
 
@@ -67,8 +65,7 @@ class LinearRec(Recommender):
                 elasticNetParam=self.elastic_net_param)
             .fit(self.augmented_data)
         )
-        spark = State().session
-        model_path = os.path.join(spark.conf.get("spark.local.dir"),
+        model_path = os.path.join(self.spark.conf.get("spark.local.dir"),
                                   "linear.model")
         self._model.write().overwrite().save(model_path)
         self._model = self._model.read().load(model_path)

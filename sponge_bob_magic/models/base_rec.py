@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, Optional
 
 import pandas as pd
 from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.session_handler import State
@@ -20,6 +20,8 @@ class Recommender(ABC):
     item_index: StringIndexerModel
     inv_user_indexer: IndexToString
     inv_item_indexer: IndexToString
+    _logger: Optional[logging.Logger] = None
+    _spark: Optional[SparkSession] = None
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
@@ -67,9 +69,9 @@ class Recommender(ABC):
             ``[item_id, timestamp]`` и колонки с признаками
         :return:
         """
-        logging.debug("Предварительная стадия обучения (pre-fit)")
+        self.logger.debug("Предварительная стадия обучения (pre-fit)")
         self._pre_fit(log, user_features, item_features)
-        logging.debug("Основная стадия обучения (fit)")
+        self.logger.debug("Основная стадия обучения (fit)")
         self._fit(log, user_features, item_features)
 
     def _pre_fit(self, log: DataFrame,
@@ -175,18 +177,19 @@ class Recommender(ABC):
             raise ValueError(
                 "Значение k больше, чем множество объектов; "
                 f"k = {k}, number of items = {num_items}")
-        recs = self._predict(log, k, users, items, user_features, item_features, filter_seen_items)
+        recs = self._predict(log, k, users, items, user_features, item_features,
+                             filter_seen_items)
         return recs
 
-    @staticmethod
-    def _extract_unique(log: DataFrame, array: Iterable, column: str) -> DataFrame:
+    def _extract_unique(self, log: DataFrame, array: Iterable, column: str) -> \
+            DataFrame:
         """
         Получить уникальные значения из ``array`` и положить в датафрейм с колонкой ``column``.
         Если ``array is None``, то вытащить значение из ``log``.
         """
         spark = State().session
         if array is None:
-            logging.debug("Выделение дефолтных юзеров")
+            self.logger.debug("Выделение дефолтных юзеров")
             unique = log.select(column).distinct()
         elif not isinstance(array, DataFrame):
             if isinstance(array, Iterable):
@@ -302,3 +305,15 @@ class Recommender(ABC):
                             .otherwise(recs["relevance"]))
                 .drop("in_log", "item", "user"))
         return recs
+
+    @property
+    def logger(self):
+        if self._logger is None:
+            self._logger = logging.getLogger("sponge_bob_magic")
+        return self._logger
+
+    @property
+    def spark(self):
+        if self._spark is None:
+            self._spark = State().session
+        return self._spark

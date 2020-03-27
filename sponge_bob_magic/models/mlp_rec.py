@@ -1,7 +1,6 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import logging
 import os
 import shutil
 from typing import Dict, Optional, Tuple, Union
@@ -13,7 +12,7 @@ import torch.optim
 from annoy import AnnoyIndex
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import MinMaxScaler, VectorAssembler
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql.functions import udf
 from pyspark.sql.types import DoubleType
 from torch import Tensor
@@ -117,7 +116,6 @@ class MLPRec(Recommender):
         self.epochs = epochs
         self.embedding_dimension = embedding_dimension
         self.loss = nn.CosineEmbeddingLoss()
-        self.spark = State().session
 
     def get_params(self) -> Dict[str, object]:
         return {
@@ -184,7 +182,7 @@ class MLPRec(Recommender):
              log: DataFrame,
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
-        logging.debug("Индексирование данных")
+        self.logger.debug("Индексирование данных")
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
         self.model.train()
@@ -192,8 +190,8 @@ class MLPRec(Recommender):
                                      lr=self.learning_rate)
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.9)
 
-        logging.debug("Составление батча:")
-        tensor_data = MLPRec.spark2pandas_csv(
+        self.logger.debug("Составление батча:")
+        tensor_data = self.spark2pandas_csv(
             log_indexed.select("user_idx", "item_idx"),
             os.path.join(self.spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
@@ -204,15 +202,15 @@ class MLPRec(Recommender):
         item_batch = torch.LongTensor(
             tensor_data["item_idx"].values
         ).to(self.device)
-        logging.debug("Обучение модели")
+        self.logger.debug("Обучение модели")
         for epoch in range(self.epochs):
-            logging.debug("-- Эпоха %d", epoch)
+            self.logger.debug("-- Эпоха %d", epoch)
             current_loss = self._run_epoch(user_batch, item_batch,
                                            optimizer, scheduler)
-            logging.debug("-- Текущее значение: %.4f", current_loss)
+            self.logger.debug("-- Текущее значение: %.4f", current_loss)
 
         self.model.eval()
-        logging.debug("-- Запись annoy индексов")
+        self.logger.debug("-- Запись annoy индексов")
         _, item_embs = self.model(user_batch, item_batch, get_embs=True)
         self.annoy_index = AnnoyIndex(item_embs.size()[1], "angular")
         for item_id, item_emb in zip(
@@ -239,11 +237,11 @@ class MLPRec(Recommender):
             shutil.rmtree(tmp_path)
         os.makedirs(tmp_path)
 
-        logging.debug("Индексирование данных")
+        self.logger.debug("Индексирование данных")
         users = self.user_indexer.transform(users)
 
-        logging.debug("Предсказание модели")
-        tensor_data = MLPRec.spark2pandas_csv(
+        self.logger.debug("Предсказание модели")
+        tensor_data = self.spark2pandas_csv(
             users.select("user_idx"),
             os.path.join(self.spark.conf.get("spark.local.dir"),
                          "tmp_tensor_data")
@@ -254,7 +252,7 @@ class MLPRec(Recommender):
         item_batch = torch.ones_like(user_batch).to(self.device)
         user_embs, _ = self.model(user_batch, item_batch, get_embs=True)
         predictions = pandas.DataFrame(columns=["user_idx", "item_idx"])
-        logging.debug("Поиск ближайших айтемов с помощью annoy")
+        self.logger.debug("Поиск ближайших айтемов с помощью annoy")
         for user_id, user_emb in zip(tensor_data["user_idx"].values,
                                      user_embs.cpu().detach().numpy()):
             pred_for_user, relevance = self.annoy_index.get_nns_by_vector(
@@ -274,7 +272,7 @@ class MLPRec(Recommender):
                                    header=True,
                                    inferSchema=True)
 
-        logging.debug("Обратное преобразование индексов")
+        self.logger.debug("Обратное преобразование индексов")
         recs = self.inv_item_indexer.transform(recs)
         recs = self.inv_user_indexer.transform(recs)
         recs = recs.drop("user_idx", "item_idx")
@@ -283,7 +281,7 @@ class MLPRec(Recommender):
 
         recs = get_top_k_recs(recs, k)
 
-        logging.debug("Преобразование отрицательных relevance")
+        self.logger.debug("Преобразование отрицательных relevance")
         recs = MLPRec.min_max_scale_column(recs, "relevance")
 
         return recs
@@ -317,8 +315,8 @@ class MLPRec(Recommender):
 
         return dataframe
 
-    @staticmethod
-    def spark2pandas_csv(dataframe: DataFrame, path: str) -> pandas.DataFrame:
+    def spark2pandas_csv(self, dataframe: DataFrame, path: str) -> \
+            pandas.DataFrame:
         """
         Преобразовать спарк-датафрейм в пандас-датафрейм.
         Функция записывает спарк-датафрейм на диск в виде CSV,
@@ -329,14 +327,14 @@ class MLPRec(Recommender):
         :param path: путь, по которому будет записан датафрейм и заново считан
         :return:
         """
-        logging.debug("-- Запись")
+        self.logger.debug("-- Запись")
         (dataframe
          .coalesce(1)
          .write
          .mode("overwrite")
          .csv(path, header=True))
 
-        logging.debug("-- Считывание")
+        self.logger.debug("-- Считывание")
         pandas_path = os.path.join(path,
                                    [file
                                     for file in os.listdir(path)
