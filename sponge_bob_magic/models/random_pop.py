@@ -5,7 +5,7 @@ from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
-from pyspark.sql import DataFrame, Window
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
@@ -22,16 +22,13 @@ class RandomPop(Recommender):
     что случайно выбранный пользователь взаимодействовал с объектом:
 
     .. math::
-        P\\left(i\\right) = \\dfrac{N_i + \\alpha}{N + n\\alpha}
+        P\\left(i\\right)\\propto N_i + \\alpha
 
     :math:`N_i` --- количество пользователей, у которых было взаимодействие с объектом :math:`i`
 
-    :math:`N` --- общее количество пользователей, независимо от взаимодействия с объектом
-
-    :math:`n` --- общее количество объектов
-
     :math:`\\alpha` --- параметр сглаживания (гипер-параметр модели). По умолчанию :math:`\\alpha = 0`.
-    Чем больше :math:`\\alpha > 0`, тем чаще будут рекомендоваться менее популярные объекты.
+    Чем больше :math:`\\alpha`, тем чаще будут рекомендоваться менее популярные объекты.
+    Требуется, чтобы всегда было :math:`\\alpha > -1`.
 
     >>> import pandas as pd
     >>> from sponge_bob_magic.converter import convert
@@ -50,6 +47,11 @@ class RandomPop(Recommender):
     |      2|      3|
     |      3|      3|
     +-------+-------+
+
+    >>> random_pop = RandomPop(alpha=-1)
+    Traceback (most recent call last):
+     ...
+    ValueError: alpha должно быть строго больше -1
 
     >>> random_pop = RandomPop(alpha=1.0, seed=777)
     >>> random_pop.get_params()
@@ -81,6 +83,8 @@ class RandomPop(Recommender):
         :param alpha: параметр аддитивного сглаживания. Чем он больше, тем чаще рекомендуются непопулярные объекты.
         :param seed: инициализация генератора псевдослучайности
         """
+        if alpha <= -1.0:
+            raise ValueError("alpha должно быть строго больше -1")
         self.alpha = alpha
         self.seed = seed
 
