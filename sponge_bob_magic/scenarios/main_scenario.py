@@ -8,7 +8,8 @@ from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame
 
 from sponge_bob_magic.constants import IterOrList
-from sponge_bob_magic.metrics import HitRate, Metric, Surprisal, Unexpectedness
+from sponge_bob_magic.metrics import (Coverage, HitRate, Metric, Surprisal,
+                                      Unexpectedness)
 from sponge_bob_magic.models import KNNRec, PopRec, Recommender
 from sponge_bob_magic.scenarios.main_objective import MainObjective, SplitData
 from sponge_bob_magic.session_handler import State
@@ -187,7 +188,7 @@ class MainScenario:
         self.logger.debug("Инициализация метрик")
         metrics = {}
         for metric in self.metrics:
-            if metric in {Surprisal, Unexpectedness}:
+            if metric in {Surprisal, Unexpectedness, Coverage}:
                 metrics[metric(split_data.train)] = self.metrics[metric]
             else:
                 metrics[metric()] = self.metrics[metric]
