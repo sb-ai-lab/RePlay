@@ -22,7 +22,7 @@ class RandomPop(Recommender):
     что случайно выбранный пользователь взаимодействовал с объектом:
 
     .. math::
-        P\\left\\{i\\right\\} = \\dfrac{N_i + \\alpha}{N + n\\alpha}
+        P\\left(i\\right) = \\dfrac{N_i + \\alpha}{N + n\\alpha}
 
     :math:`N_i` --- количество пользователей, у которых было взаимодействие с объектом :math:`i`
 
