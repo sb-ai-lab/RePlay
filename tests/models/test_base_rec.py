@@ -94,12 +94,14 @@ class RecTestCase(PySparkTest):
 
     def test_users_count(self):
         model = self.DerivedRec()
-        self.assertEqual(model.users_count, -1)
+        with self.assertRaises(AttributeError):
+            model.users_count
         model._pre_fit(self.log)
         self.assertEqual(model.users_count, 1)
 
     def test_items_count(self):
         model = self.DerivedRec()
-        self.assertEqual(model.items_count, -1)
+        with self.assertRaises(AttributeError):
+            model.items_count
         model._pre_fit(self.log)
         self.assertEqual(model.items_count, 1)

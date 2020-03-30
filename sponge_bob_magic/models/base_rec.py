@@ -319,11 +319,14 @@ class Recommender(ABC):
     @property
     def users_count(self) -> int:
         """
-        :returns: количество пользователей в обучающей выборке либо ``-1``, если модель не обучена
+        :returns: количество пользователей в обучающей выборке; выдаёт ошибку, если модель не обучена
         """
-        if "user_indexer" in self.__dict__:
+        try:
             return len(self.user_indexer.labels)
-        return -1
+        except AttributeError:
+            raise AttributeError(
+                "Перед вызовом этого свойства нужно вызвать метод fit"
+            )
 
     @property
     def spark(self) -> SparkSession:
@@ -334,8 +337,11 @@ class Recommender(ABC):
     @property
     def items_count(self) -> int:
         """
-        :returns: количество объектов в обучающей выборке либо ``-1``, если модель не обучена
+        :returns: количество объектов в обучающей выборке; выдаёт ошибку, если модель не обучена
         """
-        if "item_indexer" in self.__dict__:
+        try:
             return len(self.item_indexer.labels)
-        return -1
+        except AttributeError:
+            raise AttributeError(
+                "Перед вызовом этого свойства нужно вызвать метод fit"
+            )
