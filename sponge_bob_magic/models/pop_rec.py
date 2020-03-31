@@ -26,8 +26,6 @@ class PopRec(Recommender):
     :math:`N` - общее количество пользователей,
     независимо от взаимодействия с объектом.
 
-    Умеет учитывать контекст оценок при подсчете значения популярности.
-
     >>> import pandas as pd
     >>> df = pd.DataFrame({"user_id": [1, 1, 2, 2, 3], "item_id": [1, 2, 3, 3, 3]})
     >>> df
@@ -71,8 +69,7 @@ class PopRec(Recommender):
         self.items_popularity = popularity.select(
             "item_id",
             (
-                sf.col("user_count") /
-                sf.lit(len(self.user_indexer.labels))
+                sf.col("user_count") / sf.lit(self.users_count)
             ).alias("relevance")
         ).cache()
 
@@ -92,10 +89,13 @@ class PopRec(Recommender):
                  filter_seen_items: bool = True) -> DataFrame:
         # удаляем ненужные items и добавляем нулевые
         items = items.join(
-            self.items_popularity,
-            on="item_id",
+            self.items_popularity.select(
+                sf.col("item_id").alias("item_id_2"),
+                "relevance"
+            ),
+            on=sf.col("item_id") == sf.col("item_id_2"),
             how="left"
-        )
+        ).drop("item_id_2")
         items = items.na.fill({"relevance": 0})
         # (user_id, item_id, relevance)
         recs = users.crossJoin(items)

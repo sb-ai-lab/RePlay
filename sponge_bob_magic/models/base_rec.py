@@ -3,7 +3,7 @@
 """
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional, Union
 
 import pandas as pd
 from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
@@ -136,8 +136,8 @@ class Recommender(ABC):
     def predict(self,
                 log: DataFrame,
                 k: int,
-                users: Optional[DataFrame] = None,
-                items: Optional[DataFrame] = None,
+                users: Optional[Union[DataFrame, Iterable]] = None,
+                items: Optional[Union[DataFrame, Iterable]] = None,
                 user_features: Optional[DataFrame] = None,
                 item_features: Optional[DataFrame] = None,
                 filter_seen_items: bool = True) -> DataFrame:
@@ -181,8 +181,12 @@ class Recommender(ABC):
                              filter_seen_items)
         return recs
 
-    def _extract_unique(self, log: DataFrame, array: Iterable, column: str) -> \
-            DataFrame:
+    def _extract_unique(
+            self,
+            log: DataFrame,
+            array: Union[Iterable, DataFrame],
+            column: str
+    ) -> DataFrame:
         """
         Получить уникальные значения из ``array`` и положить в датафрейм с колонкой ``column``.
         Если ``array is None``, то вытащить значение из ``log``.
@@ -307,13 +311,37 @@ class Recommender(ABC):
         return recs
 
     @property
-    def logger(self):
+    def logger(self) -> logging.Logger:
         if self._logger is None:
             self._logger = logging.getLogger("sponge_bob_magic")
         return self._logger
 
     @property
-    def spark(self):
+    def users_count(self) -> int:
+        """
+        :returns: количество пользователей в обучающей выборке; выдаёт ошибку, если модель не обучена
+        """
+        try:
+            return len(self.user_indexer.labels)
+        except AttributeError:
+            raise AttributeError(
+                "Перед вызовом этого свойства нужно вызвать метод fit"
+            )
+
+    @property
+    def spark(self) -> SparkSession:
         if self._spark is None:
             self._spark = State().session
         return self._spark
+
+    @property
+    def items_count(self) -> int:
+        """
+        :returns: количество объектов в обучающей выборке; выдаёт ошибку, если модель не обучена
+        """
+        try:
+            return len(self.item_indexer.labels)
+        except AttributeError:
+            raise AttributeError(
+                "Перед вызовом этого свойства нужно вызвать метод fit"
+            )

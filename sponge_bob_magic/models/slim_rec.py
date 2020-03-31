@@ -96,10 +96,7 @@ class SlimRec(Recommender):
                 pandas_log.relevance,
                 (pandas_log.user_idx, pandas_log.item_idx)
             ),
-            shape=(
-                len(self.user_indexer.labels),
-                len(self.item_indexer.labels)
-            )
+            shape=(self.users_count, self.items_count)
         )
         similarity = (self.spark
                       .createDataFrame(pandas_log.item_idx, st.FloatType())

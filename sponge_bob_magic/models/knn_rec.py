@@ -68,19 +68,23 @@ class KNNRec(Recommender):
                 on=["item_id_one", "item_id_two"]
             )
             .join(
-                item_norms.alias("item1"),
+                item_norms
+                .withColumnRenamed("item_id", "item_id1")
+                .withColumnRenamed("norm", "norm1"),
                 how="inner",
-                on=sf.col("item1.item_id") == sf.col("item_id_one")
+                on=sf.col("item_id1") == sf.col("item_id_one")
             )
             .join(
-                item_norms.alias("item2"),
+                item_norms
+                .withColumnRenamed("item_id", "item_id2")
+                .withColumnRenamed("norm", "norm2"),
                 how="inner",
-                on=sf.col("item2.item_id") == sf.col("item_id_two")
+                on=sf.col("item_id2") == sf.col("item_id_two")
             )
             .withColumn(
                 "similarity",
                 1 - sf.col("dot_product") /
-                (sf.col("item1.norm") * sf.col("item2.norm") + self.shrink)
+                (sf.col("norm1") * sf.col("norm2") + self.shrink)
             )
             .select("item_id_one", "item_id_two", "similarity")
         )
@@ -122,10 +126,12 @@ class KNNRec(Recommender):
             user_features: Optional[DataFrame] = None,
             item_features: Optional[DataFrame] = None) -> None:
         self.dot_products = (
-            log
+            log.select("user_id", "item_id")
             .withColumnRenamed("item_id", "item_id_one")
             .join(
-                log.withColumnRenamed("item_id", "item_id_two"),
+                log
+                .select("user_id", "item_id")
+                .withColumnRenamed("item_id", "item_id_two"),
                 how="inner",
                 on="user_id"
             )
@@ -134,7 +140,7 @@ class KNNRec(Recommender):
             .cache()
         )
         self.item_norms = (
-            log
+            log.select("user_id", "item_id")
             .groupby("item_id")
             .agg(sf.count("user_id").alias("square_norm"))
             .select(sf.col("item_id"), sf.sqrt("square_norm").alias("norm"))
