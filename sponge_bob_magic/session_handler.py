@@ -24,6 +24,7 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
         spark_memory = floor(psutil.virtual_memory().total / 1024 ** 3 / 2)
     spark_cores = "*"
     user_home = os.environ["HOME"]
+    os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     spark = (
         SparkSession
         .builder
