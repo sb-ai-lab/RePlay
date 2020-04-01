@@ -61,11 +61,14 @@ class PySparkTest(unittest.TestCase):
 
     @classmethod
     def create_testing_pyspark_session(cls):
+        os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
         return (SparkSession
                 .builder
                 .master("local[1]")
                 .config("spark.driver.memory", "512m")
                 .config("spark.sql.shuffle.partitions", "1")
+                .config("spark.driver.bindAddress", "127.0.0.1")
+                .config("spark.driver.host", "localhost")
                 .config("spark.sql.execution.arrow.enabled", "true")
                 .config("spark.local.dir",
                         os.path.join(os.environ["HOME"], "tmp"))
