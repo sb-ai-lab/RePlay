@@ -98,9 +98,13 @@ class Metric(ABC):
         users_count = recommendations.select("user_id").distinct().count()
         agg_fn = self._get_metric_value_by_user
 
+        recs = self._get_enriched_recommendations(
+            recommendations, ground_truth)
+
         @sf.pandas_udf(
             st.StructType([
-                st.StructField("user_id", st.StringType(), True),
+                st.StructField("user_id",
+                               recs.schema["user_id"].dataType, True),
                 st.StructField("cum_agg", st.DoubleType(), True),
                 st.StructField("k", st.LongType(), True)
             ]),
@@ -112,8 +116,6 @@ class Metric(ABC):
                          .assign(k=pandas_df.index + 1))
             return agg_fn(pandas_df)[["user_id", "cum_agg", "k"]]
 
-        recs = self._get_enriched_recommendations(
-            recommendations, ground_truth)
         recs = (
             recs.groupby("user_id")
             .apply(grouped_map)

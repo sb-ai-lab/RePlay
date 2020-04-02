@@ -86,11 +86,8 @@ class SlimRec(Recommender):
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
         pandas_log = log_indexed.select(
-            "user_idx", "item_idx", "relevance").collect()
-        pandas_log = pd.DataFrame.from_records(pandas_log,
-                                               columns=["user_idx",
-                                                        "item_idx",
-                                                        "relevance"])
+            "user_idx", "item_idx", "relevance").toPandas()
+
         interactions_matrix = csc_matrix(
             (
                 pandas_log.relevance,
@@ -109,6 +106,7 @@ class SlimRec(Recommender):
                                 l1_ratio=l1_ratio,
                                 fit_intercept=False,
                                 random_state=self.seed,
+                                selection="random",
                                 positive=True)
 
         @sf.pandas_udf("item_id_one float, item_id_two float, similarity "
@@ -124,7 +122,8 @@ class SlimRec(Recommender):
             idx = int(pandas_df["item_id_one"][0])
             column = interactions_matrix[:, idx]
             column_arr = column.toarray().ravel()
-            interactions_matrix[interactions_matrix[:, idx].nonzero(), idx] = 0
+            interactions_matrix[interactions_matrix[:, idx].nonzero()[0],
+                                idx] = 0
 
             regression.fit(interactions_matrix, column_arr)
             interactions_matrix[:, idx] = column
