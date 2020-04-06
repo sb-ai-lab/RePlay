@@ -13,6 +13,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.constants import IntOrList
+from sponge_bob_magic.experiment import Experiment
 from sponge_bob_magic.metrics import (Coverage, Metric, Surprisal,
                                       Unexpectedness)
 from sponge_bob_magic.models.base_rec import Recommender
@@ -57,18 +58,17 @@ class MainObjective:
         self.study = study
         self.params_grid = params_grid
         self.filter_seen_items = filter_seen_items
-
         self.max_in_fallback_recs = (
             fallback_recs
             .agg({"relevance": "max"})
             .collect()[0][0]
         ) if fallback_recs is not None else 0
-
         self.fallback_recs = (
             fallback_recs
             .withColumnRenamed("relevance", "relevance_fallback")
         ) if fallback_recs is not None else None
         self.logger = logging.getLogger("sponge_bob_magic")
+        self.experiment = Experiment(split_data.test, metrics)
 
     def __call__(
             self,
@@ -97,15 +97,18 @@ class MainObjective:
             items=self.split_data.items,
             user_features=self.split_data.user_features,
             item_features=self.split_data.item_features,
-            filter_seen_items=self.filter_seen_items)
+            filter_seen_items=self.filter_seen_items
+        ).cache()
         self.logger.debug("-- Дополняем рекомендации fallback рекомендациями")
         recs = self._join_fallback_recs(recs, self.fallback_recs, self.k,
                                         self.max_in_fallback_recs)
         self.logger.debug("-- Подсчет метрики в оптимизации")
-        criterion_value = self._calculate_metrics(trial, recs,
-                                                  self.split_data.test,
-                                                  self.criterion, self.metrics,
-                                                  self.k)
+        criterion_value = self.criterion(recs, self.split_data.test, self.k)
+        self.experiment.add_result(
+            f"{type(self.recommender).__name__}({params})",
+            recs
+        )
+        self.logger.debug("%s=%.2f", self.criterion, criterion_value)
         return criterion_value
 
     @staticmethod
@@ -154,34 +157,6 @@ class MainObjective:
             self.logger.debug("-- Сохраняем optuna study на диск")
             joblib.dump(study,
                         os.path.join(path, "optuna_study.joblib"))
-
-    def _calculate_metrics(
-            self,
-            trial: Trial,
-            recommendations: DataFrame,
-            ground_truth: DataFrame,
-            criterion: Metric,
-            metrics: Dict[Metric, IntOrList],
-            k: int
-    ) -> float:
-        """ Подсчитывает все метрики и сохраняет их в `trial`. """
-        result_string = "-- Метрики:"
-        criterion_value = criterion(recommendations, ground_truth, k=k)
-        result_string += f" {criterion}={criterion_value:.4f}"
-        for metric in metrics:
-            if isinstance(metric, (Surprisal, Unexpectedness, Coverage)):
-                values = metric(recommendations, k=metrics[metric])
-            else:
-                values = metric(
-                    recommendations=recommendations,
-                    ground_truth=ground_truth,
-                    k=metrics[metric])
-            trial.set_user_attr(str(metric), values)
-            values_str = ", ".join(
-                f"{key}: {values[key]:.4f}" for key in values)
-            result_string += f" {metric}={values_str}; "
-        self.logger.debug(result_string)
-        return criterion_value
 
     def _join_fallback_recs(
             self,
