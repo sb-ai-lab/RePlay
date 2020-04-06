@@ -12,7 +12,7 @@ from optuna import Study, Trial
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.constants import IterOrList
+from sponge_bob_magic.constants import IntOrList
 from sponge_bob_magic.metrics import (Coverage, Metric, Surprisal,
                                       Unexpectedness)
 from sponge_bob_magic.models.base_rec import Recommender
@@ -42,7 +42,7 @@ class MainObjective:
             split_data: SplitData,
             recommender: Recommender,
             criterion: Metric,
-            metrics: Dict[Metric, IterOrList],
+            metrics: Dict[Metric, IntOrList],
             k: int = 10,
             fallback_recs: Optional[DataFrame] = None,
             filter_seen_items: bool = False,
@@ -161,7 +161,7 @@ class MainObjective:
             recommendations: DataFrame,
             ground_truth: DataFrame,
             criterion: Metric,
-            metrics: Dict[Metric, IterOrList],
+            metrics: Dict[Metric, IntOrList],
             k: int
     ) -> float:
         """ Подсчитывает все метрики и сохраняет их в `trial`. """

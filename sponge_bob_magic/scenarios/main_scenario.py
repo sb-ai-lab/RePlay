@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame
 
-from sponge_bob_magic.constants import IterOrList
+from sponge_bob_magic.constants import IntOrList
 from sponge_bob_magic.metrics import (Coverage, HitRate, Metric, Surprisal,
                                       Unexpectedness)
 from sponge_bob_magic.models import KNNRec, PopRec, Recommender
@@ -32,7 +32,7 @@ class MainScenario:
             splitter: Splitter = RandomSplitter(0.3, True, True),
             recommender: Recommender = KNNRec(),
             criterion: type = HitRate,
-            metrics: Dict[type, IterOrList] = dict(),
+            metrics: Dict[type, IntOrList] = dict(),
             fallback_rec: Recommender = PopRec()
     ):
         """
@@ -97,7 +97,7 @@ class MainScenario:
             params_grid: Dict[str, Dict[str, Any]],
             split_data: SplitData,
             criterion: Metric,
-            metrics: Dict[Metric, IterOrList],
+            metrics: Dict[Metric, IntOrList],
             k: int = 10,
             fallback_recs: Optional[DataFrame] = None
     ) -> Dict[str, Any]:

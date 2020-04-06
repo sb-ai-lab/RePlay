@@ -7,7 +7,7 @@ from typing import Dict, Set, Union
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.constants import IterOrList, NumType, CommonDataFrame
+from sponge_bob_magic.constants import CommonDataFrame, IntOrList, NumType
 from sponge_bob_magic.converter import convert
 from sponge_bob_magic.metrics.base_metric import Metric
 
@@ -38,7 +38,7 @@ class Coverage(Metric):
     def __call__(
             self,
             recommendations: CommonDataFrame,
-            k: IterOrList
+            k: IntOrList
     ) -> Union[Dict[int, NumType], NumType]:
         return super().__call__(recommendations, recommendations, k)
 
@@ -46,7 +46,7 @@ class Coverage(Metric):
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
-            k: IterOrList
+            k: IntOrList
     ) -> Union[Dict[int, NumType], NumType]:
         if isinstance(k, int):
             k_set = {k}

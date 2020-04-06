@@ -7,7 +7,7 @@ import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.constants import IterOrList, NumType, CommonDataFrame
+from sponge_bob_magic.constants import CommonDataFrame, IntOrList, NumType
 from sponge_bob_magic.converter import convert
 from sponge_bob_magic.metrics.base_metric import Metric
 from sponge_bob_magic.models import PopRec
@@ -57,7 +57,7 @@ class Unexpectedness(Metric):
     def __call__(
             self,
             recommendations: CommonDataFrame,
-            k: IterOrList
+            k: IntOrList
     ) -> Union[Dict[int, NumType], NumType]:
         return super().__call__(recommendations, recommendations, k)
 
