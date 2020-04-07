@@ -34,7 +34,10 @@ class DateSplitter(Splitter):
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
            которых нет в обучающей
         """
-        super().__init__(drop_cold_items, drop_cold_users)
+        super().__init__(
+            drop_cold_items=drop_cold_items,
+            drop_cold_users=drop_cold_users
+        )
         self.test_start = test_start
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
@@ -63,7 +66,10 @@ class RandomSplitter(Splitter):
            которых нет в обучающей
         :param seed: сид для разбиения
         """
-        super().__init__(drop_cold_items, drop_cold_users)
+        super().__init__(
+            drop_cold_items=drop_cold_items,
+            drop_cold_users=drop_cold_users
+        )
         self.seed = seed
         self.test_size = test_size
 
@@ -93,7 +99,10 @@ class ColdUsersSplitter(Splitter):
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
            которых нет в обучающей
         """
-        super().__init__(drop_cold_items, drop_cold_users)
+        super().__init__(
+            drop_cold_items=drop_cold_items,
+            drop_cold_users=drop_cold_users
+        )
         self.test_size = test_size
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
