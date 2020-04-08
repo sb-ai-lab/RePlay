@@ -29,7 +29,7 @@ class RecTestCase(PySparkTest):
             pass
 
         def get_params(self) -> Dict[str, object]:
-            pass
+            return {"alpha": 1, "beta": 2}
 
     def setUp(self):
         self.model = self.DerivedRec()
@@ -105,3 +105,6 @@ class RecTestCase(PySparkTest):
             model.items_count
         model._pre_fit(self.log)
         self.assertEqual(model.items_count, 1)
+
+    def test_repr(self):
+        self.assertEqual(str(self.model), "DerivedRec(alpha=1, beta=2)")

@@ -100,7 +100,7 @@ class RandomPop(Recommender):
             log
             .groupBy("item_id")
             .agg(sf.countDistinct("user_id").alias("user_count"))
-        )
+        ).cache()
 
     def _fit(self,
              log: DataFrame,

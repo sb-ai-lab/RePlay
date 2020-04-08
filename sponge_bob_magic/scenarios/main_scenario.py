@@ -7,7 +7,8 @@ from typing import Any, Dict, Optional
 from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame
 
-from sponge_bob_magic.constants import IterOrList
+from sponge_bob_magic.constants import IntOrList
+from sponge_bob_magic.experiment import Experiment
 from sponge_bob_magic.metrics import (Coverage, HitRate, Metric, Surprisal,
                                       Unexpectedness)
 from sponge_bob_magic.models import KNNRec, PopRec, Recommender
@@ -32,7 +33,7 @@ class MainScenario:
             splitter: Splitter = RandomSplitter(0.3, True, True),
             recommender: Recommender = KNNRec(),
             criterion: type = HitRate,
-            metrics: Dict[type, IterOrList] = dict(),
+            metrics: Dict[type, IntOrList] = dict(),
             fallback_rec: Recommender = PopRec()
     ):
         """
@@ -58,6 +59,7 @@ class MainScenario:
     filter_seen_items: bool = True
     study: Study
     _optuna_seed: Optional[int] = None
+    experiment: Experiment
 
     def _prepare_data(
             self,
@@ -86,7 +88,7 @@ class MainScenario:
         # чтобы не делать на каждый trial их заново
         users = users if users else test.select("user_id").distinct().cache()
         items = items if items else test.select("item_id").distinct().cache()
-        split_data = SplitData(train, test,
+        split_data = SplitData(train.cache(), test.cache(),
                                users, items,
                                user_features, item_features)
         return split_data
@@ -97,7 +99,7 @@ class MainScenario:
             params_grid: Dict[str, Dict[str, Any]],
             split_data: SplitData,
             criterion: Metric,
-            metrics: Dict[Metric, IterOrList],
+            metrics: Dict[Metric, IntOrList],
             k: int = 10,
             fallback_recs: Optional[DataFrame] = None
     ) -> Dict[str, Any]:
@@ -108,25 +110,21 @@ class MainScenario:
         # не используем максимально попыток
         count = 1
         n_unique_trials = 0
+        spark = State().session
+        objective = MainObjective(
+            params_grid, self.study, split_data, self.recommender,
+            criterion, metrics, k, fallback_recs,
+            self.filter_seen_items, spark.conf.get("spark.local.dir")
+        )
         while n_trials > n_unique_trials and count <= self.optuna_max_n_trials:
-            spark = State().session
-            self.study.optimize(
-                MainObjective(
-                    params_grid, self.study, split_data,
-                    self.recommender, criterion, metrics,
-                    k,
-                    fallback_recs,
-                    self.filter_seen_items,
-                    spark.conf.get("spark.local.dir")),
-                n_trials=1,
-                n_jobs=self.optuna_n_jobs
-            )
+            self.study.optimize(objective, 1, n_jobs=self.optuna_n_jobs)
             count += 1
-            n_unique_trials = len(
-                set(str(t.params)
-                    for t in self.study.trials)
-            )
-        self.logger.debug("Лучшие значения метрики: %d", self.study.best_value)
+            n_unique_trials = len({str(t.params) for t in self.study.trials})
+        self.experiment = objective.experiment
+        self.logger.debug(
+            "Лучшее значение метрики: %.2f",
+            self.study.best_value
+        )
         self.logger.debug("Лучшие параметры: %s", self.study.best_params)
         return self.study.best_params
 

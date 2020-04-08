@@ -10,7 +10,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
-from sponge_bob_magic.constants import CommonDataFrame, IterOrList, NumType
+from sponge_bob_magic.constants import CommonDataFrame, IntOrList, NumType
 from sponge_bob_magic.converter import convert
 
 
@@ -24,7 +24,7 @@ class Metric(ABC):
             self,
             recommendations: CommonDataFrame,
             ground_truth: CommonDataFrame,
-            k: IterOrList
+            k: IntOrList
     ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: выдача рекомендательной системы,
@@ -79,7 +79,7 @@ class Metric(ABC):
             self,
             recommendations: DataFrame,
             ground_truth: DataFrame,
-            k: IterOrList
+            k: IntOrList
     ) -> Union[Dict[int, NumType], NumType]:
         """
         Расчёт значения метрики

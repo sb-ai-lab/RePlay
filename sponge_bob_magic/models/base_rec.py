@@ -52,6 +52,15 @@ class Recommender(ABC):
             значение - значение параметра
         """
 
+    def __repr__(self):
+        return (
+            type(self).__name__ + "(" +
+            ", ".join([
+                f"{key}={self.get_params()[key]}"
+                for key in self.get_params()
+            ]) + ")"
+        )
+
     def fit(self, log: DataFrame,
             user_features: Optional[DataFrame] = None,
             item_features: Optional[DataFrame] = None) -> None:

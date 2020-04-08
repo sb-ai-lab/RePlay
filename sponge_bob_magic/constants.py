@@ -21,6 +21,6 @@ REC_SCHEMA = StructType([
     StructField("relevance", DoubleType())
 ])
 
-IterOrList = Union[Iterable[int], int]
+IntOrList = Union[Iterable[int], int]
 NumType = Union[int, float]
 CommonDataFrame = Union[DataFrame, pd.DataFrame]
