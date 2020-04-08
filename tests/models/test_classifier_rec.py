@@ -3,18 +3,17 @@
 """
 from datetime import datetime
 
-import numpy as np
 from pyspark.sql.types import (ArrayType, FloatType, IntegerType, StringType,
                                StructField, StructType, TimestampType)
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.models.linear import Linear
+from sponge_bob_magic.models.classifier_rec import ClassifierRec
 
 
-class LinearRecTestCase(PySparkTest):
+class ClassifierRecTestCase(PySparkTest):
     def setUp(self):
-        self.model = Linear()
+        self.model = ClassifierRec()
         self.user_features = self.spark.createDataFrame(
             [("1", datetime(2019, 1, 1), 1)],
             schema=StructType([
@@ -40,19 +39,13 @@ class LinearRecTestCase(PySparkTest):
         )
 
     def test_set_params(self):
-        params = {"lambda_param": 1e-5,
-                  "elastic_net_param": 0.1,
-                  "num_iter": 10}
+        params = dict()
         self.model.set_params(**params)
         self.assertEqual(self.model.get_params(), params)
 
     def test_get_params(self):
-        model = Linear(lambda_param=1e-4,
-                       elastic_net_param=0.1, num_iter=1)
-
-        params = {"lambda_param": 1e-4,
-                  "elastic_net_param": 0.1,
-                  "num_iter": 1}
+        model = ClassifierRec()
+        params = dict()
         self.assertEqual(model.get_params(), params)
 
     def test_fit(self):
@@ -61,11 +54,7 @@ class LinearRecTestCase(PySparkTest):
             user_features=self.user_features,
             item_features=self.item_features
         )
-        self.assertEqual(-17.559285977683665, self.model._model.intercept)
-        self.assertTrue(np.allclose(
-            [0.0, 36.16632625479383],
-            self.model._model.coefficients
-        ))
+        self.assertEqual(2, self.model._model.numClasses)
 
     def test_predict(self):
         self.model.fit(
@@ -73,23 +62,14 @@ class LinearRecTestCase(PySparkTest):
             user_features=self.user_features,
             item_features=self.item_features
         )
-        prediction = self.model._predict(
-            log=self.log,
-            k=2,
-            users=self.user_features.select("user_id"),
-            items=self.item_features.select("item_id"),
-            user_features=self.user_features,
-            item_features=self.item_features,
-            filter_seen_items=False
-        )
-        self.assertSparkDataFrameEqual(self.log.drop("timestamp"), prediction)
         empty_prediction = self.model._predict(
             log=self.log,
             k=2,
             users=self.user_features.select("user_id"),
             items=self.item_features.select("item_id"),
             user_features=self.user_features,
-            item_features=self.item_features
+            item_features=self.item_features,
+            filter_seen_items=True
         )
         self.assertEqual(
             sorted([(field.name, field.dataType) for field in
@@ -120,6 +100,7 @@ class LinearRecTestCase(PySparkTest):
                 StructField("features", ArrayType(IntegerType())),
             ])
         )
+        print(augmented_data.show())
         self.assertSparkDataFrameEqual(
             true_value,
             augmented_data

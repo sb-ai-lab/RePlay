@@ -27,10 +27,10 @@ K Nearest Neighbours
 .. autoclass:: sponge_bob_magic.models.KNN
     :special-members: __init__
 
-Linear Recommender
+Classifier Recommender
 -------------------
 
-..  autoclass:: sponge_bob_magic.models.Linear
+..  autoclass:: sponge_bob_magic.models.ClassifierRec
     :special-members: __init__
 
 Alternating Least Squares
