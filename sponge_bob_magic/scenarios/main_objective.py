@@ -104,10 +104,7 @@ class MainObjective:
                                         self.max_in_fallback_recs)
         self.logger.debug("-- Подсчет метрики в оптимизации")
         criterion_value = self.criterion(recs, self.split_data.test, self.k)
-        self.experiment.add_result(
-            f"{type(self.recommender).__name__}({params})",
-            recs
-        )
+        self.experiment.add_result(str(self.recommender), recs)
         self.logger.debug("%s=%.2f", self.criterion, criterion_value)
         return criterion_value
 
