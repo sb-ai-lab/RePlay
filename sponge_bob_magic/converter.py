@@ -4,7 +4,7 @@
 from pandas import DataFrame as PandasDataFrame
 from pyspark.sql import DataFrame as SparkDataFrame
 
-from sponge_bob_magic.datasets.generic_dataset import Dataset
+from rs_datasets.generic_dataset import Dataset
 from sponge_bob_magic.session_handler import State
 
 SPARK = "spark"
