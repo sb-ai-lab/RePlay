@@ -353,7 +353,7 @@ class VAERec(Recommender):
                         pred_user_batch.detach().cpu(),
                         cnt_by_user):
                     best_item_idx = torch.argsort(user_rec,
-                                                  descending=True)[:cnt+k]
+                                                  descending=True)[:cnt + k]
                     predictions = predictions.append(
                         pd.DataFrame({"user_idx": [user_id] * (cnt + k),
                                       "item_idx": best_item_idx,
