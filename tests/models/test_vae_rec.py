@@ -38,14 +38,14 @@ class VAERecTestCase(PySparkTest):
         self.model.fit(log=self.log, user_features=None, item_features=None)
 
         true_parameters = [
-            [[0.09770283, - 1.189494, 0.22463249]],
+            [[0.09770283, -1.189494, 0.22463249]],
             [0.00013281],
-            [[0.11212465],[0.1964051]],
+            [[0.11212465], [0.1964051]],
             [-0.49788895, -0.49717355],
             [[2.438208]],
             [0.00020276],
             [[1.7327943], [1.4323168], [1.2580526]],
-            [ 0.49908203,  0.49954212, -0.5007245 ]
+            [0.49908203, 0.49954212, -0.5007245]
         ]
 
         for i, parameter in enumerate(self.model.model.parameters()):
@@ -53,7 +53,6 @@ class VAERecTestCase(PySparkTest):
                 parameter.detach().cpu().numpy(), true_parameters[i],
                 atol=1.e-3
             ))
-
 
     def test_predict(self):
         self.model.fit(log=self.log, user_features=None, item_features=None)
