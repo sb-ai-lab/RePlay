@@ -276,14 +276,14 @@ class VAERec(Recommender):
         vae_trainer = Engine(_run_train_step)
         val_evaluator = Engine(_run_val_step)
 
-        Loss(_loss).attach(val_evaluator, 'elbo')
+        Loss(_loss).attach(val_evaluator, 'loss')
         vae_trainer.add_event_handler(Events.EPOCH_COMPLETED, scheduler)
         avg_output = RunningAverage(output_transform=lambda x: x)
         avg_output.attach(vae_trainer, 'avg')
 
         @vae_trainer.on(Events.EPOCH_COMPLETED)
         def log_training_loss(trainer):
-            self.logger.debug("Epoch[{}] current elbo: {:.5f}"
+            self.logger.debug("Epoch[{}] current loss: {:.5f}"
                               .format(trainer.state.epoch,
                                       trainer.state.metrics["avg"]))
 
@@ -291,11 +291,11 @@ class VAERec(Recommender):
         def log_validation_results(trainer):
             val_evaluator.run(valid_data_loader)
             metrics = val_evaluator.state.metrics
-            self.logger.debug("Epoch[{}] validation average elbo: {:.5f}"
-                              .format(trainer.state.epoch, metrics['elbo']))
+            self.logger.debug("Epoch[{}] validation average loss: {:.5f}"
+                              .format(trainer.state.epoch, metrics['loss']))
 
         def score_function(engine):
-            return -engine.state.metrics['elbo']
+            return -engine.state.metrics['loss']
 
         early_stopping = EarlyStopping(patience=self.patience,
                                        score_function=score_function,
@@ -308,7 +308,7 @@ class VAERec(Recommender):
             require_empty=False,
             n_saved=self.n_saved,
             score_function=score_function,
-            score_name="elbo",
+            score_name="loss",
             filename_prefix="best",
             global_step_transform=global_step_from_engine(vae_trainer))
 
