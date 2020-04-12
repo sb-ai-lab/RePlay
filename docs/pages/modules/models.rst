@@ -61,3 +61,9 @@ LightFM
 
 .. autoclass:: sponge_bob_magic.models.LightFMRec
     :special-members: __init__
+
+Mult-VAE
+--------
+
+.. autoclass:: sponge_bob_magic.models.VAERec
+    :special-members: __init__
