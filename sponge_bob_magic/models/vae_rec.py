@@ -30,7 +30,7 @@ from sponge_bob_magic.utils import get_top_k_recs
 
 
 class VAE(nn.Module):
-    """Простой вариационный авто кодировщик"""
+    """Простой вариационный автокодировщик"""
     def __init__(
             self,
             item_count: int,
@@ -40,12 +40,13 @@ class VAE(nn.Module):
             dropout: float = 0.3
     ):
         """
-        Инициализация модели. Создает эмбеддинги пользователей и объектов.
+        Инициализация модели.
 
-        :param user_count: количество пользователей
         :param item_count: количество объектов
-        :param embedding_dimension: размерность представления пользователей и
-            объектов
+        :param latent_dim: размерность скрытого представления
+        :param p_dims: последовательность размеров слоев декодера
+        :param q_dims: последовательность размеров слоев енкодера
+        :param dropout: коэффициент дропаута
         """
         super().__init__()
         if p_dims:
@@ -155,7 +156,7 @@ class VAERec(Recommender):
                  q_dims: Optional[List[int]] = None,
                  dropout: float = 0.3,
                  anneal: float = 0.005,
-                 l2: float = 0):
+                 l2_reg: float = 0):
         """
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
@@ -166,7 +167,7 @@ class VAERec(Recommender):
         :param q_dims: последовательность размеров слоев енкодера
         :param dropout: коэффициент дропаута
         :param anneal: коэффициент отжига от 0 до 1
-        :param l2: коэффициент l2 регуляризации
+        :param l2_reg: коэффициент l2 регуляризации
         """
         self.device = State().device
         self.learning_rate = learning_rate
@@ -176,7 +177,7 @@ class VAERec(Recommender):
         self.q_dims = q_dims
         self.dropout = dropout
         self.anneal = anneal
-        self.l2 = l2
+        self.l2_reg = l2_reg
 
     def get_params(self) -> Dict[str, object]:
         return {
@@ -237,7 +238,7 @@ class VAERec(Recommender):
         optimizer = torch.optim.Adam(
             self.model.parameters(),
             lr=self.learning_rate,
-            weight_decay=self.l2 / self.batch_size_users)
+            weight_decay=self.l2_reg / self.batch_size_users)
         lr_scheduler = ExponentialLR(optimizer, gamma=0.98)
         scheduler = LRScheduler(lr_scheduler)
 
@@ -355,9 +356,9 @@ class VAERec(Recommender):
                                                   descending=True)[:cnt+k]
                     predictions = predictions.append(
                         pd.DataFrame({"user_idx": [user_id] * (cnt + k),
-                                          "item_idx": best_item_idx,
-                                          "relevance": user_rec[best_item_idx]
-                                          }), sort=False)
+                                      "item_idx": best_item_idx,
+                                      "relevance": user_rec[best_item_idx]
+                                      }), sort=False)
 
         pred_evaluator = Engine(_run_pred_step)
         pred_evaluator.run(log_data_loader)
