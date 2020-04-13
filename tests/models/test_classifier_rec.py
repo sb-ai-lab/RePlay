@@ -54,7 +54,7 @@ class ClassifierRecTestCase(PySparkTest):
             user_features=self.user_features,
             item_features=self.item_features
         )
-        self.assertEqual(2, self.model._model.numClasses)
+        self.assertEqual(2, self.model.model.numClasses)
 
     def test_predict(self):
         self.model.fit(

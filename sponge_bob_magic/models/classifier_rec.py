@@ -17,7 +17,7 @@ from sponge_bob_magic.utils import func_get, get_feature_cols, get_top_k_recs
 
 class ClassifierRec(Recommender):
     """ Рекомендатель на основе линейной модели и эмбеддингов. """
-    _model: RandomForestClassificationModel
+    model: RandomForestClassificationModel
     augmented_data: DataFrame
 
     def get_params(self) -> Dict[str, object]:
@@ -38,11 +38,11 @@ class ClassifierRec(Recommender):
              log: DataFrame,
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
-        self._model = RandomForestClassifier().fit(self.augmented_data)
+        self.model = RandomForestClassifier().fit(self.augmented_data)
         model_path = os.path.join(self.spark.conf.get("spark.local.dir"),
                                   "linear.model")
-        self._model.write().overwrite().save(model_path)
-        self._model = self._model.read().load(model_path)
+        self.model.write().overwrite().save(model_path)
+        self.model = self.model.read().load(model_path)
 
     @staticmethod
     def _augment_data(
@@ -98,7 +98,7 @@ class ClassifierRec(Recommender):
         if filter_seen_items:
             data = data.join(log, on=["user_id", "item_id"], how="left_anti")
         recs = (
-            self._model
+            self.model
             .transform(data)
             .select(
                 "user_id",
