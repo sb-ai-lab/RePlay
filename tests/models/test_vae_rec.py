@@ -22,7 +22,8 @@ class VAERecTestCase(PySparkTest):
         params = {"learning_rate": 0.5,
                   "epochs": 1,
                   "latent_dim": 1,
-                  "p_dims": [1]}
+                  "decoder_dims": [1],
+                  "encoder_dims": [1]}
         self.model = VAERec(**params)
         self.log = self.spark.createDataFrame(
             [
@@ -53,6 +54,20 @@ class VAERecTestCase(PySparkTest):
                 parameter.detach().cpu().numpy(), true_parameters[i],
                 atol=1.e-3
             ))
+
+    def test_get_params(self):
+        self.assertDictEqual(
+            self.model.get_params(),
+            {"anneal": 0.005,
+             "decoder_dims": [1],
+             "dropout": 0.3,
+             "encoder_dims": [1],
+             "epochs": 1,
+             "gamma": 0.99,
+             "l2_reg": 0,
+             "latent_dim": 1,
+             "learning_rate": 0.5}
+        )
 
     def test_predict(self):
         self.model.fit(log=self.log, user_features=None, item_features=None)

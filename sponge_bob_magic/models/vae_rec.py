@@ -35,8 +35,8 @@ class VAE(nn.Module):
             self,
             item_count: int,
             latent_dim: int,
-            p_dims: Optional[List[int]] = None,
-            q_dims: Optional[List[int]] = None,
+            decoder_dims: Optional[List[int]] = None,
+            encoder_dims: Optional[List[int]] = None,
             dropout: float = 0.3
     ):
         """
@@ -44,37 +44,37 @@ class VAE(nn.Module):
 
         :param item_count: количество объектов
         :param latent_dim: размерность скрытого представления
-        :param p_dims: последовательность размеров слоев декодера
-        :param q_dims: последовательность размеров слоев енкодера
+        :param decoder_dims: последовательность размеров скрытых слоев декодера
+        :param encoder_dims: последовательность размеров скрытых слоев энкодера
         :param dropout: коэффициент дропаута
         """
         super().__init__()
-        if p_dims:
-            if q_dims:
-                self.q_dims = q_dims
+        if decoder_dims:
+            if encoder_dims:
+                self.encoder_dims = encoder_dims
             else:
-                self.q_dims = p_dims[::-1]
-            self.p_dims = p_dims
+                self.encoder_dims = decoder_dims[::-1]
+            self.decoder_dims = decoder_dims
         else:
-            self.q_dims = []
-            self.p_dims = []
+            self.encoder_dims = []
+            self.decoder_dims = []
         self.latent_dim = latent_dim
-        self.q_dims = [item_count] + self.q_dims + [latent_dim * 2]
-        self.p_dims = [latent_dim] + self.p_dims + [item_count]
+        self.encoder_dims = [item_count] + self.encoder_dims + [latent_dim * 2]
+        self.decoder_dims = [latent_dim] + self.decoder_dims + [item_count]
 
-        self.q_layers = nn.ModuleList([nn.Linear(d_in, d_out) for
-                                       d_in, d_out in
-                                       zip(self.q_dims[:-1], self.q_dims[1:])])
-        self.p_layers = nn.ModuleList([nn.Linear(d_in, d_out) for
-                                       d_in, d_out in
-                                       zip(self.p_dims[:-1], self.p_dims[1:])])
+        self.encoder = nn.ModuleList([nn.Linear(d_in, d_out) for d_in, d_out in
+                                      zip(self.encoder_dims[:-1],
+                                          self.encoder_dims[1:])])
+        self.decoder = nn.ModuleList([nn.Linear(d_in, d_out) for d_in, d_out in
+                                      zip(self.decoder_dims[:-1],
+                                          self.decoder_dims[1:])])
         self.dropout = nn.Dropout(dropout)
         self.activation = torch.relu
 
-        for layer in self.q_layers:
+        for layer in self.encoder:
             self.weight_init(layer)
 
-        for layer in self.p_layers:
+        for layer in self.decoder:
             self.weight_init(layer)
 
     def encode(self, batch: torch.Tensor) -> (torch.Tensor, torch.Tensor):
@@ -82,11 +82,11 @@ class VAE(nn.Module):
         hidden = F.normalize(batch, p=2, dim=1)
         hidden = self.dropout(hidden)
 
-        for layer in self.q_layers[:-1]:
+        for layer in self.encoder[:-1]:
             hidden = layer(hidden)
             hidden = self.activation(hidden)
 
-        hidden = self.q_layers[-1](hidden)
+        hidden = self.encoder[-1](hidden)
         mu_latent = hidden[:, :self.latent_dim]
         logvar_latent = hidden[:, self.latent_dim:]
         return mu_latent, logvar_latent
@@ -105,10 +105,10 @@ class VAE(nn.Module):
     def decode(self, z_latent: torch.Tensor) -> torch.Tensor:
         """Декодер"""
         hidden = z_latent
-        for layer in self.p_layers[:-1]:
+        for layer in self.decoder[:-1]:
             hidden = layer(hidden)
             hidden = self.activation(hidden)
-        return self.p_layers[-1](hidden)
+        return self.decoder[-1](hidden)
 
     def forward(self, batch: torch.Tensor) -> Tuple[torch.Tensor,
                                                     torch.Tensor,
@@ -143,47 +143,164 @@ class VAERec(Recommender):
 
     .. image:: /images/vae-gaussian.png
 
+    **Постановка задачи**
+
+    Дана выборка независимых одинаково распределенных величин из истинного
+    распределения :math:`x_i \sim p_d(x)`, :math:`i = 1, \dots, N`.
+
+    Задача - построить вероятностную модель :math:`p_\\theta(x)` истинного
+    распределения :math:`p_d(x)`.
+
+    Распределение :math:`p_\\theta(x)` должно позволять как оценить плотность
+    вероятности для данного объекта :math:`x`, так и сэмплировать
+    :math:`x \sim p_\\theta(x)`.
+
+    **Вероятностная модель**
+
+    :math:`z \in \mathbb{R}^d` - локальная латентная переменная, т. е. своя для
+    каждого объекта :math:`x`.
+
+    Генеративный процесс вариационного автокодировщика:
+
+    1. Сэмплируем :math:`z \sim p(z)`.
+    2. Сэмплируем :math:`x \sim p_\\theta(x | z)`.
+
+    Параметры распределения :math:`p_\\theta(x | z)` задаются нейросетью с
+    весами :math:`\\theta`, получающей на вход вектор :math:`z`.
+
+    Индуцированная генеративным процессом плотность вероятности объекта
+    :math:`x`:
+
+    .. math::
+        p_\\theta(x) = \mathbb{E}_{z \\sim p(z)} p_\\theta(x | z)
+
+    В случачае ВАЕ для максимизации правдоподобия максимизируют вариационную
+    нижнюю оценку на логарифм правдоподобия
+
+    .. math::
+        \log p_\\theta(x) = \mathbb{E}_{z \sim q_\phi(z | x)} \log p_\\theta(
+        x) = \mathbb{E}_{z \sim q_\phi(z | x)} \log \\frac{p_\\theta(x,
+        z) q_\phi(z | x)} {q_\phi(z | x) p_\\theta(z | x)} = \n
+        = \mathbb{E}_{z
+        \\sim q_\phi(z | x)} \log \\frac{p_\\theta(x, z)}{q_\phi(z | x)} + KL(
+        q_\phi(z | x) || p_\\theta(z | x))
+
+    .. math::
+        \log p_\\theta(x) \geqslant \mathbb{E}_{z \sim q_\phi(z | x)}
+        \log \\frac{p_\\theta(x | z)p(z)}{q_\phi(z | x)} =
+        \mathbb{E}_{z \\sim q_\phi(z | x)} \log p_\\theta(x | z) -
+        KL(q_\phi(z | x) || p(z)) = \n
+        = L(x; \phi, \\theta) \\to \max\limits_{\phi, \\theta}
+
+    :math:`q_\phi(z | x)` называется предложным (proposal) или распознающим
+    (recognition) распределением. Это гауссиана, чьи параметры задаются
+    нейросетью с весами :math:`\phi`:
+    :math:`q_\phi(z | x) = \mathcal{N}(z | \mu_\phi(x), \sigma^2_\phi(x)I)`.
+
+    Зазор между вариационной нижней оценкой :math:`L(x; \phi, \\theta)` на
+    логарифм правдоподобия модели и самим логарифмом правдоподобия
+    :math:`\log p_\\theta(x)` - это KL-дивергенция между предолжным и
+    апостериорным распределением на :math:`z`:
+    :math:`KL(q_\phi(z | x) || p_\\theta(z | x))`. Максимальное значение
+    :math:`L(x; \phi, \\theta)` при фиксированных параметрах модели
+    :math:`\\theta`
+    достигается при :math:`q_\phi(z | x) = p_\\theta(z | x)`, но явное
+    вычисление :math:`p_\\theta(z | x)` требует слишком большого числа
+    ресурсов, поэтому вместо этого вычисления вариационная нижняя оценка
+    оптимизируется также по :math:`\phi`. Чем ближе :math:`q_\phi(z | x)` к
+    :math:`p_\\theta(z | x)`, тем точнее вариационная нижняя оценка.
+
+    Обычно в качестве априорного распределения :math:`p(z)` используетя
+    какое-то простое распределение, чаще всего нормальное:
+
+    .. math::
+        \\varepsilon \sim \mathcal{N}(\\varepsilon | 0, I)
+
+    .. math::
+        z = \mu + \sigma \\varepsilon \Rightarrow z \sim \mathcal{N}(z | \mu,
+        \sigma^2I)
+
+    .. math::
+        \\frac{\partial}{\partial \phi} L(x; \phi, \\theta) = \mathbb{E}_{
+        \\varepsilon \sim \mathcal{N}(\\varepsilon | 0, I)} \\frac{\partial}
+        {\partial \phi} \log p_\\theta(x | \mu_\phi(x) + \sigma_\phi(x)
+        \\varepsilon) - \\frac{\partial}{\partial \phi} KL(q_\phi(z | x) ||
+        p(z))
+
+    .. math::
+        \\frac{\partial}{\partial \\theta} L(x; \phi, \\theta) = \mathbb{E}_{z
+        \sim q_\phi(z | x)} \\frac{\partial}{\partial \\theta} \log
+        p_\\theta(x | z)
+
+    В этом случае
+
+    .. math::
+        KL(q_\phi(z | x) || p(z)) = -\\frac{1}{2}\sum_{i=1}^{dimZ}(1+
+        log(\sigma_i^2) - \mu_i^2-\sigma_i^2)
+
+    Также коэффициент при KL-дивергенции (коэффициент отжига) может быть
+    положен не равным единице. Тогда оптимизируемая функция выглядит
+    следующим образом
+
+    .. math::
+        L(x; \phi, \\theta) =
+        \mathbb{E}_{z \\sim q_\phi(z | x)} \log p_\\theta(x | z) -
+        \\beta \cdot KL(q_\phi(z | x) || p(z)) \\to \max\limits_{\phi, \\theta}
+
+    При :math:`\\beta = 0` VAE (вариационный автокодировщик) превращается в
+    DAE (шумоподавляющий автокодировщик)
     """
     num_workers: int = 0
     batch_size_users: int = 5000
     patience: int = 5
     n_saved: int = 2
+    valid_split_size: float = 0.1
+    seed: int = 42
 
     def __init__(self, learning_rate: float = 0.05,
                  epochs: int = 1,
                  latent_dim: int = 10,
-                 p_dims: Optional[List[int]] = None,
-                 q_dims: Optional[List[int]] = None,
+                 decoder_dims: Optional[List[int]] = None,
+                 encoder_dims: Optional[List[int]] = None,
                  dropout: float = 0.3,
                  anneal: float = 0.005,
-                 l2_reg: float = 0):
+                 l2_reg: float = 0,
+                 gamma: float = 0.99):
         """
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
         :param learning_rate: шаг обучения
         :param epochs: количество эпох, в течение которых учимся
         :param latent_dim: размер скрытого представления пользователя
-        :param p_dims: последовательность размеров слоев декодера
-        :param q_dims: последовательность размеров слоев енкодера
+        :param decoder_dims: последовательность размеров скрытых слоев декодера
+        :param encoder_dims: последовательность размеров скрытых слоев энкодера
         :param dropout: коэффициент дропаута
         :param anneal: коэффициент отжига от 0 до 1
         :param l2_reg: коэффициент l2 регуляризации
+        :param gamma: коэффициент уменьшения learning_rate после каждой эпохи
         """
         self.device = State().device
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.latent_dim = latent_dim
-        self.p_dims = p_dims
-        self.q_dims = q_dims
+        self.decoder_dims = decoder_dims
+        self.encoder_dims = encoder_dims
         self.dropout = dropout
         self.anneal = anneal
         self.l2_reg = l2_reg
+        self.gamma = gamma
 
     def get_params(self) -> Dict[str, object]:
         return {
             "learning_rate": self.learning_rate,
             "epochs": self.epochs,
-            "latent_dim": self.latent_dim
+            "latent_dim": self.latent_dim,
+            "decoder_dims": self.decoder_dims,
+            "encoder_dims": self.encoder_dims,
+            "dropout": self.dropout,
+            "anneal": self.anneal,
+            "l2_reg": self.l2_reg,
+            "gamma": self.gamma
         }
 
     def _get_data_loader(self,
@@ -216,8 +333,8 @@ class VAERec(Recommender):
         self.logger.debug("Составление батча:")
         data = log_indexed.select("user_idx", "item_idx").toPandas()
         splitter = GroupShuffleSplit(n_splits=1,
-                                     test_size=0.1,
-                                     random_state=42)
+                                     test_size=self.valid_split_size,
+                                     random_state=self.seed)
         train_idx, valid_idx = next(splitter.split(data, groups=data[
             "user_idx"]))
         train_data, valid_data = data.iloc[train_idx], data.iloc[valid_idx]
@@ -231,15 +348,15 @@ class VAERec(Recommender):
         self.model = VAE(
             item_count=self.items_count,
             latent_dim=self.latent_dim,
-            p_dims=self.p_dims,
-            q_dims=self.q_dims,
+            decoder_dims=self.decoder_dims,
+            encoder_dims=self.encoder_dims,
             dropout=self.dropout).to(self.device)
 
         optimizer = torch.optim.Adam(
             self.model.parameters(),
             lr=self.learning_rate,
             weight_decay=self.l2_reg / self.batch_size_users)
-        lr_scheduler = ExponentialLR(optimizer, gamma=0.98)
+        lr_scheduler = ExponentialLR(optimizer, gamma=self.gamma)
         scheduler = LRScheduler(lr_scheduler)
 
         def _loss(x_pred, x_true, mu_latent,
@@ -276,10 +393,10 @@ class VAERec(Recommender):
         vae_trainer = Engine(_run_train_step)
         val_evaluator = Engine(_run_val_step)
 
-        Loss(_loss).attach(val_evaluator, 'loss')
+        Loss(_loss).attach(val_evaluator, "loss")
         vae_trainer.add_event_handler(Events.EPOCH_COMPLETED, scheduler)
         avg_output = RunningAverage(output_transform=lambda x: x)
-        avg_output.attach(vae_trainer, 'avg')
+        avg_output.attach(vae_trainer, "avg")
 
         @vae_trainer.on(Events.EPOCH_COMPLETED)
         def log_training_loss(trainer):
@@ -292,10 +409,10 @@ class VAERec(Recommender):
             val_evaluator.run(valid_data_loader)
             metrics = val_evaluator.state.metrics
             self.logger.debug("Epoch[{}] validation average loss: {:.5f}"
-                              .format(trainer.state.epoch, metrics['loss']))
+                              .format(trainer.state.epoch, metrics["loss"]))
 
         def score_function(engine):
-            return -engine.state.metrics['loss']
+            return -engine.state.metrics["loss"]
 
         early_stopping = EarlyStopping(patience=self.patience,
                                        score_function=score_function,
