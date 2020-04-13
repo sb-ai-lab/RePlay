@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
