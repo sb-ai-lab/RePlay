@@ -54,6 +54,9 @@ class Unexpectedness(Metric):
             rec.fit(log=self.log)
             self.model = rec
 
+    def __str__(self):
+        return f"Unexpectedness({self.model})"
+
     def __call__(
             self,
             recommendations: CommonDataFrame,

@@ -35,25 +35,26 @@ class Experiment:
     """
     def __init__(self,
                  test: Any,
-                 metrics: Dict[Metric, Union[int, List[int]]]):
+                 metrics: Union[Dict, List[Metric]],
+                 k: Union[int, List[int]] = None):
         """
         :param test: Данные для теста в формате ``pandas`` или ``pyspark`` DataFrame
         :param metrics: Словарь метрик, которые необходимо считать.
             Ключ -- метрика, значение -- ``int`` или список интов, обозначающих ``k``,
             для которых необходимо посчитать метрику.
+        :param k: ``int`` или список интов, обозначающих ``k``,
+            для которых необходимо посчитать метрику.
+            Если указан, то параметр ``metrics`` должен быть списком.
         """
         self.test = convert(test)
-        self.metrics = self._verify(metrics)
         self.pandas_df = pd.DataFrame()
+        if k is not None:
+            if isinstance(k, int):
+                k = [k] * len(metrics)
+            self.metrics = dict(zip(metrics, k))
+        else:
+            self.metrics = metrics
 
-    @staticmethod
-    def _verify(metrics: Dict[Metric, Union[int, List[int]]]):
-        """Проверяет корректность аргумента, конвертит инт в лист"""
-        if not isinstance(metrics, dict):
-            raise TypeError(
-                f"metrics argument must be a dictionary, got {type(metrics)}"
-            )
-        return metrics
 
     def add_result(self, name: str, pred: Any):
         """
