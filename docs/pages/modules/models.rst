@@ -33,6 +33,8 @@ Classifier Recommender
 ..  autoclass:: sponge_bob_magic.models.ClassifierRec
     :special-members: __init__
 
+.. _als-rec:
+
 Alternating Least Squares
 ---------------------------
 
