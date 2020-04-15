@@ -3,8 +3,6 @@
 
 Модели, доступные в библиотеке были замерены при одинаковых условиях и имеют следующие результаты:
 
-
-
 Если для модели уже известны оптимальные параметры, замерить качество можно по аналогии с примером:
 
 .. code-block:: python
@@ -19,7 +17,7 @@
 
    seed = 1337
    k = [10, 20, 50]
-   ml = MovieLens('20m')
+   ml = MovieLens("20m")
    data = ml.ratings
    splitter = UserSplitter(max(k), seed=seed)
    train, test = splitter.split(data)
@@ -33,6 +31,6 @@
 
    model = EASE()
    pred = model.fit_predict(train, max(k))
-   e.add_result('my_model', pred)
+   e.add_result("my_model", pred)
 
 

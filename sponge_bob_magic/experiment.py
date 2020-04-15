@@ -9,6 +9,7 @@ import pandas as pd
 from sponge_bob_magic.converter import convert
 from sponge_bob_magic.metrics import Metric, Surprisal, Unexpectedness, Coverage
 
+IntOrList = Union[int, List[int]]
 
 class Experiment:
     """
@@ -35,8 +36,9 @@ class Experiment:
     """
     def __init__(self,
                  test: Any,
-                 metrics: Union[Dict, List[Metric]],
-                 k: Union[int, List[int]] = None):
+                 metrics: Union[Dict[List[Metric]: IntOrList],
+                                List[Metric]],
+                 k: IntOrList = None):
         """
         :param test: Данные для теста в формате ``pandas`` или ``pyspark`` DataFrame
         :param metrics: Словарь метрик, которые необходимо считать.
