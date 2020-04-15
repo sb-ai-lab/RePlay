@@ -88,7 +88,7 @@ class NMF(Module):
         return relevance
 
 
-class NeuroMFRec(Recommender):
+class NeuroMF(Recommender):
     """
     Эта модель является вариацей на модель из статьи Neural Matrix Factorization
     (NeuMF, NCF)
@@ -368,7 +368,7 @@ class NeuroMFRec(Recommender):
 
         recs = get_top_k_recs(recs, k)
         self.logger.debug("Преобразование отрицательных relevance")
-        recs = NeuroMFRec.min_max_scale_column(recs, "relevance")
+        recs = NeuroMF.min_max_scale_column(recs, "relevance")
 
         return recs
 

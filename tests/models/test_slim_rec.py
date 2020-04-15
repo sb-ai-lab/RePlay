@@ -7,12 +7,12 @@ from pyspark.sql.types import DoubleType, FloatType, StructField, StructType
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.models.slim_rec import SlimRec
+from sponge_bob_magic.models.slim import SLIM
 
 
 class SlimRecTestCase(PySparkTest):
     def setUp(self):
-        self.model = SlimRec(0.0, 0.01, seed=42)
+        self.model = SLIM(0.0, 0.01, seed=42)
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [
@@ -78,20 +78,20 @@ class SlimRecTestCase(PySparkTest):
     def test_zeros_params_exception(self):
         self.assertRaises(
             ValueError,
-            SlimRec,
+            SLIM,
             beta=0.0, lambda_=0.0
         )
 
     def test_negative_beta_exception(self):
         self.assertRaises(
             ValueError,
-            SlimRec,
+            SLIM,
             beta=-0.1, lambda_=0.1
         )
 
     def test_negative_lambda_exception(self):
         self.assertRaises(
             ValueError,
-            SlimRec,
+            SLIM,
             beta=0.1, lambda_=-0.1
         )

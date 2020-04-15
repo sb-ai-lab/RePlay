@@ -16,7 +16,7 @@ from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class SlimRec(Recommender):
+class SLIM(Recommender):
     """ SLIM Recommender основан на обучении матрицы близости объектов
     :math:`W`.
 

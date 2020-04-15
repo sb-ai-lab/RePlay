@@ -11,7 +11,7 @@ from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class KNNRec(Recommender):
+class KNN(Recommender):
     """ Item-based KNN на сглаженной косинусной мере схожести. """
 
     all_items: Optional[DataFrame]

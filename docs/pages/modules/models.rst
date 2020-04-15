@@ -24,28 +24,28 @@ Random Popularity
 K Nearest Neighbours
 ----------------------
 
-.. autoclass:: sponge_bob_magic.models.KNNRec
+.. autoclass:: sponge_bob_magic.models.KNN
     :special-members: __init__
 
 Linear Recommender
 -------------------
 
-..  autoclass:: sponge_bob_magic.models.LinearRec
+..  autoclass:: sponge_bob_magic.models.Linear
     :special-members: __init__
 
 Alternating Least Squares
 ---------------------------
 
-.. autoclass:: sponge_bob_magic.models.ALSRec
+.. autoclass:: sponge_bob_magic.models.ALS
     :special-members: __init__
 
 Neural Matrix Factorization
 -----------------------------
 
-.. autoclass:: sponge_bob_magic.models.NeuroMFRec
+.. autoclass:: sponge_bob_magic.models.NeuroMF
     :special-members: __init__
 
-Multi Layer Perceptron Recommender
+Multi Layer Perceptron
 -----------------------------------
 
 .. autoclass:: sponge_bob_magic.models.MLPRec
@@ -53,17 +53,17 @@ Multi Layer Perceptron Recommender
 
 SLIM
 --------
-.. autoclass:: sponge_bob_magic.models.SlimRec
+.. autoclass:: sponge_bob_magic.models.SLIM
     :special-members: __init__
 
 LightFM
 -----------
 
-.. autoclass:: sponge_bob_magic.models.LightFMRec
+.. autoclass:: sponge_bob_magic.models.LightFMWrap
     :special-members: __init__
 
 Mult-VAE
 --------
 
-.. autoclass:: sponge_bob_magic.models.VAERec
+.. autoclass:: sponge_bob_magic.models.MultVAE
     :special-members: __init__

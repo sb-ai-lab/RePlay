@@ -7,12 +7,12 @@ from pyspark.sql.types import DoubleType, StringType, StructField, StructType
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.models.knn_rec import KNNRec
+from sponge_bob_magic.models.knn import KNN
 
 
 class KNNRecTestCase(PySparkTest):
     def setUp(self):
-        self.model = KNNRec(1)
+        self.model = KNN(1)
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [

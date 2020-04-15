@@ -15,7 +15,7 @@ from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import func_get, get_feature_cols, get_top_k_recs
 
 
-class LinearRec(Recommender):
+class Linear(Recommender):
     """ Рекомендатель на основе линейной модели и эмбеддингов. """
     _model: LogisticRegressionModel
     augmented_data: DataFrame
