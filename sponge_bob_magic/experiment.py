@@ -1,13 +1,12 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from collections.abc import Iterable
 from typing import Any, Dict, List, Union
 
 import pandas as pd
 
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.metrics import Metric, Surprisal, Unexpectedness, Coverage
+from sponge_bob_magic.metrics.base_metric import Metric, RecMetric
 
 
 class Experiment:
@@ -65,10 +64,12 @@ class Experiment:
         recs = convert(pred)
         for metric, k_list in sorted(self.metrics.items(),
                                      key=lambda x: str(x[0])):
-            if isinstance(metric, (Surprisal, Unexpectedness, Coverage)):
+
+            if isinstance(metric, RecMetric):
                 values = metric(recs, k_list)
             else:
                 values = metric(recs, self.test, k_list)
+
             if isinstance(k_list, int):
                 self.pandas_df.at[name, f"{metric}@{k_list}"] = values
             else:

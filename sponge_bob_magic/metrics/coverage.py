@@ -9,10 +9,10 @@ from pyspark.sql import functions as sf
 
 from sponge_bob_magic.constants import CommonDataFrame, IntOrList, NumType
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.metrics.base_metric import Metric
+from sponge_bob_magic.metrics.base_metric import RecMetric
 
 
-class Coverage(Metric):
+class Coverage(RecMetric):
     """
     Метрика вычисляется так:
 
@@ -34,13 +34,6 @@ class Coverage(Metric):
     def _get_metric_value_by_user(pandas_df):
         # эта метрика не является средним по всем пользователям
         pass
-
-    def __call__(
-            self,
-            recommendations: CommonDataFrame,
-            k: IntOrList
-    ) -> Union[Dict[int, NumType], NumType]:
-        return super().__call__(recommendations, recommendations, k)
 
     def _get_metric_value(
             self,

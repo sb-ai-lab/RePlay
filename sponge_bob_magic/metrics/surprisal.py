@@ -1,18 +1,16 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Union
-
 import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.constants import CommonDataFrame, IntOrList, NumType
+from sponge_bob_magic.constants import CommonDataFrame
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.metrics.base_metric import Metric
+from sponge_bob_magic.metrics.base_metric import RecMetric
 
 
-class Surprisal(Metric):
+class Surprisal(RecMetric):
     """
     Показывает насколько редкие предметы выдаются в рекомендациях.
     В качестве оценки редкости используется собственная информация объекта,
@@ -42,13 +40,6 @@ class Surprisal(Metric):
     .. math::
         Surprisal@K = \\frac {\sum_{i=1}^{N}Surprisal@K(i)}{N}
     """
-    def __call__(
-            self,
-            recommendations: CommonDataFrame,
-            k: IntOrList
-    ) -> Union[Dict[int, NumType], NumType]:
-        return super().__call__(recommendations, recommendations, k)
-
     def __init__(self, log: CommonDataFrame):
         """
         Чтобы посчитать метрику, необходимо предрассчитать собственную информацию каждого объекта.
