@@ -6,10 +6,10 @@ from typing import Any, Dict, List, Union
 
 import pandas as pd
 
+from sponge_bob_magic.constants import IntOrList
 from sponge_bob_magic.converter import convert
 from sponge_bob_magic.metrics import Metric, Surprisal, Unexpectedness, Coverage
 
-IntOrList = Union[int, List[int]]
 
 class Experiment:
     """
