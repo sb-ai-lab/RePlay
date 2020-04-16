@@ -57,7 +57,6 @@ class Experiment:
         else:
             self.metrics = metrics
 
-
     def add_result(self, name: str, pred: Any):
         """
         Подсчитать метрики для переданного списка рекомендаций
