@@ -29,7 +29,8 @@ class TestUserLogSplitter(PySparkTest):
     @parameterized.expand([(3,), (0.6,)])
     def test_get_test_users(self, fraction):
         test_users = UserSplitter(
-            drop_cold_items=False, drop_cold_users=False, user_test_size=fraction, seed=1234
+            drop_cold_items=False, drop_cold_users=False,
+            user_test_size=fraction, seed=1234
         )._get_test_users(self.log)
         self.assertEqual(test_users.count(), 3)
         self.assertSparkDataFrameEqual(
@@ -43,7 +44,8 @@ class TestUserLogSplitter(PySparkTest):
     def test_exceptions(self, wrong_fraction):
         with self.assertRaises(ValueError):
             UserSplitter(
-                drop_cold_items=False, drop_cold_users=False, item_test_size=1, user_test_size=wrong_fraction
+                drop_cold_items=False, drop_cold_users=False, item_test_size=1,
+                user_test_size=wrong_fraction
             )._get_test_users(self.log)
 
 

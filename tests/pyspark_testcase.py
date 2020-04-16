@@ -3,7 +3,6 @@
 """
 import logging
 import multiprocessing
-import os
 import unittest
 import warnings
 from typing import Dict, List, Optional
@@ -60,27 +59,9 @@ class PySparkTest(unittest.TestCase):
             raise self.failureException(msg) from e
 
     @classmethod
-    def create_testing_pyspark_session(cls):
-        os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
-        return (SparkSession
-                .builder
-                .master("local[1]")
-                .config("spark.driver.memory", "512m")
-                .config("spark.sql.shuffle.partitions", "1")
-                .config("spark.driver.bindAddress", "127.0.0.1")
-                .config("spark.driver.host", "localhost")
-                .config("spark.sql.execution.arrow.enabled", "true")
-                .config("spark.local.dir",
-                        os.path.join(os.environ["HOME"], "tmp"))
-                .appName("testing-pyspark")
-                .enableHiveSupport()
-                .getOrCreate())
-
-    @classmethod
     def setUpClass(cls):
         multiprocessing.set_start_method("spawn", force=True)
         logger = logging.getLogger("sponge_bob_magic")
         logger.setLevel("WARN")
         warnings.filterwarnings(action="ignore", category=ResourceWarning)
-        cls.spark = State(cls.create_testing_pyspark_session()).session
-        cls.spark.sparkContext.setLogLevel("ERROR")
+        cls.spark = State().session
