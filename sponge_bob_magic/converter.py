@@ -24,6 +24,8 @@ def convert(df, type_out=SPARK):
     :return: преобразованные данные, если на вход был подан датафрейм.
         Датасеты преобразуются на месте.
     """
+    if df is None:
+        return None
     type_in = get_type(df)
     if type_in == type_out:
         return df

@@ -10,6 +10,7 @@ from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
+from sponge_bob_magic.converter import convert, get_type
 from sponge_bob_magic.session_handler import State
 
 
@@ -78,6 +79,10 @@ class Recommender(ABC):
             ``[item_id, timestamp]`` и колонки с признаками
         :return:
         """
+        log = convert(log)
+        user_features = convert(user_features)
+        item_features = convert(item_features)
+
         self.logger.debug("Предварительная стадия обучения (pre-fit)")
         self._pre_fit(log, user_features, item_features)
         self.logger.debug("Основная стадия обучения (fit)")
@@ -179,6 +184,11 @@ class Recommender(ABC):
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
+        type_in = get_type(log)
+        log = convert(log)
+        user_features = convert(user_features)
+        item_features = convert(item_features)
+
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
         num_items = items.count()
@@ -188,7 +198,7 @@ class Recommender(ABC):
                 f"k = {k}, number of items = {num_items}")
         recs = self._predict(log, k, users, items, user_features, item_features,
                              filter_seen_items)
-        return recs
+        return convert(recs, type_in)
 
     def _extract_unique(
             self,
