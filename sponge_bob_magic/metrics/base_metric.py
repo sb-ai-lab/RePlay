@@ -187,4 +187,4 @@ class RecMetric(Metric):
         """
         recommendations_spark = convert(recommendations)
         return self._get_metric_value(
-            recommendations_spark, k)
+            recommendations_spark, recommendations_spark, k)
