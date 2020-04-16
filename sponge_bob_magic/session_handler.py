@@ -22,18 +22,24 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
     """
     if spark_memory is None:
         spark_memory = floor(psutil.virtual_memory().total / 1024 ** 3 / 2)
-    spark_cores = "*"
+    if os.environ["PYTEST_RUNNING"] == "Y":
+        driver_memory = "512m"
+        shuffle_partitions = "1"
+    else:
+        driver_memory = f"{spark_memory}g"
+        shuffle_partitions = "200"
     user_home = os.environ["HOME"]
     os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     spark = (
         SparkSession
         .builder
-        .config("spark.driver.memory", f"{spark_memory}g")
+        .config("spark.driver.memory", driver_memory)
+        .config("spark.sql.shuffle.partitions", shuffle_partitions)
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
         .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.host", "localhost")
         .config("spark.sql.execution.arrow.enabled", "true")
-        .master(f"local[{spark_cores}]")
+        .master(f"local[*]")
         .enableHiveSupport()
         .getOrCreate()
     )
