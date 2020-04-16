@@ -8,9 +8,9 @@ from parameterized import parameterized
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.splitters.log_splitter import (
-    ColdUsersSplitter, DateSplitter,
-    RandomSplitter)
+from sponge_bob_magic.splitters.log_splitter import (ColdUsersSplitter,
+                                                     DateSplitter,
+                                                     RandomSplitter)
 from sponge_bob_magic.utils import get_distinct_values_in_column
 
 
@@ -109,8 +109,6 @@ class TestLogSplitRandomlySplitter(PySparkTest):
     @parameterized.expand([
         # test_size, drop_cold_items, drop_cold_users
         (0.0, False, False),
-        (0.3, False, False),
-        (0.8, False, False),
         (1.0, False, False),
         (0.5, True, False),
         (0.6, True, False),
