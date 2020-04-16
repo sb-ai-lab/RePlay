@@ -164,6 +164,7 @@ class Metric(ABC):
         inner_count = left.join(right, on="user_id").count()
         return left_count == inner_count and right_count == inner_count
 
+
 class RecMetric(Metric):
     """Базовый класс для метрик,
     которые зависят только от списка рекомендаций и к"""
