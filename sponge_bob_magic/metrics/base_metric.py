@@ -163,3 +163,27 @@ class Metric(ABC):
         right_count = right.count()
         inner_count = left.join(right, on="user_id").count()
         return left_count == inner_count and right_count == inner_count
+
+class RecMetric(Metric):
+    """Базовый класс для метрик,
+    которые зависят только от списка рекомендаций и к"""
+
+    def __call__(
+            self,
+            recommendations: CommonDataFrame,
+            k: IntOrList
+    ) -> Union[Dict[int, NumType], NumType]:
+        """
+        :param recommendations: выдача рекомендательной системы,
+            спарк-датарейм вида
+            ``[user_id, item_id, relevance]``
+        :param ground_truth: реальный лог действий пользователей,
+            спарк-датафрейм вида
+            ``[user_id, item_id, timestamp, relevance]``
+        :param k: список индексов, показывающий какое максимальное количество объектов брать из топа
+            рекомендованных для оценки
+        :return: значение метрики
+        """
+        recommendations_spark = convert(recommendations)
+        return self._get_metric_value(
+            recommendations_spark, k)
