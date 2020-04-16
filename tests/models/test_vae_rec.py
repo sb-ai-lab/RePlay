@@ -39,14 +39,14 @@ class VAERecTestCase(PySparkTest):
         self.model.fit(log=self.log, user_features=None, item_features=None)
 
         true_parameters = [
-            [[0.09770283, -1.189494, 0.22463249]],
-            [0.00013281],
-            [[0.11212465], [0.1964051]],
-            [-0.49788895, -0.49717355],
+            [[-0.40220618, -1.189494, -0.27527654]],
+            [-0.49977532],
+            [[-0.38779438], [-0.30350393]],
+            [-0.49857813, -0.4986233],
             [[2.438208]],
             [0.00020276],
             [[1.7327943], [1.4323168], [1.2580526]],
-            [0.49908203, 0.49954212, -0.5007245]
+            [0.49908203, -0.50045776, 0.49927554]
         ]
 
         for i, parameter in enumerate(self.model.model.parameters()):
@@ -92,12 +92,11 @@ class VAERecTestCase(PySparkTest):
     def test_save_load(self):
         path = os.path.join(
             self.spark.conf.get("spark.local.dir"),
-            "best_vae_1_loss=-2.7250239849090576.pth"
+            "best_vae_1_loss=-2.724722385406494.pth"
         )
         if os.path.exists(path):
             os.remove(path)
         self.model.fit(log=self.log, user_features=None, item_features=None)
-
         self.assertTrue(
             os.path.exists(path)
         )
@@ -107,14 +106,14 @@ class VAERecTestCase(PySparkTest):
         new_model.load_model(path)
 
         true_parameters = [
-            [[0.09770283, - 1.189494, 0.22463249]],
-            [0.00013281],
-            [[0.11212465], [0.1964051]],
-            [-0.49788895, -0.49717355],
+            [[-0.40220618, -1.189494, -0.27527654]],
+            [-0.49977532],
+            [[-0.38779438], [-0.30350393]],
+            [-0.49857813, -0.4986233],
             [[2.438208]],
             [0.00020276],
             [[1.7327943], [1.4323168], [1.2580526]],
-            [0.49908203, 0.49954212, -0.5007245]
+            [0.49908203, -0.50045776, 0.49927554]
         ]
 
         for i, parameter in enumerate(new_model.model.parameters()):
