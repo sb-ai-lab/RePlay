@@ -15,4 +15,4 @@ class TestConverter(PySparkTest):
 
     def test_separate_k(self):
         e = experiment.Experiment(df, [1, 2, 3], 3)
-        self.assertEquals(list(e.values), [3, 3, 3])
+        self.assertEquals(list(e.metrics.values), [3, 3, 3])
