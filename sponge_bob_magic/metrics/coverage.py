@@ -9,10 +9,10 @@ from pyspark.sql import functions as sf
 
 from sponge_bob_magic.constants import CommonDataFrame, IntOrList, NumType
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.metrics.base_metric import RecMetric
+from sponge_bob_magic.metrics.base_metric import RecOnlyMetric
 
 
-class Coverage(RecMetric):
+class Coverage(RecOnlyMetric):
     """
     Метрика вычисляется так:
 

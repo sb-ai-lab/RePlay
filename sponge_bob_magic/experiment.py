@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Union
 import pandas as pd
 
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.metrics.base_metric import Metric, RecMetric
+from sponge_bob_magic.metrics.base_metric import Metric, RecOnlyMetric
 
 
 class Experiment:
@@ -65,7 +65,7 @@ class Experiment:
         for metric, k_list in sorted(self.metrics.items(),
                                      key=lambda x: str(x[0])):
 
-            if isinstance(metric, RecMetric):
+            if isinstance(metric, RecOnlyMetric):
                 values = metric(recs, k_list)
             else:
                 values = metric(recs, self.test, k_list)
