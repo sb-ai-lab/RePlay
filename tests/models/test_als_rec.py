@@ -7,12 +7,12 @@ import numpy as np
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.models.als import ALS
+from sponge_bob_magic.models.als import ALS_wrap
 
 
 class ALSRecTestCase(PySparkTest):
     def setUp(self):
-        self.als_rec = ALS(1)
+        self.als_rec = ALS_wrap(1)
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [

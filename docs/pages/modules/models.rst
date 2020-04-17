@@ -36,7 +36,7 @@ Linear Recommender
 Alternating Least Squares
 ---------------------------
 
-.. autoclass:: sponge_bob_magic.models.ALS
+.. autoclass:: sponge_bob_magic.models.ALS_wrap
     :special-members: __init__
 
 Neural Matrix Factorization
@@ -59,7 +59,7 @@ SLIM
 LightFM
 -----------
 
-.. autoclass:: sponge_bob_magic.models.LightFMWrap
+.. autoclass:: sponge_bob_magic.models.LightFM_wrap
     :special-members: __init__
 
 Mult-VAE
