@@ -22,7 +22,7 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
     """
     if spark_memory is None:
         spark_memory = floor(psutil.virtual_memory().total / 1024 ** 3 / 2)
-    if os.environ["PYTEST_RUNNING"] == "Y":
+    if os.environ.get("PYTEST_RUNNING", "N") == "Y":
         driver_memory = "512m"
         shuffle_partitions = "1"
     else:
