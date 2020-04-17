@@ -10,7 +10,6 @@ from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA
 from sponge_bob_magic.models.neuromf import NMF, NeuroMF
-from sponge_bob_magic.session_handler import State
 
 
 class NeuroCFRecTestCase(PySparkTest):
@@ -22,7 +21,7 @@ class NeuroCFRecTestCase(PySparkTest):
 
         params = {"learning_rate": 0.5,
                   "epochs": 1,
-                  "embedding_dimension": 2}
+                  "embedding_gmf_dim": 2}
         self.model = NeuroMF(**params)
         self.log = self.spark.createDataFrame(
             [
@@ -46,17 +45,22 @@ class NeuroCFRecTestCase(PySparkTest):
         )
 
     def test_fit(self):
-        self.model.fit(log=self.log, user_features=None, item_features=None)
+        self.model.fit(log=self.log)
 
         true_parameters = [
-            [[0.6735113, 1.219104],
-             [0.10137914, 1.2252706]],
-            [[1.0128009, 0.8895775],
-             [-0.45896536, -0.22890945],
-             [-0.36223665, 0.63993907]],
-            [[0.], [0.], [0.]],
-            [[0.], [0.]]
-        ]
+            [[1.4524888, 1.2240735],
+             [0.6433717, 1.2327943]],
+            [[1.7811029, 0.62523645],
+             [-1.0805497, 0.21044984],
+             [-0.9581958, 1.3094656]],
+            [[-0.49999997],
+             [0.49999994],
+             [0.49999958]],
+            [[-0.49999997],
+             [-0.4999999]],
+            [[-1.3116516, 1.47019]],
+            [-0.49802172]
+            ]
 
         for i, parameter in enumerate(self.model.model.parameters()):
             self.assertTrue(np.allclose(
@@ -87,7 +91,7 @@ class NeuroCFRecTestCase(PySparkTest):
     def test_save_load(self):
         path = os.path.join(
             self.spark.conf.get("spark.local.dir"),
-            "best_nmf_1_loss=-0.0.pth"
+            "best_nmf_1_loss=-1.3341923952102661.pth"
         )
         if os.path.exists(path):
             os.remove(path)
@@ -102,13 +106,18 @@ class NeuroCFRecTestCase(PySparkTest):
         new_model.load_model(path)
 
         true_parameters = [
-            [[0.6735113, 1.219104],
-             [0.10137914, 1.2252706]],
-            [[1.0128009, 0.8895775],
-             [-0.45896536, -0.22890945],
-             [-0.36223665, 0.63993907]],
-            [[0.], [0.], [0.]],
-            [[0.], [0.]]
+            [[1.4524888, 1.2240735],
+             [0.6433717, 1.2327943]],
+            [[1.7811029, 0.62523645],
+             [-1.0805497, 0.21044984],
+             [-0.9581958, 1.3094656]],
+            [[-0.49999997],
+             [0.49999994],
+             [0.49999958]],
+            [[-0.49999997],
+             [-0.4999999]],
+            [[-1.3116516, 1.47019]],
+            [-0.49802172]
         ]
 
         for i, parameter in enumerate(new_model.model.parameters()):
