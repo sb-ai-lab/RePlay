@@ -44,7 +44,6 @@ scipy = "1.4.1"
 torch = "1.4.0"
 tqdm = "4.42.1"
 pytorch-ignite = "^0.3.0"
-rs_datasets = ">=0.1.10"
 
 [tool.poetry.dev-dependencies]
 autopep8 = "1.4.4"
