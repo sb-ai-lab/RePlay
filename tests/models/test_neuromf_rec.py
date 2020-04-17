@@ -12,6 +12,7 @@ from sponge_bob_magic.constants import LOG_SCHEMA
 from sponge_bob_magic.models.neuromf import NMF, NeuroMF
 
 
+
 class NeuroCFRecTestCase(PySparkTest):
     def setUp(self):
         torch.manual_seed(7)
@@ -60,7 +61,7 @@ class NeuroCFRecTestCase(PySparkTest):
              [-0.4999999]],
             [[-1.3116516, 1.47019]],
             [-0.49802172]
-            ]
+        ]
 
         for i, parameter in enumerate(self.model.model.parameters()):
             self.assertTrue(np.allclose(

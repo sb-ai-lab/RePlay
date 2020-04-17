@@ -374,7 +374,7 @@ class NeuroMF(Recommender):
                                            pos_item_batch.to(self.device))
                 neg_relevance = self.model(user_batch.repeat([
                     self.count_negative_sample]).to(self.device),
-                                           neg_item_batch.to(self.device))
+                    neg_item_batch.to(self.device))
                 y_pred = torch.cat((pos_relevance, neg_relevance), 0)
                 return y_pred, y_true
 
@@ -473,11 +473,10 @@ class NeuroMF(Recommender):
             .selectExpr(
                 "user_id",
                 "CAST(user_idx AS INT) AS user_idx",
-                f"CAST(LEAST(cnt + {k}, {len(items_pd)}) AS INT) AS cnt"
-                )
+                f"CAST(LEAST(cnt + {k}, {len(items_pd)}) AS INT) AS cnt")
             .groupby("user_id", "user_idx")
             .apply(grouped_map))
-                .drop("item_idx", "user_idx"))
+            .drop("item_idx", "user_idx"))
 
         if filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
