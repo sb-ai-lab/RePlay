@@ -1,8 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from collections.abc import Iterable
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Optional
 
 import pandas as pd
 
@@ -38,7 +37,7 @@ class Experiment:
                  test: Any,
                  metrics: Union[Dict[List[Metric], IntOrList],
                                 List[Metric]],
-                 k: IntOrList = None):
+                 k: Optional[IntOrList] = None):
         """
         :param test: Данные для теста в формате ``pandas`` или ``pyspark`` DataFrame
         :param metrics: Словарь метрик, которые необходимо считать.
