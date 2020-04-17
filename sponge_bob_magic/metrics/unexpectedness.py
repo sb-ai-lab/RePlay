@@ -7,12 +7,12 @@ from pyspark.sql import functions as sf
 
 from sponge_bob_magic.constants import CommonDataFrame
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.metrics.base_metric import RecMetric
+from sponge_bob_magic.metrics.base_metric import RecOnlyMetric
 from sponge_bob_magic.models import PopRec
 from sponge_bob_magic.models.base_rec import Recommender
 
 
-class Unexpectedness(RecMetric):
+class Unexpectedness(RecOnlyMetric):
     """
     Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.
     По умолчанию используется рекомендатель по популярности ``PopRec``.

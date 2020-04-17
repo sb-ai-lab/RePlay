@@ -7,10 +7,10 @@ from pyspark.sql import functions as sf
 
 from sponge_bob_magic.constants import CommonDataFrame
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.metrics.base_metric import RecMetric
+from sponge_bob_magic.metrics.base_metric import RecOnlyMetric
 
 
-class Surprisal(RecMetric):
+class Surprisal(RecOnlyMetric):
     """
     Показывает насколько редкие предметы выдаются в рекомендациях.
     В качестве оценки редкости используется собственная информация объекта,

@@ -165,9 +165,10 @@ class Metric(ABC):
         return left_count == inner_count and right_count == inner_count
 
 
-class RecMetric(Metric):
+class RecOnlyMetric(Metric):
     """Базовый класс для метрик,
-    которые зависят только от списка рекомендаций и к"""
+    которые измеряют качество списков рекомендаций,
+    не сравнивая их с holdout значениями"""
 
     def __call__(
             self,
