@@ -20,8 +20,11 @@ class ClassifierRec(Recommender):
     model: RandomForestClassificationModel
     augmented_data: DataFrame
 
+    def __init__(self, **kwargs):
+        self.model_params = kwargs
+
     def get_params(self) -> Dict[str, object]:
-        return dict()
+        return self.model_params
 
     def _pre_fit(self,
                  log: DataFrame,
@@ -38,7 +41,8 @@ class ClassifierRec(Recommender):
              log: DataFrame,
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
-        self.model = RandomForestClassifier().fit(self.augmented_data)
+        self.model = RandomForestClassifier(**self.model_params).fit(
+            self.augmented_data)
         model_path = os.path.join(self.spark.conf.get("spark.local.dir"),
                                   "linear.model")
         self.model.write().overwrite().save(model_path)

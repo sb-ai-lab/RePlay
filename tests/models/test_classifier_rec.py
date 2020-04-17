@@ -100,7 +100,6 @@ class ClassifierRecTestCase(PySparkTest):
                 StructField("features", ArrayType(IntegerType())),
             ])
         )
-        print(augmented_data.show())
         self.assertSparkDataFrameEqual(
             true_value,
             augmented_data
