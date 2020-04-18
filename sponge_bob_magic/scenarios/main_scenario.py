@@ -186,7 +186,7 @@ class MainScenario:
         self.logger.debug("Инициализация метрик")
         metrics = {}
         for metric in self.metrics:
-            if isinstance(metric, RecOnlyMetric):
+            if issubclass(metric, RecOnlyMetric):
                 metrics[metric(split_data.train)] = self.metrics[metric]
             else:
                 metrics[metric()] = self.metrics[metric]
