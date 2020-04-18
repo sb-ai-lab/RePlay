@@ -107,4 +107,7 @@ class RecTestCase(PySparkTest):
         self.assertEqual(model.items_count, 1)
 
     def test_repr(self):
-        self.assertEqual(str(self.model), "DerivedRec(alpha=1, beta=2)")
+        self.assertEqual(repr(self.model), "DerivedRec(alpha=1, beta=2)")
+
+    def test_str(self):
+        self.assertEqual(str(self.model), "DerivedRec")
