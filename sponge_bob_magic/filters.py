@@ -26,7 +26,7 @@ def min_entries(df: AnyDataFrame, n: int):
     df = tm.fit_convert(df)
 
     vc = df.groupBy("user_id").count()
-    remaining_users = vc.filter(vc["count"] > n)[["user_id"]]
+    remaining_users = vc.filter(vc["count"] >= n)[["user_id"]]
     df = df.join(remaining_users, on="user_id", how="inner")
 
     return tm.inverse(df)
