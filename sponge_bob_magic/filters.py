@@ -31,6 +31,7 @@ def min_entries(df: AnyDataFrame, n: int):
 
     return tm.inverse(df)
 
+
 def min_rating(df: AnyDataFrame, value: float, column="relevance"):
     """
     Удаляет из датафрейма записи с оценкой меньше ``value`` в колонке ``column``.
