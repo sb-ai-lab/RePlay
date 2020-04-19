@@ -30,3 +30,21 @@ def min_entries(df: AnyDataFrame, n: int):
     df = df.join(remaining_users, on="user_id", how="inner")
 
     return tm.inverse(df)
+
+def min_rating(df: AnyDataFrame, value: float, column="relevance"):
+    """
+    Удаляет из датафрейма записи с оценкой меньше ``value`` в колонке ``column``.
+
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({"relevance": [1, 5, 3, 4]})
+    >>> min_rating(df, 3.5)
+       relevance
+    0          5
+    1          4
+    """
+    tm = TypeManager()
+    df = tm.fit_convert(df)
+
+    df = df.filter(df[column] > value)
+
+    return tm.inverse(df)
