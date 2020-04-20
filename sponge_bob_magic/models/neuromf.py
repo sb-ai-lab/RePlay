@@ -27,7 +27,7 @@ from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-def weight_init(layer: nn.Module):
+def xavier_init_(layer: nn.Module):
     """
     Инициализация весов линейного слоя методом Хавьера
 
@@ -41,7 +41,8 @@ def weight_init(layer: nn.Module):
 
 
 class GMF(nn.Module):
-    """GMF модель"""
+    """Generalized Matrix Factorization (GMF) модель - нейросетевая
+    реализация матричной факторизации"""
     def __init__(
             self,
             user_count: int,
@@ -66,8 +67,8 @@ class GMF(nn.Module):
         self.user_biases = nn.Embedding(num_embeddings=user_count,
                                         embedding_dim=1)
 
-        weight_init(self.user_embedding)
-        weight_init(self.item_embedding)
+        xavier_init_(self.user_embedding)
+        xavier_init_(self.item_embedding)
         self.user_biases.weight.data.zero_()
         self.item_biases.weight.data.zero_()
 
@@ -88,7 +89,7 @@ class GMF(nn.Module):
 
 
 class MLP(nn.Module):
-    """MLP модель"""
+    """Multi-Layer Perceptron (MLP) модель"""
     def __init__(
             self,
             user_count: int,
@@ -126,12 +127,12 @@ class MLP(nn.Module):
 
         self.activation = nn.ReLU()
 
-        weight_init(self.user_embedding)
-        weight_init(self.item_embedding)
+        xavier_init_(self.user_embedding)
+        xavier_init_(self.item_embedding)
         self.user_biases.weight.data.zero_()
         self.item_biases.weight.data.zero_()
         for layer in self.hidden_layers:
-            weight_init(layer)
+            xavier_init_(layer)
 
     def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
         """
@@ -189,7 +190,7 @@ class NMF(nn.Module):
             self.mlp = None
 
         self.last_layer = nn.Linear(merged_dim, 1)
-        weight_init(self.last_layer)
+        xavier_init_(self.last_layer)
 
     def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
         """

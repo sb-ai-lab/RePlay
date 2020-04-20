@@ -12,7 +12,7 @@ from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class ALS(Recommender):
+class ALSWrap(Recommender):
     """ Обёртка для матричной факторизации `ALS на Spark
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
@@ -48,7 +48,10 @@ class ALS(Recommender):
             itemCol="item_idx",
             ratingCol="relevance",
             implicitPrefs=True,
-            seed=self._seed
+            seed=self._seed,
+            regParam=0,
+            alpha=7,
+            maxIter=20
         ).fit(log_indexed)
 
     def _predict(self,
