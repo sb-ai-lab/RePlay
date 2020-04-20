@@ -61,6 +61,9 @@ class Recommender(ABC):
             ]) + ")"
         )
 
+    def __str__(self):
+        return type(self).__name__
+
     def fit(self, log: DataFrame,
             user_features: Optional[DataFrame] = None,
             item_features: Optional[DataFrame] = None) -> None:
