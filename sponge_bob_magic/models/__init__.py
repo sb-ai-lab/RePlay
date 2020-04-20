@@ -5,14 +5,14 @@
 Модели используют в реализации либо Spark, либо pytorch.
 """
 
-from sponge_bob_magic.models.als_rec import ALSRec
+from sponge_bob_magic.models.als import ALS_wrap
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.models.knn_rec import KNNRec
-from sponge_bob_magic.models.lightfm_rec import LightFMRec
-from sponge_bob_magic.models.linear_rec import LinearRec
-from sponge_bob_magic.models.mlp_rec import MLPRec
-from sponge_bob_magic.models.neuromf_rec import NeuroMFRec
+from sponge_bob_magic.models.knn import KNN
+from sponge_bob_magic.models.lightfm import LightFM_wrap
+from sponge_bob_magic.models.linear import Linear
+from sponge_bob_magic.models.mlp import MLPRec
+from sponge_bob_magic.models.neuromf import NeuroMF
 from sponge_bob_magic.models.pop_rec import PopRec
 from sponge_bob_magic.models.random_pop import RandomPop
-from sponge_bob_magic.models.slim_rec import SlimRec
-from sponge_bob_magic.models.vae_rec import VAERec
+from sponge_bob_magic.models.slim import SLIM
+from sponge_bob_magic.models.mult_vae import MultVAE

@@ -13,7 +13,7 @@ from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class LightFMRec(Recommender):
+class LightFM_wrap(Recommender):
     """ Обёртка вокруг стандартной реализации LightFM. """
     _seed: Optional[int] = None
 

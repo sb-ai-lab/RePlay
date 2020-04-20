@@ -9,7 +9,7 @@ import torch
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.models.neuromf_rec import NMF, NeuroMFRec
+from sponge_bob_magic.models.neuromf import NMF, NeuroMF
 from sponge_bob_magic.session_handler import State
 
 
@@ -23,7 +23,7 @@ class NeuroCFRecTestCase(PySparkTest):
         params = {"learning_rate": 0.5,
                   "epochs": 1,
                   "embedding_dimension": 2}
-        self.model = NeuroMFRec(**params)
+        self.model = NeuroMF(**params)
         self.log = self.spark.createDataFrame(
             [
                 ("0", "0", datetime(2019, 1, 1), 1.0),
@@ -97,7 +97,7 @@ class NeuroCFRecTestCase(PySparkTest):
             os.path.exists(path)
         )
 
-        new_model = NeuroMFRec()
+        new_model = NeuroMF()
         new_model.model = NMF(2, 3, 2)
         new_model.load_model(path)
 

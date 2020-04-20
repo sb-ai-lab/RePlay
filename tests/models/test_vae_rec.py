@@ -9,7 +9,7 @@ import torch
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.models.vae_rec import VAE, VAERec
+from sponge_bob_magic.models.mult_vae import VAE, MultVAE
 
 
 class VAERecTestCase(PySparkTest):
@@ -24,7 +24,7 @@ class VAERecTestCase(PySparkTest):
                   "latent_dim": 1,
                   "decoder_dims": [1],
                   "encoder_dims": [1]}
-        self.model = VAERec(**params)
+        self.model = MultVAE(**params)
         self.log = self.spark.createDataFrame(
             [
                 ("0", "0", datetime(2019, 1, 1), 1.0),
@@ -101,7 +101,7 @@ class VAERecTestCase(PySparkTest):
             os.path.exists(path)
         )
 
-        new_model = VAERec()
+        new_model = MultVAE()
         new_model.model = VAE(3, 1, [1])
         new_model.load_model(path)
 

@@ -11,7 +11,7 @@ from sponge_bob_magic.constants import IntOrList
 from sponge_bob_magic.experiment import Experiment
 from sponge_bob_magic.metrics import (Coverage, HitRate, Metric, Surprisal,
                                       Unexpectedness)
-from sponge_bob_magic.models import KNNRec, PopRec, Recommender
+from sponge_bob_magic.models import KNN, PopRec, Recommender
 from sponge_bob_magic.scenarios.main_objective import MainObjective, SplitData
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.splitters.base_splitter import Splitter
@@ -31,7 +31,7 @@ class MainScenario:
     def __init__(
             self,
             splitter: Splitter = RandomSplitter(0.3, True, True),
-            recommender: Recommender = KNNRec(),
+            recommender: Recommender = KNN(),
             criterion: type = HitRate,
             metrics: Dict[type, IntOrList] = dict(),
             fallback_rec: Recommender = PopRec()

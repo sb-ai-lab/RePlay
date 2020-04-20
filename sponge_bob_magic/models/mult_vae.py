@@ -136,7 +136,7 @@ class VAE(nn.Module):
             layer.bias.data.normal_(0.0, 0.001)
 
 
-class VAERec(Recommender):
+class MultVAE(Recommender):
     """
     Вариационный автокодировщик. Общая схема его работы
     представлена на рисунке.
@@ -491,7 +491,7 @@ class VAERec(Recommender):
 
         recs = get_top_k_recs(recs, k)
         self.logger.debug("Преобразование отрицательных relevance")
-        recs = VAERec.min_max_scale_column(recs, "relevance")
+        recs = MultVAE.min_max_scale_column(recs, "relevance")
 
         return recs
 

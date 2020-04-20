@@ -7,12 +7,12 @@ import numpy as np
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.models.lightfm_rec import LightFMRec
+from sponge_bob_magic.models.lightfm import LightFM_wrap
 
 
 class LightFMRecTestCase(PySparkTest):
     def setUp(self):
-        self.lightfm_rec = LightFMRec(1)
+        self.lightfm_rec = LightFM_wrap(1)
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [

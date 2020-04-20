@@ -3,7 +3,7 @@
 """
 from typing import Dict, Optional
 
-from pyspark.ml.recommendation import ALS
+from pyspark.ml.recommendation import ALS as SparkALS
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import DoubleType
@@ -12,7 +12,7 @@ from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class ALSRec(Recommender):
+class ALS_wrap(Recommender):
     """ Обёртка для матричной факторизации `ALS на Spark
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
@@ -42,7 +42,7 @@ class ALSRec(Recommender):
         log_indexed = self.item_indexer.transform(log_indexed)
 
         self.logger.debug("Обучение модели")
-        self.model = ALS(
+        self.model = SparkALS(
             rank=self.rank,
             userCol="user_idx",
             itemCol="item_idx",

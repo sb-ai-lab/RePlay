@@ -7,7 +7,7 @@ from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import REC_SCHEMA
 from sponge_bob_magic.metrics import NDCG, HitRate, Precision, Surprisal
-from sponge_bob_magic.models.knn_rec import KNNRec
+from sponge_bob_magic.models.knn import KNN
 from sponge_bob_magic.models.pop_rec import PopRec
 from sponge_bob_magic.scenarios.main_scenario import MainScenario
 from sponge_bob_magic.splitters.log_splitter import DateSplitter
@@ -44,7 +44,7 @@ class MainScenarioTestCase(PySparkTest):
         self.scenario._optuna_seed = 42
 
     def test_research_and_production(self):
-        self.scenario.recommender = KNNRec()
+        self.scenario.recommender = KNN()
         self.scenario.fallback_rec = PopRec()
         grid = {"num_neighbours": {"type": "categorical",
                                    "args": [[1, 2, 3, 4, 5]]}}

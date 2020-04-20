@@ -8,7 +8,7 @@ import torch
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.models.mlp_rec import MLPRec
+from sponge_bob_magic.models.mlp import MLPRec
 
 
 class MLPRecTestCase(PySparkTest):
