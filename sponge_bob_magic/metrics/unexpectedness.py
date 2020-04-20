@@ -1,20 +1,18 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Union
-
 import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.constants import CommonDataFrame, IntOrList, NumType
+from sponge_bob_magic.constants import CommonDataFrame
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.metrics.base_metric import Metric
+from sponge_bob_magic.metrics.base_metric import RecOnlyMetric
 from sponge_bob_magic.models import PopRec
 from sponge_bob_magic.models.base_rec import Recommender
 
 
-class Unexpectedness(Metric):
+class Unexpectedness(RecOnlyMetric):
     """
     Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.
     По умолчанию используется рекомендатель по популярности ``PopRec``.
@@ -53,16 +51,6 @@ class Unexpectedness(Metric):
             self.train_model = True
             rec.fit(log=self.log)
             self.model = rec
-
-    def __str__(self):
-        return f"Unexpectedness({self.model})"
-
-    def __call__(
-            self,
-            recommendations: CommonDataFrame,
-            k: IntOrList
-    ) -> Union[Dict[int, NumType], NumType]:
-        return super().__call__(recommendations, recommendations, k)
 
     @staticmethod
     def _get_metric_value_by_user(pandas_df):

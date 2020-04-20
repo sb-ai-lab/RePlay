@@ -62,6 +62,6 @@ Coverage
 ``_get_enriched_recommendations`` уже реализован, и его стоит переопределять только в случае необходимости.
 Последний метод необходимо реализовать для всех метрик, так как в нём происходит основное вычисление метрики.
 
-.. autoclass:: sponge_bob_magic.metrics.Metric
+.. autoclass:: sponge_bob_magic.metrics.base_metric.Metric
    :special-members: _get_enriched_recommendations, _get_metric_value_by_user
 

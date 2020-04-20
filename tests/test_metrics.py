@@ -7,7 +7,8 @@ from math import log2
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.metrics import (MAP, NDCG, Coverage, HitRate, Metric,
+from sponge_bob_magic.metrics.base_metric import Metric
+from sponge_bob_magic.metrics import (MAP, NDCG, Coverage, HitRate,
                                       Precision, Recall, Surprisal)
 
 

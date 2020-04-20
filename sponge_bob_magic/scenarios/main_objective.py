@@ -14,8 +14,7 @@ from pyspark.sql import functions as sf
 
 from sponge_bob_magic.constants import IntOrList
 from sponge_bob_magic.experiment import Experiment
-from sponge_bob_magic.metrics import (Coverage, Metric, Surprisal,
-                                      Unexpectedness)
+from sponge_bob_magic.metrics.base_metric import Metric
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 

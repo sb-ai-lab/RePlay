@@ -2,15 +2,15 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
 from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame
 
 from sponge_bob_magic.constants import IntOrList
 from sponge_bob_magic.experiment import Experiment
-from sponge_bob_magic.metrics import (Coverage, HitRate, Metric, Surprisal,
-                                      Unexpectedness)
+from sponge_bob_magic.metrics import HitRate
+from sponge_bob_magic.metrics.base_metric import Metric, RecOnlyMetric
 from sponge_bob_magic.models import KNN, PopRec, Recommender
 from sponge_bob_magic.scenarios.main_objective import MainObjective, SplitData
 from sponge_bob_magic.session_handler import State
@@ -32,8 +32,8 @@ class MainScenario:
             self,
             splitter: Splitter = RandomSplitter(0.3, True, True),
             recommender: Recommender = KNN(),
-            criterion: type = HitRate,
-            metrics: Dict[type, IntOrList] = dict(),
+            criterion: Type[Metric] = HitRate,
+            metrics: Dict[Type[Metric], IntOrList] = dict(),
             fallback_rec: Recommender = PopRec()
     ):
         """
@@ -186,7 +186,7 @@ class MainScenario:
         self.logger.debug("Инициализация метрик")
         metrics = {}
         for metric in self.metrics:
-            if metric in {Surprisal, Unexpectedness, Coverage}:
+            if issubclass(metric, RecOnlyMetric):
                 metrics[metric(split_data.train)] = self.metrics[metric]
             else:
                 metrics[metric()] = self.metrics[metric]
