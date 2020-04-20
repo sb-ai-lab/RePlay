@@ -1,7 +1,5 @@
 import pandas as pd
-from pyspark.sql import DataFrame as SparkDataFrame
 
-from sponge_bob_magic.datasets.generic_dataset import Dataset
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.converter import PANDAS, convert
@@ -27,9 +25,3 @@ class TestConverter(PySparkTest):
     def test_spark_is_unchanged(self):
         spark_data_frame = convert(self.pandas_data_frame)
         self.assertEqual(spark_data_frame, convert(spark_data_frame))
-
-    def test_dataset_conversion(self):
-        dataset = Dataset()
-        dataset.ratings = self.pandas_data_frame
-        convert(dataset)
-        self.assertIsInstance(dataset.ratings, SparkDataFrame)
