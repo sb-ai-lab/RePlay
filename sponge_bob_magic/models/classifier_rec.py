@@ -40,7 +40,6 @@ class ClassifierRec(Recommender):
                  log: DataFrame,
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None) -> None:
-        # TODO: добавить проверку, что в логе есть только нули и единицы
         self.augmented_data = (
             self._augment_data(log, user_features, item_features)
             .withColumnRenamed("relevance", "label")
@@ -97,8 +96,8 @@ class ClassifierRec(Recommender):
     def _predict(self,
                  log: DataFrame,
                  k: int,
-                 users: Optional[DataFrame] = None,
-                 items: Optional[DataFrame] = None,
+                 users: DataFrame,
+                 items: DataFrame,
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None,
                  filter_seen_items: bool = True) -> DataFrame:

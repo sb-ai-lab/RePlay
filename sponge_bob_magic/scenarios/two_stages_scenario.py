@@ -1,7 +1,6 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from logging import getLogger
 from typing import Dict, Optional, Tuple
 
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
@@ -12,6 +11,7 @@ from sponge_bob_magic.constants import IntOrList
 from sponge_bob_magic.experiment import Experiment
 from sponge_bob_magic.metrics import HitRate, Metric
 from sponge_bob_magic.models import ALSWrap, ClassifierRec, Recommender
+from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.splitters import Splitter, UserSplitter
 from sponge_bob_magic.utils import get_log_info, to_vector
 
@@ -28,6 +28,20 @@ DEFAULT_FIRST_STAGE_SPLITTER = UserSplitter(
 
 
 class TwoStagesScenario:
+    """
+    Двухуровневый сценарий:
+
+    * получить входной ``log``
+    * с помощью ``second_stage_splitter`` разбить ``log`` на ``second_stage_train`` и ``second_stage_test``
+    * с помощью ``first_stage_splitter`` разбить ``second_stage_train`` на ``first_stage_train`` и ``first_stage_test``
+    * на ``first_stage_train`` обучить ``first_stage_model`` (которая умеет генерировать эмбеддинги пользователей и объектов)
+    * с помощью ``frist_stage_model`` получить по ``first_stage_k`` рекомендованных объектов для тестовых пользователей (``first_stage_k > second_stage_k``)
+    * сравнивая ``frist_stage_recs`` с ``first_stage_test`` получить таргет для обучения классификатора (угадали --- ``1``, не угадали --- ``0``)
+    * обучить ``second_stage_model`` (на основе классификатора) на таргете из предыдущего пункта и с эмбеддингами пользователей и объектов в качестве фичей
+    * получить ``second_stage_k`` рекомендаций с помощью ``second_stage_model``
+    * посчитать метрику от ``second_stage_recs`` и ``second_stage_test``
+
+    """
     _experiment: Optional[Experiment] = None
 
     def __init__(
@@ -35,7 +49,7 @@ class TwoStagesScenario:
             second_stage_splitter: Splitter = DEFAULT_SECOND_STAGE_SPLITTER,
             first_stage_splitter: Splitter = DEFAULT_FIRST_STAGE_SPLITTER,
             first_model: Recommender = ALSWrap(rank=100),
-            second_model: Recommender = ClassifierRec(),
+            second_model: ClassifierRec = ClassifierRec(),
             first_stage_k: int = 100,
             metrics: Dict[Metric, IntOrList] = {HitRate(): 10}
     ):
@@ -59,10 +73,10 @@ class TwoStagesScenario:
         self.first_stage_k = first_stage_k
         self.second_model = second_model
         self.metrics = metrics
-        self.logger = getLogger("sponge_bob_magic")
 
     @property
     def experiment(self) -> Experiment:
+        """ история экспериментов """
         if self._experiment is None:
             raise ValueError(
                 "нужно запустить метод get_recs, чтобы провести эксперимент"
@@ -75,11 +89,11 @@ class TwoStagesScenario:
     ) -> Tuple[DataFrame, DataFrame, DataFrame]:
         mixed_train, test = self.second_stage_splitter.split(log)
         mixed_train.cache()
-        self.logger.debug("mixed_train stats: %s", get_log_info(mixed_train))
-        self.logger.debug("test stats: %s", get_log_info(test))
+        State().logger.debug("mixed_train stat: %s", get_log_info(mixed_train))
+        State().logger.debug("test stat: %s", get_log_info(test))
         first_train, first_test = self.first_stage_splitter.split(mixed_train)
-        self.logger.debug("first_train stats: %s", get_log_info(first_train))
-        self.logger.debug("first_test stats: %s", get_log_info(first_test))
+        State().logger.debug("first_train stat: %s", get_log_info(first_train))
+        State().logger.debug("first_test stat: %s", get_log_info(first_test))
         return first_train.cache(), first_test.cache(), test.cache()
 
     def _get_first_stage_recs(self, first_train: DataFrame) -> DataFrame:
@@ -123,7 +137,7 @@ class TwoStagesScenario:
                 ).drop("uid", "iid").cache()
             )
         ).cache()
-        self.logger.debug(
+        State().logger.debug(
             "баланс классов: положительных %d из %d",
             second_train.filter("relevance = 1").count(),
             second_train.count()
@@ -135,13 +149,11 @@ class TwoStagesScenario:
         обучить двухуровневую модель и выдать рекомендации на тестовом множестве,
         полученном в соответствии с выбранной схемой валидации
 
-        >>> from sponge_bob_magic.session_handler import State
         >>> spark = State().session
         >>> import numpy as np
         >>> np.random.seed(47)
-        >>> from logging import getLogger, ERROR
-        >>> logger = getLogger("sponge_bob_magic")
-        >>> logger.setLevel(ERROR)
+        >>> from logging import ERROR
+        >>> State().logger.setLevel(ERROR)
         >>> from sponge_bob_magic.splitters import UserSplitter
         >>> splitter = UserSplitter(
         ...    item_test_size=1,
@@ -201,7 +213,7 @@ class TwoStagesScenario:
             user_features=user_features,
             item_features=item_features
         ).cache()
-        self.logger.debug(
+        State().logger.debug(
             "ROC AUC модели второго уровня (как классификатора): %.4f",
             BinaryClassificationEvaluator().evaluate(
                 self.second_model.model.transform(

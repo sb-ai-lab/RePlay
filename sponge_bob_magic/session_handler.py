@@ -84,7 +84,8 @@ class State(Borg):
     def __init__(
             self,
             session: Optional[SparkSession] = None,
-            device: Optional[torch.device] = None
+            device: Optional[torch.device] = None,
+            logger: Optional[logging.Logger] = None
     ):
         Borg.__init__(self)
         if not hasattr(self, "logger_set"):
@@ -107,3 +108,8 @@ class State(Borg):
                     self.device = torch.device("cpu")
         else:
             self.device = device
+        if logger is None:
+            if not hasattr(self, "logger"):
+                self.logger = logging.getLogger("sponge_bob_magic")
+        else:
+            self.logger = logger

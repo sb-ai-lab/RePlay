@@ -35,7 +35,7 @@ class Experiment:
     """
     def __init__(self,
                  test: Any,
-                 metrics: Union[Dict[List[Metric], IntOrList],
+                 metrics: Union[Dict[Metric, IntOrList],
                                 List[Metric]],
                  k: Optional[IntOrList] = None):
         """
