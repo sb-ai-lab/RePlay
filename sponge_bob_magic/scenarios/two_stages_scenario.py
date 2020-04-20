@@ -60,7 +60,8 @@ class TwoStagesScenario:
                                       По умолчанию у каждого пользователя откладывается 1 объект в ``train``, а остальное идёт в ``test``.
                                       ``test`` будет использоваться для финальной оценки качества модели, а ``train`` будет разбиваться повторно.
         :param first_stage_splitter: как разбивать ``train`` на новые ``first_stage_train`` и ``first_stage_test``.
-                                     По умолчанию у каждого пользователя откладывается 40% объектов в ``first_stage_train``, а остальное идёт в ``first_stage_test``.
+                                     По умолчанию у каждого пользователя откладывается 40% объектов в ``first_stage_train``,
+                                     а остальное идёт в ``first_stage_test``.
         :param first_model: модель какого класса будем обучать на ``first_stage_train``. По умолчанию :ref:`ALS<als-rec>`.
         :param first_stage_k: сколько объектов будем рекомендовать моделью первого уровня (``first_model``). По умолчанию 100
         :param second_model: какую модель будем обучать на результате сравнения предсказаний ``first_model`` и ``first_stage_test``
