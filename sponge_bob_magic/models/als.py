@@ -48,10 +48,7 @@ class ALSWrap(Recommender):
             itemCol="item_idx",
             ratingCol="relevance",
             implicitPrefs=True,
-            seed=self._seed,
-            regParam=0,
-            alpha=7,
-            maxIter=20
+            seed=self._seed
         ).fit(log_indexed)
 
     def _predict(self,
