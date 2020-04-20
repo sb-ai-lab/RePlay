@@ -41,12 +41,11 @@ class ClassifierRec(Recommender):
              log: DataFrame,
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
-        self.model = RandomForestClassifier(**self.model_params).fit(
-            self.augmented_data)
-        model_path = os.path.join(self.spark.conf.get("spark.local.dir"),
-                                  "linear.model")
-        self.model.write().overwrite().save(model_path)
-        self.model = self.model.read().load(model_path)
+        self.model = RandomForestClassifier(
+            **self.model_params
+        ).fit(
+            self.augmented_data
+        )
 
     @staticmethod
     def _augment_data(
