@@ -9,6 +9,7 @@
 Если реализованных метрик недостаточно, библиотека поддерживает возможность
 :ref:`добавления своих метрик <new-metric>`.
 """
+from sponge_bob_magic.metrics.base_metric import Metric
 from sponge_bob_magic.metrics.coverage import Coverage
 from sponge_bob_magic.metrics.hitrate import HitRate
 from sponge_bob_magic.metrics.map import MAP

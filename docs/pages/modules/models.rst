@@ -28,7 +28,7 @@ K Nearest Neighbours
     :special-members: __init__
 
 Classifier Recommender
--------------------
+----------------------
 
 ..  autoclass:: sponge_bob_magic.models.ClassifierRec
     :special-members: __init__

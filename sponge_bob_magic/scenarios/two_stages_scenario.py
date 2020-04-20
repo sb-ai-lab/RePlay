@@ -11,7 +11,7 @@ from pyspark.sql.functions import col, isnull, lit, when
 from sponge_bob_magic.constants import IntOrList
 from sponge_bob_magic.experiment import Experiment
 from sponge_bob_magic.metrics import HitRate, Metric
-from sponge_bob_magic.models import ALSRec, ClassifierRec, Recommender
+from sponge_bob_magic.models import ALSWrap, ClassifierRec, Recommender
 from sponge_bob_magic.splitters import Splitter, UserSplitter
 from sponge_bob_magic.utils import get_log_info, to_vector
 
@@ -34,7 +34,7 @@ class TwoStagesScenario:
             self,
             second_stage_splitter: Splitter = DEFAULT_SECOND_STAGE_SPLITTER,
             first_stage_splitter: Splitter = DEFAULT_FIRST_STAGE_SPLITTER,
-            first_model: Recommender = ALSRec(rank=100),
+            first_model: Recommender = ALSWrap(rank=100),
             second_model: Recommender = ClassifierRec(),
             first_stage_k: int = 100,
             metrics: Dict[Metric, IntOrList] = {HitRate(): 10}
@@ -43,14 +43,15 @@ class TwoStagesScenario:
         собрать двухуровневую рекомендательную архитектуру из блоков
 
         :param second_stage_splitter: как разбивать входной лог на ``train`` и ``test``.
-        По умолчанию у каждого пользователя откладывается 1 объект в ``train``, а остальное идёт в ``test``.
-        ``test`` будет использоваться для финальной оценки качества модели, а ``train`` будет разбиваться повторно.
+                                      По умолчанию у каждого пользователя откладывается 1 объект в ``train``, а остальное идёт в ``test``.
+                                      ``test`` будет использоваться для финальной оценки качества модели, а ``train`` будет разбиваться повторно.
         :param first_stage_splitter: как разбивать ``train`` на новые ``first_stage_train`` и ``first_stage_test``.
-        По умолчанию у каждого пользователя откладывается 40% объектов в ``first_stage_train``, а остальное идёт в ``first_stage_test``.
+                                     По умолчанию у каждого пользователя откладывается 40% объектов в ``first_stage_train``, а остальное идёт в ``first_stage_test``.
         :param first_model: модель какого класса будем обучать на ``first_stage_train``. По умолчанию :ref:`ALS<als-rec>`.
         :param first_stage_k: сколько объектов будем рекомендовать моделью первого уровня (``first_model``). По умолчанию 100
         :param second_model: какую модель будем обучать на результате сравнения предсказаний ``first_model`` и ``first_stage_test``
         :param metrics: какие метрики будем оценивать у ``second_model`` на ``test``. По умолчанию :ref:`HitRate@10<hit-rate>`.
+
         """
         self.second_stage_splitter = second_stage_splitter
         self.first_stage_splitter = first_stage_splitter

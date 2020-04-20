@@ -10,7 +10,6 @@ from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.models.classifier_rec import ClassifierRec
 from sponge_bob_magic.models.knn import KNN
 from sponge_bob_magic.models.lightfm import LightFMWrap
-from sponge_bob_magic.models.mlp import MLPRec
 from sponge_bob_magic.models.mult_vae import MultVAE
 from sponge_bob_magic.models.neuromf import NeuroMF
 from sponge_bob_magic.models.pop_rec import PopRec
