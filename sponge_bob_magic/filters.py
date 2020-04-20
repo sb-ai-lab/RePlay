@@ -10,7 +10,7 @@ from sponge_bob_magic.converter import TypeManager
 AnyDataFrame = Union[sp.DataFrame, pd.DataFrame]
 
 
-def min_entries(df: AnyDataFrame, n: int):
+def min_entries(df: AnyDataFrame, n: int) -> AnyDataFrame:
     """
     Удаляет из датафрейма записи всех пользователей,
     имеющих менее ``n`` оценок.
@@ -22,17 +22,17 @@ def min_entries(df: AnyDataFrame, n: int):
     0        1
     1        1
     """
-    tm = TypeManager()
-    df = tm.fit_convert(df)
+    types = TypeManager()
+    df = types.fit_convert(df)
 
     vc = df.groupBy("user_id").count()
     remaining_users = vc.filter(vc["count"] >= n)[["user_id"]]
     df = df.join(remaining_users, on="user_id", how="inner")
 
-    return tm.inverse(df)
+    return types.inverse(df)
 
 
-def min_rating(df: AnyDataFrame, value: float, column="relevance"):
+def min_rating(df: AnyDataFrame, value: float, column="relevance") -> AnyDataFrame:
     """
     Удаляет из датафрейма записи с оценкой меньше ``value`` в колонке ``column``.
 
@@ -43,9 +43,9 @@ def min_rating(df: AnyDataFrame, value: float, column="relevance"):
     0          5
     1          4
     """
-    tm = TypeManager()
-    df = tm.fit_convert(df)
+    types = TypeManager()
+    df = types.fit_convert(df)
 
     df = df.filter(df[column] > value)
 
-    return tm.inverse(df)
+    return types.inverse(df)
