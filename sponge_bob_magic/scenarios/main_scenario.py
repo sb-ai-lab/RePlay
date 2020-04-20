@@ -2,7 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
 from optuna import Study, create_study, samplers
 from pyspark.sql import DataFrame
@@ -32,8 +32,8 @@ class MainScenario:
             self,
             splitter: Splitter = RandomSplitter(0.3, True, True),
             recommender: Recommender = KNN(),
-            criterion: Metric = HitRate,
-            metrics: Dict[Metric, IntOrList] = dict(),
+            criterion: Type[Metric] = HitRate,
+            metrics: Dict[Type[Metric], IntOrList] = dict(),
             fallback_rec: Recommender = PopRec()
     ):
         """
