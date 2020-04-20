@@ -264,11 +264,11 @@ class NeuroMF(Recommender):
             raise ValueError("Хотя бы один из параметров embedding_gmf_dim, "
                              "embedding_mlp_dim должен быть не пуст")
 
-        if ((embedding_gmf_dim is None  or embedding_gmf_dim < 0) and
+        if ((embedding_gmf_dim is None or embedding_gmf_dim < 0) and
            (embedding_mlp_dim is None or embedding_mlp_dim < 0)):
             raise ValueError("Параметры embedding_gmf_dim, embedding_mlp_dim"
                              " должны быть положительными")
-        
+
         self.device = State().device
         self.learning_rate = learning_rate
         self.epochs = epochs
