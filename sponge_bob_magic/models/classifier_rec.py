@@ -40,6 +40,13 @@ class ClassifierRec(Recommender):
                  log: DataFrame,
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None) -> None:
+        relevances = {
+            row[0]
+            for row in log.select("relevance").distinct().collect()
+        }
+        if relevances != {0, 1}:
+            raise ValueError("в логе должны быть relevance только 0 или 1"
+                             " и присутствовать значения обоих классов")
         self.augmented_data = (
             self._augment_data(log, user_features, item_features)
             .withColumnRenamed("relevance", "label")

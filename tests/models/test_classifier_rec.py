@@ -98,3 +98,9 @@ class ClassifierRecTestCase(PySparkTest):
             true_value,
             augmented_data
         )
+
+    def test_pre_fit_raises(self):
+        with self.assertRaises(ValueError):
+            self.model._pre_fit(
+                self.spark.createDataFrame([(1,)]).toDF("relevance")
+            )
