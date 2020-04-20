@@ -1,27 +1,24 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import os
-import shutil
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, List
 
-import numpy as np
-import pandas
-from annoy import AnnoyIndex
 from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.engine import Engine, Events
 from ignite.handlers import (EarlyStopping, ModelCheckpoint,
                              global_step_from_engine)
 from ignite.metrics import Loss
+import pandas as pd
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import MinMaxScaler, VectorAssembler
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import udf
-from pyspark.sql.types import DoubleType
+from pyspark.sql import functions as sf
+from pyspark.sql import types as st
 from sklearn.model_selection import train_test_split
 import torch.optim
 from torch import LongTensor, Tensor
-from torch.nn import Embedding, Module
+from torch import nn
+import torch.nn.functional as F
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -30,212 +27,352 @@ from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class NMF(Module):
-    "Простая нейронная сеть, соответствующая колоборативной фильтрации"
+def xavier_init_(layer: nn.Module):
+    """
+    Инициализация весов линейного слоя методом Хавьера
+
+    :param layer: слой нейронной сети
+    """
+    if isinstance(layer, (nn.Embedding, nn.Linear)):
+        nn.init.xavier_normal_(layer.weight.data)
+
+    if isinstance(layer, nn.Linear):
+        layer.bias.data.normal_(0.0, 0.001)
+
+
+class GMF(nn.Module):
+    """Generalized Matrix Factorization (GMF) модель - нейросетевая
+    реализация матричной факторизации"""
     def __init__(
             self,
             user_count: int,
             item_count: int,
-            embedding_dimension: int
+            embedding_dim: int
     ):
         """
         Инициализация модели. Создает эмбеддинги пользователей и объектов.
 
         :param user_count: количество пользователей
         :param item_count: количество объектов
-        :param embedding_dimension: размерность представления пользователей и
+        :param embedding_dim: размерность представления пользователей и
             объектов
         """
         super().__init__()
-        user_embedding = Embedding(num_embeddings=user_count,
-                                   embedding_dim=embedding_dimension)
-        item_embedding = Embedding(num_embeddings=item_count,
-                                   embedding_dim=embedding_dimension)
-        item_biases = Embedding(num_embeddings=item_count,
-                                embedding_dim=1)
-        user_biases = Embedding(num_embeddings=user_count,
-                                embedding_dim=1)
+        self.user_embedding = nn.Embedding(num_embeddings=user_count,
+                                           embedding_dim=embedding_dim)
+        self.item_embedding = nn.Embedding(num_embeddings=item_count,
+                                           embedding_dim=embedding_dim)
+        self.item_biases = nn.Embedding(num_embeddings=item_count,
+                                        embedding_dim=1)
+        self.user_biases = nn.Embedding(num_embeddings=user_count,
+                                        embedding_dim=1)
 
-        user_embedding.weight.data.normal_(0, 1.0 / embedding_dimension)
-        item_embedding.weight.data.normal_(0, 1.0 / embedding_dimension)
-        user_biases.weight.data.zero_()
-        item_biases.weight.data.zero_()
+        xavier_init_(self.user_embedding)
+        xavier_init_(self.item_embedding)
+        self.user_biases.weight.data.zero_()
+        self.item_biases.weight.data.zero_()
 
-        self.user_embedding = user_embedding
-        self.item_embedding = item_embedding
-        self.item_biases = item_biases
-        self.user_biases = user_biases
-
-    def forward(self, user: torch.Tensor, item: torch.Tensor, get_embs=False
-                ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
         """
         Один проход нейросети.
 
         :param user: батч ID пользователей
         :param item: батч ID объектов
-        :type get_embs: флаг, указывающий, возвращать ли промежуточные
-            эмбеддинги
+        :return: батч весов предсказанных взаимодействий пользователей и
+            объектов
+        """
+        user_emb = self.user_embedding(user) + self.user_biases(user)
+        item_emb = self.item_embedding(item) + self.item_biases(item)
+        element_product = torch.mul(user_emb, item_emb)
+
+        return element_product
+
+
+class MLP(nn.Module):
+    """Multi-Layer Perceptron (MLP) модель"""
+    def __init__(
+            self,
+            user_count: int,
+            item_count: int,
+            embedding_dim: int,
+            hidden_dims: Optional[List[int]] = None,
+    ):
+        """
+        Инициализация модели.
+
+        :param user_count: количество пользователей
+        :param item_count: количество объектов
+        :param embedding_dim: размерность представления пользователей и
+            объектов
+        :param hidden_dims: последовательность размеров скрытых слоев
+        """
+        super().__init__()
+        self.user_embedding = nn.Embedding(num_embeddings=user_count,
+                                           embedding_dim=embedding_dim)
+        self.item_embedding = nn.Embedding(num_embeddings=item_count,
+                                           embedding_dim=embedding_dim)
+        self.item_biases = nn.Embedding(num_embeddings=item_count,
+                                        embedding_dim=1)
+        self.user_biases = nn.Embedding(num_embeddings=user_count,
+                                        embedding_dim=1)
+
+        if hidden_dims:
+            full_hidden_dims = [2 * embedding_dim] + hidden_dims
+            self.hidden_layers = nn.ModuleList(
+                [nn.Linear(d_in, d_out) for d_in, d_out in
+                 zip(full_hidden_dims[:-1], full_hidden_dims[1:])])
+
+        else:
+            self.hidden_layers = nn.ModuleList()
+
+        self.activation = nn.ReLU()
+
+        xavier_init_(self.user_embedding)
+        xavier_init_(self.item_embedding)
+        self.user_biases.weight.data.zero_()
+        self.item_biases.weight.data.zero_()
+        for layer in self.hidden_layers:
+            xavier_init_(layer)
+
+    def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
+        """
+        Один проход нейросети.
+
+        :param user: батч ID пользователей
+        :param item: батч ID объектов
+        :return: батч весов предсказанных взаимодействий пользователей и
+            объектов
+        """
+        user_emb = self.user_embedding(user) + self.user_biases(user)
+        item_emb = self.item_embedding(item) + self.item_biases(item)
+        hidden = torch.cat([user_emb, item_emb], dim=-1)
+        for layer in self.hidden_layers:
+            hidden = layer(hidden)
+            hidden = self.activation(hidden)
+        return hidden
+
+
+class NMF(nn.Module):
+    """NMF модель (MLP + GMF)"""
+    def __init__(
+            self,
+            user_count: int,
+            item_count: int,
+            embedding_gmf_dim: Optional[int] = None,
+            embedding_mlp_dim: Optional[int] = None,
+            hidden_mlp_dims: Optional[List[int]] = None,
+    ):
+        """
+        Инициализация модели. Создает эмбеддинги пользователей и объектов.
+
+        :param user_count: количество пользователей
+        :param item_count: количество объектов
+        :param embedding_gmf_dim: размерность представления пользователей и
+            объектов в модели gmf
+        :param embedding_mlp_dim: размерность представления пользователей и
+            объектов в модели mlp
+        :param hidden_mlp_dims: последовательность размеров скрытых слоев в
+            модели mlp
+        """
+        super().__init__()
+        merged_dim = 0
+        if embedding_gmf_dim:
+            self.gmf = GMF(user_count, item_count, embedding_gmf_dim)
+            merged_dim += embedding_gmf_dim
+        else:
+            self.gmf = None
+
+        if embedding_mlp_dim:
+            self.mlp = MLP(user_count, item_count,
+                           embedding_mlp_dim, hidden_mlp_dims)
+            merged_dim += hidden_mlp_dims[-1]
+        else:
+            self.mlp = None
+
+        self.last_layer = nn.Linear(merged_dim, 1)
+        xavier_init_(self.last_layer)
+
+    def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
+        """
+        Один проход нейросети.
+
+        :param user: батч ID пользователей
+        :param item: батч ID объектов
         :return: батч весов предсказанных взаимодействий пользователей и
             объектов или батч промежуточных эмбеддингов
         """
-        user_emb = self.user_embedding(user)
-        item_emb = self.item_embedding(item)
-        dot = (user_emb * item_emb).sum(dim=1).squeeze()
-        relevance = (dot + self.item_biases(item).squeeze() +
-                     self.user_biases(user).squeeze())
-        if get_embs:
-            return user_emb, item_emb
-        return relevance
+        batch_size = len(user)
+        if self.gmf:
+            gmf_vector = self.gmf(user, item)
+        else:
+            gmf_vector = torch.zeros(batch_size, 0).to(user.device)
+
+        if self.mlp:
+            mlp_vector = self.mlp(user, item)
+        else:
+            mlp_vector = torch.zeros(batch_size, 0).to(user.device)
+
+        merged_vector = torch.cat([gmf_vector, mlp_vector], dim=1)
+        merged_vector = self.last_layer(merged_vector).squeeze()
+        merged_vector = torch.sigmoid(merged_vector)
+
+        return merged_vector
 
 
 class NeuroMF(Recommender):
     """
     Эта модель является вариацей на модель из статьи Neural Matrix Factorization
-    (NeuMF, NCF)
+    (NeuMF, NCF).
+
+    Модель позволяет использовать архитектуры MLP и GMF как отдельно,
+    так и совместно.
     """
-    num_workers: int = 8
-    batch_size_fit_users: int = 100000
-    batch_size_predict_users: int = 100
-    batch_size_predict_items: int = 10000
-    num_users: int
-    num_items: int
-    num_trees_annoy: int = 10
+    num_workers: int = 16
+    batch_size_users: int = 100000
     trainer: Engine
     val_evaluator: Engine
-    train_evaluator: Engine
     patience: int = 3
     n_saved: int = 2
+    valid_split_size: float = 0.1
+    seed: int = 42
 
     def __init__(self, learning_rate: float = 0.05,
-                 epochs: int = 1,
-                 embedding_dimension: int = 10):
+                 epochs: int = 5,
+                 embedding_gmf_dim: Optional[int] = None,
+                 embedding_mlp_dim: Optional[int] = None,
+                 hidden_mlp_dims: Optional[List[int]] = None,
+                 l2_reg: float = 0,
+                 gamma: float = 0.99,
+                 count_negative_sample: int = 1
+                 ):
         """
-        Инициализирует параметры модели и сохраняет спарк-сессию.
+        Инициализирует параметры модели.
 
         :param learning_rate: шаг обучения
         :param epochs: количество эпох, в течение которых учимся
-        :param embedding_dimension: размер представления пользователей/объектов
+        :param embedding_gmf_dim: размерность представления пользователей и
+            объектов в модели gmf
+        :param embedding_mlp_dim: размерность представления пользователей и
+            объектов в модели mlp
+        :param hidden_mlp_dims: последовательность размеров скрытых слоев в
+            модели mlp
+        :param l2_reg: коэффициент l2 регуляризации
+        :param gamma: коэффициент уменьшения learning_rate после каждой эпохи
+        :param count_negative_sample: количество отрицательных примеров
         """
+        if not embedding_gmf_dim and not embedding_mlp_dim:
+            raise ValueError("Хотя бы один из параметров embedding_gmf_dim, "
+                             "embedding_mlp_dim должен быть не пуст")
+
+        if ((embedding_gmf_dim is None or embedding_gmf_dim < 0) and
+           (embedding_mlp_dim is None or embedding_mlp_dim < 0)):
+            raise ValueError("Параметры embedding_gmf_dim, embedding_mlp_dim"
+                             " должны быть положительными")
+
         self.device = State().device
         self.learning_rate = learning_rate
         self.epochs = epochs
-        self.embedding_dimension = embedding_dimension
-        self.count_negative_sample = 1
-        self.annoy_index = AnnoyIndex(embedding_dimension, "angular")
+        self.embedding_gmf_dim = embedding_gmf_dim
+        self.embedding_mlp_dim = embedding_mlp_dim
+        self.hidden_mlp_dims = hidden_mlp_dims
+        self.l2_reg = l2_reg
+        self.gamma = gamma
+        self.count_negative_sample = count_negative_sample
 
     def get_params(self) -> Dict[str, object]:
         return {
             "learning_rate": self.learning_rate,
-            "epochs": self.epochs,
-            "embedding_dimension": self.embedding_dimension
+            "epochs": self.epochs
         }
 
-    def _pre_fit(self, log: DataFrame,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None) -> None:
-        super()._pre_fit(log, user_features, item_features)
-        log_indexed = self.user_indexer.transform(log)
-        log_indexed = self.item_indexer.transform(log_indexed)
-        self.num_users = log_indexed.select("user_idx").distinct().count()
-        self.num_items = log_indexed.select("item_idx").distinct().count()
-        self.model = NMF(
-            user_count=self.num_users,
-            item_count=self.num_items,
-            embedding_dimension=self.embedding_dimension
-        ).to(self.device)
-
     def _data_loader(self,
-                     user_batch: Tensor,
-                     item_batch: Tensor):
+                     data: pd.DataFrame,
+                     shuffle: bool = True
+                     ) -> DataLoader:
+
+        user_batch = LongTensor(data["user_idx"].values)
+        item_batch = LongTensor(data["item_idx"].values)
+
         dataset = TensorDataset(user_batch, item_batch)
 
         loader = DataLoader(
             dataset,
-            batch_size=self.batch_size_fit_users,
-            shuffle=True,
+            batch_size=self.batch_size_users,
+            shuffle=shuffle,
             num_workers=self.num_workers
         )
         return loader
 
-    def _get_neg_batch(self, batch):
-        negative_items = torch.from_numpy(
-            np.random.randint(low=0, high=self.num_items - 1,
-                              size=batch.shape[0] *
-                              self.count_negative_sample)
-        ).to(self.device)
+    def _get_neg_batch(self, batch: Tensor) -> Tensor:
+        negative_items = (torch
+                          .randint(0, self.items_count - 1,
+                                   (batch.shape[0] *
+                                    self.count_negative_sample,)))
         return negative_items
 
     def _fit(self,
              log: DataFrame,
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
+        self.model = NMF(
+            user_count=self.users_count,
+            item_count=self.items_count,
+            embedding_gmf_dim=self.embedding_gmf_dim,
+            embedding_mlp_dim=self.embedding_mlp_dim,
+            hidden_mlp_dims=self.hidden_mlp_dims,
+        ).to(self.device)
+
         self.logger.debug("Индексирование данных")
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
 
-        self.logger.debug("Составление батча:")
-        tensor_data = self.spark2pandas_csv(
-            log_indexed.select("user_idx", "item_idx"),
-            os.path.join(self.spark.conf.get("spark.local.dir"),
-                         "tmp_tensor_data")
-        )
+        self.logger.debug("Составление батча")
+        tensor_data = log_indexed.select("user_idx", "item_idx").toPandas()
         train_tensor_data, valid_tensor_data = train_test_split(
-            tensor_data, stratify=tensor_data["user_idx"], test_size=0.1,
-            random_state=42)
-        train_user_batch = LongTensor(
-            train_tensor_data["user_idx"].values
-        ).to(self.device)
-        train_item_batch = LongTensor(
-            train_tensor_data["item_idx"].values
-        ).to(self.device)
-        valid_user_batch = LongTensor(
-            valid_tensor_data["user_idx"].values
-        ).to(self.device)
-        valid_item_batch = LongTensor(
-            valid_tensor_data["item_idx"].values
-        ).to(self.device)
+            tensor_data,
+            stratify=tensor_data["user_idx"],
+            test_size=self.valid_split_size,
+            random_state=self.seed)
+        train_data_loader = self._data_loader(train_tensor_data)
+        val_data_loader = self._data_loader(valid_tensor_data)
+
         self.logger.debug("Обучение модели")
-
-        train_data_loader = DataLoader(
-            TensorDataset(train_user_batch, train_item_batch),
-            batch_size=self.batch_size_fit_users,
-            shuffle=True,
-            num_workers=self.num_workers
-        )
-        val_data_loader = DataLoader(
-            TensorDataset(valid_user_batch, valid_item_batch),
-            batch_size=self.batch_size_fit_users,
-            shuffle=False,
-            num_workers=self.num_workers
-        )
-
-        optimizer = torch.optim.Adam(self.model.parameters(),
-                                     lr=self.learning_rate)
-        lr_scheduler = ExponentialLR(optimizer, gamma=0.95)
+        optimizer = torch.optim.Adam(
+            self.model.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.l2_reg / self.batch_size_users)
+        lr_scheduler = ExponentialLR(optimizer, gamma=self.gamma)
         scheduler = LRScheduler(lr_scheduler)
-        y_true = torch.ones(self.batch_size_fit_users *
+        y_true = torch.ones(self.batch_size_users *
                             (1 + self.count_negative_sample)).to(self.device)
-        y_true[self.batch_size_fit_users:] = -1
+        y_true[self.batch_size_users:] = 0
 
         def _loss(y_pred, y_true):
-            pos_len = y_pred.shape[0] // (self.count_negative_sample + 1)
-            negative_relevance = y_pred[pos_len:]
-            positive_relevance = y_pred[:pos_len]
-            return torch.clamp(
-                negative_relevance - positive_relevance + 1.0, 0.0, 1.0
-            ).mean()
+            if not y_true.shape == y_pred.shape:
+                pos_len = y_pred.shape[0] // (self.count_negative_sample + 1)
+                y_real_true = torch.cat((
+                    y_true[:pos_len],
+                    y_true[-pos_len * self.count_negative_sample:]))
+            else:
+                y_real_true = y_true
+            return F.binary_cross_entropy(y_pred, y_real_true).mean()
 
         def _run_train_step(engine, batch):
             self.model.train()
             optimizer.zero_grad()
             user_batch, pos_item_batch = batch
             neg_item_batch = self._get_neg_batch(user_batch)
-            pos_relevance = self.model(user_batch, pos_item_batch)
-            neg_relevance = self.model(user_batch, neg_item_batch)
+            pos_relevance = self.model(user_batch.to(self.device),
+                                       pos_item_batch.to(self.device))
+            neg_relevance = self.model(
+                user_batch.repeat([self.count_negative_sample])
+                .to(self.device),
+                neg_item_batch.to(self.device))
             y_pred = torch.cat((pos_relevance, neg_relevance), 0)
             loss = _loss(y_pred, y_true)
             loss.backward()
             optimizer.step()
+
             return loss.item()
 
         def _run_val_step(engine, batch):
@@ -243,16 +380,17 @@ class NeuroMF(Recommender):
             with torch.no_grad():
                 user_batch, pos_item_batch = batch
                 neg_item_batch = self._get_neg_batch(user_batch)
-                pos_relevance = self.model(user_batch, pos_item_batch)
-                neg_relevance = self.model(user_batch, neg_item_batch)
+                pos_relevance = self.model(user_batch.to(self.device),
+                                           pos_item_batch.to(self.device))
+                neg_relevance = self.model(user_batch.repeat([
+                    self.count_negative_sample]).to(self.device),
+                    neg_item_batch.to(self.device))
                 y_pred = torch.cat((pos_relevance, neg_relevance), 0)
                 return y_pred, y_true
 
         self.trainer = Engine(_run_train_step)
-        self.train_evaluator = Engine(_run_val_step)
         self.val_evaluator = Engine(_run_val_step)
 
-        Loss(_loss).attach(self.train_evaluator, 'loss')
         Loss(_loss).attach(self.val_evaluator, 'loss')
         self.trainer.add_event_handler(Events.EPOCH_COMPLETED, scheduler)
 
@@ -261,13 +399,6 @@ class NeuroMF(Recommender):
             self.logger.debug("Epoch[{}] current loss: {:.4f}"
                               .format(trainer.state.epoch,
                                       trainer.state.output))
-
-        @self.trainer.on(Events.EPOCH_COMPLETED)
-        def log_training_results(trainer):
-            self.train_evaluator.run(train_data_loader)
-            metrics = self.train_evaluator.state.metrics
-            self.logger.debug("Epoch[{}] training average loss: {:.4f}"
-                              .format(trainer.state.epoch, metrics['loss']))
 
         @self.trainer.on(Events.EPOCH_COMPLETED)
         def log_validation_results(trainer):
@@ -298,18 +429,6 @@ class NeuroMF(Recommender):
                                              checkpoint, {"nmf": self.model})
         self.trainer.run(train_data_loader, max_epochs=self.epochs)
 
-        self.model.eval()
-        self.logger.debug("-- Запись annoy индексов")
-        _, item_embs = self.model(train_user_batch,
-                                  train_item_batch,
-                                  get_embs=True)
-        for item_id, item_emb in zip(
-                train_tensor_data["item_idx"].values,
-                item_embs.detach().cpu().numpy()
-        ):
-            self.annoy_index.add_item(int(item_id), item_emb)
-        self.annoy_index.build(self.num_trees_annoy)
-
     def _predict(self,
                  log: DataFrame,
                  k: int,
@@ -318,50 +437,56 @@ class NeuroMF(Recommender):
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None,
                  filter_seen_items: bool = True) -> DataFrame:
-        self.model.eval()
-        sep = ","
-        tmp_path = os.path.join(self.spark.conf.get("spark.local.dir"), "recs")
-        if os.path.exists(tmp_path):
-            shutil.rmtree(tmp_path)
-        os.makedirs(tmp_path)
 
-        self.logger.debug("Индексирование данных")
-        users = self.user_indexer.transform(users)
+        items_pd = (self.item_indexer.transform(items)
+                    .toPandas()["item_idx"].values)
+        model = self.model.cpu()
+
+        @sf.pandas_udf(
+            st.StructType([
+                st.StructField("user_id", st.StringType(), True),
+                st.StructField("user_idx", st.LongType(), True),
+                st.StructField("item_idx", st.LongType(), True),
+                st.StructField("relevance", st.FloatType(), True)
+            ]),
+            sf.PandasUDFType.GROUPED_MAP
+        )
+        def grouped_map(pandas_df):
+
+            user_idx = pandas_df["user_idx"][0]
+            user_id = pandas_df["user_id"][0]
+            cnt = pandas_df["cnt"][0]
+
+            model.eval()
+            with torch.no_grad():
+                user_batch = LongTensor([user_idx] * len(items_pd))
+                item_batch = LongTensor(items_pd)
+
+                user_recs = model(user_batch, item_batch)
+                best_item_idx = (torch.argsort(
+                    user_recs.detach(),
+                    descending=True)[:cnt]).numpy()
+                return pd.DataFrame({
+                    "user_id": cnt * [user_id],
+                    "user_idx": cnt * [user_idx],
+                    "item_idx": items_pd[best_item_idx],
+                    "relevance": user_recs[best_item_idx]
+                })
 
         self.logger.debug("Предсказание модели")
-        tensor_data = self.spark2pandas_csv(
-            users.select("user_idx"),
-            os.path.join(self.spark.conf.get("spark.local.dir"),
-                         "tmp_tensor_users_data")
-        )
-        user_batch = LongTensor(tensor_data["user_idx"].values).to(self.device)
-        item_batch = torch.ones_like(user_batch).to(self.device)
-        user_embs, _ = self.model(user_batch, item_batch, get_embs=True)
-        predictions = pandas.DataFrame(columns=["user_idx", "item_idx"])
-        self.logger.debug("Поиск ближайших айтемов с помощью annoy")
-        for user_id, user_emb in zip(tensor_data["user_idx"].values,
-                                     user_embs.detach().cpu().numpy()):
-            pred_for_user, relevance = self.annoy_index.get_nns_by_vector(
-                user_emb, k, include_distances=True
-            )
-            predictions = predictions.append(
-                pandas.DataFrame({"user_idx": [user_id] * k,
-                                  "item_idx": pred_for_user,
-                                  "relevance": relevance
-                                  }), sort=False
-            )
-        predictions.to_csv(os.path.join(tmp_path, "predict.csv"),
-                           sep=sep, header=True, index=False)
-
-        recs = self.spark.read.csv(os.path.join(tmp_path, "predict.csv"),
-                                   sep=sep,
-                                   header=True,
-                                   inferSchema=True)
-
-        self.logger.debug("Обратное преобразование индексов")
-        recs = self.inv_item_indexer.transform(recs)
-        recs = self.inv_user_indexer.transform(recs)
-        recs = recs.drop("user_idx", "item_idx")
+        recs = (self.inv_item_indexer.transform(
+            self.user_indexer.transform(
+                users.join(log, how="left", on="user_id")
+                .select("user_id", "item_id")
+                .groupby("user_id")
+                .agg(sf.countDistinct("item_id").alias("cnt")))
+            .selectExpr(
+                "user_id",
+                "CAST(user_idx AS INT) AS user_idx",
+                f"CAST(LEAST(cnt + {k}, {len(items_pd)}) AS INT) AS cnt")
+            .groupby("user_id", "user_idx")
+            .apply(grouped_map))
+            .drop("item_idx", "user_idx"))
 
         if filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
@@ -383,7 +508,7 @@ class NeuroMF(Recommender):
         :param column: имя колонки, которую надо нормализовать
         :return: исходный датафрейм с измененной колонкой
         """
-        unlist = udf(lambda x: float(list(x)[0]), DoubleType())
+        unlist = sf.udf(lambda x: float(list(x)[0]), st.DoubleType())
         assembler = VectorAssembler(
             inputCols=[column], outputCol=column + "_Vect"
         )
@@ -398,33 +523,6 @@ class NeuroMF(Recommender):
                      .drop(column + "_Vect", column + "_Scaled"))
 
         return dataframe
-
-    def spark2pandas_csv(self, dataframe: DataFrame, path: str) -> \
-            pandas.DataFrame:
-        """
-        Преобразовать спарк-датафрейм в пандас-датафрейм.
-        Функция записывает спарк-датафрейм на диск в виде CSV,
-        а затем pandas считывает этот файл в виде пандас-датафрейма.
-        Создается временный файл по пути `path`.
-
-        :param dataframe: спарк-датафрейм, который надо переобразовать в пандас
-        :param path: путь, по которому будет записан датафрейм и заново считан
-        :return:
-        """
-        self.logger.debug("-- Запись")
-        (dataframe
-         .coalesce(1)
-         .write
-         .mode("overwrite")
-         .csv(path, header=True))
-
-        self.logger.debug("-- Считывание")
-        pandas_path = os.path.join(path,
-                                   [file
-                                    for file in os.listdir(path)
-                                    if file.endswith(".csv")][0])
-        pandas_dataframe = pandas.read_csv(pandas_path)
-        return pandas_dataframe
 
     def load_model(self, path: str) -> None:
         """

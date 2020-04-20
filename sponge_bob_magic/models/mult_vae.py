@@ -18,9 +18,9 @@ from pyspark.sql import functions as sf
 from pyspark.sql.types import DoubleType
 from sklearn.model_selection import GroupShuffleSplit
 import torch
-import torch.nn.functional as F
-import torch.optim
 from torch import nn
+import torch.nn.functional as F
+from torch.optim import Adam
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -69,7 +69,7 @@ class VAE(nn.Module):
                                       zip(self.decoder_dims[:-1],
                                           self.decoder_dims[1:])])
         self.dropout = nn.Dropout(dropout)
-        self.activation = torch.relu
+        self.activation = torch.nn.ReLU()
 
         for layer in self.encoder:
             self.weight_init(layer)
@@ -352,7 +352,7 @@ class MultVAE(Recommender):
             encoder_dims=self.encoder_dims,
             dropout=self.dropout).to(self.device)
 
-        optimizer = torch.optim.Adam(
+        optimizer = Adam(
             self.model.parameters(),
             lr=self.learning_rate,
             weight_decay=self.l2_reg / self.batch_size_users)
