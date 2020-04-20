@@ -13,7 +13,7 @@ from sponge_bob_magic.models.classifier_rec import ClassifierRec
 
 class ClassifierRecTestCase(PySparkTest):
     def setUp(self):
-        self.model = ClassifierRec()
+        self.model = ClassifierRec(seed=47)
         self.user_features = self.spark.createDataFrame(
             [("1", datetime(2019, 1, 1), 1)],
             schema=StructType([
@@ -38,15 +38,9 @@ class ClassifierRecTestCase(PySparkTest):
             schema=LOG_SCHEMA
         )
 
-    def test_set_params(self):
-        params = dict()
-        self.model.set_params(**params)
-        self.assertEqual(self.model.get_params(), params)
-
     def test_get_params(self):
-        model = ClassifierRec()
-        params = dict()
-        self.assertEqual(model.get_params(), params)
+        model = ClassifierRec(seed=42)
+        self.assertEqual(model.get_params(), {"seed": 42})
 
     def test_fit(self):
         self.model.fit(
@@ -54,7 +48,7 @@ class ClassifierRecTestCase(PySparkTest):
             user_features=self.user_features,
             item_features=self.item_features
         )
-        self.assertEqual(2, self.model.model.numClasses)
+        self.assertEqual(self.model.model.treeWeights, 20 * [1.0])
 
     def test_predict(self):
         self.model.fit(
