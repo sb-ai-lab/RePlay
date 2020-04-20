@@ -9,5 +9,6 @@
    modules/metrics
    modules/experiment
    modules/scenarios
+   modules/filters
    modules/splitters
    modules/data_preparator

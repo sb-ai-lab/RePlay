@@ -45,3 +45,26 @@ def get_type(obj, except_unknown=True):
     else:
         res = type(obj)
     return res
+
+
+class TypeManager:
+    """
+    Вспомогательный класс, который запоминает входной тип,
+    конвертирует входные данные в спарк, а выходные в исходный тип.
+    """
+    def fit(self, df):
+        self.type_in = get_type(df)
+
+    @staticmethod
+    def convert(df):
+        return convert(df)
+
+    def fit_convert(self, df):
+        self.fit(df)
+        return self.convert(df)
+
+    def inverse(self, *args):
+        if len(args) == 1:
+            return convert(args[0], self.type_in)
+        else:
+            return tuple([convert(df, self.type_in) for df in args])
