@@ -12,7 +12,6 @@ from sponge_bob_magic.constants import LOG_SCHEMA
 from sponge_bob_magic.models.neuromf import NMF, NeuroMF
 
 
-
 class NeuroCFRecTestCase(PySparkTest):
     def setUp(self):
         torch.manual_seed(7)
