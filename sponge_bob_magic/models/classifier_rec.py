@@ -1,7 +1,6 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import os
 from typing import Dict, Optional
 
 from pyspark.ml.classification import (RandomForestClassificationModel,
@@ -16,7 +15,18 @@ from sponge_bob_magic.utils import func_get, get_feature_cols, get_top_k_recs
 
 
 class ClassifierRec(Recommender):
-    """ Рекомендатель на основе линейной модели и эмбеддингов. """
+    """
+    Рекомендатель на основе классификатора.
+
+    Получает на вход лог, в котором ``relevance`` принимает значения ``0`` и ``1``.
+    Обучение строится следующим образом:
+
+    * к логу присоединяются свойства пользователей и объектов (если есть)
+    * свойства считаются фичами классификатора, а ``relevance`` --- таргетом
+    * обучается случайный лес, который умеет предсказывать ``relevance``
+
+    В выдачу рекомендаций попадает top K объектов с наивысшим предсказанным скором от классификатора.
+    """
     model: RandomForestClassificationModel
     augmented_data: DataFrame
 
