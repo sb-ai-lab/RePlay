@@ -113,7 +113,7 @@ class NeuroCFRecTestCase(PySparkTest):
             os.path.exists(path)
         )
 
-        new_model = NeuroMF()
+        new_model = NeuroMF(embedding_mlp_dim=1)
         new_model.model = NMF(2, 3, 2, 2, [2])
         new_model.load_model(path)
 
@@ -147,3 +147,17 @@ class NeuroCFRecTestCase(PySparkTest):
                 parameter.detach().cpu().numpy(), true_parameters[i],
                 atol=1.e-3
             ))
+
+    def test_empty_embeddings_exception(self):
+        self.assertRaises(
+            ValueError,
+            NeuroMF,
+        )
+
+    def test_negative_dims_exception(self):
+        self.assertRaises(
+            ValueError,
+            NeuroMF,
+            embedding_gmf_dim=-2,
+            embedding_mlp_dim=-1,
+        )
