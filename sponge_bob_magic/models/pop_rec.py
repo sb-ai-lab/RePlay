@@ -54,7 +54,7 @@ class PopRec(Recommender):
     1        2        3        0.666667
     2        3        3        0.666667
     """
-    items_popularity: DataFrame
+    item_popularity: DataFrame
 
     def get_params(self) -> Dict[str, object]:
         return {}
@@ -64,7 +64,7 @@ class PopRec(Recommender):
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None) -> None:
         super()._pre_fit(log, user_features, item_features)
-        self.items_popularity = (
+        self.item_popularity = (
             log
             .groupBy("item_id")
             .agg(sf.countDistinct("user_id").alias("user_count"))
@@ -75,8 +75,8 @@ class PopRec(Recommender):
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
 
-        self.items_popularity = (
-            self.items_popularity
+        self.item_popularity = (
+            self.item_popularity
             .select("item_id",
                     (sf.col("user_count") / sf.lit(self.users_count))
                     .alias("relevance"))
@@ -93,7 +93,7 @@ class PopRec(Recommender):
         # удаляем ненужные items
         items_pd = self.item_indexer.transform(
             items.join(
-                self.items_popularity.withColumnRenamed("item_id", "item_id_2"),
+                self.item_popularity.withColumnRenamed("item_id", "item_id_2"),
                 on=sf.col("item_id") == sf.col("item_id_2"),
                 how="inner"
             )

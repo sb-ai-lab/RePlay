@@ -64,7 +64,7 @@ class RandomRec(Recommender):
     >>> random_pop.get_params()
     {'distribution': 'popular_based', 'alpha': 1.0, 'seed': 777}
     >>> random_pop.fit(log)
-    >>> random_pop.items_popularity.show()
+    >>> random_pop.item_popularity.show()
     +-------+-----------+
     |item_id|probability|
     +-------+-----------+
@@ -90,7 +90,7 @@ class RandomRec(Recommender):
     >>> random_pop.get_params()
     {'distribution': 'uniform', 'alpha': 0.0, 'seed': 555}
     >>> random_pop.fit(log)
-    >>> random_pop.items_popularity.show()
+    >>> random_pop.item_popularity.show()
     +-------+-----------+
     |item_id|probability|
     +-------+-----------+
@@ -113,7 +113,7 @@ class RandomRec(Recommender):
     +-------+----------+-------+
 
     """
-    items_popularity: DataFrame
+    item_popularity: DataFrame
 
     def __init__(self,
                  distribution: str = "uniform",
@@ -146,7 +146,7 @@ class RandomRec(Recommender):
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None) -> None:
         super()._pre_fit(log, user_features, item_features)
-        self.items_popularity = (
+        self.item_popularity = (
             log
             .groupBy("item_id")
             .agg(sf.countDistinct("user_id").alias("user_count"))
@@ -161,7 +161,7 @@ class RandomRec(Recommender):
         else:
             probability = "1"
 
-        self.items_popularity = self.items_popularity.selectExpr(
+        self.item_popularity = self.item_popularity.selectExpr(
             "item_id",
             f"{probability} AS probability"
         ).cache()
@@ -177,7 +177,7 @@ class RandomRec(Recommender):
 
         items_pd = self.item_indexer.transform(
             items.join(
-                self.items_popularity.withColumnRenamed("item_id", "item_id_2"),
+                self.item_popularity.withColumnRenamed("item_id", "item_id_2"),
                 on=sf.col("item_id") == sf.col("item_id_2"),
                 how="inner"
             )
