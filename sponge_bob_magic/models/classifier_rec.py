@@ -1,53 +1,52 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import os
 from typing import Dict, Optional
 
-from pyspark.ml.classification import (LogisticRegression,
-                                       LogisticRegressionModel)
+from pyspark.ml.classification import (RandomForestClassificationModel,
+                                       RandomForestClassifier)
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import lit, udf, when
+from pyspark.sql.functions import col, lit, udf, when
 from pyspark.sql.types import DoubleType, FloatType
 
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import func_get, get_feature_cols, get_top_k_recs
 
 
-class Linear(Recommender):
-    """ Рекомендатель на основе линейной модели и эмбеддингов. """
-    _model: LogisticRegressionModel
+class ClassifierRec(Recommender):
+    """
+    Рекомендатель на основе классификатора.
+
+    Получает на вход лог, в котором ``relevance`` принимает значения ``0`` и ``1``.
+    Обучение строится следующим образом:
+
+    * к логу присоединяются свойства пользователей и объектов (если есть)
+    * свойства считаются фичами классификатора, а ``relevance`` --- таргетом
+    * обучается случайный лес, который умеет предсказывать ``relevance``
+
+    В выдачу рекомендаций попадает top K объектов с наивысшим предсказанным скором от классификатора.
+    """
+    model: RandomForestClassificationModel
     augmented_data: DataFrame
 
-    def __init__(
-            self,
-            lambda_param: float = 0.0,
-            elastic_net_param: float = 0.0,
-            num_iter: int = 100):
-        """
-        Параметры `логистической регрессии
-        <https://spark.apache.org/docs/2.2.0/api/python/pyspark.ml.html#pyspark.ml.classification.LogisticRegression>`_
-
-        :param lambda_param: параметр регуляризации
-        :param elastic_net_param: параметр смешения ElasticNet, [0, 1].
-            alpha = 0, для L2 регуляризации, alpha = 1, для L1 регуляризации.
-        :param num_iter: максимальное количество итераций
-        """
-        self.lambda_param: float = lambda_param
-        self.elastic_net_param: float = elastic_net_param
-        self.num_iter: int = num_iter
+    def __init__(self, **kwargs):
+        self.model_params = kwargs
 
     def get_params(self) -> Dict[str, object]:
-        return {"lambda_param": self.lambda_param,
-                "elastic_net_param": self.elastic_net_param,
-                "num_iter": self.num_iter}
+        return self.model_params
 
     def _pre_fit(self,
                  log: DataFrame,
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None) -> None:
-        # TODO: добавить проверку, что в логе есть только нули и единицы
+        relevances = {
+            row[0]
+            for row in log.select("relevance").distinct().collect()
+        }
+        if relevances != {0, 1}:
+            raise ValueError("в логе должны быть relevance только 0 или 1"
+                             " и присутствовать значения обоих классов")
         self.augmented_data = (
             self._augment_data(log, user_features, item_features)
             .withColumnRenamed("relevance", "label")
@@ -58,17 +57,11 @@ class Linear(Recommender):
              log: DataFrame,
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
-        self._model = (
-            LogisticRegression(
-                maxIter=self.num_iter,
-                regParam=self.lambda_param,
-                elasticNetParam=self.elastic_net_param)
-            .fit(self.augmented_data)
+        self.model = RandomForestClassifier(
+            **self.model_params
+        ).fit(
+            self.augmented_data
         )
-        model_path = os.path.join(self.spark.conf.get("spark.local.dir"),
-                                  "linear.model")
-        self._model.write().overwrite().save(model_path)
-        self._model = self._model.read().load(model_path)
 
     @staticmethod
     def _augment_data(
@@ -86,22 +79,32 @@ class Linear(Recommender):
             добавлены фичи пользователя и объекта, которые в ней встречаются
         """
         user_feature_cols, item_feature_cols = get_feature_cols(
-            user_features, item_features)
-
+            user_features, item_features
+        )
         return VectorAssembler(
             inputCols=user_feature_cols + item_feature_cols,
             outputCol="features"
         ).transform(
             log
-            .join(user_features.drop("timestamp"), on="user_id", how="inner")
-            .join(item_features.drop("timestamp"), on="item_id", how="inner")
+            .withColumnRenamed("user_id", "uid")
+            .withColumnRenamed("item_id", "iid")
+            .join(
+                user_features.drop("timestamp"),
+                on=col("user_id") == col("uid"),
+                how="inner"
+            )
+            .join(
+                item_features.drop("timestamp"),
+                on=col("item_id") == col("iid"),
+                how="inner"
+            ).drop("iid", "uid")
         )
 
     def _predict(self,
                  log: DataFrame,
                  k: int,
-                 users: Optional[DataFrame] = None,
-                 items: Optional[DataFrame] = None,
+                 users: DataFrame,
+                 items: DataFrame,
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None,
                  filter_seen_items: bool = True) -> DataFrame:
@@ -111,12 +114,10 @@ class Linear(Recommender):
             )
             .select("features", "item_id", "user_id")
         )
-
         if filter_seen_items:
             data = data.join(log, on=["user_id", "item_id"], how="left_anti")
-
         recs = (
-            self._model
+            self.model
             .transform(data)
             .select(
                 "user_id",
@@ -126,7 +127,6 @@ class Linear(Recommender):
                 .cast(FloatType())
             )
         )
-
         recs = get_top_k_recs(recs, k)
         recs = recs.withColumn(
             "relevance",

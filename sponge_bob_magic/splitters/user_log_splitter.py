@@ -102,7 +102,10 @@ class UserSplitter(Splitter):
            которых нет в обучающей
         :param seed: сид для разбиения
         """
-        super().__init__(drop_cold_users, drop_cold_items)
+        super().__init__(
+            drop_cold_items=drop_cold_items,
+            drop_cold_users=drop_cold_users
+        )
         self.item_test_size = item_test_size
         self.user_test_size = user_test_size
         self.shuffle = shuffle

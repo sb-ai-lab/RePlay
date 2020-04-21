@@ -5,8 +5,10 @@ import collections
 from typing import Any, Iterable, List, Set, Tuple
 
 import numpy as np
-from pyspark.sql import DataFrame, SparkSession, Window
+from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
+from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
+from pyspark.sql.functions import udf
 
 
 def flat_list(list_object: Iterable):
@@ -119,3 +121,69 @@ def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
                         sf.row_number().over(window))
             .filter(sf.col("rank") <= k)
             .drop("rank"))
+
+
+@udf(returnType=VectorUDT())
+def to_vector(array: List[float]) -> DenseVector:
+    """
+    преобразует список вещественных значений в плотный вектор в формате Spark
+
+    >>> from sponge_bob_magic.session_handler import State
+    >>> spark = State().session
+    >>> input_data = spark.createDataFrame([([1.0, 2.0, 3.0],)]).toDF("array")
+    >>> input_data.schema
+    StructType(List(StructField(array,ArrayType(DoubleType,true),true)))
+    >>> input_data.show()
+    +---------------+
+    |          array|
+    +---------------+
+    |[1.0, 2.0, 3.0]|
+    +---------------+
+    <BLANKLINE>
+    >>> output_data = input_data.select(to_vector("array").alias("vector"))
+    >>> output_data.schema
+    StructType(List(StructField(vector,VectorUDT,true)))
+    >>> output_data.show()
+    +-------------+
+    |       vector|
+    +-------------+
+    |[1.0,2.0,3.0]|
+    +-------------+
+    <BLANKLINE>
+
+    :param array: список вещественных чисел
+    :returns: плотный вектор из пакета ``pyspark.ml.linalg``
+    """
+    return Vectors.dense(array)
+
+
+def get_log_info(log: DataFrame) -> str:
+    """
+    простейшая статистика по логу предпочтений пользователей
+
+    >>> from sponge_bob_magic.session_handler import State
+    >>> spark = State().session
+    >>> log = spark.createDataFrame([(1, 2), (3, 4), (5, 2)]).toDF("user_id", "item_id")
+    >>> log.show()
+    +-------+-------+
+    |user_id|item_id|
+    +-------+-------+
+    |      1|      2|
+    |      3|      4|
+    |      5|      2|
+    +-------+-------+
+    <BLANKLINE>
+    >>> get_log_info(log)
+    'total lines: 3, total users: 3, total items: 2'
+
+    :param log: таблица с колонками ``user_id`` и ``item_id``
+    :returns: строку со статистикой
+    """
+    cnt = log.count()
+    user_cnt = log.select("user_id").distinct().count()
+    item_cnt = log.select("item_id").distinct().count()
+    return ", ".join([
+        f"total lines: {cnt}",
+        f"total users: {user_cnt}",
+        f"total items: {item_cnt}"
+    ])

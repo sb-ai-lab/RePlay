@@ -10,3 +10,4 @@
 """
 from sponge_bob_magic.scenarios.main_objective import MainObjective
 from sponge_bob_magic.scenarios.main_scenario import MainScenario
+from sponge_bob_magic.scenarios.two_stages_scenario import TwoStagesScenario

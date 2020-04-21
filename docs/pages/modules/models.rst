@@ -14,7 +14,7 @@ Popular Recommender
 .. autoclass:: sponge_bob_magic.models.PopRec
 
 Random Recommender
------------------
+------------------
 
 .. autoclass:: sponge_bob_magic.models.RandomRec
    :special-members: __init__
@@ -27,11 +27,13 @@ K Nearest Neighbours
 .. autoclass:: sponge_bob_magic.models.KNN
     :special-members: __init__
 
-Linear Recommender
--------------------
+Classifier Recommender
+----------------------
 
-..  autoclass:: sponge_bob_magic.models.Linear
+..  autoclass:: sponge_bob_magic.models.ClassifierRec
     :special-members: __init__
+
+.. _als-rec:
 
 Alternating Least Squares
 ---------------------------

@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
@@ -35,7 +35,7 @@ class Experiment:
     """
     def __init__(self,
                  test: Any,
-                 metrics: Union[Dict[List[Metric], IntOrList],
+                 metrics: Union[Dict[Metric, IntOrList],
                                 List[Metric]],
                  k: Optional[IntOrList] = None):
         """

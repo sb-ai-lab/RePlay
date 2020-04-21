@@ -22,7 +22,7 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
     """
     if spark_memory is None:
         spark_memory = floor(psutil.virtual_memory().total / 1024 ** 3 / 2)
-    if os.environ["PYTEST_RUNNING"] == "Y":
+    if os.environ.get("PYTEST_RUNNING", "N") == "Y":
         driver_memory = "512m"
         shuffle_partitions = "1"
     else:
@@ -46,8 +46,8 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
     return spark
 
 
-def logger_settings():
-    """Настройка логгеров и изменение их уровня"""
+def logger_with_settings() -> logging.Logger:
+    """ Настройка логгеров и изменение их уровня """
     spark_logger = logging.getLogger("py4j")
     spark_logger.setLevel(logging.WARN)
     ignite_engine_logger = logging.getLogger("ignite.engine.engine.Engine")
@@ -61,6 +61,7 @@ def logger_settings():
     hdlr.setFormatter(formatter)
     sponge_logger.addHandler(hdlr)
     sponge_logger.setLevel(logging.DEBUG)
+    return sponge_logger
 
 
 class Borg:
@@ -84,11 +85,12 @@ class State(Borg):
     def __init__(
             self,
             session: Optional[SparkSession] = None,
-            device: Optional[torch.device] = None
+            device: Optional[torch.device] = None,
+            logger: Optional[logging.Logger] = None
     ):
         Borg.__init__(self)
         if not hasattr(self, "logger_set"):
-            logger_settings()
+            self.logger = logger_with_settings()
             self.logger_set = True
 
         if session is None:
