@@ -14,31 +14,25 @@ class PopRecTestCase(PySparkTest):
     @parameterized.expand([
         # users, k, items_relevance
         # проверяем выделение айтемов
-        (["u1", "u2", "u3"], 5,
+        (["u1", "u2", "u3"], 4,
          [["i1", 2 / 3],
           ["i2", 2 / 3],
           ["i3", 2 / 3],
-          ["i4", 1.0],
-          ["i999", 0.0]],),
-        (["u1", "u2", "u3"], 5, [["i1", 2 / 3],
-                                 ["i999", 0.0],
-                                 ["i998", 0.0],
+          ["i4", 1.0]],),
+        (["u1", "u2", "u3"], 3, [["i1", 2 / 3],
                                  ["i3", 2 / 3],
                                  ["i4", 1.0]],),
-        (["u1", "u2", "u3"], 6, [["i1", 2 / 3],
+        (["u1", "u2", "u3"], 4, [["i1", 2 / 3],
                                  ["i2", 2 / 3],
                                  ["i3", 2 / 3],
-                                 ["i998", 0.0],
-                                 ["i999", 0.0],
                                  ["i4", 1.0]],),
 
         # проверяем выделение юзеров
-        (["u1", "u2"], 5,
+        (["u1", "u2"], 4,
          [["i1", 2 / 3],
           ["i2", 2 / 3],
           ["i3", 2 / 3],
-          ["i4", 1.0],
-          ["i999", 0.0]],),
+          ["i4", 1.0]],),
 
         # проверяем выделение топ-к
         (["u1", "u2"], 1, [["i4", 1.0]]),
@@ -114,12 +108,12 @@ class PopRecTestCase(PySparkTest):
         log_schema = ["user_id", "item_id", "relevance", "timestamp"]
         log = self.spark.createDataFrame(data=log_data, schema=log_schema)
         true_recs_data = [
-            ["u1", "i2", 0.0],
+            ["u1", "i1", 0.0],
             ["u1", "i3", 2 / 3],
             ["u2", "i4", 2 / 3],
-            ["u2", "i2", 0.0],
+            ["u2", "i1", 0.0],
             ["u3", "i1", 2 / 3],
-            ["u3", "i2", 0.0],
+            ["u3", "i3", 0.0],
         ]
         true_recs_schema = ["user_id", "item_id", "relevance"]
         true_recs = self.spark.createDataFrame(data=true_recs_data,

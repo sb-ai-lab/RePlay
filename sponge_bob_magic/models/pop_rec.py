@@ -3,8 +3,11 @@
 """
 from typing import Dict, Optional
 
+import numpy as np
+import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
+from pyspark.sql import types as st
 
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
@@ -41,8 +44,8 @@ class PopRec(Recommender):
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
        user_id  item_id  relevance
     0        1        3   0.666667
-    1        2        1   0.333333
-    2        3        1   0.333333
+    1        2        2   0.333333
+    2        3        2   0.333333
 
     >>> res = PopRec().fit_predict(convert(df), 1, filter_seen_items=False)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
@@ -61,23 +64,26 @@ class PopRec(Recommender):
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None) -> None:
         super()._pre_fit(log, user_features, item_features)
-        popularity = (
-            log
-            .groupBy("item_id")
-            .agg(sf.countDistinct("user_id").alias("user_count"))
+        self.items_popularity = (
+            self.item_indexer.transform(
+                log
+                .groupBy("item_id")
+                .agg(sf.countDistinct("user_id").alias("user_count"))
+            )
         )
-        self.items_popularity = popularity.select(
-            "item_id",
-            (
-                sf.col("user_count") / sf.lit(self.users_count)
-            ).alias("relevance")
-        ).cache()
 
     def _fit(self,
              log: DataFrame,
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
-        pass
+
+        self.items_popularity = (
+            self.items_popularity
+            .select("item_idx",
+                    "item_id",
+                    (sf.col("user_count") / sf.lit(self.users_count))
+                    .alias("relevance"))
+        ).cache()
 
     def _predict(self,
                  log: DataFrame,
@@ -87,21 +93,59 @@ class PopRec(Recommender):
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None,
                  filter_seen_items: bool = True) -> DataFrame:
-        # удаляем ненужные items и добавляем нулевые
-        items = items.join(
-            self.items_popularity.select(
-                sf.col("item_id").alias("item_id_2"),
-                "relevance"
-            ),
+        # удаляем ненужные items
+        items_pd = items.join(
+            self.items_popularity.withColumnRenamed("item_id", "item_id_2"),
             on=sf.col("item_id") == sf.col("item_id_2"),
-            how="left"
-        ).drop("item_id_2")
-        items = items.na.fill({"relevance": 0})
-        # (user_id, item_id, relevance)
-        recs = users.crossJoin(items)
+            how="inner"
+        ).drop("item_id_2", "item_id").toPandas()
+
+        @sf.pandas_udf(
+            st.StructType([
+                st.StructField("user_id", users.schema["user_id"].dataType,
+                               True),
+                st.StructField("user_idx", st.LongType(), True),
+                st.StructField("item_idx", st.LongType(), True),
+                st.StructField("relevance", st.DoubleType(), True)
+            ]),
+            sf.PandasUDFType.GROUPED_MAP
+        )
+        def grouped_map(pandas_df):
+            user_idx = pandas_df["user_idx"][0]
+            user_id = pandas_df["user_id"][0]
+            cnt = pandas_df["cnt"][0]
+
+            items_idx = np.argsort(items_pd["relevance"].values)[-cnt:]
+
+            return pd.DataFrame({
+                "user_id": cnt * [user_id],
+                "user_idx": cnt * [user_idx],
+                "item_idx": items_pd["item_idx"].values[items_idx],
+                "relevance": items_pd["relevance"].values[items_idx]
+            })
+
+        model_len = len(items_pd)
+        recs = (
+            self.inv_item_indexer.transform(
+                self.user_indexer.transform(
+                    users.join(log, how="left", on="user_id")
+                    .select("user_id", "item_id")
+                    .groupby("user_id")
+                    .agg(sf.countDistinct("item_id").alias("cnt"))
+                )
+                .selectExpr(
+                    "user_id",
+                    "CAST(user_idx AS INT) AS user_idx",
+                    f"CAST(LEAST(cnt + {k}, {model_len}) AS INT) AS cnt"
+                )
+                .groupby("user_id", "user_idx")
+                .apply(grouped_map)
+            )
+            .drop("item_idx", "user_idx")
+            .select("user_id", "item_id", "relevance")
+        )
         if filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
-        # берем топ-к
         recs = get_top_k_recs(recs, k)
         # заменяем отрицательные рейтинги на 0
         # (они помогали отобрать в топ-k невиденные айтемы)
