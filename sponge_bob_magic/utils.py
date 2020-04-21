@@ -5,7 +5,7 @@ import collections
 from typing import Any, Iterable, List, Set, Tuple
 
 import numpy as np
-from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
+from pyspark.ml.linalg import DenseVector, Vector, Vectors, VectorUDT
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 from pyspark.sql.functions import udf
@@ -155,6 +155,82 @@ def to_vector(array: List[float]) -> DenseVector:
     :returns: плотный вектор из пакета ``pyspark.ml.linalg``
     """
     return Vectors.dense(array)
+
+
+@udf(returnType=VectorUDT())
+def vector_dot(one: Vector, two: Vector) -> DenseVector:
+    """
+    вычисляется скалярное произведение двух колонок-векторов
+
+    >>> from sponge_bob_magic.session_handler import State
+    >>> spark = State().session
+    >>> input_data = (
+    ...     spark.createDataFrame([(Vectors.dense([1.0, 2.0]), Vectors.dense([3.0, 4.0]))])
+    ...     .toDF("one", "two")
+    ... )
+    >>> input_data.schema
+    StructType(List(StructField(one,VectorUDT,true),StructField(two,VectorUDT,true)))
+    >>> input_data.show()
+    +---------+---------+
+    |      one|      two|
+    +---------+---------+
+    |[1.0,2.0]|[3.0,4.0]|
+    +---------+---------+
+    <BLANKLINE>
+    >>> output_data = input_data.select(vector_dot("one", "two").alias("dot"))
+    >>> output_data.schema
+    StructType(List(StructField(dot,VectorUDT,true)))
+    >>> output_data.show()
+    +------+
+    |   dot|
+    +------+
+    |[11.0]|
+    +------+
+    <BLANKLINE>
+
+    :param one: правый множитель-вектор
+    :param two: левый множитель-вектор
+    :returns: вектор с одним значением --- скалярным произведением
+    """
+    return Vectors.dense([one.dot(two)])
+
+
+@udf(returnType=VectorUDT())
+def vector_mult(one: Vector, two: Vector) -> DenseVector:
+    """
+    вычисляется покоординатное произведение двух колонок-векторов
+
+    >>> from sponge_bob_magic.session_handler import State
+    >>> spark = State().session
+    >>> input_data = (
+    ...     spark.createDataFrame([(Vectors.dense([1.0, 2.0]), Vectors.dense([3.0, 4.0]))])
+    ...     .toDF("one", "two")
+    ... )
+    >>> input_data.schema
+    StructType(List(StructField(one,VectorUDT,true),StructField(two,VectorUDT,true)))
+    >>> input_data.show()
+    +---------+---------+
+    |      one|      two|
+    +---------+---------+
+    |[1.0,2.0]|[3.0,4.0]|
+    +---------+---------+
+    <BLANKLINE>
+    >>> output_data = input_data.select(vector_mult("one", "two").alias("mult"))
+    >>> output_data.schema
+    StructType(List(StructField(mult,VectorUDT,true)))
+    >>> output_data.show()
+    +---------+
+    |     mult|
+    +---------+
+    |[3.0,8.0]|
+    +---------+
+    <BLANKLINE>
+
+    :param one: правый множитель-вектор
+    :param two: левый множитель-вектор
+    :returns: вектор с результатом покоординатного умножения
+    """
+    return one * two
 
 
 def get_log_info(log: DataFrame) -> str:

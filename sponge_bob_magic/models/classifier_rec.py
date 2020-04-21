@@ -11,7 +11,7 @@ from pyspark.sql.functions import col, lit, udf
 from pyspark.sql.types import DoubleType, FloatType
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import func_get, get_feature_cols
+from sponge_bob_magic.utils import func_get, vector_dot, vector_mult
 
 
 class ClassifierRec(Recommender):
@@ -78,27 +78,26 @@ class ClassifierRec(Recommender):
         :return: новый спарк-датайрейм, в котором к каждой строчке лога
             добавлены фичи пользователя и объекта, которые в ней встречаются
         """
-        user_feature_cols, item_feature_cols = get_feature_cols(
-            user_features, item_features
-        )
         return VectorAssembler(
-            inputCols=user_feature_cols + item_feature_cols,
+            inputCols=["user_features", "item_features", "mult", "dot_product"],
             outputCol="features"
         ).transform(
             log
             .withColumnRenamed("user_id", "uid")
             .withColumnRenamed("item_id", "iid")
             .join(
-                user_features.drop("timestamp"),
+                user_features.select("user_id", "user_features"),
                 on=col("user_id") == col("uid"),
                 how="inner"
             )
             .join(
-                item_features.drop("timestamp"),
+                item_features.select("item_id", "item_features"),
                 on=col("item_id") == col("iid"),
                 how="inner"
             ).drop("iid", "uid")
-        )
+            .withColumn("mult", vector_mult("user_features", "item_features"))
+            .withColumn("dot_product", vector_dot("user_features", "item_features"))
+        ).drop("mult", "dot_product")
 
     def _predict(self,
                  log: DataFrame,
@@ -114,8 +113,6 @@ class ClassifierRec(Recommender):
             )
             .select("features", "item_id", "user_id")
         )
-        if filter_seen_items:
-            data = data.join(log, on=["user_id", "item_id"], how="left_anti")
         recs = (
             self.model
             .transform(data)
@@ -127,5 +124,4 @@ class ClassifierRec(Recommender):
                 .cast(FloatType())
             )
         )
-
         return recs
