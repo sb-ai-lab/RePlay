@@ -3,7 +3,7 @@
 """
 from typing import Dict, Optional
 
-from pyspark.ml.recommendation import ALS as SparkALS
+from pyspark.ml.recommendation import ALS
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit
 from pyspark.sql.types import DoubleType
@@ -39,9 +39,8 @@ class ALSWrap(Recommender):
         self.logger.debug("Индексирование данных")
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
-
         self.logger.debug("Обучение модели")
-        self.model = SparkALS(
+        self.model = ALS(
             rank=self.rank,
             userCol="user_idx",
             itemCol="item_idx",
@@ -59,15 +58,12 @@ class ALSWrap(Recommender):
                  item_features: Optional[DataFrame] = None,
                  filter_seen_items: bool = True) -> DataFrame:
         test_data = users.crossJoin(items).withColumn("relevance", lit(1))
-
         log_indexed = self.user_indexer.transform(test_data)
         log_indexed = self.item_indexer.transform(log_indexed)
-
         recs = (
             self.model.transform(log_indexed)
             .withColumn("relevance", col("prediction").cast(DoubleType()))
             .drop("user_idx", "item_idx", "prediction")
             .cache()
         )
-
         return recs
