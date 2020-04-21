@@ -13,12 +13,14 @@ from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class RandomPop(Recommender):
+class RandomRec(Recommender):
     """
     Рандомизированный рекомендатель на основе популярности.
 
     Вероятность того, что заданный объект :math:`i` будет порекомендован этой моделью любому пользователю
-    не зависит от пользователя и определяется как аддитивное сглаживание оценки вероятности того,
+    не зависит от пользователя. В зависисимости от выбранного распределения
+    вероятность выбора элемента будет либо одинаковой для всех элементов,
+    либо определяться как аддитивное сглаживание оценки вероятности того,
     что случайно выбранный пользователь взаимодействовал с объектом:
 
     .. math::
@@ -48,14 +50,19 @@ class RandomPop(Recommender):
     |      3|      3|
     +-------+-------+
 
-    >>> random_pop = RandomPop(alpha=-1)
+    >>> random_pop = RandomRec(distribution="popular_based", alpha=-1)
     Traceback (most recent call last):
      ...
     ValueError: alpha должно быть строго больше -1
 
-    >>> random_pop = RandomPop(alpha=1.0, seed=777)
+    >>> random_pop = RandomRec(distribution="abracadabra")
+    Traceback (most recent call last):
+     ...
+    ValueError: distribution должно быть popular_based или uniform
+
+    >>> random_pop = RandomRec(distribution="popular_based", alpha=1.0, seed=777)
     >>> random_pop.get_params()
-    {'alpha': 1.0, 'seed': 777}
+    {'distribution': 'popular_based', 'alpha': 1.0, 'seed': 777}
     >>> random_pop.fit(log)
     >>> print(random_pop.model_items, random_pop.model_proba)
     [2 1 0] [0.28571429 0.28571429 0.42857143]
@@ -73,23 +80,56 @@ class RandomPop(Recommender):
     |      3|0.33333334|      2|
     +-------+----------+-------+
 
+    >>> random_pop = RandomRec(seed=555)
+    >>> random_pop.get_params()
+    {'distribution': 'uniform', 'alpha': 0.0, 'seed': 555}
+    >>> random_pop.fit(log)
+    >>> print(random_pop.model_items, random_pop.model_proba)
+    [2 1 0] [0.33333333 0.33333333 0.33333333]
+
+    >>> recs = random_pop.predict(log, 2)
+    >>> recs.show()
+    +-------+----------+-------+
+    |user_id| relevance|item_id|
+    +-------+----------+-------+
+    |      1|       1.0|      3|
+    |      1|      -1.0|      1|
+    |      2|       0.5|      1|
+    |      2|0.33333334|      2|
+    |      3|       0.5|      2|
+    |      3|0.33333334|      1|
+    +-------+----------+-------+
+
     """
     items_popularity: DataFrame
     model_items: np.ndarray
     model_proba: np.ndarray
 
-    def __init__(self, alpha: float = 0.0, seed: Optional[int] = None):
+    def __init__(self,
+                 distribution: str = "uniform",
+                 alpha: float = 0.0,
+                 seed: Optional[int] = None):
         """
+        :param distribution: вероятностоное распределение выбора элементов.
+            "uniform" - равномерное, все элементы выбираются с равной вероятнсотью
+            "popular_based" - аддитивное сглаживание оценки вероятности того,
+            что случайно выбранный пользователь взаимодействовал с объектом
         :param alpha: параметр аддитивного сглаживания. Чем он больше, тем чаще рекомендуются непопулярные объекты.
         :param seed: инициализация генератора псевдослучайности
         """
-        if alpha <= -1.0:
+        if distribution not in ("popular_based", "uniform"):
+            raise ValueError("distribution должно быть popular_based "
+                             "или uniform")
+        if alpha <= -1.0 and distribution == "popular_based":
             raise ValueError("alpha должно быть строго больше -1")
+        self.distribution = distribution
         self.alpha = alpha
         self.seed = seed
 
     def get_params(self) -> Dict[str, object]:
-        return {"alpha": self.alpha, "seed": self.seed}
+        return {"distribution": self.distribution,
+                "alpha": self.alpha,
+                "seed": self.seed}
 
     def _pre_fit(self,
                  log: DataFrame,
@@ -106,10 +146,14 @@ class RandomPop(Recommender):
              log: DataFrame,
              user_features: Optional[DataFrame] = None,
              item_features: Optional[DataFrame] = None) -> None:
+        if self.distribution == "popular_based":
+            probability = f"CAST(user_count + {self.alpha} AS FLOAT)"
+        else:
+            probability = "1"
         probabilities = (
             self.item_indexer.transform(self.items_popularity).selectExpr(
                 "CAST(item_idx AS INT) AS item_idx",
-                f"CAST(user_count + {self.alpha} AS FLOAT) AS probability"
+                f"{probability} AS probability"
             )
         ).collect()
         model_items, model_proba = zip(*probabilities)
