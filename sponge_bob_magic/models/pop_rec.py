@@ -65,11 +65,9 @@ class PopRec(Recommender):
                  item_features: Optional[DataFrame] = None) -> None:
         super()._pre_fit(log, user_features, item_features)
         self.items_popularity = (
-            self.item_indexer.transform(
-                log
-                .groupBy("item_id")
-                .agg(sf.countDistinct("user_id").alias("user_count"))
-            )
+            log
+            .groupBy("item_id")
+            .agg(sf.countDistinct("user_id").alias("user_count"))
         )
 
     def _fit(self,
@@ -79,8 +77,7 @@ class PopRec(Recommender):
 
         self.items_popularity = (
             self.items_popularity
-            .select("item_idx",
-                    "item_id",
+            .select("item_id",
                     (sf.col("user_count") / sf.lit(self.users_count))
                     .alias("relevance"))
         ).cache()
@@ -94,10 +91,12 @@ class PopRec(Recommender):
                  item_features: Optional[DataFrame] = None,
                  filter_seen_items: bool = True) -> DataFrame:
         # удаляем ненужные items
-        items_pd = items.join(
-            self.items_popularity.withColumnRenamed("item_id", "item_id_2"),
-            on=sf.col("item_id") == sf.col("item_id_2"),
-            how="inner"
+        items_pd = self.item_indexer.transform(
+            items.join(
+                self.items_popularity.withColumnRenamed("item_id", "item_id_2"),
+                on=sf.col("item_id") == sf.col("item_id_2"),
+                how="inner"
+            )
         ).drop("item_id_2", "item_id").toPandas()
 
         @sf.pandas_udf(
@@ -144,13 +143,4 @@ class PopRec(Recommender):
             .drop("item_idx", "user_idx")
             .select("user_id", "item_id", "relevance")
         )
-        if filter_seen_items:
-            recs = self._filter_seen_recs(recs, log)
-        recs = get_top_k_recs(recs, k)
-        # заменяем отрицательные рейтинги на 0
-        # (они помогали отобрать в топ-k невиденные айтемы)
-        recs = (recs
-                .withColumn("relevance",
-                            sf.when(recs["relevance"] < 0, 0)
-                            .otherwise(recs["relevance"]))).cache()
         return recs

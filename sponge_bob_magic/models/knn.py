@@ -184,10 +184,4 @@ class KNN(Recommender):
             .cache()
         )
 
-        if filter_seen_items:
-            recs = self._filter_seen_recs(recs, log)
-
-        recs = get_top_k_recs(recs, k)
-        recs = recs.filter(sf.col("relevance") > 0.0)
-
         return recs

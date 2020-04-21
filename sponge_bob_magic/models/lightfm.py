@@ -79,5 +79,4 @@ class LightFMWrap(Recommender):
         recs = self.spark.createDataFrame(
             prediction[["user_id", "item_id", "relevance"]]
         ).cache()
-        recs = get_top_k_recs(recs, k)
         return recs

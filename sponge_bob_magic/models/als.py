@@ -76,5 +76,5 @@ class ALSWrap(Recommender):
             .drop("user_idx", "item_idx", "prediction")
             .cache()
         )
-        recs = get_top_k_recs(recs, k)
+
         return recs

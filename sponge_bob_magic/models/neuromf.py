@@ -488,11 +488,6 @@ class NeuroMF(Recommender):
             .apply(grouped_map))
             .drop("item_idx", "user_idx"))
 
-        if filter_seen_items:
-            recs = self._filter_seen_recs(recs, log)
-
-        recs = get_top_k_recs(recs, k)
-        self.logger.debug("Преобразование отрицательных relevance")
         recs = NeuroMF.min_max_scale_column(recs, "relevance")
 
         return recs
