@@ -124,22 +124,24 @@ class PopRec(Recommender):
             })
 
         model_len = len(items_pd)
-        recs = (
-            self.inv_item_indexer.transform(
-                self.user_indexer.transform(
-                    users.join(log, how="left", on="user_id")
-                    .select("user_id", "item_id")
-                    .groupby("user_id")
-                    .agg(sf.countDistinct("item_id").alias("cnt"))
-                )
-                .selectExpr(
-                    "user_id",
-                    "CAST(user_idx AS INT) AS user_idx",
-                    f"CAST(LEAST(cnt + {k}, {model_len}) AS INT) AS cnt"
-                )
-                .groupby("user_id", "user_idx")
-                .apply(grouped_map)
+        recs = self.user_indexer.transform(
+            users.join(log, how="left", on="user_id")
+            .select("user_id", "item_id")
+            .groupby("user_id")
+            .agg(sf.countDistinct("item_id").alias("cnt"))
+        )
+        recs = self.inv_item_indexer.transform(
+            recs
+            .selectExpr(
+                "user_id",
+                "CAST(user_idx AS INT) AS user_idx",
+                f"CAST(LEAST(cnt + {k}, {model_len}) AS INT) AS cnt"
             )
+            .groupby("user_id", "user_idx")
+            .apply(grouped_map)
+        )
+        recs = (
+            recs
             .drop("item_idx", "user_idx")
             .select("user_id", "item_id", "relevance")
         )
