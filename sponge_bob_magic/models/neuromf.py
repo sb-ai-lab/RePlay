@@ -444,7 +444,8 @@ class NeuroMF(Recommender):
 
         @sf.pandas_udf(
             st.StructType([
-                st.StructField("user_id", st.StringType(), True),
+                st.StructField("user_id", users.schema["user_id"].dataType,
+                               True),
                 st.StructField("user_idx", st.LongType(), True),
                 st.StructField("item_idx", st.LongType(), True),
                 st.StructField("relevance", st.FloatType(), True)

@@ -48,7 +48,7 @@ class SlimRecTestCase(PySparkTest):
 
     def test_predict(self):
         self.model.fit(self.log, None, None)
-        recs = self.model._predict(
+        recs = self.model.predict(
             log=self.log,
             k=1,
             users=self.log.select("user_id").distinct(),
