@@ -14,7 +14,7 @@ Popular Recommender
 .. autoclass:: sponge_bob_magic.models.PopRec
 
 Random Recommender
------------------
+------------------
 
 .. autoclass:: sponge_bob_magic.models.RandomRec
    :special-members: __init__
