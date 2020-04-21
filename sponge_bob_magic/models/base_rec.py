@@ -14,6 +14,7 @@ from sponge_bob_magic.converter import convert, get_type
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import get_top_k_recs
 
+
 class Recommender(ABC):
     """ Базовый класс-рекомендатель. """
     model: Any = None

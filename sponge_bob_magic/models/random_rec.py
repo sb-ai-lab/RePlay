@@ -162,8 +162,8 @@ class RandomRec(Recommender):
             probability = "1"
 
         self.items_popularity = self.items_popularity.selectExpr(
-                "item_id",
-                f"{probability} AS probability"
+            "item_id",
+            f"{probability} AS probability"
         ).cache()
 
     def _predict(self,
