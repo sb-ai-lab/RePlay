@@ -24,7 +24,6 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.models import Recommender
 from sponge_bob_magic.session_handler import State
-from sponge_bob_magic.utils import get_top_k_recs
 
 
 def xavier_init_(layer: nn.Module):
@@ -444,7 +443,8 @@ class NeuroMF(Recommender):
 
         @sf.pandas_udf(
             st.StructType([
-                st.StructField("user_id", st.StringType(), True),
+                st.StructField("user_id", users.schema["user_id"].dataType,
+                               True),
                 st.StructField("user_idx", st.LongType(), True),
                 st.StructField("item_idx", st.LongType(), True),
                 st.StructField("relevance", st.FloatType(), True)
@@ -488,11 +488,6 @@ class NeuroMF(Recommender):
             .apply(grouped_map))
             .drop("item_idx", "user_idx"))
 
-        if filter_seen_items:
-            recs = self._filter_seen_recs(recs, log)
-
-        recs = get_top_k_recs(recs, k)
-        self.logger.debug("Преобразование отрицательных relevance")
         recs = NeuroMF.min_max_scale_column(recs, "relevance")
 
         return recs

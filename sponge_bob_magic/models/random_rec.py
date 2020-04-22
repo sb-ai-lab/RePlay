@@ -10,7 +10,6 @@ from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import get_top_k_recs
 
 
 class RandomRec(Recommender):
@@ -64,8 +63,14 @@ class RandomRec(Recommender):
     >>> random_pop.get_params()
     {'distribution': 'popular_based', 'alpha': 1.0, 'seed': 777}
     >>> random_pop.fit(log)
-    >>> print(random_pop.model_items, random_pop.model_proba)
-    [2 1 0] [0.28571429 0.28571429 0.42857143]
+    >>> random_pop.item_popularity.show()
+    +-------+-----------+
+    |item_id|probability|
+    +-------+-----------+
+    |      1|        2.0|
+    |      2|        2.0|
+    |      3|        3.0|
+    +-------+-----------+
 
     >>> recs = random_pop.predict(log, 2)
     >>> recs.show()
@@ -73,7 +78,7 @@ class RandomRec(Recommender):
     |user_id| relevance|item_id|
     +-------+----------+-------+
     |      1|       1.0|      3|
-    |      1|      -1.0|      1|
+    |      1|       0.0|      1|
     |      2|       1.0|      1|
     |      2|       0.5|      2|
     |      3|       1.0|      1|
@@ -84,8 +89,14 @@ class RandomRec(Recommender):
     >>> random_pop.get_params()
     {'distribution': 'uniform', 'alpha': 0.0, 'seed': 555}
     >>> random_pop.fit(log)
-    >>> print(random_pop.model_items, random_pop.model_proba)
-    [2 1 0] [0.33333333 0.33333333 0.33333333]
+    >>> random_pop.item_popularity.show()
+    +-------+-----------+
+    |item_id|probability|
+    +-------+-----------+
+    |      1|          1|
+    |      2|          1|
+    |      3|          1|
+    +-------+-----------+
 
     >>> recs = random_pop.predict(log, 2)
     >>> recs.show()
@@ -93,7 +104,7 @@ class RandomRec(Recommender):
     |user_id| relevance|item_id|
     +-------+----------+-------+
     |      1|       1.0|      3|
-    |      1|      -1.0|      1|
+    |      1|       0.0|      1|
     |      2|       0.5|      1|
     |      2|0.33333334|      2|
     |      3|       0.5|      2|
@@ -101,9 +112,7 @@ class RandomRec(Recommender):
     +-------+----------+-------+
 
     """
-    items_popularity: DataFrame
-    model_items: np.ndarray
-    model_proba: np.ndarray
+    item_popularity: DataFrame
 
     def __init__(self,
                  distribution: str = "uniform",
@@ -136,11 +145,11 @@ class RandomRec(Recommender):
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None) -> None:
         super()._pre_fit(log, user_features, item_features)
-        self.items_popularity = (
+        self.item_popularity = (
             log
             .groupBy("item_id")
             .agg(sf.countDistinct("user_id").alias("user_count"))
-        ).cache()
+        )
 
     def _fit(self,
              log: DataFrame,
@@ -150,15 +159,11 @@ class RandomRec(Recommender):
             probability = f"CAST(user_count + {self.alpha} AS FLOAT)"
         else:
             probability = "1"
-        probabilities = (
-            self.item_indexer.transform(self.items_popularity).selectExpr(
-                "CAST(item_idx AS INT) AS item_idx",
-                f"{probability} AS probability"
-            )
-        ).collect()
-        model_items, model_proba = zip(*probabilities)
-        self.model_items = np.array(model_items)
-        self.model_proba = np.array(model_proba) / sum(model_proba)
+
+        self.item_popularity = self.item_popularity.selectExpr(
+            "item_id",
+            f"{probability} AS probability"
+        ).cache()
 
     def _predict(self,
                  log: DataFrame,
@@ -168,13 +173,22 @@ class RandomRec(Recommender):
                  user_features: Optional[DataFrame] = None,
                  item_features: Optional[DataFrame] = None,
                  filter_seen_items: bool = True) -> DataFrame:
-        model_items = self.model_items
-        model_proba = self.model_proba
+
+        items_pd = self.item_indexer.transform(
+            items.join(
+                self.item_popularity.withColumnRenamed("item_id", "item_id_2"),
+                on=sf.col("item_id") == sf.col("item_id_2"),
+                how="inner"
+            )
+        ).drop("item_id_2", "item_id").toPandas()
+        items_pd.loc[:, "probability"] = (items_pd["probability"] /
+                                          items_pd["probability"].sum())
         seed = self.seed
 
         @sf.pandas_udf(
             st.StructType([
-                st.StructField("user_id", st.StringType(), True),
+                st.StructField("user_id", users.schema["user_id"].dataType,
+                               True),
                 st.StructField("user_idx", st.LongType(), True),
                 st.StructField("item_idx", st.LongType(), True),
                 st.StructField("relevance", st.FloatType(), True)
@@ -188,9 +202,9 @@ class RandomRec(Recommender):
             if seed is not None:
                 np.random.seed(user_idx + seed)
             items_idx = np.random.choice(
-                model_items,
+                items_pd["item_idx"].values,
                 size=cnt,
-                p=model_proba,
+                p=items_pd["probability"].values,
                 replace=False
             )
             relevance = 1 / np.arange(1, cnt + 1)
@@ -200,7 +214,7 @@ class RandomRec(Recommender):
                 "item_idx": items_idx,
                 "relevance": relevance
             })
-        model_len = len(model_items)
+        model_len = len(items_pd)
         recs = self.inv_item_indexer.transform(
             self.user_indexer.transform(
                 users.join(log, how="left", on="user_id")
@@ -216,7 +230,5 @@ class RandomRec(Recommender):
             .groupby("user_id", "user_idx")
             .apply(grouped_map)
         ).drop("item_idx", "user_idx")
-        if filter_seen_items:
-            recs = self._filter_seen_recs(recs, log)
-        recs = get_top_k_recs(recs, k)
+
         return recs

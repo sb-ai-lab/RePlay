@@ -12,6 +12,7 @@ from pyspark.sql import functions as sf
 
 from sponge_bob_magic.converter import convert, get_type
 from sponge_bob_magic.session_handler import State
+from sponge_bob_magic.utils import get_top_k_recs
 
 
 class Recommender(ABC):
@@ -201,6 +202,13 @@ class Recommender(ABC):
                 f"k = {k}, number of items = {num_items}")
         recs = self._predict(log, k, users, items, user_features, item_features,
                              filter_seen_items)
+        if filter_seen_items:
+            recs = self._filter_seen_recs(recs, log)
+        recs = get_top_k_recs(recs, k)
+        recs = (recs
+                .withColumn("relevance",
+                            sf.when(recs["relevance"] < 0, 0)
+                            .otherwise(recs["relevance"]))).cache()
         return convert(recs, type_in)
 
     def _extract_unique(

@@ -13,7 +13,6 @@ from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import get_top_k_recs
 
 
 class SLIM(Recommender):
@@ -170,11 +169,5 @@ class SLIM(Recommender):
             .agg(sf.sum("similarity").alias("relevance"))
             .select("user_id", "item_id", "relevance").cache()
         ).cache()
-
-        if filter_seen_items:
-            recs = self._filter_seen_recs(recs, log)
-
-        recs = get_top_k_recs(recs, k)
-        recs = recs.filter(sf.col("relevance") > 0.0)
 
         return recs

@@ -26,7 +26,6 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.models import Recommender
 from sponge_bob_magic.session_handler import State
-from sponge_bob_magic.utils import get_top_k_recs
 
 
 class VAE(nn.Module):
@@ -485,12 +484,6 @@ class MultVAE(Recommender):
         recs = self.inv_item_indexer.transform(recs)
         recs = self.inv_user_indexer.transform(recs)
         recs = recs.drop("user_idx", "item_idx")
-
-        if filter_seen_items:
-            recs = self._filter_seen_recs(recs, log)
-
-        recs = get_top_k_recs(recs, k)
-        self.logger.debug("Преобразование отрицательных relevance")
         recs = MultVAE.min_max_scale_column(recs, "relevance")
 
         return recs

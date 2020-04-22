@@ -9,7 +9,6 @@ from pyspark.sql.functions import col, lit
 from pyspark.sql.types import DoubleType
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import get_top_k_recs
 
 
 class ALSWrap(Recommender):
@@ -61,12 +60,6 @@ class ALSWrap(Recommender):
                  filter_seen_items: bool = True) -> DataFrame:
         test_data = users.crossJoin(items).withColumn("relevance", lit(1))
 
-        if filter_seen_items:
-            test_data = self._filter_seen_recs(
-                test_data,
-                log
-            ).drop("relevance")
-
         log_indexed = self.user_indexer.transform(test_data)
         log_indexed = self.item_indexer.transform(log_indexed)
 
@@ -76,5 +69,5 @@ class ALSWrap(Recommender):
             .drop("user_idx", "item_idx", "prediction")
             .cache()
         )
-        recs = get_top_k_recs(recs, k)
+
         return recs

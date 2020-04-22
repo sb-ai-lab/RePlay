@@ -45,7 +45,7 @@ class KNNRecTestCase(PySparkTest):
 
     def test_predict(self):
         self.model.fit(self.log, None, None)
-        recs = self.model._predict(
+        recs = self.model.predict(
             log=self.log,
             k=1,
             users=self.log.select("user_id").distinct(),
@@ -58,6 +58,7 @@ class KNNRecTestCase(PySparkTest):
                 [
                     ["u1", "i3", 0.18350341907227408],
                     ["u2", "i4", 0.6835034190722742],
+                    ["u3", "i3", 0.0],
                 ],
                 schema=REC_SCHEMA
             )

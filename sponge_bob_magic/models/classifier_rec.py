@@ -7,11 +7,11 @@ from pyspark.ml.classification import (RandomForestClassificationModel,
                                        RandomForestClassifier)
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import col, lit, udf, when
+from pyspark.sql.functions import col, lit, udf
 from pyspark.sql.types import DoubleType, FloatType
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import func_get, get_feature_cols, get_top_k_recs
+from sponge_bob_magic.utils import func_get, get_feature_cols
 
 
 class ClassifierRec(Recommender):
@@ -127,9 +127,5 @@ class ClassifierRec(Recommender):
                 .cast(FloatType())
             )
         )
-        recs = get_top_k_recs(recs, k)
-        recs = recs.withColumn(
-            "relevance",
-            when(recs["relevance"] < 0, 0).otherwise(recs["relevance"])
-        )
+
         return recs

@@ -8,7 +8,6 @@ from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import get_top_k_recs
 
 
 class KNN(Recommender):
@@ -183,11 +182,5 @@ class KNN(Recommender):
             .withColumnRenamed("item_id_two", "item_id")
             .cache()
         )
-
-        if filter_seen_items:
-            recs = self._filter_seen_recs(recs, log)
-
-        recs = get_top_k_recs(recs, k)
-        recs = recs.filter(sf.col("relevance") > 0.0)
 
         return recs
