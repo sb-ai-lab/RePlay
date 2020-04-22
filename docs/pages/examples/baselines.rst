@@ -32,5 +32,3 @@
    model = EASE()
    pred = model.fit_predict(train, max(k))
    e.add_result("my_model", pred)
-
-

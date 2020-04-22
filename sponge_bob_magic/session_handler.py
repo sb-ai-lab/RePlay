@@ -31,9 +31,7 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
     user_home = os.environ["HOME"]
     os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     spark = (
-        SparkSession
-        .builder
-        .config("spark.driver.memory", driver_memory)
+        SparkSession.builder.config("spark.driver.memory", driver_memory)
         .config("spark.sql.shuffle.partitions", shuffle_partitions)
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
         .config("spark.driver.bindAddress", "127.0.0.1")
@@ -54,8 +52,7 @@ def logger_with_settings() -> logging.Logger:
     ignite_engine_logger.setLevel(logging.WARN)
     sponge_logger = logging.getLogger("sponge_bob_magic")
     formatter = logging.Formatter(
-        "%(asctime)s, %(name)s, %(levelname)s: %(message)s",
-        datefmt="%d-%b-%y %H:%M:%S"
+        "%(asctime)s, %(name)s, %(levelname)s: %(message)s", datefmt="%d-%b-%y %H:%M:%S"
     )
     hdlr = logging.StreamHandler()
     hdlr.setFormatter(formatter)
@@ -68,6 +65,7 @@ class Borg:
     """
     Обеспечивает доступ к расшаренному состоянию
     """
+
     _shared_state = {}
 
     def __init__(self):
@@ -82,11 +80,12 @@ class State(Borg):
 
     Здесь же хранится default device для pytorch (CPU или CUDA, если доступна).
     """
+
     def __init__(
-            self,
-            session: Optional[SparkSession] = None,
-            device: Optional[torch.device] = None,
-            logger: Optional[logging.Logger] = None
+        self,
+        session: Optional[SparkSession] = None,
+        device: Optional[torch.device] = None,
+        logger: Optional[logging.Logger] = None,
     ):
         Borg.__init__(self)
         if not hasattr(self, "logger_set"):
@@ -102,9 +101,7 @@ class State(Borg):
         if device is None:
             if not hasattr(self, "device"):
                 if torch.cuda.is_available():
-                    self.device = torch.device(
-                        f"cuda:{torch.cuda.current_device()}"
-                    )
+                    self.device = torch.device(f"cuda:{torch.cuda.current_device()}")
                 else:
                     self.device = torch.device("cpu")
         else:

@@ -3,8 +3,10 @@
 """
 from typing import Dict, Optional
 
-from pyspark.ml.classification import (RandomForestClassificationModel,
-                                       RandomForestClassifier)
+from pyspark.ml.classification import (
+    RandomForestClassificationModel,
+    RandomForestClassifier,
+)
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit, udf
@@ -27,6 +29,7 @@ class ClassifierRec(Recommender):
 
     В выдачу рекомендаций попадает top K объектов с наивысшим предсказанным скором от классификатора.
     """
+
     model: RandomForestClassificationModel
     augmented_data: DataFrame
 
@@ -36,38 +39,37 @@ class ClassifierRec(Recommender):
     def get_params(self) -> Dict[str, object]:
         return self.model_params
 
-    def _pre_fit(self,
-                 log: DataFrame,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None) -> None:
-        relevances = {
-            row[0]
-            for row in log.select("relevance").distinct().collect()
-        }
+    def _pre_fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
+        relevances = {row[0] for row in log.select("relevance").distinct().collect()}
         if relevances != {0, 1}:
-            raise ValueError("в логе должны быть relevance только 0 или 1"
-                             " и присутствовать значения обоих классов")
+            raise ValueError(
+                "в логе должны быть relevance только 0 или 1"
+                " и присутствовать значения обоих классов"
+            )
         self.augmented_data = (
             self._augment_data(log, user_features, item_features)
             .withColumnRenamed("relevance", "label")
             .select("label", "features")
         ).cache()
 
-    def _fit(self,
-             log: DataFrame,
-             user_features: Optional[DataFrame] = None,
-             item_features: Optional[DataFrame] = None) -> None:
-        self.model = RandomForestClassifier(
-            **self.model_params
-        ).fit(
+    def _fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
+        self.model = RandomForestClassifier(**self.model_params).fit(
             self.augmented_data
         )
 
     @staticmethod
     def _augment_data(
-            log: DataFrame,
-            user_features: DataFrame,
-            item_features: DataFrame
+        log: DataFrame, user_features: DataFrame, item_features: DataFrame
     ) -> DataFrame:
         """
         Обогащает лог фичами пользователей и объектов.
@@ -82,50 +84,44 @@ class ClassifierRec(Recommender):
             user_features, item_features
         )
         return VectorAssembler(
-            inputCols=user_feature_cols + item_feature_cols,
-            outputCol="features"
+            inputCols=user_feature_cols + item_feature_cols, outputCol="features"
         ).transform(
-            log
-            .withColumnRenamed("user_id", "uid")
+            log.withColumnRenamed("user_id", "uid")
             .withColumnRenamed("item_id", "iid")
             .join(
                 user_features.drop("timestamp"),
                 on=col("user_id") == col("uid"),
-                how="inner"
+                how="inner",
             )
             .join(
                 item_features.drop("timestamp"),
                 on=col("item_id") == col("iid"),
-                how="inner"
-            ).drop("iid", "uid")
+                how="inner",
+            )
+            .drop("iid", "uid")
         )
 
-    def _predict(self,
-                 log: DataFrame,
-                 k: int,
-                 users: DataFrame,
-                 items: DataFrame,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None,
-                 filter_seen_items: bool = True) -> DataFrame:
-        data = (
-            self._augment_data(
-                users.crossJoin(items), user_features, item_features
-            )
-            .select("features", "item_id", "user_id")
-        )
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        data = self._augment_data(
+            users.crossJoin(items), user_features, item_features
+        ).select("features", "item_id", "user_id")
         if filter_seen_items:
             data = data.join(log, on=["user_id", "item_id"], how="left_anti")
-        recs = (
-            self.model
-            .transform(data)
-            .select(
-                "user_id",
-                "item_id",
-                udf(func_get, DoubleType())("probability", lit(1))
-                .alias("relevance")
-                .cast(FloatType())
-            )
+        recs = self.model.transform(data).select(
+            "user_id",
+            "item_id",
+            udf(func_get, DoubleType())("probability", lit(1))
+            .alias("relevance")
+            .cast(FloatType()),
         )
 
         return recs

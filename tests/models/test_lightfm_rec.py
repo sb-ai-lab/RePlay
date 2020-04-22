@@ -22,9 +22,9 @@ class LightFMRecTestCase(PySparkTest):
                 ["u3", "i3", self.some_date, 2.0],
                 ["u2", "i3", self.some_date, 2.0],
                 ["u3", "i4", self.some_date, 2.0],
-                ["u1", "i4", self.some_date, 2.0]
+                ["u1", "i4", self.some_date, 2.0],
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
         self.lightfm_rec._seed = 42
 
@@ -40,7 +40,7 @@ class LightFMRecTestCase(PySparkTest):
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
             user_features=None,
-            item_features=None
+            item_features=None,
         )
         self.assertEqual(recs.schema, REC_SCHEMA)
 

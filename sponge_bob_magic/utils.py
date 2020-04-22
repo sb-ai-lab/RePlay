@@ -21,19 +21,15 @@ def flat_list(list_object: Iterable):
     :return: преобразованный лист
     """
     for item in list_object:
-        if (
-                isinstance(item, collections.abc.Iterable) and
-                not isinstance(item, (str, bytes))
+        if isinstance(item, collections.abc.Iterable) and not isinstance(
+            item, (str, bytes)
         ):
             yield from flat_list(item)
         else:
             yield item
 
 
-def get_distinct_values_in_column(
-        dataframe: DataFrame,
-        column: str
-) -> Set[Any]:
+def get_distinct_values_in_column(dataframe: DataFrame, column: str) -> Set[Any]:
     """
     Возвращает уникальные значения в колонке спарк-датафрейма в виде set.
 
@@ -41,18 +37,10 @@ def get_distinct_values_in_column(
     :param column: имя колонки
     :return: уникальные значения в колонке
     """
-    return {
-        row[column]
-        for row in (dataframe
-                    .select(column)
-                    .distinct()
-                    .collect())
-    }
+    return {row[column] for row in (dataframe.select(column).distinct().collect())}
 
 
-def get_top_k_rows(
-        dataframe: DataFrame, k: int, sort_column: str
-) -> DataFrame:
+def get_top_k_rows(dataframe: DataFrame, k: int, sort_column: str) -> DataFrame:
     """
     Выделяет топ-k строк в датафрейме на основе заданной колонки.
 
@@ -61,13 +49,12 @@ def get_top_k_rows(
     :param k: сколько топовых строк необходимо выделить
     :return: спарк-датафрейм такого же вида, но размера `k`
     """
-    window = (Window
-              .orderBy(dataframe[sort_column].desc()))
-    return (dataframe
-            .withColumn("rank",
-                        sf.row_number().over(window))
-            .filter(sf.col("rank") <= k)
-            .drop("rank"))
+    window = Window.orderBy(dataframe[sort_column].desc())
+    return (
+        dataframe.withColumn("rank", sf.row_number().over(window))
+        .filter(sf.col("rank") <= k)
+        .drop("rank")
+    )
 
 
 def func_get(vector: np.ndarray, i: int) -> float:
@@ -83,8 +70,7 @@ def func_get(vector: np.ndarray, i: int) -> float:
 
 
 def get_feature_cols(
-        user_features: DataFrame,
-        item_features: DataFrame
+    user_features: DataFrame, item_features: DataFrame
 ) -> Tuple[List[str], List[str]]:
     """
     извлечь список свойств пользователей и объектов
@@ -94,12 +80,8 @@ def get_feature_cols(
     :return: пара списков
     (имена колонок свойств пользователей, то же для фичей)
     """
-    user_feature_cols = list(
-        set(user_features.columns) - {"user_id", "timestamp"}
-    )
-    item_feature_cols = list(
-        set(item_features.columns) - {"item_id", "timestamp"}
-    )
+    user_feature_cols = list(set(user_features.columns) - {"user_id", "timestamp"})
+    item_feature_cols = list(set(item_features.columns) - {"item_id", "timestamp"})
     return user_feature_cols, item_feature_cols
 
 
@@ -113,14 +95,12 @@ def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
     :return: топ-k рекомендации, спарк-датафрейм с колонками
         `[user_id, item_id, relevance]`
     """
-    window = (Window
-              .partitionBy(recs["user_id"])
-              .orderBy(recs["relevance"].desc()))
-    return (recs
-            .withColumn("rank",
-                        sf.row_number().over(window))
-            .filter(sf.col("rank") <= k)
-            .drop("rank"))
+    window = Window.partitionBy(recs["user_id"]).orderBy(recs["relevance"].desc())
+    return (
+        recs.withColumn("rank", sf.row_number().over(window))
+        .filter(sf.col("rank") <= k)
+        .drop("rank")
+    )
 
 
 @udf(returnType=VectorUDT())
@@ -182,8 +162,6 @@ def get_log_info(log: DataFrame) -> str:
     cnt = log.count()
     user_cnt = log.select("user_id").distinct().count()
     item_cnt = log.select("item_id").distinct().count()
-    return ", ".join([
-        f"total lines: {cnt}",
-        f"total users: {user_cnt}",
-        f"total items: {item_cnt}"
-    ])
+    return ", ".join(
+        [f"total lines: {cnt}", f"total users: {user_cnt}", f"total items: {item_cnt}"]
+    )

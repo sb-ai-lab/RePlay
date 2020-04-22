@@ -4,8 +4,7 @@ from tests.pyspark_testcase import PySparkTest
 from sponge_bob_magic import experiment
 
 
-df = pd.DataFrame({"user_id": [1, 1, 1],
-                   "item_id": [1, 2, 3]})
+df = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3]})
 
 
 class TestConverter(PySparkTest):

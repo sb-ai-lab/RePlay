@@ -40,6 +40,7 @@ class Surprisal(RecOnlyMetric):
     .. math::
         Surprisal@K = \\frac {\sum_{i=1}^{N}Surprisal@K(i)}{N}
     """
+
     def __init__(self, log: CommonDataFrame):
         """
         Чтобы посчитать метрику, необходимо предрассчитать собственную информацию каждого объекта.
@@ -49,8 +50,10 @@ class Surprisal(RecOnlyMetric):
         self.log = convert(log)
         n_users = self.log.select("user_id").distinct().count()
         self.item_weights = self.log.groupby("item_id").agg(
-            (sf.log2(n_users / sf.countDistinct("user_id")) /
-             np.log2(n_users)).alias("rec_weight"))
+            (sf.log2(n_users / sf.countDistinct("user_id")) / np.log2(n_users)).alias(
+                "rec_weight"
+            )
+        )
 
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
@@ -59,10 +62,8 @@ class Surprisal(RecOnlyMetric):
         )
 
     def _get_enriched_recommendations(
-            self,
-            recommendations: DataFrame,
-            ground_truth: DataFrame
+        self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
-        return (recommendations.join(self.item_weights,
-                                     on="item_id",
-                                     how="left").fillna(1))
+        return recommendations.join(self.item_weights, on="item_id", how="left").fillna(
+            1
+        )

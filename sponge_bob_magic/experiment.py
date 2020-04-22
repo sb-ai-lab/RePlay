@@ -33,11 +33,13 @@ class Experiment:
     my_model  0.613147  0.703918     0.666667
 
     """
-    def __init__(self,
-                 test: Any,
-                 metrics: Union[Dict[Metric, IntOrList],
-                                List[Metric]],
-                 k: Optional[IntOrList] = None):
+
+    def __init__(
+        self,
+        test: Any,
+        metrics: Union[Dict[Metric, IntOrList], List[Metric]],
+        k: Optional[IntOrList] = None,
+    ):
         """
         :param test: Данные для теста в формате ``pandas`` или ``pyspark`` DataFrame
         :param metrics: Словарь метрик, которые необходимо считать.
@@ -64,8 +66,7 @@ class Experiment:
         :param pred: список рекомендаций для подсчета метрик
         """
         recs = convert(pred)
-        for metric, k_list in sorted(self.metrics.items(),
-                                     key=lambda x: str(x[0])):
+        for metric, k_list in sorted(self.metrics.items(), key=lambda x: str(x[0])):
 
             if isinstance(metric, RecOnlyMetric):
                 values = metric(recs, k_list)

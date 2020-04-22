@@ -3,8 +3,15 @@
 """
 from datetime import datetime
 
-from pyspark.sql.types import (ArrayType, FloatType, IntegerType, StringType,
-                               StructField, StructType, TimestampType)
+from pyspark.sql.types import (
+    ArrayType,
+    FloatType,
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA
@@ -16,26 +23,30 @@ class ClassifierRecTestCase(PySparkTest):
         self.model = ClassifierRec(seed=47)
         self.user_features = self.spark.createDataFrame(
             [("1", datetime(2019, 1, 1), 1)],
-            schema=StructType([
-                StructField("user_id", StringType()),
-                StructField("timestamp", TimestampType()),
-                StructField("feature1", IntegerType())
-            ])
+            schema=StructType(
+                [
+                    StructField("user_id", StringType()),
+                    StructField("timestamp", TimestampType()),
+                    StructField("feature1", IntegerType()),
+                ]
+            ),
         )
         self.item_features = self.spark.createDataFrame(
             [("1", datetime(2019, 1, 1), 1), (2, datetime(2019, 1, 1), 0)],
-            schema=StructType([
-                StructField("item_id", StringType()),
-                StructField("timestamp", TimestampType()),
-                StructField("feature2", IntegerType())
-            ])
+            schema=StructType(
+                [
+                    StructField("item_id", StringType()),
+                    StructField("timestamp", TimestampType()),
+                    StructField("feature2", IntegerType()),
+                ]
+            ),
         )
         self.log = self.spark.createDataFrame(
             [
                 ("1", "1", datetime(2019, 1, 1), 1.0),
-                ("1", "2", datetime(2019, 1, 1), 0.0)
+                ("1", "2", datetime(2019, 1, 1), 0.0),
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
 
     def test_get_params(self):
@@ -46,7 +57,7 @@ class ClassifierRecTestCase(PySparkTest):
         self.model.fit(
             log=self.log,
             user_features=self.user_features,
-            item_features=self.item_features
+            item_features=self.item_features,
         )
         self.assertEqual(self.model.model.treeWeights, 20 * [1.0])
 
@@ -54,7 +65,7 @@ class ClassifierRecTestCase(PySparkTest):
         self.model.fit(
             log=self.log,
             user_features=self.user_features,
-            item_features=self.item_features
+            item_features=self.item_features,
         )
         empty_prediction = self.model._predict(
             log=self.log,
@@ -63,15 +74,23 @@ class ClassifierRecTestCase(PySparkTest):
             items=self.item_features.select("item_id"),
             user_features=self.user_features,
             item_features=self.item_features,
-            filter_seen_items=True
+            filter_seen_items=True,
         )
         self.assertEqual(
-            sorted([(field.name, field.dataType) for field in
-                    self.log.drop("timestamp").schema.fields],
-                   key=lambda pair: pair[0]),
-            sorted([(field.name, field.dataType) for field in
-                    empty_prediction.schema.fields],
-                   key=lambda pair: pair[0])
+            sorted(
+                [
+                    (field.name, field.dataType)
+                    for field in self.log.drop("timestamp").schema.fields
+                ],
+                key=lambda pair: pair[0],
+            ),
+            sorted(
+                [
+                    (field.name, field.dataType)
+                    for field in empty_prediction.schema.fields
+                ],
+                key=lambda pair: pair[0],
+            ),
         )
         self.assertEqual(empty_prediction.count(), 0)
 
@@ -82,25 +101,22 @@ class ClassifierRecTestCase(PySparkTest):
         true_value = self.spark.createDataFrame(
             [
                 ("1", "1", datetime(2019, 1, 1), 1.0, 1, 1, [1, 1]),
-                ("1", "2", datetime(2019, 1, 1), 0.0, 1, 0, [1, 0])
+                ("1", "2", datetime(2019, 1, 1), 0.0, 1, 0, [1, 0]),
             ],
-            schema=StructType([
-                StructField("user_id", StringType()),
-                StructField("item_id", StringType()),
-                StructField("timestamp", TimestampType()),
-                StructField("relevance", FloatType()),
-                StructField("feature1", IntegerType()),
-                StructField("feature2", IntegerType()),
-                StructField("features", ArrayType(IntegerType())),
-            ])
+            schema=StructType(
+                [
+                    StructField("user_id", StringType()),
+                    StructField("item_id", StringType()),
+                    StructField("timestamp", TimestampType()),
+                    StructField("relevance", FloatType()),
+                    StructField("feature1", IntegerType()),
+                    StructField("feature2", IntegerType()),
+                    StructField("features", ArrayType(IntegerType())),
+                ]
+            ),
         )
-        self.assertSparkDataFrameEqual(
-            true_value,
-            augmented_data
-        )
+        self.assertSparkDataFrameEqual(true_value, augmented_data)
 
     def test_pre_fit_raises(self):
         with self.assertRaises(ValueError):
-            self.model._pre_fit(
-                self.spark.createDataFrame([(1,)]).toDF("relevance")
-            )
+            self.model._pre_fit(self.spark.createDataFrame([(1,)]).toDF("relevance"))

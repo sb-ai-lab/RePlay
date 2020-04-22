@@ -18,10 +18,12 @@ class MRR(Metric):
     >>> MRR()(true, pred, 1)
     1.0
     """
+
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         pandas_df = pandas_df.assign(
-            is_good_item=pandas_df[["item_id", "items_id", "k"]]
-            .apply(lambda x: int(x["item_id"] in x["items_id"]) / x["k"], 1)
+            is_good_item=pandas_df[["item_id", "items_id", "k"]].apply(
+                lambda x: int(x["item_id"] in x["items_id"]) / x["k"], 1
+            )
         )
         return pandas_df.assign(cum_agg=pandas_df.is_good_item.cummax())

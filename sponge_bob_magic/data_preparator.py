@@ -107,10 +107,8 @@ class DataPreparator:
     +-------+-------------------+--------+------+
     <BLANKLINE>
     """
-    def _read_data(self,
-                   path: str,
-                   format_type: str,
-                   **kwargs) -> DataFrame:
+
+    def _read_data(self, path: str, format_type: str, **kwargs) -> DataFrame:
         spark = State().session
         if format_type == "csv":
             dataframe = spark.read.csv(path, inferSchema=True, **kwargs)
@@ -126,24 +124,25 @@ class DataPreparator:
         return dataframe
 
     @staticmethod
-    def _check_columns(given_columns: Set[str],
-                       required_columns: Set[str],
-                       optional_columns: Set[str]):
+    def _check_columns(
+        given_columns: Set[str], required_columns: Set[str], optional_columns: Set[str]
+    ):
         if not required_columns.issubset(given_columns):
             raise ValueError(
                 "В датафрейме нет обязательных колонок: "
-                f"{required_columns.difference(given_columns)}")
+                f"{required_columns.difference(given_columns)}"
+            )
 
-        excess_columns = (given_columns
-                          .difference(required_columns)
-                          .difference(optional_columns))
+        excess_columns = given_columns.difference(required_columns).difference(
+            optional_columns
+        )
         if excess_columns:
-            raise ValueError("В 'columns_names' есть лишние колонки: "
-                             f"{excess_columns}")
+            raise ValueError(
+                "В 'columns_names' есть лишние колонки: " f"{excess_columns}"
+            )
 
     @staticmethod
-    def _check_dataframe(dataframe: DataFrame,
-                         columns_names: Dict[str, str]):
+    def _check_dataframe(dataframe: DataFrame, columns_names: Dict[str, str]):
         # чекаем, что датафрейм не пустой
         if not dataframe.head(1):
             raise ValueError("Датафрейм пустой")
@@ -155,7 +154,8 @@ class DataPreparator:
             raise ValueError(
                 "В columns_names в значениях есть колонки, "
                 "которых нет в датафрейме: "
-                f"{given_columns.difference(dataframe_columns)}")
+                f"{given_columns.difference(dataframe_columns)}"
+            )
 
         # чекаем на нуллы
         for column in given_columns:
@@ -164,11 +164,11 @@ class DataPreparator:
 
     @staticmethod
     def _process_timestamp_column(
-            dataframe: DataFrame,
-            column_name: str,
-            column: Column,
-            date_format: Optional[str],
-            default_value: str
+        dataframe: DataFrame,
+        column_name: str,
+        column: Column,
+        date_format: Optional[str],
+        default_value: str,
     ):
         not_ts_types = ["timestamp", "string", None]
         if dict(dataframe.dtypes).get("timestamp", None) not in not_ts_types:
@@ -178,87 +178,80 @@ class DataPreparator:
             # попробуем преобразовать unix time
             tmp_column = column_name + "tmp"
             dataframe = dataframe.withColumn(
-                tmp_column,
-                sf.to_timestamp(sf.from_unixtime(column))
+                tmp_column, sf.to_timestamp(sf.from_unixtime(column))
             )
 
             # если не unix time, то в колонке будут все null
-            is_null_column = (
-                dataframe
-                .select(
-                    (sf.min(tmp_column).eqNullSafe(sf.max(tmp_column)))
-                    .alias(tmp_column)
-                )
-                .collect()[0]
-            )
+            is_null_column = dataframe.select(
+                (sf.min(tmp_column).eqNullSafe(sf.max(tmp_column))).alias(tmp_column)
+            ).collect()[0]
             if is_null_column[tmp_column]:
                 logger = logging.getLogger("sponge_bob_magic")
                 logger.warning(
                     "Колонка со временем не содержит unix time; "
                     "чиселки в этой колонке будут добавлены к "
-                    "дефолтной дате")
+                    "дефолтной дате"
+                )
 
                 dataframe = (
-                    dataframe
-                    .withColumn("tmp",
-                                sf.to_timestamp(
-                                    sf.lit(default_value)))
-                    .withColumn(column_name,
-                                sf.to_timestamp(sf.expr(
-                                    f"date_add(tmp, {column_name})")))
+                    dataframe.withColumn("tmp", sf.to_timestamp(sf.lit(default_value)))
+                    .withColumn(
+                        column_name,
+                        sf.to_timestamp(sf.expr(f"date_add(tmp, {column_name})")),
+                    )
                     .drop("tmp", tmp_column)
                 )
             else:
-                dataframe = (
-                    dataframe
-                    .drop(column_name)
-                    .withColumnRenamed(tmp_column, column_name)
+                dataframe = dataframe.drop(column_name).withColumnRenamed(
+                    tmp_column, column_name
                 )
         else:
             dataframe = dataframe.withColumn(
-                column_name,
-                sf.to_timestamp(column, format=date_format)
+                column_name, sf.to_timestamp(column, format=date_format)
             )
         return dataframe
 
     @staticmethod
-    def _rename_columns(dataframe: DataFrame,
-                        columns_names: Dict[str, str],
-                        features_columns: List[str],
-                        default_schema: Dict[str, Tuple[Any, Any]],
-                        date_format: Optional[str] = None):
+    def _rename_columns(
+        dataframe: DataFrame,
+        columns_names: Dict[str, str],
+        features_columns: List[str],
+        default_schema: Dict[str, Tuple[Any, Any]],
+        date_format: Optional[str] = None,
+    ):
         # переименовываем колонки
-        dataframe = dataframe.select([
-            sf.col(column).alias(new_name)
-            for new_name, column in columns_names.items()
-        ] + features_columns)
+        dataframe = dataframe.select(
+            [
+                sf.col(column).alias(new_name)
+                for new_name, column in columns_names.items()
+            ]
+            + features_columns
+        )
         # добавляем необязательные дефолтные колонки, если они есть,
         # и задаем тип для тех колонок, что есть
-        for column_name, (default_value,
-                          default_type) in default_schema.items():
+        for column_name, (default_value, default_type) in default_schema.items():
             if column_name not in dataframe.columns:
                 column = sf.lit(default_value)
             else:
                 column = sf.col(column_name)
             if column_name == "timestamp":
                 dataframe = DataPreparator._process_timestamp_column(
-                    dataframe, column_name, column, date_format,
-                    default_value)
-            else:
-                dataframe = dataframe.withColumn(
-                    column_name,
-                    column.cast(default_type)
+                    dataframe, column_name, column, date_format, default_value
                 )
+            else:
+                dataframe = dataframe.withColumn(column_name, column.cast(default_type))
         return dataframe
 
-    def transform(self,
-                  columns_names: Dict[str, str],
-                  data: Optional[CommonDataFrame] = None,
-                  path: Optional[str] = None,
-                  format_type: Optional[str] = None,
-                  date_format: Optional[str] = None,
-                  features_columns: Optional[Union[str, Iterable[str]]] = None,
-                  **kwargs) -> DataFrame:
+    def transform(
+        self,
+        columns_names: Dict[str, str],
+        data: Optional[CommonDataFrame] = None,
+        path: Optional[str] = None,
+        format_type: Optional[str] = None,
+        date_format: Optional[str] = None,
+        features_columns: Optional[Union[str, Iterable[str]]] = None,
+        **kwargs,
+    ) -> DataFrame:
         """
         Преобразовывает лог, либо признаки пользователей или объектов
         в спарк-датафрейм вида
@@ -302,13 +295,19 @@ class DataPreparator:
         elif path and format_type:
             dataframe = self._read_data(path, format_type, **kwargs)
         else:
-            raise ValueError("Один из параметров data, path должен быть отличным от None")
+            raise ValueError(
+                "Один из параметров data, path должен быть отличным от None"
+            )
 
         if "user_id" in columns_names and "item_id" in columns_names:
-            required_columns = {"user_id": (None, StringType()),
-                                "item_id": (None, StringType())}
-            optional_columns = {"timestamp": ("1999-05-01", TimestampType()),
-                                "relevance": (1.0, FloatType())}
+            required_columns = {
+                "user_id": (None, StringType()),
+                "item_id": (None, StringType()),
+            }
+            optional_columns = {
+                "timestamp": ("1999-05-01", TimestampType()),
+                "relevance": (1.0, FloatType()),
+            }
             if features_columns is None:
                 features_columns = []
             else:
@@ -327,8 +326,9 @@ class DataPreparator:
             if features_columns is None:
                 given_columns = set(columns_names.values())
                 dataframe_columns = set(dataframe.columns)
-                features_columns = sorted(list(dataframe_columns.
-                                               difference(given_columns)))
+                features_columns = sorted(
+                    list(dataframe_columns.difference(given_columns))
+                )
                 if not features_columns:
                     raise ValueError("В датафрейме нет колонок с фичами")
 
@@ -338,14 +338,19 @@ class DataPreparator:
                 else:
                     features_columns = list(features_columns)
 
-        self._check_columns(set(columns_names.keys()),
-                            required_columns=set(required_columns),
-                            optional_columns=set(optional_columns))
+        self._check_columns(
+            set(columns_names.keys()),
+            required_columns=set(required_columns),
+            optional_columns=set(optional_columns),
+        )
 
         self._check_dataframe(dataframe, columns_names)
 
         dataframe2 = self._rename_columns(
-            dataframe, columns_names, features_columns,
+            dataframe,
+            columns_names,
+            features_columns,
             default_schema={**required_columns, **optional_columns},
-            date_format=date_format).cache()
+            date_format=date_format,
+        ).cache()
         return dataframe2

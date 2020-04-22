@@ -7,8 +7,7 @@ import numpy as np
 import pandas as pd
 from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.engine import Engine, Events
-from ignite.handlers import (EarlyStopping, ModelCheckpoint,
-                             global_step_from_engine)
+from ignite.handlers import EarlyStopping, ModelCheckpoint, global_step_from_engine
 from ignite.metrics import Loss, RunningAverage
 from scipy.sparse import csr_matrix
 from pyspark.ml import Pipeline
@@ -30,13 +29,14 @@ from sponge_bob_magic.session_handler import State
 
 class VAE(nn.Module):
     """Простой вариационный автокодировщик"""
+
     def __init__(
-            self,
-            item_count: int,
-            latent_dim: int,
-            decoder_dims: Optional[List[int]] = None,
-            encoder_dims: Optional[List[int]] = None,
-            dropout: float = 0.3
+        self,
+        item_count: int,
+        latent_dim: int,
+        decoder_dims: Optional[List[int]] = None,
+        encoder_dims: Optional[List[int]] = None,
+        dropout: float = 0.3,
     ):
         """
         Инициализация модели.
@@ -61,12 +61,18 @@ class VAE(nn.Module):
         self.encoder_dims = [item_count] + self.encoder_dims + [latent_dim * 2]
         self.decoder_dims = [latent_dim] + self.decoder_dims + [item_count]
 
-        self.encoder = nn.ModuleList([nn.Linear(d_in, d_out) for d_in, d_out in
-                                      zip(self.encoder_dims[:-1],
-                                          self.encoder_dims[1:])])
-        self.decoder = nn.ModuleList([nn.Linear(d_in, d_out) for d_in, d_out in
-                                      zip(self.decoder_dims[:-1],
-                                          self.decoder_dims[1:])])
+        self.encoder = nn.ModuleList(
+            [
+                nn.Linear(d_in, d_out)
+                for d_in, d_out in zip(self.encoder_dims[:-1], self.encoder_dims[1:])
+            ]
+        )
+        self.decoder = nn.ModuleList(
+            [
+                nn.Linear(d_in, d_out)
+                for d_in, d_out in zip(self.decoder_dims[:-1], self.decoder_dims[1:])
+            ]
+        )
         self.dropout = nn.Dropout(dropout)
         self.activation = torch.nn.ReLU()
 
@@ -86,12 +92,13 @@ class VAE(nn.Module):
             hidden = self.activation(hidden)
 
         hidden = self.encoder[-1](hidden)
-        mu_latent = hidden[:, :self.latent_dim]
-        logvar_latent = hidden[:, self.latent_dim:]
+        mu_latent = hidden[:, : self.latent_dim]
+        logvar_latent = hidden[:, self.latent_dim :]
         return mu_latent, logvar_latent
 
-    def reparameterize(self, mu_latent: torch.Tensor,
-                       logvar_latent: torch.Tensor) -> torch.Tensor:
+    def reparameterize(
+        self, mu_latent: torch.Tensor, logvar_latent: torch.Tensor
+    ) -> torch.Tensor:
         """Репараметризационный трюк, необходимый для обрабного прохождения
         сигнала по семплированным данным"""
 
@@ -109,9 +116,9 @@ class VAE(nn.Module):
             hidden = self.activation(hidden)
         return self.decoder[-1](hidden)
 
-    def forward(self, batch: torch.Tensor) -> Tuple[torch.Tensor,
-                                                    torch.Tensor,
-                                                    torch.Tensor]:
+    def forward(
+        self, batch: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Один проход нейросети.
 
@@ -249,6 +256,7 @@ class MultVAE(Recommender):
     При :math:`\\beta = 0` VAE (вариационный автокодировщик) превращается в
     DAE (шумоподавляющий автокодировщик)
     """
+
     num_workers: int = 0
     batch_size_users: int = 5000
     patience: int = 5
@@ -256,15 +264,18 @@ class MultVAE(Recommender):
     valid_split_size: float = 0.1
     seed: int = 42
 
-    def __init__(self, learning_rate: float = 0.05,
-                 epochs: int = 1,
-                 latent_dim: int = 10,
-                 decoder_dims: Optional[List[int]] = None,
-                 encoder_dims: Optional[List[int]] = None,
-                 dropout: float = 0.3,
-                 anneal: float = 0.005,
-                 l2_reg: float = 0,
-                 gamma: float = 0.99):
+    def __init__(
+        self,
+        learning_rate: float = 0.05,
+        epochs: int = 1,
+        latent_dim: int = 10,
+        decoder_dims: Optional[List[int]] = None,
+        encoder_dims: Optional[List[int]] = None,
+        dropout: float = 0.3,
+        anneal: float = 0.005,
+        l2_reg: float = 0,
+        gamma: float = 0.99,
+    ):
         """
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
@@ -299,49 +310,53 @@ class MultVAE(Recommender):
             "dropout": self.dropout,
             "anneal": self.anneal,
             "l2_reg": self.l2_reg,
-            "gamma": self.gamma
+            "gamma": self.gamma,
         }
 
-    def _get_data_loader(self,
-                         data: pd.DataFrame,
-                         shuffle: bool = True
-                         ) -> (csr_matrix, DataLoader, np.array):
+    def _get_data_loader(
+        self, data: pd.DataFrame, shuffle: bool = True
+    ) -> (csr_matrix, DataLoader, np.array):
         """Функция получения загрузчика данных, а также матрицы с данными"""
         users_count = data["user_idx"].value_counts().count()
-        user_idx = data.user_idx.astype('category').cat
-        user_batch = csr_matrix((np.ones(len(data.user_idx)),
-                                 ([user_idx.codes.values,
-                                   data.item_idx.values])),
-                                shape=(users_count, self.items_count))
+        user_idx = data.user_idx.astype("category").cat
+        user_batch = csr_matrix(
+            (
+                np.ones(len(data.user_idx)),
+                ([user_idx.codes.values, data.item_idx.values]),
+            ),
+            shape=(users_count, self.items_count),
+        )
         data_loader = DataLoader(
             TensorDataset(torch.arange(users_count).long()),
             batch_size=self.batch_size_users,
             shuffle=shuffle,
-            num_workers=self.num_workers)
+            num_workers=self.num_workers,
+        )
 
         return user_batch, data_loader, user_idx.categories.values
 
-    def _fit(self,
-             log: DataFrame,
-             user_features: Optional[DataFrame] = None,
-             item_features: Optional[DataFrame] = None) -> None:
+    def _fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
         self.logger.debug("Индексирование данных")
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
 
         self.logger.debug("Составление батча:")
         data = log_indexed.select("user_idx", "item_idx").toPandas()
-        splitter = GroupShuffleSplit(n_splits=1,
-                                     test_size=self.valid_split_size,
-                                     random_state=self.seed)
-        train_idx, valid_idx = next(splitter.split(data, groups=data[
-            "user_idx"]))
+        splitter = GroupShuffleSplit(
+            n_splits=1, test_size=self.valid_split_size, random_state=self.seed
+        )
+        train_idx, valid_idx = next(splitter.split(data, groups=data["user_idx"]))
         train_data, valid_data = data.iloc[train_idx], data.iloc[valid_idx]
 
-        train_user_batch, train_data_loader, _ = self._get_data_loader(
-            train_data)
+        train_user_batch, train_data_loader, _ = self._get_data_loader(train_data)
         valid_user_batch, valid_data_loader, _ = self._get_data_loader(
-            valid_data, False)
+            valid_data, False
+        )
 
         self.logger.debug("Обучение модели")
         self.model = VAE(
@@ -349,28 +364,34 @@ class MultVAE(Recommender):
             latent_dim=self.latent_dim,
             decoder_dims=self.decoder_dims,
             encoder_dims=self.encoder_dims,
-            dropout=self.dropout).to(self.device)
+            dropout=self.dropout,
+        ).to(self.device)
 
         optimizer = Adam(
             self.model.parameters(),
             lr=self.learning_rate,
-            weight_decay=self.l2_reg / self.batch_size_users)
+            weight_decay=self.l2_reg / self.batch_size_users,
+        )
         lr_scheduler = ExponentialLR(optimizer, gamma=self.gamma)
         scheduler = LRScheduler(lr_scheduler)
 
-        def _loss(x_pred, x_true, mu_latent,
-                  logvar_latent, anneal=self.anneal):
+        def _loss(x_pred, x_true, mu_latent, logvar_latent, anneal=self.anneal):
             log_softmax_var = F.log_softmax(x_pred, dim=1)
-            bce = - (log_softmax_var * x_true).sum(dim=1).mean()
-            kld = -0.5 * torch.sum(1 + logvar_latent - mu_latent.pow(2) -
-                                   logvar_latent.exp(), dim=1).mean()
+            bce = -(log_softmax_var * x_true).sum(dim=1).mean()
+            kld = (
+                -0.5
+                * torch.sum(
+                    1 + logvar_latent - mu_latent.pow(2) - logvar_latent.exp(), dim=1
+                ).mean()
+            )
             return bce + anneal * kld
 
         def _run_train_step(engine, batch):
             self.model.train()
             optimizer.zero_grad()
-            user_batch = torch.FloatTensor(train_user_batch[batch[0]]
-                                           .toarray()).to(self.device)
+            user_batch = torch.FloatTensor(train_user_batch[batch[0]].toarray()).to(
+                self.device
+            )
             pred_user_batch, latent_mu, latent_logvar = self.model(user_batch)
             loss = _loss(pred_user_batch, user_batch, latent_mu, latent_logvar)
             loss.backward()
@@ -380,14 +401,15 @@ class MultVAE(Recommender):
         def _run_val_step(engine, batch):
             self.model.eval()
             with torch.no_grad():
-                user_batch = torch.FloatTensor(valid_user_batch[batch[0]]
-                                               .toarray()).to(self.device)
-                pred_user_batch, latent_mu, latent_logvar = self.model(
-                    user_batch)
-                return (pred_user_batch,
-                        user_batch,
-                        {"mu_latent": latent_mu,
-                         "logvar_latent": latent_logvar})
+                user_batch = torch.FloatTensor(valid_user_batch[batch[0]].toarray()).to(
+                    self.device
+                )
+                pred_user_batch, latent_mu, latent_logvar = self.model(user_batch)
+                return (
+                    pred_user_batch,
+                    user_batch,
+                    {"mu_latent": latent_mu, "logvar_latent": latent_logvar},
+                )
 
         vae_trainer = Engine(_run_train_step)
         val_evaluator = Engine(_run_val_step)
@@ -399,25 +421,29 @@ class MultVAE(Recommender):
 
         @vae_trainer.on(Events.EPOCH_COMPLETED)
         def log_training_loss(trainer):
-            self.logger.debug("Epoch[{}] current loss: {:.5f}"
-                              .format(trainer.state.epoch,
-                                      trainer.state.metrics["avg"]))
+            self.logger.debug(
+                "Epoch[{}] current loss: {:.5f}".format(
+                    trainer.state.epoch, trainer.state.metrics["avg"]
+                )
+            )
 
         @vae_trainer.on(Events.EPOCH_COMPLETED)
         def log_validation_results(trainer):
             val_evaluator.run(valid_data_loader)
             metrics = val_evaluator.state.metrics
-            self.logger.debug("Epoch[{}] validation average loss: {:.5f}"
-                              .format(trainer.state.epoch, metrics["loss"]))
+            self.logger.debug(
+                "Epoch[{}] validation average loss: {:.5f}".format(
+                    trainer.state.epoch, metrics["loss"]
+                )
+            )
 
         def score_function(engine):
             return -engine.state.metrics["loss"]
 
-        early_stopping = EarlyStopping(patience=self.patience,
-                                       score_function=score_function,
-                                       trainer=vae_trainer)
-        val_evaluator.add_event_handler(Events.COMPLETED,
-                                        early_stopping)
+        early_stopping = EarlyStopping(
+            patience=self.patience, score_function=score_function, trainer=vae_trainer
+        )
+        val_evaluator.add_event_handler(Events.COMPLETED, early_stopping)
         checkpoint = ModelCheckpoint(
             self.spark.conf.get("spark.local.dir"),
             create_dir=True,
@@ -426,55 +452,61 @@ class MultVAE(Recommender):
             score_function=score_function,
             score_name="loss",
             filename_prefix="best",
-            global_step_transform=global_step_from_engine(vae_trainer))
+            global_step_transform=global_step_from_engine(vae_trainer),
+        )
 
-        val_evaluator.add_event_handler(Events.EPOCH_COMPLETED,
-                                        checkpoint, {"vae": self.model})
+        val_evaluator.add_event_handler(
+            Events.EPOCH_COMPLETED, checkpoint, {"vae": self.model}
+        )
         vae_trainer.run(train_data_loader, max_epochs=self.epochs)
 
-    def _predict(self,
-                 log: DataFrame,
-                 k: int,
-                 users: Optional[DataFrame] = None,
-                 items: Optional[DataFrame] = None,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None,
-                 filter_seen_items: bool = True) -> DataFrame:
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: Optional[DataFrame] = None,
+        items: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
         self.logger.debug("Индексирование данных")
         log_indexed = self.user_indexer.transform(
-            users.join(log, how="left", on="user_id")
-            .select("user_id", "item_id"))
+            users.join(log, how="left", on="user_id").select("user_id", "item_id")
+        )
 
         log_indexed = self.item_indexer.transform(log_indexed)
 
         self.logger.debug("Предсказание модели")
         log_data = log_indexed.select("user_idx", "item_idx").toPandas()
         log_user_batch, log_data_loader, user_idx = self._get_data_loader(
-            log_data, False)
+            log_data, False
+        )
 
-        predictions = pd.DataFrame(
-            columns=["user_idx", "item_idx", "relevance"])
+        predictions = pd.DataFrame(columns=["user_idx", "item_idx", "relevance"])
 
         def _run_pred_step(engine, batch):
             nonlocal predictions
             self.model.eval()
             with torch.no_grad():
-                user_batch = torch.FloatTensor(log_user_batch[batch[0]]
-                                               .toarray())
-                cnt_by_user = (user_batch > 0) .sum(dim=1)
+                user_batch = torch.FloatTensor(log_user_batch[batch[0]].toarray())
+                cnt_by_user = (user_batch > 0).sum(dim=1)
                 user_batch_idx = user_idx[batch[0]]
                 pred_user_batch, _, _ = self.model(user_batch.to(self.device))
                 for user_id, user_rec, cnt in zip(
-                        user_batch_idx,
-                        pred_user_batch.detach().cpu(),
-                        cnt_by_user):
-                    best_item_idx = torch.argsort(user_rec,
-                                                  descending=True)[:cnt + k]
+                    user_batch_idx, pred_user_batch.detach().cpu(), cnt_by_user
+                ):
+                    best_item_idx = torch.argsort(user_rec, descending=True)[: cnt + k]
                     predictions = predictions.append(
-                        pd.DataFrame({"user_idx": [user_id] * (cnt + k),
-                                      "item_idx": best_item_idx,
-                                      "relevance": user_rec[best_item_idx]
-                                      }), sort=False)
+                        pd.DataFrame(
+                            {
+                                "user_idx": [user_id] * (cnt + k),
+                                "item_idx": best_item_idx,
+                                "relevance": user_rec[best_item_idx],
+                            }
+                        ),
+                        sort=False,
+                    )
 
         pred_evaluator = Engine(_run_pred_step)
         pred_evaluator.run(log_data_loader)
@@ -500,18 +532,15 @@ class MultVAE(Recommender):
         :return: исходный датафрейм с измененной колонкой
         """
         unlist = sf.udf(lambda x: float(list(x)[0]), DoubleType())
-        assembler = VectorAssembler(
-            inputCols=[column], outputCol=column + "_Vect"
-        )
-        scaler = MinMaxScaler(
-            inputCol=column + "_Vect", outputCol=column + "_Scaled"
-        )
+        assembler = VectorAssembler(inputCols=[column], outputCol=column + "_Vect")
+        scaler = MinMaxScaler(inputCol=column + "_Vect", outputCol=column + "_Scaled")
         pipeline = Pipeline(stages=[assembler, scaler])
-        dataframe = (pipeline
-                     .fit(dataframe)
-                     .transform(dataframe)
-                     .withColumn(column, unlist(column + "_Scaled"))
-                     .drop(column + "_Vect", column + "_Scaled"))
+        dataframe = (
+            pipeline.fit(dataframe)
+            .transform(dataframe)
+            .withColumn(column, unlist(column + "_Scaled"))
+            .drop(column + "_Vect", column + "_Scaled")
+        )
 
         return dataframe
 

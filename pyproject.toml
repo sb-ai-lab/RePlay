@@ -21,10 +21,7 @@ classifiers = [
     "Typing :: Typed"
 ]
 
-[[tool.poetry.source]]
-name = "private-pypi"
-url = "http://mirror.sigma.sbrf.ru/pypi/simple/"
-default = true
+
 
 [tool.poetry.dependencies]
 python = "^3.6.1"
@@ -62,6 +59,8 @@ virtualenv = "20.0.8"
 pytest = "5.3.5"
 pytest-cov = "2.8.1"
 flake8 = "3.7.9"
+black = "^19.10b0"
+pre-commit = "^2.2.0"
 
 [build-system]
 requires = ["poetry>=0.12"]

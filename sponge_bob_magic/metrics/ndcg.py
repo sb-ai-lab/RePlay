@@ -37,18 +37,18 @@ class NDCG(Metric):
     .. math::
         nDCG@K = \\frac {\sum_{i=1}^{N}nDCG@K(i)}{N}
     """
+
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         pandas_df = pandas_df.assign(
-            is_good_item=pandas_df[["item_id", "items_id"]]
-            .apply(lambda x: int(x["item_id"] in x["items_id"]), 1)
+            is_good_item=pandas_df[["item_id", "items_id"]].apply(
+                lambda x: int(x["item_id"] in x["items_id"]), 1
+            )
         )
         pandas_df = pandas_df.assign(
             sorted_good_item=pandas_df["k"].le(pandas_df["items_id"].str.len())
         )
         return pandas_df.assign(
-            cum_agg=(
-                pandas_df["is_good_item"] /
-                np.log2(pandas_df.k + 1)).cumsum() /
-            (pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)).cumsum()
+            cum_agg=(pandas_df["is_good_item"] / np.log2(pandas_df.k + 1)).cumsum()
+            / (pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)).cumsum()
         )

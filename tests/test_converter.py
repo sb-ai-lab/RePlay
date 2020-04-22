@@ -7,16 +7,15 @@ from sponge_bob_magic.converter import PANDAS, convert
 
 class TestConverter(PySparkTest):
     def setUp(self):
-        self.pandas_data_frame = pd.DataFrame([
-            [1, 2, 3],
-            [3, 4, 5]
-        ])
+        self.pandas_data_frame = pd.DataFrame([[1, 2, 3], [3, 4, 5]])
 
     def test_pandas_inversion(self):
-        self.assertTrue((
-            self.pandas_data_frame.values ==
-            convert(convert(self.pandas_data_frame), PANDAS).values
-        ).all())
+        self.assertTrue(
+            (
+                self.pandas_data_frame.values
+                == convert(convert(self.pandas_data_frame), PANDAS).values
+            ).all()
+        )
 
     def test_unknown_type(self):
         with self.assertRaises(NotImplementedError):

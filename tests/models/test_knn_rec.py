@@ -22,9 +22,9 @@ class KNNRecTestCase(PySparkTest):
                 ["u3", "i3", self.some_date, 2.0],
                 ["u2", "i3", self.some_date, 2.0],
                 ["u3", "i4", self.some_date, 2.0],
-                ["u1", "i4", self.some_date, 2.0]
+                ["u1", "i4", self.some_date, 2.0],
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
 
     def test_fit(self):
@@ -32,15 +32,20 @@ class KNNRecTestCase(PySparkTest):
         self.model._fit(self.log, None, None)
         self.assertSparkDataFrameEqual(
             self.model.similarity,
-            self.spark.createDataFrame([
-                ("i1", "i4", 0.5),
-                ("i3", "i4", 0.18350341907227408),
-                ("i4", "i3", 0.18350341907227408)
-            ], schema=StructType([
-                StructField("item_id_one", StringType()),
-                StructField("item_id_two", StringType()),
-                StructField("similarity", DoubleType()),
-            ]))
+            self.spark.createDataFrame(
+                [
+                    ("i1", "i4", 0.5),
+                    ("i3", "i4", 0.18350341907227408),
+                    ("i4", "i3", 0.18350341907227408),
+                ],
+                schema=StructType(
+                    [
+                        StructField("item_id_one", StringType()),
+                        StructField("item_id_two", StringType()),
+                        StructField("similarity", DoubleType()),
+                    ]
+                ),
+            ),
         )
 
     def test_predict(self):
@@ -50,7 +55,8 @@ class KNNRecTestCase(PySparkTest):
             k=1,
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
-            user_features=None, item_features=None
+            user_features=None,
+            item_features=None,
         )
         self.assertSparkDataFrameEqual(
             recs,
@@ -60,12 +66,9 @@ class KNNRecTestCase(PySparkTest):
                     ["u2", "i4", 0.6835034190722742],
                     ["u3", "i3", 0.0],
                 ],
-                schema=REC_SCHEMA
-            )
+                schema=REC_SCHEMA,
+            ),
         )
 
     def test_get_params(self):
-        self.assertEqual(
-            self.model.get_params(),
-            {"shrink": 0.0, "num_neighbours": 1}
-        )
+        self.assertEqual(self.model.get_params(), {"shrink": 0.0, "num_neighbours": 1})

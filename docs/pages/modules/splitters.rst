@@ -22,5 +22,3 @@
 .. automodule:: sponge_bob_magic.splitters.log_splitter
    :members: DateSplitter, RandomSplitter, ColdUsersSplitter
    :special-members:
-
-

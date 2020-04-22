@@ -8,9 +8,11 @@ from parameterized import parameterized
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.splitters.log_splitter import (ColdUsersSplitter,
-                                                     DateSplitter,
-                                                     RandomSplitter)
+from sponge_bob_magic.splitters.log_splitter import (
+    ColdUsersSplitter,
+    DateSplitter,
+    RandomSplitter,
+)
 from sponge_bob_magic.utils import get_distinct_values_in_column
 
 
@@ -23,30 +25,27 @@ class TestLogSplitByDateSplitter(PySparkTest):
                 ["user2", "item1", datetime(2019, 9, 14), 3.0],
                 ["user2", "item2", datetime(2019, 9, 15), 4.0],
                 ["user3", "item1", datetime(2019, 9, 16), 5.0],
-                ["user1", "item3", datetime(2019, 9, 17), 1.0]
+                ["user1", "item3", datetime(2019, 9, 17), 1.0],
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
-        train, test = (
-            DateSplitter(datetime(2019, 9, 15), False, False)
-            .split(log)
-        )
+        train, test = DateSplitter(datetime(2019, 9, 15), False, False).split(log)
 
         true_train = self.spark.createDataFrame(
             data=[
                 ["user1", "item1", datetime(2019, 9, 12), 1.0],
                 ["user1", "item2", datetime(2019, 9, 13), 2.0],
-                ["user2", "item1", datetime(2019, 9, 14), 3.0]
+                ["user2", "item1", datetime(2019, 9, 14), 3.0],
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
         true_test = self.spark.createDataFrame(
             data=[
                 ["user2", "item2", datetime(2019, 9, 15), 4.0],
                 ["user3", "item1", datetime(2019, 9, 16), 5.0],
-                ["user1", "item3", datetime(2019, 9, 17), 1.0]
+                ["user1", "item3", datetime(2019, 9, 17), 1.0],
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
         with self.subTest():
             self.assertSparkDataFrameEqual(true_train, train)
@@ -54,16 +53,13 @@ class TestLogSplitByDateSplitter(PySparkTest):
         with self.subTest():
             self.assertSparkDataFrameEqual(true_test, test)
 
-        train, test = (
-            DateSplitter(datetime(2019, 9, 15), True, False)
-            .split(log)
-        )
+        train, test = DateSplitter(datetime(2019, 9, 15), True, False).split(log)
         true_test = self.spark.createDataFrame(
             data=[
                 ["user2", "item2", datetime(2019, 9, 15), 4.0],
-                ["user3", "item1", datetime(2019, 9, 16), 5.0]
+                ["user3", "item1", datetime(2019, 9, 16), 5.0],
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
         with self.subTest():
             self.assertSparkDataFrameEqual(true_train, train)
@@ -71,16 +67,13 @@ class TestLogSplitByDateSplitter(PySparkTest):
         with self.subTest():
             self.assertSparkDataFrameEqual(true_test, test)
 
-        train, test = (
-            DateSplitter(datetime(2019, 9, 15), False, True)
-            .split(log)
-        )
+        train, test = DateSplitter(datetime(2019, 9, 15), False, True).split(log)
         true_test = self.spark.createDataFrame(
             data=[
                 ["user2", "item2", datetime(2019, 9, 15), 4.0],
-                ["user1", "item3", datetime(2019, 9, 17), 1.0]
+                ["user1", "item3", datetime(2019, 9, 17), 1.0],
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
         with self.subTest():
             self.assertSparkDataFrameEqual(true_train, train)
@@ -88,15 +81,9 @@ class TestLogSplitByDateSplitter(PySparkTest):
         with self.subTest():
             self.assertSparkDataFrameEqual(true_test, test)
 
-        train, test = (
-            DateSplitter(datetime(2019, 9, 15), True, True)
-            .split(log)
-        )
+        train, test = DateSplitter(datetime(2019, 9, 15), True, True).split(log)
         true_test = self.spark.createDataFrame(
-            data=[
-                ["user2", "item2", datetime(2019, 9, 15), 4.0]
-            ],
-            schema=LOG_SCHEMA
+            data=[["user2", "item2", datetime(2019, 9, 15), 4.0]], schema=LOG_SCHEMA
         )
         with self.subTest():
             self.assertSparkDataFrameEqual(true_train, train)
@@ -106,20 +93,22 @@ class TestLogSplitByDateSplitter(PySparkTest):
 
 
 class TestLogSplitRandomlySplitter(PySparkTest):
-    @parameterized.expand([
-        # test_size, drop_cold_items, drop_cold_users
-        (0.0, False, False),
-        (1.0, False, False),
-        (0.5, True, False),
-        (0.6, True, False),
-        (0.7, True, False),
-        (0.22, False, True),
-        (0.35, False, True),
-        (0.65, False, True),
-        (0.42, True, True),
-        (0.75, True, True),
-        (0.95, True, True),
-    ])
+    @parameterized.expand(
+        [
+            # test_size, drop_cold_items, drop_cold_users
+            (0.0, False, False),
+            (1.0, False, False),
+            (0.5, True, False),
+            (0.6, True, False),
+            (0.7, True, False),
+            (0.22, False, True),
+            (0.35, False, True),
+            (0.65, False, True),
+            (0.42, True, True),
+            (0.75, True, True),
+            (0.95, True, True),
+        ]
+    )
     def test_split(self, test_size, drop_cold_items, drop_cold_users):
         seed = 1234
         log = self.spark.createDataFrame(
@@ -132,27 +121,22 @@ class TestLogSplitRandomlySplitter(PySparkTest):
                 ["user2", "item2", datetime(2019, 9, 15), 4.0],
                 ["user3", "item1", datetime(2019, 9, 16), 5.0],
                 ["user3", "item4", datetime(2019, 9, 16), 5.0],
-                ["user1", "item3", datetime(2019, 9, 17), 1.0]
+                ["user1", "item3", datetime(2019, 9, 17), 1.0],
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
 
-        train, test = (
-            RandomSplitter(test_size=test_size,
-                           drop_cold_items=drop_cold_items,
-                           drop_cold_users=drop_cold_users,
-                           seed=seed)
-            .split(log)
-        )
+        train, test = RandomSplitter(
+            test_size=test_size,
+            drop_cold_items=drop_cold_items,
+            drop_cold_users=drop_cold_users,
+            seed=seed,
+        ).split(log)
 
         if not drop_cold_items and not drop_cold_users:
             self.assertSparkDataFrameEqual(log, train.union(test))
-            self.assertSparkDataFrameEqual(
-                log, test.union(train)
-            )
-            self.assertEqual(
-                test.count(), numpy.ceil(log.count() * test_size)
-            )
+            self.assertSparkDataFrameEqual(log, test.union(train))
+            self.assertEqual(test.count(), numpy.ceil(log.count() * test_size))
 
         if drop_cold_items:
             test_items = get_distinct_values_in_column(test, "item_id")
@@ -182,15 +166,14 @@ class TestColdUsersExtractingSplitter(PySparkTest):
                 ["user4", "item2", datetime(2019, 9, 13), 2.0],
                 ["user3", "item1", datetime(2019, 9, 16), 5.0],
                 ["user3", "item4", datetime(2019, 9, 16), 5.0],
-                ["user1", "item3", datetime(2019, 9, 17), 1.0]
+                ["user1", "item3", datetime(2019, 9, 17), 1.0],
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
 
-        train, test = (
-            ColdUsersSplitter(test_size=1 / 4, drop_cold_items=False, drop_cold_users=False)
-            .split(log=log)
-        )
+        train, test = ColdUsersSplitter(
+            test_size=1 / 4, drop_cold_items=False, drop_cold_users=False
+        ).split(log=log)
 
         true_train = self.spark.createDataFrame(
             data=[
@@ -201,14 +184,14 @@ class TestColdUsersExtractingSplitter(PySparkTest):
                 ["user2", "item1", datetime(2019, 9, 14), 3.0],
                 ["user2", "item2", datetime(2019, 9, 15), 4.0],
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
         true_test = self.spark.createDataFrame(
             data=[
                 ["user3", "item1", datetime(2019, 9, 16), 5.0],
                 ["user3", "item4", datetime(2019, 9, 16), 5.0],
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
 
         self.assertSparkDataFrameEqual(train, true_train)

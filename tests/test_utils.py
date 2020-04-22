@@ -5,8 +5,13 @@ from datetime import datetime
 
 import numpy as np
 from pyspark.sql import SparkSession
-from pyspark.sql.types import (IntegerType, StringType, StructField,
-                               StructType, TimestampType)
+from pyspark.sql.types import (
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 from tests.pyspark_testcase import PySparkTest
 
 import sponge_bob_magic.session_handler
@@ -21,19 +26,23 @@ class UtilsTestCase(PySparkTest):
     def test_get_feature_cols(self):
         user_features = self.spark.createDataFrame(
             [("1", datetime(2000, 1, 1), 1)],
-            schema=StructType([
-                StructField("user_id", StringType()),
-                StructField("timestamp", TimestampType()),
-                StructField("feature1", IntegerType())
-            ])
+            schema=StructType(
+                [
+                    StructField("user_id", StringType()),
+                    StructField("timestamp", TimestampType()),
+                    StructField("feature1", IntegerType()),
+                ]
+            ),
         )
         item_features = self.spark.createDataFrame(
             [("1", datetime(2000, 1, 1), 1), (2, datetime(2000, 1, 1), 0)],
-            schema=StructType([
-                StructField("item_id", StringType()),
-                StructField("timestamp", TimestampType()),
-                StructField("feature2", IntegerType())
-            ])
+            schema=StructType(
+                [
+                    StructField("item_id", StringType()),
+                    StructField("timestamp", TimestampType()),
+                    StructField("feature2", IntegerType()),
+                ]
+            ),
         )
         user_feature_cols, item_feature_cols = utils.get_feature_cols(
             user_features, item_features
