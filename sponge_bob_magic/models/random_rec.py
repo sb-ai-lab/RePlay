@@ -10,7 +10,6 @@ from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import get_top_k_recs
 
 
 class RandomRec(Recommender):
@@ -231,7 +230,5 @@ class RandomRec(Recommender):
             .groupby("user_id", "user_idx")
             .apply(grouped_map)
         ).drop("item_idx", "user_idx")
-        if filter_seen_items:
-            recs = self._filter_seen_recs(recs, log)
-        recs = get_top_k_recs(recs, k)
+
         return recs

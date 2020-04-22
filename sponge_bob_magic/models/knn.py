@@ -8,7 +8,6 @@ from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import get_top_k_recs
 
 
 class KNN(Recommender):

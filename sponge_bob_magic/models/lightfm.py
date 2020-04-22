@@ -10,7 +10,6 @@ from pyspark.sql.functions import lit
 from scipy.sparse import coo_matrix
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import get_top_k_recs
 
 
 class LightFMWrap(Recommender):

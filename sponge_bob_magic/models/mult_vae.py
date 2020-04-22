@@ -26,7 +26,6 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.models import Recommender
 from sponge_bob_magic.session_handler import State
-from sponge_bob_magic.utils import get_top_k_recs
 
 
 class VAE(nn.Module):

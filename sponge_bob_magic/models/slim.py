@@ -13,7 +13,6 @@ from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import get_top_k_recs
 
 
 class SLIM(Recommender):
