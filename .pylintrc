@@ -9,4 +9,4 @@ disable=W1401
 [FORMAT]
 
 ignore-long-lines=^.*([А-Яа-я]|>{3}).*$
-max-line-length=88зщуе
+max-line-length=88

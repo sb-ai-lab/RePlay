@@ -21,7 +21,10 @@ classifiers = [
     "Typing :: Typed"
 ]
 
-
+[[tool.poetry.source]]
+name = "private-pypi"
+url = "http://mirror.sigma.sbrf.ru/pypi/simple/"
+default = true
 
 [tool.poetry.dependencies]
 python = "^3.6.1"
