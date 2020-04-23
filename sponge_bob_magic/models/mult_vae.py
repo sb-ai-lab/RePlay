@@ -24,7 +24,7 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
 
-from sponge_bob_magic.models import Recommender
+from sponge_bob_magic.models import TorchRecommender
 from sponge_bob_magic.session_handler import State
 
 
@@ -135,7 +135,7 @@ class VAE(nn.Module):
             layer.bias.data.normal_(0.0, 0.001)
 
 
-class MultVAE(Recommender):
+class MultVAE(TorchRecommender):
     """
     Вариационный автокодировщик. Общая схема его работы
     представлена на рисунке.
@@ -432,95 +432,30 @@ class MultVAE(Recommender):
                                         checkpoint, {"vae": self.model})
         vae_trainer.run(train_data_loader, max_epochs=self.epochs)
 
-    def _predict(self,
-                 log: DataFrame,
-                 k: int,
-                 users: Optional[DataFrame] = None,
-                 items: Optional[DataFrame] = None,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None,
-                 filter_seen_items: bool = True) -> DataFrame:
-        self.logger.debug("Индексирование данных")
-        log_indexed = self.user_indexer.transform(
-            users.join(log, how="left", on="user_id")
-            .select("user_id", "item_id"))
-
-        log_indexed = self.item_indexer.transform(log_indexed)
-
-        self.logger.debug("Предсказание модели")
-        log_data = log_indexed.select("user_idx", "item_idx").toPandas()
-        log_user_batch, log_data_loader, user_idx = self._get_data_loader(
-            log_data, False)
-
-        predictions = pd.DataFrame(
-            columns=["user_idx", "item_idx", "relevance"])
-
-        def _run_pred_step(engine, batch):
-            nonlocal predictions
-            self.model.eval()
-            with torch.no_grad():
-                user_batch = torch.FloatTensor(log_user_batch[batch[0]]
-                                               .toarray())
-                cnt_by_user = (user_batch > 0) .sum(dim=1)
-                user_batch_idx = user_idx[batch[0]]
-                pred_user_batch, _, _ = self.model(user_batch.to(self.device))
-                for user_id, user_rec, cnt in zip(
-                        user_batch_idx,
-                        pred_user_batch.detach().cpu(),
-                        cnt_by_user):
-                    best_item_idx = torch.argsort(user_rec,
-                                                  descending=True)[:cnt + k]
-                    predictions = predictions.append(
-                        pd.DataFrame({"user_idx": [user_id] * (cnt + k),
-                                      "item_idx": best_item_idx,
-                                      "relevance": user_rec[best_item_idx]
-                                      }), sort=False)
-
-        pred_evaluator = Engine(_run_pred_step)
-        pred_evaluator.run(log_data_loader)
-        recs = self.spark.createDataFrame(predictions)
-
-        self.logger.debug("Обратное преобразование индексов")
-        recs = self.inv_item_indexer.transform(recs)
-        recs = self.inv_user_indexer.transform(recs)
-        recs = recs.drop("user_idx", "item_idx")
-        recs = MultVAE.min_max_scale_column(recs, "relevance")
-
-        return recs
-
     @staticmethod
-    def min_max_scale_column(dataframe: DataFrame, column: str) -> DataFrame:
-        """
-        Отнормировать колонку датафрейма.
-        Применяет классическую форму нормализации с минимумом и максимумом:
-        new_value_i = (value_i - min) / (max - min).
+    def _predict_by_user(
+            pandas_df: pd.DataFrame,
+            model: nn.Module,
+            items_pd: np.array,
+            k: int,
+            item_count: int
+    ) -> pd.DataFrame:
+        user_idx = pandas_df["user_idx"][0]
+        cnt = min(len(pandas_df) + k, item_count)
 
-        :param dataframe: спарк-датафрейм
-        :param column: имя колонки, которую надо нормализовать
-        :return: исходный датафрейм с измененной колонкой
-        """
-        unlist = sf.udf(lambda x: float(list(x)[0]), DoubleType())
-        assembler = VectorAssembler(
-            inputCols=[column], outputCol=column + "_Vect"
-        )
-        scaler = MinMaxScaler(
-            inputCol=column + "_Vect", outputCol=column + "_Scaled"
-        )
-        pipeline = Pipeline(stages=[assembler, scaler])
-        dataframe = (pipeline
-                     .fit(dataframe)
-                     .transform(dataframe)
-                     .withColumn(column, unlist(column + "_Scaled"))
-                     .drop(column + "_Vect", column + "_Scaled"))
+        model.eval()
+        with torch.no_grad():
+            items_mask = torch.zeros(item_count)
+            items_mask[items_pd] = 1
+            user_batch = torch.zeros((1, len(items_mask)))
+            user_batch[0, pandas_df["item_idx"].values] = 1
+            user_recs = model(user_batch)[0][0].detach()
+            best_item_idx = (torch.argsort(
+                user_recs * items_mask,
+                descending=True)[:cnt]).numpy()
 
-        return dataframe
-
-    def load_model(self, path: str) -> None:
-        """
-        Загрузка весов модели из файла
-
-        :param path: путь к файлу, откуда загружать
-        :return:
-        """
-        self.logger.debug("-- Загрузка модели из файла")
-        self.model.load_state_dict(torch.load(path))
+            return pd.DataFrame({
+                "user_idx": cnt * [user_idx],
+                "item_idx": best_item_idx,
+                "relevance": user_recs[best_item_idx]
+            })

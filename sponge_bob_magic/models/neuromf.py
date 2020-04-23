@@ -8,6 +8,7 @@ from ignite.engine import Engine, Events
 from ignite.handlers import (EarlyStopping, ModelCheckpoint,
                              global_step_from_engine)
 from ignite.metrics import Loss
+import numpy as np
 import pandas as pd
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import MinMaxScaler, VectorAssembler
@@ -22,7 +23,7 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
 
-from sponge_bob_magic.models import Recommender
+from sponge_bob_magic.models import TorchRecommender
 from sponge_bob_magic.session_handler import State
 
 
@@ -218,7 +219,7 @@ class NMF(nn.Module):
         return merged_vector
 
 
-class NeuroMF(Recommender):
+class NeuroMF(TorchRecommender):
     """
     Эта модель является вариацей на модель из статьи Neural Matrix Factorization
     (NeuMF, NCF).
@@ -428,103 +429,28 @@ class NeuroMF(Recommender):
                                              checkpoint, {"nmf": self.model})
         self.trainer.run(train_data_loader, max_epochs=self.epochs)
 
-    def _predict(self,
-                 log: DataFrame,
-                 k: int,
-                 users: Optional[DataFrame] = None,
-                 items: Optional[DataFrame] = None,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None,
-                 filter_seen_items: bool = True) -> DataFrame:
-
-        items_pd = (self.item_indexer.transform(items)
-                    .toPandas()["item_idx"].values)
-        model = self.model.cpu()
-
-        @sf.pandas_udf(
-            st.StructType([
-                st.StructField("user_id", users.schema["user_id"].dataType,
-                               True),
-                st.StructField("user_idx", st.LongType(), True),
-                st.StructField("item_idx", st.LongType(), True),
-                st.StructField("relevance", st.FloatType(), True)
-            ]),
-            sf.PandasUDFType.GROUPED_MAP
-        )
-        def grouped_map(pandas_df):
-
-            user_idx = pandas_df["user_idx"][0]
-            user_id = pandas_df["user_id"][0]
-            cnt = pandas_df["cnt"][0]
-
-            model.eval()
-            with torch.no_grad():
-                user_batch = LongTensor([user_idx] * len(items_pd))
-                item_batch = LongTensor(items_pd)
-
-                user_recs = model(user_batch, item_batch)
-                best_item_idx = (torch.argsort(
-                    user_recs.detach(),
-                    descending=True)[:cnt]).numpy()
-                return pd.DataFrame({
-                    "user_id": cnt * [user_id],
-                    "user_idx": cnt * [user_idx],
-                    "item_idx": items_pd[best_item_idx],
-                    "relevance": user_recs[best_item_idx]
-                })
-
-        self.logger.debug("Предсказание модели")
-        recs = (self.inv_item_indexer.transform(
-            self.user_indexer.transform(
-                users.join(log, how="left", on="user_id")
-                .select("user_id", "item_id")
-                .groupby("user_id")
-                .agg(sf.countDistinct("item_id").alias("cnt")))
-            .selectExpr(
-                "user_id",
-                "CAST(user_idx AS INT) AS user_idx",
-                f"CAST(LEAST(cnt + {k}, {len(items_pd)}) AS INT) AS cnt")
-            .groupby("user_id", "user_idx")
-            .apply(grouped_map))
-            .drop("item_idx", "user_idx"))
-
-        recs = NeuroMF.min_max_scale_column(recs, "relevance")
-
-        return recs
-
     @staticmethod
-    def min_max_scale_column(dataframe: DataFrame, column: str) -> DataFrame:
-        """
-        Отнормировать колонку датафрейма.
-        Применяет классическую форму нормализации с минимумом и максимумом:
-        new_value_i = (value_i - min) / (max - min).
+    def _predict_by_user(
+            pandas_df: pd.DataFrame,
+            model: nn.Module,
+            items_pd: np.array,
+            k: int,
+            item_count: int
+    ) -> pd.DataFrame:
+        user_idx = pandas_df["user_idx"][0]
+        cnt = min(len(pandas_df) + k, item_count)
 
-        :param dataframe: спарк-датафрейм
-        :param column: имя колонки, которую надо нормализовать
-        :return: исходный датафрейм с измененной колонкой
-        """
-        unlist = sf.udf(lambda x: float(list(x)[0]), st.DoubleType())
-        assembler = VectorAssembler(
-            inputCols=[column], outputCol=column + "_Vect"
-        )
-        scaler = MinMaxScaler(
-            inputCol=column + "_Vect", outputCol=column + "_Scaled"
-        )
-        pipeline = Pipeline(stages=[assembler, scaler])
-        dataframe = (pipeline
-                     .fit(dataframe)
-                     .transform(dataframe)
-                     .withColumn(column, unlist(column + "_Scaled"))
-                     .drop(column + "_Vect", column + "_Scaled"))
+        model.eval()
+        with torch.no_grad():
+            user_batch = LongTensor([user_idx] * item_count)
+            item_batch = LongTensor(items_pd)
 
-        return dataframe
-
-    def load_model(self, path: str) -> None:
-        """
-        Загрузка весов модели из файла
-
-        :param path: путь к файлу, откуда загружать
-        :return:
-        """
-        self.logger.debug("-- Загрузка модели из файла")
-        self.model.load_state_dict(torch.load(path))
+            user_recs = model(user_batch, item_batch).detach()
+            best_item_idx = (torch.argsort(
+                user_recs,
+                descending=True)[:cnt]).numpy()
+            return pd.DataFrame({
+                "user_idx": cnt * [user_idx],
+                "item_idx": items_pd[best_item_idx],
+                "relevance": user_recs[best_item_idx]
+            })
