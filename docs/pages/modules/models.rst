@@ -13,6 +13,11 @@ Popular Recommender
 
 .. autoclass:: sponge_bob_magic.models.PopRec
 
+Wilson Recommender
+-------------------
+
+.. autoclass:: sponge_bob_magic.models.Wilson
+
 Random Recommender
 ------------------
 
