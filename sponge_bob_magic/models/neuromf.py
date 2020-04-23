@@ -433,24 +433,23 @@ class NeuroMF(TorchRecommender):
     def _predict_by_user(
             pandas_df: pd.DataFrame,
             model: nn.Module,
-            items_pd: np.array,
+            items_np: np.array,
             k: int,
-            item_count: int
+            items_count: int
     ) -> pd.DataFrame:
         user_idx = pandas_df["user_idx"][0]
-        cnt = min(len(pandas_df) + k, item_count)
+        cnt = min(len(pandas_df) + k, len(items_np))
 
         model.eval()
         with torch.no_grad():
-            user_batch = LongTensor([user_idx] * item_count)
-            item_batch = LongTensor(items_pd)
-
+            user_batch = LongTensor([user_idx] * len(items_np))
+            item_batch = LongTensor(items_np)
             user_recs = model(user_batch, item_batch).detach()
             best_item_idx = (torch.argsort(
                 user_recs,
                 descending=True)[:cnt]).numpy()
             return pd.DataFrame({
                 "user_idx": cnt * [user_idx],
-                "item_idx": items_pd[best_item_idx],
+                "item_idx": items_np[best_item_idx],
                 "relevance": user_recs[best_item_idx]
             })

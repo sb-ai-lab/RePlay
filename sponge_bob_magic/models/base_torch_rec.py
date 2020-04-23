@@ -31,6 +31,7 @@ class TorchRecommender(Recommender, ABC):
                  filter_seen_items: bool = True) -> DataFrame:
         items_pd = (self.item_indexer.transform(items)
                     .toPandas()["item_idx"].values)
+        items_count = self.items_count
         model = self.model.cpu()
         agg_fn = self._predict_by_user
 
@@ -44,7 +45,7 @@ class TorchRecommender(Recommender, ABC):
         )
         def grouped_map(pandas_df):
             return agg_fn(
-                pandas_df, model, items_pd, k, len(items_pd)
+                pandas_df, model, items_pd, k, items_count
             )[["user_idx", "item_idx", "relevance"]]
 
         self.logger.debug("Предсказание модели")
@@ -74,18 +75,22 @@ class TorchRecommender(Recommender, ABC):
     def _predict_by_user(
             pandas_df: pd.DataFrame,
             model: nn.Module,
-            items_pd: np.array,
+            items_np: np.array,
             k: int,
             item_count: int
     ) -> pd.DataFrame:
         """
         Расчёт значения метрики для каждого пользователя
 
-        :param pandas_df: DataFrame, содержащий рекомендации по каждому
-        пользователю --
-            pandas-датафрейм вида ``[user_id, item_id, relevance, k, *columns]``
-        :return: DataFrame c рассчитанным полем ``cum_agg`` --
-            pandas-датафрейм вида ``[user_id , item_id , cum_agg, *columns]``
+        :param pandas_df: DataFrame, содержащий индексы просмотренных айтемов
+            по каждому пользователю -- pandas-датафрейм вида
+            ``[user_idx, item_idx]``
+        :param model: обученная модель
+        :param items_np: список допустимых для рекомендаций объектов
+        :param k: количество рекомендаций
+        :param item_count: общее количество объектов в рекомендателе
+        :return: DataFrame c рассчитанными релевантностями --
+            pandas-датафрейм вида ``[user_idx , item_idx , relevance]``
         """
 
     @staticmethod
