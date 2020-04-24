@@ -25,6 +25,15 @@ class Wilson(PopRec):
     :math:`z_{\\alpha}` 1-альфа квантиль нормального распределения.
 
     Для каждого пользователя отфильтровываются просмотренные айтемы.
+
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({"user_id": [1, 2], "item_id": [1, 2], "relevance": [1, 1]})
+    >>> model = Wilson()
+    >>> model.fit_predict(df, k=1)
+       user_id item_id  relevance
+    0        1       2   0.325494
+    1        2       1   0.325494
+
     """
 
     def _pre_fit(
@@ -43,23 +52,16 @@ class Wilson(PopRec):
     ) -> None:
         log = convert(log)
 
-        pos = log.groupby("item_id").agg(
-            sf.sum((sf.col("relevance") == 1).astype("int")).alias("pos")
-        )
-        neg = log.groupby("item_id").agg(
-            sf.sum((sf.col("relevance") == 0).astype("int")).alias("neg")
-        )
-        df = pos.join(neg, on="item_id").toPandas()
-
+        df = log.groupby("item_id").agg(sf.sum("relevance").alias("pos"),
+                                        sf.count("relevance").alias("total")).toPandas()
         pos = np.array(df.pos)
-        neg = np.array(df.neg)
-
-        df["relevance"] = wilson_score(pos, neg)
-        df = df.drop(["pos", "neg"], axis=1)
+        total = np.array(df.total)
+        df["relevance"] = wilson_score(pos, total)
+        df = df.drop(["pos", "total"], axis=1)
         self.item_popularity = convert(df).cache()
 
 
-def wilson_score(ups: np.array, downs: np.array, confidence: float = 0.85):
+def wilson_score(ups: np.array, n: np.array, confidence: float = 0.85):
     """
     Рассчитывает wilson score для массивов с количеством лайков и дизлайков по айтемам.
     :param ups: количество лайков
@@ -67,7 +69,6 @@ def wilson_score(ups: np.array, downs: np.array, confidence: float = 0.85):
     :param confidence: доверительный интервал
     :return: массив рассчитанных значений
     """
-    n = ups + downs
     phat = ups / n
     z = st.norm.ppf(1 - (1 - confidence) / 2)
     a = phat + z * z / (2 * n)
