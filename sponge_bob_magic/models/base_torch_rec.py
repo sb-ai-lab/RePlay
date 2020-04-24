@@ -195,8 +195,7 @@ class TorchRecommender(Recommender):
             early_stopping = EarlyStopping(patience=early_stopping_patience,
                                            score_function=score_function,
                                            trainer=torch_trainer)
-            torch_evaluator.add_event_handler(Events.COMPLETED,
-                                            early_stopping)
+            torch_evaluator.add_event_handler(Events.COMPLETED, early_stopping)
         if checkpoint_number:
             checkpoint = ModelCheckpoint(
                 self.spark.conf.get("spark.local.dir"),
