@@ -11,17 +11,13 @@ from ignite.handlers import (EarlyStopping, ModelCheckpoint,
                              global_step_from_engine)
 from ignite.metrics import Loss, RunningAverage
 from scipy.sparse import csr_matrix
-from pyspark.ml import Pipeline
-from pyspark.ml.feature import MinMaxScaler, VectorAssembler
 from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-from pyspark.sql.types import DoubleType
 from sklearn.model_selection import GroupShuffleSplit
 import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.models import TorchRecommender
@@ -251,7 +247,7 @@ class MultVAE(TorchRecommender):
     """
     num_workers: int = 0
     batch_size_users: int = 5000
-    patience: int = 5
+    patience: int = 10
     n_saved: int = 2
     valid_split_size: float = 0.1
     seed: int = 42
@@ -338,9 +334,9 @@ class MultVAE(TorchRecommender):
             "user_idx"]))
         train_data, valid_data = data.iloc[train_idx], data.iloc[valid_idx]
 
-        train_user_batch, train_data_loader, _ = self._get_data_loader(
+        self.train_user_batch, train_data_loader, _ = self._get_data_loader(
             train_data)
-        valid_user_batch, valid_data_loader, _ = self._get_data_loader(
+        self.valid_user_batch, valid_data_loader, _ = self._get_data_loader(
             valid_data, False)
 
         self.logger.debug("Обучение модели")
@@ -355,82 +351,32 @@ class MultVAE(TorchRecommender):
             self.model.parameters(),
             lr=self.learning_rate,
             weight_decay=self.l2_reg / self.batch_size_users)
-        lr_scheduler = ExponentialLR(optimizer, gamma=self.gamma)
-        scheduler = LRScheduler(lr_scheduler)
+        lr_scheduler = ReduceLROnPlateau(optimizer, factor=0.5, patience=3)
 
-        def _loss(x_pred, x_true, mu_latent,
-                  logvar_latent, anneal=self.anneal):
-            log_softmax_var = F.log_softmax(x_pred, dim=1)
-            bce = - (log_softmax_var * x_true).sum(dim=1).mean()
-            kld = -0.5 * torch.sum(1 + logvar_latent - mu_latent.pow(2) -
-                                   logvar_latent.exp(), dim=1).mean()
-            return bce + anneal * kld
+        vae_trainer, val_evaluator = self._create_trainer_evaluator(
+            optimizer, valid_data_loader, lr_scheduler, self.patience,
+            self.n_saved)
 
-        def _run_train_step(engine, batch):
-            self.model.train()
-            optimizer.zero_grad()
-            user_batch = torch.FloatTensor(train_user_batch[batch[0]]
-                                           .toarray()).to(self.device)
-            pred_user_batch, latent_mu, latent_logvar = self.model(user_batch)
-            loss = _loss(pred_user_batch, user_batch, latent_mu, latent_logvar)
-            loss.backward()
-            optimizer.step()
-            return loss.item()
-
-        def _run_val_step(engine, batch):
-            self.model.eval()
-            with torch.no_grad():
-                user_batch = torch.FloatTensor(valid_user_batch[batch[0]]
-                                               .toarray()).to(self.device)
-                pred_user_batch, latent_mu, latent_logvar = self.model(
-                    user_batch)
-                return (pred_user_batch,
-                        user_batch,
-                        {"mu_latent": latent_mu,
-                         "logvar_latent": latent_logvar})
-
-        vae_trainer = Engine(_run_train_step)
-        val_evaluator = Engine(_run_val_step)
-
-        Loss(_loss).attach(val_evaluator, "loss")
-        vae_trainer.add_event_handler(Events.EPOCH_COMPLETED, scheduler)
-        avg_output = RunningAverage(output_transform=lambda x: x)
-        avg_output.attach(vae_trainer, "avg")
-
-        @vae_trainer.on(Events.EPOCH_COMPLETED)
-        def log_training_loss(trainer):
-            self.logger.debug("Epoch[{}] current loss: {:.5f}"
-                              .format(trainer.state.epoch,
-                                      trainer.state.metrics["avg"]))
-
-        @vae_trainer.on(Events.EPOCH_COMPLETED)
-        def log_validation_results(trainer):
-            val_evaluator.run(valid_data_loader)
-            metrics = val_evaluator.state.metrics
-            self.logger.debug("Epoch[{}] validation average loss: {:.5f}"
-                              .format(trainer.state.epoch, metrics["loss"]))
-
-        def score_function(engine):
-            return -engine.state.metrics["loss"]
-
-        early_stopping = EarlyStopping(patience=self.patience,
-                                       score_function=score_function,
-                                       trainer=vae_trainer)
-        val_evaluator.add_event_handler(Events.COMPLETED,
-                                        early_stopping)
-        checkpoint = ModelCheckpoint(
-            self.spark.conf.get("spark.local.dir"),
-            create_dir=True,
-            require_empty=False,
-            n_saved=self.n_saved,
-            score_function=score_function,
-            score_name="loss",
-            filename_prefix="best",
-            global_step_transform=global_step_from_engine(vae_trainer))
-
-        val_evaluator.add_event_handler(Events.EPOCH_COMPLETED,
-                                        checkpoint, {"vae": self.model})
         vae_trainer.run(train_data_loader, max_epochs=self.epochs)
+
+    def _loss(self, y_pred, y_true, mu_latent,
+              logvar_latent):
+        log_softmax_var = F.log_softmax(y_pred, dim=1)
+        bce = - (log_softmax_var * y_true).sum(dim=1).mean()
+        kld = -0.5 * torch.sum(1 + logvar_latent - mu_latent.pow(2) -
+                               logvar_latent.exp(), dim=1).mean()
+        return bce + self.anneal * kld
+
+    def _batch_pass(self, batch, model):
+        if model.training:
+            full_batch = self.train_user_batch
+        else:
+            full_batch = self.valid_user_batch
+        user_batch = torch.FloatTensor(full_batch[batch[0]]
+                                       .toarray()).to(self.device)
+        pred_user_batch, latent_mu, latent_logvar = self.model(user_batch)
+        return (pred_user_batch, user_batch,
+                {"mu_latent": latent_mu, "logvar_latent": latent_logvar})
 
     @staticmethod
     def _predict_by_user(

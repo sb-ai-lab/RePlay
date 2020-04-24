@@ -1,25 +1,30 @@
-import logging
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterable, Optional, Union
+from abc import abstractmethod
+from typing import Any, Dict, Optional, Union
 
-from ignite import engine
+from ignite.contrib.handlers import LRScheduler
+from ignite.engine import Engine, Events
+from ignite.handlers import (EarlyStopping, ModelCheckpoint,
+                             global_step_from_engine)
+from ignite.metrics import RunningAverage, Loss
 import numpy as np
 import pandas as pd
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import MinMaxScaler, VectorAssembler
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 import torch
 from torch import nn
+from torch.optim import optimizer
+from torch.optim.lr_scheduler import _LRScheduler, ReduceLROnPlateau
+from torch.utils.data import DataLoader
 
-from sponge_bob_magic.converter import convert, get_type
 from sponge_bob_magic.models import Recommender
-from sponge_bob_magic.session_handler import State
 
 
-class TorchRecommender(Recommender, ABC):
+class TorchRecommender(Recommender):
     """ Базовый класс-рекомендатель для нейросетевой модели. """
+    device: torch.device
 
     def _predict(self,
                  log: DataFrame,
@@ -130,8 +135,121 @@ class TorchRecommender(Recommender, ABC):
         self.logger.debug("-- Загрузка модели из файла")
         self.model.load_state_dict(torch.load(path))
 
-    def _create_trainer(self):
-        pass
+    def _create_trainer_evaluator(
+            self, opt: optimizer,
+            valid_data_loader: DataLoader,
+            scheduler: Optional[Union[_LRScheduler, ReduceLROnPlateau]] = None,
+            early_stopping_patience: Optional[int] = None,
+            checkpoint_number: Optional[int] = None
+    ) -> (Engine, Engine):
+        """
+        Метод, возвращающий trainer, evaluator для обучения нейронной сети.
 
-    def _create_evaluator(self):
-        pass
+        :param opt: Оптимимайзер
+        :param valid_data_loader: Загрузчик данных для валидации
+        :param scheduler: Расписания для уменьшения шага обучения
+        :param early_stopping_patience: количество эпох для ранней остановки
+        :param early_stopping_patience: количество лучших чекпойнтов
+        :return: trainer, evaluator
+        """
+        self.model.to(self.device)
+
+        def _run_train_step(engine, batch):
+            self.model.train()
+            opt.zero_grad()
+            y_pred, y_true, kwargs = self._batch_pass(batch, self.model)
+            loss = self._loss(y_pred, y_true, **kwargs)
+            loss.backward()
+            opt.step()
+            return loss.item()
+
+        def _run_val_step(engine, batch):
+            self.model.eval()
+            with torch.no_grad():
+                return self._batch_pass(batch, self.model)
+
+        torch_trainer = Engine(_run_train_step)
+        torch_evaluator = Engine(_run_val_step)
+
+        avg_output = RunningAverage(output_transform=lambda x: x)
+        avg_output.attach(torch_trainer, "loss")
+        Loss(self._loss).attach(torch_evaluator, "loss")
+
+        @torch_trainer.on(Events.EPOCH_COMPLETED)
+        def log_training_loss(trainer):
+            self.logger.debug("Epoch[{}] current loss: {:.5f}"
+                              .format(trainer.state.epoch,
+                                      trainer.state.metrics["loss"]))
+
+        @torch_trainer.on(Events.EPOCH_COMPLETED)
+        def log_validation_results(trainer):
+            torch_evaluator.run(valid_data_loader)
+            metrics = torch_evaluator.state.metrics
+            self.logger.debug("Epoch[{}] validation average loss: {:.5f}"
+                              .format(trainer.state.epoch, metrics["loss"]))
+
+        def score_function(engine):
+            return -engine.state.metrics["loss"]
+
+        if early_stopping_patience:
+            early_stopping = EarlyStopping(patience=early_stopping_patience,
+                                           score_function=score_function,
+                                           trainer=torch_trainer)
+            torch_evaluator.add_event_handler(Events.COMPLETED,
+                                            early_stopping)
+        if checkpoint_number:
+            checkpoint = ModelCheckpoint(
+                self.spark.conf.get("spark.local.dir"),
+                create_dir=True,
+                require_empty=False,
+                n_saved=checkpoint_number,
+                score_function=score_function,
+                score_name="loss",
+                filename_prefix="best",
+                global_step_transform=global_step_from_engine(torch_trainer))
+
+            torch_evaluator.add_event_handler(
+                Events.EPOCH_COMPLETED, checkpoint,
+                {type(self).__name__: self.model}
+            )
+
+            @torch_trainer.on(Events.COMPLETED)
+            def load_best_model(engine):
+                self.load_model(checkpoint.last_checkpoint)
+
+        if scheduler:
+            if isinstance(scheduler, _LRScheduler):
+                torch_trainer.add_event_handler(Events.EPOCH_COMPLETED,
+                                                LRScheduler(scheduler))
+            else:
+                @torch_evaluator.on(Events.EPOCH_COMPLETED)
+                def reduct_step(engine):
+                    scheduler.step(engine.state.metrics['loss'])
+
+        return torch_trainer, torch_evaluator
+
+    @abstractmethod
+    def _batch_pass(self, batch, model) -> (torch.Tensor, torch.Tensor,
+                                            Union[None, Dict[str, Any]]):
+        """
+        Метод, возвращающий результат применения модели к батчу.
+        Должен быть имплементирован наследниками.
+
+        :param batch: батч с данными
+        :param model: нейросетевая модель
+        :return: y_pred, y_true, а также словарь дополнительных параметров,
+        необходимых для расчета функции потерь
+        """
+
+    @abstractmethod
+    def _loss(self, y_pred: torch.Tensor, y_true: torch.Tensor, *args,
+              **kwargs) -> torch.Tensor:
+        """
+        Метод, возвращающий значение функции потерь.
+        Должен быть имплементирован наследниками.
+
+        :param y_pred: Результат, который вернула нейросеть
+        :param y_true: Ожидаемый результат
+        :param *args: Прочие аргументы необходимые для расчета loss
+        :return: Тензор размера 1 на 1
+        """

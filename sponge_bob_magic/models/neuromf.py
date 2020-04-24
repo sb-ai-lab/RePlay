@@ -10,11 +10,7 @@ from ignite.handlers import (EarlyStopping, ModelCheckpoint,
 from ignite.metrics import Loss
 import numpy as np
 import pandas as pd
-from pyspark.ml import Pipeline
-from pyspark.ml.feature import MinMaxScaler, VectorAssembler
 from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-from pyspark.sql import types as st
 from sklearn.model_selection import train_test_split
 import torch.optim
 from torch import LongTensor, Tensor
@@ -343,91 +339,38 @@ class NeuroMF(TorchRecommender):
             weight_decay=self.l2_reg / self.batch_size_users)
         lr_scheduler = ExponentialLR(optimizer, gamma=self.gamma)
         scheduler = LRScheduler(lr_scheduler)
+
+        nmf_trainer, val_evaluator = self._create_trainer_evaluator(
+            optimizer, val_data_loader,
+            lr_scheduler, self.patience, self.n_saved)
+
+        nmf_trainer.run(train_data_loader, max_epochs=self.epochs)
+
+    def _loss(self, y_pred, y_true):
+        if not y_true.shape == y_pred.shape:
+            pos_len = y_pred.shape[0] // (self.count_negative_sample + 1)
+            y_real_true = torch.cat((
+                y_true[:pos_len],
+                y_true[-pos_len * self.count_negative_sample:]))
+        else:
+            y_real_true = y_true
+        return F.binary_cross_entropy(y_pred, y_real_true).mean()
+
+    def _batch_pass(self, batch, model):
         y_true = torch.ones(self.batch_size_users *
                             (1 + self.count_negative_sample)).to(self.device)
         y_true[self.batch_size_users:] = 0
 
-        def _loss(y_pred, y_true):
-            if not y_true.shape == y_pred.shape:
-                pos_len = y_pred.shape[0] // (self.count_negative_sample + 1)
-                y_real_true = torch.cat((
-                    y_true[:pos_len],
-                    y_true[-pos_len * self.count_negative_sample:]))
-            else:
-                y_real_true = y_true
-            return F.binary_cross_entropy(y_pred, y_real_true).mean()
+        user_batch, pos_item_batch = batch
+        neg_item_batch = self._get_neg_batch(user_batch)
+        pos_relevance = model(user_batch.to(self.device),
+                              pos_item_batch.to(self.device))
+        neg_relevance = model(
+            user_batch.repeat([self.count_negative_sample]).to(self.device),
+            neg_item_batch.to(self.device))
+        y_pred = torch.cat((pos_relevance, neg_relevance), 0)
 
-        def _run_train_step(engine, batch):
-            self.model.train()
-            optimizer.zero_grad()
-            user_batch, pos_item_batch = batch
-            neg_item_batch = self._get_neg_batch(user_batch)
-            pos_relevance = self.model(user_batch.to(self.device),
-                                       pos_item_batch.to(self.device))
-            neg_relevance = self.model(
-                user_batch.repeat([self.count_negative_sample])
-                .to(self.device),
-                neg_item_batch.to(self.device))
-            y_pred = torch.cat((pos_relevance, neg_relevance), 0)
-            loss = _loss(y_pred, y_true)
-            loss.backward()
-            optimizer.step()
-
-            return loss.item()
-
-        def _run_val_step(engine, batch):
-            self.model.eval()
-            with torch.no_grad():
-                user_batch, pos_item_batch = batch
-                neg_item_batch = self._get_neg_batch(user_batch)
-                pos_relevance = self.model(user_batch.to(self.device),
-                                           pos_item_batch.to(self.device))
-                neg_relevance = self.model(user_batch.repeat([
-                    self.count_negative_sample]).to(self.device),
-                    neg_item_batch.to(self.device))
-                y_pred = torch.cat((pos_relevance, neg_relevance), 0)
-                return y_pred, y_true
-
-        self.trainer = Engine(_run_train_step)
-        self.val_evaluator = Engine(_run_val_step)
-
-        Loss(_loss).attach(self.val_evaluator, 'loss')
-        self.trainer.add_event_handler(Events.EPOCH_COMPLETED, scheduler)
-
-        @self.trainer.on(Events.EPOCH_COMPLETED)
-        def log_training_loss(trainer):
-            self.logger.debug("Epoch[{}] current loss: {:.4f}"
-                              .format(trainer.state.epoch,
-                                      trainer.state.output))
-
-        @self.trainer.on(Events.EPOCH_COMPLETED)
-        def log_validation_results(trainer):
-            self.val_evaluator.run(val_data_loader)
-            metrics = self.val_evaluator.state.metrics
-            self.logger.debug("Epoch[{}] validation average loss: {:.4f}"
-                              .format(trainer.state.epoch, metrics['loss']))
-
-        def score_function(engine):
-            return -engine.state.metrics['loss']
-
-        early_stopping = EarlyStopping(patience=self.patience,
-                                       score_function=score_function,
-                                       trainer=self.trainer)
-        self.val_evaluator.add_event_handler(Events.COMPLETED,
-                                             early_stopping)
-        checkpoint = ModelCheckpoint(
-            self.spark.conf.get("spark.local.dir"),
-            create_dir=True,
-            require_empty=False,
-            n_saved=self.n_saved,
-            score_function=score_function,
-            score_name="loss",
-            filename_prefix="best",
-            global_step_transform=global_step_from_engine(self.trainer))
-
-        self.val_evaluator.add_event_handler(Events.EPOCH_COMPLETED,
-                                             checkpoint, {"nmf": self.model})
-        self.trainer.run(train_data_loader, max_epochs=self.epochs)
+        return y_pred, y_true, {}
 
     @staticmethod
     def _predict_by_user(
