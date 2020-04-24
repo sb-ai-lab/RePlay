@@ -209,7 +209,7 @@ class TorchRecommender(Recommender):
 
             torch_evaluator.add_event_handler(
                 Events.EPOCH_COMPLETED, checkpoint,
-                {type(self).__name__: self.model}
+                {type(self).__name__.lower(): self.model}
             )
 
             @torch_trainer.on(Events.COMPLETED)

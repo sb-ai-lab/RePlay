@@ -103,7 +103,7 @@ class NeuroCFRecTestCase(PySparkTest):
     def test_save_load(self):
         path = os.path.join(
             self.spark.conf.get("spark.local.dir"),
-            "best_nmf_1_loss=-0.9791234135627747.pth"
+            "best_neuromf_1_loss=-0.9791234135627747.pth"
         )
         if os.path.exists(path):
             os.remove(path)
