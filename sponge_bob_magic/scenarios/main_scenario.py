@@ -4,7 +4,8 @@
 import logging
 from typing import Any, Dict, Optional, Type
 
-from optuna import Study, create_study, samplers
+from optuna import Study, create_study
+from optuna.samplers import RandomSampler
 from pyspark.sql import DataFrame
 
 from sponge_bob_magic.constants import IntOrList
@@ -103,10 +104,8 @@ class MainScenario:
         fallback_recs: Optional[DataFrame] = None,
     ) -> Dict[str, Any]:
         """ Запускает подбор параметров в ``optuna``. """
-        sampler = samplers.RandomSampler(seed=self._optuna_seed)
+        sampler = RandomSampler(seed=self._optuna_seed)
         self.study = create_study(direction="maximize", sampler=sampler)
-        # делаем триалы до тех пор, пока не засемплим уникальных n_trials или
-        # не используем максимально попыток
         count = 1
         n_unique_trials = 0
         spark = State().session
@@ -185,13 +184,18 @@ class MainScenario:
         self.logger.debug("Деление лога на обучающую и тестовую выборку")
         split_data = self._prepare_data(log, users, items, user_features, item_features)
         self.logger.debug("Инициализация метрик")
-        metrics = {}
-        for metric in self.metrics:
-            if issubclass(metric, RecOnlyMetric):
-                metrics[metric(split_data.train)] = self.metrics[metric]
-            else:
-                metrics[metric()] = self.metrics[metric]
         criterion = self.criterion()
+        metrics = {criterion: [k]}
+        for metric in self.metrics:
+            int_or_list = self.metrics[metric]
+            if isinstance(int_or_list, list):
+                k_list = int_or_list
+            elif isinstance(int_or_list, int):
+                k_list = [int_or_list]
+            if issubclass(metric, RecOnlyMetric):
+                metrics[metric(split_data.train)] = k_list
+            else:
+                metrics[metric()] = k_list
         self.logger.debug("Обучение и предсказание дополнительной модели")
         fallback_recs = self._predict_fallback_recs(self.fallback_rec, split_data, k)
         self.logger.debug("Пре-фит модели")
