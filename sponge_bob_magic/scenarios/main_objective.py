@@ -142,7 +142,7 @@ class MainObjective:
                 raise optuna.exceptions.TrialPruned("Повторные значения параметров")
 
     def _save_study(self, study: Study, path: Optional[str]):
-        """ Сохраняет объект исследования `study` на диск. """
+        """ Сохраняет объект исследования ``study`` на диск. """
         if path is not None:
             self.logger.debug("-- Сохраняем optuna study на диск")
             joblib.dump(study, os.path.join(path, "optuna_study.joblib"))
