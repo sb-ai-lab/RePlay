@@ -157,8 +157,12 @@ class TorchRecommender(Recommender):
         def _run_train_step(engine, batch):
             self.model.train()
             opt.zero_grad()
-            y_pred, y_true, kwargs = self._batch_pass(batch, self.model)
-            loss = self._loss(y_pred, y_true, **kwargs)
+            model_result = self._batch_pass(batch, self.model)
+            y_pred, y_true = model_result[:2]
+            if len(model_result) == 2:
+                loss = self._loss(y_pred, y_true)
+            else:
+                loss = self._loss(y_pred, y_true, **model_result[2])
             loss.backward()
             opt.step()
             return loss.item()

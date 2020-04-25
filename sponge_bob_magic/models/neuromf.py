@@ -363,7 +363,7 @@ class NeuroMF(TorchRecommender):
         y_true_neg = torch.zeros_like(neg_item_batch).to(self.device)
         y_true = torch.cat((y_true_pos, y_true_neg), 0).float()
 
-        return y_pred, y_true, {}
+        return y_pred, y_true
 
     @staticmethod
     def _predict_by_user(
