@@ -181,7 +181,8 @@ class NMF(nn.Module):
         if embedding_mlp_dim:
             self.mlp = MLP(user_count, item_count,
                            embedding_mlp_dim, hidden_mlp_dims)
-            merged_dim += hidden_mlp_dims[-1]
+            merged_dim += (hidden_mlp_dims[-1] if hidden_mlp_dims else
+                           2 * embedding_mlp_dim)
         else:
             self.mlp = None
 
