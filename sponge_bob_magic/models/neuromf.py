@@ -348,20 +348,9 @@ class NeuroMF(TorchRecommender):
         nmf_trainer.run(train_data_loader, max_epochs=self.epochs)
 
     def _loss(self, y_pred, y_true):
-        if not y_true.shape == y_pred.shape:
-            pos_len = y_pred.shape[0] // (self.count_negative_sample + 1)
-            y_real_true = torch.cat((
-                y_true[:pos_len],
-                y_true[-pos_len * self.count_negative_sample:]))
-        else:
-            y_real_true = y_true
-        return F.binary_cross_entropy(y_pred, y_real_true).mean()
+        return F.binary_cross_entropy(y_pred, y_true).mean()
 
     def _batch_pass(self, batch, model):
-        y_true = torch.ones(self.batch_size_users *
-                            (1 + self.count_negative_sample)).to(self.device)
-        y_true[self.batch_size_users:] = 0
-
         user_batch, pos_item_batch = batch
         neg_item_batch = self._get_neg_batch(user_batch)
         pos_relevance = model(user_batch.to(self.device),
@@ -370,6 +359,9 @@ class NeuroMF(TorchRecommender):
             user_batch.repeat([self.count_negative_sample]).to(self.device),
             neg_item_batch.to(self.device))
         y_pred = torch.cat((pos_relevance, neg_relevance), 0)
+        y_true_pos = torch.ones_like(pos_item_batch).to(self.device)
+        y_true_neg = torch.zeros_like(neg_item_batch).to(self.device)
+        y_true = torch.cat((y_true_pos, y_true_neg), 0).float()
 
         return y_pred, y_true, {}
 
