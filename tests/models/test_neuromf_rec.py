@@ -108,7 +108,7 @@ class NeuroCFRecTestCase(PySparkTest):
         self.model = NeuroMF(**params)
         try:
             self.model.fit(log=self.log)
-        except:
+        except RuntimeError:
             raised = True
         self.assertFalse(raised)
 
@@ -121,7 +121,7 @@ class NeuroCFRecTestCase(PySparkTest):
         self.model = NeuroMF(**params)
         try:
             self.model.fit(log=self.log)
-        except:
+        except RuntimeError:
             raised = True
         self.assertFalse(raised)
 
@@ -133,7 +133,7 @@ class NeuroCFRecTestCase(PySparkTest):
         self.model = NeuroMF(**params)
         try:
             self.model.fit(log=self.log)
-        except:
+        except RuntimeError:
             raised = True
         self.assertFalse(raised)
 
