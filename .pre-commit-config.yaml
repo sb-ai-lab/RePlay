@@ -1,23 +1,13 @@
 repos:
   -   repo: local
       hooks:
-        -   id: pycodestyle
-            name: pycodestyle
-            entry: pycodestyle --ignore=E501,W605,W504 --max-doc-length=160
-            language: system
-            types: [python]
-        -   id: mypy
-            name: mypy
-            entry: mypy --ignore-missing-imports
-            language: system
-            types: [python]
-        -   id: pylint
-            name: pylint
-            entry: pylint --rcfile=.pylintrc
-            language: system
-            types: [python]
         -   id: black
             name: black
             entry: black sponge_bob_magic
+            language: system
+            types: [python]
+        -   id: pycodestyle
+            name: pycodestyle
+            entry: pycodestyle --ignore=E501,W605,W504 --max-doc-length=160
             language: system
             types: [python]
