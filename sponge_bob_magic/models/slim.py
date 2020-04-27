@@ -127,13 +127,12 @@ class SLIM(Recommender):
         self,
         log: DataFrame,
         k: int,
-        users: DataFrame = None,
-        items: DataFrame = None,
+        users: DataFrame,
+        items: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
         item_indexed = self.item_indexer.transform(items)

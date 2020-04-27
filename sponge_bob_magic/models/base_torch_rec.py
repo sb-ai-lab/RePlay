@@ -1,21 +1,22 @@
 from abc import abstractmethod
 from typing import Any, Dict, Optional, Union
 
-from ignite.contrib.handlers import LRScheduler
-from ignite.engine import Engine, Events
-from ignite.handlers import EarlyStopping, ModelCheckpoint, global_step_from_engine
-from ignite.metrics import RunningAverage, Loss
 import numpy as np
 import pandas as pd
+import torch
+from ignite.contrib.handlers import LRScheduler
+from ignite.engine import Engine, Events
+from ignite.handlers import (EarlyStopping, ModelCheckpoint,
+                             global_step_from_engine)
+from ignite.metrics import Loss, RunningAverage
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import MinMaxScaler, VectorAssembler
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
-import torch
 from torch import nn
 from torch.optim import optimizer
-from torch.optim.lr_scheduler import _LRScheduler, ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, _LRScheduler
 from torch.utils.data import DataLoader
 
 from sponge_bob_magic.models import Recommender
@@ -30,13 +31,14 @@ class TorchRecommender(Recommender):
         self,
         log: DataFrame,
         k: int,
-        users: Optional[DataFrame] = None,
-        items: Optional[DataFrame] = None,
+        users: DataFrame,
+        items: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        items_pd = self.item_indexer.transform(items).toPandas()["item_idx"].values
+        items_pd = (self.item_indexer.transform(items)
+                    .toPandas()["item_idx"].values)
         items_count = self.items_count
         model = self.model.cpu()
         agg_fn = self._predict_by_user
