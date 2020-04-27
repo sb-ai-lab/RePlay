@@ -60,7 +60,7 @@ class SLIM(Recommender):
         self.seed = seed
 
     def get_params(self) -> Dict[str, object]:
-        return {"lambda": self.lambda_, "beta": self.beta}
+        return {"lambda_": self.lambda_, "beta": self.beta}
 
     def _fit(
         self,
