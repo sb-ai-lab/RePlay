@@ -1,13 +1,23 @@
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.4.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-added-large-files
-
-  - repo: https://github.com/psf/black
-    rev: stable
-    hooks:
-      - id: black
+  -   repo: local
+      hooks:
+        -   id: pycodestyle
+            name: pycodestyle
+            entry: pycodestyle --ignore=E501,W605,W504 --max-doc-length=160
+            language: system
+            types: [python]
+        -   id: mypy
+            name: mypy
+            entry: mypy --ignore-missing-imports
+            language: system
+            types: [python]
+        -   id: pylint
+            name: pylint
+            entry: pylint --rcfile=.pylintrc
+            language: system
+            types: [python]
+        -   id: black
+            name: black
+            entry: black sponge_bob_magic
+            language: system
+            types: [python]
