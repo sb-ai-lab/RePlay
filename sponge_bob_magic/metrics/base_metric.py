@@ -43,7 +43,7 @@ class Metric(ABC):
         if not self._check_users(recommendations_spark, ground_truth_spark):
             logger = logging.getLogger("sponge_bob_magic")
             logger.warning(
-                "Значение метрики может быть неожиданным:"
+                "Значение метрики может быть неожиданным: "
                 "пользователи в recommendations и ground_truth различаются!"
             )
         return self._get_metric_value(recommendations_spark, ground_truth_spark, k)
