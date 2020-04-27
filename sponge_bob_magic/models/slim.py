@@ -43,8 +43,6 @@ class SLIM(Recommender):
     кроме этого :math:`w_{ij}\\ge 0`
     """
 
-    user_indexer: StringIndexer
-    item_indexer: StringIndexer
     similarity: DataFrame
 
     def __init__(
@@ -66,15 +64,6 @@ class SLIM(Recommender):
     def get_params(self) -> Dict[str, object]:
         return {"lambda": self.lambda_,
                 "beta": self.beta}
-
-    def _pre_fit(self,
-                 log: DataFrame,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None) -> None:
-        self.user_indexer = StringIndexer(
-            inputCol="user_id", outputCol="user_idx").fit(log)
-        self.item_indexer = StringIndexer(
-            inputCol="item_id", outputCol="item_idx").fit(log)
 
     def _fit(self,
              log: DataFrame,

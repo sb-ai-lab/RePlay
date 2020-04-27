@@ -92,7 +92,7 @@ class VAERecTestCase(PySparkTest):
     def test_save_load(self):
         path = os.path.join(
             self.spark.conf.get("spark.local.dir"),
-            "best_vae_1_loss=-2.724722385406494.pth"
+            "best_multvae_1_loss=-2.724722385406494.pth"
         )
         if os.path.exists(path):
             os.remove(path)
