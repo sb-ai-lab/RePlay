@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+import os
 from typing import Dict, Optional
 
 from pyspark.ml.recommendation import ALS

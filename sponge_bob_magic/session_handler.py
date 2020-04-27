@@ -27,7 +27,7 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
         shuffle_partitions = "1"
     else:
         driver_memory = f"{spark_memory}g"
-        shuffle_partitions = "200"
+        shuffle_partitions = str(os.cpu_count())
     user_home = os.environ["HOME"]
     os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     spark = (
