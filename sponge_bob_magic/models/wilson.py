@@ -3,7 +3,7 @@ from typing import Optional
 from pyspark.sql import functions as sf
 from pyspark.sql import DataFrame
 import numpy as np
-import scipy.stats as st
+from statsmodels.stats.proportion import proportion_confint
 
 from sponge_bob_magic.converter import convert
 from sponge_bob_magic.models import PopRec
@@ -31,8 +31,8 @@ class Wilson(PopRec):
     >>> model = Wilson()
     >>> model.fit_predict(df, k=1)
        user_id item_id  relevance
-    0        1       2   0.325494
-    1        2       1   0.325494
+    0        1       2   0.206549
+    1        2       1   0.206549
 
     """
 
@@ -56,22 +56,6 @@ class Wilson(PopRec):
                                         sf.count("relevance").alias("total")).toPandas()
         pos = np.array(df.pos)
         total = np.array(df.total)
-        df["relevance"] = wilson_score(pos, total)
+        df["relevance"] = proportion_confint(pos, total, method="wilson")[0]
         df = df.drop(["pos", "total"], axis=1)
         self.item_popularity = convert(df).cache()
-
-
-def wilson_score(ups: np.array, n: np.array, confidence: float = 0.85):
-    """
-    Рассчитывает wilson score для массивов с количеством лайков и дизлайков по айтемам.
-    :param ups: количество лайков
-    :param downs: количество дизлайков
-    :param confidence: доверительный интервал
-    :return: массив рассчитанных значений
-    """
-    phat = ups / n
-    z = st.norm.ppf(1 - (1 - confidence) / 2)
-    a = phat + z * z / (2 * n)
-    b = z * np.sqrt((phat * (1 - phat) + z * z / (4 * n)) / n)
-    c = 1 + z * z / n
-    return (a - b) / c
