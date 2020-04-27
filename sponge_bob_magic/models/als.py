@@ -48,7 +48,7 @@ class ALSWrap(Recommender):
             ratingCol="relevance",
             implicitPrefs=True,
             seed=self._seed,
-        ).fit(log_indexed)
+        ).fit(log_indexed.cache())
 
     def _predict(
         self,
@@ -64,7 +64,7 @@ class ALSWrap(Recommender):
         log_indexed = self.user_indexer.transform(test_data)
         log_indexed = self.item_indexer.transform(log_indexed)
         recs = (
-            self.model.transform(log_indexed)
+            self.model.transform(log_indexed.cache())
             .withColumn("relevance", col("prediction").cast(DoubleType()))
             .drop("user_idx", "item_idx", "prediction")
             .cache()
