@@ -4,6 +4,7 @@
 from sponge_bob_magic.metrics.base_metric import Metric
 
 
+# pylint: disable=too-few-public-methods
 class MRR(Metric):
     """
     Mean Reciprocal Rank --

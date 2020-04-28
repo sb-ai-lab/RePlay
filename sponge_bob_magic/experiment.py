@@ -10,6 +10,7 @@ from sponge_bob_magic.converter import convert
 from sponge_bob_magic.metrics.base_metric import Metric, RecOnlyMetric
 
 
+# pylint: disable=too-few-public-methods
 class Experiment:
     """
     Обеспечивает подсчет и хранение значений метрик.

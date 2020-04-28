@@ -12,6 +12,7 @@ from sponge_bob_magic.models import PopRec
 from sponge_bob_magic.models.base_rec import Recommender
 
 
+# pylint: disable=too-few-public-methods
 class Unexpectedness(RecOnlyMetric):
     """
     Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.

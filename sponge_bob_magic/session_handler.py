@@ -62,6 +62,7 @@ def logger_with_settings() -> logging.Logger:
     return sponge_logger
 
 
+# pylint: disable=too-few-public-methods
 class Borg:
     """
     Обеспечивает доступ к расшаренному состоянию
@@ -73,6 +74,7 @@ class Borg:
         self.__dict__ = self._shared_state
 
 
+# pylint: disable=too-few-public-methods
 class State(Borg):
     """
     В этот класс можно положить свою спарк сессию, чтобы она была доступна модулям библиотеки.

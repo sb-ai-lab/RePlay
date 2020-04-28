@@ -166,6 +166,7 @@ class Metric(ABC):
         return left_count == inner_count and right_count == inner_count
 
 
+# pylint: disable=too-few-public-methods
 class RecOnlyMetric(Metric):
     """Базовый класс для метрик,
     которые измеряют качество списков рекомендаций,

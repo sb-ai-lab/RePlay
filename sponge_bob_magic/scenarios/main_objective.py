@@ -20,6 +20,7 @@ SplitData = collections.namedtuple(
 )
 
 
+# pylint: disable=too-few-public-methods
 class MainObjective:
     """
     Данный класс реализован в соответствии с

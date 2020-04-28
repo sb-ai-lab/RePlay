@@ -12,6 +12,7 @@ from sponge_bob_magic.converter import get_type, convert
 SplitterReturnType = Tuple[DataFrame, DataFrame]
 
 
+# pylint: disable=too-few-public-methods
 class Splitter(ABC):
     """ Базовый класс для разбиения выборки на обучающую и тестовую. """
 

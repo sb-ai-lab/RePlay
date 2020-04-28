@@ -10,6 +10,7 @@ from sponge_bob_magic.converter import convert
 from sponge_bob_magic.metrics.base_metric import RecOnlyMetric
 
 
+# pylint: disable=too-few-public-methods
 class Surprisal(RecOnlyMetric):
     """
     Показывает насколько редкие предметы выдаются в рекомендациях.

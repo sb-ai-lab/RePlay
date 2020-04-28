@@ -19,6 +19,7 @@ from sponge_bob_magic.session_handler import State
 CommonDataFrame = Union[DataFrame, pd.DataFrame]
 
 
+# pylint: disable=too-few-public-methods
 class DataPreparator:
     """ Класс для преобразования различных типов данных.
     Для преобразования данных необходимо иницализировать объект класс

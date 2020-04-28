@@ -12,6 +12,7 @@ from sponge_bob_magic.splitters.base_splitter import (
 )
 
 
+# pylint: disable=too-few-public-methods
 class UserSplitter(Splitter):
     """
     Данный сплиттер применяет логику разбиения не на весь лог сразу,
