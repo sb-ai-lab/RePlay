@@ -20,7 +20,7 @@ class Recommender(ABC):
 
     model: Any = None
     user_indexer: StringIndexerModel
-    item_index: StringIndexerModel
+    item_indexer: StringIndexerModel
     inv_user_indexer: IndexToString
     inv_item_indexer: IndexToString
     _logger: Optional[logging.Logger] = None
@@ -230,7 +230,23 @@ class Recommender(ABC):
         ).cache()
         return convert(recs, type_in)
 
-    def _reindex(self, indexer, inv_indexer, objects, can_reindex):
+    def _reindex(self,
+                 indexer: StringIndexerModel,
+                 inv_indexer: IndexToString,
+                 objects: DataFrame,
+                 can_reindex: bool):
+        """
+           Переиндексирование пользователей/объектов. В случае если
+           рекомендатель может работать с пользователями/объектами не из
+           обучения, индексатор дополняется соответствующими элементами.
+
+           :param indexer: индексатор пользователей/объектов
+           :param inv_indexer: обратный индексер пользователей/объектов
+           :param objects: DataFrame со столбцов уникальных
+           пользователей/объектов
+           :param can_reindex: индикатор возможности рекомендателя делать
+           предсказания для пользователей/объектов, отсутствующих на обучении
+        """
         new_objects = set(
             objects.select(
                 sf.collect_list(indexer.getInputCol())
