@@ -252,9 +252,8 @@ class Recommender(ABC):
            предсказания для пользователей/объектов, отсутствующих на обучении
         """
         new_objects = set(
-            objects.select(
-                sf.collect_list(indexer.getInputCol())
-            ).first()[0]
+            map(str, objects.select(sf.collect_list(indexer.getInputCol()))
+                .first()[0])
         ).difference(indexer.labels)
         if new_objects:
             if can_reindex:
