@@ -30,7 +30,7 @@ class MainScenario:
     """
 
     experiment: Experiment
-
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         splitter: Splitter = RandomSplitter(0.3, True, True),
@@ -56,6 +56,7 @@ class MainScenario:
         self.fallback_model = fallback_model
         self.logger = logging.getLogger("sponge_bob_magic")
 
+    # pylint: disable=too-many-arguments
     def _prepare_data(
         self,
         log: DataFrame,
@@ -91,6 +92,7 @@ class MainScenario:
         )
         return split_data
 
+    # pylint: disable=too-many-arguments
     def _run_optimization(
         self,
         n_trials: int,
@@ -120,6 +122,7 @@ class MainScenario:
         self.logger.debug("Лучшие параметры: %s", study.best_params)
         return study.best_params
 
+    # pylint: disable=too-many-arguments
     def research(
         self,
         params_grid: Dict[str, Dict[str, Any]],
@@ -225,6 +228,7 @@ class MainScenario:
             )
         return fallback_recs
 
+    # pylint: disable=too-many-arguments
     def production(
         self,
         params: Dict[str, Any],

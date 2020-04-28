@@ -5,7 +5,6 @@ from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
-from pyspark.ml.feature import StringIndexer
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
@@ -132,6 +131,7 @@ class SLIM(Recommender):
             similarity.groupby("item_id_one").apply(slim_row)
         ).cache()
 
+    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: DataFrame,

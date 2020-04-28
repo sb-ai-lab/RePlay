@@ -166,6 +166,7 @@ class Recommender(ABC):
         :return:
         """
 
+    # pylint: disable=too-many-arguments
     def predict(
         self,
         log: DataFrame,
@@ -314,6 +315,7 @@ class Recommender(ABC):
             unique = array.select(column).distinct()
         return unique
 
+    # pylint: disable=too-many-arguments
     @abstractmethod
     def _predict(
         self,
@@ -354,6 +356,7 @@ class Recommender(ABC):
             ``[user_id, item_id, relevance]``
         """
 
+    # pylint: disable=too-many-arguments
     def fit_predict(
         self,
         log: DataFrame,

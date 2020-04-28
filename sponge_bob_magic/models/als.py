@@ -1,7 +1,6 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import os
 from typing import Dict, Optional
 
 from pyspark.ml.recommendation import ALS
@@ -51,6 +50,7 @@ class ALSWrap(Recommender):
             seed=self._seed,
         ).fit(log_indexed.cache())
 
+    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: DataFrame,

@@ -116,6 +116,7 @@ class ClassifierRec(Recommender):
             .drop("mult", "dot_product")
         )
 
+    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: DataFrame,

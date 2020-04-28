@@ -173,6 +173,7 @@ class RandomRec(Recommender):
             "item_id", f"{probability} AS probability"
         ).cache()
 
+    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: DataFrame,

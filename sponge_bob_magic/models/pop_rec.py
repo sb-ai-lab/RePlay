@@ -77,6 +77,7 @@ class PopRec(Recommender):
             )
         ).cache()
 
+    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: DataFrame,

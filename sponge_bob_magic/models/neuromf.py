@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import torch.nn.functional as F
 import torch.optim
-from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.engine import Engine
 from pyspark.sql import DataFrame
 from sklearn.model_selection import train_test_split
@@ -157,6 +156,7 @@ class MLP(nn.Module):
 class NMF(nn.Module):
     """NMF модель (MLP + GMF)"""
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         user_count: int,
@@ -245,6 +245,7 @@ class NeuroMF(TorchRecommender):
     valid_split_size: float = 0.1
     seed: int = 42
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         learning_rate: float = 0.05,

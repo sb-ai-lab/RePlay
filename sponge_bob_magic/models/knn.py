@@ -146,6 +146,7 @@ class KNN(Recommender):
 
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()
 
+    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: DataFrame,

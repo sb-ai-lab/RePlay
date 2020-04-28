@@ -255,6 +255,7 @@ class DataPreparator:
                 )
         return dataframe
 
+    # pylint: disable=too-many-arguments
     def transform(
         self,
         columns_names: Dict[str, str],

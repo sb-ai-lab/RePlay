@@ -1,24 +1,16 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from ignite.contrib.handlers.param_scheduler import LRScheduler
-from ignite.engine import Engine, Events
-from ignite.handlers import (
-    EarlyStopping,
-    ModelCheckpoint,
-    global_step_from_engine,
-)
-from ignite.metrics import Loss, RunningAverage
-from scipy.sparse import csr_matrix
-from pyspark.sql import DataFrame
-from sklearn.model_selection import GroupShuffleSplit
 import torch
-from torch import nn
 import torch.nn.functional as F
+from pyspark.sql import DataFrame
+from scipy.sparse import csr_matrix
+from sklearn.model_selection import GroupShuffleSplit
+from torch import nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, TensorDataset
@@ -30,6 +22,7 @@ from sponge_bob_magic.session_handler import State
 class VAE(nn.Module):
     """Простой вариационный автокодировщик"""
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         item_count: int,
@@ -269,6 +262,7 @@ class MultVAE(TorchRecommender):
     seed: int = 42
     can_predict_cold_users = True
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         learning_rate: float = 0.05,

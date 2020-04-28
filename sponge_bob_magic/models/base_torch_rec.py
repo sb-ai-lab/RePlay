@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 from abc import abstractmethod
 from typing import Any, Dict, Optional, Union
 
@@ -30,6 +33,7 @@ class TorchRecommender(Recommender):
 
     device: torch.device
 
+    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: DataFrame,
@@ -144,6 +148,7 @@ class TorchRecommender(Recommender):
         self.logger.debug("-- Загрузка модели из файла")
         self.model.load_state_dict(torch.load(path))
 
+    # pylint: disable=too-many-arguments
     def _create_trainer_evaluator(
         self,
         opt: optimizer,

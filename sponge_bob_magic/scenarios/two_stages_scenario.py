@@ -41,6 +41,7 @@ class TwoStagesScenario:
 
     _experiment: Optional[Experiment] = None
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         second_stage_splitter: Splitter = DEFAULT_SECOND_STAGE_SPLITTER,

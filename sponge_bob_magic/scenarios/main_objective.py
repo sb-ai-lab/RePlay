@@ -32,6 +32,7 @@ class MainObjective:
     а все остальные аргументы передаются через ``__init__``.
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         search_space: Dict[str, NumType],

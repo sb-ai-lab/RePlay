@@ -1,7 +1,6 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from abc import abstractmethod
 from typing import Optional, Union
 
 import pyspark.sql.functions as sf
@@ -81,6 +80,7 @@ class UserSplitter(Splitter):
 
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         item_test_size: Union[float, int] = 1,
