@@ -3,6 +3,8 @@
 """
 from datetime import datetime
 
+import numpy as np
+from pyspark.ml.linalg import Vectors, VectorUDT
 from pyspark.sql.types import (
     ArrayType,
     FloatType,
@@ -22,31 +24,13 @@ class ClassifierRecTestCase(PySparkTest):
     def setUp(self):
         self.model = ClassifierRec(seed=47)
         self.user_features = self.spark.createDataFrame(
-            [("1", datetime(2019, 1, 1), 1)],
-            schema=StructType(
-                [
-                    StructField("user_id", StringType()),
-                    StructField("timestamp", TimestampType()),
-                    StructField("feature1", IntegerType()),
-                ]
-            ),
-        )
+            [("1", Vectors.dense([1.0, 2.0]))]
+        ).toDF("user_id", "user_features")
         self.item_features = self.spark.createDataFrame(
-            [("1", datetime(2019, 1, 1), 1), (2, datetime(2019, 1, 1), 0)],
-            schema=StructType(
-                [
-                    StructField("item_id", StringType()),
-                    StructField("timestamp", TimestampType()),
-                    StructField("feature2", IntegerType()),
-                ]
-            ),
-        )
-        self.log = self.spark.createDataFrame(
-            [
-                ("1", "1", datetime(2019, 1, 1), 1.0),
-                ("1", "2", datetime(2019, 1, 1), 0.0),
-            ],
-            schema=LOG_SCHEMA,
+            [("1", Vectors.dense([3.0, 4.0])), ("2", Vectors.dense([5.0, 6.0]))]
+        ).toDF("item_id", "item_features")
+        self.log = self.spark.createDataFrame([("1", "1", 1.0), ("1", "2", 0.0)],).toDF(
+            "user_id", "item_id", "relevance"
         )
 
     def test_get_params(self):
@@ -67,7 +51,7 @@ class ClassifierRecTestCase(PySparkTest):
             user_features=self.user_features,
             item_features=self.item_features,
         )
-        empty_prediction = self.model._predict(
+        empty_prediction = self.model.predict(
             log=self.log,
             k=2,
             users=self.user_features.select("user_id"),
@@ -76,23 +60,7 @@ class ClassifierRecTestCase(PySparkTest):
             item_features=self.item_features,
             filter_seen_items=True,
         )
-        self.assertEqual(
-            sorted(
-                [
-                    (field.name, field.dataType)
-                    for field in self.log.drop("timestamp").schema.fields
-                ],
-                key=lambda pair: pair[0],
-            ),
-            sorted(
-                [
-                    (field.name, field.dataType)
-                    for field in empty_prediction.schema.fields
-                ],
-                key=lambda pair: pair[0],
-            ),
-        )
-        self.assertEqual(empty_prediction.count(), 0)
+        self.assertEqual(empty_prediction.count(), 2)
 
     def test_augment_data(self):
         augmented_data = self.model._augment_data(
@@ -100,20 +68,30 @@ class ClassifierRecTestCase(PySparkTest):
         )
         true_value = self.spark.createDataFrame(
             [
-                ("1", "1", datetime(2019, 1, 1), 1.0, 1, 1, [1, 1]),
-                ("1", "2", datetime(2019, 1, 1), 0.0, 1, 0, [1, 0]),
-            ],
-            schema=StructType(
-                [
-                    StructField("user_id", StringType()),
-                    StructField("item_id", StringType()),
-                    StructField("timestamp", TimestampType()),
-                    StructField("relevance", FloatType()),
-                    StructField("feature1", IntegerType()),
-                    StructField("feature2", IntegerType()),
-                    StructField("features", ArrayType(IntegerType())),
-                ]
-            ),
+                (
+                    "1",
+                    "1",
+                    1.0,
+                    Vectors.dense([1.0, 2.0]),
+                    Vectors.dense([3.0, 4.0]),
+                    Vectors.dense([1.0, 2.0, 3.0, 4.0, 3.0, 8.0, 11.0]),
+                ),
+                (
+                    "1",
+                    "2",
+                    0.0,
+                    Vectors.dense([1.0, 2.0]),
+                    Vectors.dense([5.0, 6.0]),
+                    Vectors.dense([1.0, 2.0, 5.0, 6.0, 5.0, 12.0, 17.0]),
+                ),
+            ]
+        ).toDF(
+            "user_id",
+            "item_id",
+            "relevance",
+            "user_features",
+            "item_features",
+            "features",
         )
         self.assertSparkDataFrameEqual(true_value, augmented_data)
 

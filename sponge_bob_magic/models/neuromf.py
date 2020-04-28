@@ -7,12 +7,9 @@ from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.engine import Engine, Events
 from ignite.handlers import EarlyStopping, ModelCheckpoint, global_step_from_engine
 from ignite.metrics import Loss
+import numpy as np
 import pandas as pd
-from pyspark.ml import Pipeline
-from pyspark.ml.feature import MinMaxScaler, VectorAssembler
 from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-from pyspark.sql import types as st
 from sklearn.model_selection import train_test_split
 import torch.optim
 from torch import LongTensor, Tensor
@@ -21,7 +18,7 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
 
-from sponge_bob_magic.models import Recommender
+from sponge_bob_magic.models import TorchRecommender
 from sponge_bob_magic.session_handler import State
 
 
@@ -183,7 +180,9 @@ class NMF(nn.Module):
 
         if embedding_mlp_dim:
             self.mlp = MLP(user_count, item_count, embedding_mlp_dim, hidden_mlp_dims)
-            merged_dim += hidden_mlp_dims[-1]
+            merged_dim += (
+                hidden_mlp_dims[-1] if hidden_mlp_dims else 2 * embedding_mlp_dim
+            )
         else:
             self.mlp = None
 
@@ -217,7 +216,7 @@ class NMF(nn.Module):
         return merged_vector
 
 
-class NeuroMF(Recommender):
+class NeuroMF(TorchRecommender):
     """
     Эта модель является вариацей на модель из статьи Neural Matrix Factorization
     (NeuMF, NCF).
@@ -346,202 +345,54 @@ class NeuroMF(Recommender):
         )
         lr_scheduler = ExponentialLR(optimizer, gamma=self.gamma)
         scheduler = LRScheduler(lr_scheduler)
-        y_true = torch.ones(
-            self.batch_size_users * (1 + self.count_negative_sample)
-        ).to(self.device)
-        y_true[self.batch_size_users :] = 0
 
-        def _loss(y_pred, y_true):
-            if not y_true.shape == y_pred.shape:
-                pos_len = y_pred.shape[0] // (self.count_negative_sample + 1)
-                y_real_true = torch.cat(
-                    (y_true[:pos_len], y_true[-pos_len * self.count_negative_sample :])
-                )
-            else:
-                y_real_true = y_true
-            return F.binary_cross_entropy(y_pred, y_real_true).mean()
-
-        def _run_train_step(engine, batch):
-            self.model.train()
-            optimizer.zero_grad()
-            user_batch, pos_item_batch = batch
-            neg_item_batch = self._get_neg_batch(user_batch)
-            pos_relevance = self.model(
-                user_batch.to(self.device), pos_item_batch.to(self.device)
-            )
-            neg_relevance = self.model(
-                user_batch.repeat([self.count_negative_sample]).to(self.device),
-                neg_item_batch.to(self.device),
-            )
-            y_pred = torch.cat((pos_relevance, neg_relevance), 0)
-            loss = _loss(y_pred, y_true)
-            loss.backward()
-            optimizer.step()
-
-            return loss.item()
-
-        def _run_val_step(engine, batch):
-            self.model.eval()
-            with torch.no_grad():
-                user_batch, pos_item_batch = batch
-                neg_item_batch = self._get_neg_batch(user_batch)
-                pos_relevance = self.model(
-                    user_batch.to(self.device), pos_item_batch.to(self.device)
-                )
-                neg_relevance = self.model(
-                    user_batch.repeat([self.count_negative_sample]).to(self.device),
-                    neg_item_batch.to(self.device),
-                )
-                y_pred = torch.cat((pos_relevance, neg_relevance), 0)
-                return y_pred, y_true
-
-        self.trainer = Engine(_run_train_step)
-        self.val_evaluator = Engine(_run_val_step)
-
-        Loss(_loss).attach(self.val_evaluator, "loss")
-        self.trainer.add_event_handler(Events.EPOCH_COMPLETED, scheduler)
-
-        @self.trainer.on(Events.EPOCH_COMPLETED)
-        def log_training_loss(trainer):
-            self.logger.debug(
-                "Epoch[{}] current loss: {:.4f}".format(
-                    trainer.state.epoch, trainer.state.output
-                )
-            )
-
-        @self.trainer.on(Events.EPOCH_COMPLETED)
-        def log_validation_results(trainer):
-            self.val_evaluator.run(val_data_loader)
-            metrics = self.val_evaluator.state.metrics
-            self.logger.debug(
-                "Epoch[{}] validation average loss: {:.4f}".format(
-                    trainer.state.epoch, metrics["loss"]
-                )
-            )
-
-        def score_function(engine):
-            return -engine.state.metrics["loss"]
-
-        early_stopping = EarlyStopping(
-            patience=self.patience, score_function=score_function, trainer=self.trainer
-        )
-        self.val_evaluator.add_event_handler(Events.COMPLETED, early_stopping)
-        checkpoint = ModelCheckpoint(
-            self.spark.conf.get("spark.local.dir"),
-            create_dir=True,
-            require_empty=False,
-            n_saved=self.n_saved,
-            score_function=score_function,
-            score_name="loss",
-            filename_prefix="best",
-            global_step_transform=global_step_from_engine(self.trainer),
+        nmf_trainer, val_evaluator = self._create_trainer_evaluator(
+            optimizer, val_data_loader, lr_scheduler, self.patience, self.n_saved
         )
 
-        self.val_evaluator.add_event_handler(
-            Events.EPOCH_COMPLETED, checkpoint, {"nmf": self.model}
+        nmf_trainer.run(train_data_loader, max_epochs=self.epochs)
+
+    def _loss(self, y_pred, y_true):
+        return F.binary_cross_entropy(y_pred, y_true).mean()
+
+    def _batch_pass(self, batch, model):
+        user_batch, pos_item_batch = batch
+        neg_item_batch = self._get_neg_batch(user_batch)
+        pos_relevance = model(
+            user_batch.to(self.device), pos_item_batch.to(self.device)
         )
-        self.trainer.run(train_data_loader, max_epochs=self.epochs)
-
-    def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: Optional[DataFrame] = None,
-        items: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> DataFrame:
-
-        items_pd = self.item_indexer.transform(items).toPandas()["item_idx"].values
-        model = self.model.cpu()
-
-        @sf.pandas_udf(
-            st.StructType(
-                [
-                    st.StructField("user_id", users.schema["user_id"].dataType, True),
-                    st.StructField("user_idx", st.LongType(), True),
-                    st.StructField("item_idx", st.LongType(), True),
-                    st.StructField("relevance", st.FloatType(), True),
-                ]
-            ),
-            sf.PandasUDFType.GROUPED_MAP,
+        neg_relevance = model(
+            user_batch.repeat([self.count_negative_sample]).to(self.device),
+            neg_item_batch.to(self.device),
         )
-        def grouped_map(pandas_df):
+        y_pred = torch.cat((pos_relevance, neg_relevance), 0)
+        y_true_pos = torch.ones_like(pos_item_batch).to(self.device)
+        y_true_neg = torch.zeros_like(neg_item_batch).to(self.device)
+        y_true = torch.cat((y_true_pos, y_true_neg), 0).float()
 
-            user_idx = pandas_df["user_idx"][0]
-            user_id = pandas_df["user_id"][0]
-            cnt = pandas_df["cnt"][0]
-
-            model.eval()
-            with torch.no_grad():
-                user_batch = LongTensor([user_idx] * len(items_pd))
-                item_batch = LongTensor(items_pd)
-
-                user_recs = model(user_batch, item_batch)
-                best_item_idx = (
-                    torch.argsort(user_recs.detach(), descending=True)[:cnt]
-                ).numpy()
-                return pd.DataFrame(
-                    {
-                        "user_id": cnt * [user_id],
-                        "user_idx": cnt * [user_idx],
-                        "item_idx": items_pd[best_item_idx],
-                        "relevance": user_recs[best_item_idx],
-                    }
-                )
-
-        self.logger.debug("Предсказание модели")
-        recs = self.inv_item_indexer.transform(
-            self.user_indexer.transform(
-                users.join(log, how="left", on="user_id")
-                .select("user_id", "item_id")
-                .groupby("user_id")
-                .agg(sf.countDistinct("item_id").alias("cnt"))
-            )
-            .selectExpr(
-                "user_id",
-                "CAST(user_idx AS INT) AS user_idx",
-                f"CAST(LEAST(cnt + {k}, {len(items_pd)}) AS INT) AS cnt",
-            )
-            .groupby("user_id", "user_idx")
-            .apply(grouped_map)
-        ).drop("item_idx", "user_idx")
-
-        recs = NeuroMF.min_max_scale_column(recs, "relevance")
-
-        return recs
+        return y_pred, y_true
 
     @staticmethod
-    def min_max_scale_column(dataframe: DataFrame, column: str) -> DataFrame:
-        """
-        Отнормировать колонку датафрейма.
-        Применяет классическую форму нормализации с минимумом и максимумом:
-        new_value_i = (value_i - min) / (max - min).
+    def _predict_by_user(
+        pandas_df: pd.DataFrame,
+        model: nn.Module,
+        items_np: np.array,
+        k: int,
+        items_count: int,
+    ) -> pd.DataFrame:
+        user_idx = pandas_df["user_idx"][0]
+        cnt = min(len(pandas_df) + k, len(items_np))
 
-        :param dataframe: спарк-датафрейм
-        :param column: имя колонки, которую надо нормализовать
-        :return: исходный датафрейм с измененной колонкой
-        """
-        unlist = sf.udf(lambda x: float(list(x)[0]), st.DoubleType())
-        assembler = VectorAssembler(inputCols=[column], outputCol=column + "_Vect")
-        scaler = MinMaxScaler(inputCol=column + "_Vect", outputCol=column + "_Scaled")
-        pipeline = Pipeline(stages=[assembler, scaler])
-        dataframe = (
-            pipeline.fit(dataframe)
-            .transform(dataframe)
-            .withColumn(column, unlist(column + "_Scaled"))
-            .drop(column + "_Vect", column + "_Scaled")
-        )
-
-        return dataframe
-
-    def load_model(self, path: str) -> None:
-        """
-        Загрузка весов модели из файла
-
-        :param path: путь к файлу, откуда загружать
-        :return:
-        """
-        self.logger.debug("-- Загрузка модели из файла")
-        self.model.load_state_dict(torch.load(path))
+        model.eval()
+        with torch.no_grad():
+            user_batch = LongTensor([user_idx] * len(items_np))
+            item_batch = LongTensor(items_np)
+            user_recs = model(user_batch, item_batch).detach()
+            best_item_idx = (torch.argsort(user_recs, descending=True)[:cnt]).numpy()
+            return pd.DataFrame(
+                {
+                    "user_idx": cnt * [user_idx],
+                    "item_idx": items_np[best_item_idx],
+                    "relevance": user_recs[best_item_idx],
+                }
+            )

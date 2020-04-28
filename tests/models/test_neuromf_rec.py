@@ -108,7 +108,7 @@ class NeuroCFRecTestCase(PySparkTest):
             )
 
     def test_predict(self):
-        self.model.fit(log=self.log, user_features=None, item_features=None)
+        self.model.fit(log=self.log)
         predictions = self.model.predict(
             log=self.log,
             k=1,
@@ -126,10 +126,45 @@ class NeuroCFRecTestCase(PySparkTest):
             )
         )
 
+    def test_check_gmf_only(self):
+        params = {"learning_rate": 0.5, "epochs": 1, "embedding_gmf_dim": 2}
+        raised = False
+        self.model = NeuroMF(**params)
+        try:
+            self.model.fit(log=self.log)
+        except RuntimeError:
+            raised = True
+        self.assertFalse(raised)
+
+    def test_check_mlp_only(self):
+        params = {
+            "learning_rate": 0.5,
+            "epochs": 1,
+            "embedding_mlp_dim": 2,
+            "hidden_mlp_dims": [2],
+        }
+        raised = False
+        self.model = NeuroMF(**params)
+        try:
+            self.model.fit(log=self.log)
+        except RuntimeError:
+            raised = True
+        self.assertFalse(raised)
+
+    def test_check_simple_mlp_only(self):
+        params = {"learning_rate": 0.5, "epochs": 1, "embedding_mlp_dim": 2}
+        raised = False
+        self.model = NeuroMF(**params)
+        try:
+            self.model.fit(log=self.log)
+        except RuntimeError:
+            raised = True
+        self.assertFalse(raised)
+
     def test_save_load(self):
         path = os.path.join(
             self.spark.conf.get("spark.local.dir"),
-            "best_nmf_1_loss=-0.9791234135627747.pth",
+            "best_neuromf_1_loss=-0.9791234135627747.pth",
         )
         if os.path.exists(path):
             os.remove(path)
