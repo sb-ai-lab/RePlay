@@ -2,6 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import numpy as np
+import pandas as pd
 
 from sponge_bob_magic.metrics.base_metric import Metric
 
@@ -39,7 +40,7 @@ class NDCG(Metric):
     """
 
     @staticmethod
-    def _get_metric_value_by_user(pandas_df):
+    def _get_metric_value_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
         pandas_df = pandas_df.assign(
             is_good_item=pandas_df[["item_id", "items_id"]].apply(
                 lambda x: int(x["item_id"] in x["items_id"]), 1

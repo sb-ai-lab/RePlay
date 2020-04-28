@@ -127,7 +127,9 @@ class Metric(ABC):
         Расчёт значения метрики для каждого пользователя
 
         :param pandas_df: DataFrame, содержащий рекомендации по каждому пользователю --
-            pandas-датафрейм вида ``[user_id, item_id, relevance, k, *columns]``
+            pandas-датафрейм вида ``[user_id, item_id, items_id, k, *columns]``, где
+            ``k`` --- порядковый номер рекомендованного объекта ``item_id`` в списке рекомендаций для пользоавтеля ``user_id``,
+            ``items_id`` --- список объектов, с которыми действительно взаимодействовал пользователь в тесте
         :return: DataFrame c рассчитанным полем ``cum_agg`` --
             pandas-датафрейм вида ``[user_id , item_id , cum_agg, *columns]``
         """

@@ -4,19 +4,13 @@
 from datetime import datetime
 from math import log2
 
+import pandas as pd
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
+from sponge_bob_magic.metrics import (MAP, NDCG, Coverage, HitRate, Precision,
+                                      Recall, Surprisal)
 from sponge_bob_magic.metrics.base_metric import Metric
-from sponge_bob_magic.metrics import (
-    MAP,
-    NDCG,
-    Coverage,
-    HitRate,
-    Precision,
-    Recall,
-    Surprisal,
-)
 
 
 class TestMetrics(PySparkTest):
@@ -83,6 +77,15 @@ class TestMetrics(PySparkTest):
         )
 
     def test_ndcg_at_k(self):
+        one_user = pd.DataFrame({"item_id": [300, 200, 100]})
+        one_user["k"] = [1, 2, 3]
+        one_user["user_id"] = 1
+        one_user["items_id"] = 3 * [[200, 400]]
+        ndcg_value = 1 / log2(3) / (1 / log2(2) + 1 / log2(3))
+        self.assertEqual(
+            NDCG._get_metric_value_by_user(one_user)["cum_agg"].tolist(),
+            [0.0, ndcg_value, ndcg_value]
+        )
         self.assertDictAlmostEqual(
             NDCG()(self.recs, self.ground_truth_recs, [1, 3]),
             {
