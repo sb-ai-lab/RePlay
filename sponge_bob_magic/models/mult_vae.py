@@ -295,6 +295,7 @@ class MultVAE(TorchRecommender):
         self.anneal = anneal
         self.l2_reg = l2_reg
         self.gamma = gamma
+        self.can_predict_cold_users = True
 
     def get_params(self) -> Dict[str, object]:
         return {

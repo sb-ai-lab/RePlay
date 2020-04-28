@@ -25,6 +25,8 @@ class Recommender(ABC):
     inv_item_indexer: IndexToString
     _logger: Optional[logging.Logger] = None
     _spark: Optional[SparkSession] = None
+    can_predict_cold_users: bool = False
+    can_predict_cold_items: bool = False
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
@@ -203,6 +205,11 @@ class Recommender(ABC):
 
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
+        self._reindex(self.item_indexer, self.inv_item_indexer, items,
+                      self.can_predict_cold_items)
+        self._reindex(self.user_indexer, self.inv_user_indexer, users,
+                      self.can_predict_cold_users)
+
         num_items = items.count()
         if num_items < k:
             raise ValueError(
@@ -222,6 +229,25 @@ class Recommender(ABC):
             )
         ).cache()
         return convert(recs, type_in)
+
+    def _reindex(self, indexer, inv_indexer, objects, can_reindex):
+        new_objects = set(
+            objects.select(
+                sf.collect_list(indexer.getInputCol())
+            ).first()[0]
+        ).difference(indexer.labels)
+        if new_objects:
+            if can_reindex:
+                indexer.from_labels(indexer.labels + list(new_objects),
+                                    indexer.getInputCol())
+                indexer.setHandleInvalid("error")
+                inv_indexer.setLabels(indexer.labels)
+            else:
+                self.logger.debug("Список пользователей или объектов содержит "
+                                  "элементы, которые отсутствовали при "
+                                  "обучении. Результат предсказания будет не "
+                                  "полным.")
+                indexer.setHandleInvalid("skip")
 
     def _extract_unique(
         self, log: DataFrame, array: Union[Iterable, DataFrame], column: str
