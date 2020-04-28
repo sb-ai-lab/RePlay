@@ -20,7 +20,10 @@ class DataPreparatorTest(PySparkTest):
     # тестим read данных
     def test_read_data_wrong_columns_exception(self):
         self.assertRaises(
-            ValueError, self.data_preparator._read_data, path="", format_type="blabla"
+            ValueError,
+            self.data_preparator._read_data,
+            path="",
+            format_type="blabla",
         )
 
     # тестим преобразование лога
@@ -62,7 +65,11 @@ class DataPreparatorTest(PySparkTest):
                 {"user_id": "user", "item_id": "item"},
             ),
             (
-                [["1", "1", "2019-01-01"], ["1", "2", None], ["2", "3", "2019-01-01"],],
+                [
+                    ["1", "1", "2019-01-01"],
+                    ["1", "2", None],
+                    ["2", "3", "2019-01-01"],
+                ],
                 ["user", "item", "ts"],
                 {"user_id": "user", "item_id": "item", "timestamp": "ts"},
             ),
@@ -139,7 +146,11 @@ class DataPreparatorTest(PySparkTest):
                     ["u2", "12", datetime(1935, 12, 15), 1.0],
                     ["u5", "303030", datetime(1989, 6, 26), 1.0],
                 ],
-                {"user_id": "user_like", "item_id": "item_like", "timestamp": "ts"},
+                {
+                    "user_id": "user_like",
+                    "item_id": "item_like",
+                    "timestamp": "ts",
+                },
             ),
             (
                 [
@@ -167,19 +178,30 @@ class DataPreparatorTest(PySparkTest):
                     ["u6788888", "1", datetime(2045, 7, 18), 1.0,],
                     ["1222222", "item10000", datetime(2019, 9, 30), 0.001],
                 ],
-                {"user_id": "u", "item_id": "i", "timestamp": "d", "relevance": "r"},
+                {
+                    "user_id": "u",
+                    "item_id": "i",
+                    "timestamp": "d",
+                    "relevance": "r",
+                },
             ),
         ]
     )
-    def test_transform_log(self, log_data, log_schema, true_log_data, columns_names):
+    def test_transform_log(
+        self, log_data, log_schema, true_log_data, columns_names
+    ):
         log = self.spark.createDataFrame(data=log_data, schema=log_schema)
         # явно преобразовываем все к стрингам
         for column in log.columns:
             log = log.withColumn(column, sf.col(column).cast(StringType()))
 
-        true_log = self.spark.createDataFrame(data=true_log_data, schema=LOG_SCHEMA)
+        true_log = self.spark.createDataFrame(
+            data=true_log_data, schema=LOG_SCHEMA
+        )
 
-        test_log = self.data_preparator.transform(data=log, columns_names=columns_names)
+        test_log = self.data_preparator.transform(
+            data=log, columns_names=columns_names
+        )
         self.assertSparkDataFrameEqual(true_log, test_log)
 
     @parameterized.expand(
@@ -220,9 +242,13 @@ class DataPreparatorTest(PySparkTest):
     ):
         log = self.spark.createDataFrame(data=log_data, schema=log_schema)
 
-        true_log = self.spark.createDataFrame(data=true_log_data, schema=LOG_SCHEMA)
+        true_log = self.spark.createDataFrame(
+            data=true_log_data, schema=LOG_SCHEMA
+        )
 
-        test_log = self.data_preparator.transform(data=log, columns_names=columns_names)
+        test_log = self.data_preparator.transform(
+            data=log, columns_names=columns_names
+        )
         self.assertSparkDataFrameEqual(true_log, test_log)
 
     # тестим преобразование фичей
@@ -247,7 +273,9 @@ class DataPreparatorTest(PySparkTest):
             ({"blabla": "",},),
         ]
     )
-    def test_transform_features_required_columns_exception(self, columns_names):
+    def test_transform_features_required_columns_exception(
+        self, columns_names
+    ):
         self.assertRaises(
             ValueError,
             self.data_preparator.transform,
@@ -270,9 +298,17 @@ class DataPreparatorTest(PySparkTest):
                 {"item_id": "item", "timestamp": "ts"},
             ),
             (
-                [["1", 1, None], ["1", 2, "2019-01-01"], ["2", 3, "2019-01-01"],],
+                [
+                    ["1", 1, None],
+                    ["1", 2, "2019-01-01"],
+                    ["2", 3, "2019-01-01"],
+                ],
                 ["user", "feature", "timestamp"],
-                {"user_id": "user", "feature": "feature", "timestamp": "timestamp"},
+                {
+                    "user_id": "user",
+                    "feature": "feature",
+                    "timestamp": "timestamp",
+                },
             ),
             (
                 [
@@ -281,14 +317,20 @@ class DataPreparatorTest(PySparkTest):
                     ["2", 3, None, "2019-01-01"],
                 ],
                 ["user", "f1", "f2", "timestamp"],
-                {"user_id": "user", "feature": ["f1", "f2"], "timestamp": "timestamp"},
+                {
+                    "user_id": "user",
+                    "feature": ["f1", "f2"],
+                    "timestamp": "timestamp",
+                },
             ),
         ]
     )
     def test_transform_features_null_column_exception(
         self, feature_data, feature_schema, columns_names
     ):
-        features = self.spark.createDataFrame(data=feature_data, schema=feature_schema)
+        features = self.spark.createDataFrame(
+            data=feature_data, schema=feature_schema
+        )
         self.data_preparator._read_data = Mock(return_value=features)
 
         self.assertRaises(
@@ -308,7 +350,9 @@ class DataPreparatorTest(PySparkTest):
             ({"user_id": "", "timestamp": "", "blabla": ""},),
         ]
     )
-    def test_transform_features_redundant_columns_exception(self, columns_names):
+    def test_transform_features_redundant_columns_exception(
+        self, columns_names
+    ):
         self.assertRaises(
             ValueError,
             self.data_preparator.transform,
@@ -334,11 +378,15 @@ class DataPreparatorTest(PySparkTest):
             ["id1", "2019-01-01"],
             ["id2", "2019-01-01"],
         ]
-        features = self.spark.createDataFrame(data=feature_data, schema=features_schema)
+        features = self.spark.createDataFrame(
+            data=feature_data, schema=features_schema
+        )
         features = features.select(features_schema)
         # явно преобразовываем все к стрингам
         for column in features.columns:
-            features = features.withColumn(column, sf.col(column).cast(StringType()))
+            features = features.withColumn(
+                column, sf.col(column).cast(StringType())
+            )
 
         self.data_preparator._read_data = Mock(return_value=features)
 
@@ -355,7 +403,11 @@ class DataPreparatorTest(PySparkTest):
         [
             # feature_data, feature_schema, true_feature_data, columns_names, features_columns
             (
-                [["user1", "feature1"], ["user1", "feature2"], ["user2", "feature1"],],
+                [
+                    ["user1", "feature1"],
+                    ["user1", "feature2"],
+                    ["user2", "feature1"],
+                ],
                 ["user", "f0"],
                 [
                     ["user1", datetime(1999, 5, 1), "feature1"],
@@ -405,10 +457,14 @@ class DataPreparatorTest(PySparkTest):
         columns_names,
         features_columns,
     ):
-        features = self.spark.createDataFrame(data=feature_data, schema=feature_schema)
+        features = self.spark.createDataFrame(
+            data=feature_data, schema=feature_schema
+        )
         # явно преобразовываем все к стрингам
         for column in features.columns:
-            features = features.withColumn(column, sf.col(column).cast(StringType()))
+            features = features.withColumn(
+                column, sf.col(column).cast(StringType())
+            )
 
         schema = ["user_id", "timestamp"] + [
             f"f{i}" for i in range(len(true_feature_data[0]) - 2)
@@ -471,7 +527,9 @@ class DataPreparatorTest(PySparkTest):
         columns_names,
         features_columns,
     ):
-        features = self.spark.createDataFrame(data=feature_data, schema=feature_schema)
+        features = self.spark.createDataFrame(
+            data=feature_data, schema=feature_schema
+        )
 
         schema = ["user_id", "timestamp"] + [
             f"f{i}" for i in range(len(true_feature_data[0]) - 2)
@@ -533,10 +591,12 @@ class DataPreparatorTest(PySparkTest):
         columns_names,
         features_columns,
     ):
-        features = self.spark.createDataFrame(data=feature_data, schema=feature_schema)
-        features = features.withColumn("ts", sf.unix_timestamp("string_time")).drop(
-            "string_time"
+        features = self.spark.createDataFrame(
+            data=feature_data, schema=feature_schema
         )
+        features = features.withColumn(
+            "ts", sf.unix_timestamp("string_time")
+        ).drop("string_time")
 
         schema = ["user_id", "timestamp"] + [
             f"f{i}" for i in range(len(true_feature_data[0]) - 2)

@@ -28,6 +28,7 @@ class MainScenario:
       (:ref:`PopRec <pop-rec>`)
     * оптимизирует, подбирая гиперпараметры, и включает в отчёт только :ref:`HitRate <hit-rate>`
     """
+
     experiment: Experiment
 
     def __init__(
@@ -36,7 +37,7 @@ class MainScenario:
         recommender: Recommender = ALSWrap(),
         criterion: Type[Metric] = HitRate,
         metrics: Dict[Type[Metric], IntOrList] = dict(),
-        fallback_model: Recommender = PopRec()
+        fallback_model: Recommender = PopRec(),
     ):
         """
         Отдельные блоки сценария можно изменять по своему усмотрению
@@ -61,11 +62,13 @@ class MainScenario:
         users: DataFrame,
         items: DataFrame,
         user_features: DataFrame,
-        item_features: DataFrame
+        item_features: DataFrame,
     ) -> SplitData:
         """ Делит лог и готовит объекти типа ``SplitData``. """
         train, test = self.splitter.split(log)
-        self.logger.debug("Длина трейна и теста: %d %d", train.count(), test.count())
+        self.logger.debug(
+            "Длина трейна и теста: %d %d", train.count(), test.count()
+        )
         self.logger.debug(
             "Количество пользователей в трейне и тесте: %d, %d",
             train.select("user_id").distinct().count(),
@@ -79,7 +82,12 @@ class MainScenario:
         users = users if users else test.select("user_id").distinct().cache()
         items = items if items else test.select("item_id").distinct().cache()
         split_data = SplitData(
-            train.cache(), test.cache(), users, items, user_features, item_features
+            train.cache(),
+            test.cache(),
+            users,
+            items,
+            user_features,
+            item_features,
         )
         return split_data
 
@@ -91,7 +99,7 @@ class MainScenario:
         criterion: Metric,
         metrics: Dict[Metric, IntOrList],
         k: int = 10,
-        fallback_recs: Optional[DataFrame] = None
+        fallback_recs: Optional[DataFrame] = None,
     ) -> Dict[str, Any]:
         """ Запускает подбор параметров в ``optuna``. """
         sampler = GridSampler(params_grid)
@@ -103,8 +111,8 @@ class MainScenario:
             self.recommender,
             criterion,
             metrics,
-            k,
             fallback_recs,
+            k,
         )
         study.optimize(objective, n_trials)
         self.experiment = objective.experiment
@@ -164,7 +172,9 @@ class MainScenario:
             которые возвращает ``get_params()``), значение - значение параметра
         """
         self.logger.debug("Деление лога на обучающую и тестовую выборку")
-        split_data = self._prepare_data(log, users, items, user_features, item_features)
+        split_data = self._prepare_data(
+            log, users, items, user_features, item_features
+        )
         self.logger.debug("Инициализация метрик")
         criterion = self.criterion()
         metrics = {criterion: [k]}
@@ -181,19 +191,26 @@ class MainScenario:
         self.logger.debug("Обучение и предсказание дополнительной модели")
         fallback_recs = self._fit_predict_fallback_recs(split_data, k)
         self.logger.debug("Пре-фит модели")
-        self.recommender._pre_fit(split_data.train, split_data.user_features,
-                                  split_data.item_features)
+        self.recommender._pre_fit(
+            split_data.train,
+            split_data.user_features,
+            split_data.item_features,
+        )
         self.logger.debug("Оптимизация параметров")
         self.logger.debug("Количество попыток: %d", n_trials)
-        best_params = self._run_optimization(n_trials, params_grid, split_data,
-                                             criterion, metrics, k,
-                                             fallback_recs)
+        best_params = self._run_optimization(
+            n_trials,
+            params_grid,
+            split_data,
+            criterion,
+            metrics,
+            k,
+            fallback_recs,
+        )
         return best_params
 
     def _fit_predict_fallback_recs(
-            self,
-            split_data: SplitData,
-            k: int
+        self, split_data: SplitData, k: int
     ) -> Optional[DataFrame]:
         """ Обучает fallback модель и возвращает ее рекомендации. """
         fallback_recs = None

@@ -50,6 +50,10 @@ class NDCG(Metric):
             sorted_good_item=pandas_df["k"].le(pandas_df["items_id"].str.len())
         )
         return pandas_df.assign(
-            cum_agg=(pandas_df["is_good_item"] / np.log2(pandas_df.k + 1)).cumsum()
-            / (pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)).cumsum()
+            cum_agg=(
+                pandas_df["is_good_item"] / np.log2(pandas_df.k + 1)
+            ).cumsum()
+            / (
+                pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)
+            ).cumsum()
         )

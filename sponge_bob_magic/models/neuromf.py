@@ -5,7 +5,11 @@ from typing import Dict, Optional, List
 
 from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.engine import Engine, Events
-from ignite.handlers import EarlyStopping, ModelCheckpoint, global_step_from_engine
+from ignite.handlers import (
+    EarlyStopping,
+    ModelCheckpoint,
+    global_step_from_engine,
+)
 from ignite.metrics import Loss
 import numpy as np
 import pandas as pd
@@ -55,8 +59,12 @@ class GMF(nn.Module):
         self.item_embedding = nn.Embedding(
             num_embeddings=item_count, embedding_dim=embedding_dim
         )
-        self.item_biases = nn.Embedding(num_embeddings=item_count, embedding_dim=1)
-        self.user_biases = nn.Embedding(num_embeddings=user_count, embedding_dim=1)
+        self.item_biases = nn.Embedding(
+            num_embeddings=item_count, embedding_dim=1
+        )
+        self.user_biases = nn.Embedding(
+            num_embeddings=user_count, embedding_dim=1
+        )
 
         xavier_init_(self.user_embedding)
         xavier_init_(self.item_embedding)
@@ -105,15 +113,21 @@ class MLP(nn.Module):
         self.item_embedding = nn.Embedding(
             num_embeddings=item_count, embedding_dim=embedding_dim
         )
-        self.item_biases = nn.Embedding(num_embeddings=item_count, embedding_dim=1)
-        self.user_biases = nn.Embedding(num_embeddings=user_count, embedding_dim=1)
+        self.item_biases = nn.Embedding(
+            num_embeddings=item_count, embedding_dim=1
+        )
+        self.user_biases = nn.Embedding(
+            num_embeddings=user_count, embedding_dim=1
+        )
 
         if hidden_dims:
             full_hidden_dims = [2 * embedding_dim] + hidden_dims
             self.hidden_layers = nn.ModuleList(
                 [
                     nn.Linear(d_in, d_out)
-                    for d_in, d_out in zip(full_hidden_dims[:-1], full_hidden_dims[1:])
+                    for d_in, d_out in zip(
+                        full_hidden_dims[:-1], full_hidden_dims[1:]
+                    )
                 ]
             )
 
@@ -179,9 +193,13 @@ class NMF(nn.Module):
             self.gmf = None
 
         if embedding_mlp_dim:
-            self.mlp = MLP(user_count, item_count, embedding_mlp_dim, hidden_mlp_dims)
+            self.mlp = MLP(
+                user_count, item_count, embedding_mlp_dim, hidden_mlp_dims
+            )
             merged_dim += (
-                hidden_mlp_dims[-1] if hidden_mlp_dims else 2 * embedding_mlp_dim
+                hidden_mlp_dims[-1]
+                if hidden_mlp_dims
+                else 2 * embedding_mlp_dim
             )
         else:
             self.mlp = None
@@ -287,7 +305,9 @@ class NeuroMF(TorchRecommender):
     def get_params(self) -> Dict[str, object]:
         return {"learning_rate": self.learning_rate, "epochs": self.epochs}
 
-    def _data_loader(self, data: pd.DataFrame, shuffle: bool = True) -> DataLoader:
+    def _data_loader(
+        self, data: pd.DataFrame, shuffle: bool = True
+    ) -> DataLoader:
 
         user_batch = LongTensor(data["user_idx"].values)
         item_batch = LongTensor(data["item_idx"].values)
@@ -304,7 +324,9 @@ class NeuroMF(TorchRecommender):
 
     def _get_neg_batch(self, batch: Tensor) -> Tensor:
         negative_items = torch.randint(
-            0, self.items_count - 1, (batch.shape[0] * self.count_negative_sample,)
+            0,
+            self.items_count - 1,
+            (batch.shape[0] * self.count_negative_sample,),
         )
         return negative_items
 
@@ -347,7 +369,11 @@ class NeuroMF(TorchRecommender):
         scheduler = LRScheduler(lr_scheduler)
 
         nmf_trainer, val_evaluator = self._create_trainer_evaluator(
-            optimizer, val_data_loader, lr_scheduler, self.patience, self.n_saved
+            optimizer,
+            val_data_loader,
+            lr_scheduler,
+            self.patience,
+            self.n_saved,
         )
 
         nmf_trainer.run(train_data_loader, max_epochs=self.epochs)
@@ -388,7 +414,9 @@ class NeuroMF(TorchRecommender):
             user_batch = LongTensor([user_idx] * len(items_np))
             item_batch = LongTensor(items_np)
             user_recs = model(user_batch, item_batch).detach()
-            best_item_idx = (torch.argsort(user_recs, descending=True)[:cnt]).numpy()
+            best_item_idx = (
+                torch.argsort(user_recs, descending=True)[:cnt]
+            ).numpy()
             return pd.DataFrame(
                 {
                     "user_idx": cnt * [user_idx],

@@ -63,7 +63,10 @@ class Recommender(ABC):
             type(self).__name__
             + "("
             + ", ".join(
-                [f"{key}={self.get_params()[key]}" for key in self.get_params()]
+                [
+                    f"{key}={self.get_params()[key]}"
+                    for key in self.get_params()
+                ]
             )
             + ")"
         )
@@ -123,17 +126,21 @@ class Recommender(ABC):
             ``[item_id, timestamp]`` и колонки с признаками
         :return:
         """
-        self.user_indexer = StringIndexer(inputCol="user_id", outputCol="user_idx").fit(
-            log
-        )
-        self.item_indexer = StringIndexer(inputCol="item_id", outputCol="item_idx").fit(
-            log
-        )
+        self.user_indexer = StringIndexer(
+            inputCol="user_id", outputCol="user_idx"
+        ).fit(log)
+        self.item_indexer = StringIndexer(
+            inputCol="item_id", outputCol="item_idx"
+        ).fit(log)
         self.inv_user_indexer = IndexToString(
-            inputCol="user_idx", outputCol="user_id", labels=self.user_indexer.labels
+            inputCol="user_idx",
+            outputCol="user_id",
+            labels=self.user_indexer.labels,
         )
         self.inv_item_indexer = IndexToString(
-            inputCol="item_idx", outputCol="item_id", labels=self.item_indexer.labels
+            inputCol="item_idx",
+            outputCol="item_id",
+            labels=self.item_indexer.labels,
         )
 
     @abstractmethod
@@ -219,7 +226,13 @@ class Recommender(ABC):
                 f"k = {k}, number of items = {num_items}"
             )
         recs = self._predict(
-            log, k, users, items, user_features, item_features, filter_seen_items
+            log,
+            k,
+            users,
+            items,
+            user_features,
+            item_features,
+            filter_seen_items,
         )
         if filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
@@ -368,7 +381,13 @@ class Recommender(ABC):
         """
         self.fit(log, user_features, item_features)
         return self.predict(
-            log, k, users, items, user_features, item_features, filter_seen_items
+            log,
+            k,
+            users,
+            items,
+            user_features,
+            item_features,
+            filter_seen_items,
         )
 
     @staticmethod
@@ -390,11 +409,13 @@ class Recommender(ABC):
         ).withColumn("in_log", sf.lit(True))
         recs = recs.join(
             user_item_log,
-            (recs.item_id == user_item_log.item) & (recs.user_id == user_item_log.user),
+            (recs.item_id == user_item_log.item)
+            & (recs.user_id == user_item_log.user),
             how="left",
         )
         recs = recs.withColumn(
-            "relevance", sf.when(recs["in_log"], -1).otherwise(recs["relevance"])
+            "relevance",
+            sf.when(recs["in_log"], -1).otherwise(recs["relevance"]),
         ).drop("in_log", "item", "user")
         return recs
 
@@ -412,7 +433,9 @@ class Recommender(ABC):
         try:
             return len(self.user_indexer.labels)
         except AttributeError:
-            raise AttributeError("Перед вызовом этого свойства нужно вызвать метод fit")
+            raise AttributeError(
+                "Перед вызовом этого свойства нужно вызвать метод fit"
+            )
 
     @property
     def spark(self) -> SparkSession:
@@ -428,4 +451,6 @@ class Recommender(ABC):
         try:
             return len(self.item_indexer.labels)
         except AttributeError:
-            raise AttributeError("Перед вызовом этого свойства нужно вызвать метод fit")
+            raise AttributeError(
+                "Перед вызовом этого свойства нужно вызвать метод fit"
+            )

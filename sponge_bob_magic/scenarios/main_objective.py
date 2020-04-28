@@ -41,7 +41,7 @@ class MainObjective:
         criterion: Metric,
         metrics: Dict[Metric, IntOrList],
         fallback_recs: DataFrame,
-        k: int
+        k: int,
     ):
         self.metrics = metrics
         self.criterion = criterion
@@ -56,7 +56,11 @@ class MainObjective:
             else 0
         )
         self.fallback_recs = (
-            (fallback_recs.withColumnRenamed("relevance", "relevance_fallback"))
+            (
+                fallback_recs.withColumnRenamed(
+                    "relevance", "relevance_fallback"
+                )
+            )
             if fallback_recs is not None
             else None
         )
@@ -76,7 +80,7 @@ class MainObjective:
             params[key] = trial.suggest_uniform(
                 key,
                 low=min(self.search_space[key]) - 1,
-                high=max(self.search_space[key]) + 1
+                high=max(self.search_space[key]) + 1,
             )
         self.recommender.set_params(**params)
         self.logger.debug("-- Второй фит модели в оптимизации")
@@ -94,8 +98,9 @@ class MainObjective:
             user_features=self.split_data.user_features,
             item_features=self.split_data.item_features,
         ).cache()
-        recs = self._join_fallback_recs(recs, self.fallback_recs, self.k,
-                                        self.max_in_fallback_recs)
+        recs = self._join_fallback_recs(
+            recs, self.fallback_recs, self.k, self.max_in_fallback_recs
+        )
         self.logger.debug("-- Подсчет метрики в оптимизации")
         criterion_value = self.criterion(recs, self.split_data.test, self.k)
         self.experiment.add_result(repr(self.recommender), recs)
@@ -118,7 +123,9 @@ class MainObjective:
             recs = recs.withColumn(
                 "relevance", sf.col("relevance") + 10 * max_in_fallback_recs
             )
-            recs = recs.join(fallback_recs, on=["user_id", "item_id"], how="full_outer")
+            recs = recs.join(
+                fallback_recs, on=["user_id", "item_id"], how="full_outer"
+            )
             recs = recs.withColumn(
                 "relevance", sf.coalesce("relevance", "relevance_fallback")
             ).select("user_id", "item_id", "relevance")

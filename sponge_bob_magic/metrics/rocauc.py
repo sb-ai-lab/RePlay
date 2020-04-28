@@ -59,7 +59,9 @@ class RocAuc(Metric):
             сum_bad_item=(1 - pandas_df["is_good_item"]).cumsum()
         )
         pandas_df = pandas_df.assign(
-            auc=(pandas_df["is_good_item"] * pandas_df["сum_bad_item"]).cumsum()
+            auc=(
+                pandas_df["is_good_item"] * pandas_df["сum_bad_item"]
+            ).cumsum()
         )
         return pandas_df.assign(
             cum_agg=(

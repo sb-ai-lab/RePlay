@@ -15,7 +15,10 @@ import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
 from pyspark.sql.types import TimestampType
 
-from sponge_bob_magic.splitters.base_splitter import Splitter, SplitterReturnType
+from sponge_bob_magic.splitters.base_splitter import (
+    Splitter,
+    SplitterReturnType,
+)
 
 
 class DateSplitter(Splitter):
@@ -46,7 +49,8 @@ class DateSplitter(Splitter):
             sf.col("timestamp") < sf.lit(self.test_start).cast(TimestampType())
         )
         test = log.filter(
-            sf.col("timestamp") >= sf.lit(self.test_start).cast(TimestampType())
+            sf.col("timestamp")
+            >= sf.lit(self.test_start).cast(TimestampType())
         )
         return train, test
 
@@ -76,7 +80,9 @@ class RandomSplitter(Splitter):
         self.test_size = test_size
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
-        train, test = log.randomSplit([1 - self.test_size, self.test_size], self.seed)
+        train, test = log.randomSplit(
+            [1 - self.test_size, self.test_size], self.seed
+        )
         return train, test
 
 
@@ -107,14 +113,18 @@ class ColdUsersSplitter(Splitter):
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         start_date_by_user = (
-            log.groupby("user_id").agg(sf.min("timestamp").alias("start_dt")).cache()
+            log.groupby("user_id")
+            .agg(sf.min("timestamp").alias("start_dt"))
+            .cache()
         )
         test_start_date = (
             start_date_by_user.groupby("start_dt")
             .agg(sf.count("user_id").alias("cnt"))
             .select(
                 "start_dt",
-                sf.sum("cnt").over(Window.orderBy(sf.desc("start_dt"))).alias("cnt"),
+                sf.sum("cnt")
+                .over(Window.orderBy(sf.desc("start_dt")))
+                .alias("cnt"),
                 sf.sum("cnt").over(Window.orderBy(sf.lit(1))).alias("total"),
             )
             .filter(sf.col("cnt") >= sf.col("total") * self.test_size)
@@ -126,7 +136,9 @@ class ColdUsersSplitter(Splitter):
 
         test = (
             log.join(
-                start_date_by_user.filter(sf.col("start_dt") >= test_start_date),
+                start_date_by_user.filter(
+                    sf.col("start_dt") >= test_start_date
+                ),
                 how="inner",
                 on="user_id",
             )

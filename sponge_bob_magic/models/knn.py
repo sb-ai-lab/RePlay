@@ -54,16 +54,16 @@ class KNN(Recommender):
             )
             .join(dot_products, how="inner", on=["item_id_one", "item_id_two"])
             .join(
-                item_norms.withColumnRenamed("item_id", "item_id1").withColumnRenamed(
-                    "norm", "norm1"
-                ),
+                item_norms.withColumnRenamed(
+                    "item_id", "item_id1"
+                ).withColumnRenamed("norm", "norm1"),
                 how="inner",
                 on=sf.col("item_id1") == sf.col("item_id_one"),
             )
             .join(
-                item_norms.withColumnRenamed("item_id", "item_id2").withColumnRenamed(
-                    "norm", "norm2"
-                ),
+                item_norms.withColumnRenamed(
+                    "item_id", "item_id2"
+                ).withColumnRenamed("norm", "norm2"),
                 how="inner",
                 on=sf.col("item_id2") == sf.col("item_id_two"),
             )

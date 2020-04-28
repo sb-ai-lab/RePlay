@@ -52,7 +52,8 @@ def logger_with_settings() -> logging.Logger:
     ignite_engine_logger.setLevel(logging.WARN)
     sponge_logger = logging.getLogger("sponge_bob_magic")
     formatter = logging.Formatter(
-        "%(asctime)s, %(name)s, %(levelname)s: %(message)s", datefmt="%d-%b-%y %H:%M:%S"
+        "%(asctime)s, %(name)s, %(levelname)s: %(message)s",
+        datefmt="%d-%b-%y %H:%M:%S",
     )
     hdlr = logging.StreamHandler()
     hdlr.setFormatter(formatter)
@@ -101,7 +102,9 @@ class State(Borg):
         if device is None:
             if not hasattr(self, "device"):
                 if torch.cuda.is_available():
-                    self.device = torch.device(f"cuda:{torch.cuda.current_device()}")
+                    self.device = torch.device(
+                        f"cuda:{torch.cuda.current_device()}"
+                    )
                 else:
                     self.device = torch.device("cpu")
         else:

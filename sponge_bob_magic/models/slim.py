@@ -46,7 +46,10 @@ class SLIM(Recommender):
     similarity: DataFrame
 
     def __init__(
-        self, beta: float = 2.0, lambda_: float = 0.5, seed: Optional[int] = None
+        self,
+        beta: float = 2.0,
+        lambda_: float = 0.5,
+        seed: Optional[int] = None,
     ):
         """
         :param beta: параметр l2 регуляризации
@@ -72,7 +75,9 @@ class SLIM(Recommender):
 
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
-        pandas_log = log_indexed.select("user_idx", "item_idx", "relevance").toPandas()
+        pandas_log = log_indexed.select(
+            "user_idx", "item_idx", "relevance"
+        ).toPandas()
 
         interactions_matrix = csc_matrix(
             (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
@@ -108,7 +113,9 @@ class SLIM(Recommender):
             idx = int(pandas_df["item_id_one"][0])
             column = interactions_matrix[:, idx]
             column_arr = column.toarray().ravel()
-            interactions_matrix[interactions_matrix[:, idx].nonzero()[0], idx] = 0
+            interactions_matrix[
+                interactions_matrix[:, idx].nonzero()[0], idx
+            ] = 0
 
             regression.fit(interactions_matrix, column_arr)
             interactions_matrix[:, idx] = column
@@ -121,7 +128,9 @@ class SLIM(Recommender):
             }
             return pd.DataFrame(data=similarity_row)
 
-        self.similarity = (similarity.groupby("item_id_one").apply(slim_row)).cache()
+        self.similarity = (
+            similarity.groupby("item_id_one").apply(slim_row)
+        ).cache()
 
     def _predict(
         self,

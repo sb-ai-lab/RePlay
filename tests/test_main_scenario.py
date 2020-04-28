@@ -36,14 +36,12 @@ class MainScenarioTestCase(PySparkTest):
             drop_cold_items=True,
         )
         self.scenario = MainScenario(
-            splitter,
-            metrics={NDCG: [2], Precision: [2], Surprisal: 2},
+            splitter, metrics={NDCG: [2], Precision: [2], Surprisal: 2},
         )
 
     def test_research_and_production(self):
         grid = {"rank": [1]}
-        best_params = self.scenario.research(
-            grid, self.log, k=2, n_trials=1)
+        best_params = self.scenario.research(grid, self.log, k=2, n_trials=1)
         self.assertEqual(best_params, {"rank": 1})
         recs = self.scenario.production(best_params, self.log, k=2)
         self.assertEqual(recs.count(), 6)

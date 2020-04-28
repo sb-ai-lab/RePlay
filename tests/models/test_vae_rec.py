@@ -42,9 +42,8 @@ class VAERecTestCase(PySparkTest):
                 ("2", "1", datetime(2019, 1, 1), 1.0),
                 ("0", "0", datetime(2019, 1, 1), 1.0),
                 ("0", "2", datetime(2019, 1, 1), 1.0),
-
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
 
     def test_fit(self):
@@ -64,7 +63,7 @@ class VAERecTestCase(PySparkTest):
         for i, parameter in enumerate(self.model.model.parameters()):
             self.assertTrue(
                 np.allclose(
-                    parameter.detach().cpu().numpy(), true_parameters[i], atol=1.0e-3
+                    parameter.detach().cpu().numpy(), true_parameters[i], atol=1.0e-3,
                 )
             )
 
@@ -131,6 +130,6 @@ class VAERecTestCase(PySparkTest):
         for i, parameter in enumerate(new_model.model.parameters()):
             self.assertTrue(
                 np.allclose(
-                    parameter.detach().cpu().numpy(), true_parameters[i], atol=1.0e-3
+                    parameter.detach().cpu().numpy(), true_parameters[i], atol=1.0e-3,
                 )
             )

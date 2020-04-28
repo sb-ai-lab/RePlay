@@ -125,7 +125,9 @@ class DataPreparator:
 
     @staticmethod
     def _check_columns(
-        given_columns: Set[str], required_columns: Set[str], optional_columns: Set[str]
+        given_columns: Set[str],
+        required_columns: Set[str],
+        optional_columns: Set[str],
     ):
         if not required_columns.issubset(given_columns):
             raise ValueError(
@@ -183,7 +185,9 @@ class DataPreparator:
 
             # если не unix time, то в колонке будут все null
             is_null_column = dataframe.select(
-                (sf.min(tmp_column).eqNullSafe(sf.max(tmp_column))).alias(tmp_column)
+                (sf.min(tmp_column).eqNullSafe(sf.max(tmp_column))).alias(
+                    tmp_column
+                )
             ).collect()[0]
             if is_null_column[tmp_column]:
                 logger = logging.getLogger("sponge_bob_magic")
@@ -194,10 +198,14 @@ class DataPreparator:
                 )
 
                 dataframe = (
-                    dataframe.withColumn("tmp", sf.to_timestamp(sf.lit(default_value)))
+                    dataframe.withColumn(
+                        "tmp", sf.to_timestamp(sf.lit(default_value))
+                    )
                     .withColumn(
                         column_name,
-                        sf.to_timestamp(sf.expr(f"date_add(tmp, {column_name})")),
+                        sf.to_timestamp(
+                            sf.expr(f"date_add(tmp, {column_name})")
+                        ),
                     )
                     .drop("tmp", tmp_column)
                 )
@@ -229,7 +237,10 @@ class DataPreparator:
         )
         # добавляем необязательные дефолтные колонки, если они есть,
         # и задаем тип для тех колонок, что есть
-        for column_name, (default_value, default_type) in default_schema.items():
+        for (
+            column_name,
+            (default_value, default_type),
+        ) in default_schema.items():
             if column_name not in dataframe.columns:
                 column = sf.lit(default_value)
             else:
@@ -239,7 +250,9 @@ class DataPreparator:
                     dataframe, column_name, column, date_format, default_value
                 )
             else:
-                dataframe = dataframe.withColumn(column_name, column.cast(default_type))
+                dataframe = dataframe.withColumn(
+                    column_name, column.cast(default_type)
+                )
         return dataframe
 
     def transform(
@@ -319,7 +332,9 @@ class DataPreparator:
             elif "item_id" in columns_names:
                 required_columns = {"item_id": (None, StringType())}
             else:
-                raise ValueError("В columns_names нет ни 'user_id', ни 'item_id'")
+                raise ValueError(
+                    "В columns_names нет ни 'user_id', ни 'item_id'"
+                )
 
             # если фичей нет в данных пользователем колонках, вставляем все оставшиеся
             # нужно, чтобы проверить, что там нет нуллов

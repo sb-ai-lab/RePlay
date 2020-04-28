@@ -76,9 +76,7 @@ class SlimRecTestCase(PySparkTest):
 
     def test_get_params(self):
         self.assertDictEqual(
-            self.model.get_params(),
-            {"lambda_": 0.01,
-             "beta": 0.0}
+            self.model.get_params(), {"lambda_": 0.01, "beta": 0.0}
         )
 
     def test_zeros_params_exception(self):

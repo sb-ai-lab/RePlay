@@ -81,7 +81,9 @@ class PopRec(Recommender):
         self.item_popularity = (
             self.item_popularity.select(
                 "item_id",
-                (sf.col("user_count") / sf.lit(self.users_count)).alias("relevance"),
+                (sf.col("user_count") / sf.lit(self.users_count)).alias(
+                    "relevance"
+                ),
             )
         ).cache()
 
@@ -99,7 +101,9 @@ class PopRec(Recommender):
         items_pd = (
             self.item_indexer.transform(
                 items.join(
-                    self.item_popularity.withColumnRenamed("item_id", "item_id_2"),
+                    self.item_popularity.withColumnRenamed(
+                        "item_id", "item_id_2"
+                    ),
                     on=sf.col("item_id") == sf.col("item_id_2"),
                     how="inner",
                 )
@@ -111,7 +115,9 @@ class PopRec(Recommender):
         @sf.pandas_udf(
             st.StructType(
                 [
-                    st.StructField("user_id", users.schema["user_id"].dataType, True),
+                    st.StructField(
+                        "user_id", users.schema["user_id"].dataType, True
+                    ),
                     st.StructField("user_idx", st.LongType(), True),
                     st.StructField("item_idx", st.LongType(), True),
                     st.StructField("relevance", st.DoubleType(), True),

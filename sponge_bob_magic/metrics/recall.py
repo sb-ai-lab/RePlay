@@ -27,5 +27,6 @@ class Recall(Metric):
             )
         )
         return pandas_df.assign(
-            cum_agg=pandas_df["is_good_item"].cumsum() / pandas_df["items_id"].str.len()
+            cum_agg=pandas_df["is_good_item"].cumsum()
+            / pandas_df["items_id"].str.len()
         )
