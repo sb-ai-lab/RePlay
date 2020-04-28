@@ -7,8 +7,7 @@ from typing import Optional, Union
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
 
-from sponge_bob_magic.splitters.base_splitter import (Splitter,
-                                                      SplitterReturnType)
+from sponge_bob_magic.splitters.base_splitter import Splitter, SplitterReturnType
 
 
 class UserSplitter(Splitter):
@@ -79,13 +78,15 @@ class UserSplitter(Splitter):
 
     """
 
-    def __init__(self,
-                 item_test_size: Union[float, int] = 1,
-                 user_test_size: Optional[Union[float, int]] = None,
-                 shuffle=False,
-                 drop_cold_items: bool = False,
-                 drop_cold_users: bool = False,
-                 seed: Optional[int] = None):
+    def __init__(
+        self,
+        item_test_size: Union[float, int] = 1,
+        user_test_size: Optional[Union[float, int]] = None,
+        shuffle=False,
+        drop_cold_items: bool = False,
+        drop_cold_users: bool = False,
+        seed: Optional[int] = None,
+    ):
         """
         :param item_test_size: размер тестовой выборки; если от 0 до 1, то в
             тест попадает данная доля объектов у каждого пользователя: если целое
@@ -103,18 +104,14 @@ class UserSplitter(Splitter):
         :param seed: сид для разбиения
         """
         super().__init__(
-            drop_cold_items=drop_cold_items,
-            drop_cold_users=drop_cold_users
+            drop_cold_items=drop_cold_items, drop_cold_users=drop_cold_users
         )
         self.item_test_size = item_test_size
         self.user_test_size = user_test_size
         self.shuffle = shuffle
         self.seed = seed
 
-    def _get_test_users(
-            self,
-            log: DataFrame,
-    ) -> DataFrame:
+    def _get_test_users(self, log: DataFrame,) -> DataFrame:
         """
         отобрать тестовых пользователей
 
@@ -126,10 +123,7 @@ class UserSplitter(Splitter):
         if self.user_test_size is not None:
             value_error = False
             if isinstance(self.user_test_size, int):
-                if (
-                        self.user_test_size >= 1 and
-                        self.user_test_size < user_count
-                ):
+                if self.user_test_size >= 1 and self.user_test_size < user_count:
                     test_user_count = self.user_test_size
                 else:
                     value_error = True
@@ -139,19 +133,15 @@ class UserSplitter(Splitter):
                 else:
                     value_error = True
             if value_error:
-                raise ValueError(f"""
+                raise ValueError(
+                    f"""
                 Недопустимое значение параметра
                 user_test_size: {self.user_test_size}
-                """)
-            test_users = (
-                all_users
-                .withColumn("rand", sf.rand(self.seed))
-                .withColumn(
-                    "row_num",
-                    sf.row_number().over(
-                        Window.orderBy("rand")
-                    )
+                """
                 )
+            test_users = (
+                all_users.withColumn("rand", sf.rand(self.seed))
+                .withColumn("row_num", sf.row_number().over(Window.orderBy("rand")))
                 .filter(f"row_num <= {test_user_count}")
                 .drop("rand", "row_num")
             )
@@ -173,13 +163,10 @@ class UserSplitter(Splitter):
         """
 
         counts = log.groupBy("user_id").count()
-        test_users = self._get_test_users(log).withColumn(
-            "test_user", sf.lit(1)
-        )
+        test_users = self._get_test_users(log).withColumn("test_user", sf.lit(1))
         if self.shuffle:
             res = self._add_random_partition(
-                log.join(test_users, how="left", on="user_id"),
-                self.seed
+                log.join(test_users, how="left", on="user_id"), self.seed
             )
         else:
             res = self._add_time_partition(
@@ -187,18 +174,19 @@ class UserSplitter(Splitter):
             )
 
         res = res.join(counts, on="user_id", how="left")
-        res = res.withColumn(
-            "frac",
-            sf.col("row_num") / sf.col("count")
-        ).cache()
-        train = res.filter(f"""
+        res = res.withColumn("frac", sf.col("row_num") / sf.col("count")).cache()
+        train = res.filter(
+            f"""
                     frac > {self.item_test_size} OR
                     test_user IS NULL
-                """).drop("rand", "row_num", "count", "frac", "test_user")
-        test = res.filter(f"""
+                """
+        ).drop("rand", "row_num", "count", "frac", "test_user")
+        test = res.filter(
+            f"""
                     frac <= {self.item_test_size} AND
                     test_user IS NOT NULL
-                """).drop("rand", "row_num", "count", "frac", "test_user")
+                """
+        ).drop("rand", "row_num", "count", "frac", "test_user")
         return train, test
 
     def _split_quantity(self, log: DataFrame) -> SplitterReturnType:
@@ -214,26 +202,27 @@ class UserSplitter(Splitter):
             `train, test`
         """
 
-        test_users = self._get_test_users(log).withColumn(
-            "test_user", sf.lit(1)
-        )
+        test_users = self._get_test_users(log).withColumn("test_user", sf.lit(1))
         if self.shuffle:
             res = self._add_random_partition(
-                log.join(test_users, how="left", on="user_id"),
-                self.seed
+                log.join(test_users, how="left", on="user_id"), self.seed
             )
         else:
             res = self._add_time_partition(
                 log.join(test_users, how="left", on="user_id")
             )
-        train = res.filter(f"""
+        train = res.filter(
+            f"""
                     row_num > {self.item_test_size} OR
                     test_user IS NULL
-                """).drop("rand", "row_num", "test_user")
-        test = res.filter(f"""
+                """
+        ).drop("rand", "row_num", "test_user")
+        test = res.filter(
+            f"""
                     row_num <= {self.item_test_size} AND
                     test_user IS NOT NULL
-                """).drop("rand", "row_num", "test_user")
+                """
+        ).drop("rand", "row_num", "test_user")
         return train, test
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
@@ -263,9 +252,7 @@ class UserSplitter(Splitter):
         dataframe = dataframe.withColumn("rand", sf.rand(seed))
         dataframe = dataframe.withColumn(
             "row_num",
-            sf.row_number().over(Window
-                                 .partitionBy("user_id")
-                                 .orderBy("rand"))
+            sf.row_number().over(Window.partitionBy("user_id").orderBy("rand")),
         ).cache()
         return dataframe
 
@@ -282,9 +269,8 @@ class UserSplitter(Splitter):
         """
         res = dataframe.withColumn(
             "row_num",
-            sf.row_number().over(Window
-                                 .partitionBy("user_id")
-                                 .orderBy(sf.col("timestamp")
-                                          .desc()))
+            sf.row_number().over(
+                Window.partitionBy("user_id").orderBy(sf.col("timestamp").desc())
+            ),
         ).cache()
         return res

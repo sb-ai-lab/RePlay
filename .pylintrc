@@ -4,7 +4,7 @@ ignored-modules=pyspark.sql.functions,torch
 
 [MESSAGES CONTROL]
 
-disable=W1401
+disable=W1401, C0330, W503, E203, E231
 
 [FORMAT]
 

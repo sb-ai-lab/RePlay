@@ -3,8 +3,7 @@ from typing import Any, Dict, Optional, Union
 
 from ignite.contrib.handlers import LRScheduler
 from ignite.engine import Engine, Events
-from ignite.handlers import (EarlyStopping, ModelCheckpoint,
-                             global_step_from_engine)
+from ignite.handlers import EarlyStopping, ModelCheckpoint, global_step_from_engine
 from ignite.metrics import RunningAverage, Loss
 import numpy as np
 import pandas as pd
@@ -24,47 +23,47 @@ from sponge_bob_magic.models import Recommender
 
 class TorchRecommender(Recommender):
     """ Базовый класс-рекомендатель для нейросетевой модели. """
+
     device: torch.device
 
-    def _predict(self,
-                 log: DataFrame,
-                 k: int,
-                 users: Optional[DataFrame] = None,
-                 items: Optional[DataFrame] = None,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None,
-                 filter_seen_items: bool = True) -> DataFrame:
-        items_pd = (self.item_indexer.transform(items)
-                    .toPandas()["item_idx"].values)
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: Optional[DataFrame] = None,
+        items: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        items_pd = self.item_indexer.transform(items).toPandas()["item_idx"].values
         items_count = self.items_count
         model = self.model.cpu()
         agg_fn = self._predict_by_user
 
         @sf.pandas_udf(
-            st.StructType([
-                st.StructField("user_idx", st.LongType(), True),
-                st.StructField("item_idx", st.LongType(), True),
-                st.StructField("relevance", st.FloatType(), True)
-            ]),
-            sf.PandasUDFType.GROUPED_MAP
+            st.StructType(
+                [
+                    st.StructField("user_idx", st.LongType(), True),
+                    st.StructField("item_idx", st.LongType(), True),
+                    st.StructField("relevance", st.FloatType(), True),
+                ]
+            ),
+            sf.PandasUDFType.GROUPED_MAP,
         )
         def grouped_map(pandas_df):
-            return agg_fn(
-                pandas_df, model, items_pd, k, items_count
-            )[["user_idx", "item_idx", "relevance"]]
+            return agg_fn(pandas_df, model, items_pd, k, items_count)[
+                ["user_idx", "item_idx", "relevance"]
+            ]
 
         self.logger.debug("Предсказание модели")
-        recs = (
-            self.item_indexer.transform(
-                self.user_indexer.transform(
-                    users.join(log, how="left", on="user_id")
-                )
-            )
+        recs = self.item_indexer.transform(
+            self.user_indexer.transform(users.join(log, how="left", on="user_id"))
         )
         recs = (
             recs.selectExpr(
-                "CAST(user_idx AS INT) AS user_idx",
-                "CAST(item_idx AS INT) AS item_idx")
+                "CAST(user_idx AS INT) AS user_idx", "CAST(item_idx AS INT) AS item_idx"
+            )
             .groupby("user_idx")
             .apply(grouped_map)
         )
@@ -78,11 +77,11 @@ class TorchRecommender(Recommender):
     @staticmethod
     @abstractmethod
     def _predict_by_user(
-            pandas_df: pd.DataFrame,
-            model: nn.Module,
-            items_np: np.array,
-            k: int,
-            item_count: int
+        pandas_df: pd.DataFrame,
+        model: nn.Module,
+        items_np: np.array,
+        k: int,
+        item_count: int,
     ) -> pd.DataFrame:
         """
         Расчёт значения метрики для каждого пользователя
@@ -110,18 +109,15 @@ class TorchRecommender(Recommender):
         :return: исходный датафрейм с измененной колонкой
         """
         unlist = sf.udf(lambda x: float(list(x)[0]), st.DoubleType())
-        assembler = VectorAssembler(
-            inputCols=[column], outputCol=f"{column}_Vect"
-        )
-        scaler = MinMaxScaler(
-            inputCol=f"{column}_Vect", outputCol=f"{column}_Scaled"
-        )
+        assembler = VectorAssembler(inputCols=[column], outputCol=f"{column}_Vect")
+        scaler = MinMaxScaler(inputCol=f"{column}_Vect", outputCol=f"{column}_Scaled")
         pipeline = Pipeline(stages=[assembler, scaler])
-        dataframe = (pipeline
-                     .fit(dataframe)
-                     .transform(dataframe)
-                     .withColumn(column, unlist(f"{column}_Scaled"))
-                     .drop(f"{column}_Vect", f"{column}_Scaled"))
+        dataframe = (
+            pipeline.fit(dataframe)
+            .transform(dataframe)
+            .withColumn(column, unlist(f"{column}_Scaled"))
+            .drop(f"{column}_Vect", f"{column}_Scaled")
+        )
 
         return dataframe
 
@@ -136,11 +132,12 @@ class TorchRecommender(Recommender):
         self.model.load_state_dict(torch.load(path))
 
     def _create_trainer_evaluator(
-            self, opt: optimizer,
-            valid_data_loader: DataLoader,
-            scheduler: Optional[Union[_LRScheduler, ReduceLROnPlateau]] = None,
-            early_stopping_patience: Optional[int] = None,
-            checkpoint_number: Optional[int] = None
+        self,
+        opt: optimizer,
+        valid_data_loader: DataLoader,
+        scheduler: Optional[Union[_LRScheduler, ReduceLROnPlateau]] = None,
+        early_stopping_patience: Optional[int] = None,
+        checkpoint_number: Optional[int] = None,
     ) -> (Engine, Engine):
         """
         Метод, возвращающий trainer, evaluator для обучения нейронной сети.
@@ -181,24 +178,31 @@ class TorchRecommender(Recommender):
 
         @torch_trainer.on(Events.EPOCH_COMPLETED)
         def log_training_loss(trainer):
-            self.logger.debug("Epoch[{}] current loss: {:.5f}"
-                              .format(trainer.state.epoch,
-                                      trainer.state.metrics["loss"]))
+            self.logger.debug(
+                "Epoch[{}] current loss: {:.5f}".format(
+                    trainer.state.epoch, trainer.state.metrics["loss"]
+                )
+            )
 
         @torch_trainer.on(Events.EPOCH_COMPLETED)
         def log_validation_results(trainer):
             torch_evaluator.run(valid_data_loader)
             metrics = torch_evaluator.state.metrics
-            self.logger.debug("Epoch[{}] validation average loss: {:.5f}"
-                              .format(trainer.state.epoch, metrics["loss"]))
+            self.logger.debug(
+                "Epoch[{}] validation average loss: {:.5f}".format(
+                    trainer.state.epoch, metrics["loss"]
+                )
+            )
 
         def score_function(engine):
             return -engine.state.metrics["loss"]
 
         if early_stopping_patience:
-            early_stopping = EarlyStopping(patience=early_stopping_patience,
-                                           score_function=score_function,
-                                           trainer=torch_trainer)
+            early_stopping = EarlyStopping(
+                patience=early_stopping_patience,
+                score_function=score_function,
+                trainer=torch_trainer,
+            )
             torch_evaluator.add_event_handler(Events.COMPLETED, early_stopping)
         if checkpoint_number:
             checkpoint = ModelCheckpoint(
@@ -209,11 +213,13 @@ class TorchRecommender(Recommender):
                 score_function=score_function,
                 score_name="loss",
                 filename_prefix="best",
-                global_step_transform=global_step_from_engine(torch_trainer))
+                global_step_transform=global_step_from_engine(torch_trainer),
+            )
 
             torch_evaluator.add_event_handler(
-                Events.EPOCH_COMPLETED, checkpoint,
-                {type(self).__name__.lower(): self.model}
+                Events.EPOCH_COMPLETED,
+                checkpoint,
+                {type(self).__name__.lower(): self.model},
             )
 
             @torch_trainer.on(Events.COMPLETED)
@@ -222,18 +228,21 @@ class TorchRecommender(Recommender):
 
         if scheduler:
             if isinstance(scheduler, _LRScheduler):
-                torch_trainer.add_event_handler(Events.EPOCH_COMPLETED,
-                                                LRScheduler(scheduler))
+                torch_trainer.add_event_handler(
+                    Events.EPOCH_COMPLETED, LRScheduler(scheduler)
+                )
             else:
+
                 @torch_evaluator.on(Events.EPOCH_COMPLETED)
                 def reduct_step(engine):
-                    scheduler.step(engine.state.metrics['loss'])
+                    scheduler.step(engine.state.metrics["loss"])
 
         return torch_trainer, torch_evaluator
 
     @abstractmethod
-    def _batch_pass(self, batch, model) -> (torch.Tensor, torch.Tensor,
-                                            Union[None, Dict[str, Any]]):
+    def _batch_pass(
+        self, batch, model
+    ) -> (torch.Tensor, torch.Tensor, Union[None, Dict[str, Any]]):
         """
         Метод, возвращающий результат применения модели к батчу.
         Должен быть имплементирован наследниками.
@@ -245,8 +254,9 @@ class TorchRecommender(Recommender):
         """
 
     @abstractmethod
-    def _loss(self, y_pred: torch.Tensor, y_true: torch.Tensor, *args,
-              **kwargs) -> torch.Tensor:
+    def _loss(
+        self, y_pred: torch.Tensor, y_true: torch.Tensor, *args, **kwargs
+    ) -> torch.Tensor:
         """
         Метод, возвращающий значение функции потерь.
         Должен быть имплементирован наследниками.

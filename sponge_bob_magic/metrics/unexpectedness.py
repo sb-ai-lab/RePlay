@@ -56,32 +56,23 @@ class Unexpectedness(RecOnlyMetric):
     def _get_metric_value_by_user(pandas_df):
         recs = pandas_df["item_id"]
         pandas_df["cum_agg"] = pandas_df.apply(
-            lambda row:
-            (
-                row["k"] -
-                np.isin(
-                    recs[:row["k"]],
-                    row["items_id"][:row["k"]]
-                ).sum()
-            ) / row["k"],
-            axis=1)
+            lambda row: (
+                row["k"] - np.isin(recs[: row["k"]], row["items_id"][: row["k"]]).sum()
+            )
+            / row["k"],
+            axis=1,
+        )
         return pandas_df
 
     def _get_enriched_recommendations(
-            self,
-            recommendations: DataFrame,
-            ground_truth: DataFrame
+        self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
         if self.train_model:
             pred = self.model.predict(log=self.log, k=self.max_k)
         else:
             pred = self.log
-        items_by_users = (pred
-                          .groupby("user_id").agg(
-                              sf.collect_list("item_id").alias("items_id")))
-        res = recommendations.join(
-            items_by_users,
-            how="inner",
-            on=["user_id"]
+        items_by_users = pred.groupby("user_id").agg(
+            sf.collect_list("item_id").alias("items_id")
         )
+        res = recommendations.join(items_by_users, how="inner", on=["user_id"])
         return res

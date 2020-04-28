@@ -8,27 +8,36 @@ from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
 from sponge_bob_magic.metrics.base_metric import Metric
-from sponge_bob_magic.metrics import (MAP, NDCG, Coverage, HitRate,
-                                      Precision, Recall, Surprisal)
+from sponge_bob_magic.metrics import (
+    MAP,
+    NDCG,
+    Coverage,
+    HitRate,
+    Precision,
+    Recall,
+    Surprisal,
+)
 
 
 class TestMetrics(PySparkTest):
     def setUp(self) -> None:
         self.recs = self.spark.createDataFrame(
-            data=[["user1", "item1", 3.0],
-                  ["user1", "item2", 2.0],
-                  ["user1", "item3", 1.0],
-                  ["user2", "item1", 3.0],
-                  ["user2", "item2", 4.0],
-                  ["user2", "item5", 1.0],
-                  ["user3", "item1", 5.0],
-                  ["user3", "item3", 1.0],
-                  ["user3", "item4", 2.0]],
-            schema=REC_SCHEMA)
+            data=[
+                ["user1", "item1", 3.0],
+                ["user1", "item2", 2.0],
+                ["user1", "item3", 1.0],
+                ["user2", "item1", 3.0],
+                ["user2", "item2", 4.0],
+                ["user2", "item5", 1.0],
+                ["user3", "item1", 5.0],
+                ["user3", "item3", 1.0],
+                ["user3", "item4", 2.0],
+            ],
+            schema=REC_SCHEMA,
+        )
         self.recs2 = self.spark.createDataFrame(
-            data=[["user1", "item4", 4.0],
-                  ["user1", "item5", 5.0]],
-            schema=REC_SCHEMA)
+            data=[["user1", "item4", 4.0], ["user1", "item5", 5.0]], schema=REC_SCHEMA
+        )
         self.ground_truth_recs = self.spark.createDataFrame(
             data=[
                 ["user1", "item1", datetime(2019, 9, 12), 3.0],
@@ -36,9 +45,10 @@ class TestMetrics(PySparkTest):
                 ["user1", "item2", datetime(2019, 9, 17), 1.0],
                 ["user2", "item6", datetime(2019, 9, 14), 4.0],
                 ["user2", "item1", datetime(2019, 9, 15), 3.0],
-                ["user3", "item2", datetime(2019, 9, 15), 3.0]
+                ["user3", "item2", datetime(2019, 9, 15), 3.0],
             ],
-            schema=LOG_SCHEMA)
+            schema=LOG_SCHEMA,
+        )
         self.log2 = self.spark.createDataFrame(
             data=[
                 ["user1", "item1", datetime(2019, 9, 12), 3.0],
@@ -46,73 +56,72 @@ class TestMetrics(PySparkTest):
                 ["user1", "item2", datetime(2019, 9, 17), 1.0],
                 ["user2", "item6", datetime(2019, 9, 14), 4.0],
                 ["user2", "item1", datetime(2019, 9, 15), 3.0],
-                ["user3", "item2", datetime(2019, 9, 15), 3.0]
+                ["user3", "item2", datetime(2019, 9, 15), 3.0],
             ],
-            schema=LOG_SCHEMA)
+            schema=LOG_SCHEMA,
+        )
         self.log = self.spark.createDataFrame(
-            data=[["user1", "item1", datetime(2019, 8, 22), 4.0],
-                  ["user1", "item3", datetime(2019, 8, 23), 3.0],
-                  ["user1", "item2", datetime(2019, 8, 27), 2.0],
-                  ["user2", "item4", datetime(2019, 8, 24), 3.0],
-                  ["user2", "item1", datetime(2019, 8, 25), 4.0],
-                  ["user3", "item2", datetime(2019, 8, 26), 5.0],
-                  ["user3", "item1", datetime(2019, 8, 26), 5.0],
-                  ["user3", "item3", datetime(2019, 8, 26), 3.0],
-                  ["user4", "item2", datetime(2019, 8, 26), 5.0],
-                  ["user4", "item1", datetime(2019, 8, 26), 5.0],
-                  ["user4", "item1", datetime(2019, 8, 26), 1.0]],
-            schema=LOG_SCHEMA)
+            data=[
+                ["user1", "item1", datetime(2019, 8, 22), 4.0],
+                ["user1", "item3", datetime(2019, 8, 23), 3.0],
+                ["user1", "item2", datetime(2019, 8, 27), 2.0],
+                ["user2", "item4", datetime(2019, 8, 24), 3.0],
+                ["user2", "item1", datetime(2019, 8, 25), 4.0],
+                ["user3", "item2", datetime(2019, 8, 26), 5.0],
+                ["user3", "item1", datetime(2019, 8, 26), 5.0],
+                ["user3", "item3", datetime(2019, 8, 26), 3.0],
+                ["user4", "item2", datetime(2019, 8, 26), 5.0],
+                ["user4", "item1", datetime(2019, 8, 26), 5.0],
+                ["user4", "item1", datetime(2019, 8, 26), 1.0],
+            ],
+            schema=LOG_SCHEMA,
+        )
 
     def test_hit_rate_at_k(self):
         self.assertDictAlmostEqual(
-            HitRate()(self.recs, self.ground_truth_recs, [3, 1]),
-            {3: 2 / 3, 1: 1 / 3}
+            HitRate()(self.recs, self.ground_truth_recs, [3, 1]), {3: 2 / 3, 1: 1 / 3}
         )
 
     def test_ndcg_at_k(self):
         self.assertDictAlmostEqual(
             NDCG()(self.recs, self.ground_truth_recs, [1, 3]),
-            {1: 1 / 3,
-             3: 1 / 3 * (
-                 1 / (1 / log2(2) + 1 / log2(3) + 1 / log2(4)) *
-                 (1 / log2(2) + 1 / log2(3)) +
-                 1 / (1 / log2(2) + 1 / log2(3)) *
-                 (1 / log2(3))
-             )}
+            {
+                1: 1 / 3,
+                3: 1
+                / 3
+                * (
+                    1
+                    / (1 / log2(2) + 1 / log2(3) + 1 / log2(4))
+                    * (1 / log2(2) + 1 / log2(3))
+                    + 1 / (1 / log2(2) + 1 / log2(3)) * (1 / log2(3))
+                ),
+            },
         )
 
     def test_precision_at_k(self):
         self.assertDictAlmostEqual(
             Precision()(self.recs, self.ground_truth_recs, [1, 2, 3]),
-            {3: 1 / 3,
-             1: 1 / 3,
-             2: 1 / 2}
+            {3: 1 / 3, 1: 1 / 3, 2: 1 / 2},
         )
 
     def test_map_at_k(self):
         self.assertDictAlmostEqual(
-            MAP()(self.recs, self.ground_truth_recs, [1, 3]),
-            {3: 7 / 12,
-             1: 1 / 3}
+            MAP()(self.recs, self.ground_truth_recs, [1, 3]), {3: 7 / 12, 1: 1 / 3}
         )
 
     def test_recall_at_k(self):
         self.assertDictAlmostEqual(
             Recall()(self.recs, self.ground_truth_recs, [1, 3]),
-            {3: (1 / 2 + 2 / 3) / 3,
-             1: 1 / 9}
+            {3: (1 / 2 + 2 / 3) / 3, 1: 1 / 9},
         )
 
     def test_surprisal_at_k(self):
         self.assertDictAlmostEqual(
-            Surprisal(self.log2)(self.recs2, [1, 2]),
-            {1: 1.0,
-             2: 1.0}
+            Surprisal(self.log2)(self.recs2, [1, 2]), {1: 1.0, 2: 1.0}
         )
 
         self.assertAlmostEqual(
-            Surprisal(self.log2)(self.recs, 3),
-            5 * (1 - 1 / log2(3)) / 9 + 4 / 9
+            Surprisal(self.log2)(self.recs, 3), 5 * (1 - 1 / log2(3)) / 9 + 4 / 9
         )
 
     def test_check_users(self):
@@ -130,27 +139,18 @@ class TestMetrics(PySparkTest):
         test_cases = [
             [True, self.recs, self.ground_truth_recs],
             [False, self.recs, self.log],
-            [False, self.log, self.recs]
+            [False, self.log, self.recs],
         ]
         new_metric = NewMetric()
         for correct_value, left, right in test_cases:
             with self.subTest():
-                self.assertEqual(
-                    new_metric._check_users(left, right),
-                    correct_value
-                )
+                self.assertEqual(new_metric._check_users(left, right), correct_value)
 
     def test_coverage(self):
-        coverage = Coverage(self.recs.union(
-            self.ground_truth_recs.drop("timestamp")
-        ))
+        coverage = Coverage(self.recs.union(self.ground_truth_recs.drop("timestamp")))
         self.assertDictAlmostEqual(
-            coverage(self.recs, [1, 3]),
-            {1: 0.3333333333333333, 3: 0.8333333333333334}
+            coverage(self.recs, [1, 3]), {1: 0.3333333333333333, 3: 0.8333333333333334}
         )
 
     def test_bad_coverage(self):
-        self.assertEqual(
-            Coverage(self.ground_truth_recs)(self.recs, 3),
-            1.25
-        )
+        self.assertEqual(Coverage(self.ground_truth_recs)(self.recs, 3), 1.25)

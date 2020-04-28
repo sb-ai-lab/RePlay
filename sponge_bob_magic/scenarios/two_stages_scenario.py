@@ -16,14 +16,10 @@ from sponge_bob_magic.splitters import Splitter, UserSplitter
 from sponge_bob_magic.utils import get_log_info, to_vector
 
 DEFAULT_SECOND_STAGE_SPLITTER = UserSplitter(
-    drop_cold_items=False,
-    item_test_size=1,
-    shuffle=True
+    drop_cold_items=False, item_test_size=1, shuffle=True
 )
 DEFAULT_FIRST_STAGE_SPLITTER = UserSplitter(
-    drop_cold_items=False,
-    item_test_size=0.4,
-    shuffle=True
+    drop_cold_items=False, item_test_size=0.4, shuffle=True
 )
 
 
@@ -42,16 +38,17 @@ class TwoStagesScenario:
     * посчитать метрику от ``second_stage_recs`` и ``second_stage_test``
 
     """
+
     _experiment: Optional[Experiment] = None
 
     def __init__(
-            self,
-            second_stage_splitter: Splitter = DEFAULT_SECOND_STAGE_SPLITTER,
-            first_stage_splitter: Splitter = DEFAULT_FIRST_STAGE_SPLITTER,
-            first_model: Recommender = ALSWrap(rank=100),
-            second_model: ClassifierRec = ClassifierRec(),
-            first_stage_k: int = 100,
-            metrics: Dict[Metric, IntOrList] = {HitRate(): 10}
+        self,
+        second_stage_splitter: Splitter = DEFAULT_SECOND_STAGE_SPLITTER,
+        first_stage_splitter: Splitter = DEFAULT_FIRST_STAGE_SPLITTER,
+        first_model: Recommender = ALSWrap(rank=100),
+        second_model: ClassifierRec = ClassifierRec(),
+        first_stage_k: int = 100,
+        metrics: Dict[Metric, IntOrList] = {HitRate(): 10},
     ):
         """
         собрать двухуровневую рекомендательную архитектуру из блоков
@@ -84,10 +81,7 @@ class TwoStagesScenario:
             )
         return self._experiment
 
-    def _split_data(
-            self,
-            log: DataFrame
-    ) -> Tuple[DataFrame, DataFrame, DataFrame]:
+    def _split_data(self, log: DataFrame) -> Tuple[DataFrame, DataFrame, DataFrame]:
         mixed_train, test = self.second_stage_splitter.split(log)
         mixed_train.cache()
         State().logger.debug("mixed_train stat: %s", get_log_info(mixed_train))
@@ -102,46 +96,53 @@ class TwoStagesScenario:
             log=first_train,
             k=self.first_stage_k,
             users=first_train.select("user_id").distinct().cache(),
-            items=first_train.select("item_id").distinct().cache()
+            items=first_train.select("item_id").distinct().cache(),
         ).cache()
 
     def _second_stage_data(
-            self,
-            first_recs: DataFrame,
-            first_test: DataFrame
+        self, first_recs: DataFrame, first_test: DataFrame
     ) -> Tuple[DataFrame, DataFrame, DataFrame]:
-        user_features = self.first_model.inv_user_indexer.transform(
-            self.first_model.model.userFactors.select(
-                col("id").alias("user_idx"),
-                to_vector("features").alias("user_features")
+        user_features = (
+            self.first_model.inv_user_indexer.transform(
+                self.first_model.model.userFactors.select(
+                    col("id").alias("user_idx"),
+                    to_vector("features").alias("user_features"),
+                )
             )
-        ).drop("user_idx").cache()
-        item_features = self.first_model.inv_item_indexer.transform(
-            self.first_model.model.itemFactors.select(
-                col("id").alias("item_idx"),
-                to_vector("features").alias("item_features")
+            .drop("user_idx")
+            .cache()
+        )
+        item_features = (
+            self.first_model.inv_item_indexer.transform(
+                self.first_model.model.itemFactors.select(
+                    col("id").alias("item_idx"),
+                    to_vector("features").alias("item_features"),
+                )
             )
-        ).drop("item_idx").cache()
+            .drop("item_idx")
+            .cache()
+        )
         second_train = self.first_model.item_indexer.transform(
             self.first_model.user_indexer.transform(
-                first_recs.drop("relevance").join(
-                    first_test.select("user_id", "item_id", "relevance")
-                    .toDF("uid", "iid", "relevance"),
+                first_recs.drop("relevance")
+                .join(
+                    first_test.select("user_id", "item_id", "relevance").toDF(
+                        "uid", "iid", "relevance"
+                    ),
                     how="left",
-                    on=[
-                        col("user_id") == col("uid"),
-                        col("item_id") == col("iid")
-                    ]
-                ).withColumn(
-                    "relevance",
-                    when(isnull("relevance"), lit(0)).otherwise(lit(1))
-                ).drop("uid", "iid").cache()
+                    on=[col("user_id") == col("uid"), col("item_id") == col("iid")],
+                )
+                .withColumn(
+                    "relevance", when(isnull("relevance"), lit(0)).otherwise(lit(1))
+                )
+                .drop("uid", "iid")
+                .cache()
             )
         ).cache()
         State().logger.debug(
             "баланс классов: положительных %d из %d",
             second_train.filter("relevance = 1").count(),
-            second_train.count()
+            second_train.count(),
         )
         return user_features, item_features, second_train
 
@@ -212,15 +213,13 @@ class TwoStagesScenario:
             users=test.select("user_id").distinct().cache(),
             items=test.select("item_id").distinct().cache(),
             user_features=user_features,
-            item_features=item_features
+            item_features=item_features,
         ).cache()
         State().logger.debug(
             "ROC AUC модели второго уровня (как классификатора): %.4f",
             BinaryClassificationEvaluator().evaluate(
-                self.second_model.model.transform(
-                    self.second_model.augmented_data
-                )
-            )
+                self.second_model.model.transform(self.second_model.augmented_data)
+            ),
         )
         self._experiment = Experiment(test, self.metrics)
         self._experiment.add_result("two_stages_scenario", second_recs)

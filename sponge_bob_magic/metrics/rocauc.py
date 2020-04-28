@@ -51,8 +51,9 @@ class RocAuc(Metric):
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         pandas_df = pandas_df.assign(
-            is_good_item=pandas_df[["item_id", "items_id"]]
-            .apply(lambda x: int(x["item_id"] in x["items_id"]), 1)
+            is_good_item=pandas_df[["item_id", "items_id"]].apply(
+                lambda x: int(x["item_id"] in x["items_id"]), 1
+            )
         )
         pandas_df = pandas_df.assign(
             сum_bad_item=(1 - pandas_df["is_good_item"]).cumsum()
@@ -61,10 +62,19 @@ class RocAuc(Metric):
             auc=(pandas_df["is_good_item"] * pandas_df["сum_bad_item"]).cumsum()
         )
         return pandas_df.assign(
-            cum_agg=(1 - np.where((pandas_df["сum_bad_item"] *
-                                   (pandas_df.k - pandas_df["сum_bad_item"])),
-                                  pandas_df["auc"] /
-                                  (pandas_df["сum_bad_item"] *
-                                   (pandas_df.k - pandas_df["сum_bad_item"])),
-                                  0))
+            cum_agg=(
+                1
+                - np.where(
+                    (
+                        pandas_df["сum_bad_item"]
+                        * (pandas_df.k - pandas_df["сum_bad_item"])
+                    ),
+                    pandas_df["auc"]
+                    / (
+                        pandas_df["сum_bad_item"]
+                        * (pandas_df.k - pandas_df["сum_bad_item"])
+                    ),
+                    0,
+                )
+            )
         )

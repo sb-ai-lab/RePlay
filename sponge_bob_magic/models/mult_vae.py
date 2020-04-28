@@ -7,8 +7,7 @@ import numpy as np
 import pandas as pd
 from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.engine import Engine, Events
-from ignite.handlers import (EarlyStopping, ModelCheckpoint,
-                             global_step_from_engine)
+from ignite.handlers import EarlyStopping, ModelCheckpoint, global_step_from_engine
 from ignite.metrics import Loss, RunningAverage
 from scipy.sparse import csr_matrix
 from pyspark.sql import DataFrame
@@ -26,13 +25,14 @@ from sponge_bob_magic.session_handler import State
 
 class VAE(nn.Module):
     """Простой вариационный автокодировщик"""
+
     def __init__(
-            self,
-            item_count: int,
-            latent_dim: int,
-            decoder_dims: Optional[List[int]] = None,
-            encoder_dims: Optional[List[int]] = None,
-            dropout: float = 0.3
+        self,
+        item_count: int,
+        latent_dim: int,
+        decoder_dims: Optional[List[int]] = None,
+        encoder_dims: Optional[List[int]] = None,
+        dropout: float = 0.3,
     ):
         """
         Инициализация модели.
@@ -57,12 +57,18 @@ class VAE(nn.Module):
         self.encoder_dims = [item_count] + self.encoder_dims + [latent_dim * 2]
         self.decoder_dims = [latent_dim] + self.decoder_dims + [item_count]
 
-        self.encoder = nn.ModuleList([nn.Linear(d_in, d_out) for d_in, d_out in
-                                      zip(self.encoder_dims[:-1],
-                                          self.encoder_dims[1:])])
-        self.decoder = nn.ModuleList([nn.Linear(d_in, d_out) for d_in, d_out in
-                                      zip(self.decoder_dims[:-1],
-                                          self.decoder_dims[1:])])
+        self.encoder = nn.ModuleList(
+            [
+                nn.Linear(d_in, d_out)
+                for d_in, d_out in zip(self.encoder_dims[:-1], self.encoder_dims[1:])
+            ]
+        )
+        self.decoder = nn.ModuleList(
+            [
+                nn.Linear(d_in, d_out)
+                for d_in, d_out in zip(self.decoder_dims[:-1], self.decoder_dims[1:])
+            ]
+        )
         self.dropout = nn.Dropout(dropout)
         self.activation = torch.nn.ReLU()
 
@@ -82,12 +88,13 @@ class VAE(nn.Module):
             hidden = self.activation(hidden)
 
         hidden = self.encoder[-1](hidden)
-        mu_latent = hidden[:, :self.latent_dim]
-        logvar_latent = hidden[:, self.latent_dim:]
+        mu_latent = hidden[:, : self.latent_dim]
+        logvar_latent = hidden[:, self.latent_dim :]
         return mu_latent, logvar_latent
 
-    def reparameterize(self, mu_latent: torch.Tensor,
-                       logvar_latent: torch.Tensor) -> torch.Tensor:
+    def reparameterize(
+        self, mu_latent: torch.Tensor, logvar_latent: torch.Tensor
+    ) -> torch.Tensor:
         """Репараметризационный трюк, необходимый для обрабного прохождения
         сигнала по семплированным данным"""
 
@@ -105,9 +112,9 @@ class VAE(nn.Module):
             hidden = self.activation(hidden)
         return self.decoder[-1](hidden)
 
-    def forward(self, batch: torch.Tensor) -> Tuple[torch.Tensor,
-                                                    torch.Tensor,
-                                                    torch.Tensor]:
+    def forward(
+        self, batch: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Один проход нейросети.
 
@@ -245,6 +252,7 @@ class MultVAE(TorchRecommender):
     При :math:`\\beta = 0` VAE (вариационный автокодировщик) превращается в
     DAE (шумоподавляющий автокодировщик)
     """
+
     num_workers: int = 0
     batch_size_users: int = 5000
     patience: int = 10
@@ -252,15 +260,18 @@ class MultVAE(TorchRecommender):
     valid_split_size: float = 0.1
     seed: int = 42
 
-    def __init__(self, learning_rate: float = 0.05,
-                 epochs: int = 1,
-                 latent_dim: int = 10,
-                 decoder_dims: Optional[List[int]] = None,
-                 encoder_dims: Optional[List[int]] = None,
-                 dropout: float = 0.3,
-                 anneal: float = 0.005,
-                 l2_reg: float = 0,
-                 gamma: float = 0.99):
+    def __init__(
+        self,
+        learning_rate: float = 0.05,
+        epochs: int = 1,
+        latent_dim: int = 10,
+        decoder_dims: Optional[List[int]] = None,
+        encoder_dims: Optional[List[int]] = None,
+        dropout: float = 0.3,
+        anneal: float = 0.005,
+        l2_reg: float = 0,
+        gamma: float = 0.99,
+    ):
         """
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
@@ -295,49 +306,53 @@ class MultVAE(TorchRecommender):
             "dropout": self.dropout,
             "anneal": self.anneal,
             "l2_reg": self.l2_reg,
-            "gamma": self.gamma
+            "gamma": self.gamma,
         }
 
-    def _get_data_loader(self,
-                         data: pd.DataFrame,
-                         shuffle: bool = True
-                         ) -> (csr_matrix, DataLoader, np.array):
+    def _get_data_loader(
+        self, data: pd.DataFrame, shuffle: bool = True
+    ) -> (csr_matrix, DataLoader, np.array):
         """Функция получения загрузчика данных, а также матрицы с данными"""
         users_count = data["user_idx"].value_counts().count()
-        user_idx = data.user_idx.astype('category').cat
-        user_batch = csr_matrix((np.ones(len(data.user_idx)),
-                                 ([user_idx.codes.values,
-                                   data.item_idx.values])),
-                                shape=(users_count, self.items_count))
+        user_idx = data.user_idx.astype("category").cat
+        user_batch = csr_matrix(
+            (
+                np.ones(len(data.user_idx)),
+                ([user_idx.codes.values, data.item_idx.values]),
+            ),
+            shape=(users_count, self.items_count),
+        )
         data_loader = DataLoader(
             TensorDataset(torch.arange(users_count).long()),
             batch_size=self.batch_size_users,
             shuffle=shuffle,
-            num_workers=self.num_workers)
+            num_workers=self.num_workers,
+        )
 
         return user_batch, data_loader, user_idx.categories.values
 
-    def _fit(self,
-             log: DataFrame,
-             user_features: Optional[DataFrame] = None,
-             item_features: Optional[DataFrame] = None) -> None:
+    def _fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
         self.logger.debug("Индексирование данных")
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
 
         self.logger.debug("Составление батча:")
         data = log_indexed.select("user_idx", "item_idx").toPandas()
-        splitter = GroupShuffleSplit(n_splits=1,
-                                     test_size=self.valid_split_size,
-                                     random_state=self.seed)
-        train_idx, valid_idx = next(splitter.split(data, groups=data[
-            "user_idx"]))
+        splitter = GroupShuffleSplit(
+            n_splits=1, test_size=self.valid_split_size, random_state=self.seed
+        )
+        train_idx, valid_idx = next(splitter.split(data, groups=data["user_idx"]))
         train_data, valid_data = data.iloc[train_idx], data.iloc[valid_idx]
 
-        self.train_user_batch, train_data_loader, _ = self._get_data_loader(
-            train_data)
+        self.train_user_batch, train_data_loader, _ = self._get_data_loader(train_data)
         self.valid_user_batch, valid_data_loader, _ = self._get_data_loader(
-            valid_data, False)
+            valid_data, False
+        )
 
         self.logger.debug("Обучение модели")
         self.model = VAE(
@@ -345,26 +360,31 @@ class MultVAE(TorchRecommender):
             latent_dim=self.latent_dim,
             decoder_dims=self.decoder_dims,
             encoder_dims=self.encoder_dims,
-            dropout=self.dropout).to(self.device)
+            dropout=self.dropout,
+        ).to(self.device)
 
         optimizer = Adam(
             self.model.parameters(),
             lr=self.learning_rate,
-            weight_decay=self.l2_reg / self.batch_size_users)
+            weight_decay=self.l2_reg / self.batch_size_users,
+        )
         lr_scheduler = ReduceLROnPlateau(optimizer, factor=0.5, patience=3)
 
         vae_trainer, val_evaluator = self._create_trainer_evaluator(
-            optimizer, valid_data_loader, lr_scheduler, self.patience,
-            self.n_saved)
+            optimizer, valid_data_loader, lr_scheduler, self.patience, self.n_saved
+        )
 
         vae_trainer.run(train_data_loader, max_epochs=self.epochs)
 
-    def _loss(self, y_pred, y_true, mu_latent,
-              logvar_latent):
+    def _loss(self, y_pred, y_true, mu_latent, logvar_latent):
         log_softmax_var = F.log_softmax(y_pred, dim=1)
-        bce = - (log_softmax_var * y_true).sum(dim=1).mean()
-        kld = -0.5 * torch.sum(1 + logvar_latent - mu_latent.pow(2) -
-                               logvar_latent.exp(), dim=1).mean()
+        bce = -(log_softmax_var * y_true).sum(dim=1).mean()
+        kld = (
+            -0.5
+            * torch.sum(
+                1 + logvar_latent - mu_latent.pow(2) - logvar_latent.exp(), dim=1
+            ).mean()
+        )
         return bce + self.anneal * kld
 
     def _batch_pass(self, batch, model):
@@ -372,19 +392,21 @@ class MultVAE(TorchRecommender):
             full_batch = self.train_user_batch
         else:
             full_batch = self.valid_user_batch
-        user_batch = torch.FloatTensor(full_batch[batch[0]]
-                                       .toarray()).to(self.device)
+        user_batch = torch.FloatTensor(full_batch[batch[0]].toarray()).to(self.device)
         pred_user_batch, latent_mu, latent_logvar = self.model(user_batch)
-        return (pred_user_batch, user_batch,
-                {"mu_latent": latent_mu, "logvar_latent": latent_logvar})
+        return (
+            pred_user_batch,
+            user_batch,
+            {"mu_latent": latent_mu, "logvar_latent": latent_logvar},
+        )
 
     @staticmethod
     def _predict_by_user(
-            pandas_df: pd.DataFrame,
-            model: nn.Module,
-            items_np: np.array,
-            k: int,
-            items_count: int
+        pandas_df: pd.DataFrame,
+        model: nn.Module,
+        items_np: np.array,
+        k: int,
+        items_count: int,
     ) -> pd.DataFrame:
         user_idx = pandas_df["user_idx"][0]
         cnt = min(len(pandas_df) + k, len(items_np))
@@ -394,12 +416,14 @@ class MultVAE(TorchRecommender):
             user_batch = torch.zeros((1, items_count))
             user_batch[0, pandas_df["item_idx"].values] = 1
             user_recs = model(user_batch)[0][0].detach()
-            best_item_idx = (torch.argsort(
-                user_recs[items_np],
-                descending=True)[:cnt]).numpy()
+            best_item_idx = (
+                torch.argsort(user_recs[items_np], descending=True)[:cnt]
+            ).numpy()
 
-            return pd.DataFrame({
-                "user_idx": cnt * [user_idx],
-                "item_idx": items_np[best_item_idx],
-                "relevance": user_recs[best_item_idx]
-            })
+            return pd.DataFrame(
+                {
+                    "user_idx": cnt * [user_idx],
+                    "item_idx": items_np[best_item_idx],
+                    "relevance": user_recs[best_item_idx],
+                }
+            )

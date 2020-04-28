@@ -112,12 +112,15 @@ class RandomRec(Recommender):
     +-------+----------+-------+
 
     """
+
     item_popularity: DataFrame
 
-    def __init__(self,
-                 distribution: str = "uniform",
-                 alpha: float = 0.0,
-                 seed: Optional[int] = None):
+    def __init__(
+        self,
+        distribution: str = "uniform",
+        alpha: float = 0.0,
+        seed: Optional[int] = None,
+    ):
         """
         :param distribution: вероятностоное распределение выбора элементов.
             "uniform" - равномерное, все элементы выбираются с равной вероятнсотью
@@ -127,8 +130,7 @@ class RandomRec(Recommender):
         :param seed: инициализация генератора псевдослучайности
         """
         if distribution not in ("popular_based", "uniform"):
-            raise ValueError("distribution должно быть popular_based "
-                             "или uniform")
+            raise ValueError("distribution должно быть popular_based " "или uniform")
         if alpha <= -1.0 and distribution == "popular_based":
             raise ValueError("alpha должно быть строго больше -1")
         self.distribution = distribution
@@ -136,64 +138,75 @@ class RandomRec(Recommender):
         self.seed = seed
 
     def get_params(self) -> Dict[str, object]:
-        return {"distribution": self.distribution,
-                "alpha": self.alpha,
-                "seed": self.seed}
+        return {
+            "distribution": self.distribution,
+            "alpha": self.alpha,
+            "seed": self.seed,
+        }
 
-    def _pre_fit(self,
-                 log: DataFrame,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None) -> None:
+    def _pre_fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
         super()._pre_fit(log, user_features, item_features)
-        self.item_popularity = (
-            log
-            .groupBy("item_id")
-            .agg(sf.countDistinct("user_id").alias("user_count"))
+        self.item_popularity = log.groupBy("item_id").agg(
+            sf.countDistinct("user_id").alias("user_count")
         )
 
-    def _fit(self,
-             log: DataFrame,
-             user_features: Optional[DataFrame] = None,
-             item_features: Optional[DataFrame] = None) -> None:
+    def _fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
         if self.distribution == "popular_based":
             probability = f"CAST(user_count + {self.alpha} AS FLOAT)"
         else:
             probability = "1"
 
         self.item_popularity = self.item_popularity.selectExpr(
-            "item_id",
-            f"{probability} AS probability"
+            "item_id", f"{probability} AS probability"
         ).cache()
 
-    def _predict(self,
-                 log: DataFrame,
-                 k: int,
-                 users: DataFrame,
-                 items: DataFrame,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None,
-                 filter_seen_items: bool = True) -> DataFrame:
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
 
-        items_pd = self.item_indexer.transform(
-            items.join(
-                self.item_popularity.withColumnRenamed("item_id", "item_id_2"),
-                on=sf.col("item_id") == sf.col("item_id_2"),
-                how="inner"
+        items_pd = (
+            self.item_indexer.transform(
+                items.join(
+                    self.item_popularity.withColumnRenamed("item_id", "item_id_2"),
+                    on=sf.col("item_id") == sf.col("item_id_2"),
+                    how="inner",
+                )
             )
-        ).drop("item_id_2", "item_id").toPandas()
-        items_pd.loc[:, "probability"] = (items_pd["probability"] /
-                                          items_pd["probability"].sum())
+            .drop("item_id_2", "item_id")
+            .toPandas()
+        )
+        items_pd.loc[:, "probability"] = (
+            items_pd["probability"] / items_pd["probability"].sum()
+        )
         seed = self.seed
 
         @sf.pandas_udf(
-            st.StructType([
-                st.StructField("user_id", users.schema["user_id"].dataType,
-                               True),
-                st.StructField("user_idx", st.LongType(), True),
-                st.StructField("item_idx", st.LongType(), True),
-                st.StructField("relevance", st.FloatType(), True)
-            ]),
-            sf.PandasUDFType.GROUPED_MAP
+            st.StructType(
+                [
+                    st.StructField("user_id", users.schema["user_id"].dataType, True),
+                    st.StructField("user_idx", st.LongType(), True),
+                    st.StructField("item_idx", st.LongType(), True),
+                    st.StructField("relevance", st.FloatType(), True),
+                ]
+            ),
+            sf.PandasUDFType.GROUPED_MAP,
         )
         def grouped_map(pandas_df):
             user_idx = pandas_df["user_idx"][0]
@@ -205,15 +218,18 @@ class RandomRec(Recommender):
                 items_pd["item_idx"].values,
                 size=cnt,
                 p=items_pd["probability"].values,
-                replace=False
+                replace=False,
             )
             relevance = 1 / np.arange(1, cnt + 1)
-            return pd.DataFrame({
-                "user_id": cnt * [user_id],
-                "user_idx": cnt * [user_idx],
-                "item_idx": items_idx,
-                "relevance": relevance
-            })
+            return pd.DataFrame(
+                {
+                    "user_id": cnt * [user_id],
+                    "user_idx": cnt * [user_idx],
+                    "item_idx": items_idx,
+                    "relevance": relevance,
+                }
+            )
+
         model_len = len(items_pd)
         recs = self.inv_item_indexer.transform(
             self.user_indexer.transform(
@@ -225,7 +241,7 @@ class RandomRec(Recommender):
             .selectExpr(
                 "user_id",
                 "CAST(user_idx AS INT) AS user_idx",
-                f"CAST(LEAST(cnt + {k}, {model_len}) AS INT) AS cnt"
+                f"CAST(LEAST(cnt + {k}, {model_len}) AS INT) AS cnt",
             )
             .groupby("user_id", "user_idx")
             .apply(grouped_map)

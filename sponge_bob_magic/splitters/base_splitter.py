@@ -15,12 +15,7 @@ SplitterReturnType = Tuple[DataFrame, DataFrame]
 class Splitter(ABC):
     """ Базовый класс для разбиения выборки на обучающую и тестовую. """
 
-    def __init__(
-            self,
-            drop_cold_items: bool,
-            drop_cold_users: bool,
-            **kwargs
-    ):
+    def __init__(self, drop_cold_items: bool, drop_cold_users: bool, **kwargs):
         """
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
@@ -43,10 +38,7 @@ class Splitter(ABC):
 
     @staticmethod
     def _drop_cold_items_and_users(
-            train: DataFrame,
-            test: DataFrame,
-            drop_cold_items: bool,
-            drop_cold_users: bool
+        train: DataFrame, test: DataFrame, drop_cold_items: bool, drop_cold_users: bool
     ) -> DataFrame:
         """
         Удаляет из тестовой выборки холодных users и холодные items.
@@ -60,17 +52,11 @@ class Splitter(ABC):
         """
         if drop_cold_items:
             train_tmp = train.select(sf.col("item_id").alias("item")).distinct()
-            test = test.join(
-                train_tmp,
-                train_tmp.item == test.item_id
-            ).drop("item")
+            test = test.join(train_tmp, train_tmp.item == test.item_id).drop("item")
 
         if drop_cold_users:
             train_tmp = train.select(sf.col("user_id").alias("user")).distinct()
-            test = test.join(
-                train_tmp,
-                train_tmp.user == test.user_id
-            ).drop("user")
+            test = test.join(train_tmp, train_tmp.user == test.user_id).drop("user")
         return test
 
     @abstractmethod
@@ -87,10 +73,7 @@ class Splitter(ABC):
             `test` - тестовая выборка
         """
 
-    def split(
-            self,
-            log: DataFrame,
-    ) -> SplitterReturnType:
+    def split(self, log: DataFrame,) -> SplitterReturnType:
         """
         Разбивает лог действий пользователей на обучающую и тестовую выборки.
 
@@ -104,10 +87,7 @@ class Splitter(ABC):
         train, test = self._core_split(tm.fit_convert(log))
 
         test = self._drop_cold_items_and_users(
-            train, test,
-            self.drop_cold_items, self.drop_cold_users
+            train, test, self.drop_cold_items, self.drop_cold_users
         )
 
-        return tm.inverse(
-            train, self._filter_zero_relevance(test)
-        )
+        return tm.inverse(train, self._filter_zero_relevance(test))

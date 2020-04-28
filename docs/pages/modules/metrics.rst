@@ -64,4 +64,3 @@ Coverage
 
 .. autoclass:: sponge_bob_magic.metrics.base_metric.Metric
    :special-members: _get_enriched_recommendations, _get_metric_value_by_user
-

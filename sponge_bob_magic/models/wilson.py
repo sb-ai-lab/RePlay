@@ -52,8 +52,11 @@ class Wilson(PopRec):
     ) -> None:
         log = convert(log)
 
-        df = log.groupby("item_id").agg(sf.sum("relevance").alias("pos"),
-                                        sf.count("relevance").alias("total")).toPandas()
+        df = (
+            log.groupby("item_id")
+            .agg(sf.sum("relevance").alias("pos"), sf.count("relevance").alias("total"))
+            .toPandas()
+        )
         pos = np.array(df.pos)
         total = np.array(df.total)
         df["relevance"] = proportion_confint(pos, total, method="wilson")[0]

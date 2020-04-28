@@ -5,8 +5,7 @@ from typing import Dict, Optional, List
 
 from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.engine import Engine, Events
-from ignite.handlers import (EarlyStopping, ModelCheckpoint,
-                             global_step_from_engine)
+from ignite.handlers import EarlyStopping, ModelCheckpoint, global_step_from_engine
 from ignite.metrics import Loss
 import numpy as np
 import pandas as pd
@@ -39,12 +38,8 @@ def xavier_init_(layer: nn.Module):
 class GMF(nn.Module):
     """Generalized Matrix Factorization (GMF) модель - нейросетевая
     реализация матричной факторизации"""
-    def __init__(
-            self,
-            user_count: int,
-            item_count: int,
-            embedding_dim: int
-    ):
+
+    def __init__(self, user_count: int, item_count: int, embedding_dim: int):
         """
         Инициализация модели. Создает эмбеддинги пользователей и объектов.
 
@@ -54,14 +49,14 @@ class GMF(nn.Module):
             объектов
         """
         super().__init__()
-        self.user_embedding = nn.Embedding(num_embeddings=user_count,
-                                           embedding_dim=embedding_dim)
-        self.item_embedding = nn.Embedding(num_embeddings=item_count,
-                                           embedding_dim=embedding_dim)
-        self.item_biases = nn.Embedding(num_embeddings=item_count,
-                                        embedding_dim=1)
-        self.user_biases = nn.Embedding(num_embeddings=user_count,
-                                        embedding_dim=1)
+        self.user_embedding = nn.Embedding(
+            num_embeddings=user_count, embedding_dim=embedding_dim
+        )
+        self.item_embedding = nn.Embedding(
+            num_embeddings=item_count, embedding_dim=embedding_dim
+        )
+        self.item_biases = nn.Embedding(num_embeddings=item_count, embedding_dim=1)
+        self.user_biases = nn.Embedding(num_embeddings=user_count, embedding_dim=1)
 
         xavier_init_(self.user_embedding)
         xavier_init_(self.item_embedding)
@@ -86,12 +81,13 @@ class GMF(nn.Module):
 
 class MLP(nn.Module):
     """Multi-Layer Perceptron (MLP) модель"""
+
     def __init__(
-            self,
-            user_count: int,
-            item_count: int,
-            embedding_dim: int,
-            hidden_dims: Optional[List[int]] = None,
+        self,
+        user_count: int,
+        item_count: int,
+        embedding_dim: int,
+        hidden_dims: Optional[List[int]] = None,
     ):
         """
         Инициализация модели.
@@ -103,20 +99,23 @@ class MLP(nn.Module):
         :param hidden_dims: последовательность размеров скрытых слоев
         """
         super().__init__()
-        self.user_embedding = nn.Embedding(num_embeddings=user_count,
-                                           embedding_dim=embedding_dim)
-        self.item_embedding = nn.Embedding(num_embeddings=item_count,
-                                           embedding_dim=embedding_dim)
-        self.item_biases = nn.Embedding(num_embeddings=item_count,
-                                        embedding_dim=1)
-        self.user_biases = nn.Embedding(num_embeddings=user_count,
-                                        embedding_dim=1)
+        self.user_embedding = nn.Embedding(
+            num_embeddings=user_count, embedding_dim=embedding_dim
+        )
+        self.item_embedding = nn.Embedding(
+            num_embeddings=item_count, embedding_dim=embedding_dim
+        )
+        self.item_biases = nn.Embedding(num_embeddings=item_count, embedding_dim=1)
+        self.user_biases = nn.Embedding(num_embeddings=user_count, embedding_dim=1)
 
         if hidden_dims:
             full_hidden_dims = [2 * embedding_dim] + hidden_dims
             self.hidden_layers = nn.ModuleList(
-                [nn.Linear(d_in, d_out) for d_in, d_out in
-                 zip(full_hidden_dims[:-1], full_hidden_dims[1:])])
+                [
+                    nn.Linear(d_in, d_out)
+                    for d_in, d_out in zip(full_hidden_dims[:-1], full_hidden_dims[1:])
+                ]
+            )
 
         else:
             self.hidden_layers = nn.ModuleList()
@@ -150,13 +149,14 @@ class MLP(nn.Module):
 
 class NMF(nn.Module):
     """NMF модель (MLP + GMF)"""
+
     def __init__(
-            self,
-            user_count: int,
-            item_count: int,
-            embedding_gmf_dim: Optional[int] = None,
-            embedding_mlp_dim: Optional[int] = None,
-            hidden_mlp_dims: Optional[List[int]] = None,
+        self,
+        user_count: int,
+        item_count: int,
+        embedding_gmf_dim: Optional[int] = None,
+        embedding_mlp_dim: Optional[int] = None,
+        hidden_mlp_dims: Optional[List[int]] = None,
     ):
         """
         Инициализация модели. Создает эмбеддинги пользователей и объектов.
@@ -179,10 +179,10 @@ class NMF(nn.Module):
             self.gmf = None
 
         if embedding_mlp_dim:
-            self.mlp = MLP(user_count, item_count,
-                           embedding_mlp_dim, hidden_mlp_dims)
-            merged_dim += (hidden_mlp_dims[-1] if hidden_mlp_dims else
-                           2 * embedding_mlp_dim)
+            self.mlp = MLP(user_count, item_count, embedding_mlp_dim, hidden_mlp_dims)
+            merged_dim += (
+                hidden_mlp_dims[-1] if hidden_mlp_dims else 2 * embedding_mlp_dim
+            )
         else:
             self.mlp = None
 
@@ -224,6 +224,7 @@ class NeuroMF(TorchRecommender):
     Модель позволяет использовать архитектуры MLP и GMF как отдельно,
     так и совместно.
     """
+
     num_workers: int = 16
     batch_size_users: int = 100000
     trainer: Engine
@@ -233,15 +234,17 @@ class NeuroMF(TorchRecommender):
     valid_split_size: float = 0.1
     seed: int = 42
 
-    def __init__(self, learning_rate: float = 0.05,
-                 epochs: int = 5,
-                 embedding_gmf_dim: Optional[int] = None,
-                 embedding_mlp_dim: Optional[int] = None,
-                 hidden_mlp_dims: Optional[List[int]] = None,
-                 l2_reg: float = 0,
-                 gamma: float = 0.99,
-                 count_negative_sample: int = 1
-                 ):
+    def __init__(
+        self,
+        learning_rate: float = 0.05,
+        epochs: int = 5,
+        embedding_gmf_dim: Optional[int] = None,
+        embedding_mlp_dim: Optional[int] = None,
+        hidden_mlp_dims: Optional[List[int]] = None,
+        l2_reg: float = 0,
+        gamma: float = 0.99,
+        count_negative_sample: int = 1,
+    ):
         """
         Инициализирует параметры модели.
 
@@ -258,13 +261,18 @@ class NeuroMF(TorchRecommender):
         :param count_negative_sample: количество отрицательных примеров
         """
         if not embedding_gmf_dim and not embedding_mlp_dim:
-            raise ValueError("Хотя бы один из параметров embedding_gmf_dim, "
-                             "embedding_mlp_dim должен быть не пуст")
+            raise ValueError(
+                "Хотя бы один из параметров embedding_gmf_dim, "
+                "embedding_mlp_dim должен быть не пуст"
+            )
 
-        if ((embedding_gmf_dim is None or embedding_gmf_dim < 0) and
-           (embedding_mlp_dim is None or embedding_mlp_dim < 0)):
-            raise ValueError("Параметры embedding_gmf_dim, embedding_mlp_dim"
-                             " должны быть положительными")
+        if (embedding_gmf_dim is None or embedding_gmf_dim < 0) and (
+            embedding_mlp_dim is None or embedding_mlp_dim < 0
+        ):
+            raise ValueError(
+                "Параметры embedding_gmf_dim, embedding_mlp_dim"
+                " должны быть положительными"
+            )
 
         self.device = State().device
         self.learning_rate = learning_rate
@@ -277,15 +285,9 @@ class NeuroMF(TorchRecommender):
         self.count_negative_sample = count_negative_sample
 
     def get_params(self) -> Dict[str, object]:
-        return {
-            "learning_rate": self.learning_rate,
-            "epochs": self.epochs
-        }
+        return {"learning_rate": self.learning_rate, "epochs": self.epochs}
 
-    def _data_loader(self,
-                     data: pd.DataFrame,
-                     shuffle: bool = True
-                     ) -> DataLoader:
+    def _data_loader(self, data: pd.DataFrame, shuffle: bool = True) -> DataLoader:
 
         user_batch = LongTensor(data["user_idx"].values)
         item_batch = LongTensor(data["item_idx"].values)
@@ -296,21 +298,22 @@ class NeuroMF(TorchRecommender):
             dataset,
             batch_size=self.batch_size_users,
             shuffle=shuffle,
-            num_workers=self.num_workers
+            num_workers=self.num_workers,
         )
         return loader
 
     def _get_neg_batch(self, batch: Tensor) -> Tensor:
-        negative_items = (torch
-                          .randint(0, self.items_count - 1,
-                                   (batch.shape[0] *
-                                    self.count_negative_sample,)))
+        negative_items = torch.randint(
+            0, self.items_count - 1, (batch.shape[0] * self.count_negative_sample,)
+        )
         return negative_items
 
-    def _fit(self,
-             log: DataFrame,
-             user_features: Optional[DataFrame] = None,
-             item_features: Optional[DataFrame] = None) -> None:
+    def _fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
         self.model = NMF(
             user_count=self.users_count,
             item_count=self.items_count,
@@ -329,7 +332,8 @@ class NeuroMF(TorchRecommender):
             tensor_data,
             stratify=tensor_data["user_idx"],
             test_size=self.valid_split_size,
-            random_state=self.seed)
+            random_state=self.seed,
+        )
         train_data_loader = self._data_loader(train_tensor_data)
         val_data_loader = self._data_loader(valid_tensor_data)
 
@@ -337,13 +341,14 @@ class NeuroMF(TorchRecommender):
         optimizer = torch.optim.Adam(
             self.model.parameters(),
             lr=self.learning_rate,
-            weight_decay=self.l2_reg / self.batch_size_users)
+            weight_decay=self.l2_reg / self.batch_size_users,
+        )
         lr_scheduler = ExponentialLR(optimizer, gamma=self.gamma)
         scheduler = LRScheduler(lr_scheduler)
 
         nmf_trainer, val_evaluator = self._create_trainer_evaluator(
-            optimizer, val_data_loader,
-            lr_scheduler, self.patience, self.n_saved)
+            optimizer, val_data_loader, lr_scheduler, self.patience, self.n_saved
+        )
 
         nmf_trainer.run(train_data_loader, max_epochs=self.epochs)
 
@@ -353,11 +358,13 @@ class NeuroMF(TorchRecommender):
     def _batch_pass(self, batch, model):
         user_batch, pos_item_batch = batch
         neg_item_batch = self._get_neg_batch(user_batch)
-        pos_relevance = model(user_batch.to(self.device),
-                              pos_item_batch.to(self.device))
+        pos_relevance = model(
+            user_batch.to(self.device), pos_item_batch.to(self.device)
+        )
         neg_relevance = model(
             user_batch.repeat([self.count_negative_sample]).to(self.device),
-            neg_item_batch.to(self.device))
+            neg_item_batch.to(self.device),
+        )
         y_pred = torch.cat((pos_relevance, neg_relevance), 0)
         y_true_pos = torch.ones_like(pos_item_batch).to(self.device)
         y_true_neg = torch.zeros_like(neg_item_batch).to(self.device)
@@ -367,11 +374,11 @@ class NeuroMF(TorchRecommender):
 
     @staticmethod
     def _predict_by_user(
-            pandas_df: pd.DataFrame,
-            model: nn.Module,
-            items_np: np.array,
-            k: int,
-            items_count: int
+        pandas_df: pd.DataFrame,
+        model: nn.Module,
+        items_np: np.array,
+        k: int,
+        items_count: int,
     ) -> pd.DataFrame:
         user_idx = pandas_df["user_idx"][0]
         cnt = min(len(pandas_df) + k, len(items_np))
@@ -381,11 +388,11 @@ class NeuroMF(TorchRecommender):
             user_batch = LongTensor([user_idx] * len(items_np))
             item_batch = LongTensor(items_np)
             user_recs = model(user_batch, item_batch).detach()
-            best_item_idx = (torch.argsort(
-                user_recs,
-                descending=True)[:cnt]).numpy()
-            return pd.DataFrame({
-                "user_idx": cnt * [user_idx],
-                "item_idx": items_np[best_item_idx],
-                "relevance": user_recs[best_item_idx]
-            })
+            best_item_idx = (torch.argsort(user_recs, descending=True)[:cnt]).numpy()
+            return pd.DataFrame(
+                {
+                    "user_idx": cnt * [user_idx],
+                    "item_idx": items_np[best_item_idx],
+                    "relevance": user_recs[best_item_idx],
+                }
+            )

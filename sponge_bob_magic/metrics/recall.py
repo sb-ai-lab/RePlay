@@ -18,13 +18,14 @@ class Recall(Metric):
 
     :math:`|Rel_i|` -- количество элементов, с которыми взаимодействовал пользователь :math:`i`
     """
+
     @staticmethod
     def _get_metric_value_by_user(pandas_df):
         pandas_df = pandas_df.assign(
-            is_good_item=pandas_df[["item_id", "items_id"]]
-            .apply(lambda x: int(x["item_id"] in x["items_id"]), 1)
+            is_good_item=pandas_df[["item_id", "items_id"]].apply(
+                lambda x: int(x["item_id"] in x["items_id"]), 1
+            )
         )
         return pandas_df.assign(
-            cum_agg=pandas_df["is_good_item"].cumsum() /
-            pandas_df["items_id"].str.len()
+            cum_agg=pandas_df["is_good_item"].cumsum() / pandas_df["items_id"].str.len()
         )

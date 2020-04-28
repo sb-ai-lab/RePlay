@@ -15,6 +15,7 @@ class ALSWrap(Recommender):
     """ Обёртка для матричной факторизации `ALS на Spark
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
+
     _seed: Optional[int] = None
 
     def __init__(self, rank: int = 10, seed: Optional[int] = None):
@@ -28,14 +29,14 @@ class ALSWrap(Recommender):
         self._seed = seed
 
     def get_params(self) -> Dict[str, object]:
-        return {
-            "rank": self.rank
-        }
+        return {"rank": self.rank}
 
-    def _fit(self,
-             log: DataFrame,
-             user_features: Optional[DataFrame] = None,
-             item_features: Optional[DataFrame] = None) -> None:
+    def _fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
         self.logger.debug("Индексирование данных")
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
@@ -46,17 +47,19 @@ class ALSWrap(Recommender):
             itemCol="item_idx",
             ratingCol="relevance",
             implicitPrefs=True,
-            seed=self._seed
+            seed=self._seed,
         ).fit(log_indexed)
 
-    def _predict(self,
-                 log: DataFrame,
-                 k: int,
-                 users: DataFrame = None,
-                 items: DataFrame = None,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None,
-                 filter_seen_items: bool = True) -> DataFrame:
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame = None,
+        items: DataFrame = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
         test_data = users.crossJoin(items).withColumn("relevance", lit(1))
         log_indexed = self.user_indexer.transform(test_data)
         log_indexed = self.item_indexer.transform(log_indexed)

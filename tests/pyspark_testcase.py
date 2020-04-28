@@ -17,10 +17,7 @@ from sponge_bob_magic.session_handler import State
 
 class PySparkTest(unittest.TestCase):
     def assertSparkDataFrameEqual(
-            self,
-            df1: DataFrame,
-            df2: DataFrame,
-            msg: Optional[str] = None
+        self, df1: DataFrame, df2: DataFrame, msg: Optional[str] = None
     ) -> None:
         def _unify_dataframe(df: DataFrame):
             pandas_df = df.toPandas()
@@ -31,26 +28,28 @@ class PySparkTest(unittest.TestCase):
             else:
                 for column in pandas_df.columns:
                     if not type(pandas_df[column][0]) in {
-                            DenseVector, list, np.ndarray}:
+                        DenseVector,
+                        list,
+                        np.ndarray,
+                    }:
                         columns_to_sort_by.append(column)
 
-            return (pandas_df
-                    [sorted(df.columns)]
-                    .sort_values(by=sorted(columns_to_sort_by))
-                    .reset_index(drop=True))
+            return (
+                pandas_df[sorted(df.columns)]
+                .sort_values(by=sorted(columns_to_sort_by))
+                .reset_index(drop=True)
+            )
 
         try:
-            pd.testing.assert_frame_equal(_unify_dataframe(df1),
-                                          _unify_dataframe(df2),
-                                          check_like=True)
+            pd.testing.assert_frame_equal(
+                _unify_dataframe(df1), _unify_dataframe(df2), check_like=True
+            )
         except AssertionError as e:
             raise self.failureException(msg) from e
 
     def assertDictAlmostEqual(
-            self,
-            d1: Dict,
-            d2: Dict,
-            msg: Optional[str] = None) -> None:
+        self, d1: Dict, d2: Dict, msg: Optional[str] = None
+    ) -> None:
         try:
             self.assertSetEqual(set(d1.keys()), set(d2.keys()))
             for key in d1:

@@ -17,6 +17,7 @@ from sponge_bob_magic.utils import get_top_k_recs
 
 class Recommender(ABC):
     """ Базовый класс-рекомендатель. """
+
     model: Any = None
     user_indexer: StringIndexerModel
     item_index: StringIndexerModel
@@ -41,7 +42,8 @@ class Recommender(ABC):
                     "Неправильный параметр для данного рекоммендера "
                     f"{param}. "
                     "Проверьте список параметров, "
-                    f"которые принимает рекоммендер: {valid_params}")
+                    f"которые принимает рекоммендер: {valid_params}"
+                )
 
             setattr(self, param, value)
 
@@ -56,19 +58,23 @@ class Recommender(ABC):
 
     def __repr__(self):
         return (
-            type(self).__name__ + "(" +
-            ", ".join([
-                f"{key}={self.get_params()[key]}"
-                for key in self.get_params()
-            ]) + ")"
+            type(self).__name__
+            + "("
+            + ", ".join(
+                [f"{key}={self.get_params()[key]}" for key in self.get_params()]
+            )
+            + ")"
         )
 
     def __str__(self):
         return type(self).__name__
 
-    def fit(self, log: DataFrame,
-            user_features: Optional[DataFrame] = None,
-            item_features: Optional[DataFrame] = None) -> None:
+    def fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
         """
         Обучает модель на логе и признаках пользователей и объектов.
 
@@ -92,9 +98,12 @@ class Recommender(ABC):
         self.logger.debug("Основная стадия обучения (fit)")
         self._fit(log, user_features, item_features)
 
-    def _pre_fit(self, log: DataFrame,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None) -> None:
+    def _pre_fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
         """
         Метод-helper для обучения модели, в котором параметры не используются.
         Нужен для того, чтобы вынести вычисление трудоемких агрегатов
@@ -112,29 +121,26 @@ class Recommender(ABC):
             ``[item_id, timestamp]`` и колонки с признаками
         :return:
         """
-        self.user_indexer = StringIndexer(
-            inputCol="user_id",
-            outputCol="user_idx"
-        ).fit(log)
-        self.item_indexer = StringIndexer(
-            inputCol="item_id",
-            outputCol="item_idx"
-        ).fit(log)
+        self.user_indexer = StringIndexer(inputCol="user_id", outputCol="user_idx").fit(
+            log
+        )
+        self.item_indexer = StringIndexer(inputCol="item_id", outputCol="item_idx").fit(
+            log
+        )
         self.inv_user_indexer = IndexToString(
-            inputCol="user_idx",
-            outputCol="user_id",
-            labels=self.user_indexer.labels
+            inputCol="user_idx", outputCol="user_id", labels=self.user_indexer.labels
         )
         self.inv_item_indexer = IndexToString(
-            inputCol="item_idx",
-            outputCol="item_id",
-            labels=self.item_indexer.labels
+            inputCol="item_idx", outputCol="item_id", labels=self.item_indexer.labels
         )
 
     @abstractmethod
-    def _fit(self, log: DataFrame,
-             user_features: Optional[DataFrame] = None,
-             item_features: Optional[DataFrame] = None) -> None:
+    def _fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
         """
         Метод для обучения модели.
         Должен быть имплементирован наследниками.
@@ -151,14 +157,16 @@ class Recommender(ABC):
         :return:
         """
 
-    def predict(self,
-                log: DataFrame,
-                k: int,
-                users: Optional[Union[DataFrame, Iterable]] = None,
-                items: Optional[Union[DataFrame, Iterable]] = None,
-                user_features: Optional[DataFrame] = None,
-                item_features: Optional[DataFrame] = None,
-                filter_seen_items: bool = True) -> DataFrame:
+    def predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: Optional[Union[DataFrame, Iterable]] = None,
+        items: Optional[Union[DataFrame, Iterable]] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
         """
         Выдача рекомендаций для пользователей.
 
@@ -199,23 +207,24 @@ class Recommender(ABC):
         if num_items < k:
             raise ValueError(
                 "Значение k больше, чем множество объектов; "
-                f"k = {k}, number of items = {num_items}")
-        recs = self._predict(log, k, users, items, user_features, item_features,
-                             filter_seen_items)
+                f"k = {k}, number of items = {num_items}"
+            )
+        recs = self._predict(
+            log, k, users, items, user_features, item_features, filter_seen_items
+        )
         if filter_seen_items:
             recs = self._filter_seen_recs(recs, log)
         recs = get_top_k_recs(recs, k)
-        recs = (recs
-                .withColumn("relevance",
-                            sf.when(recs["relevance"] < 0, 0)
-                            .otherwise(recs["relevance"]))).cache()
+        recs = (
+            recs.withColumn(
+                "relevance",
+                sf.when(recs["relevance"] < 0, 0).otherwise(recs["relevance"]),
+            )
+        ).cache()
         return convert(recs, type_in)
 
     def _extract_unique(
-            self,
-            log: DataFrame,
-            array: Union[Iterable, DataFrame],
-            column: str
+        self, log: DataFrame, array: Union[Iterable, DataFrame], column: str
     ) -> DataFrame:
         """
         Получить уникальные значения из ``array`` и положить в датафрейм с колонкой ``column``.
@@ -228,22 +237,23 @@ class Recommender(ABC):
         elif not isinstance(array, DataFrame):
             if isinstance(array, Iterable):
                 unique = spark.createDataFrame(
-                    data=pd.DataFrame(pd.unique(list(array)),
-                                      columns=[column])
+                    data=pd.DataFrame(pd.unique(list(array)), columns=[column])
                 )
         else:
             unique = array.select(column).distinct()
         return unique
 
     @abstractmethod
-    def _predict(self,
-                 log: DataFrame,
-                 k: int,
-                 users: DataFrame,
-                 items: DataFrame,
-                 user_features: Optional[DataFrame] = None,
-                 item_features: Optional[DataFrame] = None,
-                 filter_seen_items: bool = True) -> DataFrame:
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
         """
         Метод-helper для получения рекомендаций.
         Должен быть имплементирован наследниками.
@@ -273,14 +283,16 @@ class Recommender(ABC):
             ``[user_id, item_id, relevance]``
         """
 
-    def fit_predict(self,
-                    log: DataFrame,
-                    k: int,
-                    users: Optional[DataFrame] = None,
-                    items: Optional[DataFrame] = None,
-                    user_features: Optional[DataFrame] = None,
-                    item_features: Optional[DataFrame] = None,
-                    filter_seen_items: bool = True) -> DataFrame:
+    def fit_predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: Optional[DataFrame] = None,
+        items: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
         """
         Обучает модель и выдает рекомендации.
 
@@ -309,7 +321,9 @@ class Recommender(ABC):
             ``[user_id, item_id, relevance]``
         """
         self.fit(log, user_features, item_features)
-        return self.predict(log, k, users, items, user_features, item_features, filter_seen_items)
+        return self.predict(
+            log, k, users, items, user_features, item_features, filter_seen_items
+        )
 
     @staticmethod
     def _filter_seen_recs(recs: DataFrame, log: DataFrame) -> DataFrame:
@@ -325,19 +339,17 @@ class Recommender(ABC):
         :return: измененные рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
-        user_item_log = (log
-                         .select(sf.col("item_id").alias("item"),
-                                 sf.col("user_id").alias("user"))
-                         .withColumn("in_log", sf.lit(True)))
-        recs = (recs
-                .join(user_item_log,
-                      (recs.item_id == user_item_log.item) &
-                      (recs.user_id == user_item_log.user), how="left"))
-        recs = (recs
-                .withColumn("relevance",
-                            sf.when(recs["in_log"], -1)
-                            .otherwise(recs["relevance"]))
-                .drop("in_log", "item", "user"))
+        user_item_log = log.select(
+            sf.col("item_id").alias("item"), sf.col("user_id").alias("user")
+        ).withColumn("in_log", sf.lit(True))
+        recs = recs.join(
+            user_item_log,
+            (recs.item_id == user_item_log.item) & (recs.user_id == user_item_log.user),
+            how="left",
+        )
+        recs = recs.withColumn(
+            "relevance", sf.when(recs["in_log"], -1).otherwise(recs["relevance"])
+        ).drop("in_log", "item", "user")
         return recs
 
     @property
@@ -354,9 +366,7 @@ class Recommender(ABC):
         try:
             return len(self.user_indexer.labels)
         except AttributeError:
-            raise AttributeError(
-                "Перед вызовом этого свойства нужно вызвать метод fit"
-            )
+            raise AttributeError("Перед вызовом этого свойства нужно вызвать метод fit")
 
     @property
     def spark(self) -> SparkSession:
@@ -372,6 +382,4 @@ class Recommender(ABC):
         try:
             return len(self.item_indexer.labels)
         except AttributeError:
-            raise AttributeError(
-                "Перед вызовом этого свойства нужно вызвать метод fit"
-            )
+            raise AttributeError("Перед вызовом этого свойства нужно вызвать метод fit")

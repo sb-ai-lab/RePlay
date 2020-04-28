@@ -22,17 +22,16 @@ class ALSRecTestCase(PySparkTest):
                 ["u3", "i3", self.some_date, 2.0],
                 ["u2", "i3", self.some_date, 2.0],
                 ["u3", "i4", self.some_date, 2.0],
-                ["u1", "i4", self.some_date, 2.0]
+                ["u1", "i4", self.some_date, 2.0],
             ],
-            schema=LOG_SCHEMA
+            schema=LOG_SCHEMA,
         )
         self.als_rec._seed = 42
 
     def test_fit(self):
         self.als_rec.fit(self.log)
         item_factors = np.array(
-            self.als_rec.model.itemFactors
-            .toPandas()["features"].tolist()
+            self.als_rec.model.itemFactors.toPandas()["features"].tolist()
         )
         self.assertEqual(item_factors.shape, (3, 1))
 
@@ -43,12 +42,9 @@ class ALSRecTestCase(PySparkTest):
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
             user_features=None,
-            item_features=None
+            item_features=None,
         )
-        self.assertEqual(
-            list(recs.toPandas()),
-            ["user_id", "item_id", "relevance"]
-        )
+        self.assertEqual(list(recs.toPandas()), ["user_id", "item_id", "relevance"])
 
     def test_get_params(self):
         self.assertEqual(self.als_rec.get_params(), {"rank": 1})

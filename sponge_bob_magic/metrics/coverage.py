@@ -21,6 +21,7 @@ class Coverage(RecOnlyMetric):
     * делим полученное количество объектов в рекомендациях на количество объектов в изначальном логе (до разбиения на train и test)
 
     """
+
     def __init__(self, log: CommonDataFrame):
         """
         :param log: pandas или Spark DataFrame, содержащий лог *до* разбиения на train и test.
@@ -36,18 +37,14 @@ class Coverage(RecOnlyMetric):
         pass
 
     def _get_metric_value(
-            self,
-            recommendations: DataFrame,
-            ground_truth: DataFrame,
-            k: IntOrList
+        self, recommendations: DataFrame, ground_truth: DataFrame, k: IntOrList
     ) -> Union[Dict[int, NumType], NumType]:
         if isinstance(k, int):
             k_set = {k}
         else:
             k_set = set(k)
         unknows_item_count = (
-            recommendations.select("item_id").distinct()
-            .exceptAll(self.items).count()
+            recommendations.select("item_id").distinct().exceptAll(self.items).count()
         )
         if unknows_item_count > 0:
             self.logger.warning(
@@ -55,12 +52,11 @@ class Coverage(RecOnlyMetric):
                 "Значение метрики может получиться больше единицы ¯\_(ツ)_/¯"
             )
         item_sets = (
-            recommendations
-            .withColumn(
+            recommendations.withColumn(
                 "row_num",
                 sf.row_number().over(
                     Window.partitionBy("user_id").orderBy(sf.desc("relevance"))
-                )
+                ),
             )
             .groupBy("row_num")
             .agg(sf.collect_set("item_id").alias("items"))
