@@ -28,7 +28,6 @@ default = true
 
 [tool.poetry.dependencies]
 python = "^3.6.1"
-annoy = "1.16.3"
 Cython = "0.29.14"
 dash = "1.8.0"
 joblib = "0.14.1"
