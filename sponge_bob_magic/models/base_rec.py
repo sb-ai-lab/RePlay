@@ -205,9 +205,13 @@ class Recommender(ABC):
 
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
-        self._reindex(self.item_indexer, self.inv_item_indexer, items,
-                      self.can_predict_cold_items)
-        self._reindex(self.user_indexer, self.inv_user_indexer, users,
+        if ("item_indexer" in self.__dict__ and
+                "inv_item_indexer" in self.__dict__):
+            self._reindex(self.item_indexer, self.inv_item_indexer, items,
+                          self.can_predict_cold_items)
+        if ("user_indexer" in self.__dict__ and
+                "inv_user_indexer" in self.__dict__):
+            self._reindex(self.user_indexer, self.inv_user_indexer, users,
                       self.can_predict_cold_users)
 
         num_items = items.count()
