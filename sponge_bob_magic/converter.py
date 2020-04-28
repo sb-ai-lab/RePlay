@@ -8,14 +8,15 @@ from sponge_bob_magic.session_handler import State
 
 SPARK = "spark"
 PANDAS = "pandas"
-supported_types = [SPARK, PANDAS]
+SUPPORTED_TYPES = [SPARK, PANDAS]
 
 
 def convert(*args, to=SPARK):
+    # TODO: добавить аннотации
     """
     Обеспечивает конвертацию данных в спарк и обратно.
 
-    :param args: лог с данными в формате датафрейма пандас или спарк,
+    :param args: данные в формате датафрейма пандас или спарк,
         либо объект датасета, в котором лежат датафреймы поддежриваемых форматов.
     :param to: текстовая строка, во что конвертировать ``{"pandas", "spark"}``.
     :return: преобразованные данные, если на вход был подан датафрейм.
