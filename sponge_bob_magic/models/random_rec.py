@@ -114,6 +114,7 @@ class RandomRec(Recommender):
     """
 
     item_popularity: DataFrame
+    can_predict_cold_users = True
 
     def __init__(
         self,

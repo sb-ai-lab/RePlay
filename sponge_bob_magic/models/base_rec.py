@@ -212,7 +212,7 @@ class Recommender(ABC):
         if ("user_indexer" in self.__dict__ and
                 "inv_user_indexer" in self.__dict__):
             self._reindex(self.user_indexer, self.inv_user_indexer, users,
-                      self.can_predict_cold_users)
+                          self.can_predict_cold_users)
 
         num_items = items.count()
         if num_items < k:

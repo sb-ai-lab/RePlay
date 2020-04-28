@@ -55,6 +55,7 @@ class PopRec(Recommender):
     """
 
     item_popularity: DataFrame
+    can_predict_cold_users = True
 
     def get_params(self) -> Dict[str, object]:
         return {}
