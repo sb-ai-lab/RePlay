@@ -3,7 +3,7 @@ repos:
       hooks:
         -   id: black
             name: black
-            entry: black sponge_bob_magic
+            entry: black
             language: system
             types: [python]
         -   id: pycodestyle
