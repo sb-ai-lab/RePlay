@@ -45,6 +45,7 @@ torch = "1.4.0"
 tqdm = "4.42.1"
 pytorch-ignite = "^0.3.0"
 sphinx-autodoc-typehints = "^1.10.3"
+statsmodels = "0.11.1"
 
 [tool.poetry.dev-dependencies]
 autopep8 = "1.4.4"
