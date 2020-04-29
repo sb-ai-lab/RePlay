@@ -207,12 +207,10 @@ class Recommender(ABC):
         items = self._extract_unique(log, items, "item_id")
         if ("item_indexer" in self.__dict__ and
                 "inv_item_indexer" in self.__dict__):
-            self._reindex(self.item_indexer, self.inv_item_indexer, items,
-                          self.can_predict_cold_items)
+            self._reindex("item", items)
         if ("user_indexer" in self.__dict__ and
                 "inv_user_indexer" in self.__dict__):
-            self._reindex(self.user_indexer, self.inv_user_indexer, users,
-                          self.can_predict_cold_users)
+            self._reindex("user", users)
 
         num_items = items.count()
         if num_items < k:
@@ -235,32 +233,35 @@ class Recommender(ABC):
         return convert(recs, type_in)
 
     def _reindex(self,
-                 indexer: StringIndexerModel,
-                 inv_indexer: IndexToString,
-                 objects: DataFrame,
-                 can_reindex: bool):
+                 entity: str,
+                 objects: DataFrame):
         """
            Переиндексирование пользователей/объектов. В случае если
            рекомендатель может работать с пользователями/объектами не из
            обучения, индексатор дополняется соответствующими элементами.
 
-           :param indexer: индексатор пользователей/объектов
-           :param inv_indexer: обратный индексер пользователей/объектов
+           :param entity: название сушности item или user
            :param objects: DataFrame со столбцов уникальных
            пользователей/объектов
-           :param can_reindex: индикатор возможности рекомендателя делать
-           предсказания для пользователей/объектов, отсутствующих на обучении
         """
+        indexer = getattr(self, f"{entity}_indexer")
+        inv_indexer = getattr(self, f"inv_{entity}_indexer")
+        can_reindex = getattr(self, f"can_predict_cold_{entity}s")
+
         new_objects = set(
             map(str, objects.select(sf.collect_list(indexer.getInputCol()))
                 .first()[0])
         ).difference(indexer.labels)
         if new_objects:
             if can_reindex:
-                indexer.from_labels(indexer.labels + list(new_objects),
-                                    indexer.getInputCol())
-                indexer.setHandleInvalid("error")
-                inv_indexer.setLabels(indexer.labels)
+                new_labels = indexer.labels + list(new_objects)
+                setattr(self, f"{entity}_indexer", indexer.from_labels(
+                    new_labels,
+                    inputCol=indexer.getInputCol(),
+                    outputCol=indexer.getOutputCol(),
+                    handleInvalid="error")
+                        )
+                inv_indexer.setLabels(new_labels)
             else:
                 self.logger.debug("Список пользователей или объектов содержит "
                                   "элементы, которые отсутствовали при "
