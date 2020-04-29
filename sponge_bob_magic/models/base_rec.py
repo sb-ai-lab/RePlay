@@ -212,11 +212,15 @@ class Recommender(ABC):
 
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
-        if ("item_indexer" in self.__dict__ and
-                "inv_item_indexer" in self.__dict__):
+        if (
+            "item_indexer" in self.__dict__
+            and "inv_item_indexer" in self.__dict__
+        ):
             self._reindex("item", items)
-        if ("user_indexer" in self.__dict__ and
-                "inv_user_indexer" in self.__dict__):
+        if (
+            "user_indexer" in self.__dict__
+            and "inv_user_indexer" in self.__dict__
+        ):
             self._reindex("user", users)
 
         num_items = items.count()
@@ -245,9 +249,7 @@ class Recommender(ABC):
         ).cache()
         return convert(recs, type_in)
 
-    def _reindex(self,
-                 entity: str,
-                 objects: DataFrame):
+    def _reindex(self, entity: str, objects: DataFrame):
         """
            Переиндексирование пользователей/объектов. В случае если
            рекомендатель может работать с пользователями/объектами не из
@@ -262,24 +264,34 @@ class Recommender(ABC):
         can_reindex = getattr(self, f"can_predict_cold_{entity}s")
 
         new_objects = set(
-            map(str, objects.select(sf.collect_list(indexer.getInputCol()))
-                .first()[0])
+            map(
+                str,
+                objects.select(sf.collect_list(indexer.getInputCol())).first()[
+                    0
+                ],
+            )
         ).difference(indexer.labels)
         if new_objects:
             if can_reindex:
                 new_labels = indexer.labels + list(new_objects)
-                setattr(self, f"{entity}_indexer", indexer.from_labels(
-                    new_labels,
-                    inputCol=indexer.getInputCol(),
-                    outputCol=indexer.getOutputCol(),
-                    handleInvalid="error")
+                setattr(
+                    self,
+                    f"{entity}_indexer",
+                    indexer.from_labels(
+                        new_labels,
+                        inputCol=indexer.getInputCol(),
+                        outputCol=indexer.getOutputCol(),
+                        handleInvalid="error",
+                    ),
                 )
                 inv_indexer.setLabels(new_labels)
             else:
-                self.logger.debug("Список пользователей или объектов содержит "
-                                  "элементы, которые отсутствовали при "
-                                  "обучении. Результат предсказания будет не "
-                                  "полным.")
+                self.logger.debug(
+                    "Список пользователей или объектов содержит "
+                    "элементы, которые отсутствовали при "
+                    "обучении. Результат предсказания будет не "
+                    "полным."
+                )
                 indexer.setHandleInvalid("skip")
 
     def _extract_unique(

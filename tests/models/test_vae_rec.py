@@ -63,7 +63,9 @@ class VAERecTestCase(PySparkTest):
         for i, parameter in enumerate(self.model.model.parameters()):
             self.assertTrue(
                 np.allclose(
-                    parameter.detach().cpu().numpy(), true_parameters[i], atol=1.0e-3,
+                    parameter.detach().cpu().numpy(),
+                    true_parameters[i],
+                    atol=1.0e-3,
                 )
             )
 
@@ -96,7 +98,9 @@ class VAERecTestCase(PySparkTest):
         )
         self.assertTrue(
             np.allclose(
-                predictions.toPandas()[["user_id", "item_id"]].astype(int).values,
+                predictions.toPandas()[["user_id", "item_id"]]
+                .astype(int)
+                .values,
                 [[0, 1], [2, 2]],
                 atol=1.0e-3,
             )
@@ -130,6 +134,8 @@ class VAERecTestCase(PySparkTest):
         for i, parameter in enumerate(new_model.model.parameters()):
             self.assertTrue(
                 np.allclose(
-                    parameter.detach().cpu().numpy(), true_parameters[i], atol=1.0e-3,
+                    parameter.detach().cpu().numpy(),
+                    true_parameters[i],
+                    atol=1.0e-3,
                 )
             )
