@@ -16,7 +16,9 @@ SplitterReturnType = Tuple[DataFrame, DataFrame]
 class Splitter(ABC):
     """ Базовый класс для разбиения выборки на обучающую и тестовую. """
 
-    def __init__(self, drop_cold_items: bool, drop_cold_users: bool, **kwargs):
+    def __init__(
+        self, drop_cold_items: bool, drop_cold_users: bool,
+    ):
         """
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей

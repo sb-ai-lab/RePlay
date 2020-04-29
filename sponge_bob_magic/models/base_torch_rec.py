@@ -169,6 +169,7 @@ class TorchRecommender(Recommender):
         """
         self.model.to(self.device)
 
+        # pylint: disable=unused-argument
         def _run_train_step(engine, batch):
             self.model.train()
             opt.zero_grad()
@@ -182,6 +183,7 @@ class TorchRecommender(Recommender):
             opt.step()
             return loss.item()
 
+        # pylint: disable=unused-argument
         def _run_val_step(engine, batch):
             self.model.eval()
             with torch.no_grad():
@@ -240,6 +242,7 @@ class TorchRecommender(Recommender):
                 {type(self).__name__.lower(): self.model},
             )
 
+            # pylint: disable=unused-argument
             @torch_trainer.on(Events.COMPLETED)
             def load_best_model(engine):
                 self.load_model(checkpoint.last_checkpoint)

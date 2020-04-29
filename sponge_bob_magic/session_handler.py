@@ -88,7 +88,6 @@ class State(Borg):
         self,
         session: Optional[SparkSession] = None,
         device: Optional[torch.device] = None,
-        logger: Optional[logging.Logger] = None,
     ):
         Borg.__init__(self)
         if not hasattr(self, "logger_set"):

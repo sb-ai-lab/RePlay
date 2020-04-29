@@ -105,6 +105,7 @@ class KNN(Recommender):
             .cache()
         )
 
+    # pylint: disable=unused-argument
     def _pre_fit(
         self,
         log: DataFrame,

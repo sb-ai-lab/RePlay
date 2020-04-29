@@ -392,6 +392,7 @@ class NeuroMF(TorchRecommender):
 
         return y_pred, y_true
 
+    # pylint: disable=unused-argument
     @staticmethod
     def _predict_by_user(
         pandas_df: pd.DataFrame,

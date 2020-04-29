@@ -103,6 +103,7 @@ class Recommender(ABC):
         self.logger.debug("Основная стадия обучения (fit)")
         self._fit(log, user_features, item_features)
 
+    # pylint: disable=unused-argument
     def _pre_fit(
         self,
         log: DataFrame,
