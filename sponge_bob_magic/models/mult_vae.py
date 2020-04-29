@@ -259,6 +259,7 @@ class MultVAE(TorchRecommender):
     n_saved: int = 2
     valid_split_size: float = 0.1
     seed: int = 42
+    can_predict_cold_users = True
 
     def __init__(
         self,
