@@ -4,10 +4,10 @@
 from datetime import datetime
 from math import log2
 
+import pandas as pd
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.metrics.base_metric import Metric
 from sponge_bob_magic.metrics import (
     MAP,
     NDCG,
@@ -17,6 +17,7 @@ from sponge_bob_magic.metrics import (
     Recall,
     Surprisal,
 )
+from sponge_bob_magic.metrics.base_metric import Metric
 
 
 class TestMetrics(PySparkTest):
@@ -36,7 +37,8 @@ class TestMetrics(PySparkTest):
             schema=REC_SCHEMA,
         )
         self.recs2 = self.spark.createDataFrame(
-            data=[["user1", "item4", 4.0], ["user1", "item5", 5.0]], schema=REC_SCHEMA
+            data=[["user1", "item4", 4.0], ["user1", "item5", 5.0]],
+            schema=REC_SCHEMA,
         )
         self.ground_truth_recs = self.spark.createDataFrame(
             data=[
@@ -79,10 +81,20 @@ class TestMetrics(PySparkTest):
 
     def test_hit_rate_at_k(self):
         self.assertDictAlmostEqual(
-            HitRate()(self.recs, self.ground_truth_recs, [3, 1]), {3: 2 / 3, 1: 1 / 3}
+            HitRate()(self.recs, self.ground_truth_recs, [3, 1]),
+            {3: 2 / 3, 1: 1 / 3},
         )
 
     def test_ndcg_at_k(self):
+        one_user = pd.DataFrame({"item_id": [300, 200, 100]})
+        one_user["k"] = [1, 2, 3]
+        one_user["user_id"] = 1
+        one_user["items_id"] = 3 * [[200, 400]]
+        ndcg_value = 1 / log2(3) / (1 / log2(2) + 1 / log2(3))
+        self.assertEqual(
+            NDCG._get_metric_value_by_user(one_user)["cum_agg"].tolist(),
+            [0.0, ndcg_value, ndcg_value],
+        )
         self.assertDictAlmostEqual(
             NDCG()(self.recs, self.ground_truth_recs, [1, 3]),
             {
@@ -106,7 +118,8 @@ class TestMetrics(PySparkTest):
 
     def test_map_at_k(self):
         self.assertDictAlmostEqual(
-            MAP()(self.recs, self.ground_truth_recs, [1, 3]), {3: 7 / 12, 1: 1 / 3}
+            MAP()(self.recs, self.ground_truth_recs, [1, 3]),
+            {3: 7 / 12, 1: 1 / 3},
         )
 
     def test_recall_at_k(self):
@@ -121,7 +134,8 @@ class TestMetrics(PySparkTest):
         )
 
         self.assertAlmostEqual(
-            Surprisal(self.log2)(self.recs, 3), 5 * (1 - 1 / log2(3)) / 9 + 4 / 9
+            Surprisal(self.log2)(self.recs, 3),
+            5 * (1 - 1 / log2(3)) / 9 + 4 / 9,
         )
 
     def test_check_users(self):
@@ -144,12 +158,17 @@ class TestMetrics(PySparkTest):
         new_metric = NewMetric()
         for correct_value, left, right in test_cases:
             with self.subTest():
-                self.assertEqual(new_metric._check_users(left, right), correct_value)
+                self.assertEqual(
+                    new_metric._check_users(left, right), correct_value
+                )
 
     def test_coverage(self):
-        coverage = Coverage(self.recs.union(self.ground_truth_recs.drop("timestamp")))
+        coverage = Coverage(
+            self.recs.union(self.ground_truth_recs.drop("timestamp"))
+        )
         self.assertDictAlmostEqual(
-            coverage(self.recs, [1, 3]), {1: 0.3333333333333333, 3: 0.8333333333333334}
+            coverage(self.recs, [1, 3]),
+            {1: 0.3333333333333333, 3: 0.8333333333333334},
         )
 
     def test_bad_coverage(self):

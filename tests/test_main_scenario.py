@@ -30,36 +30,18 @@ class MainScenarioTestCase(PySparkTest):
         ]
         schema = ["user_id", "item_id", "relevance", "timestamp"]
         self.log = self.spark.createDataFrame(data=data, schema=schema)
-        self.scenario = MainScenario()
-        self.scenario.splitter = DateSplitter(
+        splitter = DateSplitter(
             test_start=datetime(2019, 10, 14),
             drop_cold_users=True,
             drop_cold_items=True,
         )
-        self.scenario.criterion = HitRate
-        self.scenario.metrics = {NDCG: [2], Precision: [2], Surprisal: [2]}
-        self.scenario.optuna_max_n_trials = 10
-        self.scenario.fallback_rec = None
-        self.scenario._optuna_seed = 42
+        self.scenario = MainScenario(
+            splitter, metrics={NDCG: [2], Precision: [2], Surprisal: 2},
+        )
 
     def test_research_and_production(self):
-        self.scenario.recommender = KNN()
-        self.scenario.fallback_rec = PopRec()
-        grid = {"num_neighbours": {"type": "categorical", "args": [[1, 2, 3, 4, 5]]}}
-        best_params = self.scenario.research(grid, self.log, k=2, n_trials=2)
-        self.assertEqual(best_params, {"num_neighbours": 4})
-        recs = self.scenario.production(
-            best_params, self.log, users=None, items=None, k=2
-        )
-        data = self.spark.createDataFrame(
-            [
-                ["user2", "item2", 0.3452994616207483],
-                ["user3", "item3", 0.6905989232414966],
-                ["user3", "item1", 0.0],
-                ["user2", "item1", 0.0],
-                ["user1", "item1", 0.0],
-                ["user1", "item1", 0.0],
-            ],
-            REC_SCHEMA,
-        )
-        self.assertSparkDataFrameEqual(recs, data)
+        grid = {"rank": [1]}
+        best_params = self.scenario.research(grid, self.log, k=2, n_trials=1)
+        self.assertEqual(best_params, {"rank": 1})
+        recs = self.scenario.production(best_params, self.log, k=2)
+        self.assertEqual(recs.count(), 6)

@@ -3,6 +3,13 @@
 Использование одинаковых сплитов полезно для сравнения моделей между собой.
 """
 
-from sponge_bob_magic.splitters.base_splitter import *
-from sponge_bob_magic.splitters.log_splitter import *
+from sponge_bob_magic.splitters.base_splitter import (
+    Splitter,
+    SplitterReturnType,
+)
+from sponge_bob_magic.splitters.log_splitter import (
+    ColdUsersSplitter,
+    DateSplitter,
+    RandomSplitter,
+)
 from sponge_bob_magic.splitters.user_log_splitter import UserSplitter

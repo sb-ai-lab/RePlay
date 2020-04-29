@@ -36,6 +36,15 @@ class VAERecTestCase(PySparkTest):
             ],
             schema=LOG_SCHEMA,
         )
+        self.other_log = self.spark.createDataFrame(
+            [
+                ("2", "0", datetime(2019, 1, 1), 1.0),
+                ("2", "1", datetime(2019, 1, 1), 1.0),
+                ("0", "0", datetime(2019, 1, 1), 1.0),
+                ("0", "2", datetime(2019, 1, 1), 1.0),
+            ],
+            schema=LOG_SCHEMA,
+        )
 
     def test_fit(self):
         self.model.fit(log=self.log, user_features=None, item_features=None)
@@ -54,7 +63,9 @@ class VAERecTestCase(PySparkTest):
         for i, parameter in enumerate(self.model.model.parameters()):
             self.assertTrue(
                 np.allclose(
-                    parameter.detach().cpu().numpy(), true_parameters[i], atol=1.0e-3
+                    parameter.detach().cpu().numpy(),
+                    true_parameters[i],
+                    atol=1.0e-3,
                 )
             )
 
@@ -77,9 +88,9 @@ class VAERecTestCase(PySparkTest):
     def test_predict(self):
         self.model.fit(log=self.log, user_features=None, item_features=None)
         predictions = self.model.predict(
-            log=self.log,
+            log=self.other_log,
             k=1,
-            users=self.log.select("user_id").distinct(),
+            users=self.other_log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
             user_features=None,
             item_features=None,
@@ -87,8 +98,10 @@ class VAERecTestCase(PySparkTest):
         )
         self.assertTrue(
             np.allclose(
-                predictions.toPandas()[["user_id", "item_id"]].astype(int).values,
-                [[0, 1], [1, 2]],
+                predictions.toPandas()[["user_id", "item_id"]]
+                .astype(int)
+                .values,
+                [[0, 1], [2, 2]],
                 atol=1.0e-3,
             )
         )
@@ -121,6 +134,8 @@ class VAERecTestCase(PySparkTest):
         for i, parameter in enumerate(new_model.model.parameters()):
             self.assertTrue(
                 np.allclose(
-                    parameter.detach().cpu().numpy(), true_parameters[i], atol=1.0e-3
+                    parameter.detach().cpu().numpy(),
+                    true_parameters[i],
+                    atol=1.0e-3,
                 )
             )

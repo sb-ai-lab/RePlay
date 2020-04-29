@@ -27,11 +27,14 @@ class ClassifierRecTestCase(PySparkTest):
             [("1", Vectors.dense([1.0, 2.0]))]
         ).toDF("user_id", "user_features")
         self.item_features = self.spark.createDataFrame(
-            [("1", Vectors.dense([3.0, 4.0])), ("2", Vectors.dense([5.0, 6.0]))]
+            [
+                ("1", Vectors.dense([3.0, 4.0])),
+                ("2", Vectors.dense([5.0, 6.0])),
+            ]
         ).toDF("item_id", "item_features")
-        self.log = self.spark.createDataFrame([("1", "1", 1.0), ("1", "2", 0.0)],).toDF(
-            "user_id", "item_id", "relevance"
-        )
+        self.log = self.spark.createDataFrame(
+            [("1", "1", 1.0), ("1", "2", 0.0)],
+        ).toDF("user_id", "item_id", "relevance")
 
     def test_get_params(self):
         model = ClassifierRec(seed=42)
@@ -97,4 +100,6 @@ class ClassifierRecTestCase(PySparkTest):
 
     def test_pre_fit_raises(self):
         with self.assertRaises(ValueError):
-            self.model._pre_fit(self.spark.createDataFrame([(1,)]).toDF("relevance"))
+            self.model._pre_fit(
+                self.spark.createDataFrame([(1,)]).toDF("relevance")
+            )

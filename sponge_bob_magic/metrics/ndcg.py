@@ -2,6 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import numpy as np
+import pandas as pd
 
 from sponge_bob_magic.metrics.base_metric import Metric
 
@@ -39,7 +40,7 @@ class NDCG(Metric):
     """
 
     @staticmethod
-    def _get_metric_value_by_user(pandas_df):
+    def _get_metric_value_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
         pandas_df = pandas_df.assign(
             is_good_item=pandas_df[["item_id", "items_id"]].apply(
                 lambda x: int(x["item_id"] in x["items_id"]), 1
@@ -49,6 +50,10 @@ class NDCG(Metric):
             sorted_good_item=pandas_df["k"].le(pandas_df["items_id"].str.len())
         )
         return pandas_df.assign(
-            cum_agg=(pandas_df["is_good_item"] / np.log2(pandas_df.k + 1)).cumsum()
-            / (pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)).cumsum()
+            cum_agg=(
+                pandas_df["is_good_item"] / np.log2(pandas_df.k + 1)
+            ).cumsum()
+            / (
+                pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)
+            ).cumsum()
         )

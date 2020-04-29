@@ -44,7 +44,9 @@ class ALSRecTestCase(PySparkTest):
             user_features=None,
             item_features=None,
         )
-        self.assertEqual(list(recs.toPandas()), ["user_id", "item_id", "relevance"])
+        self.assertEqual(
+            list(recs.toPandas()), ["user_id", "item_id", "relevance"]
+        )
 
     def test_get_params(self):
         self.assertEqual(self.als_rec.get_params(), {"rank": 1})

@@ -114,6 +114,7 @@ class RandomRec(Recommender):
     """
 
     item_popularity: DataFrame
+    can_predict_cold_users = True
 
     def __init__(
         self,
@@ -130,7 +131,9 @@ class RandomRec(Recommender):
         :param seed: инициализация генератора псевдослучайности
         """
         if distribution not in ("popular_based", "uniform"):
-            raise ValueError("distribution должно быть popular_based " "или uniform")
+            raise ValueError(
+                "distribution должно быть popular_based " "или uniform"
+            )
         if alpha <= -1.0 and distribution == "popular_based":
             raise ValueError("alpha должно быть строго больше -1")
         self.distribution = distribution
@@ -184,7 +187,9 @@ class RandomRec(Recommender):
         items_pd = (
             self.item_indexer.transform(
                 items.join(
-                    self.item_popularity.withColumnRenamed("item_id", "item_id_2"),
+                    self.item_popularity.withColumnRenamed(
+                        "item_id", "item_id_2"
+                    ),
                     on=sf.col("item_id") == sf.col("item_id_2"),
                     how="inner",
                 )
@@ -200,7 +205,9 @@ class RandomRec(Recommender):
         @sf.pandas_udf(
             st.StructType(
                 [
-                    st.StructField("user_id", users.schema["user_id"].dataType, True),
+                    st.StructField(
+                        "user_id", users.schema["user_id"].dataType, True
+                    ),
                     st.StructField("user_idx", st.LongType(), True),
                     st.StructField("item_idx", st.LongType(), True),
                     st.StructField("relevance", st.FloatType(), True),

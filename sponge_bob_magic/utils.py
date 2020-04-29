@@ -29,7 +29,9 @@ def flat_list(list_object: Iterable):
             yield item
 
 
-def get_distinct_values_in_column(dataframe: DataFrame, column: str) -> Set[Any]:
+def get_distinct_values_in_column(
+    dataframe: DataFrame, column: str
+) -> Set[Any]:
     """
     Возвращает уникальные значения в колонке спарк-датафрейма в виде set.
 
@@ -37,10 +39,14 @@ def get_distinct_values_in_column(dataframe: DataFrame, column: str) -> Set[Any]
     :param column: имя колонки
     :return: уникальные значения в колонке
     """
-    return {row[column] for row in (dataframe.select(column).distinct().collect())}
+    return {
+        row[column] for row in (dataframe.select(column).distinct().collect())
+    }
 
 
-def get_top_k_rows(dataframe: DataFrame, k: int, sort_column: str) -> DataFrame:
+def get_top_k_rows(
+    dataframe: DataFrame, k: int, sort_column: str
+) -> DataFrame:
     """
     Выделяет топ-k строк в датафрейме на основе заданной колонки.
 
@@ -80,8 +86,12 @@ def get_feature_cols(
     :return: пара списков
     (имена колонок свойств пользователей, то же для фичей)
     """
-    user_feature_cols = list(set(user_features.columns) - {"user_id", "timestamp"})
-    item_feature_cols = list(set(item_features.columns) - {"item_id", "timestamp"})
+    user_feature_cols = list(
+        set(user_features.columns) - {"user_id", "timestamp"}
+    )
+    item_feature_cols = list(
+        set(item_features.columns) - {"item_id", "timestamp"}
+    )
     return user_feature_cols, item_feature_cols
 
 
@@ -95,7 +105,9 @@ def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
     :return: топ-k рекомендации, спарк-датафрейм с колонками
         `[user_id, item_id, relevance]`
     """
-    window = Window.partitionBy(recs["user_id"]).orderBy(recs["relevance"].desc())
+    window = Window.partitionBy(recs["user_id"]).orderBy(
+        recs["relevance"].desc()
+    )
     return (
         recs.withColumn("rank", sf.row_number().over(window))
         .filter(sf.col("rank") <= k)
@@ -239,5 +251,9 @@ def get_log_info(log: DataFrame) -> str:
     user_cnt = log.select("user_id").distinct().count()
     item_cnt = log.select("item_id").distinct().count()
     return ", ".join(
-        [f"total lines: {cnt}", f"total users: {user_cnt}", f"total items: {item_cnt}"]
+        [
+            f"total lines: {cnt}",
+            f"total users: {user_cnt}",
+            f"total items: {item_cnt}",
+        ]
     )

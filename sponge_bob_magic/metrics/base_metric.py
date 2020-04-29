@@ -43,10 +43,12 @@ class Metric(ABC):
         if not self._check_users(recommendations_spark, ground_truth_spark):
             logger = logging.getLogger("sponge_bob_magic")
             logger.warning(
-                "Значение метрики может быть неожиданным:"
+                "Значение метрики может быть неожиданным: "
                 "пользователи в recommendations и ground_truth различаются!"
             )
-        return self._get_metric_value(recommendations_spark, ground_truth_spark, k)
+        return self._get_metric_value(
+            recommendations_spark, ground_truth_spark, k
+        )
 
     def _get_enriched_recommendations(
         self, recommendations: DataFrame, ground_truth: DataFrame
@@ -65,7 +67,9 @@ class Metric(ABC):
             sf.collect_set("item_id").alias("items_id")
         )
 
-        return recommendations.join(true_items_by_users, how="inner", on=["user_id"])
+        return recommendations.join(
+            true_items_by_users, how="inner", on=["user_id"]
+        )
 
     def _get_metric_value(
         self, recommendations: DataFrame, ground_truth: DataFrame, k: IntOrList
@@ -87,12 +91,16 @@ class Metric(ABC):
         users_count = recommendations.select("user_id").distinct().count()
         agg_fn = self._get_metric_value_by_user
 
-        recs = self._get_enriched_recommendations(recommendations, ground_truth)
+        recs = self._get_enriched_recommendations(
+            recommendations, ground_truth
+        )
 
         @sf.pandas_udf(
             st.StructType(
                 [
-                    st.StructField("user_id", recs.schema["user_id"].dataType, True),
+                    st.StructField(
+                        "user_id", recs.schema["user_id"].dataType, True
+                    ),
                     st.StructField("cum_agg", st.DoubleType(), True),
                     st.StructField("k", st.LongType(), True),
                 ]
@@ -107,7 +115,11 @@ class Metric(ABC):
             )
             return agg_fn(pandas_df)[["user_id", "cum_agg", "k"]]
 
-        recs = recs.groupby("user_id").apply(grouped_map).where(sf.col("k").isin(k_set))
+        recs = (
+            recs.groupby("user_id")
+            .apply(grouped_map)
+            .where(sf.col("k").isin(k_set))
+        )
         total_metric = (
             recs.groupby("k")
             .agg(sf.sum("cum_agg").alias("total_metric"))
@@ -127,13 +139,17 @@ class Metric(ABC):
         Расчёт значения метрики для каждого пользователя
 
         :param pandas_df: DataFrame, содержащий рекомендации по каждому пользователю --
-            pandas-датафрейм вида ``[user_id, item_id, relevance, k, *columns]``
+            pandas-датафрейм вида ``[user_id, item_id, items_id, k, *columns]``, где
+            ``k`` --- порядковый номер рекомендованного объекта ``item_id`` в списке рекомендаций для пользоавтеля ``user_id``,
+            ``items_id`` --- список объектов, с которыми действительно взаимодействовал пользователь в тесте
         :return: DataFrame c рассчитанным полем ``cum_agg`` --
             pandas-датафрейм вида ``[user_id , item_id , cum_agg, *columns]``
         """
 
     @staticmethod
-    def _check_users(recommendations: DataFrame, ground_truth: DataFrame) -> bool:
+    def _check_users(
+        recommendations: DataFrame, ground_truth: DataFrame
+    ) -> bool:
         """
         Вспомогательный метод, который сравнивает множества пользователей,
         которым выдали рекомендации, и тех, кто есть в тестовых данных
@@ -170,4 +186,6 @@ class RecOnlyMetric(Metric):
         :return: значение метрики
         """
         recommendations_spark = convert(recommendations)
-        return self._get_metric_value(recommendations_spark, recommendations_spark, k)
+        return self._get_metric_value(
+            recommendations_spark, recommendations_spark, k
+        )

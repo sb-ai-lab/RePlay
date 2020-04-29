@@ -81,7 +81,9 @@ class TwoStagesScenario:
             )
         return self._experiment
 
-    def _split_data(self, log: DataFrame) -> Tuple[DataFrame, DataFrame, DataFrame]:
+    def _split_data(
+        self, log: DataFrame
+    ) -> Tuple[DataFrame, DataFrame, DataFrame]:
         mixed_train, test = self.second_stage_splitter.split(log)
         mixed_train.cache()
         State().logger.debug("mixed_train stat: %s", get_log_info(mixed_train))
@@ -130,10 +132,14 @@ class TwoStagesScenario:
                         "uid", "iid", "relevance"
                     ),
                     how="left",
-                    on=[col("user_id") == col("uid"), col("item_id") == col("iid")],
+                    on=[
+                        col("user_id") == col("uid"),
+                        col("item_id") == col("iid"),
+                    ],
                 )
                 .withColumn(
-                    "relevance", when(isnull("relevance"), lit(0)).otherwise(lit(1))
+                    "relevance",
+                    when(isnull("relevance"), lit(0)).otherwise(lit(1)),
                 )
                 .drop("uid", "iid")
                 .cache()
@@ -218,7 +224,9 @@ class TwoStagesScenario:
         State().logger.debug(
             "ROC AUC модели второго уровня (как классификатора): %.4f",
             BinaryClassificationEvaluator().evaluate(
-                self.second_model.model.transform(self.second_model.augmented_data)
+                self.second_model.model.transform(
+                    self.second_model.augmented_data
+                )
             ),
         )
         self._experiment = Experiment(test, self.metrics)

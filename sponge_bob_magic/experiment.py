@@ -66,7 +66,9 @@ class Experiment:
         :param pred: список рекомендаций для подсчета метрик
         """
         recs = convert(pred)
-        for metric, k_list in sorted(self.metrics.items(), key=lambda x: str(x[0])):
+        for metric, k_list in sorted(
+            self.metrics.items(), key=lambda x: str(x[0])
+        ):
 
             if isinstance(metric, RecOnlyMetric):
                 values = metric(recs, k_list)

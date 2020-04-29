@@ -4,16 +4,16 @@
 import logging
 from typing import Any, Dict, Optional, Type
 
-from optuna import Study, create_study, samplers
+from optuna import create_study
+from optuna.samplers import GridSampler
 from pyspark.sql import DataFrame
 
-from sponge_bob_magic.constants import IntOrList
+from sponge_bob_magic.constants import IntOrList, NumType
 from sponge_bob_magic.experiment import Experiment
 from sponge_bob_magic.metrics import HitRate
 from sponge_bob_magic.metrics.base_metric import Metric, RecOnlyMetric
-from sponge_bob_magic.models import KNN, PopRec, Recommender
+from sponge_bob_magic.models import ALSWrap, PopRec, Recommender
 from sponge_bob_magic.scenarios.main_objective import MainObjective, SplitData
-from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.splitters.base_splitter import Splitter
 from sponge_bob_magic.splitters.log_splitter import RandomSplitter
 
@@ -23,19 +23,21 @@ class MainScenario:
     Основной сценарий. По умолчанию делает следующее:
 
     * разбивает лог случайно 70/30 (холодных пользователей и объекты просто выбрасывает)
-    * обучает дефолтный рекомендатель (:ref:`KNN <knn-model>`)
+    * обучает дефолтный рекомендатель (:ref:`ALS <als-rec>`)
     * для тех случаев, когда `KNN` выдаёт слишком мало рекомендаций (мешьше, top-N, которые требуются), добирает рекомендации из fallback-рекомендателя
       (:ref:`PopRec <pop-rec>`)
     * оптимизирует, подбирая гиперпараметры, и включает в отчёт только :ref:`HitRate <hit-rate>`
     """
 
+    experiment: Experiment
+
     def __init__(
         self,
         splitter: Splitter = RandomSplitter(0.3, True, True),
-        recommender: Recommender = KNN(),
+        recommender: Recommender = ALSWrap(),
         criterion: Type[Metric] = HitRate,
         metrics: Dict[Type[Metric], IntOrList] = dict(),
-        fallback_rec: Recommender = PopRec(),
+        fallback_model: Recommender = PopRec(),
     ):
         """
         Отдельные блоки сценария можно изменять по своему усмотрению
@@ -44,35 +46,29 @@ class MainScenario:
         :param recommender: Бейзлайн; объект класса, который необходимо обучить
         :param criterion: метрика, которая будет оптимизироваться при переборе гипер-параметров
         :param metrics: какие ещё метрики, кроме критерия оптимизации, включить в отчёт об эксперименте
-        :param fallback_rec: "запасной" рекомендатель, с помощью которого можно дополнять выдачу базового рекомендателя,
-                             если вдруг он выдаёт меньшее количество объектов, чем было запрошено
+        :param fallback_model: "запасной" рекомендатель, с помощью которого можно дополнять выдачу базового рекомендателя,
+                               если вдруг он выдаёт меньшее количество объектов, чем было запрошено
         """
         self.splitter = splitter
         self.recommender = recommender
         self.criterion = criterion
         self.metrics = metrics
-        self.fallback_rec = fallback_rec
+        self.fallback_model = fallback_model
         self.logger = logging.getLogger("sponge_bob_magic")
-
-    optuna_study: Optional[Study]
-    optuna_max_n_trials: int = 100
-    optuna_n_jobs: int = 1
-    filter_seen_items: bool = True
-    study: Study
-    _optuna_seed: Optional[int] = None
-    experiment: Experiment
 
     def _prepare_data(
         self,
         log: DataFrame,
-        users: Optional[DataFrame] = None,
-        items: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: DataFrame,
+        item_features: DataFrame,
     ) -> SplitData:
         """ Делит лог и готовит объекти типа ``SplitData``. """
         train, test = self.splitter.split(log)
-        self.logger.debug("Длина трейна и теста: %d %d", train.count(), test.count())
+        self.logger.debug(
+            "Длина трейна и теста: %d %d", train.count(), test.count()
+        )
         self.logger.debug(
             "Количество пользователей в трейне и тесте: %d, %d",
             train.select("user_id").distinct().count(),
@@ -83,19 +79,22 @@ class MainScenario:
             train.select("item_id").distinct().count(),
             test.select("item_id").distinct().count(),
         )
-        # если users или items нет, возьмем всех из теста,
-        # чтобы не делать на каждый trial их заново
         users = users if users else test.select("user_id").distinct().cache()
         items = items if items else test.select("item_id").distinct().cache()
         split_data = SplitData(
-            train.cache(), test.cache(), users, items, user_features, item_features
+            train.cache(),
+            test.cache(),
+            users,
+            items,
+            user_features,
+            item_features,
         )
         return split_data
 
     def _run_optimization(
         self,
         n_trials: int,
-        params_grid: Dict[str, Dict[str, Any]],
+        params_grid: Dict[str, NumType],
         split_data: SplitData,
         criterion: Metric,
         metrics: Dict[Metric, IntOrList],
@@ -103,33 +102,23 @@ class MainScenario:
         fallback_recs: Optional[DataFrame] = None,
     ) -> Dict[str, Any]:
         """ Запускает подбор параметров в ``optuna``. """
-        sampler = samplers.RandomSampler(seed=self._optuna_seed)
-        self.study = create_study(direction="maximize", sampler=sampler)
-        # делаем триалы до тех пор, пока не засемплим уникальных n_trials или
-        # не используем максимально попыток
-        count = 1
-        n_unique_trials = 0
-        spark = State().session
+        sampler = GridSampler(params_grid)
+        study = create_study(direction="maximize", sampler=sampler)
         objective = MainObjective(
             params_grid,
-            self.study,
+            study,
             split_data,
             self.recommender,
             criterion,
             metrics,
-            k,
             fallback_recs,
-            self.filter_seen_items,
-            spark.conf.get("spark.local.dir"),
+            k,
         )
-        while n_trials > n_unique_trials and count <= self.optuna_max_n_trials:
-            self.study.optimize(objective, 1, n_jobs=self.optuna_n_jobs)
-            count += 1
-            n_unique_trials = len({str(t.params) for t in self.study.trials})
+        study.optimize(objective, n_trials)
         self.experiment = objective.experiment
-        self.logger.debug("Лучшее значение метрики: %.2f", self.study.best_value)
-        self.logger.debug("Лучшие параметры: %s", self.study.best_params)
-        return self.study.best_params
+        self.logger.debug("Лучшее значение метрики: %.2f", study.best_value)
+        self.logger.debug("Лучшие параметры: %s", study.best_params)
+        return study.best_params
 
     def research(
         self,
@@ -183,47 +172,56 @@ class MainScenario:
             которые возвращает ``get_params()``), значение - значение параметра
         """
         self.logger.debug("Деление лога на обучающую и тестовую выборку")
-        split_data = self._prepare_data(log, users, items, user_features, item_features)
+        split_data = self._prepare_data(
+            log, users, items, user_features, item_features
+        )
         self.logger.debug("Инициализация метрик")
-        metrics = {}
-        for metric in self.metrics:
-            if issubclass(metric, RecOnlyMetric):
-                metrics[metric(split_data.train)] = self.metrics[metric]
-            else:
-                metrics[metric()] = self.metrics[metric]
         criterion = self.criterion()
+        metrics = {criterion: [k]}
+        for metric in self.metrics:
+            int_or_list = self.metrics[metric]
+            if isinstance(int_or_list, list):
+                k_list = int_or_list
+            elif isinstance(int_or_list, int):
+                k_list = [int_or_list]
+            if issubclass(metric, RecOnlyMetric):
+                metrics[metric(split_data.train)] = k_list
+            else:
+                metrics[metric()] = k_list
         self.logger.debug("Обучение и предсказание дополнительной модели")
-        fallback_recs = self._predict_fallback_recs(self.fallback_rec, split_data, k)
+        fallback_recs = self._fit_predict_fallback_recs(split_data, k)
         self.logger.debug("Пре-фит модели")
         self.recommender._pre_fit(
-            split_data.train, split_data.user_features, split_data.item_features
+            split_data.train,
+            split_data.user_features,
+            split_data.item_features,
         )
-        self.logger.debug("-------------")
         self.logger.debug("Оптимизация параметров")
-        self.logger.debug(
-            "Максимальное количество попыток: %d %s",
-            self.optuna_max_n_trials,
-            "(чтобы поменять его, задайте параметр 'optuna_max_n_trials')",
-        )
+        self.logger.debug("Количество попыток: %d", n_trials)
         best_params = self._run_optimization(
-            n_trials, params_grid, split_data, criterion, metrics, k, fallback_recs
+            n_trials,
+            params_grid,
+            split_data,
+            criterion,
+            metrics,
+            k,
+            fallback_recs,
         )
         return best_params
 
-    def _predict_fallback_recs(
-        self, fallback_rec: Recommender, split_data: SplitData, k: int
+    def _fit_predict_fallback_recs(
+        self, split_data: SplitData, k: int
     ) -> Optional[DataFrame]:
         """ Обучает fallback модель и возвращает ее рекомендации. """
         fallback_recs = None
-        if fallback_rec is not None:
-            fallback_recs = fallback_rec.fit_predict(
+        if self.fallback_model is not None:
+            fallback_recs = self.fallback_model.fit_predict(
                 split_data.train,
                 k,
                 split_data.users,
                 split_data.items,
                 split_data.user_features,
                 split_data.item_features,
-                self.filter_seen_items,
             )
         return fallback_recs
 
@@ -267,5 +265,5 @@ class MainScenario:
         """
         self.recommender.set_params(**params)
         return self.recommender.fit_predict(
-            log, k, users, items, user_features, item_features, self.filter_seen_items
+            log, k, users, items, user_features, item_features
         )
