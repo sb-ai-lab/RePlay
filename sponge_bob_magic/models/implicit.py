@@ -14,7 +14,7 @@ class ImplicitWrap(Recommender):
     <https://github.com/benfred/implicit>`_"""
 
     def __init__(self, model):
-        """На вход принимаетя инициализированная модель Implicit."""
+        """На вход принимаестя инициализированная модель Implicit."""
         self.model = model
 
     def get_params(self) -> Dict[str, object]:
@@ -42,10 +42,13 @@ class ImplicitWrap(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         @sf.pandas_udf(
-            "user_id int, item_idx int, relevance double", sf.PandasUDFType.GROUPED_MAP,
+            "user_id int, item_idx int, relevance double",
+            sf.PandasUDFType.GROUPED_MAP,
         )
         def predict_by_user(pandas_df):
-            user = int(pandas_df["user_idx"].iloc[0])  # сюда приходит одна строка
+            user = int(
+                pandas_df["user_idx"].iloc[0]
+            )  # сюда приходит одна строка
             user_id = pandas_df["user_id"].iloc[0]
             res = model.recommend(
                 user, user_item_data, k, filter_seen_items, items_to_drop
@@ -67,7 +70,9 @@ class ImplicitWrap(Recommender):
             .groupby("user_idx")
             .apply(predict_by_user)
         )
-        return self.inv_item_indexer.transform(recs).drop("user_idx", "item_idx")
+        return self.inv_item_indexer.transform(recs).drop(
+            "user_idx", "item_idx"
+        )
 
     def _invert_items(self, log: DataFrame, items: DataFrame) -> list:
         """
