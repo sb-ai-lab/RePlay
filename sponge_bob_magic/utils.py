@@ -160,8 +160,8 @@ def vector_dot(one: Vector, two: Vector) -> DenseVector:
     ...     spark.createDataFrame([(Vectors.dense([1.0, 2.0]), Vectors.dense([3.0, 4.0]))])
     ...     .toDF("one", "two")
     ... )
-    >>> input_data.schema
-    StructType(List(StructField(one,VectorUDT,true),StructField(two,VectorUDT,true)))
+    >>> input_data.dtypes
+    [('one', 'vector'), ('two', 'vector')]
     >>> input_data.show()
     +---------+---------+
     |      one|      two|
@@ -198,8 +198,8 @@ def vector_mult(one: Vector, two: Vector) -> DenseVector:
     ...     spark.createDataFrame([(Vectors.dense([1.0, 2.0]), Vectors.dense([3.0, 4.0]))])
     ...     .toDF("one", "two")
     ... )
-    >>> input_data.schema
-    StructType(List(StructField(one,VectorUDT,true),StructField(two,VectorUDT,true)))
+    >>> input_data.dtypes
+    [('one', 'vector'), ('two', 'vector')]
     >>> input_data.show()
     +---------+---------+
     |      one|      two|
