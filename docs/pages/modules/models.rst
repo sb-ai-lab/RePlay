@@ -63,6 +63,13 @@ LightFM
 .. autoclass:: sponge_bob_magic.models.LightFMWrap
     :special-members: __init__
 
+Implicit
+---------
+
+.. autoclass:: sponge_bob_magic.models.ImplicitWrap
+    :special-members: __init__
+
+
 Mult-VAE
 --------
 

@@ -10,7 +10,11 @@ from sponge_bob_magic.models import Recommender
 
 
 class ImplicitWrap(Recommender):
+    """Обертка для пакета `Implicit
+    <https://github.com/benfred/implicit>`_"""
+
     def __init__(self, model):
+        """На вход принимаетя инициализированная модель Implicit."""
         self.model = model
 
     def get_params(self) -> Dict[str, object]:
