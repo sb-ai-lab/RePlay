@@ -241,7 +241,7 @@ class Recommender(ABC):
            обучения, индексатор дополняется соответствующими элементами.
 
            :param entity: название сушности item или user
-           :param objects: DataFrame со столбцов уникальных
+           :param objects: DataFrame со столбцом уникальных
            пользователей/объектов
         """
         indexer = getattr(self, f"{entity}_indexer")
