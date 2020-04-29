@@ -260,7 +260,7 @@ class Recommender(ABC):
                     inputCol=indexer.getInputCol(),
                     outputCol=indexer.getOutputCol(),
                     handleInvalid="error")
-                        )
+                )
                 inv_indexer.setLabels(new_labels)
             else:
                 self.logger.debug("Список пользователей или объектов содержит "
