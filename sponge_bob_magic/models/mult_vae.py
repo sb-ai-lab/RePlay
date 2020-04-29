@@ -378,7 +378,7 @@ class MultVAE(TorchRecommender):
         )
         lr_scheduler = ReduceLROnPlateau(optimizer, factor=0.5, patience=3)
 
-        vae_trainer, val_evaluator = self._create_trainer_evaluator(
+        vae_trainer, _ = self._create_trainer_evaluator(
             optimizer,
             valid_data_loader,
             lr_scheduler,

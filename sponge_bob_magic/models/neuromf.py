@@ -363,9 +363,7 @@ class NeuroMF(TorchRecommender):
             weight_decay=self.l2_reg / self.batch_size_users,
         )
         lr_scheduler = ExponentialLR(optimizer, gamma=self.gamma)
-        scheduler = LRScheduler(lr_scheduler)
-
-        nmf_trainer, val_evaluator = self._create_trainer_evaluator(
+        nmf_trainer, _ = self._create_trainer_evaluator(
             optimizer,
             val_data_loader,
             lr_scheduler,

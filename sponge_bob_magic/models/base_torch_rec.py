@@ -196,6 +196,7 @@ class TorchRecommender(Recommender):
         avg_output.attach(torch_trainer, "loss")
         Loss(self._loss).attach(torch_evaluator, "loss")
 
+        # pylint: disable=unused-variable
         @torch_trainer.on(Events.EPOCH_COMPLETED)
         def log_training_loss(trainer):
             self.logger.debug(
@@ -204,6 +205,7 @@ class TorchRecommender(Recommender):
                 )
             )
 
+        # pylint: disable=unused-variable
         @torch_trainer.on(Events.EPOCH_COMPLETED)
         def log_validation_results(trainer):
             torch_evaluator.run(valid_data_loader)
@@ -242,7 +244,7 @@ class TorchRecommender(Recommender):
                 {type(self).__name__.lower(): self.model},
             )
 
-            # pylint: disable=unused-argument
+            # pylint: disable=unused-argument,unused-variable
             @torch_trainer.on(Events.COMPLETED)
             def load_best_model(engine):
                 self.load_model(checkpoint.last_checkpoint)
@@ -253,7 +255,7 @@ class TorchRecommender(Recommender):
                     Events.EPOCH_COMPLETED, LRScheduler(scheduler)
                 )
             else:
-
+                # pylint: disable=unused-variable
                 @torch_evaluator.on(Events.EPOCH_COMPLETED)
                 def reduct_step(engine):
                     scheduler.step(engine.state.metrics["loss"])
