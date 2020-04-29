@@ -4,47 +4,31 @@
 from pandas import DataFrame as PandasDataFrame
 from pyspark.sql import DataFrame as SparkDataFrame
 
+from sponge_bob_magic.constants import AnyDataFrame
 from sponge_bob_magic.session_handler import State
 
-SPARK = "spark"
-PANDAS = "pandas"
-SUPPORTED_TYPES = [SPARK, PANDAS]
 
-
-def convert(*args, to=SPARK):
-    # TODO: добавить аннотации
+def convert(*args, to: type = SparkDataFrame) -> AnyDataFrame:
     """
     Обеспечивает конвертацию данных в спарк и обратно.
 
     :param args: данные в формате датафрейма пандас или спарк,
         либо объект датасета, в котором лежат датафреймы поддежриваемых форматов.
-    :param to: текстовая строка, во что конвертировать ``{"pandas", "spark"}``.
+    :param to: в какой тип конвертироавть ``{pyspark.sql.DataFrame, pandas.DataFrame}``.
     :return: преобразованные данные, если на вход был подан датафрейм.
     """
     if len(args) > 1:
         return tuple([convert(arg, to=to) for arg in args])
-    else:
-        df = args[0]
-        if df is None:
-            return None
-        type_in = get_type(df)
-        if type_in == to:
-            return df
-        elif to == SPARK:
-            spark = State().session
-            return spark.createDataFrame(df)
-        elif to == PANDAS:
-            return df.toPandas()
-
-
-def get_type(obj, except_unknown=True):
-    """Текстовое описание типа объекта"""
-    if isinstance(obj, PandasDataFrame):
-        res = PANDAS
-    elif isinstance(obj, SparkDataFrame):
-        res = SPARK
-    elif except_unknown:
-        raise NotImplementedError(f"{type(obj)} conversion is not implemented")
-    else:
-        res = type(obj)
-    return res
+    data_frame = args[0]
+    if data_frame is None:
+        return None
+    if type(data_frame) == to:
+        return data_frame
+    if to == SparkDataFrame:
+        spark = State().session
+        return spark.createDataFrame(data_frame)
+    if to == PandasDataFrame:
+        return data_frame.toPandas()
+    raise NotImplementedError(
+        f"{type(data_frame)} conversion is not implemented"
+    )

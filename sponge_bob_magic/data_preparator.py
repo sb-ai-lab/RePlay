@@ -8,15 +8,13 @@
 import logging
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-import pandas as pd
 from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.types import FloatType, StringType, TimestampType
 
+from sponge_bob_magic.constants import AnyDataFrame
 from sponge_bob_magic.converter import convert
 from sponge_bob_magic.session_handler import State
-
-CommonDataFrame = Union[DataFrame, pd.DataFrame]
 
 
 # pylint: disable=too-few-public-methods
@@ -260,7 +258,7 @@ class DataPreparator:
     def transform(
         self,
         columns_names: Dict[str, str],
-        data: Optional[CommonDataFrame] = None,
+        data: Optional[AnyDataFrame] = None,
         path: Optional[str] = None,
         format_type: Optional[str] = None,
         date_format: Optional[str] = None,

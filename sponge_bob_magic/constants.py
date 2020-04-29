@@ -33,4 +33,4 @@ REC_SCHEMA = StructType(
 
 IntOrList = Union[Iterable[int], int]
 NumType = Union[int, float]
-CommonDataFrame = Union[DataFrame, pd.DataFrame]
+AnyDataFrame = Union[DataFrame, pd.DataFrame]

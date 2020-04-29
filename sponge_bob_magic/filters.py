@@ -1,14 +1,8 @@
 """
 Содержит функции, позволяющие отобрать данные по некоторому критерию.
 """
-from typing import Union
-
-import pandas as pd
-import pyspark.sql as sp
-
-from sponge_bob_magic.converter import convert, get_type
-
-AnyDataFrame = Union[sp.DataFrame, pd.DataFrame]
+from sponge_bob_magic.constants import AnyDataFrame
+from sponge_bob_magic.converter import convert
 
 
 def min_entries(data_frame: AnyDataFrame, num_entries: int) -> AnyDataFrame:
@@ -23,7 +17,7 @@ def min_entries(data_frame: AnyDataFrame, num_entries: int) -> AnyDataFrame:
     0        1
     1        1
     """
-    type_in = get_type(data_frame)
+    type_in = type(data_frame)
     data_frame = convert(data_frame)
     entries_by_user = data_frame.groupBy("user_id").count()
     remaining_users = entries_by_user.filter(
@@ -46,7 +40,7 @@ def min_rating(
     0          5
     1          4
     """
-    type_in = get_type(data_frame)
+    type_in = type(data_frame)
     data_frame = convert(data_frame)
     data_frame = data_frame.filter(data_frame[column] > value)
     return convert(data_frame, to=type_in)

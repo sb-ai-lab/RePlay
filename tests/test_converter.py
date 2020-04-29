@@ -1,8 +1,7 @@
 import pandas as pd
-
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.converter import PANDAS, convert
+from sponge_bob_magic.converter import convert
 
 
 class TestConverter(PySparkTest):
@@ -13,7 +12,9 @@ class TestConverter(PySparkTest):
         self.assertTrue(
             (
                 self.pandas_data_frame.values
-                == convert(convert(self.pandas_data_frame), to=PANDAS).values
+                == convert(
+                    convert(self.pandas_data_frame), to=pd.DataFrame
+                ).values
             ).all()
         )
 

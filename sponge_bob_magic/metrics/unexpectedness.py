@@ -5,7 +5,7 @@ import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.constants import CommonDataFrame
+from sponge_bob_magic.constants import AnyDataFrame
 from sponge_bob_magic.converter import convert
 from sponge_bob_magic.metrics.base_metric import RecOnlyMetric
 from sponge_bob_magic.models import PopRec
@@ -35,7 +35,7 @@ class Unexpectedness(RecOnlyMetric):
     0.67
     """
 
-    def __init__(self, log: CommonDataFrame, rec: Recommender = PopRec()):
+    def __init__(self, log: AnyDataFrame, rec: Recommender = PopRec()):
         """
         Есть два варианта инициализации в зависимости от значения параметра ``rec``.
         Если ``rec`` -- рекомендатель, то ``log`` считается данными для обучения.

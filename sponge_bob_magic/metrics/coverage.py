@@ -7,7 +7,7 @@ from typing import Dict, Set, Union
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.constants import CommonDataFrame, IntOrList, NumType
+from sponge_bob_magic.constants import AnyDataFrame, IntOrList, NumType
 from sponge_bob_magic.converter import convert
 from sponge_bob_magic.metrics.base_metric import RecOnlyMetric
 
@@ -23,7 +23,7 @@ class Coverage(RecOnlyMetric):
 
     """
 
-    def __init__(self, log: CommonDataFrame):
+    def __init__(self, log: AnyDataFrame):
         """
         :param log: pandas или Spark DataFrame, содержащий лог *до* разбиения на train и test.
                     Важно, чтобы log содержал все доступные объекты (items). Coverage будет рассчитываться как доля по отношению к ним.

@@ -10,7 +10,7 @@ from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.converter import convert, get_type
+from sponge_bob_magic.converter import convert
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import get_top_k_recs
 
@@ -207,11 +207,10 @@ class Recommender(ABC):
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
-        type_in = get_type(log)
+        type_in = type(log)
         log, user_features, item_features = convert(
             log, user_features, item_features
         )
-
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
         if (
