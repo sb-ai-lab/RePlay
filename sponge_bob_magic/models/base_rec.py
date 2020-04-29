@@ -310,7 +310,7 @@ class Recommender(ABC):
                 indexer.setHandleInvalid("skip")
 
     def _extract_unique(
-        self, log: DataFrame, array: Union[Iterable, DataFrame], column: str
+        self, log: DataFrame, array: Union[Iterable, DataFrame, None], column: str
     ) -> DataFrame:
         """
         Получить уникальные значения из ``array`` и положить в датафрейм с колонкой ``column``.
