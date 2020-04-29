@@ -7,7 +7,7 @@ import numpy as np
 from tests.pyspark_testcase import PySparkTest
 
 from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.models.lightfm import LightFMWrap
+from sponge_bob_magic.models.lightfm_wrap import LightFMWrap
 
 
 class LightFMRecTestCase(PySparkTest):

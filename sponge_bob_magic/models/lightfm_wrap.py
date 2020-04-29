@@ -4,11 +4,11 @@
 from typing import Dict, Optional
 
 import numpy as np
+from lightfm import LightFM
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import lit
 from scipy.sparse import coo_matrix
 
-from lightfm import LightFM
 from sponge_bob_magic.models.base_rec import Recommender
 
 
