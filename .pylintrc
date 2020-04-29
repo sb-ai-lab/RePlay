@@ -10,3 +10,9 @@ disable=W1401, C0330, W503, E203, E231
 
 ignore-long-lines=^.*([А-Яа-я]|>{3}|\.{3}|\\{2}|https://).*$
 max-line-length=79
+
+[SIMILARITIES]
+min-similarity-lines=100
+ignore-comments=yes
+ignore-docstrings=yes
+ignore-imports=yes
