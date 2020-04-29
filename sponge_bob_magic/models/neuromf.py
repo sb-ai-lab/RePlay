@@ -63,6 +63,7 @@ class GMF(nn.Module):
         self.user_biases.weight.data.zero_()
         self.item_biases.weight.data.zero_()
 
+    # pylint: disable=arguments-differ
     def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
         """
         Один проход нейросети.
@@ -135,6 +136,7 @@ class MLP(nn.Module):
         for layer in self.hidden_layers:
             xavier_init_(layer)
 
+    # pylint: disable=arguments-differ
     def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
         """
         Один проход нейросети.
@@ -200,6 +202,7 @@ class NMF(nn.Module):
         self.last_layer = nn.Linear(merged_dim, 1)
         xavier_init_(self.last_layer)
 
+    # pylint: disable=arguments-differ
     def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
         """
         Один проход нейросети.
@@ -372,7 +375,7 @@ class NeuroMF(TorchRecommender):
 
         nmf_trainer.run(train_data_loader, max_epochs=self.epochs)
 
-    def _loss(self, y_pred, y_true):
+    def _loss(self, y_pred, y_true, *args, **kwargs):
         return F.binary_cross_entropy(y_pred, y_true).mean()
 
     def _batch_pass(self, batch, model):
@@ -399,7 +402,7 @@ class NeuroMF(TorchRecommender):
         model: nn.Module,
         items_np: np.array,
         k: int,
-        items_count: int,
+        item_count: int,
     ) -> pd.DataFrame:
         user_idx = pandas_df["user_idx"][0]
         cnt = min(len(pandas_df) + k, len(items_np))

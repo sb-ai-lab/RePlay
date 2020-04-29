@@ -113,6 +113,7 @@ class VAE(nn.Module):
             hidden = self.activation(hidden)
         return self.decoder[-1](hidden)
 
+    # pylint: disable=arguments-differ
     def forward(
         self, batch: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -387,6 +388,7 @@ class MultVAE(TorchRecommender):
 
         vae_trainer.run(train_data_loader, max_epochs=self.epochs)
 
+    # pylint: disable=arguments-differ
     def _loss(self, y_pred, y_true, mu_latent, logvar_latent):
         log_softmax_var = F.log_softmax(y_pred, dim=1)
         bce = -(log_softmax_var * y_true).sum(dim=1).mean()
@@ -420,14 +422,14 @@ class MultVAE(TorchRecommender):
         model: nn.Module,
         items_np: np.array,
         k: int,
-        items_count: int,
+        item_count: int,
     ) -> pd.DataFrame:
         user_idx = pandas_df["user_idx"][0]
         cnt = min(len(pandas_df) + k, len(items_np))
 
         model.eval()
         with torch.no_grad():
-            user_batch = torch.zeros((1, items_count))
+            user_batch = torch.zeros((1, item_count))
             user_batch[0, pandas_df["item_idx"].values] = 1
             user_recs = model(user_batch)[0][0].detach()
             best_item_idx = (
