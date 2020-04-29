@@ -37,7 +37,9 @@ class RecTestCase(PySparkTest):
 
     def setUp(self):
         self.model = self.DerivedRec()
-        self.empty_df = self.spark.createDataFrame(data=[], schema=StructType([]))
+        self.empty_df = self.spark.createDataFrame(
+            data=[], schema=StructType([])
+        )
         self.log = self.spark.createDataFrame(
             data=[["1", "2", "3", "4"]],
             schema=["item_id", "user_id", "timestamp", "relevance"],

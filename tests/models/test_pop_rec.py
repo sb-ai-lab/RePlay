@@ -20,7 +20,11 @@ class PopRecTestCase(PySparkTest):
                 4,
                 [["i1", 2 / 3], ["i2", 2 / 3], ["i3", 2 / 3], ["i4", 1.0]],
             ),
-            (["u1", "u2", "u3"], 3, [["i1", 2 / 3], ["i3", 2 / 3], ["i4", 1.0]],),
+            (
+                ["u1", "u2", "u3"],
+                3,
+                [["i1", 2 / 3], ["i3", 2 / 3], ["i4", 1.0]],
+            ),
             (
                 ["u1", "u2", "u3"],
                 4,
@@ -117,9 +121,12 @@ class PopRecTestCase(PySparkTest):
             data=[[user] for user in ["u1", "u2", "u3"]], schema=["user_id"]
         )
         items = self.spark.createDataFrame(
-            data=[[item] for item in ["i1", "i2", "i3", "i4"]], schema=["item_id"]
+            data=[[item] for item in ["i1", "i2", "i3", "i4"]],
+            schema=["item_id"],
         )
-        test_recs = self.model.fit_predict(log=log, k=2, users=users, items=items)
+        test_recs = self.model.fit_predict(
+            log=log, k=2, users=users, items=items
+        )
         self.assertSparkDataFrameEqual(true_recs, test_recs)
 
     def test_popularity_recs_default_items_users(self):

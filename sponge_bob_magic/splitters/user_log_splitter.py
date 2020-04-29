@@ -7,7 +7,10 @@ from typing import Optional, Union
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
 
-from sponge_bob_magic.splitters.base_splitter import Splitter, SplitterReturnType
+from sponge_bob_magic.splitters.base_splitter import (
+    Splitter,
+    SplitterReturnType,
+)
 
 
 class UserSplitter(Splitter):
@@ -123,7 +126,10 @@ class UserSplitter(Splitter):
         if self.user_test_size is not None:
             value_error = False
             if isinstance(self.user_test_size, int):
-                if self.user_test_size >= 1 and self.user_test_size < user_count:
+                if (
+                    self.user_test_size >= 1
+                    and self.user_test_size < user_count
+                ):
                     test_user_count = self.user_test_size
                 else:
                     value_error = True
@@ -141,7 +147,9 @@ class UserSplitter(Splitter):
                 )
             test_users = (
                 all_users.withColumn("rand", sf.rand(self.seed))
-                .withColumn("row_num", sf.row_number().over(Window.orderBy("rand")))
+                .withColumn(
+                    "row_num", sf.row_number().over(Window.orderBy("rand"))
+                )
                 .filter(f"row_num <= {test_user_count}")
                 .drop("rand", "row_num")
             )
@@ -163,7 +171,9 @@ class UserSplitter(Splitter):
         """
 
         counts = log.groupBy("user_id").count()
-        test_users = self._get_test_users(log).withColumn("test_user", sf.lit(1))
+        test_users = self._get_test_users(log).withColumn(
+            "test_user", sf.lit(1)
+        )
         if self.shuffle:
             res = self._add_random_partition(
                 log.join(test_users, how="left", on="user_id"), self.seed
@@ -174,7 +184,9 @@ class UserSplitter(Splitter):
             )
 
         res = res.join(counts, on="user_id", how="left")
-        res = res.withColumn("frac", sf.col("row_num") / sf.col("count")).cache()
+        res = res.withColumn(
+            "frac", sf.col("row_num") / sf.col("count")
+        ).cache()
         train = res.filter(
             f"""
                     frac > {self.item_test_size} OR
@@ -202,7 +214,9 @@ class UserSplitter(Splitter):
             `train, test`
         """
 
-        test_users = self._get_test_users(log).withColumn("test_user", sf.lit(1))
+        test_users = self._get_test_users(log).withColumn(
+            "test_user", sf.lit(1)
+        )
         if self.shuffle:
             res = self._add_random_partition(
                 log.join(test_users, how="left", on="user_id"), self.seed
@@ -240,7 +254,9 @@ class UserSplitter(Splitter):
         return train, test
 
     @staticmethod
-    def _add_random_partition(dataframe: DataFrame, seed: int = None) -> DataFrame:
+    def _add_random_partition(
+        dataframe: DataFrame, seed: int = None
+    ) -> DataFrame:
         """
         Добавляет в датафрейм колонку случайных чисел `rand` и колонку
         порядкового номера пользователя `row_num` на основе этого случайного
@@ -252,7 +268,9 @@ class UserSplitter(Splitter):
         dataframe = dataframe.withColumn("rand", sf.rand(seed))
         dataframe = dataframe.withColumn(
             "row_num",
-            sf.row_number().over(Window.partitionBy("user_id").orderBy("rand")),
+            sf.row_number().over(
+                Window.partitionBy("user_id").orderBy("rand")
+            ),
         ).cache()
         return dataframe
 
@@ -270,7 +288,9 @@ class UserSplitter(Splitter):
         res = dataframe.withColumn(
             "row_num",
             sf.row_number().over(
-                Window.partitionBy("user_id").orderBy(sf.col("timestamp").desc())
+                Window.partitionBy("user_id").orderBy(
+                    sf.col("timestamp").desc()
+                )
             ),
         ).cache()
         return res

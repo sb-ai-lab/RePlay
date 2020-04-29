@@ -38,7 +38,10 @@ class Splitter(ABC):
 
     @staticmethod
     def _drop_cold_items_and_users(
-        train: DataFrame, test: DataFrame, drop_cold_items: bool, drop_cold_users: bool
+        train: DataFrame,
+        test: DataFrame,
+        drop_cold_items: bool,
+        drop_cold_users: bool,
     ) -> DataFrame:
         """
         Удаляет из тестовой выборки холодных users и холодные items.
@@ -51,12 +54,20 @@ class Splitter(ABC):
         :return: тестовая выборка без холодных users / items
         """
         if drop_cold_items:
-            train_tmp = train.select(sf.col("item_id").alias("item")).distinct()
-            test = test.join(train_tmp, train_tmp.item == test.item_id).drop("item")
+            train_tmp = train.select(
+                sf.col("item_id").alias("item")
+            ).distinct()
+            test = test.join(train_tmp, train_tmp.item == test.item_id).drop(
+                "item"
+            )
 
         if drop_cold_users:
-            train_tmp = train.select(sf.col("user_id").alias("user")).distinct()
-            test = test.join(train_tmp, train_tmp.user == test.user_id).drop("user")
+            train_tmp = train.select(
+                sf.col("user_id").alias("user")
+            ).distinct()
+            test = test.join(train_tmp, train_tmp.user == test.user_id).drop(
+                "user"
+            )
         return test
 
     @abstractmethod

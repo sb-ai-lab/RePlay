@@ -37,9 +37,9 @@ class TestUserLogSplitter(PySparkTest):
         self.assertEqual(test_users.count(), 3)
         self.assertSparkDataFrameEqual(
             test_users,
-            self.spark.createDataFrame(data=[("user2",), ("user4",), ("user5",)]).toDF(
-                "user_id"
-            ),
+            self.spark.createDataFrame(
+                data=[("user2",), ("user4",), ("user5",)]
+            ).toDF("user_id"),
         )
 
     @parameterized.expand([(5,), (1.0,)])
@@ -242,5 +242,7 @@ class TestByTimeUserLogSplitter(PySparkTest):
     )
     def test_item_test_size_exception(self, item_test_size):
         self.assertRaises(
-            ValueError, UserSplitter(False, False, item_test_size).split, log=self.log
+            ValueError,
+            UserSplitter(False, False, item_test_size).split,
+            log=self.log,
         )

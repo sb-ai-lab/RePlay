@@ -44,7 +44,10 @@ class Coverage(RecOnlyMetric):
         else:
             k_set = set(k)
         unknows_item_count = (
-            recommendations.select("item_id").distinct().exceptAll(self.items).count()
+            recommendations.select("item_id")
+            .distinct()
+            .exceptAll(self.items)
+            .count()
         )
         if unknows_item_count > 0:
             self.logger.warning(

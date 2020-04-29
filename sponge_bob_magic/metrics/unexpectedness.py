@@ -57,7 +57,8 @@ class Unexpectedness(RecOnlyMetric):
         recs = pandas_df["item_id"]
         pandas_df["cum_agg"] = pandas_df.apply(
             lambda row: (
-                row["k"] - np.isin(recs[: row["k"]], row["items_id"][: row["k"]]).sum()
+                row["k"]
+                - np.isin(recs[: row["k"]], row["items_id"][: row["k"]]).sum()
             )
             / row["k"],
             axis=1,

@@ -45,7 +45,9 @@ class ClassifierRec(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        relevances = {row[0] for row in log.select("relevance").distinct().collect()}
+        relevances = {
+            row[0] for row in log.select("relevance").distinct().collect()
+        }
         if relevances != {0, 1}:
             raise ValueError(
                 "в логе должны быть relevance только 0 или 1"
@@ -82,7 +84,12 @@ class ClassifierRec(Recommender):
         """
         return (
             VectorAssembler(
-                inputCols=["user_features", "item_features", "mult", "dot_product"],
+                inputCols=[
+                    "user_features",
+                    "item_features",
+                    "mult",
+                    "dot_product",
+                ],
                 outputCol="features",
             )
             .transform(
@@ -99,8 +106,12 @@ class ClassifierRec(Recommender):
                     how="inner",
                 )
                 .drop("iid", "uid")
-                .withColumn("mult", vector_mult("user_features", "item_features"))
-                .withColumn("dot_product", vector_dot("user_features", "item_features"))
+                .withColumn(
+                    "mult", vector_mult("user_features", "item_features")
+                )
+                .withColumn(
+                    "dot_product", vector_dot("user_features", "item_features")
+                )
             )
             .drop("mult", "dot_product")
         )

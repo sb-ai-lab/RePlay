@@ -54,7 +54,10 @@ class Wilson(PopRec):
 
         df = (
             log.groupby("item_id")
-            .agg(sf.sum("relevance").alias("pos"), sf.count("relevance").alias("total"))
+            .agg(
+                sf.sum("relevance").alias("pos"),
+                sf.count("relevance").alias("total"),
+            )
             .toPandas()
         )
         pos = np.array(df.pos)

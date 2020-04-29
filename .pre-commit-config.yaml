@@ -3,11 +3,11 @@ repos:
       hooks:
         -   id: black
             name: black
-            entry: black
+            entry: black -l 79
             language: system
             types: [python]
         -   id: pycodestyle
             name: pycodestyle
-            entry: pycodestyle --ignore=E501,W605,W504,E203,W503 --max-doc-length=160
+            entry: pycodestyle --ignore=E501,W605,W503,E203,E231 --max-doc-length=160
             language: system
             types: [python]

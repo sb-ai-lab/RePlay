@@ -7,7 +7,11 @@ import numpy as np
 import pandas as pd
 from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.engine import Engine, Events
-from ignite.handlers import EarlyStopping, ModelCheckpoint, global_step_from_engine
+from ignite.handlers import (
+    EarlyStopping,
+    ModelCheckpoint,
+    global_step_from_engine,
+)
 from ignite.metrics import Loss, RunningAverage
 from scipy.sparse import csr_matrix
 from pyspark.sql import DataFrame
@@ -60,13 +64,17 @@ class VAE(nn.Module):
         self.encoder = nn.ModuleList(
             [
                 nn.Linear(d_in, d_out)
-                for d_in, d_out in zip(self.encoder_dims[:-1], self.encoder_dims[1:])
+                for d_in, d_out in zip(
+                    self.encoder_dims[:-1], self.encoder_dims[1:]
+                )
             ]
         )
         self.decoder = nn.ModuleList(
             [
                 nn.Linear(d_in, d_out)
-                for d_in, d_out in zip(self.decoder_dims[:-1], self.decoder_dims[1:])
+                for d_in, d_out in zip(
+                    self.decoder_dims[:-1], self.decoder_dims[1:]
+                )
             ]
         )
         self.dropout = nn.Dropout(dropout)
@@ -347,10 +355,14 @@ class MultVAE(TorchRecommender):
         splitter = GroupShuffleSplit(
             n_splits=1, test_size=self.valid_split_size, random_state=self.seed
         )
-        train_idx, valid_idx = next(splitter.split(data, groups=data["user_idx"]))
+        train_idx, valid_idx = next(
+            splitter.split(data, groups=data["user_idx"])
+        )
         train_data, valid_data = data.iloc[train_idx], data.iloc[valid_idx]
 
-        self.train_user_batch, train_data_loader, _ = self._get_data_loader(train_data)
+        self.train_user_batch, train_data_loader, _ = self._get_data_loader(
+            train_data
+        )
         self.valid_user_batch, valid_data_loader, _ = self._get_data_loader(
             valid_data, False
         )
@@ -372,7 +384,11 @@ class MultVAE(TorchRecommender):
         lr_scheduler = ReduceLROnPlateau(optimizer, factor=0.5, patience=3)
 
         vae_trainer, val_evaluator = self._create_trainer_evaluator(
-            optimizer, valid_data_loader, lr_scheduler, self.patience, self.n_saved
+            optimizer,
+            valid_data_loader,
+            lr_scheduler,
+            self.patience,
+            self.n_saved,
         )
 
         vae_trainer.run(train_data_loader, max_epochs=self.epochs)
@@ -383,7 +399,8 @@ class MultVAE(TorchRecommender):
         kld = (
             -0.5
             * torch.sum(
-                1 + logvar_latent - mu_latent.pow(2) - logvar_latent.exp(), dim=1
+                1 + logvar_latent - mu_latent.pow(2) - logvar_latent.exp(),
+                dim=1,
             ).mean()
         )
         return bce + self.anneal * kld
@@ -393,7 +410,9 @@ class MultVAE(TorchRecommender):
             full_batch = self.train_user_batch
         else:
             full_batch = self.valid_user_batch
-        user_batch = torch.FloatTensor(full_batch[batch[0]].toarray()).to(self.device)
+        user_batch = torch.FloatTensor(full_batch[batch[0]].toarray()).to(
+            self.device
+        )
         pred_user_batch, latent_mu, latent_logvar = self.model(user_batch)
         return (
             pred_user_batch,

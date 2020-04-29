@@ -3,16 +3,13 @@
 """
 import collections
 import logging
-import os
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
-import joblib
-import optuna
 from optuna import Study, Trial
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.constants import IntOrList
+from sponge_bob_magic.constants import IntOrList, NumType
 from sponge_bob_magic.experiment import Experiment
 from sponge_bob_magic.metrics.base_metric import Metric
 from sponge_bob_magic.models.base_rec import Recommender
@@ -37,33 +34,33 @@ class MainObjective:
 
     def __init__(
         self,
-        params_grid: Dict[str, Dict[str, Any]],
+        search_space: Dict[str, NumType],
         study: Study,
         split_data: SplitData,
         recommender: Recommender,
         criterion: Metric,
         metrics: Dict[Metric, IntOrList],
-        k: int = 10,
-        fallback_recs: Optional[DataFrame] = None,
-        filter_seen_items: bool = False,
-        path: str = None,
+        fallback_recs: DataFrame,
+        k: int,
     ):
-        self.path = path
         self.metrics = metrics
         self.criterion = criterion
         self.k = k
         self.split_data = split_data
         self.recommender = recommender
         self.study = study
-        self.params_grid = params_grid
-        self.filter_seen_items = filter_seen_items
+        self.search_space = search_space
         self.max_in_fallback_recs = (
             (fallback_recs.agg({"relevance": "max"}).collect()[0][0])
             if fallback_recs is not None
             else 0
         )
         self.fallback_recs = (
-            (fallback_recs.withColumnRenamed("relevance", "relevance_fallback"))
+            (
+                fallback_recs.withColumnRenamed(
+                    "relevance", "relevance_fallback"
+                )
+            )
             if fallback_recs is not None
             else None
         )
@@ -78,10 +75,14 @@ class MainObjective:
         :param trial: текущее испытание
         :return: значение критерия, который оптимизируется
         """
-        params = self._suggest_all_params(trial, self.params_grid)
+        params = dict()
+        for key in self.search_space.keys():
+            params[key] = trial.suggest_uniform(
+                key,
+                low=min(self.search_space[key]) - 1,
+                high=max(self.search_space[key]) + 1,
+            )
         self.recommender.set_params(**params)
-        self._check_trial_on_duplicates(trial)
-        self._save_study(self.study, self.path)
         self.logger.debug("-- Второй фит модели в оптимизации")
         self.recommender._fit(
             self.split_data.train,
@@ -96,9 +97,7 @@ class MainObjective:
             items=self.split_data.items,
             user_features=self.split_data.user_features,
             item_features=self.split_data.item_features,
-            filter_seen_items=self.filter_seen_items,
         ).cache()
-        self.logger.debug("-- Дополняем рекомендации fallback рекомендациями")
         recs = self._join_fallback_recs(
             recs, self.fallback_recs, self.k, self.max_in_fallback_recs
         )
@@ -107,45 +106,6 @@ class MainObjective:
         self.experiment.add_result(repr(self.recommender), recs)
         self.logger.debug("%s=%.2f", self.criterion, criterion_value)
         return criterion_value
-
-    @staticmethod
-    def _suggest_param(
-        trial: Trial, param_name: str, param_dict: Dict[str, Dict[str, Any]]
-    ) -> Any:
-        """ Сэмплит заданный параметр в соответствии с сеткой. """
-        distribution_type = param_dict["type"]
-        param = getattr(trial, f"suggest_{distribution_type}")(
-            param_name, *param_dict["args"]
-        )
-        return param
-
-    def _suggest_all_params(
-        self, trial: Trial, params_grid: Dict[str, Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """ Сэмплит все параметры модели в соответствии с заданной сеткой. """
-        params = dict()
-        for param_name, param_dict in params_grid.items():
-            param = MainObjective._suggest_param(trial, param_name, param_dict)
-            params[param_name] = param
-        self.logger.debug("-- Параметры: %s", params)
-        return params
-
-    @staticmethod
-    def _check_trial_on_duplicates(trial: Trial):
-        """ Проверяет, что испытание `trial` не повторяется с другими. """
-        for another_trial in trial.study.trials:
-            # проверяем, что засемлпенные значения не повторялись раньше
-            if (
-                another_trial.state == optuna.structs.TrialState.COMPLETE
-                and another_trial.params == trial.params
-            ):
-                raise optuna.exceptions.TrialPruned("Повторные значения параметров")
-
-    def _save_study(self, study: Study, path: Optional[str]):
-        """ Сохраняет объект исследования `study` на диск. """
-        if path is not None:
-            self.logger.debug("-- Сохраняем optuna study на диск")
-            joblib.dump(study, os.path.join(path, "optuna_study.joblib"))
 
     def _join_fallback_recs(
         self,
@@ -157,12 +117,15 @@ class MainObjective:
         """ Добавляет к рекомендациям fallback-рекомендации. """
         self.logger.debug("-- Длина рекомендаций: %d", recs.count())
         if fallback_recs is not None:
+            self.logger.debug("-- Добавляем fallback рекомендации")
             # добавим максимум из fallback реков,
             # чтобы сохранить порядок при заборе топ-k
             recs = recs.withColumn(
                 "relevance", sf.col("relevance") + 10 * max_in_fallback_recs
             )
-            recs = recs.join(fallback_recs, on=["user_id", "item_id"], how="full_outer")
+            recs = recs.join(
+                fallback_recs, on=["user_id", "item_id"], how="full_outer"
+            )
             recs = recs.withColumn(
                 "relevance", sf.coalesce("relevance", "relevance_fallback")
             ).select("user_id", "item_id", "relevance")

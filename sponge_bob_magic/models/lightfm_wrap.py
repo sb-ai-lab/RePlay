@@ -38,7 +38,9 @@ class LightFMWrap(Recommender):
         self.logger.debug("Построение модели LightFM")
         log_indexed = self.user_indexer.transform(log)
         log_indexed = self.item_indexer.transform(log_indexed)
-        pandas_log = log_indexed.select("user_idx", "item_idx", "relevance").toPandas()
+        pandas_log = log_indexed.select(
+            "user_idx", "item_idx", "relevance"
+        ).toPandas()
         interactions_matrix = coo_matrix(
             (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
             shape=(self.users_count, self.items_count),
@@ -51,15 +53,17 @@ class LightFMWrap(Recommender):
         self,
         log: DataFrame,
         k: int,
-        users: DataFrame = None,
-        items: DataFrame = None,
+        users: DataFrame,
+        items: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
         test_data = users.crossJoin(items).withColumn("relevance", lit(1))
         if filter_seen_items:
-            test_data = self._filter_seen_recs(test_data, log).drop("relevance")
+            test_data = self._filter_seen_recs(test_data, log).drop(
+                "relevance"
+            )
         log_indexed = self.user_indexer.transform(test_data)
         log_indexed = self.item_indexer.transform(log_indexed)
         prediction = log_indexed.toPandas()

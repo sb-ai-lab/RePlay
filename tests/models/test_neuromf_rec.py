@@ -61,7 +61,11 @@ class NeuroCFRecTestCase(PySparkTest):
                 [-0.08055222034454346, 0.2104490101337433],
                 [-0.9581958651542664, 1.3094656467437744],
             ],
-            [[-0.49999985098838806], [0.49999940395355225], [0.49999961256980896]],
+            [
+                [-0.49999985098838806],
+                [0.49999940395355225],
+                [0.49999961256980896],
+            ],
             [[0.4999987483024597], [-0.4999995827674866]],
             [
                 [0.07680675387382507, 1.6461725234985352],
@@ -103,7 +107,9 @@ class NeuroCFRecTestCase(PySparkTest):
         for i, parameter in enumerate(self.model.model.parameters()):
             self.assertTrue(
                 np.allclose(
-                    parameter.detach().cpu().numpy(), true_parameters[i], atol=1.0e-3
+                    parameter.detach().cpu().numpy(),
+                    true_parameters[i],
+                    atol=1.0e-3,
                 )
             )
 
@@ -120,7 +126,9 @@ class NeuroCFRecTestCase(PySparkTest):
         )
         self.assertTrue(
             np.allclose(
-                predictions.toPandas()[["user_id", "item_id"]].astype(int).values,
+                predictions.toPandas()[["user_id", "item_id"]]
+                .astype(int)
+                .values,
                 [[0, 0], [1, 2]],
                 atol=1.0e-3,
             )
@@ -186,7 +194,11 @@ class NeuroCFRecTestCase(PySparkTest):
                 [-0.08055222034454346, 0.2104490101337433],
                 [-0.9581958651542664, 1.3094656467437744],
             ],
-            [[-0.49999985098838806], [0.49999940395355225], [0.49999961256980896]],
+            [
+                [-0.49999985098838806],
+                [0.49999940395355225],
+                [0.49999961256980896],
+            ],
             [[0.4999987483024597], [-0.4999995827674866]],
             [
                 [0.07680675387382507, 1.6461725234985352],
@@ -228,7 +240,9 @@ class NeuroCFRecTestCase(PySparkTest):
         for i, parameter in enumerate(new_model.model.parameters()):
             self.assertTrue(
                 np.allclose(
-                    parameter.detach().cpu().numpy(), true_parameters[i], atol=1.0e-3
+                    parameter.detach().cpu().numpy(),
+                    true_parameters[i],
+                    atol=1.0e-3,
                 )
             )
 

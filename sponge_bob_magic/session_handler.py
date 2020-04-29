@@ -27,7 +27,7 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
         shuffle_partitions = "1"
     else:
         driver_memory = f"{spark_memory}g"
-        shuffle_partitions = "200"
+        shuffle_partitions = str(os.cpu_count())
     user_home = os.environ["HOME"]
     os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     spark = (
@@ -52,7 +52,8 @@ def logger_with_settings() -> logging.Logger:
     ignite_engine_logger.setLevel(logging.WARN)
     sponge_logger = logging.getLogger("sponge_bob_magic")
     formatter = logging.Formatter(
-        "%(asctime)s, %(name)s, %(levelname)s: %(message)s", datefmt="%d-%b-%y %H:%M:%S"
+        "%(asctime)s, %(name)s, %(levelname)s: %(message)s",
+        datefmt="%d-%b-%y %H:%M:%S",
     )
     hdlr = logging.StreamHandler()
     hdlr.setFormatter(formatter)
@@ -101,7 +102,9 @@ class State(Borg):
         if device is None:
             if not hasattr(self, "device"):
                 if torch.cuda.is_available():
-                    self.device = torch.device(f"cuda:{torch.cuda.current_device()}")
+                    self.device = torch.device(
+                        f"cuda:{torch.cuda.current_device()}"
+                    )
                 else:
                     self.device = torch.device("cpu")
         else:

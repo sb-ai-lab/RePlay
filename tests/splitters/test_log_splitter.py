@@ -29,7 +29,9 @@ class TestLogSplitByDateSplitter(PySparkTest):
             ],
             schema=LOG_SCHEMA,
         )
-        train, test = DateSplitter(datetime(2019, 9, 15), False, False).split(log)
+        train, test = DateSplitter(datetime(2019, 9, 15), False, False).split(
+            log
+        )
 
         true_train = self.spark.createDataFrame(
             data=[
@@ -53,7 +55,9 @@ class TestLogSplitByDateSplitter(PySparkTest):
         with self.subTest():
             self.assertSparkDataFrameEqual(true_test, test)
 
-        train, test = DateSplitter(datetime(2019, 9, 15), True, False).split(log)
+        train, test = DateSplitter(datetime(2019, 9, 15), True, False).split(
+            log
+        )
         true_test = self.spark.createDataFrame(
             data=[
                 ["user2", "item2", datetime(2019, 9, 15), 4.0],
@@ -67,7 +71,9 @@ class TestLogSplitByDateSplitter(PySparkTest):
         with self.subTest():
             self.assertSparkDataFrameEqual(true_test, test)
 
-        train, test = DateSplitter(datetime(2019, 9, 15), False, True).split(log)
+        train, test = DateSplitter(datetime(2019, 9, 15), False, True).split(
+            log
+        )
         true_test = self.spark.createDataFrame(
             data=[
                 ["user2", "item2", datetime(2019, 9, 15), 4.0],
@@ -81,9 +87,12 @@ class TestLogSplitByDateSplitter(PySparkTest):
         with self.subTest():
             self.assertSparkDataFrameEqual(true_test, test)
 
-        train, test = DateSplitter(datetime(2019, 9, 15), True, True).split(log)
+        train, test = DateSplitter(datetime(2019, 9, 15), True, True).split(
+            log
+        )
         true_test = self.spark.createDataFrame(
-            data=[["user2", "item2", datetime(2019, 9, 15), 4.0]], schema=LOG_SCHEMA
+            data=[["user2", "item2", datetime(2019, 9, 15), 4.0]],
+            schema=LOG_SCHEMA,
         )
         with self.subTest():
             self.assertSparkDataFrameEqual(true_train, train)

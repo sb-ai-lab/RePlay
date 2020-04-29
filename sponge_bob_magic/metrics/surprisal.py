@@ -50,9 +50,10 @@ class Surprisal(RecOnlyMetric):
         self.log = convert(log)
         n_users = self.log.select("user_id").distinct().count()
         self.item_weights = self.log.groupby("item_id").agg(
-            (sf.log2(n_users / sf.countDistinct("user_id")) / np.log2(n_users)).alias(
-                "rec_weight"
-            )
+            (
+                sf.log2(n_users / sf.countDistinct("user_id"))
+                / np.log2(n_users)
+            ).alias("rec_weight")
         )
 
     @staticmethod
@@ -64,6 +65,6 @@ class Surprisal(RecOnlyMetric):
     def _get_enriched_recommendations(
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
-        return recommendations.join(self.item_weights, on="item_id", how="left").fillna(
-            1
-        )
+        return recommendations.join(
+            self.item_weights, on="item_id", how="left"
+        ).fillna(1)
