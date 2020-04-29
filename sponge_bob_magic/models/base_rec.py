@@ -224,7 +224,7 @@ class Recommender(ABC):
         return convert(recs, type_in)
 
     def _extract_unique(
-        self, log: DataFrame, array: Union[Iterable, DataFrame], column: str
+        self, log: DataFrame, array: Union[Iterable, DataFrame, None], column: str
     ) -> DataFrame:
         """
         Получить уникальные значения из ``array`` и положить в датафрейм с колонкой ``column``.

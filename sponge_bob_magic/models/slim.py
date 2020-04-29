@@ -5,7 +5,6 @@ from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
-from pyspark.ml.feature import StringIndexer
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
@@ -95,7 +94,7 @@ class SLIM(Recommender):
         )
 
         @sf.pandas_udf(
-            "item_id_one float, item_id_two float, similarity " "double",
+            "item_id_one float, item_id_two float, similarity double",
             sf.PandasUDFType.GROUPED_MAP,
         )
         def slim_row(pandas_df):
