@@ -1,24 +1,17 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
-from ignite.contrib.handlers.param_scheduler import LRScheduler
-from ignite.engine import Engine, Events
-from ignite.handlers import (
-    EarlyStopping,
-    ModelCheckpoint,
-    global_step_from_engine,
-)
-from ignite.metrics import Loss
 import numpy as np
 import pandas as pd
+import torch.nn.functional as F
+import torch.optim
+from ignite.contrib.handlers.param_scheduler import LRScheduler
+from ignite.engine import Engine
 from pyspark.sql import DataFrame
 from sklearn.model_selection import train_test_split
-import torch.optim
-from torch import LongTensor, Tensor
-from torch import nn
-import torch.nn.functional as F
+from torch import LongTensor, Tensor, nn
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
 
