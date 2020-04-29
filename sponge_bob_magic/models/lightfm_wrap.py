@@ -1,10 +1,11 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+import os
 from typing import Dict, Optional
 
-import numpy as np
 from lightfm import LightFM
+import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import lit
 from scipy.sparse import coo_matrix
@@ -15,19 +16,14 @@ from sponge_bob_magic.models.base_rec import Recommender
 class LightFMWrap(Recommender):
     """ Обёртка вокруг стандартной реализации LightFM. """
 
-    _seed: Optional[int] = None
+    epochs: int = 10
+    loss: str = "bpr"
 
-    def __init__(self, rank: int = 10, seed: Optional[int] = None):
-        """
-        Инициализирует параметры модели и сохраняет спарк-сессию.
-
-        :param rank: матрицей какого ранга приближаем исходную
-        """
-        self.rank = rank
-        self._seed = seed
+    def __init__(self, **kwargs):
+        self.model_params = kwargs
 
     def get_params(self) -> Dict[str, object]:
-        return {"rank": self.rank}
+        return self.model_params
 
     def _fit(
         self,
@@ -46,8 +42,9 @@ class LightFMWrap(Recommender):
             shape=(self.users_count, self.items_count),
         )
         self.model = LightFM(
-            no_components=self.rank, loss="bpr", random_state=self._seed
-        ).fit(interactions=interactions_matrix, epochs=10, num_threads=1)
+            loss=self.loss, **self.model_params
+        ).fit(interactions=interactions_matrix, epochs=self.epochs,
+              num_threads=os.cpu_count())
 
     def _predict(
         self,

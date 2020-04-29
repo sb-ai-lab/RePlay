@@ -12,7 +12,7 @@ from sponge_bob_magic.models.lightfm_wrap import LightFMWrap
 
 class LightFMRecTestCase(PySparkTest):
     def setUp(self):
-        self.lightfm_rec = LightFMWrap(1)
+        self.lightfm_rec = LightFMWrap(no_components=1, random_state=42)
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [
@@ -26,7 +26,6 @@ class LightFMRecTestCase(PySparkTest):
             ],
             schema=LOG_SCHEMA,
         )
-        self.lightfm_rec._seed = 42
 
     def test_fit(self):
         self.lightfm_rec.fit(self.log, None, None)
@@ -45,4 +44,5 @@ class LightFMRecTestCase(PySparkTest):
         self.assertEqual(recs.schema, REC_SCHEMA)
 
     def test_get_params(self):
-        self.assertEqual(self.lightfm_rec.get_params(), {"rank": 1})
+        self.assertEqual(self.lightfm_rec.get_params(),
+                         {"no_components": 1, "random_state": 42})
