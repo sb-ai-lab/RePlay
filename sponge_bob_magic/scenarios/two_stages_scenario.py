@@ -10,7 +10,9 @@ from pyspark.sql.functions import col, isnull, lit, when
 from sponge_bob_magic.constants import IntOrList
 from sponge_bob_magic.experiment import Experiment
 from sponge_bob_magic.metrics import HitRate, Metric
-from sponge_bob_magic.models import ALSWrap, ClassifierRec, Recommender
+from sponge_bob_magic.models.als import ALSWrap
+from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.models.classifier_rec import ClassifierRec
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.splitters import Splitter, UserSplitter
 from sponge_bob_magic.utils import get_log_info, to_vector

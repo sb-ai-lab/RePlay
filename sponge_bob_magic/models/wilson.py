@@ -9,7 +9,7 @@ from pyspark.sql import functions as sf
 from statsmodels.stats.proportion import proportion_confint
 
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.models import PopRec
+from sponge_bob_magic.models.pop_rec import PopRec
 
 
 class Wilson(PopRec):

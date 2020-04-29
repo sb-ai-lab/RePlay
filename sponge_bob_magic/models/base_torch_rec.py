@@ -25,7 +25,7 @@ from torch.optim import optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau, _LRScheduler
 from torch.utils.data import DataLoader
 
-from sponge_bob_magic.models import Recommender
+from sponge_bob_magic.models.base_rec import Recommender
 
 
 class TorchRecommender(Recommender):

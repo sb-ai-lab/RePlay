@@ -10,9 +10,11 @@ from pyspark.sql import DataFrame
 
 from sponge_bob_magic.constants import IntOrList, NumType
 from sponge_bob_magic.experiment import Experiment
-from sponge_bob_magic.metrics import HitRate
 from sponge_bob_magic.metrics.base_metric import Metric, RecOnlyMetric
-from sponge_bob_magic.models import ALSWrap, PopRec, Recommender
+from sponge_bob_magic.metrics.hitrate import HitRate
+from sponge_bob_magic.models.als import ALSWrap
+from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.models.pop_rec import PopRec
 from sponge_bob_magic.scenarios.main_objective import MainObjective, SplitData
 from sponge_bob_magic.splitters.base_splitter import Splitter
 from sponge_bob_magic.splitters.log_splitter import RandomSplitter
@@ -30,6 +32,7 @@ class MainScenario:
     """
 
     experiment: Experiment
+
     # pylint: disable=too-many-arguments
     def __init__(
         self,

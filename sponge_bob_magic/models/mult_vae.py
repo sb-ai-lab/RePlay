@@ -15,7 +15,7 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, TensorDataset
 
-from sponge_bob_magic.models import TorchRecommender
+from sponge_bob_magic.models.base_torch_rec import TorchRecommender
 from sponge_bob_magic.session_handler import State
 
 
