@@ -29,6 +29,4 @@ def convert(*args, to: type = SparkDataFrame) -> AnyDataFrame:
         return spark.createDataFrame(data_frame)
     if to == PandasDataFrame:
         return data_frame.toPandas()
-    raise NotImplementedError(
-        f"{type(data_frame)} conversion is not implemented"
-    )
+    raise NotImplementedError(f"Неизвестный выходной тип: {type(data_frame)}")

@@ -436,6 +436,7 @@ class Recommender(ABC):
 
     @property
     def logger(self) -> logging.Logger:
+        """ логгер данного рекомендателя"""
         if self._logger is None:
             self._logger = logging.getLogger("sponge_bob_magic")
         return self._logger
@@ -451,12 +452,6 @@ class Recommender(ABC):
             raise AttributeError(
                 "Перед вызовом этого свойства нужно вызвать метод fit"
             )
-
-    @property
-    def spark(self) -> SparkSession:
-        if self._spark is None:
-            self._spark = State().session
-        return self._spark
 
     @property
     def items_count(self) -> int:
