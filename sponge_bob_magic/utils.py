@@ -9,6 +9,7 @@ from pyspark.ml.linalg import DenseVector, Vector, Vectors, VectorUDT
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 from pyspark.sql.functions import udf
+from scipy.sparse import csr_matrix
 
 
 def flat_list(list_object: Iterable):
@@ -257,3 +258,36 @@ def get_log_info(log: DataFrame) -> str:
             f"total items: {item_cnt}",
         ]
     )
+
+
+def to_csr(log: DataFrame) -> csr_matrix:
+    """
+    Конвертирует лог в csr матрицу item-user.
+
+    >>> import pandas as pd
+    >>> from sponge_bob_magic.converter import convert
+    >>> df = pd.DataFrame({"user_idx": [0, 1], "item_idx": [0, 2], "relevance": [1, 2]})
+    >>> df = convert(df)
+    >>> m = to_csr(df)
+    >>> m.toarray()
+    array([[1, 0],
+           [0, 0],
+           [0, 2]], dtype=int64)
+    """
+    users = to_numpy(log, "user_idx")
+    items = to_numpy(log, "item_idx")
+    relevance = to_numpy(log, "relevance")
+    return csr_matrix((relevance, (items, users)))
+
+
+def to_numpy(log: DataFrame, col: str) -> np.ndarray:
+    """
+    Берет колонку из спарк датафрейма и возвращает в виде массива.
+
+    >>> import pandas as pd
+    >>> from sponge_bob_magic.converter import convert
+    >>> df = convert(pd.DataFrame({"col": [1, 3, 3, 7]}))
+    >>> to_numpy(df, "col")
+    array([1, 3, 3, 7])
+    """
+    return np.array([row[0] for row in log.select(col).collect()])
