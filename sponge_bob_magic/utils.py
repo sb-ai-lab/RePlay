@@ -274,20 +274,5 @@ def to_csr(log: DataFrame) -> csr_matrix:
            [0, 0],
            [0, 2]], dtype=int64)
     """
-    users = to_numpy(log, "user_idx")
-    items = to_numpy(log, "item_idx")
-    relevance = to_numpy(log, "relevance")
-    return csr_matrix((relevance, (items, users)))
-
-
-def to_numpy(log: DataFrame, col: str) -> np.ndarray:
-    """
-    Берет колонку из спарк датафрейма и возвращает в виде массива.
-
-    >>> import pandas as pd
-    >>> from sponge_bob_magic.converter import convert
-    >>> df = convert(pd.DataFrame({"col": [1, 3, 3, 7]}))
-    >>> to_numpy(df, "col")
-    array([1, 3, 3, 7])
-    """
-    return np.array([row[0] for row in log.select(col).collect()])
+    df = log.select("user_idx", "item_idx", "relevance").toPandas()
+    return csr_matrix((df.relevance, (df.item_idx, df.user_idx)))
