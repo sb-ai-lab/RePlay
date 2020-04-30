@@ -26,6 +26,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, _LRScheduler
 from torch.utils.data import DataLoader
 
 from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.session_handler import State
 
 
 class TorchRecommender(Recommender):
@@ -228,7 +229,7 @@ class TorchRecommender(Recommender):
             torch_evaluator.add_event_handler(Events.COMPLETED, early_stopping)
         if checkpoint_number:
             checkpoint = ModelCheckpoint(
-                self.spark.conf.get("spark.local.dir"),
+                State().session.conf.get("spark.local.dir"),
                 create_dir=True,
                 require_empty=False,
                 n_saved=checkpoint_number,

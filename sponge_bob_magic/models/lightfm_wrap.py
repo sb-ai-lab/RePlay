@@ -11,6 +11,7 @@ from pyspark.sql.functions import lit
 from scipy.sparse import coo_matrix
 
 from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.session_handler import State
 
 
 class LightFMWrap(Recommender):
@@ -69,7 +70,11 @@ class LightFMWrap(Recommender):
         prediction["relevance"] = self.model.predict(
             np.array(prediction.user_idx), np.array(prediction.item_idx)
         )
-        recs = self.spark.createDataFrame(
-            prediction[["user_id", "item_id", "relevance"]]
-        ).cache()
+        recs = (
+            State()
+            .session.createDataFrame(
+                prediction[["user_id", "item_id", "relevance"]]
+            )
+            .cache()
+        )
         return recs

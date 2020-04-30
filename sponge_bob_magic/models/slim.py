@@ -12,6 +12,7 @@ from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
 from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.session_handler import State
 
 
 class SLIM(Recommender):
@@ -82,9 +83,11 @@ class SLIM(Recommender):
             (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
             shape=(self.users_count, self.items_count),
         )
-        similarity = self.spark.createDataFrame(
-            pandas_log.item_idx, st.FloatType()
-        ).withColumnRenamed("value", "item_id_one")
+        similarity = (
+            State()
+            .session.createDataFrame(pandas_log.item_idx, st.FloatType())
+            .withColumnRenamed("value", "item_id_one")
+        )
 
         alpha = self.beta + self.lambda_
         l1_ratio = self.lambda_ / alpha
