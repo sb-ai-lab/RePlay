@@ -373,7 +373,8 @@ class NeuroMF(TorchRecommender):
 
         nmf_trainer.run(train_data_loader, max_epochs=self.epochs)
 
-    def _loss(self, y_pred, y_true, *args, **kwargs):
+    # pylint: disable=arguments-differ
+    def _loss(self, y_pred, y_true):
         return F.binary_cross_entropy(y_pred, y_true).mean()
 
     def _batch_pass(self, batch, model):

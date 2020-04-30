@@ -29,8 +29,8 @@ class PopRec(Recommender):
     независимо от взаимодействия с объектом.
 
     >>> import pandas as pd
-    >>> df = pd.DataFrame({"user_id": [1, 1, 2, 2, 3], "item_id": [1, 2, 3, 3, 3]})
-    >>> df
+    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 2, 3], "item_id": [1, 2, 3, 3, 3]})
+    >>> data_frame
        user_id  item_id
     0        1        1
     1        1        2
@@ -39,14 +39,14 @@ class PopRec(Recommender):
     4        3        3
 
     >>> from sponge_bob_magic.converter import convert
-    >>> res = PopRec().fit_predict(convert(df), 1)
+    >>> res = PopRec().fit_predict(convert(data_frame), 1)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
        user_id  item_id  relevance
     0        1        3   0.666667
     1        2        2   0.333333
     2        3        2   0.333333
 
-    >>> res = PopRec().fit_predict(convert(df), 1, filter_seen_items=False)
+    >>> res = PopRec().fit_predict(convert(data_frame), 1, filter_seen_items=False)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
        user_id  item_id  relevance
     0        1        3        0.666667

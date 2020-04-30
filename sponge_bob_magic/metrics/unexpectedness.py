@@ -19,9 +19,9 @@ class Unexpectedness(RecOnlyMetric):
     По умолчанию используется рекомендатель по популярности ``PopRec``.
 
     >>> import pandas as pd
-    >>> df = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": ["1", "2", "1", "3"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
+    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": ["1", "2", "1", "3"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
     >>> dd = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": ["1", "2", "3", "1"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
-    >>> m = Unexpectedness(df)
+    >>> m = Unexpectedness(data_frame)
     >>> m(dd, [1, 2])
     {1: 0.5, 2: 0.25}
 
