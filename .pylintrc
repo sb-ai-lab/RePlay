@@ -1,5 +1,6 @@
 [GENERAL]
 fail-under=9
+exit-zero=1
 
 [TYPECHECK]
 ignored-modules=pyspark.sql.functions,torch
