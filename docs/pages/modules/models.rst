@@ -63,7 +63,7 @@ LightFM
 .. autoclass:: sponge_bob_magic.models.LightFMWrap
     :special-members: __init__
 
-Implicit
+implicit
 ---------
 
 .. autoclass:: sponge_bob_magic.models.ImplicitWrap

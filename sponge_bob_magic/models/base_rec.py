@@ -295,7 +295,10 @@ class Recommender(ABC):
                 indexer.setHandleInvalid("skip")
 
     def _extract_unique(
-        self, log: DataFrame, array: Union[Iterable, DataFrame, None], column: str
+        self,
+        log: DataFrame,
+        array: Union[Iterable, DataFrame, None],
+        column: str,
     ) -> DataFrame:
         """
         Получить уникальные значения из ``array`` и положить в датафрейм с колонкой ``column``.
@@ -466,3 +469,11 @@ class Recommender(ABC):
             raise AttributeError(
                 "Перед вызовом этого свойства нужно вызвать метод fit"
             )
+
+    def index(self, log):
+        return self.item_indexer.transform(self.user_indexer.transform(log))
+
+    def inv_index(self, log):
+        return self.inv_user_indexer.transform(
+            self.inv_user_indexer.transform(log)
+        ).drop("user_idx", "item_idx")
