@@ -1,13 +1,13 @@
-[TYPECHECK]
+[GENERAL]
+fail-under=9
 
+[TYPECHECK]
 ignored-modules=pyspark.sql.functions,torch
 
 [MESSAGES CONTROL]
-
 disable=W1401, C0330, W503, E203, E231
 
 [FORMAT]
-
 ignore-long-lines=^.*([А-Яа-я]|>{3}|\.{3}|\\{2}|https://).*$
 max-line-length=79
 
