@@ -13,7 +13,7 @@ class TestConverter(PySparkTest):
         self.assertTrue(
             (
                 self.pandas_data_frame.values
-                == convert(convert(self.pandas_data_frame), PANDAS).values
+                == convert(convert(self.pandas_data_frame), to=PANDAS).values
             ).all()
         )
 
