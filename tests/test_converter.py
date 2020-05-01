@@ -19,7 +19,7 @@ class TestConverter(PySparkTest):
 
     def test_unknown_type(self):
         with self.assertRaises(NotImplementedError):
-            convert(1, "unknown_type")
+            convert(1, to="unknown_type")
 
     def test_spark_is_unchanged(self):
         spark_data_frame = convert(self.pandas_data_frame)

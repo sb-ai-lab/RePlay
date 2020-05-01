@@ -7,7 +7,7 @@ from typing import Tuple
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.converter import TypeManager
+from sponge_bob_magic.converter import get_type, convert
 
 SplitterReturnType = Tuple[DataFrame, DataFrame]
 
@@ -94,11 +94,11 @@ class Splitter(ABC):
             ``train, test``, где ``train`` - обучающая выборка,
             ``test`` - тестовая выборка
         """
-        tm = TypeManager()
-        train, test = self._core_split(tm.fit_convert(log))
+        type_in = get_type(log)
+        train, test = self._core_split(convert(log))
 
         test = self._drop_cold_items_and_users(
             train, test, self.drop_cold_items, self.drop_cold_users
         )
 
-        return tm.inverse(train, self._filter_zero_relevance(test))
+        return convert(train, self._filter_zero_relevance(test), to=type_in)
