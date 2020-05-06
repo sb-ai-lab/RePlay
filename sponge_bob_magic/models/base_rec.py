@@ -104,9 +104,9 @@ class Recommender(ABC):
             self.pre_fit(log, user_features, item_features)
         self.logger.debug("Основная стадия обучения (fit)")
         self._fit(
-            self._index(log, True, True),
-            self._index(user_features, index_users=True),
-            self._index(item_features, index_items=True),
+            self._index(log),
+            self._index(user_features),
+            self._index(item_features),
         )
 
     def pre_fit(
@@ -152,9 +152,9 @@ class Recommender(ABC):
         )
 
         self._pre_fit(
-            self._index(log, True, True),
-            self._index(user_features, index_users=True),
-            self._index(item_features, index_items=True),
+            self._index(log),
+            self._index(user_features),
+            self._index(item_features),
         )
         self._prefitted = True
 
@@ -255,8 +255,11 @@ class Recommender(ABC):
         items = self._extract_unique(log, items, "item_id")
         self._reindex("item", items)
         self._reindex("user", users)
-        users = self._index(users, index_users=True)
-        items = self._index(items, index_items=True)
+        users = self._index(users)
+        items = self._index(items)
+        user_features = self._index(user_features)
+        item_features = self._index(item_features)
+        log = self._index(log)
 
         num_items = items.count()
         if num_items < k:
@@ -265,16 +268,16 @@ class Recommender(ABC):
                 f"k = {k}, number of items = {num_items}"
             )
         recs = self._predict(
-            self._index(log, True, True),
+            log,
             k,
             users,
             items,
-            self._index(user_features, index_users=True),
-            self._index(item_features, index_items=True),
+            user_features,
+            item_features,
             filter_seen_items,
         )
         if filter_seen_items:
-            recs = self._filter_seen_recs(recs, self._index(log, True, True))
+            recs = self._filter_seen_recs(recs, self._index(log))
         recs = self.inv_item_indexer.transform(
             self.inv_user_indexer.transform(recs)
         ).select("user_id", "item_id", "relevance")
@@ -287,19 +290,14 @@ class Recommender(ABC):
         ).cache()
         return convert(recs, to_type=type_in)
 
-    def _index(
-        self,
-        data_frame: Optional[DataFrame],
-        index_users: bool = False,
-        index_items: bool = False,
-    ) -> Optional[DataFrame]:
+    def _index(self, data_frame: Optional[DataFrame]) -> Optional[DataFrame]:
         if data_frame is None:
             return data_frame
-        if index_users:
+        if "user_id" in data_frame.columns:
             data_frame = self.user_indexer.transform(data_frame).drop(
                 "user_id"
             )
-        if index_items:
+        if "item_id" in data_frame.columns:
             data_frame = self.item_indexer.transform(data_frame).drop(
                 "item_id"
             )
