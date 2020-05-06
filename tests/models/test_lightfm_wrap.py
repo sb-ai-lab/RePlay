@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+# pylint: disable-all
 from datetime import datetime
 
 import numpy as np
@@ -10,9 +11,11 @@ from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
 from sponge_bob_magic.models.lightfm_wrap import LightFMWrap
 
 
-class LightFMRecTestCase(PySparkTest):
+class LightFMWrapTestCase(PySparkTest):
     def setUp(self):
-        self.lightfm_rec = LightFMWrap(no_components=1, random_state=42)
+        self.lightfm_wrap = LightFMWrap(
+            no_components=1, random_state=42, loss="bpr"
+        )
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [
@@ -28,21 +31,29 @@ class LightFMRecTestCase(PySparkTest):
         )
 
     def test_fit(self):
-        self.lightfm_rec.fit(self.log, None, None)
-        item_factors = self.lightfm_rec.model.item_embeddings
-        self.assertEqual(item_factors.shape, (3, 1))
+        self.lightfm_wrap.fit(self.log, None, None)
+        item_factors = self.lightfm_wrap.model.item_embeddings
+        self.assertTrue(
+            np.allclose(
+                item_factors, [[-0.07829587], [0.3076668], [0.32417864]]
+            )
+        )
 
     def test_predict(self):
-        recs = self.lightfm_rec.fit_predict(
+        recs = self.lightfm_wrap.fit_predict(
             log=self.log,
             k=1,
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
-            user_features=None,
-            item_features=None,
         )
-        self.assertEqual(recs.schema, REC_SCHEMA)
+        true_recs = self.spark.createDataFrame(
+            [["u3", "i1", 0.0], ["u1", "i3", 0.0], ["u2", "i4", 0.0]],
+            schema=REC_SCHEMA,
+        )
+        self.assertSparkDataFrameEqual(recs, true_recs)
 
     def test_get_params(self):
-        self.assertEqual(self.lightfm_rec.get_params(),
-                         {"no_components": 1, "random_state": 42})
+        self.assertEqual(
+            self.lightfm_wrap.get_params(),
+            {"no_components": 1, "random_state": 42},
+        )
