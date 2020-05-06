@@ -28,44 +28,53 @@ default = true
 
 [tool.poetry.dependencies]
 python = "^3.6.1"
-Cython = "0.29.14"
-dash = "1.8.0"
-joblib = "0.14.1"
+lightfm = "*"
+optuna = "*"
+pandas = "*"
+pyspark = "*"
+pyarrow = "*"
+torch = "*"
+pytorch-ignite = "*"
+statsmodels = "*"
+implicit = "*"
+psutil = "*"
+scikit-learn = "*"
+
+[tool.poetry.dev-dependencies]
+# fixing versions of package dependencies (non-dev)
 lightfm = "1.15"
-numpy = "1.17.2"
 optuna = "1.2.0"
 pandas = "1.0.1"
-plotly = "4.5.0"
-psutil = "5.6.7"
 pyspark = "2.4.4"
 pyarrow = ">=0.15.0"
-scipy = "1.4.1"
 torch = "1.4.0"
-tqdm = "4.42.1"
 pytorch-ignite = "0.3.0"
 statsmodels = "0.11.1"
 implicit = "0.4.2"
-
-[tool.poetry.dev-dependencies]
-autopep8 = "1.4.4"
+psutil = "5.7.0"
+scikit-learn = "0.21.3"
+# dev only
+# visualization
 jupyter = "1.0.0"
 jupyterlab = "1.2.6"
 matplotlib = "3.1.1"
-mypy = "0.720"
-pylint = "2.4.4"
-scikit-learn = "0.21.3"
-Sphinx = "2.4.4"
-sphinx-rtd-theme = "0.4.3"
-torchvision = "0.3.0"
-parameterized = "0.7.1"
-rope = "0.16.0"
-virtualenv = "20.0.8"
+# testing
 pytest = "5.3.5"
 pytest-cov = "2.8.1"
+parameterized = "0.7.1"
+# style
 flake8 = "3.7.9"
 black = "19.10b0"
 pre-commit = "2.3.0"
+mypy = "0.720"
+pylint = "2.4.4"
+# docs
+Sphinx = "2.4.4"
+sphinx-rtd-theme = "0.4.3"
 sphinx-autodoc-typehints = "1.10.3"
+# emacs dependencies
+rope = "0.16.0"
+virtualenv = "20.0.8"
 
 [tool.black]
 line-length = 79
