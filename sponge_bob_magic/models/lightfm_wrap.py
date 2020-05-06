@@ -56,10 +56,6 @@ class LightFMWrap(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         test_data = users.crossJoin(items).withColumn("relevance", lit(1))
-        if filter_seen_items:
-            test_data = self._filter_seen_recs(test_data, log).drop(
-                "relevance"
-            )
         prediction = test_data.toPandas()
         prediction["relevance"] = self.model.predict(
             np.array(prediction.user_idx), np.array(prediction.item_idx)
