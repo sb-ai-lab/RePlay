@@ -22,16 +22,21 @@ class Experiment:
 
     >>> import pandas as pd
     >>> from sponge_bob_magic.metrics import NDCG, Surprisal
-    >>> from sponge_bob_magic.experiment import Experiment
     >>> log = pd.DataFrame({"user_id": [2, 2, 2, 1], "item_id": [1, 2, 3, 3], "relevance": [5, 5, 5, 5]})
     >>> test = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 3, 4]})
-    >>> pred = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 3, 4], "relevance": [5, 4, 5]})
+    >>> pred = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [4, 1, 3], "relevance": [5, 4, 5]})
+    >>> recs = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 4, 5], "relevance": [5, 4, 5]})
     >>> ex = Experiment(test, {NDCG(): [2, 3], Surprisal(log): 3})
-    >>> ex.add_result('my_model', pred)
-    >>> ex.pandas_df
+    >>> ex.add_result("baseline", recs)
+    >>> ex.add_result("model", pred)
+    >>> ex.results
                 NDCG@2    NDCG@3  Surprisal@3
-    my_model  0.613147  0.703918     0.666667
-
+    baseline  0.613147  0.469279     1.000000
+    model     0.386853  0.530721     0.666667
+    >>> ex.compare("baseline")
+               NDCG@2  NDCG@3 Surprisal@3
+    baseline        –       –           –
+    model     -36.91%  13.09%     -33.33%
     """
 
     def __init__(
@@ -50,7 +55,7 @@ class Experiment:
             Если указан, то параметр ``metrics`` должен быть списком.
         """
         self.test = convert(test)
-        self.pandas_df = pd.DataFrame()
+        self.results = pd.DataFrame()
         if k is not None:
             if isinstance(k, int):
                 k = [k] * len(metrics)
@@ -76,7 +81,26 @@ class Experiment:
                 values = metric(recs, self.test, k_list)
 
             if isinstance(k_list, int):
-                self.pandas_df.at[name, f"{metric}@{k_list}"] = values
+                self.results.at[name, f"{metric}@{k_list}"] = values
             else:
                 for k, val in sorted(values.items(), key=lambda x: x[0]):
-                    self.pandas_df.at[name, f"{metric}@{k}"] = val
+                    self.results.at[name, f"{metric}@{k}"] = val
+
+    def compare(self, name: str):
+        """
+        Показать процентный прирост относительно записи ``name``.
+
+        :param name: имя модели/эксперимента, которая считается бейзлайном
+        :return: таблица с приростом в процентах
+        """
+        if name not in self.results.index:
+            raise ValueError(f"No results for model {name}")
+        df = self.results.copy()
+        baseline = df.loc[name]
+        for idx in df.index:
+            if idx != name:
+                diff = df.loc[idx] / baseline - 1
+                df.loc[idx] = [str(round(v * 100, 2)) + "%" for v in diff]
+            else:
+                df.loc[name] = ["–"] * len(baseline)
+        return df

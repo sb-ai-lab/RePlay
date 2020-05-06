@@ -201,7 +201,7 @@ class TwoStagesScenario:
         |      9|      9|      0.75|
         +-------+-------+----------+
         <BLANKLINE>
-        >>> two_stages.experiment.pandas_df
+        >>> two_stages.experiment.results
                             HitRate@1
         two_stages_scenario        0.0
 
