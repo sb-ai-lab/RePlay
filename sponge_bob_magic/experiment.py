@@ -10,6 +10,7 @@ from sponge_bob_magic.converter import convert
 from sponge_bob_magic.metrics.base_metric import Metric, RecOnlyMetric
 
 
+# pylint: disable=too-few-public-methods
 class Experiment:
     """
     Обеспечивает подсчет и хранение значений метрик.
@@ -63,7 +64,7 @@ class Experiment:
         else:
             self.metrics = metrics
 
-    def add_result(self, name: str, pred: Any):
+    def add_result(self, name: str, pred: Any) -> None:
         """
         Подсчитать метрики для переданного списка рекомендаций
 
@@ -86,7 +87,7 @@ class Experiment:
                 for k, val in sorted(values.items(), key=lambda x: x[0]):
                     self.results.at[name, f"{metric}@{k}"] = val
 
-    def compare(self, name: str):
+    def compare(self, name: str) -> pd.DataFrame:
         """
         Показать процентный прирост относительно записи ``name``.
 
@@ -95,12 +96,14 @@ class Experiment:
         """
         if name not in self.results.index:
             raise ValueError(f"No results for model {name}")
-        df = self.results.copy()
-        baseline = df.loc[name]
-        for idx in df.index:
+        data_frame = self.results.copy()
+        baseline = data_frame.loc[name]
+        for idx in data_frame.index:
             if idx != name:
-                diff = df.loc[idx] / baseline - 1
-                df.loc[idx] = [str(round(v * 100, 2)) + "%" for v in diff]
+                diff = data_frame.loc[idx] / baseline - 1
+                data_frame.loc[idx] = [
+                    str(round(v * 100, 2)) + "%" for v in diff
+                ]
             else:
-                df.loc[name] = ["–"] * len(baseline)
-        return df
+                data_frame.loc[name] = ["–"] * len(baseline)
+        return data_frame

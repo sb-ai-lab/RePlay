@@ -4,13 +4,14 @@
 import os
 from typing import Dict, Optional
 
-from lightfm import LightFM
 import numpy as np
+from lightfm import LightFM
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import lit
 from scipy.sparse import coo_matrix
 
 from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.session_handler import State
 
 
 class LightFMWrap(Recommender):
@@ -41,11 +42,13 @@ class LightFMWrap(Recommender):
             (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
             shape=(self.users_count, self.items_count),
         )
-        self.model = LightFM(
-            loss=self.loss, **self.model_params
-        ).fit(interactions=interactions_matrix, epochs=self.epochs,
-              num_threads=os.cpu_count())
+        self.model = LightFM(loss=self.loss, **self.model_params).fit(
+            interactions=interactions_matrix,
+            epochs=self.epochs,
+            num_threads=os.cpu_count(),
+        )
 
+    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: DataFrame,
@@ -67,7 +70,11 @@ class LightFMWrap(Recommender):
         prediction["relevance"] = self.model.predict(
             np.array(prediction.user_idx), np.array(prediction.item_idx)
         )
-        recs = self.spark.createDataFrame(
-            prediction[["user_id", "item_id", "relevance"]]
-        ).cache()
+        recs = (
+            State()
+            .session.createDataFrame(
+                prediction[["user_id", "item_id", "relevance"]]
+            )
+            .cache()
+        )
         return recs

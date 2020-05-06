@@ -4,6 +4,7 @@
 from sponge_bob_magic.metrics.base_metric import Metric
 
 
+# pylint: disable=too-few-public-methods
 class MAP(Metric):
     """
     Mean Average Precision -- усреднение ``Precision`` по целым числам от 1 до ``K``, усреднённое по пользователям.

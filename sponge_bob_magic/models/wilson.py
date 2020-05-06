@@ -1,12 +1,15 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 from typing import Optional
 
-from pyspark.sql import functions as sf
-from pyspark.sql import DataFrame
 import numpy as np
+from pyspark.sql import DataFrame
+from pyspark.sql import functions as sf
 from statsmodels.stats.proportion import proportion_confint
 
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.models import PopRec
+from sponge_bob_magic.models.pop_rec import PopRec
 
 
 class Wilson(PopRec):
@@ -27,9 +30,9 @@ class Wilson(PopRec):
     Для каждого пользователя отфильтровываются просмотренные айтемы.
 
     >>> import pandas as pd
-    >>> df = pd.DataFrame({"user_id": [1, 2], "item_id": [1, 2], "relevance": [1, 1]})
+    >>> data_frame = pd.DataFrame({"user_id": [1, 2], "item_id": [1, 2], "relevance": [1, 1]})
     >>> model = Wilson()
-    >>> model.fit_predict(df, k=1)
+    >>> model.fit_predict(data_frame, k=1)
        user_id item_id  relevance
     0        1       2   0.206549
     1        2       1   0.206549
@@ -44,7 +47,7 @@ class Wilson(PopRec):
     ) -> None:
         log = convert(log)
 
-        df = (
+        data_frame = (
             log.groupby("item_id")
             .agg(
                 sf.sum("relevance").alias("pos"),
@@ -52,8 +55,10 @@ class Wilson(PopRec):
             )
             .toPandas()
         )
-        pos = np.array(df.pos)
-        total = np.array(df.total)
-        df["relevance"] = proportion_confint(pos, total, method="wilson")[0]
-        df = df.drop(["pos", "total"], axis=1)
-        self.item_popularity = convert(df).cache()
+        pos = np.array(data_frame.pos)
+        total = np.array(data_frame.total)
+        data_frame["relevance"] = proportion_confint(
+            pos, total, method="wilson"
+        )[0]
+        data_frame = data_frame.drop(["pos", "total"], axis=1)
+        self.item_popularity = convert(data_frame).cache()

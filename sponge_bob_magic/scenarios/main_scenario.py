@@ -10,9 +10,11 @@ from pyspark.sql import DataFrame
 
 from sponge_bob_magic.constants import IntOrList, NumType
 from sponge_bob_magic.experiment import Experiment
-from sponge_bob_magic.metrics import HitRate
 from sponge_bob_magic.metrics.base_metric import Metric, RecOnlyMetric
-from sponge_bob_magic.models import ALSWrap, PopRec, Recommender
+from sponge_bob_magic.metrics.hitrate import HitRate
+from sponge_bob_magic.models.als import ALSWrap
+from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.models.pop_rec import PopRec
 from sponge_bob_magic.scenarios.main_objective import MainObjective, SplitData
 from sponge_bob_magic.splitters.base_splitter import Splitter
 from sponge_bob_magic.splitters.log_splitter import RandomSplitter
@@ -31,6 +33,7 @@ class MainScenario:
 
     experiment: Experiment
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         splitter: Splitter = RandomSplitter(0.3, True, True),
@@ -56,6 +59,7 @@ class MainScenario:
         self.fallback_model = fallback_model
         self.logger = logging.getLogger("sponge_bob_magic")
 
+    # pylint: disable=too-many-arguments
     def _prepare_data(
         self,
         log: DataFrame,
@@ -91,6 +95,7 @@ class MainScenario:
         )
         return split_data
 
+    # pylint: disable=too-many-arguments
     def _run_optimization(
         self,
         n_trials: int,
@@ -120,6 +125,7 @@ class MainScenario:
         self.logger.debug("Лучшие параметры: %s", study.best_params)
         return study.best_params
 
+    # pylint: disable=too-many-arguments
     def research(
         self,
         params_grid: Dict[str, Dict[str, Any]],
@@ -225,6 +231,7 @@ class MainScenario:
             )
         return fallback_recs
 
+    # pylint: disable=too-many-arguments
     def production(
         self,
         params: Dict[str, Any],

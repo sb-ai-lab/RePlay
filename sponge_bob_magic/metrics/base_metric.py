@@ -10,7 +10,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
-from sponge_bob_magic.constants import CommonDataFrame, IntOrList, NumType
+from sponge_bob_magic.constants import AnyDataFrame, IntOrList, NumType
 from sponge_bob_magic.converter import convert
 
 
@@ -23,8 +23,8 @@ class Metric(ABC):
 
     def __call__(
         self,
-        recommendations: CommonDataFrame,
-        ground_truth: CommonDataFrame,
+        recommendations: AnyDataFrame,
+        ground_truth: AnyDataFrame,
         k: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
         """
@@ -166,13 +166,14 @@ class Metric(ABC):
         return left_count == inner_count and right_count == inner_count
 
 
+# pylint: disable=too-few-public-methods
 class RecOnlyMetric(Metric):
     """Базовый класс для метрик,
     которые измеряют качество списков рекомендаций,
     не сравнивая их с holdout значениями"""
 
     def __call__(
-        self, recommendations: CommonDataFrame, k: IntOrList
+        self, recommendations: AnyDataFrame, k: IntOrList
     ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: выдача рекомендательной системы,

@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 from pyspark.ml.linalg import DenseVector
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 
 from sponge_bob_magic.session_handler import State
 
@@ -19,8 +19,8 @@ class PySparkTest(unittest.TestCase):
     def assertSparkDataFrameEqual(
         self, df1: DataFrame, df2: DataFrame, msg: Optional[str] = None
     ) -> None:
-        def _unify_dataframe(df: DataFrame):
-            pandas_df = df.toPandas()
+        def _unify_dataframe(data_frame: DataFrame):
+            pandas_df = data_frame.toPandas()
             columns_to_sort_by: List[str] = []
 
             if len(pandas_df) == 0:
@@ -35,7 +35,7 @@ class PySparkTest(unittest.TestCase):
                         columns_to_sort_by.append(column)
 
             return (
-                pandas_df[sorted(df.columns)]
+                pandas_df[sorted(data_frame.columns)]
                 .sort_values(by=sorted(columns_to_sort_by))
                 .reset_index(drop=True)
             )

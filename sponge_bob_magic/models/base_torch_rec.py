@@ -1,3 +1,6 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
 from abc import abstractmethod
 from typing import Any, Dict, Optional, Union
 
@@ -22,7 +25,8 @@ from torch.optim import optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau, _LRScheduler
 from torch.utils.data import DataLoader
 
-from sponge_bob_magic.models import Recommender
+from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.session_handler import State
 
 
 class TorchRecommender(Recommender):
@@ -30,6 +34,7 @@ class TorchRecommender(Recommender):
 
     device: torch.device
 
+    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: DataFrame,
@@ -144,6 +149,7 @@ class TorchRecommender(Recommender):
         self.logger.debug("-- Загрузка модели из файла")
         self.model.load_state_dict(torch.load(path))
 
+    # pylint: disable=too-many-arguments
     def _create_trainer_evaluator(
         self,
         opt: optimizer,
@@ -164,6 +170,7 @@ class TorchRecommender(Recommender):
         """
         self.model.to(self.device)
 
+        # pylint: disable=unused-argument
         def _run_train_step(engine, batch):
             self.model.train()
             opt.zero_grad()
@@ -177,6 +184,7 @@ class TorchRecommender(Recommender):
             opt.step()
             return loss.item()
 
+        # pylint: disable=unused-argument
         def _run_val_step(engine, batch):
             self.model.eval()
             with torch.no_grad():
@@ -189,6 +197,7 @@ class TorchRecommender(Recommender):
         avg_output.attach(torch_trainer, "loss")
         Loss(self._loss).attach(torch_evaluator, "loss")
 
+        # pylint: disable=unused-variable
         @torch_trainer.on(Events.EPOCH_COMPLETED)
         def log_training_loss(trainer):
             self.logger.debug(
@@ -197,6 +206,7 @@ class TorchRecommender(Recommender):
                 )
             )
 
+        # pylint: disable=unused-variable
         @torch_trainer.on(Events.EPOCH_COMPLETED)
         def log_validation_results(trainer):
             torch_evaluator.run(valid_data_loader)
@@ -219,7 +229,7 @@ class TorchRecommender(Recommender):
             torch_evaluator.add_event_handler(Events.COMPLETED, early_stopping)
         if checkpoint_number:
             checkpoint = ModelCheckpoint(
-                self.spark.conf.get("spark.local.dir"),
+                State().session.conf.get("spark.local.dir"),
                 create_dir=True,
                 require_empty=False,
                 n_saved=checkpoint_number,
@@ -235,6 +245,7 @@ class TorchRecommender(Recommender):
                 {type(self).__name__.lower(): self.model},
             )
 
+            # pylint: disable=unused-argument,unused-variable
             @torch_trainer.on(Events.COMPLETED)
             def load_best_model(engine):
                 self.load_model(checkpoint.last_checkpoint)
@@ -245,7 +256,7 @@ class TorchRecommender(Recommender):
                     Events.EPOCH_COMPLETED, LRScheduler(scheduler)
                 )
             else:
-
+                # pylint: disable=unused-variable
                 @torch_evaluator.on(Events.EPOCH_COMPLETED)
                 def reduct_step(engine):
                     scheduler.step(engine.state.metrics["loss"])

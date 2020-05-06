@@ -10,7 +10,7 @@ from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.converter import convert, get_type
+from sponge_bob_magic.converter import convert
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import get_top_k_recs
 
@@ -103,6 +103,7 @@ class Recommender(ABC):
         self.logger.debug("Основная стадия обучения (fit)")
         self._fit(log, user_features, item_features)
 
+    # pylint: disable=unused-argument
     def _pre_fit(
         self,
         log: DataFrame,
@@ -166,6 +167,7 @@ class Recommender(ABC):
         :return:
         """
 
+    # pylint: disable=too-many-arguments
     def predict(
         self,
         log: DataFrame,
@@ -205,11 +207,10 @@ class Recommender(ABC):
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
-        type_in = get_type(log)
+        type_in = type(log)
         log, user_features, item_features = convert(
             log, user_features, item_features
         )
-
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
         if (
@@ -247,7 +248,7 @@ class Recommender(ABC):
                 sf.when(recs["relevance"] < 0, 0).otherwise(recs["relevance"]),
             )
         ).cache()
-        return convert(recs, to=type_in)
+        return convert(recs, to_type=type_in)
 
     def _reindex(self, entity: str, objects: DataFrame):
         """
@@ -314,6 +315,7 @@ class Recommender(ABC):
             unique = array.select(column).distinct()
         return unique
 
+    # pylint: disable=too-many-arguments
     @abstractmethod
     def _predict(
         self,
@@ -354,6 +356,7 @@ class Recommender(ABC):
             ``[user_id, item_id, relevance]``
         """
 
+    # pylint: disable=too-many-arguments
     def fit_predict(
         self,
         log: DataFrame,
@@ -433,6 +436,7 @@ class Recommender(ABC):
 
     @property
     def logger(self) -> logging.Logger:
+        """ логгер данного рекомендателя"""
         if self._logger is None:
             self._logger = logging.getLogger("sponge_bob_magic")
         return self._logger
@@ -448,12 +452,6 @@ class Recommender(ABC):
             raise AttributeError(
                 "Перед вызовом этого свойства нужно вызвать метод fit"
             )
-
-    @property
-    def spark(self) -> SparkSession:
-        if self._spark is None:
-            self._spark = State().session
-        return self._spark
 
     @property
     def items_count(self) -> int:

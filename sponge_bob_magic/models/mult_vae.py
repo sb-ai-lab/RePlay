@@ -1,35 +1,28 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from ignite.contrib.handlers.param_scheduler import LRScheduler
-from ignite.engine import Engine, Events
-from ignite.handlers import (
-    EarlyStopping,
-    ModelCheckpoint,
-    global_step_from_engine,
-)
-from ignite.metrics import Loss, RunningAverage
-from scipy.sparse import csr_matrix
-from pyspark.sql import DataFrame
-from sklearn.model_selection import GroupShuffleSplit
 import torch
-from torch import nn
 import torch.nn.functional as F
+from pyspark.sql import DataFrame
+from scipy.sparse import csr_matrix
+from sklearn.model_selection import GroupShuffleSplit
+from torch import nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, TensorDataset
 
-from sponge_bob_magic.models import TorchRecommender
+from sponge_bob_magic.models.base_torch_rec import TorchRecommender
 from sponge_bob_magic.session_handler import State
 
 
 class VAE(nn.Module):
     """Простой вариационный автокодировщик"""
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         item_count: int,
@@ -120,6 +113,7 @@ class VAE(nn.Module):
             hidden = self.activation(hidden)
         return self.decoder[-1](hidden)
 
+    # pylint: disable=arguments-differ
     def forward(
         self, batch: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -269,6 +263,7 @@ class MultVAE(TorchRecommender):
     seed: int = 42
     can_predict_cold_users = True
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         learning_rate: float = 0.05,
@@ -383,7 +378,7 @@ class MultVAE(TorchRecommender):
         )
         lr_scheduler = ReduceLROnPlateau(optimizer, factor=0.5, patience=3)
 
-        vae_trainer, val_evaluator = self._create_trainer_evaluator(
+        vae_trainer, _ = self._create_trainer_evaluator(
             optimizer,
             valid_data_loader,
             lr_scheduler,
@@ -393,6 +388,7 @@ class MultVAE(TorchRecommender):
 
         vae_trainer.run(train_data_loader, max_epochs=self.epochs)
 
+    # pylint: disable=arguments-differ
     def _loss(self, y_pred, y_true, mu_latent, logvar_latent):
         log_softmax_var = F.log_softmax(y_pred, dim=1)
         bce = -(log_softmax_var * y_true).sum(dim=1).mean()
@@ -426,14 +422,14 @@ class MultVAE(TorchRecommender):
         model: nn.Module,
         items_np: np.array,
         k: int,
-        items_count: int,
+        item_count: int,
     ) -> pd.DataFrame:
         user_idx = pandas_df["user_idx"][0]
         cnt = min(len(pandas_df) + k, len(items_np))
 
         model.eval()
         with torch.no_grad():
-            user_batch = torch.zeros((1, items_count))
+            user_batch = torch.zeros((1, item_count))
             user_batch[0, pandas_df["item_idx"].values] = 1
             user_recs = model(user_batch)[0][0].detach()
             best_item_idx = (

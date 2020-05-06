@@ -1,8 +1,7 @@
 import pandas as pd
-
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.converter import PANDAS, convert
+from sponge_bob_magic.converter import convert
 
 
 class TestConverter(PySparkTest):
@@ -13,13 +12,15 @@ class TestConverter(PySparkTest):
         self.assertTrue(
             (
                 self.pandas_data_frame.values
-                == convert(convert(self.pandas_data_frame), to=PANDAS).values
+                == convert(
+                    convert(self.pandas_data_frame), to_type=pd.DataFrame
+                ).values
             ).all()
         )
 
     def test_unknown_type(self):
         with self.assertRaises(NotImplementedError):
-            convert(1, to="unknown_type")
+            convert(1, to_type=float)
 
     def test_spark_is_unchanged(self):
         spark_data_frame = convert(self.pandas_data_frame)

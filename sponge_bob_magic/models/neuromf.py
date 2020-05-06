@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import torch.nn.functional as F
 import torch.optim
-from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.engine import Engine
 from pyspark.sql import DataFrame
 from sklearn.model_selection import train_test_split
@@ -15,7 +14,7 @@ from torch import LongTensor, Tensor, nn
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
 
-from sponge_bob_magic.models import TorchRecommender
+from sponge_bob_magic.models.base_torch_rec import TorchRecommender
 from sponge_bob_magic.session_handler import State
 
 
@@ -64,6 +63,7 @@ class GMF(nn.Module):
         self.user_biases.weight.data.zero_()
         self.item_biases.weight.data.zero_()
 
+    # pylint: disable=arguments-differ
     def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
         """
         Один проход нейросети.
@@ -136,6 +136,7 @@ class MLP(nn.Module):
         for layer in self.hidden_layers:
             xavier_init_(layer)
 
+    # pylint: disable=arguments-differ
     def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
         """
         Один проход нейросети.
@@ -157,6 +158,7 @@ class MLP(nn.Module):
 class NMF(nn.Module):
     """NMF модель (MLP + GMF)"""
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         user_count: int,
@@ -200,6 +202,7 @@ class NMF(nn.Module):
         self.last_layer = nn.Linear(merged_dim, 1)
         xavier_init_(self.last_layer)
 
+    # pylint: disable=arguments-differ
     def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
         """
         Один проход нейросети.
@@ -245,6 +248,7 @@ class NeuroMF(TorchRecommender):
     valid_split_size: float = 0.1
     seed: int = 42
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         learning_rate: float = 0.05,
@@ -359,9 +363,7 @@ class NeuroMF(TorchRecommender):
             weight_decay=self.l2_reg / self.batch_size_users,
         )
         lr_scheduler = ExponentialLR(optimizer, gamma=self.gamma)
-        scheduler = LRScheduler(lr_scheduler)
-
-        nmf_trainer, val_evaluator = self._create_trainer_evaluator(
+        nmf_trainer, _ = self._create_trainer_evaluator(
             optimizer,
             val_data_loader,
             lr_scheduler,
@@ -371,6 +373,7 @@ class NeuroMF(TorchRecommender):
 
         nmf_trainer.run(train_data_loader, max_epochs=self.epochs)
 
+    # pylint: disable=arguments-differ
     def _loss(self, y_pred, y_true):
         return F.binary_cross_entropy(y_pred, y_true).mean()
 
@@ -391,13 +394,14 @@ class NeuroMF(TorchRecommender):
 
         return y_pred, y_true
 
+    # pylint: disable=unused-argument
     @staticmethod
     def _predict_by_user(
         pandas_df: pd.DataFrame,
         model: nn.Module,
         items_np: np.array,
         k: int,
-        items_count: int,
+        item_count: int,
     ) -> pd.DataFrame:
         user_idx = pandas_df["user_idx"][0]
         cnt = min(len(pandas_df) + k, len(items_np))

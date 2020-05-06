@@ -5,11 +5,12 @@ import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.constants import CommonDataFrame
+from sponge_bob_magic.constants import AnyDataFrame
 from sponge_bob_magic.converter import convert
 from sponge_bob_magic.metrics.base_metric import RecOnlyMetric
 
 
+# pylint: disable=too-few-public-methods
 class Surprisal(RecOnlyMetric):
     """
     Показывает насколько редкие предметы выдаются в рекомендациях.
@@ -41,7 +42,7 @@ class Surprisal(RecOnlyMetric):
         Surprisal@K = \\frac {\sum_{i=1}^{N}Surprisal@K(i)}{N}
     """
 
-    def __init__(self, log: CommonDataFrame):
+    def __init__(self, log: AnyDataFrame):
         """
         Чтобы посчитать метрику, необходимо предрассчитать собственную информацию каждого объекта.
 

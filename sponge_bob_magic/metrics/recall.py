@@ -4,6 +4,7 @@
 from sponge_bob_magic.metrics.base_metric import Metric
 
 
+# pylint: disable=too-few-public-methods
 class Recall(Metric):
     """
     Какая доля объектов, с которыми взаимодействовал пользователь в тестовых данных, была показана ему в списке рекомендаций длины ``K``?

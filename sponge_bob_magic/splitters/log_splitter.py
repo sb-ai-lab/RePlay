@@ -21,6 +21,7 @@ from sponge_bob_magic.splitters.base_splitter import (
 )
 
 
+# pylint: disable=too-few-public-methods
 class DateSplitter(Splitter):
     """
     Делит лог по дате, начиная с которой все записи будут отнесены к тесту.
@@ -55,6 +56,7 @@ class DateSplitter(Splitter):
         return train, test
 
 
+# pylint: disable=too-few-public-methods
 class RandomSplitter(Splitter):
     """ Случайным образом распределяет записи на трейн и тест по переданному значению размера теста. """
 
@@ -86,6 +88,7 @@ class RandomSplitter(Splitter):
         return train, test
 
 
+# pylint: disable=too-few-public-methods
 class ColdUsersSplitter(Splitter):
     """
     На основе желаемого размера тестовой выборки подбирается дата,
