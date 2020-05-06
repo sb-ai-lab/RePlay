@@ -153,7 +153,6 @@ class RandomRec(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        super()._pre_fit(log, user_features, item_features)
         self.item_popularity = log.groupBy("item_idx").agg(
             sf.countDistinct("user_idx").alias("user_count")
         )
