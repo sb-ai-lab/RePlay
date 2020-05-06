@@ -60,26 +60,16 @@ class PopRec(Recommender):
     def get_params(self) -> Dict[str, object]:
         return {}
 
-    def _pre_fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
-        super()._pre_fit(log, user_features, item_features)
-        self.item_popularity = log.groupBy("item_id").agg(
-            sf.countDistinct("user_id").alias("user_count")
-        )
-
     def _fit(
         self,
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-
         self.item_popularity = (
-            self.item_popularity.select(
+            log.groupBy("item_id")
+            .agg(sf.countDistinct("user_id").alias("user_count"))
+            .select(
                 "item_id",
                 (sf.col("user_count") / sf.lit(self.users_count)).alias(
                     "relevance"
