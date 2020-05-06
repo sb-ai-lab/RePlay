@@ -127,26 +127,23 @@ class TwoStagesScenario:
             .drop("item_idx")
             .cache()
         )
-        second_train = self.first_model.item_indexer.transform(
-            self.first_model.user_indexer.transform(
-                first_recs.drop("relevance")
-                .join(
-                    first_test.select("user_id", "item_id", "relevance").toDF(
-                        "uid", "iid", "relevance"
-                    ),
-                    how="left",
-                    on=[
-                        col("user_id") == col("uid"),
-                        col("item_id") == col("iid"),
-                    ],
-                )
-                .withColumn(
-                    "relevance",
-                    when(isnull("relevance"), lit(0)).otherwise(lit(1)),
-                )
-                .drop("uid", "iid")
-                .cache()
+        second_train = (
+            first_recs.drop("relevance")
+            .join(
+                first_test.select("user_id", "item_id", "relevance").toDF(
+                    "uid", "iid", "relevance"
+                ),
+                how="left",
+                on=[
+                    col("user_id") == col("uid"),
+                    col("item_id") == col("iid"),
+                ],
             )
+            .withColumn(
+                "relevance",
+                when(isnull("relevance"), lit(0)).otherwise(lit(1)),
+            )
+            .drop("uid", "iid")
         ).cache()
         State().logger.debug(
             "баланс классов: положительных %d из %d",
@@ -205,7 +202,7 @@ class TwoStagesScenario:
         +-------+-------+----------+
         <BLANKLINE>
         >>> two_stages.experiment.results
-                            HitRate@1
+                             HitRate@1
         two_stages_scenario        0.0
 
         :param log: лог пользовательских предпочтений

@@ -63,7 +63,7 @@ class KNNRecTestCase(PySparkTest):
                 [
                     ["u1", "i3", 0.18350341907227408],
                     ["u2", "i4", 0.6835034190722742],
-                    ["u3", "i4", 0.0],
+                    ["u3", "i3", 0.0],
                 ],
                 schema=REC_SCHEMA,
             ),

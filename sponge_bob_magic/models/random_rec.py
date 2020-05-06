@@ -48,7 +48,7 @@ class RandomRec(Recommender):
     |      2|      3|
     |      3|      3|
     +-------+-------+
-
+    <BLANKLINE>
     >>> random_pop = RandomRec(distribution="popular_based", alpha=-1)
     Traceback (most recent call last):
      ...
@@ -64,53 +64,53 @@ class RandomRec(Recommender):
     {'distribution': 'popular_based', 'alpha': 1.0, 'seed': 777}
     >>> random_pop.fit(log)
     >>> random_pop.item_popularity.show()
-    +-------+-----------+
-    |item_id|probability|
-    +-------+-----------+
-    |      1|        2.0|
-    |      2|        2.0|
-    |      3|        3.0|
-    +-------+-----------+
-
+    +--------+-----------+
+    |item_idx|probability|
+    +--------+-----------+
+    |     2.0|        2.0|
+    |     1.0|        2.0|
+    |     0.0|        3.0|
+    +--------+-----------+
+    <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
     >>> recs.show()
-    +-------+----------+-------+
-    |user_id| relevance|item_id|
-    +-------+----------+-------+
-    |      1|       1.0|      3|
-    |      1|       0.0|      1|
-    |      2|       1.0|      1|
-    |      2|       0.5|      2|
-    |      3|       1.0|      1|
-    |      3|0.33333334|      2|
-    +-------+----------+-------+
-
+    +-------+-------+----------+
+    |user_id|item_id| relevance|
+    +-------+-------+----------+
+    |      1|      3|       1.0|
+    |      1|      2|       0.0|
+    |      2|      1|       1.0|
+    |      2|      2|       0.5|
+    |      3|      1|       1.0|
+    |      3|      2|0.33333334|
+    +-------+-------+----------+
+    <BLANKLINE>
     >>> random_pop = RandomRec(seed=555)
     >>> random_pop.get_params()
     {'distribution': 'uniform', 'alpha': 0.0, 'seed': 555}
     >>> random_pop.fit(log)
     >>> random_pop.item_popularity.show()
-    +-------+-----------+
-    |item_id|probability|
-    +-------+-----------+
-    |      1|          1|
-    |      2|          1|
-    |      3|          1|
-    +-------+-----------+
-
+    +--------+-----------+
+    |item_idx|probability|
+    +--------+-----------+
+    |     2.0|          1|
+    |     1.0|          1|
+    |     0.0|          1|
+    +--------+-----------+
+    <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
     >>> recs.show()
-    +-------+----------+-------+
-    |user_id| relevance|item_id|
-    +-------+----------+-------+
-    |      1|       1.0|      3|
-    |      1|       0.0|      1|
-    |      2|       0.5|      1|
-    |      2|0.33333334|      2|
-    |      3|       0.5|      2|
-    |      3|0.33333334|      1|
-    +-------+----------+-------+
-
+    +-------+-------+----------+
+    |user_id|item_id| relevance|
+    +-------+-------+----------+
+    |      1|      3|       1.0|
+    |      1|      2|       0.0|
+    |      2|      1|       0.5|
+    |      2|      2|0.33333334|
+    |      3|      2|       0.5|
+    |      3|      1|0.33333334|
+    +-------+-------+----------+
+    <BLANKLINE>
     """
 
     item_popularity: DataFrame
@@ -231,7 +231,7 @@ class RandomRec(Recommender):
 
         model_len = len(items_pd)
         recs = (
-            users.join(log, how="left", on="user_id")
+            users.join(log, how="left", on="user_idx")
             .select("user_idx", "item_idx")
             .groupby("user_idx")
             .agg(sf.countDistinct("item_idx").alias("cnt"))
