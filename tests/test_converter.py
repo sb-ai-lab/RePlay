@@ -13,14 +13,14 @@ class TestConverter(PySparkTest):
             (
                 self.pandas_data_frame.values
                 == convert(
-                    convert(self.pandas_data_frame), to=pd.DataFrame
+                    convert(self.pandas_data_frame), to_type=pd.DataFrame
                 ).values
             ).all()
         )
 
     def test_unknown_type(self):
         with self.assertRaises(NotImplementedError):
-            convert(1, to="unknown_type")
+            convert(1, to_type=float)
 
     def test_spark_is_unchanged(self):
         spark_data_frame = convert(self.pandas_data_frame)

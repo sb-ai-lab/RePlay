@@ -102,4 +102,6 @@ class Splitter(ABC):
         test = self._drop_cold_items_and_users(
             train, test, self.drop_cold_items, self.drop_cold_users
         )
-        return convert(train, self._filter_zero_relevance(test), to=type_in)
+        return convert(
+            train, self._filter_zero_relevance(test), to_type=type_in
+        )

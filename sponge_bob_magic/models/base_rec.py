@@ -248,7 +248,7 @@ class Recommender(ABC):
                 sf.when(recs["relevance"] < 0, 0).otherwise(recs["relevance"]),
             )
         ).cache()
-        return convert(recs, to=type_in)
+        return convert(recs, to_type=type_in)
 
     def _reindex(self, entity: str, objects: DataFrame):
         """
