@@ -28,20 +28,19 @@ class KNNRecTestCase(PySparkTest):
         )
 
     def test_fit(self):
-        self.model._pre_fit(self.log, None, None)
-        self.model._fit(self.log, None, None)
+        self.model.fit(self.log, None, None)
         self.assertSparkDataFrameEqual(
             self.model.similarity,
             self.spark.createDataFrame(
                 [
-                    ("i1", "i4", 0.5),
-                    ("i3", "i4", 0.18350341907227408),
-                    ("i4", "i3", 0.18350341907227408),
+                    (1.0, 2.0, 0.5),
+                    (0.0, 2.0, 0.18350341907227408),
+                    (2.0, 0.0, 0.18350341907227408),
                 ],
                 schema=StructType(
                     [
-                        StructField("item_id_one", StringType()),
-                        StructField("item_id_two", StringType()),
+                        StructField("item_id_one", DoubleType()),
+                        StructField("item_id_two", DoubleType()),
                         StructField("similarity", DoubleType()),
                     ]
                 ),
@@ -64,7 +63,7 @@ class KNNRecTestCase(PySparkTest):
                 [
                     ["u1", "i3", 0.18350341907227408],
                     ["u2", "i4", 0.6835034190722742],
-                    ["u3", "i3", 0.0],
+                    ["u3", "i4", 0.0],
                 ],
                 schema=REC_SCHEMA,
             ),

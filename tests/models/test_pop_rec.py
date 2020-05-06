@@ -106,12 +106,12 @@ class PopRecTestCase(PySparkTest):
         log_schema = ["user_id", "item_id", "relevance", "timestamp"]
         log = self.spark.createDataFrame(data=log_data, schema=log_schema)
         true_recs_data = [
-            ["u1", "i1", 0.0],
+            ["u1", "i4", 0.0],
             ["u1", "i3", 2 / 3],
             ["u2", "i4", 2 / 3],
             ["u2", "i1", 0.0],
             ["u3", "i1", 2 / 3],
-            ["u3", "i3", 0.0],
+            ["u3", "i4", 0.0],
         ]
         true_recs_schema = ["user_id", "item_id", "relevance"]
         true_recs = self.spark.createDataFrame(

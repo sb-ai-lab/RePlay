@@ -28,8 +28,7 @@ class SlimRecTestCase(PySparkTest):
         )
 
     def test_fit(self):
-        self.model._pre_fit(self.log, None, None)
-        self.model._fit(self.log, None, None)
+        self.model.fit(self.log, None, None)
         self.assertSparkDataFrameEqual(
             self.model.similarity,
             self.spark.createDataFrame(

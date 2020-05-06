@@ -197,7 +197,7 @@ class MainScenario:
         self.logger.debug("Обучение и предсказание дополнительной модели")
         fallback_recs = self._fit_predict_fallback_recs(split_data, k)
         self.logger.debug("Пре-фит модели")
-        self.recommender._pre_fit(
+        self.recommender.pre_fit(
             split_data.train,
             split_data.user_features,
             split_data.item_features,

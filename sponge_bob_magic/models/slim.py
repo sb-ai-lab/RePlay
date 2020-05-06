@@ -44,6 +44,7 @@ class SLIM(Recommender):
     """
 
     similarity: DataFrame
+    can_predict_cold_users = True
 
     def __init__(
         self,
@@ -73,11 +74,7 @@ class SLIM(Recommender):
     ) -> None:
         self.logger.debug("Построение модели SLIM")
 
-        log_indexed = self.user_indexer.transform(log)
-        log_indexed = self.item_indexer.transform(log_indexed)
-        pandas_log = log_indexed.select(
-            "user_idx", "item_idx", "relevance"
-        ).toPandas()
+        pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
 
         interactions_matrix = csc_matrix(
             (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
@@ -102,7 +99,7 @@ class SLIM(Recommender):
         )
 
         @sf.pandas_udf(
-            "item_id_one float, item_id_two float, similarity " "double",
+            "item_id_one float, item_id_two float, similarity double",
             sf.PandasUDFType.GROUPED_MAP,
         )
         def slim_row(pandas_df):
@@ -145,30 +142,27 @@ class SLIM(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        log_indexed = self.user_indexer.transform(log)
-        log_indexed = self.item_indexer.transform(log_indexed)
-        item_indexed = self.item_indexer.transform(items)
         recs = (
-            log_indexed.withColumnRenamed("item_id", "item")
+            users.withColumnRenamed("user_idx", "user")
             .join(
-                users.withColumnRenamed("user_id", "user"),
+                log.withColumnRenamed("item_idx", "item"),
                 how="inner",
-                on=sf.col("user") == sf.col("user_id"),
+                on=sf.col("user") == sf.col("user_idx"),
             )
             .join(
                 self.similarity,
                 how="inner",
-                on=sf.col("item_idx") == sf.col("item_id_one"),
+                on=sf.col("item") == sf.col("item_id_one"),
             )
             .join(
-                item_indexed.withColumnRenamed("item_idx", "item_idx_"),
+                items,
                 how="inner",
-                on=sf.col("item_idx_") == sf.col("item_id_two"),
+                on=sf.col("item_idx") == sf.col("item_id_two"),
             )
-            .groupby("user_id", "item_id")
+            .groupby("user_idx", "item_idx")
             .agg(sf.sum("similarity").alias("relevance"))
-            .select("user_id", "item_id", "relevance")
+            .select("user_idx", "item_idx", "relevance")
             .cache()
-        ).cache()
+        )
 
         return recs

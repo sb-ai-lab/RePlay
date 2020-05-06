@@ -93,16 +93,16 @@ class ClassifierRec(Recommender):
                 outputCol="features",
             )
             .transform(
-                log.withColumnRenamed("user_id", "uid")
-                .withColumnRenamed("item_id", "iid")
+                log.withColumnRenamed("user_idx", "uid")
+                .withColumnRenamed("item_idx", "iid")
                 .join(
-                    user_features.select("user_id", "user_features"),
-                    on=col("user_id") == col("uid"),
+                    user_features.select("user_idx", "user_features"),
+                    on=col("user_idx") == col("uid"),
                     how="inner",
                 )
                 .join(
-                    item_features.select("item_id", "item_features"),
-                    on=col("item_id") == col("iid"),
+                    item_features.select("item_idx", "item_features"),
+                    on=col("item_idx") == col("iid"),
                     how="inner",
                 )
                 .drop("iid", "uid")
@@ -129,10 +129,10 @@ class ClassifierRec(Recommender):
     ) -> DataFrame:
         data = self._augment_data(
             users.crossJoin(items), user_features, item_features
-        ).select("features", "item_id", "user_id")
+        ).select("features", "item_idx", "user_idx")
         recs = self.model.transform(data).select(
-            "user_id",
-            "item_id",
+            "user_idx",
+            "item_idx",
             udf(func_get, DoubleType())("probability", lit(1))
             .alias("relevance")
             .cast(FloatType()),

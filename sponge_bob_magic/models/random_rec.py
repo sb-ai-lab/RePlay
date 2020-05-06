@@ -154,8 +154,8 @@ class RandomRec(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         super()._pre_fit(log, user_features, item_features)
-        self.item_popularity = log.groupBy("item_id").agg(
-            sf.countDistinct("user_id").alias("user_count")
+        self.item_popularity = log.groupBy("item_idx").agg(
+            sf.countDistinct("user_idx").alias("user_count")
         )
 
     def _fit(
@@ -170,7 +170,7 @@ class RandomRec(Recommender):
             probability = "1"
 
         self.item_popularity = self.item_popularity.selectExpr(
-            "item_id", f"{probability} AS probability"
+            "item_idx", f"{probability} AS probability"
         ).cache()
 
     # pylint: disable=too-many-arguments
@@ -186,16 +186,12 @@ class RandomRec(Recommender):
     ) -> DataFrame:
 
         items_pd = (
-            self.item_indexer.transform(
-                items.join(
-                    self.item_popularity.withColumnRenamed(
-                        "item_id", "item_id_2"
-                    ),
-                    on=sf.col("item_id") == sf.col("item_id_2"),
-                    how="inner",
-                )
+            items.join(
+                self.item_popularity.withColumnRenamed("item_idx", "item"),
+                on=sf.col("item_idx") == sf.col("item"),
+                how="inner",
             )
-            .drop("item_id_2", "item_id")
+            .drop("item")
             .toPandas()
         )
         items_pd.loc[:, "probability"] = (
@@ -206,9 +202,6 @@ class RandomRec(Recommender):
         @sf.pandas_udf(
             st.StructType(
                 [
-                    st.StructField(
-                        "user_id", users.schema["user_id"].dataType, True
-                    ),
                     st.StructField("user_idx", st.LongType(), True),
                     st.StructField("item_idx", st.LongType(), True),
                     st.StructField("relevance", st.FloatType(), True),
@@ -218,7 +211,6 @@ class RandomRec(Recommender):
         )
         def grouped_map(pandas_df):
             user_idx = pandas_df["user_idx"][0]
-            user_id = pandas_df["user_id"][0]
             cnt = pandas_df["cnt"][0]
             if seed is not None:
                 np.random.seed(user_idx + seed)
@@ -231,7 +223,6 @@ class RandomRec(Recommender):
             relevance = 1 / np.arange(1, cnt + 1)
             return pd.DataFrame(
                 {
-                    "user_id": cnt * [user_id],
                     "user_idx": cnt * [user_idx],
                     "item_idx": items_idx,
                     "relevance": relevance,
@@ -239,20 +230,17 @@ class RandomRec(Recommender):
             )
 
         model_len = len(items_pd)
-        recs = self.inv_item_indexer.transform(
-            self.user_indexer.transform(
-                users.join(log, how="left", on="user_id")
-                .select("user_id", "item_id")
-                .groupby("user_id")
-                .agg(sf.countDistinct("item_id").alias("cnt"))
-            )
+        recs = (
+            users.join(log, how="left", on="user_id")
+            .select("user_idx", "item_idx")
+            .groupby("user_idx")
+            .agg(sf.countDistinct("item_idx").alias("cnt"))
             .selectExpr(
-                "user_id",
                 "CAST(user_idx AS INT) AS user_idx",
                 f"CAST(LEAST(cnt + {k}, {model_len}) AS INT) AS cnt",
             )
-            .groupby("user_id", "user_idx")
+            .groupby("user_idx")
             .apply(grouped_map)
-        ).drop("item_idx", "user_idx")
+        )
 
         return recs

@@ -341,12 +341,8 @@ class MultVAE(TorchRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self.logger.debug("Индексирование данных")
-        log_indexed = self.user_indexer.transform(log)
-        log_indexed = self.item_indexer.transform(log_indexed)
-
         self.logger.debug("Составление батча:")
-        data = log_indexed.select("user_idx", "item_idx").toPandas()
+        data = log.select("user_idx", "item_idx").toPandas()
         splitter = GroupShuffleSplit(
             n_splits=1, test_size=self.valid_split_size, random_state=self.seed
         )

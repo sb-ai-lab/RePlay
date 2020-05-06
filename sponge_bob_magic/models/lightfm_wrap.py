@@ -33,11 +33,7 @@ class LightFMWrap(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         self.logger.debug("Построение модели LightFM")
-        log_indexed = self.user_indexer.transform(log)
-        log_indexed = self.item_indexer.transform(log_indexed)
-        pandas_log = log_indexed.select(
-            "user_idx", "item_idx", "relevance"
-        ).toPandas()
+        pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
         interactions_matrix = coo_matrix(
             (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
             shape=(self.users_count, self.items_count),
@@ -64,16 +60,14 @@ class LightFMWrap(Recommender):
             test_data = self._filter_seen_recs(test_data, log).drop(
                 "relevance"
             )
-        log_indexed = self.user_indexer.transform(test_data)
-        log_indexed = self.item_indexer.transform(log_indexed)
-        prediction = log_indexed.toPandas()
+        prediction = test_data.toPandas()
         prediction["relevance"] = self.model.predict(
             np.array(prediction.user_idx), np.array(prediction.item_idx)
         )
         recs = (
             State()
             .session.createDataFrame(
-                prediction[["user_id", "item_id", "relevance"]]
+                prediction[["user_idx", "item_idx", "relevance"]]
             )
             .cache()
         )

@@ -86,7 +86,7 @@ class MainObjective:
             )
         self.recommender.set_params(**params)
         self.logger.debug("-- Второй фит модели в оптимизации")
-        self.recommender._fit(
+        self.recommender.fit(
             self.split_data.train,
             self.split_data.user_features,
             self.split_data.item_features,

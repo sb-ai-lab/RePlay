@@ -45,9 +45,7 @@ class TorchRecommender(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        items_pd = (
-            self.item_indexer.transform(items).toPandas()["item_idx"].values
-        )
+        items_pd = items.toPandas()["item_idx"].values
         items_count = self.items_count
         model = self.model.cpu()
         agg_fn = self._predict_by_user
@@ -68,22 +66,15 @@ class TorchRecommender(Recommender):
             ]
 
         self.logger.debug("Предсказание модели")
-        recs = self.item_indexer.transform(
-            self.user_indexer.transform(
-                users.join(log, how="left", on="user_id")
-            )
-        )
         recs = (
-            recs.selectExpr(
+            users.join(log, how="left", on="user_idx")
+            .selectExpr(
                 "CAST(user_idx AS INT) AS user_idx",
                 "CAST(item_idx AS INT) AS item_idx",
             )
             .groupby("user_idx")
             .apply(grouped_map)
         )
-        recs = self.inv_item_indexer.transform(
-            self.inv_user_indexer.transform(recs)
-        ).drop("item_idx", "user_idx")
 
         recs = self.min_max_scale_column(recs, "relevance")
         return recs
