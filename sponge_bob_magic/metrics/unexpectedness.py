@@ -19,19 +19,19 @@ class Unexpectedness(RecOnlyMetric):
     По умолчанию используется рекомендатель по популярности ``PopRec``.
 
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": ["1", "2", "1", "3"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
-    >>> dd = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": ["1", "2", "3", "1"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
-    >>> m = Unexpectedness(data_frame)
-    >>> m(dd, [1, 2])
+    >>> log = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": ["1", "2", "1", "3"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
+    >>> recs = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": ["1", "2", "3", "1"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
+    >>> metric = Unexpectedness(log)
+    >>> metric(recs, [1, 2])
     {1: 0.5, 2: 0.25}
 
 
     Возможен также режим, в котором рекомендации базового алгоритма передаются сразу при инициализации и рекомендатель не обучается
 
-    >>> de = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
-    >>> dr = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [0, 0, 1], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
-    >>> m = Unexpectedness(dr, None)
-    >>> round(m(de, 3), 2)
+    >>> log = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
+    >>> recs = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [0, 0, 1], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
+    >>> metric = Unexpectedness(log, None)
+    >>> round(metric(recs, 3), 2)
     0.67
     """
 
