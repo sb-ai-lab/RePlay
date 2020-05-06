@@ -229,7 +229,7 @@ class Recommender(ABC):
             filter_seen_items,
         )
         if filter_seen_items:
-            recs = self._filter_seen_recs(recs, self._convert_index(log))
+            recs = self._mark_seen_items(recs, self._convert_index(log))
         recs = self._convert_back(recs).select(
             "user_id", "item_id", "relevance"
         )
@@ -431,7 +431,7 @@ class Recommender(ABC):
         )
 
     @staticmethod
-    def _filter_seen_recs(recs: DataFrame, log: DataFrame) -> DataFrame:
+    def _mark_seen_items(recs: DataFrame, log: DataFrame) -> DataFrame:
         """
         Преобразует рекомендации, заменяя для каждого пользователя
         relevance уже увиденных им объектов (на основе лога) на -1.
