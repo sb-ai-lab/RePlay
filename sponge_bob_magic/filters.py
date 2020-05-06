@@ -5,7 +5,7 @@ from typing import Union
 import pandas as pd
 import pyspark.sql as sp
 
-from sponge_bob_magic.converter import TypeManager
+from sponge_bob_magic.converter import get_type, convert
 
 AnyDataFrame = Union[sp.DataFrame, pd.DataFrame]
 
@@ -22,14 +22,14 @@ def min_entries(df: AnyDataFrame, n: int) -> AnyDataFrame:
     0        1
     1        1
     """
-    types = TypeManager()
-    df = types.fit_convert(df)
+    type_in = get_type(df)
+    df = convert(df)
 
     vc = df.groupBy("user_id").count()
     remaining_users = vc.filter(vc["count"] >= n)[["user_id"]]
     df = df.join(remaining_users, on="user_id", how="inner")
 
-    return types.inverse(df)
+    return convert(df, to=type_in)
 
 
 def min_rating(
@@ -45,9 +45,9 @@ def min_rating(
     0          5
     1          4
     """
-    types = TypeManager()
-    df = types.fit_convert(df)
+    type_in = get_type(df)
+    df = convert(df)
 
     df = df.filter(df[column] > value)
 
-    return types.inverse(df)
+    return convert(df, to=type_in)

@@ -206,9 +206,9 @@ class Recommender(ABC):
             ``[user_id, item_id, relevance]``
         """
         type_in = get_type(log)
-        log = convert(log)
-        user_features = convert(user_features)
-        item_features = convert(item_features)
+        log, user_features, item_features = convert(
+            log, user_features, item_features
+        )
 
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
@@ -247,7 +247,7 @@ class Recommender(ABC):
                 sf.when(recs["relevance"] < 0, 0).otherwise(recs["relevance"]),
             )
         ).cache()
-        return convert(recs, type_in)
+        return convert(recs, to=type_in)
 
     def _reindex(self, entity: str, objects: DataFrame):
         """
