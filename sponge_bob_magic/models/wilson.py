@@ -36,14 +36,6 @@ class Wilson(PopRec):
 
     """
 
-    def _pre_fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
-        super(PopRec, self)._pre_fit(log, None, None)
-
     def _fit(
         self,
         log: DataFrame,
