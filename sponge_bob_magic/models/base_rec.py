@@ -102,7 +102,7 @@ class Recommender(ABC):
 
         if "user_indexer" not in self.__dict__ or force_reindex:
             self.logger.debug("Предварительная стадия обучения (pre-fit)")
-            self._create_indexers(log)
+            self._create_indexers(log, user_features, item_features)
         self.logger.debug("Основная стадия обучения (fit)")
         self._fit(
             self._convert_index(log),
@@ -110,20 +110,39 @@ class Recommender(ABC):
             self._convert_index(item_features),
         )
 
-    def _create_indexers(self, log: DataFrame) -> None:
+    def _create_indexers(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
         """
         Метод для создания индексеров.
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             ``[user_id, item_id, timestamp, relevance]``
+        :param user_features: свойствва пользователей (обязательно содержат колонку ``user_id``)
+        :param item_features: свойствва объектов (обязательно содержат колонку ``item_id``)
         :return:
         """
+        if user_features is None:
+            users = log.select("user_id")
+        else:
+            users = log.select("user_id").union(
+                user_features.select("user_id")
+            )
+        if item_features is None:
+            items = log.select("item_id")
+        else:
+            items = log.select("item_id").union(
+                item_features.select("item_id")
+            )
         self.user_indexer = StringIndexer(
             inputCol="user_id", outputCol="user_idx"
-        ).fit(log)
+        ).fit(users)
         self.item_indexer = StringIndexer(
             inputCol="item_id", outputCol="item_idx"
-        ).fit(log)
+        ).fit(items)
         self.inv_user_indexer = IndexToString(
             inputCol="user_idx",
             outputCol="user_id",
