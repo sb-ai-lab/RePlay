@@ -1,7 +1,8 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Iterable, Optional, Union
+# pylint: disable-all
+from typing import Dict, Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
@@ -43,80 +44,6 @@ class RecTestCase(PySparkTest):
         self.log = self.spark.createDataFrame(
             data=[["1", "2", "3", "4"]],
             schema=["item_id", "user_id", "timestamp", "relevance"],
-        )
-
-    def test_fit_predict_feature_exception(self):
-        # user_features пустой | item_features пустой
-        self.assertRaises(
-            ValueError,
-            self.model.fit_predict,
-            log=self.log,
-            user_features=self.empty_df,
-            item_features=None,
-            k=10,
-            users=None,
-            items=None,
-        )
-        self.assertRaises(
-            ValueError,
-            self.model.fit_predict,
-            log=self.log,
-            user_features=None,
-            item_features=self.empty_df,
-            k=10,
-            users=None,
-            items=None,
-        )
-        # в user_features | item_features не достает колонок
-        self.assertRaises(
-            ValueError,
-            self.model.fit_predict,
-            log=self.log,
-            item_features=None,
-            user_features=self.spark.createDataFrame(
-                data=[["1", "2"]], schema=["user_id", "f"]
-            ),
-            k=10,
-            users=None,
-            items=None,
-        )
-        self.assertRaises(
-            ValueError,
-            self.model.fit_predict,
-            log=self.log,
-            user_features=None,
-            item_features=self.spark.createDataFrame(
-                data=[["1", "2"]], schema=["item_id", "f"]
-            ),
-            k=10,
-            users=None,
-            items=None,
-        )
-
-        # в user_features | item_features не достает колонок с фичами
-        self.assertRaises(
-            ValueError,
-            self.model.fit_predict,
-            log=self.log,
-            item_features=None,
-            k=10,
-            users=None,
-            items=None,
-            user_features=self.spark.createDataFrame(
-                data=[["1", "2"]], schema=["user_id", "timestamp"]
-            ),
-        )
-        self.assertRaises(
-            ValueError,
-            self.model.fit_predict,
-            log=self.log,
-            item_features=None,
-            k=10,
-            users=None,
-            items=None,
-            user_features=self.spark.createDataFrame(
-                data=[["1", "2"]], schema=["item_id", "timestamp"]
-            ),
         )
 
     def test_extract_if_needed(self):
