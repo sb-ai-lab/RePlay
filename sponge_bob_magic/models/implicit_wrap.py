@@ -8,7 +8,7 @@ from sponge_bob_magic.models import Recommender
 from sponge_bob_magic.utils import to_csr
 
 
-class ImplicitWrap(Recommender):  # pragma: no cover
+class ImplicitWrap(Recommender):
     """Обертка для пакета `implicit
     <https://github.com/benfred/implicit>`_
 
