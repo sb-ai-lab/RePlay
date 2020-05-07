@@ -479,6 +479,9 @@ class Recommender(ABC):
 
     @property
     def logger(self) -> logging.Logger:
+        """
+        :returns: стандартный логгер библиотеки
+        """
         if self._logger is None:
             self._logger = logging.getLogger("sponge_bob_magic")
         return self._logger

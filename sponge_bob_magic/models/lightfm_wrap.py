@@ -9,9 +9,10 @@ import pandas as pd
 from lightfm import LightFM
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import PandasUDFType, pandas_udf
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, csr_matrix, hstack, identity
 
 from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.session_handler import State
 
 
 class LightFMWrap(Recommender):
@@ -36,6 +37,34 @@ class LightFMWrap(Recommender):
             "random_state": self.random_state,
         }
 
+    def _feature_table_to_csr(self, feature_table: DataFrame) -> csr_matrix:
+        """
+        преобразоавть свойства пользователей или объектов в разреженную матрицу
+
+        :param some_feature: таблица с колонкой ``user_idx`` или ``item_idx``,
+            все остальные колонки которой считаются значениями свойства пользователя или объекта соответстввенно
+        :returns: матрица, в которой строки --- пользователи или объекты, столбцы --- их свойства
+        """
+        all_features = (
+            self.item_indexer.transform(
+                State()
+                .session.createDataFrame(enumerate(self.item_indexer.labels))
+                .toDF("id", "item_id")
+                .drop("id")
+            )
+            .drop("item_id")
+            .join(feature_table, on="item_idx", how="left")
+            .fillna(0.0)
+            .sort("item_idx")
+            .drop("item_idx")
+        )
+        return hstack(
+            [
+                identity(self.items_count),
+                csr_matrix(all_features.toPandas().to_numpy()),
+            ]
+        )
+
     def _fit(
         self,
         log: DataFrame,
@@ -51,6 +80,11 @@ class LightFMWrap(Recommender):
             ),
             shape=(self.users_count, self.items_count),
         )
+        csr_item_features = (
+            self._feature_table_to_csr(item_features)
+            if item_features is not None
+            else None
+        )
         self.model = LightFM(
             loss=self.loss,
             no_components=self.no_components,
@@ -59,6 +93,7 @@ class LightFMWrap(Recommender):
             interactions=interactions_matrix,
             epochs=self.epochs,
             num_threads=os.cpu_count(),
+            item_features=csr_item_features,
         )
 
     # pylint: disable=too-many-arguments
@@ -80,10 +115,16 @@ class LightFMWrap(Recommender):
             pandas_df["relevance"] = model.predict(
                 user_ids=pandas_df["user_idx"].to_numpy(),
                 item_ids=pandas_df["item_idx"].to_numpy(),
+                item_features=csr_item_features,
             )
             return pandas_df
 
         model = self.model
+        csr_item_features = (
+            self._feature_table_to_csr(item_features)
+            if item_features is not None
+            else None
+        )
         return (
             self.user_indexer.transform(users)
             .crossJoin(self.item_indexer.transform(items))

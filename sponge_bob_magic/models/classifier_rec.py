@@ -76,6 +76,22 @@ class ClassifierRec(Recommender):
         :return: новый спарк-датайрейм, в котором к каждой строчке лога
             добавлены фичи пользователя и объекта, которые в ней встречаются
         """
+        user_vectors = (
+            VectorAssembler(
+                inputCols=user_features.drop("user_id").columns,
+                outputCol="user_features",
+            )
+            .transform(user_features)
+            .cache()
+        )
+        item_vectors = (
+            VectorAssembler(
+                inputCols=item_features.drop("item_id").columns,
+                outputCol="item_features",
+            )
+            .transform(item_features)
+            .cache()
+        )
         return (
             VectorAssembler(
                 inputCols=[
@@ -90,12 +106,12 @@ class ClassifierRec(Recommender):
                 log.withColumnRenamed("user_idx", "uid")
                 .withColumnRenamed("item_idx", "iid")
                 .join(
-                    user_features.select("user_idx", "user_features"),
+                    user_vectors.select("user_idx", "user_features"),
                     on=col("user_idx") == col("uid"),
                     how="inner",
                 )
                 .join(
-                    item_features.select("item_idx", "item_features"),
+                    item_vectors.select("item_idx", "item_features"),
                     on=col("item_idx") == col("iid"),
                     how="inner",
                 )

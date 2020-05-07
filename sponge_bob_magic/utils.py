@@ -1,8 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import collections
-from typing import Any, Iterable, List, Set, Tuple
+from typing import Any, Set
 
 import numpy as np
 from pyspark.ml.linalg import DenseVector, Vector, Vectors, VectorUDT
@@ -10,24 +9,6 @@ from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 from pyspark.sql.functions import udf
 from scipy.sparse import csr_matrix
-
-
-def flat_list(list_object: Iterable):
-    """
-    Генератор.
-    Из неоднородного листа с вложенными листами делает однородный лист.
-    Например, [1, [2], [3, 4], 5] -> [1, 2, 3, 4, 5].
-
-    :param list_object: лист
-    :return: преобразованный лист
-    """
-    for item in list_object:
-        if isinstance(item, collections.abc.Iterable) and not isinstance(
-            item, (str, bytes)
-        ):
-            yield from flat_list(item)
-        else:
-            yield item
 
 
 def get_distinct_values_in_column(
@@ -45,25 +26,6 @@ def get_distinct_values_in_column(
     }
 
 
-def get_top_k_rows(
-    dataframe: DataFrame, k: int, sort_column: str
-) -> DataFrame:
-    """
-    Выделяет топ-k строк в датафрейме на основе заданной колонки.
-
-    :param sort_column: название колонки, по которой необходимы выделить топ
-    :param dataframe: спарк-датафрейм
-    :param k: сколько топовых строк необходимо выделить
-    :return: спарк-датафрейм такого же вида, но размера `k`
-    """
-    window = Window.orderBy(dataframe[sort_column].desc())
-    return (
-        dataframe.withColumn("rank", sf.row_number().over(window))
-        .filter(sf.col("rank") <= k)
-        .drop("rank")
-    )
-
-
 def func_get(vector: np.ndarray, i: int) -> float:
     """
     вспомогательная функция для создания Spark UDF для получения элемента
@@ -74,26 +36,6 @@ def func_get(vector: np.ndarray, i: int) -> float:
     :returns: значение ячейки массива (вещественное число)
     """
     return float(vector[i])
-
-
-def get_feature_cols(
-    user_features: DataFrame, item_features: DataFrame
-) -> Tuple[List[str], List[str]]:
-    """
-    извлечь список свойств пользователей и объектов
-
-    :param user_features: свойства пользователей в стандартном формате
-    :param item_features: свойства объектов в стандартном формате
-    :return: пара списков
-    (имена колонок свойств пользователей, то же для фичей)
-    """
-    user_feature_cols = list(
-        set(user_features.columns) - {"user_id", "timestamp"}
-    )
-    item_feature_cols = list(
-        set(item_features.columns) - {"item_id", "timestamp"}
-    )
-    return user_feature_cols, item_feature_cols
 
 
 def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
@@ -114,40 +56,6 @@ def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
         .filter(sf.col("rank") <= k)
         .drop("rank")
     )
-
-
-@udf(returnType=VectorUDT())
-def to_vector(array: List[float]) -> DenseVector:
-    """
-    преобразует список вещественных значений в плотный вектор в формате Spark
-
-    >>> from sponge_bob_magic.session_handler import State
-    >>> spark = State().session
-    >>> input_data = spark.createDataFrame([([1.0, 2.0, 3.0],)]).toDF("array")
-    >>> input_data.schema
-    StructType(List(StructField(array,ArrayType(DoubleType,true),true)))
-    >>> input_data.show()
-    +---------------+
-    |          array|
-    +---------------+
-    |[1.0, 2.0, 3.0]|
-    +---------------+
-    <BLANKLINE>
-    >>> output_data = input_data.select(to_vector("array").alias("vector"))
-    >>> output_data.schema
-    StructType(List(StructField(vector,VectorUDT,true)))
-    >>> output_data.show()
-    +-------------+
-    |       vector|
-    +-------------+
-    |[1.0,2.0,3.0]|
-    +-------------+
-    <BLANKLINE>
-
-    :param array: список вещественных чисел
-    :returns: плотный вектор из пакета ``pyspark.ml.linalg``
-    """
-    return Vectors.dense(array)
 
 
 @udf(returnType=VectorUDT())
@@ -266,15 +174,18 @@ def to_csr(log: DataFrame) -> csr_matrix:
 
     >>> import pandas as pd
     >>> from sponge_bob_magic.converter import convert
-    >>> df = pd.DataFrame({"user_idx": [0, 1], "item_idx": [0, 2], "relevance": [1, 2]})
-    >>> df = convert(df)
-    >>> m = to_csr(df)
+    >>> data_frame = pd.DataFrame({"user_idx": [0, 1], "item_idx": [0, 2], "relevance": [1, 2]})
+    >>> data_frame = convert(data_frame)
+    >>> m = to_csr(data_frame)
     >>> m.toarray()
     array([[1, 0],
            [0, 0],
            [0, 2]], dtype=int64)
     """
-    df = log.select("user_idx", "item_idx", "relevance").toPandas()
+    data_frame = log.select("user_idx", "item_idx", "relevance").toPandas()
     return csr_matrix(
-        (df.relevance, (df.item_idx.astype(int), df.user_idx.astype(int)))
+        (
+            data_frame.relevance,
+            (data_frame.item_idx.astype(int), data_frame.user_idx.astype(int)),
+        )
     )

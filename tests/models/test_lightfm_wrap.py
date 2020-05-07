@@ -29,13 +29,27 @@ class LightFMWrapTestCase(PySparkTest):
             ],
             schema=LOG_SCHEMA,
         )
+        self.user_features = self.spark.createDataFrame(
+            [("u1", 2.0, 3.0)]
+        ).toDF("user_id", "user_feature_1", "user_feature_2")
+        self.item_features = self.spark.createDataFrame(
+            [("i1", 4.0, 5.0)]
+        ).toDF("item_id", "item_feature_1", "item_feature_2")
 
     def test_fit(self):
-        self.lightfm_wrap.fit(self.log)
+        self.lightfm_wrap.fit(self.log, self.user_features, self.item_features)
         item_factors = self.lightfm_wrap.model.item_embeddings
+        print(item_factors)
         self.assertTrue(
             np.allclose(
-                item_factors, [[-0.07829587], [0.3076668], [0.32417864]]
+                item_factors,
+                [
+                    [0.00863252],
+                    [0.57749104],
+                    [-0.03584422],
+                    [0.34196582],
+                    [-0.08865917],
+                ],
             )
         )
 
@@ -45,6 +59,8 @@ class LightFMWrapTestCase(PySparkTest):
             k=1,
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
+            user_features=self.user_features,
+            item_features=self.item_features,
         )
         true_recs = self.spark.createDataFrame(
             [["u3", "i1", 0.0], ["u1", "i3", 0.0], ["u2", "i4", 0.0]],
