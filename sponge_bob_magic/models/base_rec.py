@@ -454,7 +454,6 @@ class Recommender(ABC):
 
     @property
     def logger(self) -> logging.Logger:
-        """ логгер данного рекомендателя"""
         if self._logger is None:
             self._logger = logging.getLogger("sponge_bob_magic")
         return self._logger
@@ -488,5 +487,5 @@ class Recommender(ABC):
 
     def inv_index(self, log):
         return self.inv_user_indexer.transform(
-            self.inv_item_indexer.transform(log)
+            self.inv_user_indexer.transform(log)
         ).drop("user_idx", "item_idx")
