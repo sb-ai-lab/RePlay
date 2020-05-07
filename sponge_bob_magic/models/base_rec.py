@@ -79,7 +79,7 @@ class Recommender(ABC):
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
-        make_reindex: bool = True,
+        force_reindex: bool = True,
     ) -> None:
         """
         Обучает модель на логе и признаках пользователей и объектов.
@@ -93,22 +93,22 @@ class Recommender(ABC):
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
             ``[item_id, timestamp]`` и колонки с признаками
-        :param make_reindex: параметр, от вечающий за необходимость делать
-            реиндекс в случае, если индекс был создан ранее
+        :param force_reindex: обязательно создавать
+            индексы, даже если они были созданы ранее
         :return:
         """
         log, user_features, item_features = convert(
             log, user_features, item_features
         )
 
-        if "user_indexer" not in self.__dict__ or make_reindex:
+        if "user_indexer" not in self.__dict__ or force_reindex:
             self.logger.debug("Предварительная стадия обучения (pre-fit)")
             self._create_indexers(log)
         self.logger.debug("Основная стадия обучения (fit)")
         self._fit(
-            self._indexing(log),
-            self._indexing(user_features),
-            self._indexing(item_features),
+            self._convert_index(log),
+            self._convert_index(user_features),
+            self._convert_index(item_features),
         )
 
     def _create_indexers(self, log: DataFrame) -> None:
@@ -207,11 +207,11 @@ class Recommender(ABC):
         items = self._extract_unique(log, items, "item_id")
         self._reindex("item", items)
         self._reindex("user", users)
-        users = self._indexing(users)
-        items = self._indexing(items)
-        user_features = self._indexing(user_features)
-        item_features = self._indexing(item_features)
-        log = self._indexing(log)
+        users = self._convert_index(users)
+        items = self._convert_index(items)
+        user_features = self._convert_index(user_features)
+        item_features = self._convert_index(item_features)
+        log = self._convert_index(log)
 
         num_items = items.count()
         if num_items < k:
@@ -229,7 +229,7 @@ class Recommender(ABC):
             filter_seen_items,
         )
         if filter_seen_items:
-            recs = self._filter_seen_recs(recs, self._indexing(log))
+            recs = self._filter_seen_recs(recs, self._convert_index(log))
         recs = self.inv_item_indexer.transform(
             self.inv_user_indexer.transform(recs)
         ).select("user_id", "item_id", "relevance")
@@ -242,7 +242,7 @@ class Recommender(ABC):
         ).cache()
         return convert(recs, to_type=type_in)
 
-    def _indexing(
+    def _convert_index(
         self, data_frame: Optional[DataFrame]
     ) -> Optional[DataFrame]:
         if data_frame is None:
@@ -373,7 +373,7 @@ class Recommender(ABC):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
-        make_reindex: bool = True,
+        force_reindex: bool = True,
     ) -> DataFrame:
         """
         Обучает модель и выдает рекомендации.
@@ -399,12 +399,12 @@ class Recommender(ABC):
             ``[item_id , timestamp]`` и колонки с признаками
         :param filter_seen_items: если ``True``, из рекомендаций каждому
             пользователю удаляются виденные им объекты на основе лога
-        :param make_reindex: параметр, от вечающий за необходимость делать
-            реиндекс в случае, если индекс был создан ранее
+        :param force_reindex: обязательно создавать
+            индексы, даже если они были созданы ранее
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
-        self.fit(log, user_features, item_features, make_reindex)
+        self.fit(log, user_features, item_features, force_reindex)
         return self.predict(
             log,
             k,
