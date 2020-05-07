@@ -4,6 +4,7 @@
 import os
 from typing import Dict, Optional
 
+import numpy as np
 import pandas as pd
 from lightfm import LightFM
 from pyspark.sql import DataFrame
@@ -44,7 +45,10 @@ class LightFMWrap(Recommender):
         self.logger.debug("Построение модели LightFM")
         pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
         interactions_matrix = coo_matrix(
-            (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
+            (
+                np.ones(len(pandas_log)),
+                (pandas_log.user_idx, pandas_log.item_idx),
+            ),
             shape=(self.users_count, self.items_count),
         )
         self.model = LightFM(
