@@ -341,12 +341,8 @@ class NeuroMF(TorchRecommender):
             hidden_mlp_dims=self.hidden_mlp_dims,
         ).to(self.device)
 
-        self.logger.debug("Индексирование данных")
-        log_indexed = self.user_indexer.transform(log)
-        log_indexed = self.item_indexer.transform(log_indexed)
-
         self.logger.debug("Составление батча")
-        tensor_data = log_indexed.select("user_idx", "item_idx").toPandas()
+        tensor_data = log.select("user_idx", "item_idx").toPandas()
         train_tensor_data, valid_tensor_data = train_test_split(
             tensor_data,
             stratify=tensor_data["user_idx"],

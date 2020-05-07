@@ -46,23 +46,23 @@ class KNN(Recommender):
             спарк-датафрейм вида `[item_id_one, item_id_two, similarity]`
         """
         return (
-            items.withColumnRenamed("item_id", "item_id_one")
+            items.withColumnRenamed("item_idx", "item_id_one")
             .join(
-                items.withColumnRenamed("item_id", "item_id_two"),
+                items.withColumnRenamed("item_idx", "item_id_two"),
                 how="inner",
                 on=sf.col("item_id_one") > sf.col("item_id_two"),
             )
             .join(dot_products, how="inner", on=["item_id_one", "item_id_two"])
             .join(
                 item_norms.withColumnRenamed(
-                    "item_id", "item_id1"
+                    "item_idx", "item_id1"
                 ).withColumnRenamed("norm", "norm1"),
                 how="inner",
                 on=sf.col("item_id1") == sf.col("item_id_one"),
             )
             .join(
                 item_norms.withColumnRenamed(
-                    "item_id", "item_id2"
+                    "item_idx", "item_id2"
                 ).withColumnRenamed("norm", "norm2"),
                 how="inner",
                 on=sf.col("item_id2") == sf.col("item_id_two"),
@@ -105,44 +105,37 @@ class KNN(Recommender):
             .cache()
         )
 
-    # pylint: disable=unused-argument
-    def _pre_fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
-        self.dot_products = (
-            log.select("user_id", "item_id")
-            .withColumnRenamed("item_id", "item_id_one")
-            .join(
-                log.select("user_id", "item_id").withColumnRenamed(
-                    "item_id", "item_id_two"
-                ),
-                how="inner",
-                on="user_id",
-            )
-            .groupby("item_id_one", "item_id_two")
-            .agg(sf.count("user_id").alias("dot_product"))
-            .cache()
-        )
-        self.item_norms = (
-            log.select("user_id", "item_id")
-            .groupby("item_id")
-            .agg(sf.count("user_id").alias("square_norm"))
-            .select(sf.col("item_id"), sf.sqrt("square_norm").alias("norm"))
-            .cache()
-        )
-        self.all_items = log.select("item_id").distinct().cache()
-
     def _fit(
         self,
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
+        dot_products = (
+            log.select("user_idx", "item_idx")
+            .withColumnRenamed("item_idx", "item_id_one")
+            .join(
+                log.select("user_idx", "item_idx").withColumnRenamed(
+                    "item_idx", "item_id_two"
+                ),
+                how="inner",
+                on="user_idx",
+            )
+            .groupby("item_id_one", "item_id_two")
+            .agg(sf.count("user_idx").alias("dot_product"))
+            .cache()
+        )
+        item_norms = (
+            log.select("user_idx", "item_idx")
+            .groupby("item_idx")
+            .agg(sf.count("user_idx").alias("square_norm"))
+            .select(sf.col("item_idx"), sf.sqrt("square_norm").alias("norm"))
+            .cache()
+        )
+        all_items = log.select("item_idx").distinct().cache()
+
         similarity_matrix = self._get_similarity_matrix(
-            self.all_items, self.dot_products, self.item_norms
+            all_items, dot_products, item_norms
         ).cache()
 
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()
@@ -159,15 +152,15 @@ class KNN(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         recs = (
-            log.join(users, how="inner", on="user_id")
+            log.join(users, how="inner", on="user_idx")
             .join(
                 self.similarity,
                 how="left",
-                on=sf.col("item_id") == sf.col("item_id_one"),
+                on=sf.col("item_idx") == sf.col("item_id_one"),
             )
-            .groupby("user_id", "item_id_two")
+            .groupby("user_idx", "item_id_two")
             .agg(sf.sum("similarity").alias("relevance"))
-            .withColumnRenamed("item_id_two", "item_id")
+            .withColumnRenamed("item_id_two", "item_idx")
             .cache()
         )
 

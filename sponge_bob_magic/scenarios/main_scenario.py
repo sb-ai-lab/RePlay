@@ -196,12 +196,6 @@ class MainScenario:
                 metrics[metric()] = k_list
         self.logger.debug("Обучение и предсказание дополнительной модели")
         fallback_recs = self._fit_predict_fallback_recs(split_data, k)
-        self.logger.debug("Пре-фит модели")
-        self.recommender._pre_fit(
-            split_data.train,
-            split_data.user_features,
-            split_data.item_features,
-        )
         self.logger.debug("Оптимизация параметров")
         self.logger.debug("Количество попыток: %d", n_trials)
         best_params = self._run_optimization(
@@ -272,5 +266,11 @@ class MainScenario:
         """
         self.recommender.set_params(**params)
         return self.recommender.fit_predict(
-            log, k, users, items, user_features, item_features
+            log,
+            k,
+            users,
+            items,
+            user_features,
+            item_features,
+            force_reindex=False,
         )

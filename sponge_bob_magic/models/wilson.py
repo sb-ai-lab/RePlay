@@ -33,9 +33,9 @@ class Wilson(PopRec):
     >>> data_frame = pd.DataFrame({"user_id": [1, 2], "item_id": [1, 2], "relevance": [1, 1]})
     >>> model = Wilson()
     >>> model.fit_predict(data_frame, k=1)
-       user_id item_id  relevance
-    0        1       2   0.206549
-    1        2       1   0.206549
+      user_id item_id  relevance
+    0       1       2   0.206549
+    1       2       1   0.206549
 
     """
 
@@ -48,7 +48,7 @@ class Wilson(PopRec):
         log = convert(log)
 
         data_frame = (
-            log.groupby("item_id")
+            log.groupby("item_idx")
             .agg(
                 sf.sum("relevance").alias("pos"),
                 sf.count("relevance").alias("total"),

@@ -41,17 +41,17 @@ class PopRec(Recommender):
     >>> from sponge_bob_magic.converter import convert
     >>> res = PopRec().fit_predict(convert(data_frame), 1)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
-       user_id  item_id  relevance
-    0        1        3   0.666667
-    1        2        2   0.333333
-    2        3        2   0.333333
+      user_id item_id  relevance
+    0       1       3   0.666667
+    1       2       1   0.333333
+    2       3       1   0.333333
 
     >>> res = PopRec().fit_predict(convert(data_frame), 1, filter_seen_items=False)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
-       user_id  item_id  relevance
-    0        1        3        0.666667
-    1        2        3        0.666667
-    2        3        3        0.666667
+      user_id item_id  relevance
+    0       1       3   0.666667
+    1       2       3   0.666667
+    2       3       3   0.666667
     """
 
     item_popularity: DataFrame
@@ -67,10 +67,10 @@ class PopRec(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         self.item_popularity = (
-            log.groupBy("item_id")
-            .agg(sf.countDistinct("user_id").alias("user_count"))
+            log.groupBy("item_idx")
+            .agg(sf.countDistinct("user_idx").alias("user_count"))
             .select(
-                "item_id",
+                "item_idx",
                 (sf.col("user_count") / sf.lit(self.users_count)).alias(
                     "relevance"
                 ),
@@ -90,25 +90,18 @@ class PopRec(Recommender):
     ) -> DataFrame:
         # удаляем ненужные items
         items_pd = (
-            self.item_indexer.transform(
-                items.join(
-                    self.item_popularity.withColumnRenamed(
-                        "item_id", "item_id_2"
-                    ),
-                    on=sf.col("item_id") == sf.col("item_id_2"),
-                    how="inner",
-                )
+            items.join(
+                self.item_popularity.withColumnRenamed("item_idx", "item"),
+                on=sf.col("item_idx") == sf.col("item"),
+                how="inner",
             )
-            .drop("item_id_2", "item_id")
+            .drop("item")
             .toPandas()
         )
 
         @sf.pandas_udf(
             st.StructType(
                 [
-                    st.StructField(
-                        "user_id", users.schema["user_id"].dataType, True
-                    ),
                     st.StructField("user_idx", st.LongType(), True),
                     st.StructField("item_idx", st.LongType(), True),
                     st.StructField("relevance", st.DoubleType(), True),
@@ -118,14 +111,12 @@ class PopRec(Recommender):
         )
         def grouped_map(pandas_df):
             user_idx = pandas_df["user_idx"][0]
-            user_id = pandas_df["user_id"][0]
             cnt = pandas_df["cnt"][0]
 
             items_idx = np.argsort(items_pd["relevance"].values)[-cnt:]
 
             return pd.DataFrame(
                 {
-                    "user_id": cnt * [user_id],
                     "user_idx": cnt * [user_idx],
                     "item_idx": items_pd["item_idx"].values[items_idx],
                     "relevance": items_pd["relevance"].values[items_idx],
@@ -133,22 +124,19 @@ class PopRec(Recommender):
             )
 
         model_len = len(items_pd)
-        recs = self.user_indexer.transform(
-            users.join(log, how="left", on="user_id")
-            .select("user_id", "item_id")
-            .groupby("user_id")
-            .agg(sf.countDistinct("item_id").alias("cnt"))
+        recs = (
+            users.join(log, how="left", on="user_idx")
+            .select("user_idx", "item_idx")
+            .groupby("user_idx")
+            .agg(sf.countDistinct("item_idx").alias("cnt"))
         )
-        recs = self.inv_item_indexer.transform(
+        recs = (
             recs.selectExpr(
-                "user_id",
                 "CAST(user_idx AS INT) AS user_idx",
                 f"CAST(LEAST(cnt + {k}, {model_len}) AS INT) AS cnt",
             )
-            .groupby("user_id", "user_idx")
+            .groupby("user_idx")
             .apply(grouped_map)
         )
-        recs = recs.drop("item_idx", "user_idx").select(
-            "user_id", "item_id", "relevance"
-        )
+
         return recs

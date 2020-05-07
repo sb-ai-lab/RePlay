@@ -79,6 +79,7 @@ class Recommender(ABC):
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
+        force_reindex: bool = True,
     ) -> None:
         """
         Обучает модель на логе и признаках пользователей и объектов.
@@ -92,39 +93,30 @@ class Recommender(ABC):
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
             ``[item_id, timestamp]`` и колонки с признаками
+        :param force_reindex: обязательно создавать
+            индексы, даже если они были созданы ранее
         :return:
         """
-        log = convert(log)
-        user_features = convert(user_features)
-        item_features = convert(item_features)
+        log, user_features, item_features = convert(
+            log, user_features, item_features
+        )
 
-        self.logger.debug("Предварительная стадия обучения (pre-fit)")
-        self._pre_fit(log, user_features, item_features)
+        if "user_indexer" not in self.__dict__ or force_reindex:
+            self.logger.debug("Предварительная стадия обучения (pre-fit)")
+            self._create_indexers(log)
         self.logger.debug("Основная стадия обучения (fit)")
-        self._fit(log, user_features, item_features)
+        self._fit(
+            self._convert_index(log),
+            self._convert_index(user_features),
+            self._convert_index(item_features),
+        )
 
-    # pylint: disable=unused-argument
-    def _pre_fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
+    def _create_indexers(self, log: DataFrame) -> None:
         """
-        Метод-helper для обучения модели, в котором параметры не используются.
-        Нужен для того, чтобы вынести вычисление трудоемких агрегатов
-        в отдельный метод, который по возможности будет вызываться один раз.
-        Может быть имплементирован наследниками.
-
+        Метод для создания индексеров.
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             ``[user_id, item_id, timestamp, relevance]``
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонками
-            ``[user_id, timestamp]`` и колонки с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонками
-            ``[item_id, timestamp]`` и колонки с признаками
         :return:
         """
         self.user_indexer = StringIndexer(
@@ -213,16 +205,13 @@ class Recommender(ABC):
         )
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
-        if (
-            "item_indexer" in self.__dict__
-            and "inv_item_indexer" in self.__dict__
-        ):
-            self._reindex("item", items)
-        if (
-            "user_indexer" in self.__dict__
-            and "inv_user_indexer" in self.__dict__
-        ):
-            self._reindex("user", users)
+        self._reindex("item", items)
+        self._reindex("user", users)
+        users = self._convert_index(users)
+        items = self._convert_index(items)
+        user_features = self._convert_index(user_features)
+        item_features = self._convert_index(item_features)
+        log = self._convert_index(log)
 
         num_items = items.count()
         if num_items < k:
@@ -240,7 +229,10 @@ class Recommender(ABC):
             filter_seen_items,
         )
         if filter_seen_items:
-            recs = self._filter_seen_recs(recs, log)
+            recs = self._filter_seen_recs(recs, self._convert_index(log))
+        recs = self.inv_item_indexer.transform(
+            self.inv_user_indexer.transform(recs)
+        ).select("user_id", "item_id", "relevance")
         recs = get_top_k_recs(recs, k)
         recs = (
             recs.withColumn(
@@ -249,6 +241,28 @@ class Recommender(ABC):
             )
         ).cache()
         return convert(recs, to_type=type_in)
+
+    def _convert_index(
+        self, data_frame: Optional[DataFrame]
+    ) -> Optional[DataFrame]:
+        """
+        Строковые индексы в полях ``user_id``, ``item_id`` заменяются на
+        числовые индексы ``user_idx`` и ``item_idx`` соответственно
+
+        :param data_frame: спарк-датафрейм со строковыми индексами
+        :return: спарк-датафрейм с числовыми индексами
+        """
+        if data_frame is None:
+            return data_frame
+        if "user_id" in data_frame.columns:
+            data_frame = self.user_indexer.transform(data_frame).drop(
+                "user_id"
+            )
+        if "item_id" in data_frame.columns:
+            data_frame = self.item_indexer.transform(data_frame).drop(
+                "item_id"
+            )
+        return data_frame
 
     def _reindex(self, entity: str, objects: DataFrame):
         """
@@ -366,6 +380,7 @@ class Recommender(ABC):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
+        force_reindex: bool = True,
     ) -> DataFrame:
         """
         Обучает модель и выдает рекомендации.
@@ -391,10 +406,12 @@ class Recommender(ABC):
             ``[item_id , timestamp]`` и колонки с признаками
         :param filter_seen_items: если ``True``, из рекомендаций каждому
             пользователю удаляются виденные им объекты на основе лога
+        :param force_reindex: обязательно создавать
+            индексы, даже если они были созданы ранее
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
-        self.fit(log, user_features, item_features)
+        self.fit(log, user_features, item_features, force_reindex)
         return self.predict(
             log,
             k,
@@ -409,7 +426,7 @@ class Recommender(ABC):
     def _filter_seen_recs(recs: DataFrame, log: DataFrame) -> DataFrame:
         """
         Преобразует рекомендации, заменяя для каждого пользователя
-        relevance уже виденных им объекты (на основе лога) на -1.
+        relevance уже увиденных им объектов (на основе лога) на -1.
 
         :param recs: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
@@ -420,12 +437,12 @@ class Recommender(ABC):
             ``[user_id, item_id, relevance]``
         """
         user_item_log = log.select(
-            sf.col("item_id").alias("item"), sf.col("user_id").alias("user")
+            sf.col("item_idx").alias("item"), sf.col("user_idx").alias("user")
         ).withColumn("in_log", sf.lit(True))
         recs = recs.join(
             user_item_log,
-            (recs.item_id == user_item_log.item)
-            & (recs.user_id == user_item_log.user),
+            (recs.item_idx == user_item_log.item)
+            & (recs.user_idx == user_item_log.user),
             how="left",
         )
         recs = recs.withColumn(
