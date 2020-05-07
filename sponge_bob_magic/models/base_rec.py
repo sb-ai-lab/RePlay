@@ -245,6 +245,13 @@ class Recommender(ABC):
     def _convert_index(
         self, data_frame: Optional[DataFrame]
     ) -> Optional[DataFrame]:
+        """
+        Строковые индексы в полях ``user_id``, ``item_id`` заменяются на
+        числовые индексы ``user_idx`` и ``item_idx`` соответственно
+
+        :param data_frame: спарк-датафрейм со строковыми индексами
+        :return: спарк-датафрейм с числовыми индексами
+        """
         if data_frame is None:
             return data_frame
         if "user_id" in data_frame.columns:
