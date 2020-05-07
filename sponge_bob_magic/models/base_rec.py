@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, Optional, Union
 
 import pandas as pd
 from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.converter import convert
@@ -24,7 +24,6 @@ class Recommender(ABC):
     inv_user_indexer: IndexToString
     inv_item_indexer: IndexToString
     _logger: Optional[logging.Logger] = None
-    _spark: Optional[SparkSession] = None
     can_predict_cold_users: bool = False
     can_predict_cold_items: bool = False
 
