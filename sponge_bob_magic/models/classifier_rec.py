@@ -39,7 +39,7 @@ class ClassifierRec(Recommender):
     def get_params(self) -> Dict[str, object]:
         return self.model_params
 
-    def _pre_fit(
+    def _fit(
         self,
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
@@ -59,12 +59,6 @@ class ClassifierRec(Recommender):
             .select("label", "features")
         ).cache()
 
-    def _fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
         self.model = RandomForestClassifier(**self.model_params).fit(
             self.augmented_data
         )

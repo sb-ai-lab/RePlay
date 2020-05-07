@@ -79,6 +79,7 @@ class Recommender(ABC):
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
+        make_reindex: bool = True,
     ) -> None:
         """
         Обучает модель на логе и признаках пользователей и объектов.
@@ -92,45 +93,30 @@ class Recommender(ABC):
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
             ``[item_id, timestamp]`` и колонки с признаками
+        :param make_reindex: параметр, от вечающий за необходимость делать
+            реиндекс в случае, если индекс был создан ранее
         :return:
         """
         log, user_features, item_features = convert(
             log, user_features, item_features
         )
 
-        if self.user_indexer is None:
+        if "user_indexer" not in self.__dict__ or make_reindex:
             self.logger.debug("Предварительная стадия обучения (pre-fit)")
-            self.pre_fit(log, user_features, item_features)
+            self._create_indexers(log)
         self.logger.debug("Основная стадия обучения (fit)")
         self._fit(
-            self._index(log),
-            self._index(user_features),
-            self._index(item_features),
+            self._indexing(log),
+            self._indexing(user_features),
+            self._indexing(item_features),
         )
 
-    def pre_fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
+    def _create_indexers(self, log: DataFrame) -> None:
         """
-        Метод-helper для обучения модели, в котором параметры не
-        используются.
-        Нужен для того, чтобы вынести вычисление трудоемких агрегатов
-        в отдельный метод, который по возможности будет вызываться
-        один раз.
-        Может быть имплементирован наследниками.
-
+        Метод для создания индексеров.
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             ``[user_id, item_id, timestamp, relevance]``
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонками
-            ``[user_id, timestamp]`` и колонки с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонками
-            ``[item_id, timestamp]`` и колонки с признаками
         :return:
         """
         self.user_indexer = StringIndexer(
@@ -149,38 +135,6 @@ class Recommender(ABC):
             outputCol="item_id",
             labels=self.item_indexer.labels,
         )
-
-        self._pre_fit(
-            self._index(log),
-            self._index(user_features),
-            self._index(item_features),
-        )
-
-    # pylint: disable=unused-argument
-    def _pre_fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
-        """
-        Метод-helper для обучения модели, в котором параметры не используются.
-        Нужен для того, чтобы вынести вычисление трудоемких агрегатов
-        в отдельный метод, который по возможности будет вызываться один раз.
-        Может быть имплементирован наследниками.
-
-        :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками
-            ``[user_id, item_id, timestamp, relevance]``
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонками
-            ``[user_id, timestamp]`` и колонки с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонками
-            ``[item_id, timestamp]`` и колонки с признаками
-        :return:
-        """
-        pass
 
     @abstractmethod
     def _fit(
@@ -253,11 +207,11 @@ class Recommender(ABC):
         items = self._extract_unique(log, items, "item_id")
         self._reindex("item", items)
         self._reindex("user", users)
-        users = self._index(users)
-        items = self._index(items)
-        user_features = self._index(user_features)
-        item_features = self._index(item_features)
-        log = self._index(log)
+        users = self._indexing(users)
+        items = self._indexing(items)
+        user_features = self._indexing(user_features)
+        item_features = self._indexing(item_features)
+        log = self._indexing(log)
 
         num_items = items.count()
         if num_items < k:
@@ -275,7 +229,7 @@ class Recommender(ABC):
             filter_seen_items,
         )
         if filter_seen_items:
-            recs = self._filter_seen_recs(recs, self._index(log))
+            recs = self._filter_seen_recs(recs, self._indexing(log))
         recs = self.inv_item_indexer.transform(
             self.inv_user_indexer.transform(recs)
         ).select("user_id", "item_id", "relevance")
@@ -288,7 +242,9 @@ class Recommender(ABC):
         ).cache()
         return convert(recs, to_type=type_in)
 
-    def _index(self, data_frame: Optional[DataFrame]) -> Optional[DataFrame]:
+    def _indexing(
+        self, data_frame: Optional[DataFrame]
+    ) -> Optional[DataFrame]:
         if data_frame is None:
             return data_frame
         if "user_id" in data_frame.columns:
@@ -417,6 +373,7 @@ class Recommender(ABC):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
+        make_reindex: bool = True,
     ) -> DataFrame:
         """
         Обучает модель и выдает рекомендации.
@@ -442,10 +399,12 @@ class Recommender(ABC):
             ``[item_id , timestamp]`` и колонки с признаками
         :param filter_seen_items: если ``True``, из рекомендаций каждому
             пользователю удаляются виденные им объекты на основе лога
+        :param make_reindex: параметр, от вечающий за необходимость делать
+            реиндекс в случае, если индекс был создан ранее
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
-        self.fit(log, user_features, item_features)
+        self.fit(log, user_features, item_features, make_reindex)
         return self.predict(
             log,
             k,

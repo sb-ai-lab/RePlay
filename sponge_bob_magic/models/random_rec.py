@@ -147,16 +147,6 @@ class RandomRec(Recommender):
             "seed": self.seed,
         }
 
-    def _pre_fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
-        self.item_popularity = log.groupBy("item_idx").agg(
-            sf.countDistinct("user_idx").alias("user_count")
-        )
-
     def _fit(
         self,
         log: DataFrame,
@@ -167,7 +157,9 @@ class RandomRec(Recommender):
             probability = f"CAST(user_count + {self.alpha} AS FLOAT)"
         else:
             probability = "1"
-
+        self.item_popularity = log.groupBy("item_idx").agg(
+            sf.countDistinct("user_idx").alias("user_count")
+        )
         self.item_popularity = self.item_popularity.selectExpr(
             "item_idx", f"{probability} AS probability"
         ).cache()

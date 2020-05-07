@@ -64,9 +64,3 @@ class ClassifierRecTestCase(PySparkTest):
             filter_seen_items=True,
         )
         self.assertEqual(empty_prediction.count(), 2)
-
-    def test_pre_fit_raises(self):
-        with self.assertRaises(ValueError):
-            self.model._pre_fit(
-                self.spark.createDataFrame([(1,)]).toDF("relevance")
-            )

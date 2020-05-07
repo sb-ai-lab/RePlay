@@ -105,14 +105,13 @@ class KNN(Recommender):
             .cache()
         )
 
-    # pylint: disable=unused-argument
-    def _pre_fit(
+    def _fit(
         self,
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self.dot_products = (
+        dot_products = (
             log.select("user_idx", "item_idx")
             .withColumnRenamed("item_idx", "item_id_one")
             .join(
@@ -126,23 +125,17 @@ class KNN(Recommender):
             .agg(sf.count("user_idx").alias("dot_product"))
             .cache()
         )
-        self.item_norms = (
+        item_norms = (
             log.select("user_idx", "item_idx")
             .groupby("item_idx")
             .agg(sf.count("user_idx").alias("square_norm"))
             .select(sf.col("item_idx"), sf.sqrt("square_norm").alias("norm"))
             .cache()
         )
-        self.all_items = log.select("item_idx").distinct().cache()
+        all_items = log.select("item_idx").distinct().cache()
 
-    def _fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
         similarity_matrix = self._get_similarity_matrix(
-            self.all_items, self.dot_products, self.item_norms
+            all_items, dot_products, item_norms
         ).cache()
 
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()

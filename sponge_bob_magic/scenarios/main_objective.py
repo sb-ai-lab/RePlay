@@ -90,6 +90,7 @@ class MainObjective:
             self.split_data.train,
             self.split_data.user_features,
             self.split_data.item_features,
+            False,
         )
         self.logger.debug("-- Предикт модели в оптимизации")
         recs = self.recommender.predict(
