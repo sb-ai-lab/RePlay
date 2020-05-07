@@ -31,7 +31,7 @@ class LightFMWrapTestCase(PySparkTest):
         )
 
     def test_fit(self):
-        self.lightfm_wrap.fit(self.log, None, None)
+        self.lightfm_wrap.fit(self.log)
         item_factors = self.lightfm_wrap.model.item_embeddings
         self.assertTrue(
             np.allclose(
