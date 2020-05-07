@@ -10,7 +10,34 @@ from sponge_bob_magic.utils import to_csr
 
 class ImplicitWrap(Recommender):  # pragma: no cover
     """Обертка для пакета `implicit
-    <https://github.com/benfred/implicit>`_"""
+    <https://github.com/benfred/implicit>`_
+
+    Пример:
+
+    >>> import implicit
+    >>> model = implicit.als.AlternatingLeastSquares(factors=5)
+    >>> als = ImplicitWrap(model)
+
+    Теперь модель можно использовать как любую другую в библиотеке.
+    Обертка обеспеивает конвертацию датафреймов в матрицы и единый интерфейс.
+
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({"user_id": [1, 1, 2, 2], "item_id": [1, 2, 2, 3], "relevance": [1, 1, 1, 1]})
+    >>> als.fit_predict(df, 1, users=[1])[["user_id", "item_id"]]
+      user_id item_id
+    0       1       3
+
+    # train the model on a sparse matrix of item/user/confidence weights
+    model.fit(item_user_data)
+
+    # recommend items for a user
+    user_items = item_user_data.T.tocsr()
+    recommendations = model.recommend(userid, user_items)
+
+    # find related items
+    related = model.similar_items(itemid)
+
+    """
 
     def __init__(self, model):
         """На вход принимаестя инициализированная модель implicit."""
@@ -25,7 +52,7 @@ class ImplicitWrap(Recommender):  # pragma: no cover
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        matrix = to_csr(self.index(log))
+        matrix = to_csr(log)
         self.model.fit(matrix)
 
     def _predict(
@@ -59,10 +86,9 @@ class ImplicitWrap(Recommender):  # pragma: no cover
         user_item_data = to_csr(self.index(log)).T.tocsr()
         model = self.model
         recs = self.user_indexer.transform(users)
-        recs = (
+        return (
             recs.select("user_idx").groupby("user_idx").apply(predict_by_user)
         )
-        return self.inv_index(recs)
 
     def _invert_items(self, log: DataFrame, items: DataFrame) -> list:
         """
@@ -74,10 +100,10 @@ class ImplicitWrap(Recommender):  # pragma: no cover
 
         Кроме того, индексы переводятся во внутренний формат.
         """
-        all_items = self._extract_unique(log, None, "item_id")
+        all_items = self._extract_unique(log, None, "item_idx")
         return (
             self.item_indexer.transform(
-                all_items.select("item_id").subtract(items)
+                all_items.select("item_idx").subtract(items)
             )
             .select("item_idx")
             .toPandas()

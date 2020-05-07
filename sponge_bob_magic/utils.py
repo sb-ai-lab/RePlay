@@ -275,4 +275,6 @@ def to_csr(log: DataFrame) -> csr_matrix:
            [0, 2]], dtype=int64)
     """
     df = log.select("user_idx", "item_idx", "relevance").toPandas()
-    return csr_matrix((df.relevance, (df.item_idx, df.user_idx)))
+    return csr_matrix(
+        (df.relevance, (df.item_idx.astype(int), df.user_idx.astype(int)))
+    )

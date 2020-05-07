@@ -230,9 +230,7 @@ class Recommender(ABC):
         )
         if filter_seen_items:
             recs = self._filter_seen_recs(recs, self._convert_index(log))
-        recs = self.inv_item_indexer.transform(
-            self.inv_user_indexer.transform(recs)
-        ).select("user_id", "item_id", "relevance")
+        recs = self.inv_index(recs).select("user_id", "item_id", "relevance")
         recs = get_top_k_recs(recs, k)
         recs = (
             recs.withColumn(
@@ -490,5 +488,5 @@ class Recommender(ABC):
 
     def inv_index(self, log):
         return self.inv_user_indexer.transform(
-            self.inv_user_indexer.transform(log)
+            self.inv_item_indexer.transform(log)
         ).drop("user_idx", "item_idx")
