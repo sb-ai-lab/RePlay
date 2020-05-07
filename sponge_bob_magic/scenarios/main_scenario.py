@@ -272,5 +272,5 @@ class MainScenario:
             items,
             user_features,
             item_features,
-            make_reindex=False,
+            force_reindex=False,
         )
