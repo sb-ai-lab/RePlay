@@ -17,13 +17,23 @@ class LightFMWrap(Recommender):
     """ Обёртка вокруг стандартной реализации LightFM. """
 
     epochs: int = 10
-    loss = "bpr"
 
-    def __init__(self, **kwargs):
-        self.model_params: Dict[str, object] = kwargs
+    def __init__(
+        self,
+        no_components: int = 128,
+        loss: str = "bpr",
+        random_state: Optional[int] = None,
+    ):
+        self.no_components = no_components
+        self.loss = loss
+        self.random_state = random_state
 
     def get_params(self) -> Dict[str, object]:
-        return self.model_params
+        return {
+            "no_components": self.no_components,
+            "loss": self.loss,
+            "random_state": self.random_state,
+        }
 
     def _fit(
         self,
@@ -37,7 +47,11 @@ class LightFMWrap(Recommender):
             (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
             shape=(self.users_count, self.items_count),
         )
-        self.model = LightFM(loss="bpr", **self.model_params).fit(
+        self.model = LightFM(
+            loss=self.loss,
+            no_components=self.no_components,
+            random_state=self.random_state,
+        ).fit(
             interactions=interactions_matrix,
             epochs=self.epochs,
             num_threads=os.cpu_count(),

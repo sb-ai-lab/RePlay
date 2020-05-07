@@ -55,5 +55,5 @@ class LightFMWrapTestCase(PySparkTest):
     def test_get_params(self):
         self.assertEqual(
             self.lightfm_wrap.get_params(),
-            {"no_components": 1, "random_state": 42},
+            {"no_components": 1, "random_state": 42, "loss": "bpr"},
         )
