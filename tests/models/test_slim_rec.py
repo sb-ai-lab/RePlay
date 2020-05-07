@@ -51,14 +51,12 @@ class SlimRecTestCase(PySparkTest):
         )
 
     def test_predict(self):
-        self.model.fit(self.log, None, None)
+        self.model.fit(self.log)
         recs = self.model.predict(
             log=self.log,
             k=1,
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
-            user_features=None,
-            item_features=None,
         )
         self.assertSparkDataFrameEqual(
             recs,

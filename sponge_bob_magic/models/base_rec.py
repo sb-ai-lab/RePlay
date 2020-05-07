@@ -27,7 +27,6 @@ class Recommender(ABC):
     _spark: Optional[SparkSession] = None
     can_predict_cold_users: bool = False
     can_predict_cold_items: bool = False
-    _prefitted: bool = False
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
@@ -99,7 +98,7 @@ class Recommender(ABC):
             log, user_features, item_features
         )
 
-        if not self._prefitted:
+        if self.user_indexer is None:
             self.logger.debug("Предварительная стадия обучения (pre-fit)")
             self.pre_fit(log, user_features, item_features)
         self.logger.debug("Основная стадия обучения (fit)")
@@ -156,7 +155,6 @@ class Recommender(ABC):
             self._index(user_features),
             self._index(item_features),
         )
-        self._prefitted = True
 
     # pylint: disable=unused-argument
     def _pre_fit(
