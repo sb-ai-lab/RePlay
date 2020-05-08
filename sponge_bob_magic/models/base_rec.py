@@ -266,7 +266,7 @@ class Recommender(ABC):
 
     def _convert_back(self, log):
         return self.inv_user_indexer.transform(
-            self.inv_user_indexer.transform(log)
+            self.inv_item_indexer.transform(log)
         ).drop("user_idx", "item_idx")
 
     def _reindex(self, entity: str, objects: DataFrame):

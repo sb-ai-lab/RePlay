@@ -99,9 +99,8 @@ class ImplicitWrap(Recommender):
 
         Кроме того, индексы переводятся во внутренний формат.
         """
-        all_items = self._extract_unique(log, None, "item_idx")
         return (
-            all_items.select("item_idx")
+            log.select("item_idx")
             .subtract(items)
             .select("item_idx")
             .toPandas()
