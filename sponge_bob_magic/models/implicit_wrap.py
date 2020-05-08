@@ -83,11 +83,10 @@ class ImplicitWrap(Recommender):
             )
 
         items_to_drop = self._invert_items(log, items)
-        user_item_data = to_csr(self.index(log)).T.tocsr()
+        user_item_data = to_csr(log).T.tocsr()
         model = self.model
-        recs = self.user_indexer.transform(users)
         return (
-            recs.select("user_idx").groupby("user_idx").apply(predict_by_user)
+            users.select("user_idx").groupby("user_idx").apply(predict_by_user)
         )
 
     def _invert_items(self, log: DataFrame, items: DataFrame) -> list:
@@ -102,9 +101,8 @@ class ImplicitWrap(Recommender):
         """
         all_items = self._extract_unique(log, None, "item_idx")
         return (
-            self.item_indexer.transform(
-                all_items.select("item_idx").subtract(items)
-            )
+            all_items.select("item_idx")
+            .subtract(items)
             .select("item_idx")
             .toPandas()
             .item_idx.to_list()
