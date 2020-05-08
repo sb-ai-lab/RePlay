@@ -230,9 +230,9 @@ class Recommender(ABC):
         )
         if filter_seen_items:
             recs = self._filter_seen_recs(recs, self._convert_index(log))
-        recs = self.inv_item_indexer.transform(
-            self.inv_user_indexer.transform(recs)
-        ).select("user_id", "item_id", "relevance")
+        recs = self._convert_back(recs).select(
+            "user_id", "item_id", "relevance"
+        )
         recs = get_top_k_recs(recs, k)
         recs = (
             recs.withColumn(
@@ -263,6 +263,11 @@ class Recommender(ABC):
                 "item_id"
             )
         return data_frame
+
+    def _convert_back(self, log):
+        return self.inv_user_indexer.transform(
+            self.inv_item_indexer.transform(log)
+        ).drop("user_idx", "item_idx")
 
     def _reindex(self, entity: str, objects: DataFrame):
         """
@@ -310,7 +315,10 @@ class Recommender(ABC):
                 indexer.setHandleInvalid("skip")
 
     def _extract_unique(
-        self, log: DataFrame, array: Union[Iterable, DataFrame], column: str
+        self,
+        log: DataFrame,
+        array: Union[Iterable, DataFrame, None],
+        column: str,
     ) -> DataFrame:
         """
         Получить уникальные значения из ``array`` и положить в датафрейм с колонкой ``column``.
@@ -453,7 +461,6 @@ class Recommender(ABC):
 
     @property
     def logger(self) -> logging.Logger:
-        """ логгер данного рекомендателя"""
         if self._logger is None:
             self._logger = logging.getLogger("sponge_bob_magic")
         return self._logger

@@ -17,3 +17,4 @@ from sponge_bob_magic.models.pop_rec import PopRec
 from sponge_bob_magic.models.random_rec import RandomRec
 from sponge_bob_magic.models.slim import SLIM
 from sponge_bob_magic.models.wilson import Wilson
+from sponge_bob_magic.models.implicit_wrap import ImplicitWrap
