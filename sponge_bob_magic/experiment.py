@@ -45,6 +45,8 @@ class Experiment:
         test: Any,
         metrics: Union[Dict[Metric, IntOrList], List[Metric]],
         k: Optional[IntOrList] = None,
+        calc_median: bool = False,
+        calc_sme: Optional[float] = None,
     ):
         """
         :param test: Данные для теста в формате ``pandas`` или ``pyspark`` DataFrame
@@ -64,6 +66,9 @@ class Experiment:
         else:
             self.metrics = metrics
 
+        self.calc_median = calc_median
+        self.calc_sme = calc_sme
+
     def add_result(self, name: str, pred: Any) -> None:
         """
         Подсчитать метрики для переданного списка рекомендаций
@@ -80,12 +85,30 @@ class Experiment:
                 values = metric(recs, k_list)
             else:
                 values = metric(recs, self.test, k_list)
+            if self.calc_median:
+                median = metric.median(recs, self.test, k_list)
+            if self.calc_sme is not None:
+                sme = metric.sme(recs, self.test, k_list, self.calc_sme)
 
             if isinstance(k_list, int):
                 self.results.at[name, f"{metric}@{k_list}"] = values
+                if self.calc_median:
+                    self.results.at[name, f"{metric}@{k_list}_median"] = median
+                if self.calc_sme is not None:
+                    self.results.at[
+                        name, f"{metric}@{k_list}_{self.calc_sme}_sme"
+                    ] = sme
             else:
                 for k, val in sorted(values.items(), key=lambda x: x[0]):
                     self.results.at[name, f"{metric}@{k}"] = val
+                    if self.calc_median:
+                        self.results.at[name, f"{metric}@{k}_median"] = median[
+                            k
+                        ]
+                    if self.calc_sme is not None:
+                        self.results.at[
+                            name, f"{metric}@{k}_{self.calc_sme}_sme"
+                        ] = sme[k]
 
     def compare(self, name: str) -> pd.DataFrame:
         """
@@ -96,7 +119,10 @@ class Experiment:
         """
         if name not in self.results.index:
             raise ValueError(f"No results for model {name}")
-        data_frame = self.results.copy()
+        columns = [
+            column for column in self.results.columns if column[-1].isdigit()
+        ]
+        data_frame = self.results[columns].copy()
         baseline = data_frame.loc[name]
         for idx in data_frame.index:
             if idx != name:

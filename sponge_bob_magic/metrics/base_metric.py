@@ -9,6 +9,7 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
+from scipy.stats import norm
 
 from sponge_bob_magic.constants import AnyDataFrame, IntOrList, NumType
 from sponge_bob_magic.converter import convert
@@ -26,7 +27,7 @@ class Metric(ABC):
         recommendations: AnyDataFrame,
         ground_truth: AnyDataFrame,
         k: IntOrList,
-    ) -> Union[Dict[int, NumType], NumType]:
+    ) -> Union[Dict[int, Union[NumType]], NumType]:
         """
         :param recommendations: выдача рекомендательной системы,
             спарк-датарейм вида
@@ -34,28 +35,94 @@ class Metric(ABC):
         :param ground_truth: реальный лог действий пользователей,
             спарк-датафрейм вида
             ``[user_id, item_id, timestamp, relevance]``
-        :param k: список индексов, показывающий какое максимальное количество объектов брать из топа
+        :param k: список индексов, показывающий какое максимальное количество
+        объектов брать из топа
             рекомендованных для оценки
         :return: значение метрики
         """
-        recommendations_spark = convert(recommendations)
-        ground_truth_spark = convert(ground_truth)
-        if not self._check_users(recommendations_spark, ground_truth_spark):
-            logger = logging.getLogger("sponge_bob_magic")
-            logger.warning(
-                "Значение метрики может быть неожиданным: "
-                "пользователи в recommendations и ground_truth различаются!"
-            )
-        return self._get_metric_value(
-            recommendations_spark, ground_truth_spark, k
+        return self.mean(recommendations, ground_truth, k)
+
+    def sme(
+        self,
+        recommendations: AnyDataFrame,
+        ground_truth: AnyDataFrame,
+        k: IntOrList,
+        alpha: float = 0.95,
+    ) -> Union[Dict[int, NumType], NumType]:
+        distribution = self._get_metric_distribution(
+            recommendations, ground_truth, k
         )
+        total_metric = (
+            distribution.groupby("k")
+            .agg(
+                sf.stddev("cum_agg").alias("std"),
+                sf.count("cum_agg").alias("count"),
+            )
+            .select("std", "count", "k")
+            .collect()
+        )
+        quantile = norm.ppf((1 + alpha) / 2)
+        res = {
+            row["k"]: quantile * row["std"] / (row["count"] ** 0.5)
+            for row in total_metric
+        }
+
+        if isinstance(k, int):
+            res = res[k]
+        return res
+
+    def median(
+        self,
+        recommendations: AnyDataFrame,
+        ground_truth: AnyDataFrame,
+        k: IntOrList,
+    ) -> Union[Dict[int, NumType], NumType]:
+        distribution = self._get_metric_distribution(
+            recommendations, ground_truth, k
+        )
+        total_metric = (
+            distribution.groupby("k")
+            .agg(
+                sf.expr("percentile_approx(cum_agg, 0.6)").alias(
+                    "total_metric"
+                )
+            )
+            .select("total_metric", "k")
+            .collect()
+        )
+        res = {row["k"]: row["total_metric"] for row in total_metric}
+        if isinstance(k, int):
+            res = res[k]
+        return res
+
+    def mean(
+        self,
+        recommendations: AnyDataFrame,
+        ground_truth: AnyDataFrame,
+        k: IntOrList,
+    ) -> Union[Dict[int, NumType], NumType]:
+        distribution = self._get_metric_distribution(
+            recommendations, ground_truth, k
+        )
+        total_metric = (
+            distribution.groupby("k")
+            .agg(sf.avg("cum_agg").alias("total_metric"))
+            .select("total_metric", "k")
+            .collect()
+        )
+        res = {row["k"]: row["total_metric"] for row in total_metric}
+        if isinstance(k, int):
+            res = res[k]
+        return res
 
     def _get_enriched_recommendations(
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
         """
-        Обогащение рекомендаций дополнительной информацией. По умолчанию к рекомендациям добавляется
-        столбец, содержащий множество элементов, с которыми взаимодействовал пользователь
+        Обогащение рекомендаций дополнительной информацией. По умолчанию к
+        рекомендациям добавляется
+        столбец, содержащий множество элементов, с которыми взаимодействовал
+        пользователь
 
         :param recommendations: рекомендации
         :param ground_truth: лог тестовых действий
@@ -66,33 +133,43 @@ class Metric(ABC):
         true_items_by_users = ground_truth.groupby("user_id").agg(
             sf.collect_set("item_id").alias("items_id")
         )
-
-        return recommendations.join(
-            true_items_by_users, how="inner", on=["user_id"]
+        recommendations = recommendations.join(
+            true_items_by_users, how="left", on=["user_id"]
         )
 
-    def _get_metric_value(
+        return recommendations.withColumn(
+            "items_id", sf.coalesce("items_id", sf.array())
+        )
+
+    def _get_metric_distribution(
         self, recommendations: DataFrame, ground_truth: DataFrame, k: IntOrList
-    ) -> Union[Dict[int, NumType], NumType]:
+    ) -> DataFrame:
         """
         Расчёт значения метрики
 
         :param recommendations: рекомендации
         :param ground_truth: лог тестовых действий
         :param k: набор чисел или одно число, по которому рассчитывается метрика
-        :return: значения метрики для разных k в виде словаря, если был передан список к,
-         иначе просто значение метрики
+        :return: распределение значения метрики для разных k по пользователям
         """
+        recommendations_spark = convert(recommendations)
+        ground_truth_spark = convert(ground_truth)
+        if not self._check_users(recommendations_spark, ground_truth_spark):
+            logger = logging.getLogger("sponge_bob_magic")
+            logger.warning(
+                "Значение метрики может быть неожиданным: "
+                "пользователи в recommendations и ground_truth различаются!"
+            )
+
         if isinstance(k, int):
             k_set = {k}
         else:
             k_set = set(k)
         self.max_k = max(k_set)
-        users_count = recommendations.select("user_id").distinct().count()
         agg_fn = self._get_metric_value_by_user
 
         recs = self._get_enriched_recommendations(
-            recommendations, ground_truth
+            recommendations_spark, ground_truth_spark
         )
 
         @sf.pandas_udf(
@@ -115,22 +192,13 @@ class Metric(ABC):
             )
             return agg_fn(pandas_df)[["user_id", "cum_agg", "k"]]
 
-        recs = (
+        distribution = (
             recs.groupby("user_id")
             .apply(grouped_map)
             .where(sf.col("k").isin(k_set))
         )
-        total_metric = (
-            recs.groupby("k")
-            .agg(sf.sum("cum_agg").alias("total_metric"))
-            .withColumn("total_metric", sf.col("total_metric") / users_count)
-            .select("total_metric", "k")
-            .collect()
-        )
-        res = {row["k"]: row["total_metric"] for row in total_metric}
-        if isinstance(k, int):
-            res = res[k]
-        return res
+
+        return distribution
 
     @staticmethod
     @abstractmethod
@@ -138,10 +206,14 @@ class Metric(ABC):
         """
         Расчёт значения метрики для каждого пользователя
 
-        :param pandas_df: DataFrame, содержащий рекомендации по каждому пользователю --
-            pandas-датафрейм вида ``[user_id, item_id, items_id, k, *columns]``, где
-            ``k`` --- порядковый номер рекомендованного объекта ``item_id`` в списке рекомендаций для пользоавтеля ``user_id``,
-            ``items_id`` --- список объектов, с которыми действительно взаимодействовал пользователь в тесте
+        :param pandas_df: DataFrame, содержащий рекомендации по каждому
+        пользователю --
+            pandas-датафрейм вида ``[user_id, item_id, items_id, k,
+            *columns]``, где
+            ``k`` --- порядковый номер рекомендованного объекта ``item_id`` в
+            списке рекомендаций для пользоавтеля ``user_id``,
+            ``items_id`` --- список объектов, с которыми действительно
+            взаимодействовал пользователь в тесте
         :return: DataFrame c рассчитанным полем ``cum_agg`` --
             pandas-датафрейм вида ``[user_id , item_id , cum_agg, *columns]``
         """
@@ -182,11 +254,10 @@ class RecOnlyMetric(Metric):
         :param ground_truth: реальный лог действий пользователей,
             спарк-датафрейм вида
             ``[user_id, item_id, timestamp, relevance]``
-        :param k: список индексов, показывающий какое максимальное количество объектов брать из топа
+        :param k: список индексов, показывающий какое максимальное количество
+        объектов брать из топа
             рекомендованных для оценки
         :return: значение метрики
         """
         recommendations_spark = convert(recommendations)
-        return self._get_metric_value(
-            recommendations_spark, recommendations_spark, k
-        )
+        return self.mean(recommendations_spark, recommendations_spark, k)

@@ -37,7 +37,24 @@ class Coverage(RecOnlyMetric):
         # эта метрика не является средним по всем пользователям
         pass
 
-    def _get_metric_value(
+    def sme(
+        self,
+        recommendations: DataFrame,
+        ground_truth: DataFrame,
+        k: IntOrList,
+        alpha: float = 0.95,
+    ) -> Union[Dict[int, NumType], NumType]:
+        if isinstance(k, int):
+            return 0.0
+        else:
+            return {i: 0.0 for i in k}
+
+    def median(
+        self, recommendations: DataFrame, ground_truth: DataFrame, k: IntOrList
+    ) -> Union[Dict[int, NumType], NumType]:
+        return self.mean(recommendations, ground_truth, k)
+
+    def mean(
         self, recommendations: DataFrame, ground_truth: DataFrame, k: IntOrList
     ) -> Union[Dict[int, NumType], NumType]:
         if isinstance(k, int):
