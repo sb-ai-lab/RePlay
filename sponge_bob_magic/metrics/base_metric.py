@@ -138,7 +138,13 @@ class Metric(ABC):
         )
 
         return recommendations.withColumn(
-            "items_id", sf.coalesce("items_id", sf.array())
+            "items_id",
+            sf.coalesce(
+                "items_id",
+                sf.array().cast(
+                    st.ArrayType(ground_truth.schema["item_id"].dataType)
+                ),
+            ),
         )
 
     def _get_metric_distribution(
