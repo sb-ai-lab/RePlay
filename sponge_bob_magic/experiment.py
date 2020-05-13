@@ -34,6 +34,7 @@ class Experiment:
                 NDCG@2  NDCG@2_median  NDCG@2_0.95_sem    NDCG@3  NDCG@3_median  NDCG@3_0.95_sem  Surprisal@3  Surprisal@3_median  Surprisal@3_0.95_sem
     baseline  0.613147       0.613147              0.0  0.469279       0.469279              0.0     1.000000            1.000000                   0.0
     model     0.386853       0.386853              0.0  0.530721       0.530721              0.0     0.666667            0.666667                   0.0
+    <BLANKLINE>
     >>> ex.compare("baseline")
                NDCG@2  NDCG@3 Surprisal@3
     baseline        –       –           –
