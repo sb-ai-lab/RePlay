@@ -37,7 +37,7 @@ class Coverage(RecOnlyMetric):
         # эта метрика не является средним по всем пользователям
         pass
 
-    def sme(
+    def sem(
         self,
         recommendations: DataFrame,
         ground_truth: DataFrame,

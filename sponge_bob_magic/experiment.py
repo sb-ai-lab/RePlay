@@ -22,23 +22,36 @@ class Experiment:
     Пример:
 
     >>> import pandas as pd
-    >>> from sponge_bob_magic.metrics import NDCG, Surprisal
+    >>> from sponge_bob_magic.metrics import Coverage, NDCG, Precision, Surprisal
     >>> log = pd.DataFrame({"user_id": [2, 2, 2, 1], "item_id": [1, 2, 3, 3], "relevance": [5, 5, 5, 5]})
     >>> test = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 3, 4]})
     >>> pred = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [4, 1, 3], "relevance": [5, 4, 5]})
     >>> recs = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 4, 5], "relevance": [5, 4, 5]})
-    >>> ex = Experiment(test, {NDCG(): [2, 3], Surprisal(log): 3}, calc_median=True, calc_sem=0.95)
+    >>> ex = Experiment(test, {NDCG(): [2, 3], Surprisal(log): 3})
     >>> ex.add_result("baseline", recs)
     >>> ex.add_result("model", pred)
     >>> ex.results
-                NDCG@2  NDCG@2_median  NDCG@2_0.95_sem    NDCG@3  NDCG@3_median  NDCG@3_0.95_sem  Surprisal@3  Surprisal@3_median  Surprisal@3_0.95_sem
-    baseline  0.613147       0.613147              0.0  0.469279       0.469279              0.0     1.000000            1.000000                   0.0
-    model     0.386853       0.386853              0.0  0.530721       0.530721              0.0     0.666667            0.666667                   0.0
-    <BLANKLINE>
+                NDCG@2    NDCG@3  Surprisal@3
+    baseline  0.613147  0.469279     1.000000
+    model     0.386853  0.530721     0.666667
     >>> ex.compare("baseline")
                NDCG@2  NDCG@3 Surprisal@3
     baseline        –       –           –
     model     -36.91%  13.09%     -33.33%
+    >>> ex = Experiment(test, {Precision(): [3]}, calc_median=True, calc_sem=0.95)
+    >>> ex.add_result("baseline", recs)
+    >>> ex.add_result("model", pred)
+    >>> ex.results
+              Precision@3  Precision@3_median  Precision@3_0.95_sem
+    baseline     0.333333            0.333333                   0.0
+    model        0.666667            0.666667                   0.0
+    >>> ex = Experiment(test, {Coverage(log): 3}, calc_median=True, calc_sem=0.95)
+    >>> ex.add_result("baseline", recs)
+    >>> ex.add_result("model", pred)
+    >>> ex.results
+              Coverage@3  Coverage@3_median  Coverage@3_0.95_sem
+    baseline         1.0                1.0                  0.0
+    model            1.0                1.0                  0.0
     """
 
     def __init__(

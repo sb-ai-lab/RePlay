@@ -49,6 +49,18 @@ class Metric(ABC):
         k: IntOrList,
         alpha: float = 0.95,
     ) -> Union[Dict[int, NumType], NumType]:
+        """Функция возвращает половину ширины доверительного интервала
+        :param recommendations: выдача рекомендательной системы,
+            спарк-датарейм вида
+            ``[user_id, item_id, relevance]``
+        :param ground_truth: реальный лог действий пользователей,
+            спарк-датафрейм вида
+            ``[user_id, item_id, timestamp, relevance]``
+        :param k: список индексов, показывающий какое максимальное количество
+            объектов брать из топа рекомендованных для оценки
+        :param alpha: квантиль нормального распределения
+        :return: половина ширины доверительного интервала
+        """
         distribution = self._get_metric_distribution(
             recommendations, ground_truth, k
         )
@@ -84,6 +96,17 @@ class Metric(ABC):
         ground_truth: AnyDataFrame,
         k: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
+        """Функция возвращает медиану метрики
+        :param recommendations: выдача рекомендательной системы,
+            спарк-датарейм вида
+            ``[user_id, item_id, relevance]``
+        :param ground_truth: реальный лог действий пользователей,
+            спарк-датафрейм вида
+            ``[user_id, item_id, timestamp, relevance]``
+        :param k: список индексов, показывающий какое максимальное
+            количество объектов брать из топа рекомендованных для оценки
+        :return: значение медианы
+        """
         distribution = self._get_metric_distribution(
             recommendations, ground_truth, k
         )
@@ -108,6 +131,17 @@ class Metric(ABC):
         ground_truth: AnyDataFrame,
         k: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
+        """Функция возвращает среднее значение метрики
+        :param recommendations: выдача рекомендательной системы,
+            спарк-датарейм вида
+            ``[user_id, item_id, relevance]``
+        :param ground_truth: реальный лог действий пользователей,
+            спарк-датафрейм вида
+            ``[user_id, item_id, timestamp, relevance]``
+        :param k: список индексов, показывающий какое максимальное
+            количество объектов брать из топа рекомендованных для оценки
+        :return: среднее значение
+        """
         distribution = self._get_metric_distribution(
             recommendations, ground_truth, k
         )
@@ -158,7 +192,7 @@ class Metric(ABC):
         self, recommendations: DataFrame, ground_truth: DataFrame, k: IntOrList
     ) -> DataFrame:
         """
-        Расчёт значения метрики
+        Распределение метрики
 
         :param recommendations: рекомендации
         :param ground_truth: лог тестовых действий
