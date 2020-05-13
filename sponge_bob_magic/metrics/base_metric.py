@@ -42,7 +42,7 @@ class Metric(ABC):
         """
         return self.mean(recommendations, ground_truth, k)
 
-    def sme(
+    def sem(
         self,
         recommendations: AnyDataFrame,
         ground_truth: AnyDataFrame,
@@ -58,7 +58,14 @@ class Metric(ABC):
                 sf.stddev("cum_agg").alias("std"),
                 sf.count("cum_agg").alias("count"),
             )
-            .select("std", "count", "k")
+            .select(
+                sf.when(sf.isnan("std"), sf.lit(0.0))
+                .otherwise("std")
+                .cast("float")
+                .alias("std"),
+                "count",
+                "k",
+            )
             .collect()
         )
         quantile = norm.ppf((1 + alpha) / 2)
