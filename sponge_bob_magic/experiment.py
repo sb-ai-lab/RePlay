@@ -38,20 +38,20 @@ class Experiment:
                NDCG@2  NDCG@3 Surprisal@3
     baseline        –       –           –
     model     -36.91%  13.09%     -33.33%
-    >>> ex = Experiment(test, {Precision(): [3]}, calc_median=True, calc_sem=0.95)
+    >>> ex = Experiment(test, {Precision(): [3]}, calc_median=True, calc_conf_interval=0.95)
     >>> ex.add_result("baseline", recs)
     >>> ex.add_result("model", pred)
     >>> ex.results
-              Precision@3  Precision@3_median  Precision@3_0.95_sem
-    baseline     0.333333            0.333333                   0.0
-    model        0.666667            0.666667                   0.0
-    >>> ex = Experiment(test, {Coverage(log): 3}, calc_median=True, calc_sem=0.95)
+              Precision@3  Precision@3_median  Precision@3_0.95_conf_interval
+    baseline     0.333333            0.333333                             0.0
+    model        0.666667            0.666667                             0.0
+    >>> ex = Experiment(test, {Coverage(log): 3}, calc_median=True, calc_conf_interval=0.95)
     >>> ex.add_result("baseline", recs)
     >>> ex.add_result("model", pred)
     >>> ex.results
-              Coverage@3  Coverage@3_median  Coverage@3_0.95_sem
-    baseline         1.0                1.0                  0.0
-    model            1.0                1.0                  0.0
+              Coverage@3  Coverage@3_median  Coverage@3_0.95_conf_interval
+    baseline         1.0                1.0                            0.0
+    model            1.0                1.0                            0.0
     """
 
     def __init__(
@@ -60,7 +60,7 @@ class Experiment:
         metrics: Union[Dict[Metric, IntOrList], List[Metric]],
         k: Optional[IntOrList] = None,
         calc_median: bool = False,
-        calc_sem: Optional[float] = None,
+        calc_conf_interval: Optional[float] = None,
     ):
         """
         :param test: Данные для теста в формате ``pandas`` или ``pyspark`` DataFrame
@@ -81,7 +81,7 @@ class Experiment:
             self.metrics = metrics
 
         self.calc_median = calc_median
-        self.calc_sem = calc_sem
+        self.calc_conf_interval = calc_conf_interval
 
     def add_result(self, name: str, pred: Any) -> None:
         """
@@ -101,17 +101,20 @@ class Experiment:
                 values = metric(recs, self.test, k_list)
             if self.calc_median:
                 median = metric.median(recs, self.test, k_list)
-            if self.calc_sem is not None:
-                sem = metric.sem(recs, self.test, k_list, self.calc_sem)
+            if self.calc_conf_interval is not None:
+                conf_interval = metric.conf_interval(
+                    recs, self.test, k_list, self.calc_conf_interval
+                )
 
             if isinstance(k_list, int):
                 self.results.at[name, f"{metric}@{k_list}"] = values
                 if self.calc_median:
                     self.results.at[name, f"{metric}@{k_list}_median"] = median
-                if self.calc_sem is not None:
+                if self.calc_conf_interval is not None:
                     self.results.at[
-                        name, f"{metric}@{k_list}_{self.calc_sem}_sem"
-                    ] = sem
+                        name,
+                        f"{metric}@{k_list}_{self.calc_conf_interval}_conf_interval",
+                    ] = conf_interval
             else:
                 for k, val in sorted(values.items(), key=lambda x: x[0]):
                     self.results.at[name, f"{metric}@{k}"] = val
@@ -119,10 +122,11 @@ class Experiment:
                         self.results.at[name, f"{metric}@{k}_median"] = median[
                             k
                         ]
-                    if self.calc_sem is not None:
+                    if self.calc_conf_interval is not None:
                         self.results.at[
-                            name, f"{metric}@{k}_{self.calc_sem}_sem"
-                        ] = sem[k]
+                            name,
+                            f"{metric}@{k}_{self.calc_conf_interval}_conf_interval",
+                        ] = conf_interval[k]
 
     def compare(self, name: str) -> pd.DataFrame:
         """

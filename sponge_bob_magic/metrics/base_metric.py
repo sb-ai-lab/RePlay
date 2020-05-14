@@ -27,7 +27,7 @@ class Metric(ABC):
         recommendations: AnyDataFrame,
         ground_truth: AnyDataFrame,
         k: IntOrList,
-    ) -> Union[Dict[int, Union[NumType]], NumType]:
+    ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: выдача рекомендательной системы,
             спарк-датарейм вида
@@ -42,7 +42,7 @@ class Metric(ABC):
         """
         return self.mean(recommendations, ground_truth, k)
 
-    def sem(
+    def conf_interval(
         self,
         recommendations: AnyDataFrame,
         ground_truth: AnyDataFrame,
@@ -113,7 +113,7 @@ class Metric(ABC):
         total_metric = (
             distribution.groupby("k")
             .agg(
-                sf.expr("percentile_approx(cum_agg, 0.6)").alias(
+                sf.expr("percentile_approx(cum_agg, 0.5)").alias(
                     "total_metric"
                 )
             )
