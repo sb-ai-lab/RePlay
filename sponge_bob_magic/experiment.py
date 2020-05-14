@@ -120,10 +120,8 @@ class Experiment:
                         metric,
                         k,
                         val,
-                        median[k] if median is not None else None,
-                        conf_interval[k]
-                        if conf_interval is not None
-                        else None,
+                        None if median is None else median[k],
+                        None if conf_interval is None else conf_interval[k],
                     )
 
     def _add_metric(
