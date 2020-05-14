@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
-from sponge_bob_magic.constants import IntOrList
+from sponge_bob_magic.constants import IntOrList, NumType
 from sponge_bob_magic.converter import convert
 from sponge_bob_magic.metrics.base_metric import Metric, RecOnlyMetric
 
@@ -99,6 +99,9 @@ class Experiment:
                 values = metric(recs, k_list)
             else:
                 values = metric(recs, self.test, k_list)
+
+            median = None
+            conf_interval = None
             if self.calc_median:
                 median = metric.median(recs, self.test, k_list)
             if self.calc_conf_interval is not None:
@@ -107,26 +110,49 @@ class Experiment:
                 )
 
             if isinstance(k_list, int):
-                self.results.at[name, f"{metric}@{k_list}"] = values
-                if self.calc_median:
-                    self.results.at[name, f"{metric}@{k_list}_median"] = median
-                if self.calc_conf_interval is not None:
-                    self.results.at[
-                        name,
-                        f"{metric}@{k_list}_{self.calc_conf_interval}_conf_interval",
-                    ] = conf_interval
+                self._add_metric(
+                    name, metric, k_list, values, median, conf_interval
+                )
             else:
                 for k, val in sorted(values.items(), key=lambda x: x[0]):
-                    self.results.at[name, f"{metric}@{k}"] = val
-                    if self.calc_median:
-                        self.results.at[name, f"{metric}@{k}_median"] = median[
-                            k
-                        ]
-                    if self.calc_conf_interval is not None:
-                        self.results.at[
-                            name,
-                            f"{metric}@{k}_{self.calc_conf_interval}_conf_interval",
-                        ] = conf_interval[k]
+                    self._add_metric(
+                        name,
+                        metric,
+                        k,
+                        val,
+                        median[k] if median is not None else None,
+                        conf_interval[k]
+                        if conf_interval is not None
+                        else None,
+                    )
+
+    def _add_metric(
+        self,
+        name: str,
+        metric: Metric,
+        k: int,
+        value: NumType,
+        median: Optional[NumType],
+        conf_interval: Optional[NumType],
+    ):
+        """
+        Добавить одну метрику для модели/эксперимента для конкретного k
+
+        :param name: имя модели/эксперимента для сохранения результатов
+        :param metric: метрика, которую необходимо сохранить
+        :param k: число, показывающее какое максимальное количество объектов
+            брать из топа
+        :param value: значение метрики
+        :param median: значение медианы
+        :param conf_interval: значение половины ширины доверительного интервала
+        """
+        self.results.at[name, f"{metric}@{k}"] = value
+        if median is not None:
+            self.results.at[name, f"{metric}@{k}_median"] = median
+        if conf_interval is not None:
+            self.results.at[
+                name, f"{metric}@{k}_{self.calc_conf_interval}_conf_interval",
+            ] = conf_interval
 
     def compare(self, name: str) -> pd.DataFrame:
         """
