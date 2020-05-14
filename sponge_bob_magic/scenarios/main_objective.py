@@ -3,7 +3,7 @@
 """
 import collections
 import logging
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from optuna import Study, Trial
 from pyspark.sql import DataFrame
@@ -36,7 +36,7 @@ class MainObjective:
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        search_space: Dict[str, NumType],
+        search_space: Dict[str, List[Any]],
         study: Study,
         split_data: SplitData,
         recommender: Recommender,
@@ -78,7 +78,7 @@ class MainObjective:
         :return: значение критерия, который оптимизируется
         """
         params = dict()
-        for key in self.search_space.keys():
+        for key in self.search_space:
             params[key] = trial.suggest_uniform(
                 key,
                 low=min(self.search_space[key]) - 1,
@@ -108,7 +108,7 @@ class MainObjective:
         criterion_value = self.criterion(recs, self.split_data.test, self.k)
         self.experiment.add_result(repr(self.recommender), recs)
         self.logger.debug("%s=%.2f", self.criterion, criterion_value)
-        return criterion_value
+        return criterion_value  # type: ignore
 
     def _join_fallback_recs(
         self,

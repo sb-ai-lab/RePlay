@@ -46,9 +46,8 @@ class Unexpectedness(RecOnlyMetric):
         :param rec: одна из проинициализированных моделей библиотеки, либо ``None``
         """
         self.log = convert(log)
-        if rec is None:
-            self.train_model = False
-        else:
+        self.train_model = False
+        if rec is not None:
             self.train_model = True
             rec.fit(log=self.log)
             self.model = rec

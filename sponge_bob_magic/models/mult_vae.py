@@ -79,7 +79,7 @@ class VAE(nn.Module):
         for layer in self.decoder:
             self.weight_init(layer)
 
-    def encode(self, batch: torch.Tensor) -> (torch.Tensor, torch.Tensor):
+    def encode(self, batch: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Энкодер"""
         hidden = F.normalize(batch, p=2, dim=1)
         hidden = self.dropout(hidden)
@@ -111,10 +111,10 @@ class VAE(nn.Module):
         for layer in self.decoder[:-1]:
             hidden = layer(hidden)
             hidden = self.activation(hidden)
-        return self.decoder[-1](hidden)
+        return self.decoder[-1](hidden)  # type: ignore
 
     # pylint: disable=arguments-differ
-    def forward(
+    def forward(  # type: ignore
         self, batch: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
@@ -315,7 +315,7 @@ class MultVAE(TorchRecommender):
 
     def _get_data_loader(
         self, data: pd.DataFrame, shuffle: bool = True
-    ) -> (csr_matrix, DataLoader, np.array):
+    ) -> Tuple[csr_matrix, DataLoader, np.array]:
         """Функция получения загрузчика данных, а также матрицы с данными"""
         users_count = data["user_idx"].value_counts().count()
         user_idx = data.user_idx.astype("category").cat

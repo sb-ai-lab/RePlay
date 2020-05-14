@@ -78,7 +78,7 @@ class Experiment:
                 k = [k] * len(metrics)
             self.metrics = dict(zip(metrics, k))
         else:
-            self.metrics = metrics
+            self.metrics = metrics  # type: ignore
 
         self.calc_median = calc_median
         self.calc_conf_interval = calc_conf_interval
@@ -111,7 +111,7 @@ class Experiment:
 
             if isinstance(k_list, int):
                 self._add_metric(
-                    name, metric, k_list, values, median, conf_interval
+                    name, metric, k_list, values, median, conf_interval  # type: ignore
                 )
             else:
                 for k, val in sorted(values.items(), key=lambda x: x[0]):

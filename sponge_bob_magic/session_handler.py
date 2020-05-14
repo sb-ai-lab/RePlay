@@ -5,7 +5,7 @@
 import logging
 import os
 from math import floor
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import psutil
 import torch
@@ -68,7 +68,7 @@ class Borg:
     Обеспечивает доступ к расшаренному состоянию
     """
 
-    _shared_state = {}
+    _shared_state: Dict[str, Any] = {}
 
     def __init__(self):
         self.__dict__ = self._shared_state
