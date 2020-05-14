@@ -110,8 +110,8 @@ class Experiment:
                 )
 
             if isinstance(k_list, int):
-                self._add_metric(
-                    name, metric, k_list, values, median, conf_interval  # type: ignore
+                self._add_metric(  # type: ignore
+                    name, metric, k_list, values, median, conf_interval
                 )
             else:
                 for k, val in sorted(values.items(), key=lambda x: x[0]):
