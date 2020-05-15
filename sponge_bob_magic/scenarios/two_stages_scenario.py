@@ -5,7 +5,7 @@ from typing import Dict, Optional, Tuple
 
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import col, element_at, isnull, lit, when
+from pyspark.sql.functions import col, isnull, lit, when
 
 from sponge_bob_magic.constants import IntOrList
 from sponge_bob_magic.experiment import Experiment
@@ -15,7 +15,7 @@ from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.models.classifier_rec import ClassifierRec
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.splitters import Splitter, UserSplitter
-from sponge_bob_magic.utils import get_log_info
+from sponge_bob_magic.utils import get_log_info, horizontal_explode
 
 DEFAULT_SECOND_STAGE_SPLITTER = UserSplitter(
     drop_cold_items=False, item_test_size=1, shuffle=True
@@ -109,14 +109,11 @@ class TwoStagesScenario:
     ) -> Tuple[DataFrame, DataFrame, DataFrame]:
         user_features = (
             self.first_model.inv_user_indexer.transform(
-                self.first_model.model.userFactors.select(
-                    col("id").alias("user_idx"),
-                    *[
-                        element_at("features", i + 1).alias(
-                            f"user_feature_{i}"
-                        )
-                        for i in range(self.first_model.model.rank)
-                    ],
+                horizontal_explode(
+                    self.first_model.model.userFactors,
+                    "features",
+                    "user_feature",
+                    [col("id").alias("user_idx")],
                 )
             )
             .drop("user_idx")
@@ -124,14 +121,11 @@ class TwoStagesScenario:
         )
         item_features = (
             self.first_model.inv_item_indexer.transform(
-                self.first_model.model.userFactors.select(
-                    col("id").alias("item_idx"),
-                    *[
-                        element_at("features", i + 1).alias(
-                            f"item_feature_{i}"
-                        )
-                        for i in range(self.first_model.model.rank)
-                    ],
+                horizontal_explode(
+                    self.first_model.model.itemFactors,
+                    "features",
+                    "item_feature",
+                    [col("id").alias("item_idx")],
                 )
             )
             .drop("item_idx")
@@ -196,20 +190,20 @@ class TwoStagesScenario:
         ...     [(i, i + j, 1) for i in range(10) for j in range(10)]
         ... ).toDF("user_id", "item_id", "relevance")
         >>> two_stages.get_recs(log, 1).show()
-        +-------+-------+---------+
-        |user_id|item_id|relevance|
-        +-------+-------+---------+
-        |      0|      9|     0.35|
-        |      1|      9|     0.45|
-        |      2|      8|      0.0|
-        |      3|      9|     0.45|
-        |      4|      9|      0.4|
-        |      5|     13|     0.35|
-        |      6|      8|      0.4|
-        |      7|      8|     0.15|
-        |      8|     13|      0.2|
-        |      9|      9|      0.3|
-        +-------+-------+---------+
+        +-------+-------+----------+
+        |user_id|item_id| relevance|
+        +-------+-------+----------+
+        |      0|      9|      0.65|
+        |      1|      9|       0.6|
+        |      2|      5|       0.1|
+        |      3|      9|      0.75|
+        |      4|      9|      0.65|
+        |      5|      5|       0.2|
+        |      6|      8|       0.1|
+        |      7|      9|      0.45|
+        |      8|     16|       0.1|
+        |      9|      9|0.45384616|
+        +-------+-------+----------+
         <BLANKLINE>
         >>> two_stages.experiment.results
                              HitRate@1

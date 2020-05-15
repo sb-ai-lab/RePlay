@@ -1,13 +1,12 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Any, Optional, Set
+from typing import Any, List, Optional, Set
 
 import numpy as np
 from pyspark.ml.linalg import DenseVector, Vector, Vectors, VectorUDT
-from pyspark.sql import DataFrame, Window
-from pyspark.sql import functions as sf
-from pyspark.sql.functions import udf
+from pyspark.sql import Column, DataFrame, Window
+from pyspark.sql.functions import col, element_at, row_number, udf
 from scipy.sparse import csr_matrix
 
 
@@ -52,8 +51,8 @@ def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
         recs["relevance"].desc()
     )
     return (
-        recs.withColumn("rank", sf.row_number().over(window))
-        .filter(sf.col("rank") <= k)
+        recs.withColumn("rank", row_number().over(window))
+        .filter(col("rank") <= k)
         .drop("rank")
     )
 
@@ -200,4 +199,53 @@ def to_csr(
     return csr_matrix(
         (pandas_df.relevance, (pandas_df.user_idx, pandas_df.item_idx)),
         shape=(row_count, col_count),
+    )
+
+
+def horizontal_explode(
+    data_frame: DataFrame,
+    column_to_explode: str,
+    prefix: str,
+    other_columns: List[Column],
+) -> DataFrame:
+    """
+    аналог функции ``explode``, только одну колонку с массивом значений разбивает на несколько.
+    В каждой строке разбиваемой колонки должно быть одинаковое количество значений
+
+    >>> from sponge_bob_magic.session_handler import State
+    >>> spark = State().session
+    >>> input_data = (
+    ...     spark.createDataFrame([(5, [1.0, 2.0]), (6, [3.0, 4.0])])
+    ...     .toDF("id_col", "array_col")
+    ... )
+    >>> input_data.show()
+    +------+----------+
+    |id_col| array_col|
+    +------+----------+
+    |     5|[1.0, 2.0]|
+    |     6|[3.0, 4.0]|
+    +------+----------+
+    <BLANKLINE>
+    >>> horizontal_explode(input_data, "array_col", "element", [col("id_col")]).show()
+    +------+---------+---------+
+    |id_col|element_0|element_1|
+    +------+---------+---------+
+    |     5|      1.0|      2.0|
+    |     6|      3.0|      4.0|
+    +------+---------+---------+
+    <BLANKLINE>
+
+    :param data_frame: spark DataFrame, в котором нужно разбить колонку
+    :param column_to_explode: колонка типа ``array``, которую нужно разбить
+    :param prefix: на выходе будут колонки с именами ``prefix_0, prefix_1`` и т. д.
+    :param other_columns: список колонок, которые нужно сохранить в выходном DataFrame помимо разбиваемой
+    :returns: DataFrame с колонками, порождёнными элементами ``column_to_explode``
+    """
+    num_columns = len(data_frame.select(column_to_explode).head()[0])
+    return data_frame.select(
+        *other_columns,
+        *[
+            element_at(column_to_explode, i + 1).alias(f"{prefix}_{i}")
+            for i in range(num_columns)
+        ],
     )
