@@ -34,7 +34,7 @@ class ClassifierRec(Recommender):
     augmented_data: DataFrame
 
     def __init__(self, **kwargs):
-        self.model_params = kwargs
+        self.model_params: Dict[str, object] = kwargs
 
     def get_params(self) -> Dict[str, object]:
         return self.model_params

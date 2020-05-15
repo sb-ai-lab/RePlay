@@ -2,7 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from optuna import create_study
 from optuna.samplers import GridSampler
@@ -99,7 +99,7 @@ class MainScenario:
     def _run_optimization(
         self,
         n_trials: int,
-        params_grid: Dict[str, NumType],
+        params_grid: Dict[str, List[Any]],
         split_data: SplitData,
         criterion: Metric,
         metrics: Dict[Metric, IntOrList],
@@ -123,12 +123,12 @@ class MainScenario:
         self.experiment = objective.experiment
         self.logger.debug("Лучшее значение метрики: %.2f", study.best_value)
         self.logger.debug("Лучшие параметры: %s", study.best_params)
-        return study.best_params
+        return study.best_params  # type: ignore
 
     # pylint: disable=too-many-arguments
     def research(
         self,
-        params_grid: Dict[str, Dict[str, Any]],
+        params_grid: Dict[str, List[Any]],
         log: DataFrame,
         users: Optional[DataFrame] = None,
         items: Optional[DataFrame] = None,
@@ -183,7 +183,7 @@ class MainScenario:
         )
         self.logger.debug("Инициализация метрик")
         criterion = self.criterion()
-        metrics = {criterion: [k]}
+        metrics: Dict[Metric, IntOrList] = {criterion: [k]}
         for metric in self.metrics:
             int_or_list = self.metrics[metric]
             if isinstance(int_or_list, list):

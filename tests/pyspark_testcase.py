@@ -10,12 +10,14 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 from pyspark.ml.linalg import DenseVector
-from pyspark.sql import DataFrame
-
+from pyspark.sql import DataFrame, SparkSession
 from sponge_bob_magic.session_handler import State
 
 
 class PySparkTest(unittest.TestCase):
+
+    spark: SparkSession
+
     def assertSparkDataFrameEqual(
         self, df1: DataFrame, df2: DataFrame, msg: Optional[str] = None
     ) -> None:

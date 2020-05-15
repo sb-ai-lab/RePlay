@@ -278,9 +278,9 @@ class Metric(ABC):
         """
         left = recommendations.select("user_id").distinct().cache()
         right = ground_truth.select("user_id").distinct().cache()
-        left_count = left.count()
-        right_count = right.count()
-        inner_count = left.join(right, on="user_id").count()
+        left_count: int = left.count()
+        right_count: int = right.count()
+        inner_count: int = left.join(right, on="user_id").count()
         return left_count == inner_count and right_count == inner_count
 
 
@@ -290,7 +290,11 @@ class RecOnlyMetric(Metric):
     которые измеряют качество списков рекомендаций,
     не сравнивая их с holdout значениями"""
 
-    def __call__(
+    @abstractmethod
+    def __init__(self, log: AnyDataFrame, *args, **kwargs):
+        pass
+
+    def __call__(  # type: ignore
         self, recommendations: AnyDataFrame, k: IntOrList
     ) -> Union[Dict[int, NumType], NumType]:
         """

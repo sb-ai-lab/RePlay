@@ -78,7 +78,7 @@ class Experiment:
                 k = [k] * len(metrics)
             self.metrics = dict(zip(metrics, k))
         else:
-            self.metrics = metrics
+            self.metrics = metrics  # type: ignore
 
         self.calc_median = calc_median
         self.calc_conf_interval = calc_conf_interval
@@ -110,7 +110,7 @@ class Experiment:
                 )
 
             if isinstance(k_list, int):
-                self._add_metric(
+                self._add_metric(  # type: ignore
                     name, metric, k_list, values, median, conf_interval
                 )
             else:

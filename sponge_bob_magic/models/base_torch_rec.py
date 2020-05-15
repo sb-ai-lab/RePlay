@@ -2,7 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 from abc import abstractmethod
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -21,7 +21,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 from torch import nn
-from torch.optim import optimizer
+from torch.optim.optimizer import Optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau, _LRScheduler
 from torch.utils.data import DataLoader
 
@@ -143,12 +143,12 @@ class TorchRecommender(Recommender):
     # pylint: disable=too-many-arguments
     def _create_trainer_evaluator(
         self,
-        opt: optimizer,
+        opt: Optimizer,
         valid_data_loader: DataLoader,
         scheduler: Optional[Union[_LRScheduler, ReduceLROnPlateau]] = None,
         early_stopping_patience: Optional[int] = None,
         checkpoint_number: Optional[int] = None,
-    ) -> (Engine, Engine):
+    ) -> Tuple[Engine, Engine]:
         """
         Метод, возвращающий trainer, evaluator для обучения нейронной сети.
 
@@ -257,7 +257,7 @@ class TorchRecommender(Recommender):
     @abstractmethod
     def _batch_pass(
         self, batch, model
-    ) -> (torch.Tensor, torch.Tensor, Union[None, Dict[str, Any]]):
+    ) -> Tuple[torch.Tensor, torch.Tensor, Union[None, Dict[str, Any]]]:
         """
         Метод, возвращающий результат применения модели к батчу.
         Должен быть имплементирован наследниками.

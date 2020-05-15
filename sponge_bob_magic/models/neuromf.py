@@ -64,7 +64,7 @@ class GMF(nn.Module):
         self.item_biases.weight.data.zero_()
 
     # pylint: disable=arguments-differ
-    def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
+    def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:  # type: ignore
         """
         Один проход нейросети.
 
@@ -137,7 +137,7 @@ class MLP(nn.Module):
             xavier_init_(layer)
 
     # pylint: disable=arguments-differ
-    def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
+    def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:  # type: ignore
         """
         Один проход нейросети.
 
@@ -179,13 +179,14 @@ class NMF(nn.Module):
         :param hidden_mlp_dims: последовательность размеров скрытых слоев в
             модели mlp
         """
+        self.gmf: Optional[GMF] = None
+        self.mlp: Optional[MLP] = None
+
         super().__init__()
         merged_dim = 0
         if embedding_gmf_dim:
             self.gmf = GMF(user_count, item_count, embedding_gmf_dim)
             merged_dim += embedding_gmf_dim
-        else:
-            self.gmf = None
 
         if embedding_mlp_dim:
             self.mlp = MLP(
@@ -196,14 +197,12 @@ class NMF(nn.Module):
                 if hidden_mlp_dims
                 else 2 * embedding_mlp_dim
             )
-        else:
-            self.mlp = None
 
         self.last_layer = nn.Linear(merged_dim, 1)
         xavier_init_(self.last_layer)
 
     # pylint: disable=arguments-differ
-    def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:
+    def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:  # type: ignore
         """
         Один проход нейросети.
 
@@ -306,8 +305,8 @@ class NeuroMF(TorchRecommender):
         self, data: pd.DataFrame, shuffle: bool = True
     ) -> DataLoader:
 
-        user_batch = LongTensor(data["user_idx"].values)
-        item_batch = LongTensor(data["item_idx"].values)
+        user_batch = LongTensor(data["user_idx"].values)  # type: ignore
+        item_batch = LongTensor(data["item_idx"].values)  # type: ignore
 
         dataset = TensorDataset(user_batch, item_batch)
 
@@ -404,8 +403,8 @@ class NeuroMF(TorchRecommender):
 
         model.eval()
         with torch.no_grad():
-            user_batch = LongTensor([user_idx] * len(items_np))
-            item_batch = LongTensor(items_np)
+            user_batch = LongTensor([user_idx] * len(items_np))  # type: ignore
+            item_batch = LongTensor(items_np)  # type: ignore
             user_recs = model(user_batch, item_batch).detach()
             best_item_idx = (
                 torch.argsort(user_recs, descending=True)[:cnt]

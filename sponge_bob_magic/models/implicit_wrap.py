@@ -99,7 +99,7 @@ class ImplicitWrap(Recommender):
 
         Кроме того, индексы переводятся во внутренний формат.
         """
-        return (
+        return (  # type: ignore
             log.select("item_idx")
             .subtract(items)
             .select("item_idx")
