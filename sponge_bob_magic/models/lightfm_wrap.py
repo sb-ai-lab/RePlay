@@ -9,6 +9,7 @@ import pandas as pd
 from lightfm import LightFM
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import PandasUDFType, pandas_udf
+from pyspark.sql.types import IntegerType
 from scipy.sparse import coo_matrix, csr_matrix, hstack, identity
 
 from sponge_bob_magic.models.base_rec import Recommender
@@ -46,13 +47,11 @@ class LightFMWrap(Recommender):
         :returns: матрица, в которой строки --- пользователи или объекты, столбцы --- их свойства
         """
         all_features = (
-            self.item_indexer.transform(
-                State()
-                .session.createDataFrame(enumerate(self.item_indexer.labels))
-                .toDF("id", "item_id")
-                .drop("id")
+            State()
+            .session.createDataFrame(
+                range(len(self.item_indexer.labels)), schema=IntegerType()
             )
-            .drop("item_id")
+            .toDF("item_idx")
             .join(feature_table, on="item_idx", how="left")
             .fillna(0.0)
             .sort("item_idx")
