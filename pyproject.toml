@@ -28,17 +28,17 @@ default = true
 
 [tool.poetry.dependencies]
 python = "^3.6.1"
+pytorch-ignite = "*"
 lightfm = "*"
+numpy = "*"
 optuna = "*"
 pandas = "*"
-pyspark = "*"
-pyarrow = "*"
-torch = "*"
-pytorch-ignite = "*"
-statsmodels = "*"
-implicit = "*"
 psutil = "*"
+pyspark = "*"
+scipy = "*"
 scikit-learn = "*"
+statsmodels = "*"
+torch = "*"
 
 [tool.poetry.dev-dependencies]
 # fixing versions of package dependencies (non-dev)
