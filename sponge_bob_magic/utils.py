@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Any, Set
+from typing import Any, Optional, Set
 
 import numpy as np
 from pyspark.ml.linalg import DenseVector, Vector, Vectors, VectorUDT
@@ -168,7 +168,11 @@ def get_log_info(log: DataFrame) -> str:
     )
 
 
-def to_csr(log: DataFrame) -> csr_matrix:
+def to_csr(
+    log: DataFrame,
+    user_count: Optional[int] = None,
+    item_count: Optional[int] = None,
+) -> csr_matrix:
     """
     Конвертирует лог в csr матрицу item-user.
 
@@ -176,16 +180,24 @@ def to_csr(log: DataFrame) -> csr_matrix:
     >>> from sponge_bob_magic.converter import convert
     >>> data_frame = pd.DataFrame({"user_idx": [0, 1], "item_idx": [0, 2], "relevance": [1, 2]})
     >>> data_frame = convert(data_frame)
-    >>> m = to_csr(data_frame)
+    >>> m = to_csr(data_frame).T
     >>> m.toarray()
     array([[1, 0],
            [0, 0],
            [0, 2]], dtype=int64)
+
+    :param log: spark DataFrame с колонками ``user_id``, ``item_id`` и ``relevance``
+    :param user_count: количество строк в результирующей матрице (если пусто, то вычисляется по логу)
+    :param item_count: количество столбцов в результирующей матрице (если пусто, то вычисляется по логу)
     """
-    data_frame = log.select("user_idx", "item_idx", "relevance").toPandas()
+    pandas_df = log.select("user_idx", "item_idx", "relevance").toPandas()
+    row_count = int(
+        user_count if user_count is not None else pandas_df.user_idx.max() + 1
+    )
+    col_count = int(
+        item_count if item_count is not None else pandas_df.item_idx.max() + 1
+    )
     return csr_matrix(
-        (
-            data_frame.relevance,
-            (data_frame.item_idx.astype(int), data_frame.user_idx.astype(int)),
-        )
+        (pandas_df.relevance, (pandas_df.user_idx, pandas_df.item_idx)),
+        shape=(row_count, col_count),
     )

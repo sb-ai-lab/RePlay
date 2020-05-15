@@ -4,16 +4,16 @@
 import os
 from typing import Dict, Optional
 
-import numpy as np
 import pandas as pd
 from lightfm import LightFM
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import PandasUDFType, pandas_udf
 from pyspark.sql.types import IntegerType
-from scipy.sparse import coo_matrix, csr_matrix, hstack, identity
+from scipy.sparse import csr_matrix, hstack, identity
 
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.session_handler import State
+from sponge_bob_magic.utils import to_csr
 
 
 class LightFMWrap(Recommender):
@@ -71,14 +71,7 @@ class LightFMWrap(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         self.logger.debug("Построение модели LightFM")
-        pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
-        interactions_matrix = coo_matrix(
-            (
-                np.ones(len(pandas_log)),
-                (pandas_log.user_idx, pandas_log.item_idx),
-            ),
-            shape=(self.users_count, self.items_count),
-        )
+        interactions_matrix = to_csr(log, self.users_count, self.items_count)
         csr_item_features = (
             self._feature_table_to_csr(item_features)
             if item_features is not None

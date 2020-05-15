@@ -1,7 +1,10 @@
-from typing import Optional, Dict
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+"""
+from typing import Dict, Optional
 
-from pyspark.sql import DataFrame
 import pandas as pd
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.models import Recommender
@@ -52,9 +55,10 @@ class ImplicitWrap(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        matrix = to_csr(log)
+        matrix = to_csr(log).T
         self.model.fit(matrix)
 
+    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: DataFrame,
@@ -82,27 +86,15 @@ class ImplicitWrap(Recommender):
                 }
             )
 
-        items_to_drop = self._invert_items(log, items)
-        user_item_data = to_csr(log).T.tocsr()
-        model = self.model
-        return (
-            users.select("user_idx").groupby("user_idx").apply(predict_by_user)
-        )
-
-    def _invert_items(self, log: DataFrame, items: DataFrame) -> list:
-        """
-        В функцию передаются айтемы, для которых нужно сделать предикт,
-        а implicit ожидает айтемы, до которых не нужно делать предикт.
-
-        Данная функция выделяет все айтемы из лога и убирает те, которые есть в items.
-        Оставшееся -- то, что необходимо выкинуть.
-
-        Кроме того, индексы переводятся во внутренний формат.
-        """
-        return (  # type: ignore
+        items_to_drop = (
             log.select("item_idx")
             .subtract(items)
             .select("item_idx")
             .toPandas()
             .item_idx.to_list()
+        )
+        user_item_data = to_csr(log).T.tocsr()
+        model = self.model
+        return (
+            users.select("user_idx").groupby("user_idx").apply(predict_by_user)
         )
