@@ -118,8 +118,5 @@ class LightFMWrap(Recommender):
             else None
         )
         return (
-            self.user_indexer.transform(users)
-            .crossJoin(self.item_indexer.transform(items))
-            .groupby("user_idx")
-            .apply(predict_by_user)
+            users.crossJoin(items).groupby("user_idx").apply(predict_by_user)
         )
