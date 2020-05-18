@@ -78,7 +78,7 @@ class ClassifierRec(Recommender):
         """
         user_vectors = (
             VectorAssembler(
-                inputCols=user_features.drop("user_id").columns,
+                inputCols=user_features.drop("user_idx").columns,
                 outputCol="user_features",
             )
             .transform(user_features)
@@ -86,7 +86,7 @@ class ClassifierRec(Recommender):
         )
         item_vectors = (
             VectorAssembler(
-                inputCols=item_features.drop("item_id").columns,
+                inputCols=item_features.drop("item_idx").columns,
                 outputCol="item_features",
             )
             .transform(item_features)
