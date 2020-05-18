@@ -4,6 +4,7 @@
 import os
 from typing import Dict, Optional
 
+import numpy as np
 import pandas as pd
 from lightfm import LightFM
 from pyspark.sql import DataFrame
@@ -20,6 +21,7 @@ class LightFMWrap(Recommender):
     """ Обёртка вокруг стандартной реализации LightFM. """
 
     epochs: int = 10
+    num_threads: int = os.cpu_count()
 
     def __init__(
         self,
@@ -27,6 +29,7 @@ class LightFMWrap(Recommender):
         loss: str = "bpr",
         random_state: Optional[int] = None,
     ):
+        np.random.seed(42)
         self.no_components = no_components
         self.loss = loss
         self.random_state = random_state
@@ -84,7 +87,7 @@ class LightFMWrap(Recommender):
         ).fit(
             interactions=interactions_matrix,
             epochs=self.epochs,
-            num_threads=os.cpu_count(),
+            num_threads=self.num_threads,
             item_features=csr_item_features,
         )
 

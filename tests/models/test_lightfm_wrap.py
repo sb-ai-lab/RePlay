@@ -16,6 +16,7 @@ class LightFMWrapTestCase(PySparkTest):
         self.lightfm_wrap = LightFMWrap(
             no_components=1, random_state=42, loss="bpr"
         )
+        self.lightfm_wrap.num_threads = 1
         self.some_date = datetime(2019, 1, 1)
         self.log = self.spark.createDataFrame(
             [
@@ -44,11 +45,11 @@ class LightFMWrapTestCase(PySparkTest):
             np.allclose(
                 item_factors,
                 [
-                    [0.0186078],
-                    [0.5523731],
-                    [-0.01359329],
-                    [0.37944055],
-                    [-0.04199414],
+                    [0.01821348],
+                    [0.55787325],
+                    [-0.01927805],
+                    [0.3785215],
+                    [-0.04293519],
                 ],
             )
         )
