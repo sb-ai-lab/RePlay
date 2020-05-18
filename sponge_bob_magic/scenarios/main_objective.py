@@ -5,11 +5,11 @@ import collections
 import logging
 from typing import Any, Dict, List, Optional
 
-from optuna import Study, Trial
+from optuna import Trial
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.constants import IntOrList, NumType
+from sponge_bob_magic.constants import IntOrList
 from sponge_bob_magic.experiment import Experiment
 from sponge_bob_magic.metrics.base_metric import Metric
 from sponge_bob_magic.models.base_rec import Recommender
@@ -33,11 +33,10 @@ class MainObjective:
     а все остальные аргументы передаются через ``__init__``.
     """
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments,too-many-instance-attributes
     def __init__(
         self,
         search_space: Dict[str, List[Any]],
-        study: Study,
         split_data: SplitData,
         recommender: Recommender,
         criterion: Metric,
@@ -50,7 +49,6 @@ class MainObjective:
         self.k = k
         self.split_data = split_data
         self.recommender = recommender
-        self.study = study
         self.search_space = search_space
         self.max_in_fallback_recs = (
             (fallback_recs.agg({"relevance": "max"}).collect()[0][0])
@@ -69,7 +67,7 @@ class MainObjective:
         self.logger = logging.getLogger("sponge_bob_magic")
         self.experiment = Experiment(split_data.test, metrics)
 
-    def __call__(self, trial: Trial,) -> float:
+    def __call__(self, trial: Trial) -> float:
         """
         Эта функция вызывается при вычислении критерия в переборе параметров с помощью ``optuna``.
         Сигнатура функции совапдает с той, что описана в документации ``optuna``.
