@@ -15,7 +15,7 @@ from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.models.classifier_rec import ClassifierRec
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.splitters import Splitter, UserSplitter
-from sponge_bob_magic.utils import get_log_info, to_vector
+from sponge_bob_magic.utils import get_log_info, horizontal_explode
 
 DEFAULT_SECOND_STAGE_SPLITTER = UserSplitter(
     drop_cold_items=False, item_test_size=1, shuffle=True
@@ -43,7 +43,7 @@ class TwoStagesScenario:
 
     _experiment: Optional[Experiment] = None
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments, dangerous-default-value
     def __init__(
         self,
         second_stage_splitter: Splitter = DEFAULT_SECOND_STAGE_SPLITTER,
@@ -51,7 +51,7 @@ class TwoStagesScenario:
         first_model: Recommender = ALSWrap(rank=100),
         second_model: ClassifierRec = ClassifierRec(),
         first_stage_k: int = 100,
-        metrics: Dict[Metric, IntOrList] = {HitRate(): 10},
+        metrics: Dict[Metric, IntOrList] = {HitRate(): [10]},
     ):
         """
         собрать двухуровневую рекомендательную архитектуру из блоков
@@ -109,9 +109,11 @@ class TwoStagesScenario:
     ) -> Tuple[DataFrame, DataFrame, DataFrame]:
         user_features = (
             self.first_model.inv_user_indexer.transform(
-                self.first_model.model.userFactors.select(
-                    col("id").alias("user_idx"),
-                    to_vector("features").alias("user_features"),
+                horizontal_explode(
+                    self.first_model.model.userFactors,
+                    "features",
+                    "user_feature",
+                    [col("id").alias("user_idx")],
                 )
             )
             .drop("user_idx")
@@ -119,9 +121,11 @@ class TwoStagesScenario:
         )
         item_features = (
             self.first_model.inv_item_indexer.transform(
-                self.first_model.model.itemFactors.select(
-                    col("id").alias("item_idx"),
-                    to_vector("features").alias("item_features"),
+                horizontal_explode(
+                    self.first_model.model.itemFactors,
+                    "features",
+                    "item_feature",
+                    [col("id").alias("item_idx")],
                 )
             )
             .drop("item_idx")

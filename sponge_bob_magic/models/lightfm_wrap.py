@@ -5,26 +5,68 @@ import os
 from typing import Dict, Optional
 
 import numpy as np
+import pandas as pd
 from lightfm import LightFM
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import lit
-from scipy.sparse import coo_matrix
+from pyspark.sql.functions import PandasUDFType, pandas_udf
+from pyspark.sql.types import IntegerType
+from scipy.sparse import csr_matrix, hstack, identity
 
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.session_handler import State
+from sponge_bob_magic.utils import to_csr
 
 
 class LightFMWrap(Recommender):
     """ Обёртка вокруг стандартной реализации LightFM. """
 
     epochs: int = 10
-    loss: str = "bpr"
 
-    def __init__(self, **kwargs):
-        self.model_params: Dict[str, object] = kwargs
+    def __init__(
+        self,
+        no_components: int = 128,
+        loss: str = "bpr",
+        random_state: Optional[int] = None,
+    ):
+        np.random.seed(42)
+        self.no_components = no_components
+        self.loss = loss
+        self.random_state = random_state
+        cpu_count = os.cpu_count()
+        self.num_threads = cpu_count if cpu_count is not None else 1
 
     def get_params(self) -> Dict[str, object]:
-        return self.model_params
+        return {
+            "no_components": self.no_components,
+            "loss": self.loss,
+            "random_state": self.random_state,
+        }
+
+    def _feature_table_to_csr(self, feature_table: DataFrame) -> csr_matrix:
+        """
+        преобразоавть свойства пользователей или объектов в разреженную матрицу
+
+        :param feature_table: таблица с колонкой ``user_idx`` или ``item_idx``,
+            все остальные колонки которой считаются значениями свойства пользователя или объекта соответстввенно
+        :returns: матрица, в которой строки --- пользователи или объекты, столбцы --- их свойства
+        """
+        all_features = (
+            State()
+            .session.createDataFrame(
+                range(len(self.item_indexer.labels)), schema=IntegerType()
+            )
+            .toDF("item_idx")
+            .join(feature_table, on="item_idx", how="left")
+            .fillna(0.0)
+            .sort("item_idx")
+            .drop("item_idx")
+        )
+        return hstack(
+            [
+                identity(self.items_count),
+                csr_matrix(all_features.toPandas().to_numpy()),
+            ]
+        )
 
     def _fit(
         self,
@@ -33,15 +75,21 @@ class LightFMWrap(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         self.logger.debug("Построение модели LightFM")
-        pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
-        interactions_matrix = coo_matrix(
-            (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
-            shape=(self.users_count, self.items_count),
+        interactions_matrix = to_csr(log, self.users_count, self.items_count)
+        csr_item_features = (
+            self._feature_table_to_csr(item_features)
+            if item_features is not None
+            else None
         )
-        self.model = LightFM(loss=self.loss, **self.model_params).fit(
+        self.model = LightFM(
+            loss=self.loss,
+            no_components=self.no_components,
+            random_state=self.random_state,
+        ).fit(
             interactions=interactions_matrix,
             epochs=self.epochs,
-            num_threads=os.cpu_count(),
+            num_threads=self.num_threads,
+            item_features=csr_item_features,
         )
 
     # pylint: disable=too-many-arguments
@@ -55,20 +103,24 @@ class LightFMWrap(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        test_data = users.crossJoin(items).withColumn("relevance", lit(1))
-        if filter_seen_items:
-            test_data = self._filter_seen_recs(test_data, log).drop(
-                "relevance"
-            )
-        prediction = test_data.toPandas()
-        prediction["relevance"] = self.model.predict(
-            np.array(prediction.user_idx), np.array(prediction.item_idx)
+        @pandas_udf(
+            "user_idx int, item_idx int, relevance double",
+            PandasUDFType.GROUPED_MAP,
         )
-        recs = (
-            State()
-            .session.createDataFrame(
-                prediction[["user_idx", "item_idx", "relevance"]]
+        def predict_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
+            pandas_df["relevance"] = model.predict(
+                user_ids=pandas_df["user_idx"].to_numpy(),
+                item_ids=pandas_df["item_idx"].to_numpy(),
+                item_features=csr_item_features,
             )
-            .cache()
+            return pandas_df
+
+        model = self.model
+        csr_item_features = (
+            self._feature_table_to_csr(item_features)
+            if item_features is not None
+            else None
         )
-        return recs
+        return (
+            users.crossJoin(items).groupby("user_idx").apply(predict_by_user)
+        )

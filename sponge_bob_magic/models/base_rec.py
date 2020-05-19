@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, Optional, Union
 
 import pandas as pd
 from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from sponge_bob_magic.converter import convert
@@ -24,7 +24,6 @@ class Recommender(ABC):
     inv_user_indexer: IndexToString
     inv_item_indexer: IndexToString
     _logger: Optional[logging.Logger] = None
-    _spark: Optional[SparkSession] = None
     can_predict_cold_users: bool = False
     can_predict_cold_items: bool = False
 
@@ -103,7 +102,7 @@ class Recommender(ABC):
 
         if "user_indexer" not in self.__dict__ or force_reindex:
             self.logger.debug("Предварительная стадия обучения (pre-fit)")
-            self._create_indexers(log)
+            self._create_indexers(log, user_features, item_features)
         self.logger.debug("Основная стадия обучения (fit)")
         self._fit(
             self._convert_index(log),
@@ -111,20 +110,39 @@ class Recommender(ABC):
             self._convert_index(item_features),
         )
 
-    def _create_indexers(self, log: DataFrame) -> None:
+    def _create_indexers(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
         """
         Метод для создания индексеров.
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             ``[user_id, item_id, timestamp, relevance]``
+        :param user_features: свойствва пользователей (обязательно содержат колонку ``user_id``)
+        :param item_features: свойствва объектов (обязательно содержат колонку ``item_id``)
         :return:
         """
+        if user_features is None:
+            users = log.select("user_id")
+        else:
+            users = log.select("user_id").union(
+                user_features.select("user_id")
+            )
+        if item_features is None:
+            items = log.select("item_id")
+        else:
+            items = log.select("item_id").union(
+                item_features.select("item_id")
+            )
         self.user_indexer = StringIndexer(
             inputCol="user_id", outputCol="user_idx"
-        ).fit(log)
+        ).fit(users)
         self.item_indexer = StringIndexer(
             inputCol="item_id", outputCol="item_idx"
-        ).fit(log)
+        ).fit(items)
         self.inv_user_indexer = IndexToString(
             inputCol="user_idx",
             outputCol="user_id",
@@ -229,7 +247,7 @@ class Recommender(ABC):
             filter_seen_items,
         )
         if filter_seen_items:
-            recs = self._filter_seen_recs(recs, self._convert_index(log))
+            recs = self._mark_seen_items(recs, self._convert_index(log))
         recs = self._convert_back(recs).select(
             "user_id", "item_id", "relevance"
         )
@@ -431,7 +449,7 @@ class Recommender(ABC):
         )
 
     @staticmethod
-    def _filter_seen_recs(recs: DataFrame, log: DataFrame) -> DataFrame:
+    def _mark_seen_items(recs: DataFrame, log: DataFrame) -> DataFrame:
         """
         Преобразует рекомендации, заменяя для каждого пользователя
         relevance уже увиденных им объектов (на основе лога) на -1.
@@ -461,6 +479,9 @@ class Recommender(ABC):
 
     @property
     def logger(self) -> logging.Logger:
+        """
+        :returns: стандартный логгер библиотеки
+        """
         if self._logger is None:
             self._logger = logging.getLogger("sponge_bob_magic")
         return self._logger

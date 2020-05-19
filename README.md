@@ -14,10 +14,16 @@ pip install poetry
 poetry install
 ```
 
-## Как проверить качество кода
+## Как запустить сборку локально
 
 Из виртуального окружения
 
 ```bash
-./show_report.sh
+./test_package.sh
+```
+
+Для регулярной проверки кода рекомендуется сделать
+
+```bash
+pre-commit install
 ```
