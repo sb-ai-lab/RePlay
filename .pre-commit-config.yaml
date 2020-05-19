@@ -16,3 +16,8 @@ repos:
             entry: pylint --rcfile .pylintrc
             language: system
             types: [python]
+        -   id: mypy
+            name: mypy
+            entry: mypy --ignore-missing-imports
+            language: system
+            types: [python]

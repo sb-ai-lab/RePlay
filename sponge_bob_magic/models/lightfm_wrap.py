@@ -21,7 +21,6 @@ class LightFMWrap(Recommender):
     """ Обёртка вокруг стандартной реализации LightFM. """
 
     epochs: int = 10
-    num_threads: int = os.cpu_count()
 
     def __init__(
         self,
@@ -33,6 +32,8 @@ class LightFMWrap(Recommender):
         self.no_components = no_components
         self.loss = loss
         self.random_state = random_state
+        cpu_count = os.cpu_count()
+        self.num_threads = cpu_count if cpu_count is not None else 1
 
     def get_params(self) -> Dict[str, object]:
         return {
