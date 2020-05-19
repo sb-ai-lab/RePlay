@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Optional
+from typing import Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -25,9 +25,6 @@ class KNN(Recommender):
         """
         self.shrink: float = shrink
         self.num_neighbours: int = num_neighbours
-
-    def get_params(self) -> Dict[str, object]:
-        return {"shrink": self.shrink, "num_neighbours": self.num_neighbours}
 
     def _get_similarity_matrix(
         self, items: DataFrame, dot_products: DataFrame, item_norms: DataFrame

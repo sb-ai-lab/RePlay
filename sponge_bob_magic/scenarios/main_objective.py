@@ -77,11 +77,11 @@ class MainObjective:
         """
         params = dict()
         for key in self.search_space:
-            params[key] = trial.suggest_uniform(
-                key,
-                low=min(self.search_space[key]) - 1,
-                high=max(self.search_space[key]) + 1,
-            )
+            params[key] = self.search_space[key][
+                trial.suggest_int(
+                    key, low=0, high=len(self.search_space[key]) - 1,
+                )
+            ]
         self.recommender.set_params(**params)
         self.logger.debug("-- Второй фит модели в оптимизации")
         self.recommender.fit(
@@ -104,7 +104,7 @@ class MainObjective:
         )
         self.logger.debug("-- Подсчет метрики в оптимизации")
         criterion_value = self.criterion(recs, self.split_data.test, self.k)
-        self.experiment.add_result(repr(self.recommender), recs)
+        self.experiment.add_result(f"{str(self.recommender)}{params}", recs)
         self.logger.debug("%s=%.2f", self.criterion, criterion_value)
         return criterion_value  # type: ignore
 

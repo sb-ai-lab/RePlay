@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -62,9 +62,6 @@ class SLIM(Recommender):
         self.beta = beta
         self.lambda_ = lambda_
         self.seed = seed
-
-    def get_params(self) -> Dict[str, object]:
-        return {"lambda_": self.lambda_, "beta": self.beta}
 
     def _fit(
         self,

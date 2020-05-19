@@ -21,10 +21,6 @@ class ClassifierRecTestCase(PySparkTest):
             [("1", "1", 1.0), ("1", "2", 0.0)],
         ).toDF("user_id", "item_id", "relevance")
 
-    def test_get_params(self):
-        model = ClassifierRec(seed=42)
-        self.assertEqual(model.get_params(), {"seed": 42})
-
     def test_fit(self):
         self.model.fit(
             log=self.log,

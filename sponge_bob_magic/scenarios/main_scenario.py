@@ -8,7 +8,7 @@ from optuna import create_study
 from optuna.samplers import GridSampler
 from pyspark.sql import DataFrame
 
-from sponge_bob_magic.constants import IntOrList, NumType
+from sponge_bob_magic.constants import IntOrList
 from sponge_bob_magic.experiment import Experiment
 from sponge_bob_magic.metrics.base_metric import Metric, RecOnlyMetric
 from sponge_bob_magic.metrics.hitrate import HitRate
@@ -33,7 +33,7 @@ class MainScenario:
 
     experiment: Experiment
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments,dangerous-default-value
     def __init__(
         self,
         splitter: Splitter = RandomSplitter(0.3, True, True),
@@ -95,7 +95,7 @@ class MainScenario:
         )
         return split_data
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments,too-many-locals
     def _run_optimization(
         self,
         n_trials: int,
@@ -110,20 +110,23 @@ class MainScenario:
         sampler = GridSampler(params_grid)
         study = create_study(direction="maximize", sampler=sampler)
         objective = MainObjective(
-            params_grid,
-            study,
-            split_data,
-            self.recommender,
-            criterion,
-            metrics,
-            fallback_recs,
-            k,
+            search_space=params_grid,
+            split_data=split_data,
+            recommender=self.recommender,
+            criterion=criterion,
+            metrics=metrics,
+            fallback_recs=fallback_recs,
+            k=k,
         )
         study.optimize(objective, n_trials)
         self.experiment = objective.experiment
         self.logger.debug("Лучшее значение метрики: %.2f", study.best_value)
         self.logger.debug("Лучшие параметры: %s", study.best_params)
-        return study.best_params  # type: ignore
+        best_params = {
+            key: params_grid[key][study.best_params[key]]
+            for key in study.best_params
+        }
+        return best_params  # type: ignore
 
     # pylint: disable=too-many-arguments
     def research(
@@ -140,20 +143,8 @@ class MainScenario:
         """
         Обучает и подбирает параметры для модели.
 
-        :param params_grid: сетка параметров, задается словарем, где ключ -
-            название параметра (должен совпадать с одним из параметров модели,
-            которые возвращает ``get_params()``), значение - словарь с двумя
-            ключами "type" и "args", где они должны принимать следующие
-            значения в соответствии
-            с `optuna.trial.Trial.suggest_* <https://optuna.readthedocs.io/en/stable/reference/trial.html#optuna.trial.Trial.suggest_categorical>`_
-            (строковое значение ``type`` и список значений аргументов ``args``): ::
-
-                "uniform" -> [low, high],
-                "loguniform" -> [low, high],
-                "discrete_uniform" -> [low, high, q],
-                "int" -> [low, high],
-                "categorical" -> [choices]
-
+        :param params_grid: сетка параметров, задается словарем, где ключ ---
+            название параметра, значение --- список возможных значений любого типа
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             ``[user_id, item_id, timestamp, relevance]``
@@ -173,9 +164,8 @@ class MainScenario:
             должно быть не больше, чем количество объектов в ``items``
         :param n_trials: количество уникальных испытаний; должно быть от 1
             до значения параметра ``optuna_max_n_trials``
-        :return: словарь оптимальных значений параметров для модели; ключ -
-            название параметра (совпадают с параметрами модели,
-            которые возвращает ``get_params()``), значение - значение параметра
+        :return: словарь оптимальных значений параметров для модели; ключ ---
+            название параметра, значение --- значение параметра
         """
         self.logger.debug("Деление лога на обучающую и тестовую выборку")
         split_data = self._prepare_data(
@@ -241,9 +231,8 @@ class MainScenario:
         рекомендации для ``users`` и ``items``.
         В качестве выборки для обучения используется весь лог, без деления.
 
-        :param params: словарь значений параметров для модели; ключ -
-            название параметра (должен совпадать с одним из параметров модели,
-            которые возвращает ``get_params()``), значение - значение параметра
+        :param params: словарь значений параметров для модели; ключ ---
+            название параметра, значение --- значение параметра
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             ``[user_id, item_id, timestamp, relevance]``

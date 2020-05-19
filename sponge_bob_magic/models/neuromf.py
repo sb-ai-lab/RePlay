@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -64,7 +64,7 @@ class GMF(nn.Module):
         self.item_biases.weight.data.zero_()
 
     # pylint: disable=arguments-differ
-    def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:  # type: ignore
+    def forward(self, user: Tensor, item: Tensor) -> Tensor:  # type: ignore
         """
         Один проход нейросети.
 
@@ -137,7 +137,7 @@ class MLP(nn.Module):
             xavier_init_(layer)
 
     # pylint: disable=arguments-differ
-    def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:  # type: ignore
+    def forward(self, user: Tensor, item: Tensor) -> Tensor:  # type: ignore
         """
         Один проход нейросети.
 
@@ -202,7 +202,7 @@ class NMF(nn.Module):
         xavier_init_(self.last_layer)
 
     # pylint: disable=arguments-differ
-    def forward(self, user: torch.Tensor, item: torch.Tensor) -> torch.Tensor:  # type: ignore
+    def forward(self, user: Tensor, item: Tensor) -> Tensor:  # type: ignore
         """
         Один проход нейросети.
 
@@ -229,6 +229,7 @@ class NMF(nn.Module):
         return merged_vector
 
 
+# pylint: disable=too-many-instance-attributes
 class NeuroMF(TorchRecommender):
     """
     Эта модель является вариацей на модель из статьи Neural Matrix Factorization
@@ -297,9 +298,6 @@ class NeuroMF(TorchRecommender):
         self.l2_reg = l2_reg
         self.gamma = gamma
         self.count_negative_sample = count_negative_sample
-
-    def get_params(self) -> Dict[str, object]:
-        return {"learning_rate": self.learning_rate, "epochs": self.epochs}
 
     def _data_loader(
         self, data: pd.DataFrame, shuffle: bool = True

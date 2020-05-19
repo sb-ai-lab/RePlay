@@ -35,40 +35,8 @@ class Recommender(ABC):
             значение - значение параметра
         :return:
         """
-        valid_params = self.get_params()
-
         for param, value in params.items():
-            if param not in valid_params:
-                raise ValueError(
-                    "Неправильный параметр для данного рекоммендера "
-                    f"{param}. "
-                    "Проверьте список параметров, "
-                    f"которые принимает рекоммендер: {valid_params}"
-                )
-
             setattr(self, param, value)
-
-    @abstractmethod
-    def get_params(self) -> Dict[str, object]:
-        """
-        Возвращает параметры рекоммендера в виде словаря.
-
-        :return: словарь параметров, ключ - название параметра,
-            значение - значение параметра
-        """
-
-    def __repr__(self):
-        return (
-            type(self).__name__
-            + "("
-            + ", ".join(
-                [
-                    f"{key}={self.get_params()[key]}"
-                    for key in self.get_params()
-                ]
-            )
-            + ")"
-        )
 
     def __str__(self):
         return type(self).__name__

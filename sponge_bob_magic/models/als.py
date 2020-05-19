@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Optional
+from typing import Optional
 
 from pyspark.ml.recommendation import ALS
 from pyspark.sql import DataFrame
@@ -27,9 +27,6 @@ class ALSWrap(Recommender):
         """
         self.rank = rank
         self._seed = seed
-
-    def get_params(self) -> Dict[str, object]:
-        return {"rank": self.rank}
 
     def _fit(
         self,

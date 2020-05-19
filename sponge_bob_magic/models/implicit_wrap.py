@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Optional
+from typing import Optional
 
 import pandas as pd
 from pyspark.sql import DataFrame
@@ -45,9 +45,6 @@ class ImplicitWrap(Recommender):
     def __init__(self, model):
         """На вход принимаестя инициализированная модель implicit."""
         self.model = model
-
-    def get_params(self) -> Dict[str, object]:
-        return {}
 
     def _fit(
         self,

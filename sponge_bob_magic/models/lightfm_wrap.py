@@ -2,7 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import os
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -34,13 +34,6 @@ class LightFMWrap(Recommender):
         self.random_state = random_state
         cpu_count = os.cpu_count()
         self.num_threads = cpu_count if cpu_count is not None else 1
-
-    def get_params(self) -> Dict[str, object]:
-        return {
-            "no_components": self.no_components,
-            "loss": self.loss,
-            "random_state": self.random_state,
-        }
 
     def _feature_table_to_csr(self, feature_table: DataFrame) -> csr_matrix:
         """
