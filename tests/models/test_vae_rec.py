@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+# pylint: disable-all
 import os
 from datetime import datetime
 
@@ -68,22 +69,6 @@ class VAERecTestCase(PySparkTest):
                     atol=1.0e-3,
                 )
             )
-
-    def test_get_params(self):
-        self.assertDictEqual(
-            self.model.get_params(),
-            {
-                "anneal": 0.005,
-                "decoder_dims": [1],
-                "dropout": 0.3,
-                "encoder_dims": [1],
-                "epochs": 1,
-                "gamma": 0.99,
-                "l2_reg": 0,
-                "latent_dim": 1,
-                "learning_rate": 0.5,
-            },
-        )
 
     def test_predict(self):
         self.model.fit(log=self.log, user_features=None, item_features=None)

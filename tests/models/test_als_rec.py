@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+# pylint: disable-all
 from datetime import datetime
 
 import numpy as np
@@ -47,6 +48,3 @@ class ALSRecTestCase(PySparkTest):
         self.assertEqual(
             list(recs.toPandas()), ["user_id", "item_id", "relevance"]
         )
-
-    def test_get_params(self):
-        self.assertEqual(self.als_rec.get_params(), {"rank": 1})

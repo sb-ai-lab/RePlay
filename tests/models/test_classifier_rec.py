@@ -15,15 +15,11 @@ class ClassifierRecTestCase(PySparkTest):
             [("1", 1.0, 2.0)]
         ).toDF("user_id", "user_feature_1", "user_feature_2")
         self.item_features = self.spark.createDataFrame(
-            [("1", 3.0, 4.0), ("2", 5.0, 6.0),]
+            [("1", 3.0, 4.0), ("2", 5.0, 6.0)]
         ).toDF("item_id", "item_feature_1", "item_feature_2")
         self.log = self.spark.createDataFrame(
             [("1", "1", 1.0), ("1", "2", 0.0)],
         ).toDF("user_id", "item_id", "relevance")
-
-    def test_get_params(self):
-        model = ClassifierRec(seed=42)
-        self.assertEqual(model.get_params(), {"seed": 42})
 
     def test_fit(self):
         self.model.fit(

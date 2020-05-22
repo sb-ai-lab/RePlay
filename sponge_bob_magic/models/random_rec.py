@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -60,8 +60,6 @@ class RandomRec(Recommender):
     ValueError: distribution должно быть popular_based или uniform
 
     >>> random_pop = RandomRec(distribution="popular_based", alpha=1.0, seed=777)
-    >>> random_pop.get_params()
-    {'distribution': 'popular_based', 'alpha': 1.0, 'seed': 777}
     >>> random_pop.fit(log)
     >>> random_pop.item_popularity.show()
     +--------+-----------+
@@ -86,8 +84,6 @@ class RandomRec(Recommender):
     +-------+-------+----------+
     <BLANKLINE>
     >>> random_pop = RandomRec(seed=555)
-    >>> random_pop.get_params()
-    {'distribution': 'uniform', 'alpha': 0.0, 'seed': 555}
     >>> random_pop.fit(log)
     >>> random_pop.item_popularity.show()
     +--------+-----------+
@@ -139,13 +135,6 @@ class RandomRec(Recommender):
         self.distribution = distribution
         self.alpha = alpha
         self.seed = seed
-
-    def get_params(self) -> Dict[str, object]:
-        return {
-            "distribution": self.distribution,
-            "alpha": self.alpha,
-            "seed": self.seed,
-        }
 
     def _fit(
         self,

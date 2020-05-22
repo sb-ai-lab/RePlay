@@ -67,8 +67,3 @@ class KNNRecTestCase(PySparkTest):
                 schema=REC_SCHEMA,
             ),
         )
-
-    def test_get_params(self):
-        self.assertEqual(
-            self.model.get_params(), {"shrink": 0.0, "num_neighbours": 1}
-        )

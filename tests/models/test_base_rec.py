@@ -33,9 +33,6 @@ class RecTestCase(PySparkTest):
         ) -> DataFrame:
             pass
 
-        def get_params(self) -> Dict[str, object]:
-            return {"alpha": 1, "beta": 2}
-
     def setUp(self):
         self.model = self.DerivedRec()
         self.empty_df = self.spark.createDataFrame(
@@ -68,9 +65,6 @@ class RecTestCase(PySparkTest):
             model.items_count
         model.fit(self.log)
         self.assertEqual(model.items_count, 1)
-
-    def test_repr(self):
-        self.assertEqual(repr(self.model), "DerivedRec(alpha=1, beta=2)")
 
     def test_str(self):
         self.assertEqual(str(self.model), "DerivedRec")

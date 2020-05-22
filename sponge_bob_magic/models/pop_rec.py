@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -56,9 +56,6 @@ class PopRec(Recommender):
 
     item_popularity: DataFrame
     can_predict_cold_users = True
-
-    def get_params(self) -> Dict[str, object]:
-        return {}
 
     def _fit(
         self,

@@ -36,9 +36,6 @@ class ClassifierRec(Recommender):
     def __init__(self, **kwargs):
         self.model_params: Dict[str, object] = kwargs
 
-    def get_params(self) -> Dict[str, object]:
-        return self.model_params
-
     def _fit(
         self,
         log: DataFrame,

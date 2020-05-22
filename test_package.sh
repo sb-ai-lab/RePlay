@@ -7,7 +7,7 @@ cd docs
 mkdir -p _static
 make clean html
 cd ..
-pycodestyle --ignore=E501,W605,W503,E203,E231 --max-doc-length=160 ${PACKAGE_NAME} tests
+pycodestyle --ignore=E203,E501,W503,W605 --max-doc-length=160 ${PACKAGE_NAME} tests
 pylint --rcfile=.pylintrc --exit-zero ${PACKAGE_NAME}
 mypy --ignore-missing-imports ${PACKAGE_NAME} tests
 export PYTEST_RUNNING=Y

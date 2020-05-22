@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+# pylint: disable-all
 from datetime import datetime
 
 from pyspark.sql.types import DoubleType, FloatType, StructField, StructType
@@ -69,11 +70,6 @@ class SlimRecTestCase(PySparkTest):
                 ],
                 schema=REC_SCHEMA,
             ),
-        )
-
-    def test_get_params(self):
-        self.assertDictEqual(
-            self.model.get_params(), {"lambda_": 0.01, "beta": 0.0}
         )
 
     def test_zeros_params_exception(self):

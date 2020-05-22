@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+# pylint: disable-all
 from datetime import datetime
 from unittest.mock import Mock
 
@@ -43,8 +44,8 @@ class DataPreparatorTest(PySparkTest):
     @parameterized.expand(
         [
             # columns_names
-            ({"user_id": "",},),
-            ({"item_id": "",},),
+            ({"user_id": ""},),
+            ({"item_id": ""},),
         ]
     )
     def test_transform_log_required_columns_exception(self, columns_names):
@@ -60,7 +61,7 @@ class DataPreparatorTest(PySparkTest):
         [
             # log_data, log_schema, columns_names
             (
-                [["user1", "item1"], ["user1", "item2"], ["user2", None],],
+                [["user1", "item1"], ["user1", "item2"], ["user2", None]],
                 ["user", "item"],
                 {"user_id": "user", "item_id": "item"},
             ),
@@ -74,12 +75,12 @@ class DataPreparatorTest(PySparkTest):
                 {"user_id": "user", "item_id": "item", "timestamp": "ts"},
             ),
             (
-                [["1", "1"], ["1", "2"], ["2", "3"],],
+                [["1", "1"], ["1", "2"], ["2", "3"]],
                 ["user", "item"],
                 {"user_id": "user", "item_id": "item"},
             ),
             (
-                [["1", "1", 1.0], ["1", "2", 1.0], ["2", "3", None],],
+                [["1", "1", 1.0], ["1", "2", 1.0], ["2", "3", None]],
                 ["user", "item", "r"],
                 {"user_id": "user", "item_id": "item", "relevance": "r"},
             ),
@@ -125,7 +126,7 @@ class DataPreparatorTest(PySparkTest):
         [
             # log_data, log_schema, true_log_data, columns_names
             (
-                [["user1", "item1"], ["user1", "item2"], ["user2", "item1"],],
+                [["user1", "item1"], ["user1", "item2"], ["user2", "item1"]],
                 ["user", "item"],
                 [
                     ["user1", "item1", datetime(1999, 5, 1), 1.0],
@@ -174,8 +175,8 @@ class DataPreparatorTest(PySparkTest):
                 ],
                 ["d", "r", "i", "u"],
                 [
-                    ["ue123", "12", datetime(1945, 1, 25), 123.0,],
-                    ["u6788888", "1", datetime(2045, 7, 18), 1.0,],
+                    ["ue123", "12", datetime(1945, 1, 25), 123.0],
+                    ["u6788888", "1", datetime(2045, 7, 18), 1.0],
                     ["1222222", "item10000", datetime(2019, 9, 30), 0.001],
                 ],
                 {
@@ -268,9 +269,9 @@ class DataPreparatorTest(PySparkTest):
     @parameterized.expand(
         [
             # columns_names
-            ({"timestamp": "",},),
-            ({"": "",},),
-            ({"blabla": "",},),
+            ({"timestamp": ""},),
+            ({"": ""},),
+            ({"blabla": ""},),
         ]
     )
     def test_transform_features_required_columns_exception(
@@ -288,12 +289,12 @@ class DataPreparatorTest(PySparkTest):
         [
             # feature_data, feature_schema, columns_names
             (
-                [["user1", 1], ["user1", 1], ["user2", None],],
+                [["user1", 1], ["user1", 1], ["user2", None]],
                 ["user", "feature"],
                 {"user_id": "user", "feature": "feature"},
             ),
             (
-                [["1", "2019-01-01"], ["2", None], ["3", "2019-01-01"],],
+                [["1", "2019-01-01"], ["2", None], ["3", "2019-01-01"]],
                 ["item", "ts"],
                 {"item_id": "item", "timestamp": "ts"},
             ),

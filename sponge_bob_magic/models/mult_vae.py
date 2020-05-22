@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -22,7 +22,7 @@ from sponge_bob_magic.session_handler import State
 class VAE(nn.Module):
     """Простой вариационный автокодировщик"""
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments,too-many-instance-attributes
     def __init__(
         self,
         item_count: int,
@@ -140,6 +140,7 @@ class VAE(nn.Module):
             layer.bias.data.normal_(0.0, 0.001)
 
 
+# pylint: disable=too-many-instance-attributes
 class MultVAE(TorchRecommender):
     """
     Вариационный автокодировщик. Общая схема его работы
@@ -262,6 +263,8 @@ class MultVAE(TorchRecommender):
     valid_split_size: float = 0.1
     seed: int = 42
     can_predict_cold_users = True
+    train_user_batch: csr_matrix
+    valid_user_batch: csr_matrix
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -300,19 +303,6 @@ class MultVAE(TorchRecommender):
         self.l2_reg = l2_reg
         self.gamma = gamma
 
-    def get_params(self) -> Dict[str, object]:
-        return {
-            "learning_rate": self.learning_rate,
-            "epochs": self.epochs,
-            "latent_dim": self.latent_dim,
-            "decoder_dims": self.decoder_dims,
-            "encoder_dims": self.encoder_dims,
-            "dropout": self.dropout,
-            "anneal": self.anneal,
-            "l2_reg": self.l2_reg,
-            "gamma": self.gamma,
-        }
-
     def _get_data_loader(
         self, data: pd.DataFrame, shuffle: bool = True
     ) -> Tuple[csr_matrix, DataLoader, np.array]:
@@ -335,6 +325,7 @@ class MultVAE(TorchRecommender):
 
         return user_batch, data_loader, user_idx.categories.values
 
+    # pylint: disable=too-many-locals
     def _fit(
         self,
         log: DataFrame,
