@@ -105,6 +105,7 @@ def vector_mult(one: Union[Vector, NumType], two: Vector) -> DenseVector:
     вычисляется покоординатное произведение двух колонок-векторов
 
     >>> from sponge_bob_magic.session_handler import State
+    >>> from pyspark.ml.linalg import Vectors
     >>> spark = State().session
     >>> input_data = (
     ...     spark.createDataFrame([(Vectors.dense([1.0, 2.0]), Vectors.dense([3.0, 4.0]))])
