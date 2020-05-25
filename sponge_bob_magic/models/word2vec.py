@@ -14,8 +14,9 @@ from sponge_bob_magic.utils import vector_dot, vector_mult
 
 
 class Word2VecRec(Recommender):
-    """ Рекомендатель на основе word2vec, в котором items сопоставляются
-    словам, а пользователи предложениям.
+    """
+        Рекомендатель на основе word2vec, в котором items сопоставляются
+        словам, а пользователи предложениям.
     """
 
     idf: DataFrame
@@ -34,9 +35,10 @@ class Word2VecRec(Recommender):
         :param rank: размерность вектора ембеддингов
         :param window_size: размер окна
         :param use_idf: использовать ли взвешенное суммирование векторов с
-        помощью idf
+            помощью idf
         :param seed: random seed
         """
+
         self.rank = rank
         self.window_size = window_size
         self.use_idf = use_idf
