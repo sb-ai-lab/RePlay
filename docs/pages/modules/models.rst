@@ -75,3 +75,9 @@ Mult-VAE
 
 .. autoclass:: sponge_bob_magic.models.MultVAE
     :special-members: __init__
+
+Word2Vec Recommender
+--------
+
+.. autoclass:: sponge_bob_magic.models.Word2VecRec
+    :special-members: __init__
