@@ -1,13 +1,16 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Any, List, Optional, Set
+from typing import Any, List, Optional, Set, Union
 
 import numpy as np
-from pyspark.ml.linalg import DenseVector, Vector, Vectors, VectorUDT
+from pyspark.ml.linalg import DenseVector, Vector, VectorUDT
 from pyspark.sql import Column, DataFrame, Window
 from pyspark.sql.functions import col, element_at, row_number, udf
+from pyspark.sql.types import DoubleType
 from scipy.sparse import csr_matrix
+
+from sponge_bob_magic.constants import NumType
 
 
 def get_distinct_values_in_column(
@@ -57,12 +60,13 @@ def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
     )
 
 
-@udf(returnType=VectorUDT())
+@udf(returnType=DoubleType())
 def vector_dot(one: Vector, two: Vector) -> DenseVector:
     """
     вычисляется скалярное произведение двух колонок-векторов
 
     >>> from sponge_bob_magic.session_handler import State
+    >>> from pyspark.ml.linalg import Vectors
     >>> spark = State().session
     >>> input_data = (
     ...     spark.createDataFrame([(Vectors.dense([1.0, 2.0]), Vectors.dense([3.0, 4.0]))])
@@ -79,28 +83,29 @@ def vector_dot(one: Vector, two: Vector) -> DenseVector:
     <BLANKLINE>
     >>> output_data = input_data.select(vector_dot("one", "two").alias("dot"))
     >>> output_data.schema
-    StructType(List(StructField(dot,VectorUDT,true)))
+    StructType(List(StructField(dot,DoubleType,true)))
     >>> output_data.show()
-    +------+
-    |   dot|
-    +------+
-    |[11.0]|
-    +------+
+    +----+
+    | dot|
+    +----+
+    |11.0|
+    +----+
     <BLANKLINE>
 
     :param one: правый множитель-вектор
     :param two: левый множитель-вектор
     :returns: вектор с одним значением --- скалярным произведением
     """
-    return Vectors.dense([one.dot(two)])
+    return float(one.dot(two))
 
 
 @udf(returnType=VectorUDT())
-def vector_mult(one: Vector, two: Vector) -> DenseVector:
+def vector_mult(one: Union[Vector, NumType], two: Vector) -> DenseVector:
     """
     вычисляется покоординатное произведение двух колонок-векторов
 
     >>> from sponge_bob_magic.session_handler import State
+    >>> from pyspark.ml.linalg import Vectors
     >>> spark = State().session
     >>> input_data = (
     ...     spark.createDataFrame([(Vectors.dense([1.0, 2.0]), Vectors.dense([3.0, 4.0]))])
