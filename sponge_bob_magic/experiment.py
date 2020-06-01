@@ -111,7 +111,7 @@ class Experiment:
                 )
 
             if isinstance(k_list, int):
-                self._add_metric(
+                self._add_metric(  # type: ignore
                     name,
                     metric,
                     k_list,
