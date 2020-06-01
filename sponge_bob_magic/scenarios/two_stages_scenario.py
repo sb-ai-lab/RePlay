@@ -34,9 +34,9 @@ class TwoStagesScenario:
     * с помощью ``first_stage_splitter`` разбить ``second_stage_train`` на ``first_stage_train`` и ``first_stage_test``
     * на ``first_stage_train`` обучить ``first_stage_model`` (которая умеет генерировать эмбеддинги пользователей и объектов)
     * с помощью ``first_stage_model`` получить по ``first_stage_k``
-    рекомендованных объектов для тестовых пользователей (``first_stage_k > second_stage_k``)
+        рекомендованных объектов для тестовых пользователей (``first_stage_k > second_stage_k``)
     * сравнивая ``first_stage_recs`` с ``first_stage_test`` получить таргет
-    для обучения классификатора (угадали --- ``1``, не угадали --- ``0``)
+        для обучения классификатора (угадали --- ``1``, не угадали --- ``0``)
     * обучить ``second_stage_model`` (на основе классификатора) на таргете из предыдущего пункта и с эмбеддингами пользователей и объектов в качестве фичей
     * получить ``second_stage_k`` рекомендаций с помощью ``second_stage_model``
     * посчитать метрику от ``second_stage_recs`` и ``second_stage_test``
