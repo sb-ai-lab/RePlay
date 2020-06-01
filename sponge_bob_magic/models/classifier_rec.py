@@ -10,10 +10,10 @@ from pyspark.ml.classification import (
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit, udf
-from pyspark.sql.types import DoubleType, FloatType
+from pyspark.sql.types import FloatType
 
 from sponge_bob_magic.models.base_rec import Recommender
-from sponge_bob_magic.utils import func_get, vector_dot, vector_mult
+from sponge_bob_magic.utils import func_get
 
 
 class ClassifierRec(Recommender):
@@ -33,8 +33,9 @@ class ClassifierRec(Recommender):
     model: RandomForestClassificationModel
     augmented_data: DataFrame
 
-    def __init__(self, **kwargs):
+    def __init__(self, use_recs_value: Optional[bool] = False, **kwargs):
         self.model_params: Dict[str, object] = kwargs
+        self.use_recs_value = use_recs_value
 
     def _fit(
         self,
@@ -53,16 +54,17 @@ class ClassifierRec(Recommender):
         self.augmented_data = (
             self._augment_data(log, user_features, item_features)
             .withColumnRenamed("relevance", "label")
-            .select("label", "features")
+            .select("label", "features", "user_idx", "item_idx")
         ).cache()
-
         self.model = RandomForestClassifier(**self.model_params).fit(
             self.augmented_data
         )
 
-    @staticmethod
     def _augment_data(
-        log: DataFrame, user_features: DataFrame, item_features: DataFrame
+        self,
+        log: DataFrame,
+        user_features: DataFrame,
+        item_features: DataFrame,
     ) -> DataFrame:
         """
         Обогащает лог фичами пользователей и объектов.
@@ -89,38 +91,24 @@ class ClassifierRec(Recommender):
             .transform(item_features)
             .cache()
         )
-        return (
-            VectorAssembler(
-                inputCols=[
-                    "user_features",
-                    "item_features",
-                    "mult",
-                    "dot_product",
-                ],
-                outputCol="features",
+        return VectorAssembler(
+            inputCols=["user_features", "item_features"]
+            + (["recs"] if self.use_recs_value else []),
+            outputCol="features",
+        ).transform(
+            log.withColumnRenamed("user_idx", "uid")
+            .withColumnRenamed("item_idx", "iid")
+            .join(
+                user_vectors.select("user_idx", "user_features"),
+                on=col("user_idx") == col("uid"),
+                how="inner",
             )
-            .transform(
-                log.withColumnRenamed("user_idx", "uid")
-                .withColumnRenamed("item_idx", "iid")
-                .join(
-                    user_vectors.select("user_idx", "user_features"),
-                    on=col("user_idx") == col("uid"),
-                    how="inner",
-                )
-                .join(
-                    item_vectors.select("item_idx", "item_features"),
-                    on=col("item_idx") == col("iid"),
-                    how="inner",
-                )
-                .drop("iid", "uid")
-                .withColumn(
-                    "mult", vector_mult("user_features", "item_features")
-                )
-                .withColumn(
-                    "dot_product", vector_dot("user_features", "item_features")
-                )
+            .join(
+                item_vectors.select("item_idx", "item_features"),
+                on=col("item_idx") == col("iid"),
+                how="inner",
             )
-            .drop("mult", "dot_product")
+            .drop("iid", "uid")
         )
 
     # pylint: disable=too-many-arguments
@@ -135,13 +123,24 @@ class ClassifierRec(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         data = self._augment_data(
-            users.crossJoin(items), user_features, item_features
+            log.join(
+                users.withColumnRenamed("user_idx", "user"),
+                how="inner",
+                on=col("user_idx") == col("user"),
+            ).select(
+                *(
+                    ["item_idx", "user_idx"]
+                    + (["recs"] if self.use_recs_value else [])
+                )
+            ),
+            user_features,
+            item_features,
         ).select("features", "item_idx", "user_idx")
         recs = self.model.transform(data).select(
             "user_idx",
             "item_idx",
-            udf(func_get, DoubleType())("probability", lit(1))
-            .alias("relevance")
-            .cast(FloatType()),
+            udf(func_get, FloatType())("probability", lit(1)).alias(
+                "relevance"
+            ),
         )
         return recs

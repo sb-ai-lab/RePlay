@@ -191,12 +191,10 @@ class Recommender(ABC):
         )
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
-        self._reindex("item", items)
-        self._reindex("user", users)
         users = self._convert_index(users)
         items = self._convert_index(items)
-        user_features = self._convert_index(user_features)
         item_features = self._convert_index(item_features)
+        user_features = self._convert_index(user_features)
         log = self._convert_index(log)
 
         num_items = items.count()
@@ -241,10 +239,12 @@ class Recommender(ABC):
         if data_frame is None:
             return data_frame
         if "user_id" in data_frame.columns:
+            self._reindex("user", data_frame)
             data_frame = self.user_indexer.transform(data_frame).drop(
                 "user_id"
             )
         if "item_id" in data_frame.columns:
+            self._reindex("item", data_frame)
             data_frame = self.item_indexer.transform(data_frame).drop(
                 "item_id"
             )
@@ -268,7 +268,6 @@ class Recommender(ABC):
         indexer = getattr(self, f"{entity}_indexer")
         inv_indexer = getattr(self, f"inv_{entity}_indexer")
         can_reindex = getattr(self, f"can_predict_cold_{entity}s")
-
         new_objects = set(
             map(
                 str,
@@ -292,12 +291,12 @@ class Recommender(ABC):
                 )
                 inv_indexer.setLabels(new_labels)
             else:
-                self.logger.debug(
-                    "Список пользователей или объектов содержит "
-                    "элементы, которые отсутствовали при "
-                    "обучении. Результат предсказания будет не "
-                    "полным."
+                message = (
+                    f"Список {entity} содержит элементы, которые "
+                    "отсутствовали при обучении. Результат "
+                    "предсказания будет не полным."
                 )
+                self.logger.debug(message)
                 indexer.setHandleInvalid("skip")
 
     def _extract_unique(
