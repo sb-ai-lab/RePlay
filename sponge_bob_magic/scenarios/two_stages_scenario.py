@@ -70,6 +70,7 @@ class TwoStagesScenario:
         :param metrics: какие метрики будем оценивать у ``second_model`` на ``test``. По умолчанию :ref:`HitRate@10<hit-rate>`.
 
         """
+
         self.second_stage_splitter = second_stage_splitter
         self.first_stage_splitter = first_stage_splitter
         self.first_model = first_model

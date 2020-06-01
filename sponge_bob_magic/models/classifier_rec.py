@@ -34,6 +34,14 @@ class ClassifierRec(Recommender):
     augmented_data: DataFrame
 
     def __init__(self, use_recs_value: Optional[bool] = False, **kwargs):
+        """
+        Инициализирует параметры модели.
+
+        :param use_recs_value: использовать ли поле recs для рекомендаций
+        :param kwargs: параметры базовой модели
+
+        """
+
         self.model_params: Dict[str, object] = kwargs
         self.use_recs_value = use_recs_value
 
