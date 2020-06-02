@@ -273,14 +273,12 @@ class TwoStagesScenario:
             item_features=item_features,
         )
 
-        second_recs = self.second_model.predict(
+        second_recs = self.second_model.rerank(
             log=first_recs_for_test.withColumnRenamed("relevance", "recs"),
             k=k,
             user_features=user_features,
             item_features=item_features,
             users=test.select("user_id").distinct().cache(),
-            items=first_test.select("item_id").distinct().cache(),
-            filter_seen_items=False,
         ).cache()
         State().logger.debug(
             "ROC AUC модели второго уровня (как классификатора): %.4f",
