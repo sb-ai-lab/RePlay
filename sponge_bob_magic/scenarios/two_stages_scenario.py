@@ -258,7 +258,7 @@ class TwoStagesScenario:
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
             ``[item_id , timestamp]`` и колонки с признаками
-        :return DataFrame со списком рекомендаций
+        :return: DataFrame со списком рекомендаций
         """
 
         first_train, first_test, test = self._split_data(log)
