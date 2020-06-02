@@ -252,6 +252,13 @@ class TwoStagesScenario:
 
         :param log: лог пользовательских предпочтений
         :param k: количество рекомендаций, которые нужно вернуть каждому пользователю
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            ``[user_id , timestamp]`` и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            ``[item_id , timestamp]`` и колонки с признаками
+        :return DataFrame со списком рекомендаций
         """
 
         first_train, first_test, test = self._split_data(log)
