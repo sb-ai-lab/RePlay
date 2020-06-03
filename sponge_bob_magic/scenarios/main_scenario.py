@@ -126,7 +126,7 @@ class MainScenario:
             key: params_grid[key][study.best_params[key]]
             for key in study.best_params
         }
-        return best_params  # type: ignore
+        return best_params
 
     # pylint: disable=too-many-arguments
     def research(

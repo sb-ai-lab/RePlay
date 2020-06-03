@@ -75,6 +75,9 @@ sphinx-autodoc-typehints = "1.10.3"
 # emacs dependencies
 rope = "0.16.0"
 virtualenv = "20.0.8"
+# stubs
+data-science-types = "0.2.12"
+pyspark-stubs = "2.4.0"
 
 [tool.black]
 line-length = 79
