@@ -54,6 +54,7 @@ class Experiment:
     model            1.0                1.0                            0.0
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         test: Any,
@@ -111,7 +112,12 @@ class Experiment:
 
             if isinstance(k_list, int):
                 self._add_metric(  # type: ignore
-                    name, metric, k_list, values, median, conf_interval
+                    name,
+                    metric,
+                    k_list,
+                    values,  # type: ignore
+                    median,  # type: ignore
+                    conf_interval,  # type: ignore
                 )
             else:
                 for k, val in sorted(values.items(), key=lambda x: x[0]):
@@ -124,6 +130,7 @@ class Experiment:
                         None if conf_interval is None else conf_interval[k],
                     )
 
+    # pylint: disable=too-many-arguments
     def _add_metric(
         self,
         name: str,
@@ -152,6 +159,7 @@ class Experiment:
                 name, f"{metric}@{k}_{self.calc_conf_interval}_conf_interval",
             ] = conf_interval
 
+    # pylint: disable=not-an-iterable
     def compare(self, name: str) -> pd.DataFrame:
         """
         Показать процентный прирост относительно записи ``name``.
