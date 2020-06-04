@@ -107,7 +107,8 @@ class DataPreparator:
     <BLANKLINE>
     """
 
-    def _read_data(self, path: str, format_type: str, **kwargs) -> DataFrame:
+    @staticmethod
+    def _read_data(path: str, format_type: str, **kwargs) -> DataFrame:
         spark = State().session
         if format_type == "csv":
             dataframe = spark.read.csv(path, inferSchema=True, **kwargs)
@@ -303,55 +304,29 @@ class DataPreparator:
             колонки, не предоставленные в ``columns_names``,
             заполянются дефолтными значениями
         """
-        if data is not None:
-            dataframe = convert(data)
-        elif path and format_type:
-            dataframe = self._read_data(path, format_type, **kwargs)
-        else:
+        if data is None and path is None:
             raise ValueError(
                 "Один из параметров data, path должен быть отличным от None"
             )
 
+        dataframe = convert(data)
+        if path and format_type:
+            dataframe = self._read_data(path, format_type, **kwargs)
+
         if "user_id" in columns_names and "item_id" in columns_names:
-            required_columns = {
-                "user_id": (None, StringType()),
-                "item_id": (None, StringType()),
-            }
-            optional_columns = {
-                "timestamp": ("1999-05-01", TimestampType()),
-                "relevance": (1.0, FloatType()),
-            }
-            if features_columns is None:
-                features_columns = []
-            else:
-                raise ValueError("В данной таблице features не используются")
+            (
+                features_columns,
+                optional_columns,
+                required_columns,
+            ) = self.base_columns(features_columns)
         else:
-            optional_columns = {"timestamp": ("1999-05-01", TimestampType())}
-            if "user_id" in columns_names:
-                required_columns = {"user_id": (None, StringType())}
-            elif "item_id" in columns_names:
-                required_columns = {"item_id": (None, StringType())}
-            else:
-                raise ValueError(
-                    "В columns_names нет ни 'user_id', ни 'item_id'"
-                )
-
-            # если фичей нет в данных пользователем колонках, вставляем все оставшиеся
-            # нужно, чтобы проверить, что там нет нуллов
-            if features_columns is None:
-                given_columns = set(columns_names.values())
-                dataframe_columns = set(dataframe.columns)
-                features_columns = sorted(
-                    list(dataframe_columns.difference(given_columns))
-                )
-                if not features_columns:
-                    raise ValueError("В датафрейме нет колонок с фичами")
-
-            else:
-                if isinstance(features_columns, str):
-                    features_columns = [features_columns]
-                else:
-                    features_columns = list(features_columns)
+            (
+                features_columns,
+                optional_columns,
+                required_columns,
+            ) = self.feature_columns(
+                columns_names, dataframe, features_columns
+            )
 
         self._check_columns(
             set(columns_names.keys()),
@@ -369,3 +344,54 @@ class DataPreparator:
             date_format=date_format,
         ).cache()
         return dataframe2
+
+    @staticmethod
+    def feature_columns(
+        columns_names: Dict[str, str],
+        dataframe: DataFrame,
+        features_columns: Union[str, Iterable[str], None],
+    ) -> Tuple[List[str], Dict, Dict]:
+        """Возвращает колонки для таблицы с фичами"""
+        optional_columns = {"timestamp": ("1999-05-01", TimestampType())}
+        if "user_id" in columns_names:
+            required_columns = {"user_id": (None, StringType())}
+        elif "item_id" in columns_names:
+            required_columns = {"item_id": (None, StringType())}
+        else:
+            raise ValueError("В columns_names нет ни 'user_id', ни 'item_id'")
+        # если фичей нет в данных пользователем колонках, вставляем все оставшиеся
+        # нужно, чтобы проверить, что там нет нуллов
+        if features_columns is None:
+            given_columns = set(columns_names.values())
+            dataframe_columns = set(dataframe.columns)
+            features_columns = sorted(
+                list(dataframe_columns.difference(given_columns))
+            )
+            if not features_columns:
+                raise ValueError("В датафрейме нет колонок с фичами")
+
+        else:
+            if isinstance(features_columns, str):
+                features_columns = [features_columns]
+            else:
+                features_columns = list(features_columns)
+        return features_columns, optional_columns, required_columns
+
+    @staticmethod
+    def base_columns(
+        features_columns: Union[str, Iterable[str], None]
+    ) -> Tuple[List, Dict, Dict]:
+        """Возвращает колонки для лога"""
+        required_columns = {
+            "user_id": (None, StringType()),
+            "item_id": (None, StringType()),
+        }
+        optional_columns = {
+            "timestamp": ("1999-05-01", TimestampType()),
+            "relevance": (1.0, FloatType()),
+        }
+        if features_columns is None:
+            features_columns = []
+        else:
+            raise ValueError("В данной таблице features не используются")
+        return features_columns, optional_columns, required_columns
