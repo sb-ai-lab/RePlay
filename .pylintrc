@@ -5,7 +5,7 @@ fail-under=10
 ignored-modules=pyspark.sql.functions,torch
 
 [MESSAGES CONTROL]
-disable=bad-continuation,anomalous-backslash-in-string
+disable=bad-continuation,anomalous-backslash-in-string, R1705
 
 [FORMAT]
 ignore-long-lines=^.*([А-Яа-я]|>{3}|\.{3}|\\{2}|https://).*$
