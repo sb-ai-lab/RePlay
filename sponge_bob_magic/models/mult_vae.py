@@ -10,10 +10,10 @@ import torch.nn.functional as F
 from pyspark.sql import DataFrame
 from scipy.sparse import csr_matrix
 from sklearn.model_selection import GroupShuffleSplit
-from torch import nn
-from torch.optim import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.utils.data import DataLoader, TensorDataset
+from torch import nn  # pylint: disable=C0412
+from torch.optim import Adam  # pylint: disable=C0412
+from torch.optim.lr_scheduler import ReduceLROnPlateau  # pylint: disable=C0412
+from torch.utils.data import DataLoader, TensorDataset  # pylint: disable=C0412
 
 from sponge_bob_magic.models.base_torch_rec import TorchRecommender
 from sponge_bob_magic.session_handler import State
@@ -140,122 +140,8 @@ class VAE(nn.Module):
             layer.bias.data.normal_(0.0, 0.001)
 
 
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes, C0111
 class MultVAE(TorchRecommender):
-    """
-    Вариационный автокодировщик. Общая схема его работы
-    представлена на рисунке.
-
-    .. image:: /images/vae-gaussian.png
-
-    **Постановка задачи**
-
-    Дана выборка независимых одинаково распределенных величин из истинного
-    распределения :math:`x_i \sim p_d(x)`, :math:`i = 1, \dots, N`.
-
-    Задача - построить вероятностную модель :math:`p_\\theta(x)` истинного
-    распределения :math:`p_d(x)`.
-
-    Распределение :math:`p_\\theta(x)` должно позволять как оценить плотность
-    вероятности для данного объекта :math:`x`, так и сэмплировать
-    :math:`x \sim p_\\theta(x)`.
-
-    **Вероятностная модель**
-
-    :math:`z \in \mathbb{R}^d` - локальная латентная переменная, т. е. своя для
-    каждого объекта :math:`x`.
-
-    Генеративный процесс вариационного автокодировщика:
-
-    1. Сэмплируем :math:`z \sim p(z)`.
-    2. Сэмплируем :math:`x \sim p_\\theta(x | z)`.
-
-    Параметры распределения :math:`p_\\theta(x | z)` задаются нейросетью с
-    весами :math:`\\theta`, получающей на вход вектор :math:`z`.
-
-    Индуцированная генеративным процессом плотность вероятности объекта
-    :math:`x`:
-
-    .. math::
-        p_\\theta(x) = \mathbb{E}_{z \\sim p(z)} p_\\theta(x | z)
-
-    В случачае ВАЕ для максимизации правдоподобия максимизируют вариационную
-    нижнюю оценку на логарифм правдоподобия
-
-    .. math::
-        \log p_\\theta(x) = \mathbb{E}_{z \sim q_\phi(z | x)} \log p_\\theta(
-        x) = \mathbb{E}_{z \sim q_\phi(z | x)} \log \\frac{p_\\theta(x,
-        z) q_\phi(z | x)} {q_\phi(z | x) p_\\theta(z | x)} = \n
-        = \mathbb{E}_{z
-        \\sim q_\phi(z | x)} \log \\frac{p_\\theta(x, z)}{q_\phi(z | x)} + KL(
-        q_\phi(z | x) || p_\\theta(z | x))
-
-    .. math::
-        \log p_\\theta(x) \geqslant \mathbb{E}_{z \sim q_\phi(z | x)}
-        \log \\frac{p_\\theta(x | z)p(z)}{q_\phi(z | x)} =
-        \mathbb{E}_{z \\sim q_\phi(z | x)} \log p_\\theta(x | z) -
-        KL(q_\phi(z | x) || p(z)) = \n
-        = L(x; \phi, \\theta) \\to \max\limits_{\phi, \\theta}
-
-    :math:`q_\phi(z | x)` называется предложным (proposal) или распознающим
-    (recognition) распределением. Это гауссиана, чьи параметры задаются
-    нейросетью с весами :math:`\phi`:
-    :math:`q_\phi(z | x) = \mathcal{N}(z | \mu_\phi(x), \sigma^2_\phi(x)I)`.
-
-    Зазор между вариационной нижней оценкой :math:`L(x; \phi, \\theta)` на
-    логарифм правдоподобия модели и самим логарифмом правдоподобия
-    :math:`\log p_\\theta(x)` - это KL-дивергенция между предолжным и
-    апостериорным распределением на :math:`z`:
-    :math:`KL(q_\phi(z | x) || p_\\theta(z | x))`. Максимальное значение
-    :math:`L(x; \phi, \\theta)` при фиксированных параметрах модели
-    :math:`\\theta`
-    достигается при :math:`q_\phi(z | x) = p_\\theta(z | x)`, но явное
-    вычисление :math:`p_\\theta(z | x)` требует слишком большого числа
-    ресурсов, поэтому вместо этого вычисления вариационная нижняя оценка
-    оптимизируется также по :math:`\phi`. Чем ближе :math:`q_\phi(z | x)` к
-    :math:`p_\\theta(z | x)`, тем точнее вариационная нижняя оценка.
-
-    Обычно в качестве априорного распределения :math:`p(z)` используетя
-    какое-то простое распределение, чаще всего нормальное:
-
-    .. math::
-        \\varepsilon \sim \mathcal{N}(\\varepsilon | 0, I)
-
-    .. math::
-        z = \mu + \sigma \\varepsilon \Rightarrow z \sim \mathcal{N}(z | \mu,
-        \sigma^2I)
-
-    .. math::
-        \\frac{\partial}{\partial \phi} L(x; \phi, \\theta) = \mathbb{E}_{
-        \\varepsilon \sim \mathcal{N}(\\varepsilon | 0, I)} \\frac{\partial}
-        {\partial \phi} \log p_\\theta(x | \mu_\phi(x) + \sigma_\phi(x)
-        \\varepsilon) - \\frac{\partial}{\partial \phi} KL(q_\phi(z | x) ||
-        p(z))
-
-    .. math::
-        \\frac{\partial}{\partial \\theta} L(x; \phi, \\theta) = \mathbb{E}_{z
-        \sim q_\phi(z | x)} \\frac{\partial}{\partial \\theta} \log
-        p_\\theta(x | z)
-
-    В этом случае
-
-    .. math::
-        KL(q_\phi(z | x) || p(z)) = -\\frac{1}{2}\sum_{i=1}^{dimZ}(1+
-        log(\sigma_i^2) - \mu_i^2-\sigma_i^2)
-
-    Также коэффициент при KL-дивергенции (коэффициент отжига) может быть
-    положен не равным единице. Тогда оптимизируемая функция выглядит
-    следующим образом
-
-    .. math::
-        L(x; \phi, \\theta) =
-        \mathbb{E}_{z \\sim q_\phi(z | x)} \log p_\\theta(x | z) -
-        \\beta \cdot KL(q_\phi(z | x) || p(z)) \\to \max\limits_{\phi, \\theta}
-
-    При :math:`\\beta = 0` VAE (вариационный автокодировщик) превращается в
-    DAE (шумоподавляющий автокодировщик)
-    """
-
     num_workers: int = 0
     batch_size_users: int = 5000
     patience: int = 10

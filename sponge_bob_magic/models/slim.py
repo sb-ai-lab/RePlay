@@ -15,34 +15,7 @@ from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.session_handler import State
 
 
-class SLIM(Recommender):
-    """ SLIM Recommender основан на обучении матрицы близости объектов
-    :math:`W`.
-
-    Оптимизируется следующий функционал:
-
-    .. math::
-        L = \\frac 12||A - A W||^2_F + \\frac \\beta 2 ||W||_F^2+
-        \\lambda
-        ||W||_1
-
-    :math:`W` -- матрица близости между объектами
-
-    :math:`A` -- матрица взаимодействия пользователей/объектов
-
-    Задачу нахождения матрицы :math:`W` можно разбить на множество
-    задач линейной регрессии с регуляризацией ElasticNet. Таким образом,
-    для каждой строки матрицы :math:`W` необходимо оптимизировать следующий
-    функционал
-
-    .. math::
-        l = \\frac 12||a_j - A w_j||^2_2 + \\frac \\beta 2 ||w_j||_2^2+
-        \\lambda ||w_j||_1
-
-    Чтобы решение было не тривиальным, его ищут с ограничением :math:`w_{jj}=0`,
-    кроме этого :math:`w_{ij}\\ge 0`
-    """
-
+class SLIM(Recommender):  # pylint: disable=C0111
     similarity: DataFrame
     can_predict_cold_users = True
 
