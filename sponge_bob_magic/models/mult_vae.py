@@ -5,15 +5,15 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn.functional as F
 from pyspark.sql import DataFrame
 from scipy.sparse import csr_matrix
 from sklearn.model_selection import GroupShuffleSplit
-from torch import nn  # pylint: disable=C0412
-from torch.optim import Adam  # pylint: disable=C0412
-from torch.optim.lr_scheduler import ReduceLROnPlateau  # pylint: disable=C0412
-from torch.utils.data import DataLoader, TensorDataset  # pylint: disable=C0412
+import torch
+from torch import nn
+import torch.nn.functional as F
+from torch.optim import Adam
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.utils.data import DataLoader, TensorDataset
 
 from sponge_bob_magic.models.base_torch_rec import TorchRecommender
 from sponge_bob_magic.session_handler import State
