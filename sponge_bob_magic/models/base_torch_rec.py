@@ -142,7 +142,7 @@ class TorchRecommender(Recommender):
         self.logger.debug("-- Загрузка модели из файла")
         self.model.load_state_dict(torch.load(path))
 
-    # pylint: disable=too-many-arguments, R0914
+    # pylint: disable=too-many-arguments, too-many-locals
     def _create_trainer_evaluator(
         self,
         opt: Optimizer,

@@ -37,7 +37,7 @@ class Unexpectedness(RecOnlyMetric):
 
     def __init__(
         self, log: AnyDataFrame, rec: Recommender = PopRec()
-    ):  # pylint: disable=W0231
+    ):  # pylint: disable=super-init-not-called
         """
         Есть два варианта инициализации в зависимости от значения параметра ``rec``.
         Если ``rec`` -- рекомендатель, то ``log`` считается данными для обучения.

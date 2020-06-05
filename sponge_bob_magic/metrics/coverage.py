@@ -23,7 +23,9 @@ class Coverage(RecOnlyMetric):
 
     """
 
-    def __init__(self, log: AnyDataFrame):  # pylint: disable=W0231
+    def __init__(
+        self, log: AnyDataFrame
+    ):  # pylint: disable=super-init-not-called
         """
         :param log: pandas или Spark DataFrame, содержащий лог *до* разбиения на train и test.
                     Важно, чтобы log содержал все доступные объекты (items). Coverage будет рассчитываться как доля по отношению к ним.
