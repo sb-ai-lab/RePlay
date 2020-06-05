@@ -140,7 +140,7 @@ class VAE(nn.Module):
             layer.bias.data.normal_(0.0, 0.001)
 
 
-# pylint: disable=too-many-instance-attributes, C0111
+# pylint: disable=too-many-instance-attributes, missing-docstring
 class MultVAE(TorchRecommender):
     num_workers: int = 0
     batch_size_users: int = 5000
