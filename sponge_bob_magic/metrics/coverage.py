@@ -48,8 +48,7 @@ class Coverage(RecOnlyMetric):
     ) -> Union[Dict[int, float], float]:
         if isinstance(k, int):
             return 0.0
-        else:
-            return {i: 0.0 for i in k}
+        return {i: 0.0 for i in k}
 
     def median(
         self, recommendations: DataFrame, ground_truth: DataFrame, k: IntOrList
