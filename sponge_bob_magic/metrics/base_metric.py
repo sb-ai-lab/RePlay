@@ -86,9 +86,7 @@ class Metric(ABC):
             for row in total_metric
         }
 
-        if isinstance(k, int):
-            res = res[k]
-        return res
+        return self.unpack_if_int(res, k)
 
     def median(
         self,
@@ -121,8 +119,13 @@ class Metric(ABC):
             .collect()
         )
         res = {row["k"]: row["total_metric"] for row in total_metric}
+        return self.unpack_if_int(res, k)
+
+    # pylint: disable=missing-docstring
+    @staticmethod
+    def unpack_if_int(res: Dict, k: IntOrList) -> Union[Dict, float]:
         if isinstance(k, int):
-            res = res[k]
+            return res[k]
         return res
 
     def mean(
@@ -152,12 +155,11 @@ class Metric(ABC):
             .collect()
         )
         res = {row["k"]: row["total_metric"] for row in total_metric}
-        if isinstance(k, int):
-            res = res[k]
-        return res
+        return self.unpack_if_int(res, k)
 
+    @staticmethod
     def _get_enriched_recommendations(
-        self, recommendations: DataFrame, ground_truth: DataFrame
+        recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
         """
         Обогащение рекомендаций дополнительной информацией. По умолчанию к
@@ -212,6 +214,7 @@ class Metric(ABC):
             k_set = {k}
         else:
             k_set = set(k)
+        # pylint: disable=attribute-defined-outside-init
         self.max_k = max(k_set)
         agg_fn = self._get_metric_value_by_user
 

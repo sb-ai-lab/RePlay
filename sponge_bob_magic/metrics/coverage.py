@@ -23,7 +23,9 @@ class Coverage(RecOnlyMetric):
 
     """
 
-    def __init__(self, log: AnyDataFrame):
+    def __init__(
+        self, log: AnyDataFrame
+    ):  # pylint: disable=super-init-not-called
         """
         :param log: pandas или Spark DataFrame, содержащий лог *до* разбиения на train и test.
                     Важно, чтобы log содержал все доступные объекты (items). Coverage будет рассчитываться как доля по отношению к ним.
@@ -44,6 +46,7 @@ class Coverage(RecOnlyMetric):
         k: IntOrList,
         alpha: float = 0.95,
     ) -> Union[Dict[int, NumType], NumType]:
+        # pylint: disable=no-else-return
         if isinstance(k, int):
             return 0.0
         else:
@@ -57,10 +60,7 @@ class Coverage(RecOnlyMetric):
     def mean(
         self, recommendations: DataFrame, ground_truth: DataFrame, k: IntOrList
     ) -> Union[Dict[int, NumType], NumType]:
-        if isinstance(k, int):
-            k_set = {k}
-        else:
-            k_set = set(k)
+        k_set = set(list(k))  # type: ignore
         unknows_item_count = (
             recommendations.select("item_id")
             .distinct()
@@ -89,6 +89,4 @@ class Coverage(RecOnlyMetric):
             cum_set = cum_set.union(set(row.items))
             if row.row_num in k_set:
                 res[row.row_num] = len(cum_set) / self.item_count
-        if isinstance(k, int):
-            res = res[k]
-        return res
+        return self.unpack_if_int(res, k)

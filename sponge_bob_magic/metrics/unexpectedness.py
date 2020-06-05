@@ -35,7 +35,9 @@ class Unexpectedness(RecOnlyMetric):
     0.67
     """
 
-    def __init__(self, log: AnyDataFrame, rec: Recommender = PopRec()):
+    def __init__(
+        self, log: AnyDataFrame, rec: Recommender = PopRec()
+    ):  # pylint: disable=super-init-not-called
         """
         Есть два варианта инициализации в зависимости от значения параметра ``rec``.
         Если ``rec`` -- рекомендатель, то ``log`` считается данными для обучения.
@@ -65,7 +67,7 @@ class Unexpectedness(RecOnlyMetric):
         )
         return pandas_df
 
-    def _get_enriched_recommendations(
+    def _get_enriched_recommendations(  # type: ignore
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
         if self.train_model:
