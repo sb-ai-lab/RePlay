@@ -42,7 +42,9 @@ class Surprisal(RecOnlyMetric):
         Surprisal@K = \\frac {\sum_{i=1}^{N}Surprisal@K(i)}{N}
     """
 
-    def __init__(self, log: AnyDataFrame):
+    def __init__(
+        self, log: AnyDataFrame
+    ):  # pylint: disable=super-init-not-called
         """
         Чтобы посчитать метрику, необходимо предрассчитать собственную информацию каждого объекта.
 

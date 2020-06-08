@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-import torch
+
 from ignite.contrib.handlers import LRScheduler
 from ignite.engine import Engine, Events
 from ignite.handlers import (
@@ -20,8 +20,10 @@ from pyspark.ml.feature import MinMaxScaler, VectorAssembler
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
+
+import torch
 from torch import nn
-from torch.optim.optimizer import Optimizer
+from torch.optim.optimizer import Optimizer  # pylint: disable=E0611
 from torch.optim.lr_scheduler import ReduceLROnPlateau, _LRScheduler
 from torch.utils.data import DataLoader
 
@@ -140,7 +142,7 @@ class TorchRecommender(Recommender):
         self.logger.debug("-- Загрузка модели из файла")
         self.model.load_state_dict(torch.load(path))
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments, too-many-locals
     def _create_trainer_evaluator(
         self,
         opt: Optimizer,
@@ -159,7 +161,7 @@ class TorchRecommender(Recommender):
         :param early_stopping_patience: количество лучших чекпойнтов
         :return: trainer, evaluator
         """
-        self.model.to(self.device)
+        self.model.to(self.device)  # pylint: disable=E1101
 
         # pylint: disable=unused-argument
         def _run_train_step(engine, batch):
