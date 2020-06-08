@@ -304,14 +304,14 @@ class DataPreparator:
             колонки, не предоставленные в ``columns_names``,
             заполянются дефолтными значениями
         """
-        if data is None and path is None:
+        if data is not None:
+            dataframe = convert(data)
+        elif path and format_type:
+            dataframe = self._read_data(path, format_type, **kwargs)
+        else:
             raise ValueError(
                 "Один из параметров data, path должен быть отличным от None"
             )
-
-        dataframe = convert(data)
-        if path and format_type:
-            dataframe = self._read_data(path, format_type, **kwargs)
 
         if "user_id" in columns_names and "item_id" in columns_names:
             (
