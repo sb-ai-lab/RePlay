@@ -18,6 +18,8 @@ from sponge_bob_magic.converter import convert
 class Metric(ABC):
     """ Базовый класс метрик. """
 
+    max_k: int
+
     def __str__(self):
         """ Строковое представление метрики. """
         return type(self).__name__
@@ -156,6 +158,7 @@ class Metric(ABC):
             res = res[k]
         return res
 
+    # pylint: disable=no-self-use
     def _get_enriched_recommendations(
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
