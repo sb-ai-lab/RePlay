@@ -29,17 +29,6 @@ class ImplicitWrap(Recommender):
     >>> als.fit_predict(df, 1, users=[1])[["user_id", "item_id"]]
       user_id item_id
     0       1       3
-
-    # train the model on a sparse matrix of item/user/confidence weights
-    model.fit(item_user_data)
-
-    # recommend items for a user
-    user_items = item_user_data.T.tocsr()
-    recommendations = model.recommend(userid, user_items)
-
-    # find related items
-    related = model.similar_items(itemid)
-
     """
 
     def __init__(self, model):
