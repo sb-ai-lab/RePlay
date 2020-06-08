@@ -15,7 +15,10 @@ from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.session_handler import State
 
 
-class SLIM(Recommender):  # pylint: disable=C0111
+class SLIM(Recommender):
+    """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
+    <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
+
     similarity: DataFrame
     can_predict_cold_users = True
 

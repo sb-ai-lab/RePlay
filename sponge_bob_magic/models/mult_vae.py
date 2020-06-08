@@ -142,7 +142,7 @@ class VAE(nn.Module):
 
 # pylint: disable=too-many-instance-attributes
 class MultVAE(TorchRecommender):
-    """Model from `Variational Autoencoders for Collaborative Filtering
+    """`Variational Autoencoders for Collaborative Filtering
     <https://arxiv.org/pdf/1802.05814.pdf>`_"""
 
     num_workers: int = 0
