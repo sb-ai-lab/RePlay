@@ -46,11 +46,9 @@ class Coverage(RecOnlyMetric):
         k: IntOrList,
         alpha: float = 0.95,
     ) -> Union[Dict[int, NumType], NumType]:
-        # pylint: disable=no-else-return
         if isinstance(k, int):
             return 0.0
-        else:
-            return {i: 0.0 for i in k}
+        return {i: 0.0 for i in k}
 
     def median(
         self, recommendations: DataFrame, ground_truth: DataFrame, k: IntOrList
@@ -60,7 +58,10 @@ class Coverage(RecOnlyMetric):
     def mean(
         self, recommendations: DataFrame, ground_truth: DataFrame, k: IntOrList
     ) -> Union[Dict[int, NumType], NumType]:
-        k_set = set(list(k))  # type: ignore
+        if isinstance(k, int):
+            k_set = {k}
+        else:
+            k_set = set(k)
         unknows_item_count = (
             recommendations.select("item_id")
             .distinct()
@@ -89,4 +90,6 @@ class Coverage(RecOnlyMetric):
             cum_set = cum_set.union(set(row.items))
             if row.row_num in k_set:
                 res[row.row_num] = len(cum_set) / self.item_count
-        return self.unpack_if_int(res, k)
+        if isinstance(k, int):
+            res = res[k]
+        return res
