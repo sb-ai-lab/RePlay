@@ -216,7 +216,6 @@ class Metric(ABC):
             k_set = {k}
         else:
             k_set = set(k)
-        # pylint: disable=attribute-defined-outside-init
         self.max_k = max(k_set)
         agg_fn = self._get_metric_value_by_user
 

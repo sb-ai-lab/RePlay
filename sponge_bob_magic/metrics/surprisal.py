@@ -65,7 +65,7 @@ class Surprisal(RecOnlyMetric):
             cum_agg=pandas_df["rec_weight"].cumsum() / pandas_df["k"]
         )
 
-    def _get_enriched_recommendations(  # type: ignore
+    def _get_enriched_recommendations(
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
         return recommendations.join(

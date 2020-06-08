@@ -67,7 +67,7 @@ class Unexpectedness(RecOnlyMetric):
         )
         return pandas_df
 
-    def _get_enriched_recommendations(  # type: ignore
+    def _get_enriched_recommendations(
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
         if self.train_model:
