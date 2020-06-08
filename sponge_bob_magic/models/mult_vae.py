@@ -140,8 +140,11 @@ class VAE(nn.Module):
             layer.bias.data.normal_(0.0, 0.001)
 
 
-# pylint: disable=too-many-instance-attributes, missing-docstring
+# pylint: disable=too-many-instance-attributes
 class MultVAE(TorchRecommender):
+    """Model from `Variational Autoencoders for Collaborative Filtering
+    <https://arxiv.org/pdf/1802.05814.pdf>`_"""
+
     num_workers: int = 0
     batch_size_users: int = 5000
     patience: int = 10
