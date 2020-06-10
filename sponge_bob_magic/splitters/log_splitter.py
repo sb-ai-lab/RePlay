@@ -89,7 +89,7 @@ class RandomSplitter(Splitter):
 
 
 # pylint: disable=too-few-public-methods
-class ColdUsersSplitter(Splitter):
+class ColdUserByDateSplitter(Splitter):
     """
     На основе желаемого размера тестовой выборки подбирается дата,
     и пользователи, появившиеся после этой даты, считаются холодными, и
@@ -149,4 +149,41 @@ class ColdUsersSplitter(Splitter):
             .cache()
         )
 
+        return train, test
+
+
+# pylint: disable=too-few-public-methods
+class ColdUserRandomSplitter(Splitter):
+    """
+    В тестовую выборку попадают все действия случайно отобранных пользователей в заданном количествею.
+    """
+
+    # для использования в тестах
+    seed: Optional[int] = None
+
+    def __init__(
+        self,
+        test_size: float,
+        drop_cold_items: bool = False,
+        drop_cold_users: bool = False,
+    ):
+        """
+        :param test_size: желаемая доля всех пользователей, которые должны оказаться в тестовой выборке
+        :param drop_cold_items: исключать ли из тестовой выборки объекты,
+           которых нет в обучающей
+        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
+           которых нет в обучающей
+        """
+        super().__init__(
+            drop_cold_items=drop_cold_items, drop_cold_users=drop_cold_users
+        )
+        self.test_size = test_size
+
+    def _core_split(self, log: DataFrame) -> SplitterReturnType:
+        users = log.select("user_id").distinct()
+        train_users, test_users = users.randomSplit(
+            [1 - self.test_size, self.test_size], seed=self.seed,
+        )
+        train = log.join(train_users, on="user_id", how="inner").cache()
+        test = log.join(test_users, on="user_id", how="inner").cache()
         return train, test
