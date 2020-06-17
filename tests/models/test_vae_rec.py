@@ -48,7 +48,7 @@ class VAERecTestCase(PySparkTest):
         )
 
     def test_fit(self):
-        self.model.fit(log=self.log, user_features=None, item_features=None)
+        self.model.fit(log=self.log)
 
         true_parameters = [
             [[-0.40220618, -1.189494, -0.27527654]],
@@ -71,14 +71,12 @@ class VAERecTestCase(PySparkTest):
             )
 
     def test_predict(self):
-        self.model.fit(log=self.log, user_features=None, item_features=None)
+        self.model.fit(log=self.log)
         predictions = self.model.predict(
             log=self.other_log,
             k=1,
             users=self.other_log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
-            user_features=None,
-            item_features=None,
             filter_seen_items=True,
         )
         self.assertTrue(
@@ -98,7 +96,7 @@ class VAERecTestCase(PySparkTest):
         )
         if os.path.exists(path):
             os.remove(path)
-        self.model.fit(log=self.log, user_features=None, item_features=None)
+        self.model.fit(log=self.log)
         self.assertTrue(os.path.exists(path))
 
         new_model = MultVAE()

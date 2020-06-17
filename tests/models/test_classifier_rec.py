@@ -22,19 +22,11 @@ class ClassifierRecTestCase(PySparkTest):
         ).toDF("user_id", "item_id", "relevance")
 
     def test_fit(self):
-        self.model.fit(
-            log=self.log,
-            user_features=self.user_features,
-            item_features=self.item_features,
-        )
+        self.model.fit(log=self.log)
         self.assertEqual(self.model.model.treeWeights, 20 * [1.0])
 
     def test_predict(self):
-        self.model.fit(
-            log=self.log,
-            user_features=self.user_features,
-            item_features=self.item_features,
-        )
+        self.model.fit(log=self.log)
         empty_prediction = self.model.predict(
             log=self.log,
             k=2,

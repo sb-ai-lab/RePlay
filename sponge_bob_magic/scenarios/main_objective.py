@@ -84,14 +84,16 @@ class MainObjective:
             ]
         self.recommender.set_params(**params)
         self.logger.debug("-- Второй фит модели в оптимизации")
-        self.recommender.fit(
+        # pylint: disable=protected-access
+        self.recommender._fit_wrap(
             self.split_data.train,
             self.split_data.user_features,
             self.split_data.item_features,
             False,
         )
         self.logger.debug("-- Предикт модели в оптимизации")
-        recs = self.recommender.predict(
+        # pylint: disable=protected-access
+        recs = self.recommender._predict_wrap(
             log=self.split_data.train,
             k=self.k,
             users=self.split_data.users,

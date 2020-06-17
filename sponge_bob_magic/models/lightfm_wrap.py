@@ -12,12 +12,12 @@ from pyspark.sql.functions import PandasUDFType, pandas_udf
 from pyspark.sql.types import IntegerType
 from scipy.sparse import csr_matrix, hstack, identity
 
-from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.models.base_rec import HybridRecommender
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import to_csr
 
 
-class LightFMWrap(Recommender):
+class LightFMWrap(HybridRecommender):
     """ Обёртка вокруг стандартной реализации LightFM. """
 
     epochs: int = 10
