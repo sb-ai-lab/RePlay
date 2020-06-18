@@ -522,7 +522,7 @@ class HybridRecommender(BaseRecommender):
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
-        self._predict_wrap(
+        return self._predict_wrap(
             log=log,
             k=k,
             users=users,
@@ -639,7 +639,7 @@ class Recommender(BaseRecommender):
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
-        self._predict_wrap(
+        return self._predict_wrap(
             log=log,
             k=k,
             users=users,
