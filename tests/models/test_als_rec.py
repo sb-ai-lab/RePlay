@@ -42,8 +42,6 @@ class ALSRecTestCase(PySparkTest):
             k=1,
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
-            user_features=None,
-            item_features=None,
         )
         self.assertEqual(
             list(recs.toPandas()), ["user_id", "item_id", "relevance"]

@@ -205,7 +205,7 @@ class MainScenario:
         """ Обучает fallback модель и возвращает ее рекомендации. """
         fallback_recs = None
         if self.fallback_model is not None:
-            fallback_recs = self.fallback_model.fit_predict(
+            fallback_recs = self.fallback_model._fit_predict(  # pylint: disable=protected-access
                 split_data.train,
                 k,
                 split_data.users,
@@ -254,7 +254,7 @@ class MainScenario:
             ``[user_id, item_id, relevance]``
         """
         self.recommender.set_params(**params)
-        return self.recommender.fit_predict(
+        return self.recommender._fit_predict(  # pylint: disable=protected-access
             log,
             k,
             users,

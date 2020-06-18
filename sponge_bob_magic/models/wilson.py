@@ -22,7 +22,7 @@ class Wilson(PopRec):
     >>> import pandas as pd
     >>> data_frame = pd.DataFrame({"user_id": [1, 2], "item_id": [1, 2], "relevance": [1, 1]})
     >>> model = Wilson()
-    >>> model.fit_predict(data_frame, k=1)
+    >>> model.fit_predict(data_frame,k=1)
       user_id item_id  relevance
     0       1       2   0.206549
     1       2       1   0.206549

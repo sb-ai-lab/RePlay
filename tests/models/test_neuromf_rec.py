@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+# pylint: disable-all
 import os
 from datetime import datetime
 
@@ -120,8 +121,6 @@ class NeuroCFRecTestCase(PySparkTest):
             k=1,
             users=self.log.select("user_id").distinct(),
             items=self.log.select("item_id").distinct(),
-            user_features=None,
-            item_features=None,
             filter_seen_items=True,
         )
         self.assertTrue(
@@ -176,7 +175,7 @@ class NeuroCFRecTestCase(PySparkTest):
         )
         if os.path.exists(path):
             os.remove(path)
-        self.model.fit(log=self.log, user_features=None, item_features=None)
+        self.model.fit(log=self.log)
 
         self.assertTrue(os.path.exists(path))
 

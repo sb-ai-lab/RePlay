@@ -274,7 +274,8 @@ class TwoStagesScenario:
             users=test.select("user_id").distinct(),
             items=first_train.select("item_id").distinct(),
         ).cache()
-        self.second_model.fit(
+        # pylint: disable=protected-access
+        self.second_model._fit_wrap(
             log=second_train,
             user_features=user_features,
             item_features=item_features,

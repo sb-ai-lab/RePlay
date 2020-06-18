@@ -29,7 +29,7 @@ class KNNRecTestCase(PySparkTest):
         )
 
     def test_fit(self):
-        self.model.fit(self.log, None, None)
+        self.model.fit(self.log)
         self.assertSparkDataFrameEqual(
             self.model.similarity,
             self.spark.createDataFrame(
@@ -49,7 +49,7 @@ class KNNRecTestCase(PySparkTest):
         )
 
     def test_predict(self):
-        self.model.fit(self.log, None, None)
+        self.model.fit(self.log)
         recs = self.model.predict(
             log=self.log,
             k=1,

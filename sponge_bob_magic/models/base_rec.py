@@ -15,7 +15,7 @@ from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import get_top_k_recs
 
 
-class Recommender(ABC):
+class BaseRecommender(ABC):
     """ Базовый класс-рекомендатель. """
 
     model: Any = None
@@ -41,7 +41,7 @@ class Recommender(ABC):
     def __str__(self):
         return type(self).__name__
 
-    def fit(
+    def _fit_wrap(
         self,
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
@@ -146,7 +146,7 @@ class Recommender(ABC):
         """
 
     # pylint: disable=too-many-arguments
-    def predict(
+    def _predict_wrap(
         self,
         log: DataFrame,
         k: int,
@@ -363,58 +363,6 @@ class Recommender(ABC):
             ``[user_id, item_id, relevance]``
         """
 
-    # pylint: disable=too-many-arguments
-    def fit_predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: Optional[DataFrame] = None,
-        items: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-        force_reindex: bool = True,
-    ) -> DataFrame:
-        """
-        Обучает модель и выдает рекомендации.
-
-        :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками
-            ``[user_id, item_id, timestamp, relevance]``
-        :param k: количество рекомендаций для каждого пользователя;
-            должно быть не больше, чем количество объектов в ``items``
-        :param users: список пользователей, для которых необходимо получить
-            рекомендации; если ``None``, выбираются все пользователи из лога;
-            если в этом списке есть пользователи, про которых модель ничего
-            не знает, то поднмиается исключение
-        :param items: список объектов, которые необходимо рекомендовать;
-            если ``None``, выбираются все объекты из лога;
-            если в этом списке есть объекты, про которых модель ничего
-            не знает, то в рекомендациях к ним будет стоять ``0``
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонками
-            ``[user_id , timestamp]`` и колонки с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонками
-            ``[item_id , timestamp]`` и колонки с признаками
-        :param filter_seen_items: если ``True``, из рекомендаций каждому
-            пользователю удаляются виденные им объекты на основе лога
-        :param force_reindex: обязательно создавать
-            индексы, даже если они были созданы ранее
-        :return: рекомендации, спарк-датафрейм с колонками
-            ``[user_id, item_id, relevance]``
-        """
-        self.fit(log, user_features, item_features, force_reindex)
-        return self.predict(
-            log,
-            k,
-            users,
-            items,
-            user_features,
-            item_features,
-            filter_seen_items,
-        )
-
     @staticmethod
     def _mark_seen_items(recs: DataFrame, log: DataFrame) -> DataFrame:
         """
@@ -476,3 +424,263 @@ class Recommender(ABC):
             raise AttributeError(
                 "Перед вызовом этого свойства нужно вызвать метод fit"
             )
+
+    def _fit_predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: Optional[DataFrame] = None,
+        items: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+        force_reindex: bool = True,
+    ) -> DataFrame:
+        self._fit_wrap(log, user_features, item_features, force_reindex)
+        return self._predict_wrap(
+            log,
+            k,
+            users,
+            items,
+            user_features,
+            item_features,
+            filter_seen_items,
+        )
+
+
+# pylint: disable=abstract-method
+class HybridRecommender(BaseRecommender):
+    """Рекомендатель, учитывающий фичи"""
+
+    def fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        force_reindex: bool = True,
+    ) -> None:
+        """
+        Обучает модель на логе и признаках пользователей и объектов.
+
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_id, item_id, timestamp, relevance]``
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            ``[user_id, timestamp]`` и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            ``[item_id, timestamp]`` и колонки с признаками
+        :param force_reindex: обязательно создавать
+            индексы, даже если они были созданы ранее
+        :return:
+        """
+        self._fit_wrap(
+            log=log,
+            user_features=user_features,
+            item_features=item_features,
+            force_reindex=force_reindex,
+        )
+
+    # pylint: disable=too-many-arguments
+    def predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: Optional[Union[DataFrame, Iterable]] = None,
+        items: Optional[Union[DataFrame, Iterable]] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        """
+        Выдача рекомендаций для пользователей.
+
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_id, item_id, timestamp, relevance]``
+        :param k: количество рекомендаций для каждого пользователя;
+            должно быть не больше, чем количество объектов в ``items``
+        :param users: список пользователей, для которых необходимо получить
+            рекомендации, спарк-датафрейм с колонкой ``[user_id]`` или ``array-like``;
+            если ``None``, выбираются все пользователи из лога;
+            если в этом списке есть пользователи, про которых модель ничего
+            не знает, то вызывается ошибка
+        :param items: список объектов, которые необходимо рекомендовать;
+            спарк-датафрейм с колонкой ``[item_id]`` или ``array-like``;
+            если ``None``, выбираются все объекты из лога;
+            если в этом списке есть объекты, про которых модель ничего
+            не знает, то в ``relevance`` в рекомендациях к ним будет стоять ``0``
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            ``[user_id , timestamp]`` и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            ``[item_id , timestamp]`` и колонки с признаками
+        :param filter_seen_items: если True, из рекомендаций каждому
+            пользователю удаляются виденные им объекты на основе лога
+        :return: рекомендации, спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]``
+        """
+        return self._predict_wrap(
+            log=log,
+            k=k,
+            users=users,
+            items=items,
+            user_features=user_features,
+            item_features=item_features,
+            filter_seen_items=filter_seen_items,
+        )
+
+    # pylint: disable=too-many-arguments
+    def fit_predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: Optional[DataFrame] = None,
+        items: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+        force_reindex: bool = True,
+    ) -> DataFrame:
+        """
+        Обучает модель и выдает рекомендации.
+
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_id, item_id, timestamp, relevance]``
+        :param k: количество рекомендаций для каждого пользователя;
+            должно быть не больше, чем количество объектов в ``items``
+        :param users: список пользователей, для которых необходимо получить
+            рекомендации; если ``None``, выбираются все пользователи из лога;
+            если в этом списке есть пользователи, про которых модель ничего
+            не знает, то поднмиается исключение
+        :param items: список объектов, которые необходимо рекомендовать;
+            если ``None``, выбираются все объекты из лога;
+            если в этом списке есть объекты, про которых модель ничего
+            не знает, то в рекомендациях к ним будет стоять ``0``
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            ``[user_id , timestamp]`` и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            ``[item_id , timestamp]`` и колонки с признаками
+        :param filter_seen_items: если ``True``, из рекомендаций каждому
+            пользователю удаляются виденные им объекты на основе лога
+        :param force_reindex: обязательно создавать
+            индексы, даже если они были созданы ранее
+        :return: рекомендации, спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]``
+        """
+        self.fit(log, user_features, item_features, force_reindex)
+        return self.predict(
+            log,
+            k,
+            users,
+            items,
+            user_features,
+            item_features,
+            filter_seen_items,
+        )
+
+
+# pylint: disable=abstract-method
+class Recommender(BaseRecommender):
+    """Обычный рекомендатель"""
+
+    def fit(self, log: DataFrame, force_reindex: bool = True) -> None:
+        """
+        Обучает модель на логе и признаках пользователей и объектов.
+
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_id, item_id, timestamp, relevance]``
+        :param force_reindex: обязательно создавать
+            индексы, даже если они были созданы ранее
+        :return:
+        """
+        self._fit_wrap(
+            log=log,
+            user_features=None,
+            item_features=None,
+            force_reindex=force_reindex,
+        )
+
+    # pylint: disable=too-many-arguments
+    def predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: Optional[Union[DataFrame, Iterable]] = None,
+        items: Optional[Union[DataFrame, Iterable]] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        """
+        Выдача рекомендаций для пользователей.
+
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_id, item_id, timestamp, relevance]``
+        :param k: количество рекомендаций для каждого пользователя;
+            должно быть не больше, чем количество объектов в ``items``
+        :param users: список пользователей, для которых необходимо получить
+            рекомендации, спарк-датафрейм с колонкой ``[user_id]`` или ``array-like``;
+            если ``None``, выбираются все пользователи из лога;
+            если в этом списке есть пользователи, про которых модель ничего
+            не знает, то вызывается ошибка
+        :param items: список объектов, которые необходимо рекомендовать;
+            спарк-датафрейм с колонкой ``[item_id]`` или ``array-like``;
+            если ``None``, выбираются все объекты из лога;
+            если в этом списке есть объекты, про которых модель ничего
+            не знает, то в ``relevance`` в рекомендациях к ним будет стоять ``0``
+        :param filter_seen_items: если True, из рекомендаций каждому
+            пользователю удаляются виденные им объекты на основе лога
+        :return: рекомендации, спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]``
+        """
+        return self._predict_wrap(
+            log=log,
+            k=k,
+            users=users,
+            items=items,
+            user_features=None,
+            item_features=None,
+            filter_seen_items=filter_seen_items,
+        )
+
+    # pylint: disable=too-many-arguments
+    def fit_predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: Optional[DataFrame] = None,
+        items: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+        force_reindex: bool = True,
+    ) -> DataFrame:
+        """
+        Обучает модель и выдает рекомендации.
+
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_id, item_id, timestamp, relevance]``
+        :param k: количество рекомендаций для каждого пользователя;
+            должно быть не больше, чем количество объектов в ``items``
+        :param users: список пользователей, для которых необходимо получить
+            рекомендации; если ``None``, выбираются все пользователи из лога;
+            если в этом списке есть пользователи, про которых модель ничего
+            не знает, то поднмиается исключение
+        :param items: список объектов, которые необходимо рекомендовать;
+            если ``None``, выбираются все объекты из лога;
+            если в этом списке есть объекты, про которых модель ничего
+            не знает, то в рекомендациях к ним будет стоять ``0``
+        :param filter_seen_items: если ``True``, из рекомендаций каждому
+            пользователю удаляются виденные им объекты на основе лога
+        :param force_reindex: обязательно создавать
+            индексы, даже если они были созданы ранее
+        :return: рекомендации, спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]``
+        """
+        self.fit(log, force_reindex)
+        return self.predict(log, k, users, items, filter_seen_items)

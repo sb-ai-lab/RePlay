@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+# pylint: disable-all
 from parameterized import parameterized
 from tests.pyspark_testcase import PySparkTest
 
@@ -76,8 +77,6 @@ class PopRecTestCase(PySparkTest):
             k=k,
             users=users,
             items=items_relevance.select("item_id"),
-            user_features=None,
-            item_features=None,
             filter_seen_items=False,
         )
         test_recs_second = self.model.fit_predict(
@@ -85,8 +84,6 @@ class PopRecTestCase(PySparkTest):
             k=k,
             users=users,
             items=items_relevance.select("item_id"),
-            user_features=None,
-            item_features=None,
             filter_seen_items=False,
         )
         self.assertSparkDataFrameEqual(true_recs, test_recs_second)
@@ -163,12 +160,6 @@ class PopRecTestCase(PySparkTest):
             data=true_recs_data, schema=true_recs_schema
         )
         test_recs = self.model.fit_predict(
-            log=log,
-            k=4,
-            users=None,
-            items=None,
-            user_features=None,
-            item_features=None,
-            filter_seen_items=False,
+            log=log, k=4, users=None, items=None, filter_seen_items=False
         )
         self.assertSparkDataFrameEqual(true_recs, test_recs)

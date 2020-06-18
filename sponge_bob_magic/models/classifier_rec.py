@@ -13,11 +13,11 @@ from pyspark.sql.functions import col, lit, udf, when
 from pyspark.sql.types import FloatType
 
 from sponge_bob_magic.converter import convert
-from sponge_bob_magic.models.base_rec import Recommender
+from sponge_bob_magic.models.base_rec import HybridRecommender
 from sponge_bob_magic.utils import func_get, get_top_k_recs
 
 
-class ClassifierRec(Recommender):
+class ClassifierRec(HybridRecommender):
     """
     Рекомендатель на основе классификатора.
 
