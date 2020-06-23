@@ -79,7 +79,7 @@ class ImplicitWrap(Recommender):
             .toPandas()
             .item_idx.to_list()
         )
-        user_item_data = to_csr(log).T.tocsr()
+        user_item_data = to_csr(log).tocsr()
         model = self.model
         return (
             users.select("user_idx").groupby("user_idx").apply(predict_by_user)
