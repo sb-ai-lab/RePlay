@@ -8,7 +8,7 @@ from sponge_bob_magic.splitters.base_splitter import (
     SplitterReturnType,
 )
 from sponge_bob_magic.splitters.log_splitter import (
-    ColdUsersSplitter,
+    ColdUserByDateSplitter,
     DateSplitter,
     RandomSplitter,
 )
