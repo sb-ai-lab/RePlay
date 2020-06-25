@@ -5,6 +5,7 @@
 Модели используют в реализации либо Spark, либо pytorch.
 """
 
+from sponge_bob_magic.models.admm_slim import ADMMSLIM
 from sponge_bob_magic.models.als import ALSWrap
 from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.models.base_torch_rec import TorchRecommender
