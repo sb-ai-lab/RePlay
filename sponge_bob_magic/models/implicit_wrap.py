@@ -7,7 +7,7 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from sponge_bob_magic.models import Recommender
+from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.utils import to_csr
 
 
