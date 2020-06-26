@@ -19,7 +19,7 @@ class ADMMSLIM(Recommender):
 
     similarity: DataFrame
     can_predict_cold_users = True
-    rho: float = 100
+    rho: float
     threshold: float = 5
     multiplicator: float = 2
     eps_abs: float = 1.0e-3
@@ -28,7 +28,9 @@ class ADMMSLIM(Recommender):
     mat_c: np.ndarray
     mat_b: np.ndarray
 
-    def __init__(self, lambda_1: float, lambda_2: float):
+    def __init__(
+        self, lambda_1: float, lambda_2: float, seed: Optional[int] = None
+    ):
         """
         :param lambda_1: параметр l1 регуляризации
         :param lambda_2: параметр l2 регуляризации
@@ -38,6 +40,8 @@ class ADMMSLIM(Recommender):
             raise ValueError("Неверно указаны параметры для регуляризации")
         self.lambda_1 = lambda_1
         self.lambda_2 = lambda_2
+        self.rho = lambda_2
+        self.seed = seed
 
     # pylint: disable=too-many-locals
     def _fit(
@@ -46,32 +50,34 @@ class ADMMSLIM(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
+        np.random.seed(self.seed)
         self.logger.debug("Построение модели ADMM SLIM")
         pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
         interactions_matrix = csr_matrix(
             (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
             shape=(self.users_count, self.items_count),
         )
-        self.logger.debug("умножение матриц")
+        self.logger.debug("Матриица Грама")
         xtx = (interactions_matrix.T @ interactions_matrix).toarray()
-        self.logger.debug("поиск обратной")
+        self.logger.debug("Поиск обратной матрицы")
         inv_matrix = np.linalg.inv(
             xtx + (self.lambda_2 + self.rho) * np.eye(self.items_count)
         )
-        self.logger.debug("основной  расчет")
+        self.logger.debug("Основной  расчет")
         p_x = inv_matrix @ xtx
         mat_b, mat_c, mat_gamma = self.init_matrix(self.items_count)
         r_primal = np.linalg.norm(mat_b - mat_c)
         r_dual = np.linalg.norm(self.rho * mat_c)
         eps_primal, eps_dual = 0.0, 0.0
-        while r_primal > eps_primal or r_dual > eps_dual:
+        iteration = 0
+        while (r_primal > eps_primal or r_dual > eps_dual) and iteration < 100:
+            iteration += 1
             mat_b = self.calc_b(inv_matrix, p_x, mat_c, mat_gamma)
-            self.mat_c = mat_c
-            self.mat_b = mat_b
+            prev_mat_c = mat_c
             mat_c = self.calc_c(mat_b, mat_gamma)
             mat_gamma += self.rho * (mat_b - mat_c)
             r_primal = np.linalg.norm(mat_b - mat_c)
-            r_dual = np.linalg.norm(-self.rho * (mat_c - self.mat_c))
+            r_dual = np.linalg.norm(-self.rho * (mat_c - prev_mat_c))
             eps_primal = self.eps_abs * self.items_count + self.eps_rel * max(
                 np.linalg.norm(mat_b), np.linalg.norm(mat_c)
             )
@@ -83,18 +89,23 @@ class ADMMSLIM(Recommender):
                 self.rho *= self.multiplicator
             elif self.threshold * r_primal < r_dual:
                 self.rho /= self.multiplicator
-            print(eps_primal, r_primal, eps_dual, r_dual, self.rho)
 
-        self.mat_c = coo_matrix(self.mat_c)
+            result_message = (
+                f"Итерация: {iteration}. primal gap: "
+                f"{r_primal - eps_primal:.5}; dual gap: "
+                f" {r_dual - eps_dual:.5}; rho: {self.rho}"
+            )
+            self.logger.debug(result_message)
+
+        self.mat_c = coo_matrix(mat_c)
         mat_c_pd = pd.DataFrame(
             {
-                "item_id_one": self.mat_c.row,
-                "item_id_two": self.mat_c.col,
+                "item_id_one": self.mat_c.row.astype(np.float32),
+                "item_id_two": self.mat_c.col.astype(np.float32),
                 "similarity": self.mat_c.data,
             }
         )
-        spark = State().session
-        self.similarity = spark.createDataFrame(mat_c_pd).cache()
+        self.similarity = State().session.createDataFrame(mat_c_pd).cache()
 
     @staticmethod
     def init_matrix(size: int):
@@ -122,8 +133,7 @@ class ADMMSLIM(Recommender):
     @staticmethod
     def get_pos_value(matrix):
         """"Поэлементный максимум"""
-        zeros = np.zeros_like(matrix)
-        return np.maximum(matrix, zeros)
+        return np.maximum(matrix, 0.0)
 
     # pylint: disable=too-many-arguments
     def _predict(
