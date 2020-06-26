@@ -12,7 +12,7 @@ ignore-long-lines=^.*([А-Яа-я]|>{3}|\.{3}|\\{2}|https://).*$
 max-line-length=79
 
 [SIMILARITIES]
-min-similarity-lines=24
+min-similarity-lines=33
 ignore-comments=yes
 ignore-docstrings=yes
 ignore-imports=yes
