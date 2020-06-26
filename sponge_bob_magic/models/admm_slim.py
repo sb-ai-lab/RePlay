@@ -125,15 +125,8 @@ class ADMMSLIM(Recommender):
         """Вычисление матрицы C"""
         mat_c = mat_b + mat_gamma / self.rho
         coef = self.lambda_1 / self.rho
-        s_k = self.get_pos_value(mat_c - coef) - self.get_pos_value(
-            -mat_c - coef
-        )
+        s_k = np.maximum(mat_c - coef, 0.0) - np.maximum(-mat_c - coef, 0.0)
         return s_k
-
-    @staticmethod
-    def get_pos_value(matrix):
-        """"Поэлементный максимум"""
-        return np.maximum(matrix, 0.0)
 
     # pylint: disable=too-many-arguments
     def _predict(
