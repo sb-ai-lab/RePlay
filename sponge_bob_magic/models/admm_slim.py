@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -13,6 +13,7 @@ from sponge_bob_magic.models.base_rec import Recommender
 from sponge_bob_magic.session_handler import State
 
 
+# pylint: disable=too-many-instance-attributes
 class ADMMSLIM(Recommender):
     """`ADMM SLIM: Sparse Recommendations for Many Users
     <http://www.cs.columbia.edu/~jebara/papers/wsdm20_ADMM.pdf>`_"""
@@ -24,9 +25,10 @@ class ADMMSLIM(Recommender):
     multiplicator: float = 2
     eps_abs: float = 1.0e-3
     eps_rel: float = 1.0e-3
-    xtx: Optional[np.ndarray] = None
-    mat_c: np.ndarray
-    mat_b: np.ndarray
+    max_iteration: int = 100
+    _mat_c: np.ndarray
+    _mat_b: np.ndarray
+    _mat_gamma: np.ndarray
 
     def __init__(
         self, lambda_1: float, lambda_2: float, seed: Optional[int] = None
@@ -50,7 +52,6 @@ class ADMMSLIM(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        np.random.seed(self.seed)
         self.logger.debug("Построение модели ADMM SLIM")
         pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
         interactions_matrix = csr_matrix(
@@ -65,31 +66,20 @@ class ADMMSLIM(Recommender):
         )
         self.logger.debug("Основной  расчет")
         p_x = inv_matrix @ xtx
-        mat_b, mat_c, mat_gamma = self.init_matrix(self.items_count)
-        r_primal = np.linalg.norm(mat_b - mat_c)
-        r_dual = np.linalg.norm(self.rho * mat_c)
+        self._mat_b, self._mat_c, self._mat_gamma = self._init_matrix(
+            self.items_count
+        )
+        r_primal = np.linalg.norm(self._mat_b - self._mat_c)
+        r_dual = np.linalg.norm(self.rho * self._mat_c)
         eps_primal, eps_dual = 0.0, 0.0
         iteration = 0
-        while (r_primal > eps_primal or r_dual > eps_dual) and iteration < 100:
+        while (
+            r_primal > eps_primal or r_dual > eps_dual
+        ) and iteration < self.max_iteration:
             iteration += 1
-            mat_b = self.calc_b(inv_matrix, p_x, mat_c, mat_gamma)
-            prev_mat_c = mat_c
-            mat_c = self.calc_c(mat_b, mat_gamma)
-            mat_gamma += self.rho * (mat_b - mat_c)
-            r_primal = np.linalg.norm(mat_b - mat_c)
-            r_dual = np.linalg.norm(-self.rho * (mat_c - prev_mat_c))
-            eps_primal = self.eps_abs * self.items_count + self.eps_rel * max(
-                np.linalg.norm(mat_b), np.linalg.norm(mat_c)
+            r_primal, r_dual, eps_primal, eps_dual = self._main_iteration(
+                inv_matrix, p_x
             )
-            eps_dual = (
-                self.eps_abs * self.items_count
-                + self.eps_rel * np.linalg.norm(mat_gamma)
-            )
-            if r_primal > self.threshold * r_dual:
-                self.rho *= self.multiplicator
-            elif self.threshold * r_primal < r_dual:
-                self.rho /= self.multiplicator
-
             result_message = (
                 f"Итерация: {iteration}. primal gap: "
                 f"{r_primal - eps_primal:.5}; dual gap: "
@@ -97,31 +87,62 @@ class ADMMSLIM(Recommender):
             )
             self.logger.debug(result_message)
 
-        self.mat_c = coo_matrix(mat_c)
+        mat_c_sparse = coo_matrix(self._mat_c)
         mat_c_pd = pd.DataFrame(
             {
-                "item_id_one": self.mat_c.row.astype(np.float32),
-                "item_id_two": self.mat_c.col.astype(np.float32),
-                "similarity": self.mat_c.data,
+                "item_id_one": mat_c_sparse.row.astype(np.float32),
+                "item_id_two": mat_c_sparse.col.astype(np.float32),
+                "similarity": mat_c_sparse.data,
             }
         )
         self.similarity = State().session.createDataFrame(mat_c_pd).cache()
 
-    @staticmethod
-    def init_matrix(size: int):
+    def _main_iteration(self, inv_matrix, p_x):
+        self._mat_b = self._calc_b(
+            inv_matrix, p_x, self._mat_c, self._mat_gamma
+        )
+        prev_mat_c = self._mat_c
+        self._mat_c = self._calc_c(self._mat_b, self._mat_gamma)
+        self._mat_gamma += self.rho * (self._mat_b - self._mat_c)
+        r_primal = np.linalg.norm(self._mat_b - self._mat_c)
+        r_dual = np.linalg.norm(-self.rho * (self._mat_c - prev_mat_c))
+        eps_primal = self.eps_abs * self.items_count + self.eps_rel * max(
+            np.linalg.norm(self._mat_b), np.linalg.norm(self._mat_c)
+        )
+        eps_dual = (
+            self.eps_abs * self.items_count
+            + self.eps_rel * np.linalg.norm(self._mat_gamma)
+        )
+        if r_primal > self.threshold * r_dual:
+            self.rho *= self.multiplicator
+        elif self.threshold * r_primal < r_dual:
+            self.rho /= self.multiplicator
+
+        return r_primal, r_dual, eps_primal, eps_dual
+
+    def _init_matrix(
+        self, size: int
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Начальная инициализвция матриц"""
+        np.random.seed(self.seed)
         mat_b = np.random.rand(size, size)
         mat_c = np.random.rand(size, size)
         mat_gamma = np.random.rand(size, size)
         return mat_b, mat_c, mat_gamma
 
-    def calc_b(self, inv_matrix, p_x, mat_c, mat_gamma):
+    def _calc_b(
+        self,
+        inv_matrix: np.ndarray,
+        p_x: np.ndarray,
+        mat_c: np.ndarray,
+        mat_gamma: np.ndarray,
+    ) -> np.ndarray:
         """Вычисление матрицы B"""
         mat_b = p_x + (inv_matrix @ (self.rho * mat_c - mat_gamma))
         vec_gamma = np.diag(mat_b) / np.diag(inv_matrix)
         return mat_b - inv_matrix * vec_gamma
 
-    def calc_c(self, mat_b, mat_gamma):
+    def _calc_c(self, mat_b: np.ndarray, mat_gamma: np.ndarray) -> np.ndarray:
         """Вычисление матрицы C"""
         mat_c = mat_b + mat_gamma / self.rho
         coef = self.lambda_1 / self.rho

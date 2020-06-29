@@ -178,17 +178,17 @@ def to_csr(
     item_count: Optional[int] = None,
 ) -> csr_matrix:
     """
-    Конвертирует лог в csr матрицу item-user.
+    Конвертирует лог в csr матрицу user-item.
 
     >>> import pandas as pd
     >>> from sponge_bob_magic.converter import convert
     >>> data_frame = pd.DataFrame({"user_idx": [0, 1], "item_idx": [0, 2], "relevance": [1, 2]})
     >>> data_frame = convert(data_frame)
-    >>> m = to_csr(data_frame).T
+    >>> m = to_csr(data_frame)
     >>> m.toarray()
-    array([[1, 0],
-           [0, 0],
-           [0, 2]])
+    array([[1, 0, 0],
+           [0, 0, 2]], dtype=int64)
+
 
     :param log: spark DataFrame с колонками ``user_id``, ``item_id`` и ``relevance``
     :param user_count: количество строк в результирующей матрице (если пусто, то вычисляется по логу)
