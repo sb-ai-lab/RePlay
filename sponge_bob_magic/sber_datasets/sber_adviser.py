@@ -32,6 +32,7 @@ class SberAdviser(SberDataset):
         folder: str,
         okato: str = "22",
         what_to_recommend: WhatToRecommend = WhatToRecommend.BUYERS,
+        only_positive: bool = True,
     ):
         """
         >>> sber_adviser = SberAdviser("tests/data/sber_adviser")
@@ -43,11 +44,14 @@ class SberAdviser(SberDataset):
         :param folder: полный путь до папки с данными
         :param okato: код ОКАТО региона. По умолчанию 22 (Нижегородская область)
         :param what_to_recommend: рекомендовать поставщиков или покупателей
+        :param only_positive: загружатьтолько положительные (по умолчанию)
+                              или ещё и предваритаельно отобранные отрицательные примеры
         """
         super().__init__(folder)
-        self.spark = State().session
+        self.only_positive = only_positive
         self.filtered_ids = (
-            self.spark.read.csv(
+            State()
+            .session.read.csv(
                 path.join(self.folder, "okveds_okato_hash.csv"), header=True
             )
             .where(col("okato") == okato)
@@ -61,13 +65,24 @@ class SberAdviser(SberDataset):
         self._log = self._load_log()
 
     def _load_log(self) -> DataFrame:
-        ids_with_lists = self.spark.read.csv(
-            path.join(
-                self.folder,
-                self.what_to_recommend.value,
-                f"df_recom_{self.what_to_recommend.value}1.csv",
+        positive_log = self._load_log_part(1)
+        if self.only_positive:
+            log = positive_log
+        else:
+            log = positive_log.union(self._load_log_part(0))
+        return log
+
+    def _load_log_part(self, feedback_type: int) -> DataFrame:
+        filename = (
+            f"df_recom_{self.what_to_recommend.value}{feedback_type}.csv"
+        )
+        ids_with_lists = (
+            State()
+            .session.read.csv(
+                path.join(self.folder, self.what_to_recommend.value, filename)
             )
-        ).toDF("user_id", "item_list")
+            .toDF("user_id", "item_list")
+        )
         user_item_matrix = ids_with_lists.withColumn(
             "raw_id",
             explode(
@@ -82,11 +97,13 @@ class SberAdviser(SberDataset):
                 self.filtered_ids.select(col("ID").alias("item_id")),
                 how="inner",
                 on="item_id",
-            ).join(
+            )
+            .join(
                 self.filtered_ids.select(col("ID").alias("user_id")),
                 how="inner",
                 on="user_id",
             )
+            .withColumn("relevance", lit(feedback_type))
         ).cache()
         return log_with_filtered_ids
 
@@ -122,10 +139,13 @@ class SberAdviser(SberDataset):
         item_ids_with_feature_columns = pd.DataFrame(
             np.hstack([feature_id_column, feature_value_columns])
         )
-        item_feature_matrix = self.spark.createDataFrame(
-            item_ids_with_feature_columns
-        ).toDF(
-            "iid", *[f"{features_type}_{i}" for i in range(features.shape[1])],
+        item_feature_matrix = (
+            State()
+            .session.createDataFrame(item_ids_with_feature_columns)
+            .toDF(
+                "iid",
+                *[f"{features_type}_{i}" for i in range(features.shape[1])],
+            )
         )
         return item_feature_matrix.withColumn(
             "item_id", col("iid").astype(IntegerType()).astype(StringType()),
