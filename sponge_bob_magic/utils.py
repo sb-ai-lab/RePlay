@@ -187,7 +187,7 @@ def to_csr(
     >>> m = to_csr(data_frame)
     >>> m.toarray()
     array([[1, 0, 0],
-           [0, 0, 2]], dtype=int64)
+           [0, 0, 2]])
 
     :param log: spark DataFrame с колонками ``user_id``, ``item_id`` и ``relevance``
     :param user_count: количество строк в результирующей матрице (если пусто, то вычисляется по логу)
