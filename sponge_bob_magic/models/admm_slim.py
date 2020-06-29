@@ -16,7 +16,12 @@ from sponge_bob_magic.session_handler import State
 # pylint: disable=too-many-instance-attributes
 class ADMMSLIM(Recommender):
     """`ADMM SLIM: Sparse Recommendations for Many Users
-    <http://www.cs.columbia.edu/~jebara/papers/wsdm20_ADMM.pdf>`_"""
+    <http://www.cs.columbia.edu/~jebara/papers/wsdm20_ADMM.pdf>`_
+
+    Улучшение стандартного алгоритма SLIM, направленное на устранение
+    некоторых недостатков классического алгоритма. Качество рекомендаций
+    повышается за счепт решения задачи с помощью чередующегося метода
+    множителей Лагранжа."""
 
     similarity: DataFrame
     can_predict_cold_users = True
