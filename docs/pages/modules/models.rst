@@ -96,6 +96,11 @@ SLIM Recommender основан на обучении матрицы близо�
 
 .. autoclass:: sponge_bob_magic.models.SLIM
     :special-members: __init__
+ADMM SLIM
+----------
+
+.. autoclass:: sponge_bob_magic.models.ADMMSLIM
+    :special-members: __init__
 
 LightFM
 -----------
