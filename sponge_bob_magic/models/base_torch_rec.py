@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
+# pylint: disable=wrong-import-order
 from ignite.contrib.handlers import LRScheduler
 from ignite.engine import Engine, Events
 from ignite.handlers import (
@@ -20,7 +21,6 @@ from pyspark.ml.feature import MinMaxScaler, VectorAssembler
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
-
 import torch
 from torch import nn
 from torch.optim.optimizer import Optimizer  # pylint: disable=E0611
@@ -142,7 +142,7 @@ class TorchRecommender(Recommender):
         self.logger.debug("-- Загрузка модели из файла")
         self.model.load_state_dict(torch.load(path))
 
-    # pylint: disable=too-many-arguments, too-many-locals
+    # pylint: disable=too-many-arguments
     def _create_trainer_evaluator(
         self,
         opt: Optimizer,
@@ -214,47 +214,72 @@ class TorchRecommender(Recommender):
             return -engine.state.metrics["loss"]
 
         if early_stopping_patience:
-            early_stopping = EarlyStopping(
-                patience=early_stopping_patience,
-                score_function=score_function,
-                trainer=torch_trainer,
+            self._add_early_stopping(
+                early_stopping_patience,
+                score_function,
+                torch_trainer,
+                torch_evaluator,
             )
-            torch_evaluator.add_event_handler(Events.COMPLETED, early_stopping)
         if checkpoint_number:
-            checkpoint = ModelCheckpoint(
-                State().session.conf.get("spark.local.dir"),
-                create_dir=True,
-                require_empty=False,
-                n_saved=checkpoint_number,
-                score_function=score_function,
-                score_name="loss",
-                filename_prefix="best",
-                global_step_transform=global_step_from_engine(torch_trainer),
+            self._add_checkpoint(
+                checkpoint_number,
+                score_function,
+                torch_trainer,
+                torch_evaluator,
             )
-
-            torch_evaluator.add_event_handler(
-                Events.EPOCH_COMPLETED,
-                checkpoint,
-                {type(self).__name__.lower(): self.model},
-            )
-
-            # pylint: disable=unused-argument,unused-variable
-            @torch_trainer.on(Events.COMPLETED)
-            def load_best_model(engine):
-                self.load_model(checkpoint.last_checkpoint)
-
         if scheduler:
-            if isinstance(scheduler, _LRScheduler):
-                torch_trainer.add_event_handler(
-                    Events.EPOCH_COMPLETED, LRScheduler(scheduler)
-                )
-            else:
-                # pylint: disable=unused-variable
-                @torch_evaluator.on(Events.EPOCH_COMPLETED)
-                def reduct_step(engine):
-                    scheduler.step(engine.state.metrics["loss"])
+            self._add_scheduler(scheduler, torch_trainer, torch_evaluator)
 
         return torch_trainer, torch_evaluator
+
+    @staticmethod
+    def _add_early_stopping(
+        early_stopping_patience, score_function, torch_trainer, torch_evaluator
+    ):
+        early_stopping = EarlyStopping(
+            patience=early_stopping_patience,
+            score_function=score_function,
+            trainer=torch_trainer,
+        )
+        torch_evaluator.add_event_handler(Events.COMPLETED, early_stopping)
+
+    def _add_checkpoint(
+        self, checkpoint_number, score_function, torch_trainer, torch_evaluator
+    ):
+        checkpoint = ModelCheckpoint(
+            State().session.conf.get("spark.local.dir"),
+            create_dir=True,
+            require_empty=False,
+            n_saved=checkpoint_number,
+            score_function=score_function,
+            score_name="loss",
+            filename_prefix="best",
+            global_step_transform=global_step_from_engine(torch_trainer),
+        )
+
+        torch_evaluator.add_event_handler(
+            Events.EPOCH_COMPLETED,
+            checkpoint,
+            {type(self).__name__.lower(): self.model},
+        )
+
+        # pylint: disable=unused-argument,unused-variable
+        @torch_trainer.on(Events.COMPLETED)
+        def load_best_model(engine):
+            self.load_model(checkpoint.last_checkpoint)
+
+    @staticmethod
+    def _add_scheduler(scheduler, torch_trainer, torch_evaluator):
+        if isinstance(scheduler, _LRScheduler):
+            torch_trainer.add_event_handler(
+                Events.EPOCH_COMPLETED, LRScheduler(scheduler)
+            )
+        else:
+
+            @torch_evaluator.on(Events.EPOCH_COMPLETED)
+            # pylint: disable=unused-variable
+            def reduct_step(engine):
+                scheduler.step(engine.state.metrics["loss"])
 
     @abstractmethod
     def _batch_pass(

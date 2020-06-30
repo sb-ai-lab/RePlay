@@ -2,7 +2,7 @@
 fail-under=10
 
 [TYPECHECK]
-ignored-modules=pyspark.sql.functions,torch
+ignored-modules=pyspark,torch,ignite
 
 [MESSAGES CONTROL]
 disable=bad-continuation,anomalous-backslash-in-string
