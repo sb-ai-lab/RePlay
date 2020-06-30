@@ -186,6 +186,8 @@ class BaseRecommender(ABC):
             ``[user_id, item_id, relevance]``
         """
         type_in = type(log)
+        if issubclass(type_in, pd.DataFrame):
+            utype, itype = log.dtypes.user_id, log.dtypes.item_id
         log, user_features, item_features = convert(
             log, user_features, item_features
         )
@@ -224,7 +226,11 @@ class BaseRecommender(ABC):
                 sf.when(recs["relevance"] < 0, 0).otherwise(recs["relevance"]),
             )
         ).cache()
-        return convert(recs, to_type=type_in)
+        recs = convert(recs, to_type=type_in)
+        if issubclass(type_in, pd.DataFrame):
+            recs["user_id"] = recs["user_id"].astype(utype)
+            recs["item_id"] = recs["item_id"].astype(itype)
+        return recs
 
     def _convert_index(
         self, data_frame: Optional[DataFrame]
