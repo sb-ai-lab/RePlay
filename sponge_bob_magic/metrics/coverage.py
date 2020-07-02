@@ -58,10 +58,6 @@ class Coverage(RecOnlyMetric):
     def mean(
         self, recommendations: DataFrame, ground_truth: DataFrame, k: IntOrList
     ) -> Union[Dict[int, NumType], NumType]:
-        if isinstance(k, int):
-            k_set = {k}
-        else:
-            k_set = set(k)
         unknows_item_count = (
             recommendations.select("item_id")
             .distinct()
@@ -86,10 +82,12 @@ class Coverage(RecOnlyMetric):
         ).collect()
         cum_set: Set[str] = set()
         res = {}
+        if isinstance(k, int):
+            k_set = {k}
+        else:
+            k_set = set(k)
         for row in item_sets:
             cum_set = cum_set.union(set(row.items))
             if row.row_num in k_set:
                 res[row.row_num] = len(cum_set) / self.item_count
-        if isinstance(k, int):
-            res = res[k]
-        return res
+        return self.unpack_if_int(res, k)

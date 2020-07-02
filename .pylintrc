@@ -2,7 +2,7 @@
 fail-under=10
 
 [TYPECHECK]
-ignored-modules=pyspark.sql.functions,torch
+ignored-modules=pyspark.sql.functions,pyspark,torch,ignite
 
 [MESSAGES CONTROL]
 disable=bad-continuation,anomalous-backslash-in-string
@@ -12,7 +12,7 @@ ignore-long-lines=^.*([А-Яа-я]|>{3}|\.{3}|\\{2}|https://).*$
 max-line-length=79
 
 [SIMILARITIES]
-min-similarity-lines=15
+min-similarity-lines=33
 ignore-comments=yes
 ignore-docstrings=yes
 ignore-imports=yes
