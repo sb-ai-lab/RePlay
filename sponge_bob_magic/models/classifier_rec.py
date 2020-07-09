@@ -76,8 +76,8 @@ class ClassifierRec(HybridRecommender):
     def _augment_data(
         self,
         log: DataFrame,
-        user_features: DataFrame,
-        item_features: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
         """
         Обогащает лог фичами пользователей и объектов.
@@ -88,40 +88,48 @@ class ClassifierRec(HybridRecommender):
         :return: новый спарк-датайрейм, в котором к каждой строчке лога
             добавлены фичи пользователя и объекта, которые в ней встречаются
         """
-        user_vectors = (
-            VectorAssembler(
-                inputCols=user_features.drop("user_idx").columns,
-                outputCol="user_features",
-            )
-            .transform(user_features)
-            .cache()
+        feature_cols = ["recs"] if self.use_recs_value else []
+        raw_join = log.withColumnRenamed("user_idx", "uid").withColumnRenamed(
+            "item_idx", "iid"
         )
-        item_vectors = (
-            VectorAssembler(
-                inputCols=item_features.drop("item_idx").columns,
-                outputCol="item_features",
+        if user_features is not None:
+            user_vectors = (
+                VectorAssembler(
+                    inputCols=user_features.drop("user_idx").columns,
+                    outputCol="user_features",
+                )
+                .transform(user_features)
+                .cache()
             )
-            .transform(item_features)
-            .cache()
-        )
-        return VectorAssembler(
-            inputCols=["user_features", "item_features"]
-            + (["recs"] if self.use_recs_value else []),
-            outputCol="features",
-        ).transform(
-            log.withColumnRenamed("user_idx", "uid")
-            .withColumnRenamed("item_idx", "iid")
-            .join(
+            raw_join = raw_join.join(
                 user_vectors.select("user_idx", "user_features"),
                 on=col("user_idx") == col("uid"),
                 how="inner",
             )
-            .join(
+            feature_cols += ["user_features"]
+        if item_features is not None:
+            item_vectors = (
+                VectorAssembler(
+                    inputCols=item_features.drop("item_idx").columns,
+                    outputCol="item_features",
+                )
+                .transform(item_features)
+                .cache()
+            )
+            raw_join = raw_join.join(
                 item_vectors.select("item_idx", "item_features"),
                 on=col("item_idx") == col("iid"),
                 how="inner",
             )
-            .drop("iid", "uid")
+            feature_cols += ["item_features"]
+        if feature_cols:
+            return VectorAssembler(
+                inputCols=feature_cols, outputCol="features",
+            ).transform(raw_join.drop("iid", "uid"))
+        raise ValueError(
+            "модель должна использовать хотя бы одно из: "
+            "свойства пользователей, свойства объектов, "
+            "екомендации предыдущего шага при стекинге"
         )
 
     # pylint: disable=too-many-arguments
