@@ -37,15 +37,15 @@ class SberAdviser(SberDataset):
         """
         >>> sber_adviser = SberAdviser("tests/data/sber_adviser")
         >>> sber_adviser.log
-        DataFrame[user_id: string, item_id: string]
+        DataFrame[user_id: string, item_id: string, relevance: int]
         >>> sber_adviser.user_features
         DataFrame[user_id: string, wntm_0: double, okved_0: double]
 
         :param folder: полный путь до папки с данными
         :param okato: код ОКАТО региона. По умолчанию 22 (Нижегородская область)
         :param what_to_recommend: рекомендовать поставщиков или покупателей
-        :param only_positive: загружатьтолько положительные (по умолчанию)
-                              или ещё и предваритаельно отобранные отрицательные примеры
+        :param only_positive: загружать только положительные (по умолчанию)
+                              или ещё и предварительно отобранные отрицательные примеры
         """
         super().__init__(folder)
         self.only_positive = only_positive
@@ -72,9 +72,9 @@ class SberAdviser(SberDataset):
             log = positive_log.union(self._load_log_part(0))
         return log
 
-    def _load_log_part(self, feedback_type: int) -> DataFrame:
+    def _load_log_part(self, feedback_part: int) -> DataFrame:
         filename = (
-            f"df_recom_{self.what_to_recommend.value}{feedback_type}.csv"
+            f"df_recom_{self.what_to_recommend.value}{feedback_part}.csv"
         )
         ids_with_lists = (
             State()
@@ -103,7 +103,7 @@ class SberAdviser(SberDataset):
                 how="inner",
                 on="user_id",
             )
-            .withColumn("relevance", lit(feedback_type))
+            .withColumn("relevance", lit(feedback_part))
         ).cache()
         return log_with_filtered_ids
 
