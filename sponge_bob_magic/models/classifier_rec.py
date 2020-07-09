@@ -1,10 +1,11 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Optional, Union, Iterable
+from typing import Iterable, Optional, Union
 
 from pyspark.ml.classification import (
-    RandomForestClassificationModel,
+    JavaClassificationModel,
+    JavaEstimator,
     RandomForestClassifier,
 )
 from pyspark.ml.feature import VectorAssembler
@@ -26,24 +27,29 @@ class ClassifierRec(HybridRecommender):
 
     * к логу присоединяются свойства пользователей и объектов (если есть)
     * свойства считаются фичами классификатора, а ``relevance`` --- таргетом
-    * обучается случайный лес, который умеет предсказывать ``relevance``
+    * обучается классификатор, который умеет предсказывать ``relevance``
 
     В выдачу рекомендаций попадает top K объектов с наивысшим предсказанным скором от классификатора.
     """
 
-    model: RandomForestClassificationModel
+    model: JavaClassificationModel
     augmented_data: DataFrame
 
-    def __init__(self, use_recs_value: Optional[bool] = False, **kwargs):
+    def __init__(
+        self,
+        spark_classifier: Optional[JavaEstimator] = None,
+        use_recs_value: Optional[bool] = False,
+    ):
         """
         Инициализирует параметры модели.
 
         :param use_recs_value: использовать ли поле recs для рекомендаций
-        :param kwargs: параметры базовой модели
-
+        :param spark_classifier: объект модели-классификатора на Spark
         """
-
-        self.model_params: Dict[str, object] = kwargs
+        if spark_classifier is None:
+            self.spark_classifier = RandomForestClassifier()
+        else:
+            self.spark_classifier = spark_classifier
         self.use_recs_value = use_recs_value
 
     def _fit(
@@ -65,9 +71,7 @@ class ClassifierRec(HybridRecommender):
             .withColumnRenamed("relevance", "label")
             .select("label", "features", "user_idx", "item_idx")
         ).cache()
-        self.model = RandomForestClassifier(**self.model_params).fit(
-            self.augmented_data
-        )
+        self.model = self.spark_classifier.fit(self.augmented_data)
 
     def _augment_data(
         self,

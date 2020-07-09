@@ -1,6 +1,8 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+from pyspark.ml.classification import RandomForestClassifier
+
 # pylint: disable-all
 from pyspark.ml.linalg import Vectors
 from tests.pyspark_testcase import PySparkTest
@@ -10,7 +12,7 @@ from sponge_bob_magic.models.classifier_rec import ClassifierRec
 
 class ClassifierRecTestCase(PySparkTest):
     def setUp(self):
-        self.model = ClassifierRec(seed=47)
+        self.model = ClassifierRec(RandomForestClassifier(seed=47))
         self.user_features = self.spark.createDataFrame(
             [("1", 1.0, 2.0)]
         ).toDF("user_id", "user_feature_1", "user_feature_2")
