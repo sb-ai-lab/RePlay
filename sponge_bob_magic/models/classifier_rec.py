@@ -1,10 +1,11 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Dict, Optional, Union, Iterable
+from typing import Iterable, Optional, Union
 
 from pyspark.ml.classification import (
-    RandomForestClassificationModel,
+    JavaClassificationModel,
+    JavaEstimator,
     RandomForestClassifier,
 )
 from pyspark.ml.feature import VectorAssembler
@@ -26,24 +27,29 @@ class ClassifierRec(HybridRecommender):
 
     * к логу присоединяются свойства пользователей и объектов (если есть)
     * свойства считаются фичами классификатора, а ``relevance`` --- таргетом
-    * обучается случайный лес, который умеет предсказывать ``relevance``
+    * обучается классификатор, который умеет предсказывать ``relevance``
 
     В выдачу рекомендаций попадает top K объектов с наивысшим предсказанным скором от классификатора.
     """
 
-    model: RandomForestClassificationModel
+    model: JavaClassificationModel
     augmented_data: DataFrame
 
-    def __init__(self, use_recs_value: Optional[bool] = False, **kwargs):
+    def __init__(
+        self,
+        spark_classifier: Optional[JavaEstimator] = None,
+        use_recs_value: Optional[bool] = False,
+    ):
         """
         Инициализирует параметры модели.
 
         :param use_recs_value: использовать ли поле recs для рекомендаций
-        :param kwargs: параметры базовой модели
-
+        :param spark_classifier: объект модели-классификатора на Spark
         """
-
-        self.model_params: Dict[str, object] = kwargs
+        if spark_classifier is None:
+            self.spark_classifier = RandomForestClassifier()
+        else:
+            self.spark_classifier = spark_classifier
         self.use_recs_value = use_recs_value
 
     def _fit(
@@ -65,15 +71,13 @@ class ClassifierRec(HybridRecommender):
             .withColumnRenamed("relevance", "label")
             .select("label", "features", "user_idx", "item_idx")
         ).cache()
-        self.model = RandomForestClassifier(**self.model_params).fit(
-            self.augmented_data
-        )
+        self.model = self.spark_classifier.fit(self.augmented_data)
 
     def _augment_data(
         self,
         log: DataFrame,
-        user_features: DataFrame,
-        item_features: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
         """
         Обогащает лог фичами пользователей и объектов.
@@ -84,40 +88,48 @@ class ClassifierRec(HybridRecommender):
         :return: новый спарк-датайрейм, в котором к каждой строчке лога
             добавлены фичи пользователя и объекта, которые в ней встречаются
         """
-        user_vectors = (
-            VectorAssembler(
-                inputCols=user_features.drop("user_idx").columns,
-                outputCol="user_features",
-            )
-            .transform(user_features)
-            .cache()
+        feature_cols = ["recs"] if self.use_recs_value else []
+        raw_join = log.withColumnRenamed("user_idx", "uid").withColumnRenamed(
+            "item_idx", "iid"
         )
-        item_vectors = (
-            VectorAssembler(
-                inputCols=item_features.drop("item_idx").columns,
-                outputCol="item_features",
+        if user_features is not None:
+            user_vectors = (
+                VectorAssembler(
+                    inputCols=user_features.drop("user_idx").columns,
+                    outputCol="user_features",
+                )
+                .transform(user_features)
+                .cache()
             )
-            .transform(item_features)
-            .cache()
-        )
-        return VectorAssembler(
-            inputCols=["user_features", "item_features"]
-            + (["recs"] if self.use_recs_value else []),
-            outputCol="features",
-        ).transform(
-            log.withColumnRenamed("user_idx", "uid")
-            .withColumnRenamed("item_idx", "iid")
-            .join(
+            raw_join = raw_join.join(
                 user_vectors.select("user_idx", "user_features"),
                 on=col("user_idx") == col("uid"),
                 how="inner",
             )
-            .join(
+            feature_cols += ["user_features"]
+        if item_features is not None:
+            item_vectors = (
+                VectorAssembler(
+                    inputCols=item_features.drop("item_idx").columns,
+                    outputCol="item_features",
+                )
+                .transform(item_features)
+                .cache()
+            )
+            raw_join = raw_join.join(
                 item_vectors.select("item_idx", "item_features"),
                 on=col("item_idx") == col("iid"),
                 how="inner",
             )
-            .drop("iid", "uid")
+            feature_cols += ["item_features"]
+        if feature_cols:
+            return VectorAssembler(
+                inputCols=feature_cols, outputCol="features",
+            ).transform(raw_join.drop("iid", "uid"))
+        raise ValueError(
+            "модель должна использовать хотя бы одно из: "
+            "свойства пользователей, свойства объектов, "
+            "екомендации предыдущего шага при стекинге"
         )
 
     # pylint: disable=too-many-arguments

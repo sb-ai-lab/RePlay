@@ -51,7 +51,7 @@ class TwoStagesScenario:
         second_stage_splitter: Splitter = DEFAULT_SECOND_STAGE_SPLITTER,
         first_stage_splitter: Splitter = DEFAULT_FIRST_STAGE_SPLITTER,
         first_model: Recommender = ALSWrap(rank=100),
-        second_model: ClassifierRec = ClassifierRec(),
+        second_model: Optional[ClassifierRec] = None,
         first_stage_k: int = 100,
         metrics: Optional[Dict[Metric, IntOrList]] = None,
     ):
@@ -75,7 +75,10 @@ class TwoStagesScenario:
         self.first_stage_splitter = first_stage_splitter
         self.first_model = first_model
         self.first_stage_k = first_stage_k
-        self.second_model = second_model
+        if second_model is None:
+            self.second_model = ClassifierRec()
+        else:
+            self.second_model = second_model
         self.metrics = {HitRate(): [10]} if metrics is None else metrics
 
     @property
@@ -215,13 +218,13 @@ class TwoStagesScenario:
         ...    seed=147
         ... )
         >>> from sponge_bob_magic.metrics import HitRate
-        >>> from sponge_bob_magic.models import ClassifierRec
+        >>> from pyspark.ml.classification import RandomForestClassifier
         >>> two_stages = TwoStagesScenario(
         ...     first_stage_k=10,
         ...     first_stage_splitter=splitter,
         ...     second_stage_splitter=splitter,
         ...     metrics={HitRate(): 1},
-        ...     second_model=ClassifierRec(seed=47)
+        ...     second_model=ClassifierRec(RandomForestClassifier(seed=47))
         ... )
         >>> two_stages.experiment
         Traceback (most recent call last):
