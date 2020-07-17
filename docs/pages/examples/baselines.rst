@@ -32,3 +32,7 @@
    model = EASE()
    pred = model.fit_predict(train, max(k))
    e.add_result("my_model", pred)
+
+
+Пример подбора гиперпараметров для моделей из implicit с помощью nevergrad и сравнения с бейзлайном
+можно посмотреть в ``experiments/tune_and_compare_ng.py``.
