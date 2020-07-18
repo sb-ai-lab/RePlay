@@ -18,12 +18,9 @@ class KNNRecTestCase(PySparkTest):
         self.log = self.spark.createDataFrame(
             [
                 ["u1", "i1", self.some_date, 1.0],
-                ["u2", "i1", self.some_date, 1.0],
-                ["u3", "i3", self.some_date, 2.0],
-                ["u3", "i3", self.some_date, 2.0],
-                ["u2", "i3", self.some_date, 2.0],
-                ["u3", "i4", self.some_date, 2.0],
-                ["u1", "i4", self.some_date, 2.0],
+                ["u2", "i2", self.some_date, 1.0],
+                ["u3", "i1", self.some_date, 1.0],
+                ["u3", "i2", self.some_date, 1.0],
             ],
             schema=LOG_SCHEMA,
         )
@@ -33,11 +30,7 @@ class KNNRecTestCase(PySparkTest):
         self.assertSparkDataFrameEqual(
             self.model.similarity,
             self.spark.createDataFrame(
-                [
-                    (1.0, 2.0, 0.5),
-                    (0.0, 2.0, 0.18350341907227408),
-                    (2.0, 0.0, 0.18350341907227408),
-                ],
+                [(1.0, 0.0, 0.5), (0.0, 1.0, 0.5),],
                 schema=StructType(
                     [
                         StructField("item_id_one", DoubleType()),
@@ -50,20 +43,10 @@ class KNNRecTestCase(PySparkTest):
 
     def test_predict(self):
         self.model.fit(self.log)
-        recs = self.model.predict(
-            log=self.log,
-            k=1,
-            users=self.log.select("user_id").distinct(),
-            items=self.log.select("item_id").distinct(),
-        )
+        recs = self.model.predict(log=self.log, k=1, users=["u1", "u2"],)
         self.assertSparkDataFrameEqual(
             recs,
             self.spark.createDataFrame(
-                [
-                    ["u1", "i3", 0.18350341907227408],
-                    ["u2", "i4", 0.6835034190722742],
-                    ["u3", "i3", 0.0],
-                ],
-                schema=REC_SCHEMA,
+                [["u1", "i2", 0.5], ["u2", "i1", 0.5],], schema=REC_SCHEMA,
             ),
         )
