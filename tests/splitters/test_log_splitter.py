@@ -219,14 +219,12 @@ class TestColdUserRandomSplitter(PySparkTest):
                 ["user4", "item2", datetime(2019, 9, 13), 2.0],
                 ["user3", "item1", datetime(2019, 9, 16), 5.0],
                 ["user3", "item4", datetime(2019, 9, 16), 5.0],
-                ["user1", "item3", datetime(2019, 9, 17), 1.0],
             ],
             schema=LOG_SCHEMA,
         ).repartition(1)
         true_train = self.spark.createDataFrame(
             data=[
                 ["user1", "item4", datetime(2019, 9, 12), 1.0],
-                ["user1", "item3", datetime(2019, 9, 17), 1.0],
                 ["user3", "item1", datetime(2019, 9, 16), 5.0],
                 ["user3", "item4", datetime(2019, 9, 16), 5.0],
                 ["user4", "item1", datetime(2019, 9, 12), 1.0],

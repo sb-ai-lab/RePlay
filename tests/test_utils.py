@@ -18,5 +18,4 @@ class UtilsTestCase(PySparkTest):
     def test_get_spark_session(self):
         spark = sponge_bob_magic.session_handler.get_spark_session(1)
         self.assertIsInstance(spark, SparkSession)
-        self.assertEqual(spark.conf.get("spark.driver.memory"), "512m")
-        self.assertEqual(spark.conf.get("spark.sql.shuffle.partitions"), "1")
+        self.assertEqual(spark.conf.get("spark.driver.memory"), "1g")

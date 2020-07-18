@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+# pylint: disable-all
 import logging
 import multiprocessing
 import unittest
@@ -11,7 +12,7 @@ import numpy as np
 import pandas as pd
 from pyspark.ml.linalg import DenseVector
 from pyspark.sql import DataFrame, SparkSession
-from sponge_bob_magic.session_handler import State
+from sponge_bob_magic.session_handler import get_spark_session
 
 
 class PySparkTest(unittest.TestCase):
@@ -65,4 +66,4 @@ class PySparkTest(unittest.TestCase):
         logger = logging.getLogger("sponge_bob_magic")
         logger.setLevel("WARN")
         warnings.filterwarnings(action="ignore", category=ResourceWarning)
-        cls.spark = State().session
+        cls.spark = get_spark_session(1, 1)
