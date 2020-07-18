@@ -49,25 +49,6 @@ class NeuroCFRecTestCase(PySparkTest):
             schema=LOG_SCHEMA,
         )
 
-    def test_predict(self):
-        self.model.fit(log=self.log)
-        predictions = self.model.predict(
-            log=self.log,
-            k=1,
-            users=self.log.select("user_id").distinct(),
-            items=self.log.select("item_id").distinct(),
-            filter_seen_items=True,
-        )
-        self.assertTrue(
-            np.allclose(
-                predictions.toPandas()[["user_id", "item_id"]]
-                .astype(int)
-                .values,
-                [[0, 0], [1, 2]],
-                atol=1.0e-3,
-            )
-        )
-
     def test_check_gmf_only(self):
         params = {"learning_rate": 0.5, "epochs": 1, "embedding_gmf_dim": 2}
         raised = False
