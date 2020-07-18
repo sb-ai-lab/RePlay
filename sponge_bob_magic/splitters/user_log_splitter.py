@@ -22,6 +22,9 @@ class UserSplitter(Splitter):
     Также с помощью параметра ``item_test_size`` можно задать долю оценок, которые необходимо отложить.
 
     Примеры:
+    >>> from sponge_bob_magic.session_handler import get_spark_session, State
+    >>> spark = get_spark_session(1, 1)
+    >>> state = State(spark)
 
     >>> from sponge_bob_magic.splitters import UserSplitter
     >>> import pandas as pd

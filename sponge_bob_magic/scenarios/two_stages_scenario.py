@@ -205,7 +205,10 @@ class TwoStagesScenario:
         обучить двухуровневую модель и выдать рекомендации на тестовом множестве,
         полученном в соответствии с выбранной схемой валидации
 
-        >>> spark = State().session
+        >>> from sponge_bob_magic.session_handler import get_spark_session, State
+        >>> spark = get_spark_session(1, 1)
+        >>> state = State(spark)
+
         >>> import numpy as np
         >>> np.random.seed(47)
         >>> from logging import ERROR

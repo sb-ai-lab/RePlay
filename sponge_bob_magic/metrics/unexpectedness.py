@@ -18,6 +18,10 @@ class Unexpectedness(RecOnlyMetric):
     Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.
     По умолчанию используется рекомендатель по популярности ``PopRec``.
 
+    >>> from sponge_bob_magic.session_handler import get_spark_session, State
+    >>> spark = get_spark_session(1, 1)
+    >>> state = State(spark)
+
     >>> import pandas as pd
     >>> log = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": ["1", "2", "1", "3"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
     >>> recs = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": ["1", "2", "3", "1"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})

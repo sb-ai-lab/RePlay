@@ -31,6 +31,10 @@ class RandomRec(Recommender):
     Чем больше :math:`\\alpha`, тем чаще будут рекомендоваться менее популярные объекты.
     Требуется, чтобы всегда было :math:`\\alpha > -1`.
 
+    >>> from sponge_bob_magic.session_handler import get_spark_session, State
+    >>> spark = get_spark_session(1, 1)
+    >>> state = State(spark)
+
     >>> import pandas as pd
     >>> from sponge_bob_magic.converter import convert
     >>>
