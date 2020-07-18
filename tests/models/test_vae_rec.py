@@ -83,25 +83,3 @@ class VAERecTestCase(PySparkTest):
                 atol=1.0e-3,
             )
         )
-
-    def test_save_load(self):
-        spark_local_dir = self.spark.conf.get("spark.local.dir")
-        pattern = "best_multvae_1_loss=-\\d\\.\\d+.pth"
-        for filename in os.listdir(spark_local_dir):
-            if re.match(pattern, filename):
-                os.remove(os.path.join(spark_local_dir, filename))
-        self.model.fit(log=self.log)
-        matched = False
-        for filename in os.listdir(spark_local_dir):
-            if re.match(pattern, filename):
-                path = os.path.join(spark_local_dir, filename)
-                matched = True
-                break
-        self.assertTrue(matched)
-        new_model = MultVAE()
-        new_model.model = VAE(3, 1, [1])
-        new_model.load_model(path)
-        for i, parameter in enumerate(new_model.model.parameters()):
-            self.assertEqual(
-                parameter.shape, torch.tensor(self.parameter_stubs[i]).shape
-            )
