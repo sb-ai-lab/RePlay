@@ -194,14 +194,14 @@ class MultVAE(TorchRecommender):
 
     def _get_data_loader(
         self, data: pd.DataFrame, shuffle: bool = True
-    ) -> Tuple[csr_matrix, DataLoader, np.array]:
+    ) -> Tuple[csr_matrix, DataLoader, np.ndarray]:
         """Функция получения загрузчика данных, а также матрицы с данными"""
         users_count = data["user_idx"].value_counts().count()
-        user_idx = data.user_idx.astype("category").cat
+        user_idx = data["user_idx"].astype("category").cat  # type: ignore
         user_batch = csr_matrix(
             (
-                np.ones(len(data.user_idx)),
-                ([user_idx.codes.values, data.item_idx.values]),
+                np.ones(len(data["user_idx"])),
+                ([user_idx.codes.values, data["item_idx"].values]),
             ),
             shape=(users_count, self.items_count),
         )
@@ -296,7 +296,7 @@ class MultVAE(TorchRecommender):
     def _predict_by_user(
         pandas_df: pd.DataFrame,
         model: nn.Module,
-        items_np: np.array,
+        items_np: np.ndarray,
         k: int,
         item_count: int,
     ) -> pd.DataFrame:
@@ -314,8 +314,9 @@ class MultVAE(TorchRecommender):
 
             return pd.DataFrame(
                 {
-                    "user_idx": cnt * [user_idx],
+                    "user_idx": np.array(cnt * [user_idx]),
                     "item_idx": items_np[best_item_idx],
                     "relevance": user_recs[best_item_idx],
                 }
             )
+        raise Exception()

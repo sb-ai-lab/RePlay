@@ -151,12 +151,14 @@ class Experiment:
         :param median: значение медианы
         :param conf_interval: значение половины ширины доверительного интервала
         """
-        self.results.at[name, f"{metric}@{k}"] = value
+        self.results.at[name, f"{metric}@{k}"] = value  # type: ignore
         if median is not None:
-            self.results.at[name, f"{metric}@{k}_median"] = median
+            self.results.at[
+                name, f"{metric}@{k}_median"
+            ] = median  # type: ignore
         if conf_interval is not None:
             self.results.at[
-                name, f"{metric}@{k}_{self.calc_conf_interval}_conf_interval",
+                name, f"{metric}@{k}_{self.calc_conf_interval}_conf_interval"
             ] = conf_interval
 
     # pylint: disable=not-an-iterable

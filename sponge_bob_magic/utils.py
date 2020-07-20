@@ -4,10 +4,9 @@
 from typing import Any, List, Optional, Set, Union
 
 import numpy as np
-from pyspark.ml.linalg import DenseVector, Vector, VectorUDT
+from pyspark.ml.linalg import DenseVector, VectorUDT
 from pyspark.sql import Column, DataFrame, Window
 from pyspark.sql.functions import col, element_at, row_number, udf
-from pyspark.sql.types import DoubleType
 from scipy.sparse import csr_matrix
 
 from sponge_bob_magic.constants import NumType
@@ -60,8 +59,8 @@ def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
     )
 
 
-@udf(returnType=DoubleType())
-def vector_dot(one: Vector, two: Vector) -> DenseVector:
+@udf("double")
+def vector_dot(one: DenseVector, two: DenseVector) -> float:
     """
     вычисляется скалярное произведение двух колонок-векторов
 
@@ -99,8 +98,10 @@ def vector_dot(one: Vector, two: Vector) -> DenseVector:
     return float(one.dot(two))
 
 
-@udf(returnType=VectorUDT())
-def vector_mult(one: Union[Vector, NumType], two: Vector) -> DenseVector:
+@udf(returnType=VectorUDT())  # type: ignore
+def vector_mult(
+    one: Union[DenseVector, NumType], two: DenseVector
+) -> DenseVector:
     """
     вычисляется покоординатное произведение двух колонок-векторов
 
@@ -195,13 +196,20 @@ def to_csr(
     """
     pandas_df = log.select("user_idx", "item_idx", "relevance").toPandas()
     row_count = int(
-        user_count if user_count is not None else pandas_df.user_idx.max() + 1
+        user_count
+        if user_count is not None
+        else pandas_df["user_idx"].max() + 1
     )
     col_count = int(
-        item_count if item_count is not None else pandas_df.item_idx.max() + 1
+        item_count
+        if item_count is not None
+        else pandas_df["item_idx"].max() + 1
     )
     return csr_matrix(
-        (pandas_df.relevance, (pandas_df.user_idx, pandas_df.item_idx)),
+        (
+            pandas_df["relevance"],
+            (pandas_df["user_idx"], pandas_df["item_idx"]),
+        ),
         shape=(row_count, col_count),
     )
 

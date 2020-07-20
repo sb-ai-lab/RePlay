@@ -42,19 +42,26 @@ class NDCG(Metric):
 
     @staticmethod
     def _get_metric_value_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
-        pandas_df = pandas_df.assign(
+        def check_is_in(dataframe: pd.DataFrame):
+            return int(dataframe["item_id"] in dataframe["items_id"])
+
+        pandas_df = pandas_df.assign(  # type: ignore
             is_good_item=pandas_df[["item_id", "items_id"]].apply(
-                lambda x: int(x["item_id"] in x["items_id"]), 1
+                check_is_in, 1
             )
         )
-        pandas_df = pandas_df.assign(
-            sorted_good_item=pandas_df["k"].le(pandas_df["items_id"].str.len())
+        pandas_df = pandas_df.assign(  # type: ignore
+            sorted_good_item=pandas_df["k"].le(  # type: ignore
+                pandas_df["items_id"].str.len()
+            )  # type: ignore
         )
-        return pandas_df.assign(
+        return pandas_df.assign(  # type: ignore
             cum_agg=(
-                pandas_df["is_good_item"] / np.log2(pandas_df.k + 1)
+                pandas_df["is_good_item"]
+                / np.log2(pandas_df["k"] + 1)  # type: ignore
             ).cumsum()
             / (
-                pandas_df["sorted_good_item"] / np.log2(pandas_df.k + 1)
+                pandas_df["sorted_good_item"]
+                / np.log2(pandas_df["k"] + 1)  # type: ignore
             ).cumsum()
         )

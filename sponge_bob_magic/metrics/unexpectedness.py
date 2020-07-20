@@ -51,7 +51,7 @@ class Unexpectedness(RecOnlyMetric):
         self.train_model = False
         if rec is not None:
             self.train_model = True
-            rec.fit(log=self.log)
+            rec.fit(log=self.log)  # type: ignore
             self.model = rec
 
     @staticmethod
@@ -71,9 +71,11 @@ class Unexpectedness(RecOnlyMetric):
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
         if self.train_model:
-            pred = self.model.predict(log=self.log, k=self.max_k)
+            pred = self.model.predict(
+                log=self.log, k=self.max_k
+            )  # type: ignore
         else:
-            pred = self.log
+            pred = self.log  # type: ignore
         items_by_users = pred.groupby("user_id").agg(
             sf.collect_list("item_id").alias("items_id")
         )

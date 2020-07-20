@@ -392,7 +392,7 @@ class NeuroMF(TorchRecommender):
     def _predict_by_user(
         pandas_df: pd.DataFrame,
         model: nn.Module,
-        items_np: np.array,
+        items_np: np.ndarray,
         k: int,
         item_count: int,
     ) -> pd.DataFrame:
@@ -414,3 +414,4 @@ class NeuroMF(TorchRecommender):
                     "relevance": user_recs[best_item_idx],
                 }
             )
+        raise Exception()

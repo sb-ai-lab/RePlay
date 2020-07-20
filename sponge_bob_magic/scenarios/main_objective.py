@@ -41,7 +41,7 @@ class MainObjective:
         recommender: Recommender,
         criterion: Metric,
         metrics: Dict[Metric, IntOrList],
-        fallback_recs: DataFrame,
+        fallback_recs: Optional[DataFrame],
         k: int,
     ):
         self.metrics = metrics
