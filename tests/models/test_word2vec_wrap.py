@@ -41,7 +41,7 @@ class Word2VecRecTestCase(PySparkTest):
         ).toPandas()
         self.assertTrue(
             np.allclose(
-                vectors, [[0, 0.027045], [2, 0.082475], [1, 0.004450],],
+                vectors, [[0, 0.027045], [2, 0.082475], [1, 0.004450]],
             )
         )
 
