@@ -63,10 +63,10 @@ class MainScenario:
     def _prepare_data(
         self,
         log: DataFrame,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: DataFrame,
-        item_features: DataFrame,
+        users: Optional[DataFrame],
+        items: Optional[DataFrame],
+        user_features: Optional[DataFrame],
+        item_features: Optional[DataFrame],
     ) -> SplitData:
         """ Делит лог и готовит объекти типа ``SplitData``. """
         train, test = self.splitter.split(log)
@@ -126,7 +126,7 @@ class MainScenario:
             key: params_grid[key][study.best_params[key]]
             for key in study.best_params
         }
-        return best_params  # type: ignore
+        return best_params
 
     # pylint: disable=too-many-arguments
     def research(

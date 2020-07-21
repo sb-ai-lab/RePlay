@@ -193,7 +193,10 @@ class Metric(ABC):
         )
 
     def _get_metric_distribution(
-        self, recommendations: DataFrame, ground_truth: DataFrame, k: IntOrList
+        self,
+        recommendations: AnyDataFrame,
+        ground_truth: AnyDataFrame,
+        k: IntOrList,
     ) -> DataFrame:
         """
         Распределение метрики

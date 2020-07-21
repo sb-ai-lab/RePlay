@@ -51,10 +51,10 @@ class Surprisal(RecOnlyMetric):
         :param log: датафрейм с логом действий пользователей
         """
         self.log = convert(log)
-        n_users = self.log.select("user_id").distinct().count()
+        n_users = self.log.select("user_id").distinct().count()  # type: ignore
         self.item_weights = self.log.groupby("item_id").agg(
             (
-                sf.log2(n_users / sf.countDistinct("user_id"))
+                sf.log2(n_users / sf.countDistinct("user_id"))  # type: ignore
                 / np.log2(n_users)
             ).alias("rec_weight")
         )
@@ -69,5 +69,5 @@ class Surprisal(RecOnlyMetric):
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
         return recommendations.join(
-            self.item_weights, on="item_id", how="left"
+            self.item_weights, on="item_id", how="left"  # type: ignore
         ).fillna(1)

@@ -287,7 +287,7 @@ class TwoStagesScenario:
             item_features=item_features,
         )
 
-        second_recs = self.second_model.rerank(
+        second_recs = self.second_model.rerank(  # type: ignore
             log=first_recs_for_test.withColumnRenamed("relevance", "recs"),
             k=k,
             user_features=user_features,
