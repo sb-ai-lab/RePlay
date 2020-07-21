@@ -65,9 +65,9 @@ class RandomRec(Recommender):
     +--------+-----------+
     |item_idx|probability|
     +--------+-----------+
-    |     2.0|        2.0|
-    |     1.0|        2.0|
-    |     0.0|        3.0|
+    |       2|        2.0|
+    |       1|        2.0|
+    |       0|        3.0|
     +--------+-----------+
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
@@ -89,9 +89,9 @@ class RandomRec(Recommender):
     +--------+-----------+
     |item_idx|probability|
     +--------+-----------+
-    |     2.0|          1|
-    |     1.0|          1|
-    |     0.0|          1|
+    |       2|          1|
+    |       1|          1|
+    |       0|          1|
     +--------+-----------+
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
@@ -217,7 +217,7 @@ class RandomRec(Recommender):
             .agg(sf.countDistinct("item_idx").alias("cnt"))
             .selectExpr(
                 "user_idx AS user_idx",
-                f"(LEAST(cnt + {k}, {model_len}) AS cnt",
+                f"LEAST(cnt + {k}, {model_len}) AS cnt",
             )
             .groupby("user_idx")
             .apply(grouped_map)

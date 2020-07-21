@@ -55,7 +55,7 @@ class SLIM(Recommender):
         )
         similarity = (
             State()
-            .session.createDataFrame(pandas_log.item_idx, st.FloatType())
+            .session.createDataFrame(pandas_log.item_idx, st.IntegerType())
             .withColumnRenamed("value", "item_id_one")
         )
 
