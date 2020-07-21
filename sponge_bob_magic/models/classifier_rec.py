@@ -13,6 +13,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit, udf, when
 from pyspark.sql.types import FloatType
 
+from sponge_bob_magic.constants import AnyDataFrame
 from sponge_bob_magic.converter import convert
 from sponge_bob_magic.models.base_rec import HybridRecommender
 from sponge_bob_magic.utils import func_get, get_top_k_recs
@@ -187,12 +188,12 @@ class ClassifierRec(HybridRecommender):
 
     def rerank(
         self,
-        log: DataFrame,
+        log: AnyDataFrame,
         k: int,
         users: Optional[Union[DataFrame, Iterable]] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
+    ) -> AnyDataFrame:
         """
         Выдача рекомендаций для пользователей.
 
@@ -217,14 +218,14 @@ class ClassifierRec(HybridRecommender):
             ``[user_id, item_id, relevance]``
         """
         type_in = type(log)
-        log, user_features, item_features = convert(
-            log, user_features, item_features
-        )
-        users = self._extract_unique(log, users, "user_id")
-        users = self._convert_index(users)
-        item_features = self._convert_index(item_features)
+        log = convert(log)
+        user_features = convert(user_features)
         user_features = self._convert_index(user_features)
+        item_features = convert(item_features)
+        item_features = self._convert_index(item_features)
+        users = self._convert_index(users)
         log = self._convert_index(log)
+        users = self._extract_unique(log, users, "user_idx")
 
         recs = self._rerank(log, users, user_features, item_features)
         recs = self._convert_back(recs).select(

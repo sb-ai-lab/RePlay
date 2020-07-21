@@ -35,8 +35,6 @@ class Wilson(PopRec):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        log = convert(log)
-
         data_frame = (
             log.groupby("item_idx")
             .agg(
@@ -45,10 +43,10 @@ class Wilson(PopRec):
             )
             .toPandas()
         )
-        pos = np.array(data_frame.pos)
-        total = np.array(data_frame.total)
+        pos = np.array(data_frame["pos"].values)
+        total = np.array(data_frame["total"].values)
         data_frame["relevance"] = proportion_confint(
             pos, total, method="wilson"
         )[0]
         data_frame = data_frame.drop(["pos", "total"], axis=1)
-        self.item_popularity = convert(data_frame).cache()
+        self.item_popularity = convert(data_frame).cache()  # type: ignore

@@ -215,7 +215,8 @@ class DataPreparator:
                 )
         else:
             dataframe = dataframe.withColumn(
-                column_name, sf.to_timestamp(column, format=date_format)
+                column_name,
+                sf.to_timestamp(column, format=date_format),  # type: ignore
             )
         return dataframe
 
@@ -233,7 +234,7 @@ class DataPreparator:
                 sf.col(column).alias(new_name)
                 for new_name, column in columns_names.items()
             ]
-            + features_columns
+            + [sf.col(column) for column in features_columns]
         )
         # добавляем необязательные дефолтные колонки, если они есть,
         # и задаем тип для тех колонок, что есть
@@ -325,7 +326,7 @@ class DataPreparator:
                 optional_columns,
                 required_columns,
             ) = self.feature_columns(
-                columns_names, dataframe, features_columns
+                columns_names, dataframe, features_columns  # type: ignore
             )
 
         self._check_columns(
@@ -334,10 +335,10 @@ class DataPreparator:
             optional_columns=set(optional_columns),
         )
 
-        self._check_dataframe(dataframe, columns_names)
+        self._check_dataframe(dataframe, columns_names)  # type: ignore
 
         dataframe2 = self._rename_columns(
-            dataframe,
+            dataframe,  # type: ignore
             columns_names,
             features_columns,
             default_schema={**required_columns, **optional_columns},

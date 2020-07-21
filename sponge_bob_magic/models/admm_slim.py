@@ -4,6 +4,7 @@
 from typing import Optional, Tuple
 
 import numpy as np
+import scipy as sp
 import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -60,13 +61,16 @@ class ADMMSLIM(Recommender):
         self.logger.debug("Построение модели ADMM SLIM")
         pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
         interactions_matrix = csr_matrix(
-            (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
+            (
+                pandas_log["relevance"],
+                (pandas_log["user_idx"], pandas_log["item_idx"]),
+            ),
             shape=(self.users_count, self.items_count),
         )
         self.logger.debug("Матриица Грама")
         xtx = (interactions_matrix.T @ interactions_matrix).toarray()
         self.logger.debug("Поиск обратной матрицы")
-        inv_matrix = np.linalg.inv(
+        inv_matrix = sp.linalg.inv(
             xtx + (self.lambda_2 + self.rho) * np.eye(self.items_count)
         )
         self.logger.debug("Основной  расчет")
@@ -74,8 +78,8 @@ class ADMMSLIM(Recommender):
         self._mat_b, self._mat_c, self._mat_gamma = self._init_matrix(
             self.items_count
         )
-        r_primal = np.linalg.norm(self._mat_b - self._mat_c)
-        r_dual = np.linalg.norm(self.rho * self._mat_c)
+        r_primal = sp.linalg.norm(self._mat_b - self._mat_c)
+        r_dual = sp.linalg.norm(self.rho * self._mat_c)
         eps_primal, eps_dual = 0.0, 0.0
         iteration = 0
         while (
@@ -129,10 +133,11 @@ class ADMMSLIM(Recommender):
         self, size: int
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Начальная инициализвция матриц"""
-        np.random.seed(self.seed)
-        mat_b = np.random.rand(size, size)
-        mat_c = np.random.rand(size, size)
-        mat_gamma = np.random.rand(size, size)
+        if self.seed is not None:
+            np.random.seed(self.seed)
+        mat_b = np.random.rand(size, size)  # type: ignore
+        mat_c = np.random.rand(size, size)  # type: ignore
+        mat_gamma = np.random.rand(size, size)  # type: ignore
         return mat_b, mat_c, mat_gamma
 
     def _calc_b(
@@ -151,7 +156,9 @@ class ADMMSLIM(Recommender):
         """Вычисление матрицы C"""
         mat_c = mat_b + mat_gamma / self.rho
         coef = self.lambda_1 / self.rho
-        s_k = np.maximum(mat_c - coef, 0.0) - np.maximum(-mat_c - coef, 0.0)
+        s_k = np.maximum(mat_c - coef, np.array([0.0])) - np.maximum(
+            -mat_c - coef, np.array([0.0])
+        )
         return s_k
 
     # pylint: disable=too-many-arguments

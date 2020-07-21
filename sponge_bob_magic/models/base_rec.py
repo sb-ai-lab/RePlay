@@ -10,6 +10,7 @@ from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
+from sponge_bob_magic.constants import AnyDataFrame
 from sponge_bob_magic.converter import convert
 from sponge_bob_magic.session_handler import State
 from sponge_bob_magic.utils import get_top_k_recs
@@ -43,9 +44,9 @@ class BaseRecommender(ABC):
 
     def _fit_wrap(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: AnyDataFrame,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
         force_reindex: bool = True,
     ) -> None:
         """
@@ -64,19 +65,21 @@ class BaseRecommender(ABC):
             индексы, даже если они были созданы ранее
         :return:
         """
-        log, user_features, item_features = convert(
-            log, user_features, item_features
-        )
-
+        log = convert(log)
+        if user_features is not None:
+            user_features = convert(user_features)
+        if item_features is not None:
+            item_features = convert(item_features)
         if "user_indexer" not in self.__dict__ or force_reindex:
             self.logger.debug("Предварительная стадия обучения (pre-fit)")
             self._create_indexers(log, user_features, item_features)
         self.logger.debug("Основная стадия обучения (fit)")
-        self._fit(
-            self._convert_index(log),
-            self._convert_index(user_features),
-            self._convert_index(item_features),
-        )
+        log = self._convert_index(log)
+        if user_features is not None:
+            user_features = self._convert_index(user_features)
+        if item_features is not None:
+            item_features = self._convert_index(item_features)
+        self._fit(log, user_features, item_features)
 
     def _create_indexers(
         self,
@@ -148,12 +151,12 @@ class BaseRecommender(ABC):
     # pylint: disable=too-many-arguments
     def _predict_wrap(
         self,
-        log: DataFrame,
+        log: AnyDataFrame,
         k: int,
-        users: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        items: Optional[Union[AnyDataFrame, Iterable]] = None,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
         """
@@ -186,17 +189,19 @@ class BaseRecommender(ABC):
             ``[user_id, item_id, relevance]``
         """
         type_in = type(log)
-        if issubclass(type_in, pd.DataFrame):
-            utype, itype = log.dtypes.user_id, log.dtypes.item_id
-        log, user_features, item_features = convert(
-            log, user_features, item_features
-        )
+        log = convert(log)
+        if user_features is not None:
+            user_features = convert(user_features)
+        if item_features is not None:
+            item_features = convert(item_features)
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
         users = self._convert_index(users)
         items = self._convert_index(items)
-        item_features = self._convert_index(item_features)
-        user_features = self._convert_index(user_features)
+        if item_features is not None:
+            item_features = self._convert_index(item_features)
+        if user_features is not None:
+            user_features = self._convert_index(user_features)
         log = self._convert_index(log)
 
         num_items = items.count()
@@ -227,14 +232,10 @@ class BaseRecommender(ABC):
             )
         ).cache()
         recs = convert(recs, to_type=type_in)
-        if issubclass(type_in, pd.DataFrame):
-            recs["user_id"] = recs["user_id"].astype(utype)
-            recs["item_id"] = recs["item_id"].astype(itype)
+
         return recs
 
-    def _convert_index(
-        self, data_frame: Optional[DataFrame]
-    ) -> Optional[DataFrame]:
+    def _convert_index(self, data_frame: DataFrame) -> DataFrame:
         """
         Строковые индексы в полях ``user_id``, ``item_id`` заменяются на
         числовые индексы ``user_idx`` и ``item_idx`` соответственно
@@ -242,8 +243,6 @@ class BaseRecommender(ABC):
         :param data_frame: спарк-датафрейм со строковыми индексами
         :return: спарк-датафрейм с числовыми индексами
         """
-        if data_frame is None:
-            return data_frame
         if "user_id" in data_frame.columns:
             self._reindex("user", data_frame)
             data_frame = self.user_indexer.transform(data_frame).drop(
@@ -307,8 +306,8 @@ class BaseRecommender(ABC):
 
     def _extract_unique(
         self,
-        log: DataFrame,
-        array: Union[Iterable, DataFrame, None],
+        log: AnyDataFrame,
+        array: Optional[Union[Iterable, AnyDataFrame]],
         column: str,
     ) -> DataFrame:
         """
@@ -433,12 +432,12 @@ class BaseRecommender(ABC):
 
     def _fit_predict(
         self,
-        log: DataFrame,
+        log: AnyDataFrame,
         k: int,
-        users: Optional[DataFrame] = None,
-        items: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        items: Optional[Union[AnyDataFrame, Iterable]] = None,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
         filter_seen_items: bool = True,
         force_reindex: bool = True,
     ) -> DataFrame:
@@ -460,9 +459,9 @@ class HybridRecommender(BaseRecommender):
 
     def fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: AnyDataFrame,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
         force_reindex: bool = True,
     ) -> None:
         """
@@ -491,12 +490,12 @@ class HybridRecommender(BaseRecommender):
     # pylint: disable=too-many-arguments
     def predict(
         self,
-        log: DataFrame,
+        log: AnyDataFrame,
         k: int,
-        users: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        items: Optional[Union[AnyDataFrame, Iterable]] = None,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
         """
@@ -541,12 +540,12 @@ class HybridRecommender(BaseRecommender):
     # pylint: disable=too-many-arguments
     def fit_predict(
         self,
-        log: DataFrame,
+        log: AnyDataFrame,
         k: int,
-        users: Optional[DataFrame] = None,
-        items: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        items: Optional[Union[AnyDataFrame, Iterable]] = None,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
         filter_seen_items: bool = True,
         force_reindex: bool = True,
     ) -> DataFrame:
@@ -579,15 +578,15 @@ class HybridRecommender(BaseRecommender):
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
-        self.fit(log, user_features, item_features, force_reindex)
-        return self.predict(
-            log,
-            k,
-            users,
-            items,
-            user_features,
-            item_features,
-            filter_seen_items,
+        return self._fit_predict(
+            log=log,
+            k=k,
+            users=users,
+            items=items,
+            user_features=user_features,
+            item_features=item_features,
+            filter_seen_items=filter_seen_items,
+            force_reindex=force_reindex,
         )
 
 
@@ -595,7 +594,7 @@ class HybridRecommender(BaseRecommender):
 class Recommender(BaseRecommender):
     """Обычный рекомендатель"""
 
-    def fit(self, log: DataFrame, force_reindex: bool = True) -> None:
+    def fit(self, log: AnyDataFrame, force_reindex: bool = True) -> None:
         """
         Обучает модель на логе и признаках пользователей и объектов.
 
@@ -616,10 +615,10 @@ class Recommender(BaseRecommender):
     # pylint: disable=too-many-arguments
     def predict(
         self,
-        log: DataFrame,
+        log: AnyDataFrame,
         k: int,
-        users: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        items: Optional[Union[AnyDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
         """
@@ -658,10 +657,10 @@ class Recommender(BaseRecommender):
     # pylint: disable=too-many-arguments
     def fit_predict(
         self,
-        log: DataFrame,
+        log: AnyDataFrame,
         k: int,
-        users: Optional[DataFrame] = None,
-        items: Optional[DataFrame] = None,
+        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        items: Optional[Union[AnyDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         force_reindex: bool = True,
     ) -> DataFrame:
@@ -688,5 +687,13 @@ class Recommender(BaseRecommender):
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
-        self.fit(log, force_reindex)
-        return self.predict(log, k, users, items, filter_seen_items)
+        return self._fit_predict(
+            log=log,
+            k=k,
+            users=users,
+            items=items,
+            user_features=None,
+            item_features=None,
+            filter_seen_items=filter_seen_items,
+            force_reindex=force_reindex,
+        )
