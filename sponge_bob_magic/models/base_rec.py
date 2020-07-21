@@ -307,7 +307,7 @@ class BaseRecommender(ABC):
     def _extract_unique(
         self,
         log: AnyDataFrame,
-        array: Optional[Iterable, AnyDataFrame],
+        array: Optional[Union[Iterable, AnyDataFrame]],
         column: str,
     ) -> DataFrame:
         """

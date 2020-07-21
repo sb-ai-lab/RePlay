@@ -7,6 +7,7 @@ import numpy as np
 from pyspark.ml.linalg import DenseVector, VectorUDT
 from pyspark.sql import Column, DataFrame, Window
 from pyspark.sql.functions import col, element_at, row_number, udf
+from pyspark.sql.types import DoubleType
 from scipy.sparse import csr_matrix
 
 from sponge_bob_magic.constants import NumType
@@ -59,7 +60,7 @@ def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
     )
 
 
-@udf("double")
+@udf(returnType=DoubleType())  # type: ignore
 def vector_dot(one: DenseVector, two: DenseVector) -> float:
     """
     вычисляется скалярное произведение двух колонок-векторов
