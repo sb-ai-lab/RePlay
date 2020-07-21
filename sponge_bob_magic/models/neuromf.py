@@ -389,7 +389,7 @@ class NeuroMF(TorchRecommender):
 
     # pylint: disable=unused-argument
     @staticmethod
-    def _predict_by_user(
+    def _predict_by_user(  # type: ignore
         pandas_df: pd.DataFrame,
         model: nn.Module,
         items_np: np.ndarray,
@@ -414,4 +414,3 @@ class NeuroMF(TorchRecommender):
                     "relevance": user_recs[best_item_idx],
                 }
             )
-        raise Exception()
