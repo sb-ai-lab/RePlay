@@ -55,8 +55,8 @@ class TorchRecommender(Recommender):
         @sf.pandas_udf(
             st.StructType(
                 [
-                    st.StructField("user_idx", st.LongType(), True),
-                    st.StructField("item_idx", st.LongType(), True),
+                    st.StructField("user_idx", st.IntegerType(), True),
+                    st.StructField("item_idx", st.IntegerType(), True),
                     st.StructField("relevance", st.FloatType(), True),
                 ]
             ),
@@ -70,10 +70,7 @@ class TorchRecommender(Recommender):
         self.logger.debug("Предсказание модели")
         recs = (
             users.join(log, how="left", on="user_idx")
-            .selectExpr(
-                "CAST(user_idx AS INT) AS user_idx",
-                "CAST(item_idx AS INT) AS item_idx",
-            )
+            .selectExpr("user_idx AS user_idx", "item_idx AS item_idx",)
             .groupby("user_idx")
             .apply(grouped_map)
         )

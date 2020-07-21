@@ -99,8 +99,8 @@ class PopRec(Recommender):
         @sf.pandas_udf(
             st.StructType(
                 [
-                    st.StructField("user_idx", st.LongType(), True),
-                    st.StructField("item_idx", st.LongType(), True),
+                    st.StructField("user_idx", st.IntegerType(), True),
+                    st.StructField("item_idx", st.IntegerType(), True),
                     st.StructField("relevance", st.DoubleType(), True),
                 ]
             ),
@@ -129,8 +129,8 @@ class PopRec(Recommender):
         )
         recs = (
             recs.selectExpr(
-                "CAST(user_idx AS INT) AS user_idx",
-                f"CAST(LEAST(cnt + {k}, {model_len}) AS INT) AS cnt",
+                "user_idx AS user_idx",
+                f"LEAST(cnt + {k}, {model_len}) AS cnt",
             )
             .groupby("user_idx")
             .apply(grouped_map)

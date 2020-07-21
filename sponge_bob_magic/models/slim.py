@@ -72,7 +72,7 @@ class SLIM(Recommender):
         )
 
         @sf.pandas_udf(
-            "item_id_one float, item_id_two float, similarity double",
+            "item_id_one int, item_id_two int, similarity double",
             sf.PandasUDFType.GROUPED_MAP,
         )
         def slim_row(pandas_df):

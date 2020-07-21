@@ -248,10 +248,16 @@ class BaseRecommender(ABC):
             data_frame = self.user_indexer.transform(data_frame).drop(
                 "user_id"
             )
+            data_frame = data_frame.withColumn(
+                "user_idx", sf.col("user_idx").cast("int")
+            )
         if "item_id" in data_frame.columns:
             self._reindex("item", data_frame)
             data_frame = self.item_indexer.transform(data_frame).drop(
                 "item_id"
+            )
+            data_frame = data_frame.withColumn(
+                "item_idx", sf.col("item_idx").cast("int")
             )
         return data_frame
 
