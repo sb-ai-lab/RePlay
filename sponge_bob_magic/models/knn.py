@@ -43,13 +43,6 @@ class KNN(Recommender):
             спарк-датафрейм вида `[item_id_one, item_id_two, similarity]`
         """
         return (
-            # dot_products
-            # .join(
-            #     items.withColumnRenamed("item_idx", "item_id_one"),
-            #     how="inner", on="item_id_one")
-            # .join(
-            #     items.withColumnRenamed("item_idx", "item_id_two"),
-            #     how="inner", on="item_id_two")
             items.withColumnRenamed("item_idx", "item_id_one")
             .join(
                 items.withColumnRenamed("item_idx", "item_id_two"),
