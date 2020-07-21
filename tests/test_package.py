@@ -3,9 +3,9 @@
 """
 from unittest import TestCase
 
-import sponge_bob_magic
+import replay
 
 
 class TestPackage(TestCase):
     def test_version(self):
-        self.assertIsInstance(sponge_bob_magic.__version__, str)
+        self.assertIsInstance(replay.__version__, str)

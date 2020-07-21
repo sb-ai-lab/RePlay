@@ -9,9 +9,9 @@ from pyspark.sql import functions as sf
 
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.models.word2vec import Word2VecRec
-from sponge_bob_magic.utils import vector_dot
+from replay.constants import LOG_SCHEMA, REC_SCHEMA
+from replay.models.word2vec import Word2VecRec
+from replay.utils import vector_dot
 
 
 class Word2VecRecTestCase(PySparkTest):

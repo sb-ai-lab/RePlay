@@ -10,8 +10,8 @@ import numpy as np
 import torch
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.models.mult_vae import VAE, MultVAE
+from replay.constants import LOG_SCHEMA
+from replay.models.mult_vae import VAE, MultVAE
 
 
 class VAERecTestCase(PySparkTest):

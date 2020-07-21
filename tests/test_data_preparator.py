@@ -10,8 +10,8 @@ from pyspark.sql import functions as sf
 from pyspark.sql.types import StringType, StructType
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.data_preparator import DataPreparator
+from replay.constants import LOG_SCHEMA
+from replay.data_preparator import DataPreparator
 
 
 class DataPreparatorTest(PySparkTest):

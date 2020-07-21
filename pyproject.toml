@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "sponge-bob-magic"
-version = "0.1.0"
+name = "replay"
+version = "0.2.0"
 description = "Библиотека рекомендательных систем"
 authors = ["Шминке Борис <Shminke.B.A@sberbank.ru>",
            "Васильев Алексей <AVaVasilyev@sberbank.ru>",
@@ -21,10 +21,7 @@ classifiers = [
     "Typing :: Typed"
 ]
 
-[[tool.poetry.source]]
-name = "private-pypi"
-url = "http://mirror.sigma.sbrf.ru/pypi/simple/"
-default = true
+
 
 [tool.poetry.dependencies]
 python = "^3.6.1"

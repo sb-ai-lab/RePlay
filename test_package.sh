@@ -2,7 +2,7 @@
 
 export OPENBLAS_NUM_THREADS=1
 set -e
-PACKAGE_NAME=sponge_bob_magic
+PACKAGE_NAME=replay
 source ./venv/bin/activate
 cd docs
 mkdir -p _static

@@ -8,14 +8,14 @@ import numpy
 from parameterized import parameterized
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.splitters.log_splitter import (
+from replay.constants import LOG_SCHEMA
+from replay.splitters.log_splitter import (
     ColdUserByDateSplitter,
     ColdUserRandomSplitter,
     DateSplitter,
     RandomSplitter,
 )
-from sponge_bob_magic.utils import get_distinct_values_in_column
+from replay.utils import get_distinct_values_in_column
 
 
 class TestLogSplitByDateSplitter(PySparkTest):

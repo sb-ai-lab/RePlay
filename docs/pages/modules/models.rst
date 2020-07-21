@@ -1,9 +1,9 @@
 Модели
 =======
 
-.. automodule:: sponge_bob_magic.models
+.. automodule:: replay.models
 
-.. autoclass:: sponge_bob_magic.models.Recommender
+.. autoclass:: replay.models.Recommender
     :members:
 
 .. _pop-rec:
@@ -11,7 +11,7 @@
 Popular Recommender
 --------------------
 
-.. autoclass:: sponge_bob_magic.models.PopRec
+.. autoclass:: replay.models.PopRec
 
 Wilson Recommender
 -------------------
@@ -28,12 +28,12 @@ Wilson Recommender
 
 :math:`z_{\alpha}` 1-альфа квантиль нормального распределения.
 
-.. autoclass:: sponge_bob_magic.models.Wilson
+.. autoclass:: replay.models.Wilson
 
 Random Recommender
 ------------------
 
-.. autoclass:: sponge_bob_magic.models.RandomRec
+.. autoclass:: replay.models.RandomRec
    :special-members: __init__
 
 .. _knn-model:
@@ -41,13 +41,13 @@ Random Recommender
 K Nearest Neighbours
 ----------------------
 
-.. autoclass:: sponge_bob_magic.models.KNN
+.. autoclass:: replay.models.KNN
     :special-members: __init__
 
 Classifier Recommender
 ----------------------
 
-..  autoclass:: sponge_bob_magic.models.ClassifierRec
+..  autoclass:: replay.models.ClassifierRec
     :special-members: __init__
 
 .. _als-rec:
@@ -55,13 +55,13 @@ Classifier Recommender
 Alternating Least Squares
 ---------------------------
 
-.. autoclass:: sponge_bob_magic.models.ALSWrap
+.. autoclass:: replay.models.ALSWrap
     :special-members: __init__
 
 Neural Matrix Factorization
 -----------------------------
 
-.. autoclass:: sponge_bob_magic.models.NeuroMF
+.. autoclass:: replay.models.NeuroMF
     :special-members: __init__
 
 SLIM
@@ -94,25 +94,25 @@ SLIM Recommender основан на обучении матрицы близо�
 кроме этого :math:`w_{ij}\ge 0`
 
 
-.. autoclass:: sponge_bob_magic.models.SLIM
+.. autoclass:: replay.models.SLIM
     :special-members: __init__
 
 ADMM SLIM
 ----------
 
-.. autoclass:: sponge_bob_magic.models.ADMMSLIM
+.. autoclass:: replay.models.ADMMSLIM
     :special-members: __init__
 
 LightFM
 -----------
 
-.. autoclass:: sponge_bob_magic.models.LightFMWrap
+.. autoclass:: replay.models.LightFMWrap
     :special-members: __init__
 
 implicit
 ---------
 
-.. autoclass:: sponge_bob_magic.models.ImplicitWrap
+.. autoclass:: replay.models.ImplicitWrap
     :special-members: __init__
 
 
@@ -232,11 +232,11 @@ Mult-VAE
 DAE (шумоподавляющий автокодировщик)
 
 
-.. autoclass:: sponge_bob_magic.models.MultVAE
+.. autoclass:: replay.models.MultVAE
     :special-members: __init__
 
 Word2Vec Recommender
 --------------------
 
-.. autoclass:: sponge_bob_magic.models.Word2VecRec
+.. autoclass:: replay.models.Word2VecRec
     :special-members: __init__

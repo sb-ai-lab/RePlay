@@ -7,7 +7,7 @@ from pyspark.ml.classification import RandomForestClassifier
 from pyspark.ml.linalg import Vectors
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.models.classifier_rec import ClassifierRec
+from replay.models.classifier_rec import ClassifierRec
 
 
 class ClassifierRecTestCase(PySparkTest):

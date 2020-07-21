@@ -1,6 +1,6 @@
 Сравнение результатов
 ======================
 
-.. autoclass:: sponge_bob_magic.experiment.Experiment
+.. autoclass:: replay.experiment.Experiment
    :members:
    :special-members: __init__

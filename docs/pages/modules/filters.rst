@@ -1,5 +1,5 @@
 Фильтры
 ======================
 
-.. automodule:: sponge_bob_magic.filters
+.. automodule:: replay.filters
     :members:
