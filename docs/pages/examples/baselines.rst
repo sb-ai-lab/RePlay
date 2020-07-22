@@ -23,10 +23,9 @@
    train, test = splitter.split(data)
 
    e = Experiment(test,
-                  [NDCG(), HitRate(), Coverage(data), MAP(), MRR(),
-                   Precision(), Recall(), RocAuc(), Surprisal(data),
-                   Unexpectedness(data, RandomPop(data, seed))],
-                  k
+                  {NDCG(): k, HitRate(): k, Coverage(data): k, MAP(): k, MRR(): k,
+                   Precision(): k, Recall(): k, RocAuc(): k, Surprisal(data): k,
+                   Unexpectedness(data, RandomPop(data, seed)): k}
                   )
 
    model = EASE()
