@@ -215,10 +215,7 @@ class RandomRec(Recommender):
             .select("user_idx", "item_idx")
             .groupby("user_idx")
             .agg(sf.countDistinct("item_idx").alias("cnt"))
-            .selectExpr(
-                "user_idx AS user_idx",
-                f"LEAST(cnt + {k}, {model_len}) AS cnt",
-            )
+            .selectExpr("user_idx", f"LEAST(cnt + {k}, {model_len}) AS cnt",)
             .groupby("user_idx")
             .apply(grouped_map)
         )

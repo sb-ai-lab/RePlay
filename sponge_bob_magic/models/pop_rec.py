@@ -129,8 +129,7 @@ class PopRec(Recommender):
         )
         recs = (
             recs.selectExpr(
-                "user_idx AS user_idx",
-                f"LEAST(cnt + {k}, {model_len}) AS cnt",
+                "user_idx", f"LEAST(cnt + {k}, {model_len}) AS cnt",
             )
             .groupby("user_idx")
             .apply(grouped_map)
