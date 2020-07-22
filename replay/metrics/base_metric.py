@@ -32,14 +32,14 @@ class Metric(ABC):
     ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида
-            ``[user_id, item_id, relevance]``
+            спарк-датарейм вида ``[user_id, item_id, relevance]``
+
         :param ground_truth: реальный лог действий пользователей,
-            спарк-датафрейм вида
-            ``[user_id, item_id, timestamp, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
+
         :param k: список индексов, показывающий какое максимальное количество
-        объектов брать из топа
-            рекомендованных для оценки
+            объектов брать из топа рекомендованных для оценки
+
         :return: значение метрики
         """
         return self.mean(recommendations, ground_truth, k)
@@ -52,15 +52,18 @@ class Metric(ABC):
         alpha: float = 0.95,
     ) -> Union[Dict[int, NumType], NumType]:
         """Функция возвращает половину ширины доверительного интервала
+
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида
-            ``[user_id, item_id, relevance]``
+            спарк-датарейм вида ``[user_id, item_id, relevance]``
+
         :param ground_truth: реальный лог действий пользователей,
-            спарк-датафрейм вида
-            ``[user_id, item_id, timestamp, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
+
         :param k: список индексов, показывающий какое максимальное количество
             объектов брать из топа рекомендованных для оценки
+
         :param alpha: квантиль нормального распределения
+
         :return: половина ширины доверительного интервала
         """
         distribution = self._get_metric_distribution(
@@ -97,14 +100,16 @@ class Metric(ABC):
         k: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
         """Функция возвращает медиану метрики
+
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида
-            ``[user_id, item_id, relevance]``
+            спарк-датарейм вида ``[user_id, item_id, relevance]``
+
         :param ground_truth: реальный лог действий пользователей,
-            спарк-датафрейм вида
-            ``[user_id, item_id, timestamp, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
+
         :param k: список индексов, показывающий какое максимальное
             количество объектов брать из топа рекомендованных для оценки
+
         :return: значение медианы
         """
         distribution = self._get_metric_distribution(
@@ -137,14 +142,16 @@ class Metric(ABC):
         k: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
         """Функция возвращает среднее значение метрики
+
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида
-            ``[user_id, item_id, relevance]``
+            спарк-датарейм вида  ``[user_id, item_id, relevance]``
+
         :param ground_truth: реальный лог действий пользователей,
-            спарк-датафрейм вида
-            ``[user_id, item_id, timestamp, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
+
         :param k: список индексов, показывающий какое максимальное
             количество объектов брать из топа рекомендованных для оценки
+
         :return: среднее значение
         """
         distribution = self._get_metric_distribution(
@@ -164,16 +171,15 @@ class Metric(ABC):
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
         """
-        Обогащение рекомендаций дополнительной информацией. По умолчанию к
-        рекомендациям добавляется
-        столбец, содержащий множество элементов, с которыми взаимодействовал
-        пользователь
+        Обогащение рекомендаций дополнительной информацией.
+        По умолчанию к рекомендациям добавляется столбец,
+        содержащий множество элементов,
+        с которыми взаимодействовал пользователь
 
         :param recommendations: рекомендации
         :param ground_truth: лог тестовых действий
         :return: рекомендации обогащенные дополнительной информацией
-            спарк-датафрейм вида
-            ``[user_id, item_id, relevance, *columns]``
+            спарк-датафрейм вида ``[user_id, item_id, relevance, *columns]``
         """
         true_items_by_users = ground_truth.groupby("user_id").agg(
             sf.collect_set("item_id").alias("items_id")
@@ -306,14 +312,14 @@ class RecOnlyMetric(Metric):
     ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида
-            ``[user_id, item_id, relevance]``
+            спарк-датарейм вида ``[user_id, item_id, relevance]``
+
         :param ground_truth: реальный лог действий пользователей,
-            спарк-датафрейм вида
-            ``[user_id, item_id, timestamp, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
+
         :param k: список индексов, показывающий какое максимальное количество
-        объектов брать из топа
-            рекомендованных для оценки
+        объектов брать из топа рекомендованных для оценки
+
         :return: значение метрики
         """
         recommendations_spark = convert(recommendations)
