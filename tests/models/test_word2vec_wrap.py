@@ -41,12 +41,7 @@ class Word2VecRecTestCase(PySparkTest):
         ).toPandas()
         self.assertTrue(
             np.allclose(
-                vectors,
-                [
-                    [0.0, 0.02702145034018799],
-                    [1.0, 0.082499129706437915],
-                    [2.0, 0.004449343772463588],
-                ],
+                vectors, [[0, 0.027045], [2, 0.082475], [1, 0.004450]],
             )
         )
 
@@ -59,9 +54,9 @@ class Word2VecRecTestCase(PySparkTest):
         )
         true_recs = self.spark.createDataFrame(
             [
-                ["u1", "i3", 0.9882050740500347],
-                ["u2", "i4", 1.0016612213887008],
-                ["u3", "i1", 0.9898267731314592],
+                ["u1", "i3", 0.9882012036309402],
+                ["u2", "i4", 0.9943091407456173],
+                ["u3", "i1", 0.9996238384114542],
             ],
             schema=REC_SCHEMA,
         )

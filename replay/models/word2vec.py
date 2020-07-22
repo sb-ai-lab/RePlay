@@ -84,7 +84,7 @@ class Word2VecRec(Recommender):
         self.vectors = (
             word_2_vec.fit(log_by_users)
             .getVectors()
-            .select(sf.col("word").cast("float").alias("item"), "vector")
+            .select(sf.col("word").cast("int").alias("item"), "vector")
             .cache()
         )
 

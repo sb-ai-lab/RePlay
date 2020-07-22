@@ -65,9 +65,9 @@ class RandomRec(Recommender):
     +--------+-----------+
     |item_idx|probability|
     +--------+-----------+
-    |     2.0|        2.0|
-    |     1.0|        2.0|
-    |     0.0|        3.0|
+    |       2|        2.0|
+    |       1|        2.0|
+    |       0|        3.0|
     +--------+-----------+
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
@@ -89,9 +89,9 @@ class RandomRec(Recommender):
     +--------+-----------+
     |item_idx|probability|
     +--------+-----------+
-    |     2.0|          1|
-    |     1.0|          1|
-    |     0.0|          1|
+    |       2|          1|
+    |       1|          1|
+    |       0|          1|
     +--------+-----------+
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
@@ -182,8 +182,8 @@ class RandomRec(Recommender):
         @sf.pandas_udf(
             st.StructType(
                 [
-                    st.StructField("user_idx", st.LongType(), True),
-                    st.StructField("item_idx", st.LongType(), True),
+                    st.StructField("user_idx", st.IntegerType(), True),
+                    st.StructField("item_idx", st.IntegerType(), True),
                     st.StructField("relevance", st.FloatType(), True),
                 ]
             ),
@@ -215,10 +215,7 @@ class RandomRec(Recommender):
             .select("user_idx", "item_idx")
             .groupby("user_idx")
             .agg(sf.countDistinct("item_idx").alias("cnt"))
-            .selectExpr(
-                "CAST(user_idx AS INT) AS user_idx",
-                f"CAST(LEAST(cnt + {k}, {model_len}) AS INT) AS cnt",
-            )
+            .selectExpr("user_idx", f"LEAST(cnt + {k}, {model_len}) AS cnt",)
             .groupby("user_idx")
             .apply(grouped_map)
         )
