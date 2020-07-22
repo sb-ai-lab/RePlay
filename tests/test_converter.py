@@ -1,7 +1,7 @@
 import pandas as pd
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.converter import convert
+from replay.converter import convert
 
 
 class TestConverter(PySparkTest):

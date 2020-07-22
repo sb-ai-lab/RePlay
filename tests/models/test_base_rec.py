@@ -8,7 +8,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.models.base_rec import Recommender
+from replay.models.base_rec import Recommender
 
 
 class RecTestCase(PySparkTest):

@@ -9,8 +9,8 @@ import numpy as np
 import torch
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.models.neuromf import NMF, NeuroMF
+from replay.constants import LOG_SCHEMA
+from replay.models.neuromf import NMF, NeuroMF
 
 
 class NeuroCFRecTestCase(PySparkTest):

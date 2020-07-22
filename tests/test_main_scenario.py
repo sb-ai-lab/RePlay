@@ -5,12 +5,12 @@ from datetime import datetime
 
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import REC_SCHEMA
-from sponge_bob_magic.metrics import NDCG, HitRate, Precision, Surprisal
-from sponge_bob_magic.models.knn import KNN
-from sponge_bob_magic.models.pop_rec import PopRec
-from sponge_bob_magic.scenarios.main_scenario import MainScenario
-from sponge_bob_magic.splitters.log_splitter import DateSplitter
+from replay.constants import REC_SCHEMA
+from replay.metrics import NDCG, HitRate, Precision, Surprisal
+from replay.models.knn import KNN
+from replay.models.pop_rec import PopRec
+from replay.scenarios.main_scenario import MainScenario
+from replay.splitters.log_splitter import DateSplitter
 
 
 class MainScenarioTestCase(PySparkTest):

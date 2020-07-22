@@ -1,13 +1,13 @@
 # type: ignore
 # pylint: disable-all
-from sponge_bob_magic.metrics import *
-from sponge_bob_magic.models import *
+from replay.metrics import *
+from replay.models import *
 from rs_datasets import MovieLens
 from datetime import datetime
 
-from sponge_bob_magic.models import PopRec
-from sponge_bob_magic.splitters import UserSplitter
-from sponge_bob_magic.experiment import Experiment
+from replay.models import PopRec
+from replay.splitters import UserSplitter
+from replay.experiment import Experiment
 
 from implicit.als import AlternatingLeastSquares
 from implicit.bpr import BayesianPersonalizedRanking

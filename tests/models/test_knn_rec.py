@@ -4,11 +4,11 @@
 # pylint: disable-all
 from datetime import datetime
 
-from pyspark.sql.types import DoubleType, StructField, StructType
+from pyspark.sql.types import DoubleType, StructField, StructType, IntegerType
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.models.knn import KNN
+from replay.constants import LOG_SCHEMA, REC_SCHEMA
+from replay.models.knn import KNN
 
 
 class KNNRecTestCase(PySparkTest):
@@ -33,8 +33,8 @@ class KNNRecTestCase(PySparkTest):
                 [(1.0, 0.0, 0.5), (0.0, 1.0, 0.5),],
                 schema=StructType(
                     [
-                        StructField("item_id_one", DoubleType()),
-                        StructField("item_id_two", DoubleType()),
+                        StructField("item_id_one", IntegerType()),
+                        StructField("item_id_two", IntegerType()),
                         StructField("similarity", DoubleType()),
                     ]
                 ),

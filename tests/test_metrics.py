@@ -7,8 +7,8 @@ from math import log2
 import pandas as pd
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.metrics import (
+from replay.constants import LOG_SCHEMA, REC_SCHEMA
+from replay.metrics import (
     MAP,
     NDCG,
     Coverage,
@@ -17,7 +17,7 @@ from sponge_bob_magic.metrics import (
     Recall,
     Surprisal,
 )
-from sponge_bob_magic.metrics.base_metric import Metric
+from replay.metrics.base_metric import Metric
 
 
 class TestMetrics(PySparkTest):

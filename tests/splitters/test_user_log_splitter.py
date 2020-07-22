@@ -6,8 +6,8 @@ from datetime import datetime
 from parameterized import parameterized
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.splitters.user_log_splitter import UserSplitter
+from replay.constants import LOG_SCHEMA
+from replay.splitters.user_log_splitter import UserSplitter
 
 
 class TestUserLogSplitter(PySparkTest):

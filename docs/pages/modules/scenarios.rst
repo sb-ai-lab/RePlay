@@ -1,20 +1,20 @@
 Сценарии
 ==========
-.. automodule:: sponge_bob_magic.scenarios
+.. automodule:: replay.scenarios
 
 Основной сценарий
 -----------------
-.. autoclass:: sponge_bob_magic.scenarios.MainScenario
+.. autoclass:: replay.scenarios.MainScenario
    :special-members: __init__
    :members:
 
 Двухуровневый сценарий
 ----------------------
-.. autoclass:: sponge_bob_magic.scenarios.TwoStagesScenario
+.. autoclass:: replay.scenarios.TwoStagesScenario
    :special-members: __init__
    :members: get_recs
 
 Интеграция с `optuna`
 ----------------------
-.. autoclass:: sponge_bob_magic.scenarios.MainObjective
+.. autoclass:: replay.scenarios.MainObjective
    :special-members: __call__
