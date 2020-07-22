@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from pyspark.ml.linalg import DenseVector
 from pyspark.sql import DataFrame, SparkSession
-from replay.session_handler import State
+from replay.session_handler import get_spark_session
 
 
 class PySparkTest(unittest.TestCase):
