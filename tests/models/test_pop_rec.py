@@ -5,7 +5,7 @@
 from parameterized import parameterized
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.models.pop_rec import PopRec
+from replay.models.pop_rec import PopRec
 
 
 class PopRecTestCase(PySparkTest):

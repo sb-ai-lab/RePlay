@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from pyspark.ml.linalg import DenseVector
 from pyspark.sql import DataFrame, SparkSession
-from sponge_bob_magic.session_handler import State
+from replay.session_handler import State
 
 
 class PySparkTest(unittest.TestCase):
@@ -62,7 +62,7 @@ class PySparkTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         multiprocessing.set_start_method("spawn", force=True)
-        logger = logging.getLogger("sponge_bob_magic")
+        logger = logging.getLogger("replay")
         logger.setLevel("WARN")
         warnings.filterwarnings(action="ignore", category=ResourceWarning)
         cls.spark = State().session

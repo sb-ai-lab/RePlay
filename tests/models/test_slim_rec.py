@@ -7,8 +7,8 @@ from datetime import datetime
 from pyspark.sql.types import DoubleType, FloatType, StructField, StructType
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.models.slim import SLIM
+from replay.constants import LOG_SCHEMA, REC_SCHEMA
+from replay.models.slim import SLIM
 
 
 class SlimRecTestCase(PySparkTest):

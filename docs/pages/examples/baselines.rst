@@ -9,11 +9,11 @@
 
    from rs_datasets import MovieLens
 
-   from sponge_bob_magic.metrics import *
-   from sponge_bob_magic.models.ease import EASE
-   from sponge_bob_magic.models import RandomPop
-   from sponge_bob_magic.splitters import UserSplitter
-   from sponge_bob_magic.experiment import Experiment
+   from replay.metrics import *
+   from replay.models.ease import EASE
+   from replay.models import RandomPop
+   from replay.splitters import UserSplitter
+   from replay.experiment import Experiment
 
    seed = 1337
    k = [10, 20, 50]

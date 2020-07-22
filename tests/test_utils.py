@@ -6,8 +6,8 @@ import numpy as np
 from pyspark.sql import SparkSession
 from tests.pyspark_testcase import PySparkTest
 
-import sponge_bob_magic.session_handler
-from sponge_bob_magic import utils
+import replay.session_handler
+from replay import utils
 
 
 class UtilsTestCase(PySparkTest):
@@ -16,7 +16,7 @@ class UtilsTestCase(PySparkTest):
         self.assertEqual(utils.func_get(vector, 0), 0.0)
 
     def test_get_spark_session(self):
-        spark = sponge_bob_magic.session_handler.get_spark_session(1)
+        spark = replay.session_handler.get_spark_session(1)
         self.assertIsInstance(spark, SparkSession)
         self.assertEqual(spark.conf.get("spark.driver.memory"), "512m")
         self.assertEqual(spark.conf.get("spark.sql.shuffle.partitions"), "1")

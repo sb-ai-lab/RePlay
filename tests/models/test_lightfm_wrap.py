@@ -7,8 +7,8 @@ from datetime import datetime
 import numpy as np
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import LOG_SCHEMA, REC_SCHEMA
-from sponge_bob_magic.models.lightfm_wrap import LightFMWrap
+from replay.constants import LOG_SCHEMA, REC_SCHEMA
+from replay.models.lightfm_wrap import LightFMWrap
 
 
 class LightFMWrapTestCase(PySparkTest):

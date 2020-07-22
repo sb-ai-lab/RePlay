@@ -1,6 +1,6 @@
 import unittest
 
-from sponge_bob_magic.session_handler import State, get_spark_session
+from replay.session_handler import State, get_spark_session
 
 
 class TestConverter(unittest.TestCase):

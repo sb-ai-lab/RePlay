@@ -7,8 +7,8 @@ from datetime import datetime
 import numpy as np
 from tests.pyspark_testcase import PySparkTest
 
-from sponge_bob_magic.constants import LOG_SCHEMA
-from sponge_bob_magic.models.als import ALSWrap
+from replay.constants import LOG_SCHEMA
+from replay.models.als import ALSWrap
 
 
 class ALSRecTestCase(PySparkTest):

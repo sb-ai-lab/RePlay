@@ -2,51 +2,51 @@
 
 Метрики
 =======
-.. automodule:: sponge_bob_magic.metrics
+.. automodule:: replay.metrics
 
 .. _hit-rate:
 
 HitRate
 --------
-.. autoclass:: sponge_bob_magic.metrics.HitRate
+.. autoclass:: replay.metrics.HitRate
 
 Precision
 ---------
-.. autoclass:: sponge_bob_magic.metrics.Precision
+.. autoclass:: replay.metrics.Precision
 
 MAP
 ---
-.. autoclass:: sponge_bob_magic.metrics.MAP
+.. autoclass:: replay.metrics.MAP
 
 Recall
 ------
-.. autoclass:: sponge_bob_magic.metrics.Recall
+.. autoclass:: replay.metrics.Recall
 
 ROC-AUC
 -------
-.. autoclass:: sponge_bob_magic.metrics.RocAuc
+.. autoclass:: replay.metrics.RocAuc
 
 MRR
 ----
-.. autoclass:: sponge_bob_magic.metrics.MRR
+.. autoclass:: replay.metrics.MRR
 
 NDCG
 -----
-.. autoclass:: sponge_bob_magic.metrics.NDCG
+.. autoclass:: replay.metrics.NDCG
 
 Surprisal
 ----------
-.. autoclass:: sponge_bob_magic.metrics.Surprisal
+.. autoclass:: replay.metrics.Surprisal
    :special-members: __init__
 
 Unexpectedness
 ---------------
-.. autoclass:: sponge_bob_magic.metrics.Unexpectedness
+.. autoclass:: replay.metrics.Unexpectedness
    :special-members: __init__
 
 Coverage
 ---------
-.. autoclass:: sponge_bob_magic.metrics.Coverage
+.. autoclass:: replay.metrics.Coverage
    :special-members: __init__
 
 .. _new-metric:
@@ -62,5 +62,5 @@ Coverage
 ``_get_enriched_recommendations`` уже реализован, и его стоит переопределять только в случае необходимости.
 Последний метод необходимо реализовать для всех метрик, так как в нём происходит основное вычисление метрики.
 
-.. autoclass:: sponge_bob_magic.metrics.base_metric.Metric
+.. autoclass:: replay.metrics.base_metric.Metric
    :special-members: _get_enriched_recommendations, _get_metric_value_by_user
