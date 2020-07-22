@@ -51,6 +51,8 @@ Coverage
 
 .. _new-metric:
 
+----------------------
+
 Своя метрика
 ----------------------
 Для добавления необходимо унаследоваться от класса ``Metric`` и реализовать/переопределить следующие методы
@@ -64,3 +66,5 @@ Coverage
 
 .. autoclass:: replay.metrics.base_metric.Metric
    :special-members: _get_enriched_recommendations, _get_metric_value_by_user
+
+.. autoclass:: replay.metrics.base_metric.RecOnlyMetric
