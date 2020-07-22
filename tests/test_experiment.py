@@ -1,3 +1,7 @@
+"""
+Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
+"""
+# pylint: disable-all
 import pandas as pd
 from tests.pyspark_testcase import PySparkTest
 
@@ -13,7 +17,3 @@ class TestConverter(PySparkTest):
     def runTest(self):
         with self.assertRaises(TypeError):
             experiment.Experiment(self.data_frame, "ᕕ( ᐛ )ᕗ")
-
-    def test_separate_k(self):
-        e = experiment.Experiment(self.data_frame, [1, 2, 3], 3)
-        self.assertEquals(list(e.metrics.values()), [3, 3, 3])

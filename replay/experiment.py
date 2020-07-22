@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 import pandas as pd
 
@@ -58,8 +58,7 @@ class Experiment:
     def __init__(
         self,
         test: Any,
-        metrics: Union[Dict[Metric, IntOrList], List[Metric]],
-        k: Optional[IntOrList] = None,
+        metrics: Dict[Metric, IntOrList],
         calc_median: bool = False,
         calc_conf_interval: Optional[float] = None,
     ):
@@ -68,19 +67,17 @@ class Experiment:
         :param metrics: Словарь метрик, которые необходимо считать.
             Ключ -- метрика, значение -- ``int`` или список интов, обозначающих ``k``,
             для которых необходимо посчитать метрику.
-        :param k: ``int`` или список интов, обозначающих ``k``,
-            для которых необходимо посчитать метрику.
-            Если указан, то параметр ``metrics`` должен быть списком.
+        :param calc_median: Параметр указывает на необходимость расчёта
+            медианы по всем метрикам
+        :param calc_conf_interval: Квантиль доверительного интервала,
+            который необходимо расчитать по всем метрикам. В результирующую
+            таблицу бедут добавлена половина величины соответствующего
+            доверительного интервала. В случае пустого значения
+            параметра доверительные интервалы считаться не будут.
         """
         self.test = convert(test)
         self.results = pd.DataFrame()
-        if k is not None:
-            if isinstance(k, int):
-                k = [k] * len(metrics)
-            self.metrics = dict(zip(metrics, k))
-        else:
-            self.metrics = metrics  # type: ignore
-
+        self.metrics = metrics
         self.calc_median = calc_median
         self.calc_conf_interval = calc_conf_interval
 
