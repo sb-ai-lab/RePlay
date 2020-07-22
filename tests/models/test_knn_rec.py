@@ -30,7 +30,7 @@ class KNNRecTestCase(PySparkTest):
         self.assertSparkDataFrameEqual(
             self.model.similarity,
             self.spark.createDataFrame(
-                [(1.0, 0.0, 0.5), (0.0, 1.0, 0.5),],
+                [(1.0, 0.0, 0.5), (0.0, 1.0, 0.5)],
                 schema=StructType(
                     [
                         StructField("item_id_one", IntegerType()),
@@ -47,6 +47,6 @@ class KNNRecTestCase(PySparkTest):
         self.assertSparkDataFrameEqual(
             recs,
             self.spark.createDataFrame(
-                [["u1", "i2", 0.5], ["u2", "i1", 0.5],], schema=REC_SCHEMA,
+                [["u1", "i2", 0.5], ["u2", "i1", 0.5],], schema=REC_SCHEMA
             ),
         )
