@@ -47,6 +47,6 @@ class KNNRecTestCase(PySparkTest):
         self.assertSparkDataFrameEqual(
             recs,
             self.spark.createDataFrame(
-                [["u1", "i2", 0.5], ["u2", "i1", 0.5],], schema=REC_SCHEMA
+                [["u1", "i2", 0.5], ["u2", "i1", 0.5]], schema=REC_SCHEMA
             ),
         )
