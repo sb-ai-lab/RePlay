@@ -149,6 +149,7 @@ class ClassifierRec(HybridRecommender):
         recs = self.model.transform(data).select(
             "user_idx",
             "item_idx",
+            # pylint: disable=redundant-keyword-arg
             udf(func_get, FloatType())("probability", lit(1)).alias(
                 "relevance"
             ),
@@ -179,6 +180,7 @@ class ClassifierRec(HybridRecommender):
         recs = self.model.transform(data).select(
             "user_idx",
             "item_idx",
+            # pylint: disable=redundant-keyword-arg
             udf(func_get, FloatType())("probability", lit(1)).alias(
                 "relevance"
             ),
