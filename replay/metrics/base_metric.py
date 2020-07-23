@@ -76,8 +76,8 @@ class Metric(ABC):
                 sf.count("cum_agg").alias("count"),
             )
             .select(
-                sf.when(sf.isnan("std"), sf.lit(0.0))
-                .otherwise("std")
+                sf.when(sf.isnan(sf.col("std")), sf.lit(0.0))
+                .otherwise(sf.col("std"))
                 .cast("float")
                 .alias("std"),
                 "count",
