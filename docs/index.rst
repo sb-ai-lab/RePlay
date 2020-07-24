@@ -10,7 +10,6 @@ replay позволяет быстро сравнить свою модель с
 
    pages/installation
    pages/spark
-   pages/logger
    pages/usage
    pages/modules
 
