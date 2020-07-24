@@ -6,10 +6,7 @@ from typing import Optional, Union
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
 
-from replay.splitters.base_splitter import (
-    Splitter,
-    SplitterReturnType,
-)
+from replay.splitters.base_splitter import Splitter, SplitterReturnType
 
 
 # pylint: disable=too-few-public-methods
@@ -177,7 +174,7 @@ class UserSplitter(Splitter):
         )
         if self.shuffle:
             res = self._add_random_partition(
-                log.join(test_users, how="left", on="user_id"), self.seed
+                log.join(test_users, how="left", on="user_id")
             )
         else:
             res = self._add_time_partition(
@@ -220,7 +217,7 @@ class UserSplitter(Splitter):
         )
         if self.shuffle:
             res = self._add_random_partition(
-                log.join(test_users, how="left", on="user_id"), self.seed
+                log.join(test_users, how="left", on="user_id")
             )
         else:
             res = self._add_time_partition(
@@ -254,10 +251,7 @@ class UserSplitter(Splitter):
 
         return train, test
 
-    @staticmethod
-    def _add_random_partition(
-        dataframe: DataFrame, seed: int = None
-    ) -> DataFrame:
+    def _add_random_partition(self, dataframe: DataFrame) -> DataFrame:
         """
         Добавляет в датафрейм колонку случайных чисел `rand` и колонку
         порядкового номера пользователя `row_num` на основе этого случайного
@@ -266,7 +260,7 @@ class UserSplitter(Splitter):
         :param dataframe: спарк-датафрейм с обязательной колонкой `user_id`
         :returns: датафрейм с добавленными колонками
         """
-        dataframe = dataframe.withColumn("rand", sf.rand(seed))
+        dataframe = dataframe.withColumn("rand", sf.rand(self.seed))
         dataframe = dataframe.withColumn(
             "row_num",
             sf.row_number().over(
