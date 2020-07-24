@@ -192,7 +192,7 @@ class ClassifierRec(HybridRecommender):
         users: Optional[Union[DataFrame, Iterable]] = None,
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
-    ) -> AnyDataFrame:
+    ) -> DataFrame:
         """
         Выдача рекомендаций для пользователей.
 
