@@ -9,6 +9,8 @@ replay позволяет быстро сравнить свою модель с
    :caption: Contents:
 
    pages/installation
+   pages/spark
+   pages/logger
    pages/usage
    pages/modules
 
