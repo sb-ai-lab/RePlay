@@ -38,15 +38,15 @@ class PopRec(Recommender):
     3        2        3
     4        3        3
 
-    >>> from replay.converter import convert
-    >>> res = PopRec().fit_predict(convert(data_frame), 1)
+    >>> from replay.utils import convert2spark
+    >>> res = PopRec().fit_predict(convert2spark(data_frame), 1)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
       user_id item_id  relevance
     0       1       3   0.666667
     1       2       1   0.333333
     2       3       1   0.333333
 
-    >>> res = PopRec().fit_predict(convert(data_frame), 1, filter_seen_items=False)
+    >>> res = PopRec().fit_predict(convert2spark(data_frame), 1, filter_seen_items=False)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
       user_id item_id  relevance
     0       1       3   0.666667

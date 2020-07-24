@@ -14,9 +14,8 @@ from pyspark.sql.functions import col, lit, udf, when
 from pyspark.sql.types import FloatType
 
 from replay.constants import AnyDataFrame
-from replay.converter import convert
 from replay.models.base_rec import HybridRecommender
-from replay.utils import func_get, get_top_k_recs
+from replay.utils import func_get, get_top_k_recs, convert2spark
 
 
 class ClassifierRec(HybridRecommender):
@@ -217,11 +216,10 @@ class ClassifierRec(HybridRecommender):
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
-        type_in = type(log)
-        log = convert(log)
-        user_features = convert(user_features)
+        log = convert2spark(log)
+        user_features = convert2spark(user_features)
         user_features = self._convert_index(user_features)
-        item_features = convert(item_features)
+        item_features = convert2spark(item_features)
         item_features = self._convert_index(item_features)
         users = self._convert_index(users)
         log = self._convert_index(log)
@@ -238,4 +236,4 @@ class ClassifierRec(HybridRecommender):
                 when(recs["relevance"] < 0, 0).otherwise(recs["relevance"]),
             )
         ).cache()
-        return convert(recs, to_type=type_in)
+        return recs

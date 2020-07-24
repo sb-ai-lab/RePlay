@@ -39,21 +39,21 @@ class UserSplitter(Splitter):
     и реализуется сценарий деления по времени,
     то есть для теста остаются самые последние предметы.
 
-    >>> UserSplitter(seed=80083).split(data_frame)[-1]
+    >>> UserSplitter(seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
     0        1        3          3          3
     1        2        1          4          3
 
     Взять случайные предметы, можно с помощью параметра ``shuffle``:
 
-    >>> UserSplitter(shuffle=True, seed=80083).split(data_frame)[-1]
+    >>> UserSplitter(shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
     0        1        3          3          3
     1        2        3          6          1
 
     Можно указать колчество айтемов, которые необходимо отложить для каждого пользователя:
 
-    >>> UserSplitter(item_test_size=3, shuffle=True, seed=80083).split(data_frame)[-1]
+    >>> UserSplitter(item_test_size=3, shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
     0        1        3          3          3
     1        1        1          1          1
@@ -64,7 +64,7 @@ class UserSplitter(Splitter):
 
     Либо долю:
 
-    >>> UserSplitter(item_test_size=0.67, shuffle=True, seed=80083).split(data_frame)[-1]
+    >>> UserSplitter(item_test_size=0.67, shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
     0        1        3          3          3
     1        1        1          1          1
@@ -73,10 +73,10 @@ class UserSplitter(Splitter):
 
     Параметр `user_test_size` позволяет отобрать для теста заданное количество пользователей
 
-    >>> UserSplitter(user_test_size=1, item_test_size=2, seed=42).split(data_frame)[-1].user_id.nunique()
+    >>> UserSplitter(user_test_size=1, item_test_size=2, seed=42).split(data_frame)[-1].toPandas().user_id.nunique()
     1
 
-    >>> UserSplitter(user_test_size=0.5, item_test_size=2, seed=42).split(data_frame)[-1].user_id.nunique()
+    >>> UserSplitter(user_test_size=0.5, item_test_size=2, seed=42).split(data_frame)[-1].toPandas().user_id.nunique()
     1
 
     """

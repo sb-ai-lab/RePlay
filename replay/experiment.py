@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 import pandas as pd
 
 from replay.constants import IntOrList, NumType
-from replay.converter import convert
+from replay.utils import convert2spark
 from replay.metrics.base_metric import Metric, RecOnlyMetric
 
 
@@ -75,7 +75,7 @@ class Experiment:
             доверительного интервала. В случае пустого значения
             параметра доверительные интервалы считаться не будут.
         """
-        self.test = convert(test)
+        self.test = convert2spark(test)
         self.results = pd.DataFrame()
         self.metrics = metrics
         self.calc_median = calc_median
@@ -88,7 +88,7 @@ class Experiment:
         :param name: имя модели/эксперимента для сохранения результатов
         :param pred: список рекомендаций для подсчета метрик
         """
-        recs = convert(pred)
+        recs = convert2spark(pred)
         for metric, k_list in sorted(
             self.metrics.items(), key=lambda x: str(x[0])
         ):
