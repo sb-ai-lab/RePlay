@@ -67,7 +67,6 @@ class LightFMWrap(HybridRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self.logger.debug("Построение модели LightFM")
         interactions_matrix = to_csr(log, self.users_count, self.items_count)
         csr_item_features = (
             self._feature_table_to_csr(item_features)

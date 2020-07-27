@@ -45,8 +45,6 @@ class SLIM(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self.logger.debug("Построение модели SLIM")
-
         pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
 
         interactions_matrix = csc_matrix(

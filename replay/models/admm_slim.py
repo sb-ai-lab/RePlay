@@ -94,7 +94,7 @@ class ADMMSLIM(Recommender):
                 f"{r_primal - eps_primal:.5}; dual gap: "
                 f" {r_dual - eps_dual:.5}; rho: {self.rho}"
             )
-            self.logger.debug(result_message)
+            self.logger.info(result_message)
 
         mat_c_sparse = coo_matrix(self._mat_c)
         mat_c_pd = pd.DataFrame(

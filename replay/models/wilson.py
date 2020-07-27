@@ -8,7 +8,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from statsmodels.stats.proportion import proportion_confint
 
-from replay.converter import convert
+from replay.utils import convert2spark
 from replay.models.pop_rec import PopRec
 
 
@@ -22,7 +22,7 @@ class Wilson(PopRec):
     >>> import pandas as pd
     >>> data_frame = pd.DataFrame({"user_id": [1, 2], "item_id": [1, 2], "relevance": [1, 1]})
     >>> model = Wilson()
-    >>> model.fit_predict(data_frame,k=1)
+    >>> model.fit_predict(data_frame,k=1).toPandas()
       user_id item_id  relevance
     0       1       2   0.206549
     1       2       1   0.206549
@@ -49,4 +49,4 @@ class Wilson(PopRec):
             pos, total, method="wilson"
         )[0]
         data_frame = data_frame.drop(["pos", "total"], axis=1)
-        self.item_popularity = convert(data_frame).cache()  # type: ignore
+        self.item_popularity = convert2spark(data_frame).cache()

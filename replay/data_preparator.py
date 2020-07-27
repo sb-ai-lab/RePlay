@@ -13,7 +13,7 @@ from pyspark.sql import functions as sf
 from pyspark.sql.types import FloatType, StringType, TimestampType
 
 from replay.constants import AnyDataFrame
-from replay.converter import convert
+from replay.utils import convert2spark
 from replay.session_handler import State
 
 
@@ -306,7 +306,7 @@ class DataPreparator:
             заполянются дефолтными значениями
         """
         if data is not None:
-            dataframe = convert(data)
+            dataframe = convert2spark(data)
         elif path and format_type:
             dataframe = self._read_data(path, format_type, **kwargs)
         else:

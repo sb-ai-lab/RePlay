@@ -34,8 +34,6 @@ class ALSWrap(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self.logger.debug("Индексирование данных")
-        self.logger.debug("Обучение модели")
         self.model = ALS(
             rank=self.rank,
             userCol="user_idx",
