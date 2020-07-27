@@ -35,7 +35,7 @@ class UtilsTestCase(PySparkTest):
             [[1, "a", 3.0], [3, "b", 5.0]], columns=["a", "b", "c"]
         )
         self.spark_data_frame = self.spark.createDataFrame(
-            [[1, "a", 3.0], [3, "b", 5.0],],
+            [[1, "a", 3.0], [3, "b", 5.0]],
             schema=StructType(
                 [
                     StructField("a", LongType()),
