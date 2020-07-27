@@ -65,6 +65,7 @@ class BaseRecommender(ABC):
             индексы, даже если они были созданы ранее
         :return:
         """
+        self.logger.debug("Начало обучения %s", type(self).__name__)
         log = convert(log)
         if user_features is not None:
             user_features = convert(user_features)
@@ -188,6 +189,7 @@ class BaseRecommender(ABC):
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
+        self.logger.debug("Начало предикта %s", type(self).__name__)
         type_in = type(log)
         log = convert(log)
         if user_features is not None:
@@ -307,7 +309,7 @@ class BaseRecommender(ABC):
                     "отсутствовали при обучении. Результат "
                     "предсказания будет не полным."
                 )
-                self.logger.debug(message)
+                self.logger.warning(message)
                 indexer.setHandleInvalid("skip")
 
     def _extract_unique(

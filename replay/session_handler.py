@@ -58,7 +58,7 @@ def logger_with_settings() -> logging.Logger:
     hdlr = logging.StreamHandler()
     hdlr.setFormatter(formatter)
     sponge_logger.addHandler(hdlr)
-    sponge_logger.setLevel(logging.DEBUG)
+    sponge_logger.setLevel(logging.INFO)
     return sponge_logger
 
 
@@ -81,7 +81,7 @@ class State(Borg):
     Каждый модуль, которому нужна спарк сессия, будет искать её здесь и создаст дефолтную сессию,
     если ни одной не было создано до сих пор.
 
-    Здесь же хранится default device для pytorch (CPU или CUDA, если доступна).
+    Здесь же хранится ``default device`` для ``pytorch`` (CPU или CUDA, если доступна).
     """
 
     def __init__(
