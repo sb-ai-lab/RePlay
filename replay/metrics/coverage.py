@@ -8,7 +8,7 @@ from pyspark.sql import Window
 from pyspark.sql import functions as sf
 
 from replay.constants import AnyDataFrame, IntOrList, NumType
-from replay.converter import convert
+from replay.utils import convert2spark
 from replay.metrics.base_metric import RecOnlyMetric
 
 
@@ -31,7 +31,7 @@ class Coverage(RecOnlyMetric):
                     Важно, чтобы log содержал все доступные объекты (items). Coverage будет рассчитываться как доля по отношению к ним.
         """
         self.items = (
-            convert(log)
+            convert2spark(log)
             .select("item_id")
             .distinct()  # type: ignore
             .cache()
@@ -69,7 +69,7 @@ class Coverage(RecOnlyMetric):
         ground_truth: AnyDataFrame,
         k: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
-        recommendations_spark = convert(recommendations)
+        recommendations_spark = convert2spark(recommendations)
         unknows_item_count = (
             recommendations_spark.select("item_id")  # type: ignore
             .distinct()

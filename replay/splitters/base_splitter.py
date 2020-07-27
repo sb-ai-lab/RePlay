@@ -8,7 +8,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from replay.constants import AnyDataFrame
-from replay.converter import convert
+from replay.utils import convert2spark
 
 SplitterReturnType = Tuple[DataFrame, DataFrame]
 
@@ -98,12 +98,8 @@ class Splitter(ABC):
             ``train, test``, где ``train`` - обучающая выборка,
             ``test`` - тестовая выборка
         """
-        type_in = type(log)
-        train, test = self._core_split(convert(log))  # type: ignore
+        train, test = self._core_split(convert2spark(log))  # type: ignore
         test = self._drop_cold_items_and_users(
             train, test, self.drop_cold_items, self.drop_cold_users
         )
-        return (
-            convert(train, to_type=type_in),  # type: ignore
-            convert(self._filter_zero_relevance(test), to_type=type_in),
-        )
+        return train, self._filter_zero_relevance(test)

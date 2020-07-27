@@ -10,7 +10,22 @@ from pyspark.sql.functions import col, element_at, row_number, udf
 from pyspark.sql.types import DoubleType
 from scipy.sparse import csr_matrix
 
-from replay.constants import NumType
+from replay.constants import NumType, AnyDataFrame
+from replay.session_handler import State
+
+
+def convert2spark(data_frame: AnyDataFrame) -> DataFrame:
+    """
+    Обеспечивает конвертацию данных в спарк и обратно.
+
+    :param data_frame: данные в формате датафрейма пандас или спарк,
+        либо объект датасета, в котором лежат датафреймы поддежриваемых форматов.
+    :return: преобразованные данные, если на вход был подан датафрейм.
+    """
+    if isinstance(data_frame, DataFrame):
+        return data_frame
+    spark = State().session
+    return spark.createDataFrame(data_frame)  # type: ignore
 
 
 def get_distinct_values_in_column(
@@ -183,17 +198,20 @@ def to_csr(
     Конвертирует лог в csr матрицу user-item.
 
     >>> import pandas as pd
-    >>> from replay.converter import convert
+    >>> from replay.utils import convert2spark
     >>> data_frame = pd.DataFrame({"user_idx": [0, 1], "item_idx": [0, 2], "relevance": [1, 2]})
-    >>> data_frame = convert(data_frame)
+    >>> data_frame = convert2spark(data_frame)
     >>> m = to_csr(data_frame)
     >>> m.toarray()
     array([[1, 0, 0],
            [0, 0, 2]])
 
-    :param log: spark DataFrame с колонками ``user_id``, ``item_id`` и ``relevance``
-    :param user_count: количество строк в результирующей матрице (если пусто, то вычисляется по логу)
-    :param item_count: количество столбцов в результирующей матрице (если пусто, то вычисляется по логу)
+    :param log: spark DataFrame с колонками ``user_id``, ``item_id`` и
+    ``relevance``
+    :param user_count: количество строк в результирующей матрице (если пусто,
+    то вычисляется по логу)
+    :param item_count: количество столбцов в результирующей матрице (если
+    пусто, то вычисляется по логу)
     """
     pandas_df = log.select("user_idx", "item_idx", "relevance").toPandas()
     row_count = int(

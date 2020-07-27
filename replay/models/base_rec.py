@@ -11,9 +11,8 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from replay.constants import AnyDataFrame
-from replay.converter import convert
 from replay.session_handler import State
-from replay.utils import get_top_k_recs
+from replay.utils import get_top_k_recs, convert2spark
 
 
 class BaseRecommender(ABC):
@@ -66,11 +65,11 @@ class BaseRecommender(ABC):
         :return:
         """
         self.logger.debug("Начало обучения %s", type(self).__name__)
-        log = convert(log)
+        log = convert2spark(log)
         if user_features is not None:
-            user_features = convert(user_features)
+            user_features = convert2spark(user_features)
         if item_features is not None:
-            item_features = convert(item_features)
+            item_features = convert2spark(item_features)
         if "user_indexer" not in self.__dict__ or force_reindex:
             self.logger.debug("Предварительная стадия обучения (pre-fit)")
             self._create_indexers(log, user_features, item_features)
@@ -190,12 +189,11 @@ class BaseRecommender(ABC):
             ``[user_id, item_id, relevance]``
         """
         self.logger.debug("Начало предикта %s", type(self).__name__)
-        type_in = type(log)
-        log = convert(log)
+        log = convert2spark(log)
         if user_features is not None:
-            user_features = convert(user_features)
+            user_features = convert2spark(user_features)
         if item_features is not None:
-            item_features = convert(item_features)
+            item_features = convert2spark(item_features)
         users = self._extract_unique(log, users, "user_id")
         items = self._extract_unique(log, items, "item_id")
         users = self._convert_index(users)
@@ -233,7 +231,6 @@ class BaseRecommender(ABC):
                 sf.when(recs["relevance"] < 0, 0).otherwise(recs["relevance"]),
             )
         ).cache()
-        recs = convert(recs, to_type=type_in)
 
         return recs
 

@@ -31,10 +31,10 @@ class RandomRec(Recommender):
     Чем больше :math:`\\alpha`, тем чаще будут рекомендоваться менее популярные объекты.
     Требуется, чтобы всегда было :math:`\\alpha > -1`.
 
+    >>> from replay.utils import convert2spark
     >>> import pandas as pd
-    >>> from replay.converter import convert
     >>>
-    >>> log = convert(pd.DataFrame({
+    >>> log = convert2spark(pd.DataFrame({
     ...     "user_id": ["1", "1", "2", "2", "3"],
     ...     "item_id": ["1", "2", "3", "3", "3"]
     ... }))

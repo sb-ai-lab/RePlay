@@ -12,7 +12,7 @@ from pyspark.sql import types as st
 from scipy.stats import norm
 
 from replay.constants import AnyDataFrame, IntOrList, NumType
-from replay.converter import convert
+from replay.utils import convert2spark
 
 
 class Metric(ABC):
@@ -212,8 +212,8 @@ class Metric(ABC):
         :param k: набор чисел или одно число, по которому рассчитывается метрика
         :return: распределение значения метрики для разных k по пользователям
         """
-        recommendations_spark = convert(recommendations)
-        ground_truth_spark = convert(ground_truth)
+        recommendations_spark = convert2spark(recommendations)
+        ground_truth_spark = convert2spark(ground_truth)
         if not self._check_users(recommendations_spark, ground_truth_spark):
             logger = logging.getLogger("replay")
             logger.warning(
@@ -322,5 +322,5 @@ class RecOnlyMetric(Metric):
 
         :return: значение метрики
         """
-        recommendations_spark = convert(recommendations)
+        recommendations_spark = convert2spark(recommendations)
         return self.mean(recommendations_spark, recommendations_spark, k)

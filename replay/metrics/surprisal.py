@@ -6,7 +6,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from replay.constants import AnyDataFrame
-from replay.converter import convert
+from replay.utils import convert2spark
 from replay.metrics.base_metric import RecOnlyMetric
 
 
@@ -50,7 +50,7 @@ class Surprisal(RecOnlyMetric):
 
         :param log: датафрейм с логом действий пользователей
         """
-        self.log = convert(log)
+        self.log = convert2spark(log)
         n_users = self.log.select("user_id").distinct().count()  # type: ignore
         self.item_weights = self.log.groupby("item_id").agg(
             (

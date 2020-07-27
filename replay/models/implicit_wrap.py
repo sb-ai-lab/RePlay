@@ -26,7 +26,7 @@ class ImplicitWrap(Recommender):
 
     >>> import pandas as pd
     >>> df = pd.DataFrame({"user_id": [1, 1, 2, 2], "item_id": [1, 2, 2, 3], "relevance": [1, 1, 1, 1]})
-    >>> als.fit_predict(df, 1, users=[1])[["user_id", "item_id"]]
+    >>> als.fit_predict(df, 1, users=[1])[["user_id", "item_id"]].toPandas()
       user_id item_id
     0       1       3
     """

@@ -6,7 +6,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from replay.constants import AnyDataFrame
-from replay.converter import convert
+from replay.utils import convert2spark
 from replay.metrics.base_metric import RecOnlyMetric
 from replay.models.base_rec import Recommender
 from replay.models.pop_rec import PopRec
@@ -47,7 +47,7 @@ class Unexpectedness(RecOnlyMetric):
         :param log: пандас или спарк датафрейм
         :param rec: одна из проинициализированных моделей библиотеки, либо ``None``
         """
-        self.log = convert(log)
+        self.log = convert2spark(log)
         self.train_model = False
         if rec is not None:
             self.train_model = True
