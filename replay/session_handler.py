@@ -51,16 +51,16 @@ def logger_with_settings() -> logging.Logger:
     spark_logger.setLevel(logging.WARN)
     ignite_engine_logger = logging.getLogger("ignite.engine.engine.Engine")
     ignite_engine_logger.setLevel(logging.WARN)
-    sponge_logger = logging.getLogger("replay")
+    logger = logging.getLogger("replay")
     formatter = logging.Formatter(
         "%(asctime)s, %(name)s, %(levelname)s: %(message)s",
         datefmt="%d-%b-%y %H:%M:%S",
     )
     hdlr = logging.StreamHandler()
     hdlr.setFormatter(formatter)
-    sponge_logger.addHandler(hdlr)
-    sponge_logger.setLevel(logging.DEBUG)
-    return sponge_logger
+    logger.addHandler(hdlr)
+    logger.setLevel(logging.DEBUG)
+    return logger
 
 
 # pylint: disable=too-few-public-methods
