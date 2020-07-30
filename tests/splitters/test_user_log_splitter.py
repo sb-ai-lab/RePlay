@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+# pylint: disable=all
 from datetime import datetime
 
 from parameterized import parameterized
@@ -38,7 +39,7 @@ class TestUserLogSplitter(PySparkTest):
         self.assertSparkDataFrameEqual(
             test_users,
             self.spark.createDataFrame(
-                data=[("user2",), ("user4",), ("user5",)]
+                data=[("user1",), ("user3",), ("user4",)]
             ).toDF("user_id"),
         )
 
