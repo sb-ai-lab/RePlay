@@ -45,16 +45,16 @@ class UserSplitter(Splitter):
 
     >>> UserSplitter(shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
-    0        1        3          3          3
+    0        1        2          2          2
     1        2        3          6          1
 
     Можно указать колчество айтемов, которые необходимо отложить для каждого пользователя:
 
     >>> UserSplitter(item_test_size=3, shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
-    0        1        3          3          3
-    1        1        1          1          1
-    2        1        2          2          2
+    0        1        2          2          2
+    1        1        3          3          3
+    2        1        1          1          1
     3        2        3          6          1
     4        2        2          5          2
     5        2        1          4          3
@@ -63,8 +63,8 @@ class UserSplitter(Splitter):
 
     >>> UserSplitter(item_test_size=0.67, shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
-    0        1        3          3          3
-    1        1        1          1          1
+    0        1        2          2          2
+    1        1        3          3          3
     2        2        3          6          1
     3        2        2          5          2
 
