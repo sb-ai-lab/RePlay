@@ -28,7 +28,7 @@ def _main_iteration(
     items_count,
     threshold,
     multiplicator,
-):
+):  # pragma: no cover
 
     # calculate mat_b
     mat_b = p_x + np.dot(inv_matrix, rho * mat_c - mat_gamma)
