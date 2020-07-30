@@ -3,8 +3,8 @@
 """
 from typing import Optional, Tuple
 
+import numba as nb
 import numpy as np
-import scipy as sp
 import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -12,6 +12,60 @@ from scipy.sparse import csr_matrix, coo_matrix
 
 from replay.models.base_rec import Recommender
 from replay.session_handler import State
+
+# pylint: disable=too-many-arguments, too-many-locals
+@nb.njit(parallel=True)
+def _main_iteration(
+    inv_matrix,
+    p_x,
+    mat_b,
+    mat_c,
+    mat_gamma,
+    rho,
+    eps_abs,
+    eps_rel,
+    lambda_1,
+    items_count,
+    threshold,
+    multiplicator,
+):  # pragma: no cover
+
+    # calculate mat_b
+    mat_b = p_x + np.dot(inv_matrix, rho * mat_c - mat_gamma)
+    vec_gamma = np.diag(mat_b) / np.diag(inv_matrix)
+    mat_b -= inv_matrix * vec_gamma
+
+    # calculate mat_с
+    prev_mat_c = mat_c
+    mat_c = mat_b + mat_gamma / rho
+    coef = lambda_1 / rho
+    mat_c = np.maximum(mat_c - coef, 0.0) - np.maximum(-mat_c - coef, 0.0)
+
+    # calculate mat_gamma
+    mat_gamma += rho * (mat_b - mat_c)
+
+    # calculate residuals
+    r_primal = np.linalg.norm(mat_b - mat_c)
+    r_dual = np.linalg.norm(-rho * (mat_c - prev_mat_c))
+    eps_primal = eps_abs * items_count + eps_rel * max(
+        np.linalg.norm(mat_b), np.linalg.norm(mat_c)
+    )
+    eps_dual = eps_abs * items_count + eps_rel * np.linalg.norm(mat_gamma)
+    if r_primal > threshold * r_dual:
+        rho *= multiplicator
+    elif threshold * r_primal < r_dual:
+        rho /= multiplicator
+
+    return (
+        mat_b,
+        mat_c,
+        mat_gamma,
+        rho,
+        r_primal,
+        r_dual,
+        eps_primal,
+        eps_dual,
+    )
 
 
 # pylint: disable=too-many-instance-attributes
@@ -70,24 +124,42 @@ class ADMMSLIM(Recommender):
         self.logger.debug("Матриица Грама")
         xtx = (interactions_matrix.T @ interactions_matrix).toarray()
         self.logger.debug("Поиск обратной матрицы")
-        inv_matrix = sp.linalg.inv(
+        inv_matrix = np.linalg.inv(
             xtx + (self.lambda_2 + self.rho) * np.eye(self.items_count)
         )
         self.logger.debug("Основной  расчет")
         p_x = inv_matrix @ xtx
-        self._mat_b, self._mat_c, self._mat_gamma = self._init_matrix(
-            self.items_count
-        )
-        r_primal = sp.linalg.norm(self._mat_b - self._mat_c)
-        r_dual = sp.linalg.norm(self.rho * self._mat_c)
+        mat_b, mat_c, mat_gamma = self._init_matrix(self.items_count)
+        r_primal = np.linalg.norm(mat_b - mat_c)
+        r_dual = np.linalg.norm(self.rho * mat_c)
         eps_primal, eps_dual = 0.0, 0.0
         iteration = 0
         while (
             r_primal > eps_primal or r_dual > eps_dual
         ) and iteration < self.max_iteration:
             iteration += 1
-            r_primal, r_dual, eps_primal, eps_dual = self._main_iteration(
-                inv_matrix, p_x
+            (
+                mat_b,
+                mat_c,
+                mat_gamma,
+                self.rho,
+                r_primal,
+                r_dual,
+                eps_primal,
+                eps_dual,
+            ) = _main_iteration(
+                inv_matrix,
+                p_x,
+                mat_b,
+                mat_c,
+                mat_gamma,
+                self.rho,
+                self.eps_abs,
+                self.eps_rel,
+                self.lambda_1,
+                self.items_count,
+                self.threshold,
+                self.multiplicator,
             )
             result_message = (
                 f"Итерация: {iteration}. primal gap: "
@@ -96,7 +168,7 @@ class ADMMSLIM(Recommender):
             )
             self.logger.info(result_message)
 
-        mat_c_sparse = coo_matrix(self._mat_c)
+        mat_c_sparse = coo_matrix(mat_c)
         mat_c_pd = pd.DataFrame(
             {
                 "item_id_one": mat_c_sparse.row.astype(np.float32),
@@ -105,29 +177,6 @@ class ADMMSLIM(Recommender):
             }
         )
         self.similarity = State().session.createDataFrame(mat_c_pd).cache()
-
-    def _main_iteration(self, inv_matrix, p_x):
-        self._mat_b = self._calc_b(
-            inv_matrix, p_x, self._mat_c, self._mat_gamma
-        )
-        prev_mat_c = self._mat_c
-        self._mat_c = self._calc_c(self._mat_b, self._mat_gamma)
-        self._mat_gamma += self.rho * (self._mat_b - self._mat_c)
-        r_primal = np.linalg.norm(self._mat_b - self._mat_c)
-        r_dual = np.linalg.norm(-self.rho * (self._mat_c - prev_mat_c))
-        eps_primal = self.eps_abs * self.items_count + self.eps_rel * max(
-            np.linalg.norm(self._mat_b), np.linalg.norm(self._mat_c)
-        )
-        eps_dual = (
-            self.eps_abs * self.items_count
-            + self.eps_rel * np.linalg.norm(self._mat_gamma)
-        )
-        if r_primal > self.threshold * r_dual:
-            self.rho *= self.multiplicator
-        elif self.threshold * r_primal < r_dual:
-            self.rho /= self.multiplicator
-
-        return r_primal, r_dual, eps_primal, eps_dual
 
     def _init_matrix(
         self, size: int
@@ -139,27 +188,6 @@ class ADMMSLIM(Recommender):
         mat_c = np.random.rand(size, size)  # type: ignore
         mat_gamma = np.random.rand(size, size)  # type: ignore
         return mat_b, mat_c, mat_gamma
-
-    def _calc_b(
-        self,
-        inv_matrix: np.ndarray,
-        p_x: np.ndarray,
-        mat_c: np.ndarray,
-        mat_gamma: np.ndarray,
-    ) -> np.ndarray:
-        """Вычисление матрицы B"""
-        mat_b = p_x + (inv_matrix @ (self.rho * mat_c - mat_gamma))
-        vec_gamma = np.diag(mat_b) / np.diag(inv_matrix)
-        return mat_b - inv_matrix * vec_gamma
-
-    def _calc_c(self, mat_b: np.ndarray, mat_gamma: np.ndarray) -> np.ndarray:
-        """Вычисление матрицы C"""
-        mat_c = mat_b + mat_gamma / self.rho
-        coef = self.lambda_1 / self.rho
-        s_k = np.maximum(mat_c - coef, np.array([0.0])) - np.maximum(
-            -mat_c - coef, np.array([0.0])
-        )
-        return s_k
 
     # pylint: disable=too-many-arguments
     def _predict(

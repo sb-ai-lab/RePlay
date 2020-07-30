@@ -2,7 +2,7 @@
 fail-under=10
 
 [TYPECHECK]
-ignored-modules=pyspark.sql.functions,pyspark,torch,ignite,ignite.engine,pyspark.sql,statsmodels.stats.proportion
+ignored-modules=pyspark.sql.functions,pyspark,torch,ignite,ignite.engine,pyspark.sql,statsmodels.stats.proportion,numba
 
 [MESSAGES CONTROL]
 disable=bad-continuation,anomalous-backslash-in-string,wrong-import-order
