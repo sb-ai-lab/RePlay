@@ -6,7 +6,6 @@ from datetime import datetime
 
 import numpy as np
 from pyspark.sql import functions as sf
-
 from tests.pyspark_testcase import PySparkTest
 
 from replay.constants import LOG_SCHEMA, REC_SCHEMA
@@ -35,13 +34,23 @@ class Word2VecRecTestCase(PySparkTest):
 
     def test_fit(self):
         self.word2vec.fit(self.log)
-        vectors = self.word2vec.vectors.select(
-            "item",
-            vector_dot(sf.col("vector"), sf.col("vector")).alias("norm"),
-        ).toPandas()
+        vectors = (
+            self.word2vec.vectors.select(
+                "item",
+                vector_dot(sf.col("vector"), sf.col("vector")).alias("norm"),
+            )
+            .toPandas()
+            .to_numpy()
+        )
+        print(vectors)
         self.assertTrue(
             np.allclose(
-                vectors, [[0, 0.027045], [2, 0.082475], [1, 0.004450]],
+                vectors,
+                [
+                    [0, 5.45887464e-04],
+                    [2, 1.54838404e-01],
+                    [1, 2.13055389e-01],
+                ],
             )
         )
 
@@ -54,9 +63,9 @@ class Word2VecRecTestCase(PySparkTest):
         )
         true_recs = self.spark.createDataFrame(
             [
-                ["u1", "i3", 0.9882012036309402],
-                ["u2", "i4", 0.9943091407456173],
-                ["u3", "i1", 0.9996238384114542],
+                ["u1", "i3", 1.000322493440465],
+                ["u2", "i4", 0.9613139892286415],
+                ["u3", "i1", 0.9783670469059589],
             ],
             schema=REC_SCHEMA,
         )

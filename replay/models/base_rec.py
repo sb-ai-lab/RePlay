@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+import collections
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, Optional, Union
@@ -324,7 +325,7 @@ class BaseRecommender(ABC):
             self.logger.debug("Выделение дефолтных юзеров")
             unique = log.select(column).distinct()
         elif not isinstance(array, DataFrame):
-            if isinstance(array, Iterable):
+            if isinstance(array, collections.Iterable):
                 unique = spark.createDataFrame(
                     data=pd.DataFrame(pd.unique(list(array)), columns=[column])
                 )

@@ -6,10 +6,7 @@ from typing import Optional, Union
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
 
-from replay.splitters.base_splitter import (
-    Splitter,
-    SplitterReturnType,
-)
+from replay.splitters.base_splitter import Splitter, SplitterReturnType
 
 
 # pylint: disable=too-few-public-methods
@@ -48,16 +45,16 @@ class UserSplitter(Splitter):
 
     >>> UserSplitter(shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
-    0        1        3          3          3
+    0        1        2          2          2
     1        2        3          6          1
 
     Можно указать колчество айтемов, которые необходимо отложить для каждого пользователя:
 
     >>> UserSplitter(item_test_size=3, shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
-    0        1        3          3          3
-    1        1        1          1          1
-    2        1        2          2          2
+    0        1        2          2          2
+    1        1        3          3          3
+    2        1        1          1          1
     3        2        3          6          1
     4        2        2          5          2
     5        2        1          4          3
@@ -66,8 +63,8 @@ class UserSplitter(Splitter):
 
     >>> UserSplitter(item_test_size=0.67, shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
-    0        1        3          3          3
-    1        1        1          1          1
+    0        1        2          2          2
+    1        1        3          3          3
     2        2        3          6          1
     3        2        2          5          2
 
@@ -177,7 +174,7 @@ class UserSplitter(Splitter):
         )
         if self.shuffle:
             res = self._add_random_partition(
-                log.join(test_users, how="left", on="user_id"), self.seed
+                log.join(test_users, how="left", on="user_id")
             )
         else:
             res = self._add_time_partition(
@@ -220,7 +217,7 @@ class UserSplitter(Splitter):
         )
         if self.shuffle:
             res = self._add_random_partition(
-                log.join(test_users, how="left", on="user_id"), self.seed
+                log.join(test_users, how="left", on="user_id")
             )
         else:
             res = self._add_time_partition(
@@ -254,10 +251,7 @@ class UserSplitter(Splitter):
 
         return train, test
 
-    @staticmethod
-    def _add_random_partition(
-        dataframe: DataFrame, seed: int = None
-    ) -> DataFrame:
+    def _add_random_partition(self, dataframe: DataFrame) -> DataFrame:
         """
         Добавляет в датафрейм колонку случайных чисел `rand` и колонку
         порядкового номера пользователя `row_num` на основе этого случайного
@@ -266,7 +260,7 @@ class UserSplitter(Splitter):
         :param dataframe: спарк-датафрейм с обязательной колонкой `user_id`
         :returns: датафрейм с добавленными колонками
         """
-        dataframe = dataframe.withColumn("rand", sf.rand(seed))
+        dataframe = dataframe.withColumn("rand", sf.rand(self.seed))
         dataframe = dataframe.withColumn(
             "row_num",
             sf.row_number().over(

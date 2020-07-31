@@ -29,15 +29,14 @@ def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
         driver_memory = f"{spark_memory}g"
         shuffle_partitions = str(os.cpu_count())
     user_home = os.environ["HOME"]
-    os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     spark = (
         SparkSession.builder.config("spark.driver.memory", driver_memory)
         .config("spark.sql.shuffle.partitions", shuffle_partitions)
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
         .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.host", "localhost")
-        .config("spark.sql.execution.arrow.enabled", "true")
-        .master(f"local[*]")
+        .config("spark.sql.execution.arrow.pyspark.enabled", "true")
+        .master("local[*]")
         .enableHiveSupport()
         .getOrCreate()
     )
