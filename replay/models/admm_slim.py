@@ -8,10 +8,11 @@ import numpy as np
 import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-from scipy.sparse import csr_matrix, coo_matrix
+from scipy.sparse import coo_matrix, csr_matrix
 
 from replay.models.base_rec import Recommender
 from replay.session_handler import State
+
 
 # pylint: disable=too-many-arguments, too-many-locals
 @nb.njit(parallel=True)
