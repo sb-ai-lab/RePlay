@@ -296,6 +296,35 @@ class Metric(ABC):
         inner_count: int = left.join(right, on="user_id").count()
         return left_count == inner_count and right_count == inner_count
 
+    def user_distribution(
+        self,
+        log: AnyDataFrame,
+        recommendations: AnyDataFrame,
+        ground_truth: AnyDataFrame,
+        k: IntOrList,
+    ) -> pd.DataFrame:
+        """
+        Получить среднее значение метрики для пользователей с данным количеством оценок.
+
+        :param log: датафрейм с логом оценок для подсчета количества оценок у пользователей
+        :param recommendations: датафрейм с рекомендациями
+        :param ground_truth: тестовые данные
+        :param k: сколько брать айтемов из рекомендаций
+        :return: пандас датафрейм
+        """
+        log = convert2spark(log)
+        count = log.groupBy("user_id").count()
+        dist = self._get_metric_distribution(recommendations, ground_truth, k)
+        res = count.join(dist, on="user_id")
+        res = (
+            res.groupBy("k", "count")
+            .agg(sf.avg("cum_agg").alias("value"))
+            .orderBy(["k", "count"])
+            .select("k", "count", "value")
+            .toPandas()
+        )
+        return res
+
 
 # pylint: disable=too-few-public-methods
 class RecOnlyMetric(Metric):

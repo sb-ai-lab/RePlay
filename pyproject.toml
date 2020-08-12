@@ -41,6 +41,7 @@ statsmodels = "*"
 torch = "*"
 numba = "*"
 llvmlite = "*"
+seaborn = "^0.10.1"
 
 [tool.poetry.dev-dependencies]
 # fixing versions of package dependencies (non-dev)
