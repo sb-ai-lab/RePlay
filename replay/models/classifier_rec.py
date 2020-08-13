@@ -219,6 +219,8 @@ class ClassifierRec(HybridRecommender):
             ``[user_id, item_id, relevance]``
         """
         log = convert2spark(log)
+        user_type = log.schema["user_id"].dataType
+        item_type = log.schema["item_id"].dataType
         user_features = convert2spark(user_features)
         user_features = self._convert_index(user_features)
         item_features = convert2spark(item_features)
@@ -228,7 +230,7 @@ class ClassifierRec(HybridRecommender):
         users = self._extract_unique(log, users, "user_idx")
 
         recs = self._rerank(log, users, user_features, item_features)
-        recs = self._convert_back(recs).select(
+        recs = self._convert_back(recs, user_type, item_type).select(
             "user_id", "item_id", "relevance"
         )
         recs = get_top_k_recs(recs, k)
