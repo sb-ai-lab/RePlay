@@ -251,7 +251,7 @@ class TwoStagesScenario:
         <BLANKLINE>
         >>> two_stages.experiment.results
                              HitRate@1
-        two_stages_scenario        0.3
+        two_stages_scenario        0.6
 
         :param log: лог пользовательских предпочтений
         :param k: количество рекомендаций, которые нужно вернуть каждому пользователю
