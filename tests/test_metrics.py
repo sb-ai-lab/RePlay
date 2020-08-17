@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+# pylint: skip-file
 from datetime import datetime
 from math import log2
 
@@ -18,6 +19,7 @@ from replay.metrics import (
     Surprisal,
 )
 from replay.metrics.base_metric import Metric
+from replay.distributions import item_distribution
 
 
 class TestMetrics(PySparkTest):
@@ -83,6 +85,22 @@ class TestMetrics(PySparkTest):
         self.assertDictAlmostEqual(
             HitRate()(self.recs, self.ground_truth_recs, [3, 1]),
             {3: 2 / 3, 1: 1 / 3},
+        )
+
+    def test_user_dist(self):
+        self.assertListEqual(
+            HitRate()
+            .user_distribution(self.log, self.recs, self.ground_truth_recs, 1)[
+                "value"
+            ]
+            .to_list(),
+            [0.0, 0.5],
+        )
+
+    def test_item_dist(self):
+        self.assertListEqual(
+            item_distribution(self.log, self.recs, 1)["rec_count"].to_list(),
+            [0, 0, 1, 2],
         )
 
     def test_ndcg_at_k(self):

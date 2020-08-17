@@ -191,6 +191,8 @@ class BaseRecommender(ABC):
         """
         self.logger.debug("Начало предикта %s", type(self).__name__)
         log = convert2spark(log)
+        user_type = log.schema["user_id"].dataType
+        item_type = log.schema["item_id"].dataType
         if user_features is not None:
             user_features = convert2spark(user_features)
         if item_features is not None:
@@ -222,7 +224,7 @@ class BaseRecommender(ABC):
         )
         if filter_seen_items:
             recs = self._mark_seen_items(recs, self._convert_index(log))
-        recs = self._convert_back(recs).select(
+        recs = self._convert_back(recs, user_type, item_type).select(
             "user_id", "item_id", "relevance"
         )
         recs = get_top_k_recs(recs, k)
@@ -261,10 +263,13 @@ class BaseRecommender(ABC):
             )
         return data_frame
 
-    def _convert_back(self, log):
-        return self.inv_user_indexer.transform(
+    def _convert_back(self, log, user_type, item_type):
+        res = self.inv_user_indexer.transform(
             self.inv_item_indexer.transform(log)
         ).drop("user_idx", "item_idx")
+        res = res.withColumn("user_id", res["user_id"].cast(user_type))
+        res = res.withColumn("item_id", res["item_id"].cast(item_type))
+        return res
 
     def _reindex(self, entity: str, objects: DataFrame):
         """
