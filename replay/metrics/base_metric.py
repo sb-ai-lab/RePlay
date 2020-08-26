@@ -246,11 +246,11 @@ class Metric(ABC):
             ),
             sf.PandasUDFType.GROUPED_MAP,
         )
-        def grouped_map(pandas_df):
+        def grouped_map(pandas_df):  # pragma: no cover
             additional_rows = max_k - len(pandas_df)
             one_row = pandas_df[
                 pandas_df["relevance"] == pandas_df["relevance"].min()].iloc[0]
-            one_row["relevance"] -= 1
+            one_row["relevance"] = -np.inf
             one_row["item_id"] = np.nan
             if additional_rows > 0:
                 pandas_df = pandas_df.append([one_row] * additional_rows,
