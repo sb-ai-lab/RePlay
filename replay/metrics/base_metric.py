@@ -5,6 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Dict, Union
 
+import numpy as np
 import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -231,6 +232,7 @@ class Metric(ABC):
         recs = self._get_enriched_recommendations(
             recommendations_spark, ground_truth_spark
         )
+        max_k = self.max_k
 
         @sf.pandas_udf(
             st.StructType(
@@ -244,7 +246,15 @@ class Metric(ABC):
             ),
             sf.PandasUDFType.GROUPED_MAP,
         )
-        def grouped_map(pandas_df):
+        def grouped_map(pandas_df):  # pragma: no cover
+            additional_rows = max_k - len(pandas_df)
+            one_row = pandas_df[
+                pandas_df["relevance"] == pandas_df["relevance"].min()].iloc[0]
+            one_row["relevance"] = -np.inf
+            one_row["item_id"] = np.nan
+            if additional_rows > 0:
+                pandas_df = pandas_df.append([one_row] * additional_rows,
+                                             ignore_index=True)
             pandas_df = (
                 pandas_df.sort_values("relevance", ascending=False)
                 .reset_index(drop=True)
