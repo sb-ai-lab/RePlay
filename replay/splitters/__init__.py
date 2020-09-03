@@ -13,4 +13,4 @@ from replay.splitters.log_splitter import (
     DateSplitter,
     RandomSplitter,
 )
-from replay.splitters.user_log_splitter import UserSplitter
+from replay.splitters.user_log_splitter import UserSplitter, k_folds
