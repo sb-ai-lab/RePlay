@@ -16,6 +16,10 @@
    :members: UserSplitter
    :special-members: __init__
 
+Для разделения внутри пользователя также доступно разделение по фолдам.
+
+.. autofunction:: replay.splitters.user_log_splitter.k_folds
+
 Делим весь лог
 ------------------
 
