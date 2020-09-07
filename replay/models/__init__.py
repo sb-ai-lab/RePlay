@@ -20,3 +20,4 @@ from replay.models.random_rec import RandomRec
 from replay.models.slim import SLIM
 from replay.models.wilson import Wilson
 from replay.models.word2vec import Word2VecRec
+from replay.models.stack import Stack
