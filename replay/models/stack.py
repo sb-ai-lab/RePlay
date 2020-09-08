@@ -119,11 +119,7 @@ class Stack(Recommender):
                     pos.count() // pos.select("user_id").distinct().count(),
                 )
 
-                scores = State().session.createDataFrame(
-                    data=[], schema=PRED_SCHEMA
-                )
-                scores = scores.union(pos)
-                scores = scores.union(neg)
+                scores = pos.union(neg)
                 scores = scores.withColumnRenamed("relevance", str(model))
                 fold_train = fold_train.join(
                     scores, on=["user_id", "item_id", "label"], how="outer"
