@@ -9,29 +9,14 @@ from pyspark.ml.regression import LinearRegression
 from pyspark.ml.wrapper import JavaEstimator
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import lit
-from pyspark.sql.types import StructType, StringType, StructField, DoubleType
+from pyspark.sql.types import StructType, StructField, DoubleType
 from pyspark.sql import functions as sf
 
+from replay.constants import BASE_FIELDS, SCHEMA, PRED_SCHEMA
 from replay.models.base_rec import Recommender
 from replay.session_handler import State
 from replay.splitters import k_folds
 from replay.utils import get_top_k_recs
-
-
-BASE_FIELDS = [
-    StructField("user_id", StringType()),
-    StructField("item_id", StringType()),
-    StructField("label", DoubleType()),
-]
-SCHEMA = StructType(BASE_FIELDS)
-PRED_SCHEMA = StructType(
-    [
-        StructField("user_id", StringType()),
-        StructField("item_id", StringType()),
-        StructField("relevance", DoubleType()),
-        StructField("label", DoubleType()),
-    ]
-)
 
 
 class Stack(Recommender):
@@ -80,6 +65,11 @@ class Stack(Recommender):
             test_items = test.select("item_id").distinct()
             train_items = train.select("item_id").distinct()
             items_pos = test_items.join(train_items, on="item_id", how="inner")
+            if items_pos.count() == 0:
+                self._logger.info(
+                    "Bad split, no positive examples, skipping..."
+                )
+                continue
             n_pos = (
                 test.groupBy("user_id")
                 .count()
@@ -88,6 +78,11 @@ class Stack(Recommender):
             )
             items_neg = train_items.join(
                 test_items, on="item_id", how="left_anti"
+            )
+            n_pos = min(
+                n_pos,
+                items_pos.select("item_id").distinct().count(),
+                items_neg.select("item_id").distinct().count(),
             )
             for model in self.models:
                 pos = model.fit_predict(
@@ -101,6 +96,18 @@ class Stack(Recommender):
                     on=["user_id", "item_id"],
                     how="inner",
                 )
+                if pos.count() == 0:
+                    self._logger.info(
+                        "Couldn't produce positive examples for %s, skipping...",
+                        str(model),
+                    )
+                    scores = State().session.createDataFrame(
+                        data=[], schema=PRED_SCHEMA
+                    )
+                    fold_train = fold_train.join(
+                        scores, on=["user_id", "item_id", "label"], how="outer"
+                    )
+                    continue
                 neg = model.predict(
                     train,
                     k=n_pos,
@@ -124,6 +131,8 @@ class Stack(Recommender):
             top_train = top_train.union(fold_train)
 
         top_train = top_train.na.drop()
+        if top_train.count() == 0:
+            raise ValueError("Couldn't produce training set")
         feature_cols = [str(model) for model in self.models]
         top_train = VectorAssembler(
             inputCols=feature_cols, outputCol="features",
