@@ -6,7 +6,7 @@
 ## Как присоединиться к разработке
 
 ```bash
-git clone ssh://git@10.21.25.60:8878/ailab/sponge-bob-magic.git
+git clone ssh://git@10.21.25.60:8878/ailab/replay.git
 cd replay
 python3 -m venv .
 source ./bin/activate
