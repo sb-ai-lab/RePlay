@@ -1,7 +1,9 @@
+"""
+Класс, реализующий стэккинг моделей.
+"""
 import logging
 from typing import List, Optional
 
-from pyspark.ml.classification import RandomForestClassifier
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.regression import LinearRegression
 from pyspark.ml.wrapper import JavaEstimator
@@ -10,7 +12,6 @@ from pyspark.sql.functions import lit
 from pyspark.sql.types import StructType, StringType, StructField, DoubleType
 from pyspark.sql import functions as sf
 
-from replay.constants import REC_SCHEMA
 from replay.models.base_rec import Recommender
 from replay.session_handler import State
 from replay.splitters import k_folds
@@ -55,6 +56,7 @@ class Stack(Recommender):
         self.n_folds = n_folds
         self._logger = logging.getLogger("replay")
 
+    # pylint: disable=too-many-locals
     def _fit(
         self,
         log: DataFrame,
@@ -66,11 +68,12 @@ class Stack(Recommender):
             + [StructField(str(model), DoubleType()) for model in self.models]
         )
         top_train = State().session.createDataFrame(data=[], schema=schema)
+        # pylint: disable=invalid-name
         df = log.withColumnRenamed("user_idx", "user_id").withColumnRenamed(
             "item_idx", "item_id"
         )
         for i, (train, test) in enumerate(k_folds(df, self.n_folds)):
-            self._logger.info(f"Processing fold #{i}")
+            self._logger.info("Processing fold #%d", i)
             fold_train = State().session.createDataFrame(
                 data=[], schema=SCHEMA
             )
@@ -125,6 +128,7 @@ class Stack(Recommender):
         top_train = VectorAssembler(
             inputCols=feature_cols, outputCol="features",
         ).transform(top_train)
+        # pylint: disable=attribute-defined-outside-init
         self.top_train = top_train
         self.model = self.top_model.fit(top_train)
         for model in self.models:
@@ -152,6 +156,7 @@ class Stack(Recommender):
         top = top.withColumn("user_idx", top["user_idx"].cast("integer"))
         top = top.withColumn("item_idx", top["item_idx"].cast("integer"))
         for model in self.models:
+            # pylint: disable=protected-access
             scores = model._predict(
                 log,
                 k,
