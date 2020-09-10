@@ -37,14 +37,5 @@ AnyDataFrame = Union[DataFrame, pd.DataFrame]
 BASE_FIELDS = [
     StructField("user_id", StringType()),
     StructField("item_id", StringType()),
-    StructField("label", DoubleType()),
 ]
 SCHEMA = StructType(BASE_FIELDS)
-PRED_SCHEMA = StructType(
-    [
-        StructField("user_id", StringType()),
-        StructField("item_id", StringType()),
-        StructField("relevance", DoubleType()),
-        StructField("label", DoubleType()),
-    ]
-)
