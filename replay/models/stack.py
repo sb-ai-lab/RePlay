@@ -2,6 +2,8 @@
 Класс, реализующий стэккинг моделей.
 """
 import logging
+from functools import reduce
+from operator import add
 from typing import List, Optional
 
 from pyspark.ml.feature import VectorAssembler
@@ -11,8 +13,12 @@ from pyspark.sql import DataFrame
 from pyspark.sql.functions import lit
 from pyspark.sql.types import StructType, StructField, DoubleType
 from pyspark.sql import functions as sf
+import nevergrad as ng
+import numpy as np
+from tqdm import tqdm
 
-from replay.constants import BASE_FIELDS, SCHEMA, PRED_SCHEMA
+from replay.constants import BASE_FIELDS, SCHEMA
+from replay.metrics import NDCG
 from replay.models.base_rec import Recommender
 from replay.session_handler import State
 from replay.splitters import k_folds
@@ -20,25 +26,25 @@ from replay.utils import get_top_k_recs
 
 
 class Stack(Recommender):
-    """Стэк базовых моделей возвращает свои скоры, которые используются регрессором как фичи."""
+    """Стэк базовых моделей возвращает свои скоры, которые взвешиваются,
+    чтобы получить новое ранжирование."""
 
     def __init__(
         self,
         models: List[Recommender],
-        top_model: Optional[JavaEstimator] = None,
         n_folds: Optional[int] = 5,
+        budget: Optional[int] = 30,
     ):
         """
         :param models: список инициализированных моделей
-        :param top_model: инициализированный регрессор pyspark
-        :param n_folds: количество фолдов для обучения регрессора
+        :param n_folds: количество фолдов для обучения верхней модели,
+            параметры смешения будут определены по среднему качеству на фолдах.
+        :param budget: количество попыток найти вариант смешения моделей
         """
         self.models = models
         State()
-        if top_model is None:
-            top_model = LinearRegression()
-        self.top_model = top_model
         self.n_folds = n_folds
+        self.budget = budget
         self._logger = logging.getLogger("replay")
 
     # pylint: disable=too-many-locals
@@ -48,11 +54,8 @@ class Stack(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        schema = StructType(
-            BASE_FIELDS
-            + [StructField(str(model), DoubleType()) for model in self.models]
-        )
-        top_train = State().session.createDataFrame(data=[], schema=schema)
+        top_train = []
+        top_test = []
         # pylint: disable=invalid-name
         df = log.withColumnRenamed("user_idx", "user_id").withColumnRenamed(
             "item_idx", "item_id"
@@ -76,66 +79,44 @@ class Stack(Recommender):
                 .agg({"count": "max"})
                 .collect()[0][0]
             )
-            items_neg = train_items.join(
-                test_items, on="item_id", how="left_anti"
-            )
-            n_pos = min(
-                n_pos,
-                items_pos.select("item_id").distinct().count(),
-                items_neg.select("item_id").distinct().count(),
-            )
             for model in self.models:
-                pos = model.fit_predict(
-                    train,
-                    k=n_pos,
-                    items=items_pos.select("item_id").distinct(),
-                )
-                pos = pos.withColumn("label", lit(1.0))
-                pos = pos.join(
-                    test.select("user_id", "item_id"),
-                    on=["user_id", "item_id"],
-                    how="inner",
-                )
-                if pos.count() == 0:
-                    self._logger.info(
-                        "Couldn't produce positive examples for %s, skipping...",
-                        str(model),
-                    )
-                    scores = State().session.createDataFrame(
-                        data=[], schema=PRED_SCHEMA
-                    )
-                    fold_train = fold_train.join(
-                        scores, on=["user_id", "item_id", "label"], how="outer"
-                    )
-                    continue
-                neg = model.predict(
-                    train,
-                    k=n_pos,
-                    items=items_neg.select("item_id").distinct(),
-                )
-                neg = neg.withColumn("label", lit(0.0))
-                neg = get_top_k_recs(
-                    neg,
-                    pos.count() // pos.select("user_id").distinct().count(),
-                )
-
-                scores = pos.union(neg)
+                scores = model.fit_predict(train, k=n_pos * 2,)
                 scores = scores.withColumnRenamed("relevance", str(model))
                 fold_train = fold_train.join(
-                    scores, on=["user_id", "item_id", "label"], how="outer"
-                )
-            top_train = top_train.union(fold_train)
+                    scores, on=["user_id", "item_id"], how="outer"
+                ).fillna(0)
+            top_train.append(fold_train)
+            top_test.append(test)
 
-        top_train = top_train.na.drop()
-        if top_train.count() == 0:
-            raise ValueError("Couldn't produce training set")
         feature_cols = [str(model) for model in self.models]
-        top_train = VectorAssembler(
-            inputCols=feature_cols, outputCol="features",
-        ).transform(top_train)
         # pylint: disable=attribute-defined-outside-init
         self.top_train = top_train
-        self.model = self.top_model.fit(top_train)
+
+        coefs = {
+            model: ng.p.Scalar(lower=0, upper=1) for model in feature_cols
+        }
+        parametrization = ng.p.Instrumentation(**coefs)
+        optimizer = ng.optimizers.OnePlusOne(
+            parametrization=parametrization, budget=self.budget
+        )
+        base = [dict(zip(feature_cols, vals)) for vals in np.eye(len(feature_cols))]
+        for one_model in base:
+            optimizer.suggest(**one_model)
+        for _ in tqdm(range(optimizer.budget)):
+            weights = optimizer.ask()
+            ranking = [
+                NDCG()(rerank(pred, **weights.kwargs), true, 50)
+                for pred, true in zip(top_train, top_test)
+            ]
+            loss = -np.mean(ranking)
+            optimizer.tell(weights, loss)
+
+        # pylint: disable=attribute-defined-outside-init
+        self.params = optimizer.provide_recommendation().kwargs
+        s = np.array(list(self.params.values()))
+        if (s == 1).sum() == 1 and s.sum() == 1:
+            name = [name for name in feature_cols if self.params[name] == 1][0]
+            self._logger.warn("Could not find combination to improve quality, %s works best on its own", name)
         for model in self.models:
             model.fit(df)
 
@@ -150,11 +131,7 @@ class Stack(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        top = (
-            State()
-            .session.createDataFrame(data=[], schema=SCHEMA)
-            .drop("label")
-        )
+        top = State().session.createDataFrame(data=[], schema=SCHEMA)
         top = top.withColumnRenamed("user_id", "user_idx").withColumnRenamed(
             "item_id", "item_idx"
         )
@@ -182,14 +159,18 @@ class Stack(Recommender):
                 ),
             )
             scores = scores.withColumnRenamed("relevance", str(model))
-            top = top.join(scores, on=["user_idx", "item_idx"], how="outer")
-        top = top.na.drop()
+            top = top.join(scores, on=["user_idx", "item_idx"], how="outer").fillna(0)
         feature_cols = [str(model) for model in self.models]
-        top = VectorAssembler(
-            inputCols=feature_cols, outputCol="features",
-        ).transform(top)
-        pred = self.model.transform(top).withColumnRenamed(
-            "prediction", "relevance"
-        )
-        pred = pred.drop(*feature_cols, "features")
+        pred = rerank(top, **self.params)
+        pred = pred.drop(*feature_cols)
         return pred
+
+
+def rerank(df: DataFrame, **kwargs) -> DataFrame:
+    """Добавляет колонку relevance линейной комбинацией колонок с весами из kwargs"""
+    res = df.withColumn(
+        "relevance",
+        reduce(add, [sf.col(col) * weight for col, weight in kwargs.items()]),
+    )
+    res = res.orderBy("relevance", ascending=False)
+    return res

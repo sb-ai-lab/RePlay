@@ -20,6 +20,6 @@ def df():
 
 
 def test_finishes(df):
-    stack = Stack([KNN()], n_folds=2)
+    stack = Stack([KNN()], n_folds=2, budget=1)
     stack.fit_predict(df, 1)
     assert True

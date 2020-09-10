@@ -42,6 +42,7 @@ torch = "*"
 numba = "*"
 llvmlite = "*"
 seaborn = "^0.10.1"
+nevergrad = "^0.4.2"
 
 [tool.poetry.dev-dependencies]
 # fixing versions of package dependencies (non-dev)
