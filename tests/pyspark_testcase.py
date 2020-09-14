@@ -31,9 +31,10 @@ def unify_dataframe(data_frame: DataFrame):
 
     return (
         pandas_df[sorted(data_frame.columns)]
-            .sort_values(by=sorted(columns_to_sort_by))
-            .reset_index(drop=True)
+        .sort_values(by=sorted(columns_to_sort_by))
+        .reset_index(drop=True)
     )
+
 
 def sparkDataFrameEqual(df1: DataFrame, df2: DataFrame):
     return pd.testing.assert_frame_equal(
@@ -43,6 +44,7 @@ def sparkDataFrameEqual(df1: DataFrame, df2: DataFrame):
 
 class PySparkTest(unittest.TestCase):
     spark: SparkSession
+
     def assertSparkDataFrameEqual(
         self, df1: DataFrame, df2: DataFrame, msg: Optional[str] = None
     ) -> None:
