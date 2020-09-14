@@ -126,11 +126,11 @@ class NeuroCFRecTestCase(PySparkTest):
         self.assertTrue(
             np.allclose(
                 predictions.toPandas()[["user_id", "item_id"]]
-                    .astype(int)
-                    .values,
+                .astype(int)
+                .values,
                 [[0, 0], [1, 2]],
                 atol=1.0e-3,
-                    )
+            )
         )
 
     def test_check_gmf_only(self):
