@@ -30,7 +30,6 @@ def get_spark_session(
         shuffle_partitions = os.cpu_count()
     driver_memory = f"{spark_memory}g"
     user_home = os.environ["HOME"]
-    os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     spark = (
         SparkSession.builder.config("spark.driver.memory", driver_memory)
         .config("spark.sql.shuffle.partitions", str(shuffle_partitions))
