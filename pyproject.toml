@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "replay"
-version = "0.2.0"
+version = "0.3.0"
 description = "Библиотека рекомендательных систем"
 authors = ["Шминке Борис <Shminke.B.A@sberbank.ru>",
            "Васильев Алексей <AVaVasilyev@sberbank.ru>",
@@ -39,45 +39,50 @@ scipy = "*"
 scikit-learn = "*"
 statsmodels = "*"
 torch = "*"
+numba = "*"
+llvmlite = "*"
+seaborn = "^0.10.1"
 
 [tool.poetry.dev-dependencies]
 # fixing versions of package dependencies (non-dev)
 lightfm = "1.15"
 optuna = "1.2.0"
-pandas = "1.0.1"
-pyspark = "2.4.4"
-pyarrow = ">=0.15.0"
-torch = "1.4.0"
+pandas = "1.0.5"
+pyspark = "3.0.0"
+pyarrow = "0.17.1"
+torch = "1.5.1"
 pytorch-ignite = "0.3.0"
 statsmodels = "0.11.1"
 implicit = "0.4.2"
 psutil = "5.7.0"
-scikit-learn = "0.21.3"
+numba = "0.50.1"
+llvmlite = "0.33"
+scikit-learn = "0.23.1"
 # dev only
 # visualization
 jupyter = "1.0.0"
-jupyterlab = "1.2.6"
-matplotlib = "3.1.1"
+jupyterlab = "2.1.5"
+matplotlib = "3.2.2"
 # testing
-pytest = "5.3.5"
-pytest-cov = "2.8.1"
-parameterized = "0.7.1"
+pytest = "5.4.3"
+pytest-cov = "2.9.0"
+parameterized = "0.7.4"
 # style
-flake8 = "3.7.9"
+flake8 = "3.8.3"
 black = "19.10b0"
-pre-commit = "2.3.0"
+pre-commit = "2.6.0"
 #mypy = "0.782"
-pylint = "2.4.4"
+pylint = "2.5.3"
 # docs
-Sphinx = "2.4.4"
-sphinx-rtd-theme = "0.4.3"
-sphinx-autodoc-typehints = "1.10.3"
+Sphinx = "3.1.2"
+sphinx-rtd-theme = "0.5.0"
+sphinx-autodoc-typehints = "1.11.0"
 # emacs dependencies
-rope = "0.16.0"
-virtualenv = "20.0.8"
+rope = "0.17.0"
+virtualenv = "20.0.9"
 # stubs
 data-science-types = "0.2.16"
-pyspark-stubs = "2.4.0.post8"
+pyspark-stubs = "3.0.0"
 
 [tool.black]
 line-length = 79

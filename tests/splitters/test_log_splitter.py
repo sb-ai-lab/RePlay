@@ -225,8 +225,6 @@ class TestColdUserRandomSplitter(PySparkTest):
         ).repartition(1)
         true_train = self.spark.createDataFrame(
             data=[
-                ["user1", "item4", datetime(2019, 9, 12), 1.0],
-                ["user1", "item3", datetime(2019, 9, 17), 1.0],
                 ["user3", "item1", datetime(2019, 9, 16), 5.0],
                 ["user3", "item4", datetime(2019, 9, 16), 5.0],
                 ["user4", "item1", datetime(2019, 9, 12), 1.0],
@@ -236,6 +234,8 @@ class TestColdUserRandomSplitter(PySparkTest):
         )
         true_test = self.spark.createDataFrame(
             data=[
+                ["user1", "item4", datetime(2019, 9, 12), 1.0],
+                ["user1", "item3", datetime(2019, 9, 17), 1.0],
                 ["user2", "item4", datetime(2019, 9, 14), 3.0],
                 ["user2", "item1", datetime(2019, 9, 14), 3.0],
                 ["user2", "item2", datetime(2019, 9, 15), 4.0],
@@ -245,5 +245,7 @@ class TestColdUserRandomSplitter(PySparkTest):
         cold_user_splitter = ColdUserRandomSplitter(1 / 4)
         cold_user_splitter.seed = 27
         train, test = cold_user_splitter.split(log)
+        test.show()
         self.assertSparkDataFrameEqual(test, true_test)
+        train.show()
         self.assertSparkDataFrameEqual(train, true_train)

@@ -5,6 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Dict, Union
 
+import numpy as np
 import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -231,6 +232,7 @@ class Metric(ABC):
         recs = self._get_enriched_recommendations(
             recommendations_spark, ground_truth_spark
         )
+        max_k = self.max_k
 
         @sf.pandas_udf(
             st.StructType(
@@ -244,7 +246,15 @@ class Metric(ABC):
             ),
             sf.PandasUDFType.GROUPED_MAP,
         )
-        def grouped_map(pandas_df):
+        def grouped_map(pandas_df):  # pragma: no cover
+            additional_rows = max_k - len(pandas_df)
+            one_row = pandas_df[
+                pandas_df["relevance"] == pandas_df["relevance"].min()].iloc[0]
+            one_row["relevance"] = -np.inf
+            one_row["item_id"] = np.nan
+            if additional_rows > 0:
+                pandas_df = pandas_df.append([one_row] * additional_rows,
+                                             ignore_index=True)
             pandas_df = (
                 pandas_df.sort_values("relevance", ascending=False)
                 .reset_index(drop=True)
@@ -295,6 +305,35 @@ class Metric(ABC):
         right_count: int = right.count()
         inner_count: int = left.join(right, on="user_id").count()
         return left_count == inner_count and right_count == inner_count
+
+    def user_distribution(
+        self,
+        log: AnyDataFrame,
+        recommendations: AnyDataFrame,
+        ground_truth: AnyDataFrame,
+        k: IntOrList,
+    ) -> pd.DataFrame:
+        """
+        Получить среднее значение метрики для пользователей с данным количеством оценок.
+
+        :param log: датафрейм с логом оценок для подсчета количества оценок у пользователей
+        :param recommendations: датафрейм с рекомендациями
+        :param ground_truth: тестовые данные
+        :param k: сколько брать айтемов из рекомендаций
+        :return: пандас датафрейм
+        """
+        log = convert2spark(log)
+        count = log.groupBy("user_id").count()
+        dist = self._get_metric_distribution(recommendations, ground_truth, k)
+        res = count.join(dist, on="user_id")
+        res = (
+            res.groupBy("k", "count")
+            .agg(sf.avg("cum_agg").alias("value"))
+            .orderBy(["k", "count"])
+            .select("k", "count", "value")
+            .toPandas()
+        )
+        return res
 
 
 # pylint: disable=too-few-public-methods

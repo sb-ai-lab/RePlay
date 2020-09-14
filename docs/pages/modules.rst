@@ -12,5 +12,6 @@
    modules/filters
    modules/splitters
    modules/data_preparator
+   modules/distributions
    modules/sber_datasets
    

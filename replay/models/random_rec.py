@@ -39,8 +39,8 @@ class RandomRec(Recommender):
     >>> from replay.converter import convert2spark
     >>>
     >>> log = convert2spark(pd.DataFrame({
-    ...     "user_id": ["1", "1", "2", "2", "3"],
-    ...     "item_id": ["1", "2", "3", "3", "3"]
+    ...     "user_id": ["1", "1", "2", "2", "3", "4"],
+    ...     "item_id": ["1", "2", "2", "3", "3", "3"]
     ... }))
     >>> log.show()
     +-------+-------+
@@ -48,9 +48,10 @@ class RandomRec(Recommender):
     +-------+-------+
     |      1|      1|
     |      1|      2|
-    |      2|      3|
+    |      2|      2|
     |      2|      3|
     |      3|      3|
+    |      4|      3|
     +-------+-------+
     <BLANKLINE>
     >>> random_pop = RandomRec(distribution="popular_based", alpha=-1)
@@ -70,8 +71,8 @@ class RandomRec(Recommender):
     |item_idx|probability|
     +--------+-----------+
     |       2|        2.0|
-    |       1|        2.0|
-    |       0|        3.0|
+    |       1|        3.0|
+    |       0|        4.0|
     +--------+-----------+
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
@@ -79,12 +80,14 @@ class RandomRec(Recommender):
     +-------+-------+----------+
     |user_id|item_id| relevance|
     +-------+-------+----------+
-    |      1|      3|       1.0|
+    |      1|      3|0.33333334|
     |      1|      2|       0.0|
-    |      2|      1|       1.0|
-    |      2|      2|       0.5|
+    |      2|      1|       0.5|
+    |      2|      3|       0.0|
     |      3|      1|       1.0|
     |      3|      2|0.33333334|
+    |      4|      2|       0.5|
+    |      4|      1|0.33333334|
     +-------+-------+----------+
     <BLANKLINE>
     >>> random_pop = RandomRec(seed=555)
@@ -106,9 +109,11 @@ class RandomRec(Recommender):
     |      1|      3|       1.0|
     |      1|      2|       0.0|
     |      2|      1|       0.5|
-    |      2|      2|0.33333334|
+    |      2|      3|       0.0|
     |      3|      2|       0.5|
     |      3|      1|0.33333334|
+    |      4|      1|       1.0|
+    |      4|      2|       0.5|
     +-------+-------+----------+
     <BLANKLINE>
     """
