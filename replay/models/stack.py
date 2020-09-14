@@ -148,10 +148,6 @@ class Stack(Recommender):
                 item_features,
                 filter_seen_items,
             )
-            if filter_seen_items:
-                scores = self._mark_seen_items(
-                    scores, self._convert_index(log)
-                )
             scores = scores.withColumn(
                 "relevance",
                 sf.when(scores["relevance"] < 0, None).otherwise(
