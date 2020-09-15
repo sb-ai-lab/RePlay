@@ -86,6 +86,15 @@ class RandomRec(Recommender):
     |      4|      1|0.33333334|
     +-------+-------+----------+
     <BLANKLINE>
+    >>> recs = random_pop.predict(log, 2, users=[1], items=[7, 8])
+    >>> recs.show()
+    +-------+-------+---------+
+    |user_id|item_id|relevance|
+    +-------+-------+---------+
+    |      1|      7|      1.0|
+    |      1|      8|      0.5|
+    +-------+-------+---------+
+    <BLANKLINE>
     >>> random_pop = RandomRec(seed=555)
     >>> random_pop.fit(log)
     >>> random_pop.item_popularity.show()
@@ -116,6 +125,7 @@ class RandomRec(Recommender):
 
     item_popularity: DataFrame
     can_predict_cold_users = True
+    can_predict_cold_items = True
 
     def __init__(
         self,
@@ -157,6 +167,7 @@ class RandomRec(Recommender):
         self.item_popularity = self.item_popularity.selectExpr(
             "item_idx", f"{probability} AS probability"
         ).cache()
+        self.fill = self.item_popularity.agg({"probability": "min"}).collect()[0][0]
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -174,9 +185,10 @@ class RandomRec(Recommender):
             items.join(
                 self.item_popularity.withColumnRenamed("item_idx", "item"),
                 on=sf.col("item_idx") == sf.col("item"),
-                how="inner",
+                how="left",
             )
             .drop("item")
+            .fillna(self.fill)
             .toPandas()
         )
         items_pd.loc[:, "probability"] = (
