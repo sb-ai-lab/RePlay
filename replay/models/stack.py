@@ -28,18 +28,21 @@ class Stack(Recommender):
         models: List[Recommender],
         n_folds: Optional[int] = 5,
         budget: Optional[int] = 30,
+        seed: Optional[int] = None
     ):
         """
         :param models: список инициализированных моделей
         :param n_folds: количество фолдов для обучения верхней модели,
             параметры смешения будут определены по среднему качеству на фолдах.
         :param budget: количество попыток найти вариант смешения моделей
+        :param seed: сид для разбиения фолдов для подбора параметров верхней модели
         """
         self.models = models
         State()
         self.n_folds = n_folds
         self.budget = budget
         self._logger = logging.getLogger("replay")
+        self.seed = seed
 
     # pylint: disable=too-many-locals
     def _fit(
@@ -51,7 +54,7 @@ class Stack(Recommender):
         df = log.withColumnRenamed("user_idx", "user_id").withColumnRenamed(
             "item_idx", "item_id"
         )
-        top_train, top_test = self._create_train(log)
+        top_train, top_test = self._create_train(df)
         # pylint: disable=attribute-defined-outside-init
         self.top_train = top_train
         self._optimize_weights(top_train, top_test)
@@ -101,7 +104,7 @@ class Stack(Recommender):
         top_train = []
         top_test = []
         # pylint: disable=invalid-name
-        for i, (train, test) in enumerate(k_folds(df, self.n_folds)):
+        for i, (train, test) in enumerate(k_folds(df, self.n_folds, self.seed)):
             self._logger.info("Processing fold #%d", i)
             test_items = test.select("item_id").distinct()
             train_items = train.select("item_id").distinct()
