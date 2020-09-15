@@ -12,6 +12,7 @@ from pyspark.sql.types import (
     StructField,
     StructType,
     TimestampType,
+    IntegerType,
 )
 
 LOG_SCHEMA = StructType(
@@ -31,11 +32,20 @@ REC_SCHEMA = StructType(
     ]
 )
 
+BASE_SCHEMA = StructType(
+    [
+        StructField("user_id", StringType()),
+        StructField("item_id", StringType()),
+    ]
+)
+
+IDX_SCHEMA = StructType(
+    [
+        StructField("user_idx", IntegerType()),
+        StructField("item_idx", IntegerType()),
+    ]
+)
+
 IntOrList = Union[Iterable[int], int]
 NumType = Union[int, float]
 AnyDataFrame = Union[DataFrame, pd.DataFrame]
-BASE_FIELDS = [
-    StructField("user_id", StringType()),
-    StructField("item_id", StringType()),
-]
-SCHEMA = StructType(BASE_FIELDS)

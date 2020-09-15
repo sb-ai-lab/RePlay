@@ -6,23 +6,17 @@ from functools import reduce
 from operator import add
 from typing import List, Optional
 
-from pyspark.ml.feature import VectorAssembler
-from pyspark.ml.regression import LinearRegression
-from pyspark.ml.wrapper import JavaEstimator
-from pyspark.sql import DataFrame
-from pyspark.sql.functions import lit
-from pyspark.sql.types import StructType, StructField, DoubleType
-from pyspark.sql import functions as sf
 import nevergrad as ng
 import numpy as np
+from pyspark.sql import DataFrame
+from pyspark.sql import functions as sf
 from tqdm import tqdm
 
-from replay.constants import BASE_FIELDS, SCHEMA
+from replay.constants import BASE_SCHEMA, IDX_SCHEMA
 from replay.metrics import NDCG
 from replay.models.base_rec import Recommender
 from replay.session_handler import State
 from replay.splitters import k_folds
-from replay.utils import get_top_k_recs
 
 
 class Stack(Recommender):
@@ -54,17 +48,61 @@ class Stack(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        top_train = []
-        top_test = []
-        # pylint: disable=invalid-name
         df = log.withColumnRenamed("user_idx", "user_id").withColumnRenamed(
             "item_idx", "item_id"
         )
+        top_train, top_test = self._create_train(log)
+        # pylint: disable=attribute-defined-outside-init
+        self.top_train = top_train
+        self._optimize_weights(top_train, top_test)
+        for model in self.models:
+            model.fit(df)
+
+    def _optimize_weights(self, top_train, top_test):
+        feature_cols = [str(model) for model in self.models]
+        optimizer = self._get_optimizer(feature_cols)
+
+        for _ in tqdm(range(optimizer.budget)):
+            weights = optimizer.ask()
+            ranking = [
+                NDCG()(rerank(pred, **weights.kwargs), true, 50)
+                for pred, true in zip(top_train, top_test)
+            ]
+            loss = -np.mean(ranking)
+            optimizer.tell(weights, loss)
+
+        # pylint: disable=attribute-defined-outside-init
+        self.params = optimizer.provide_recommendation().kwargs
+
+        s = np.array(list(self.params.values()))
+        if (s == 1).sum() == 1 and s.sum() == 1:
+            name = [name for name in feature_cols if self.params[name] == 1][0]
+            self._logger.warning(
+                "Could not find combination to improve quality, %s works best on its own",
+                name,
+            )
+
+    def _get_optimizer(self, feature_cols):
+        coefs = {
+            model: ng.p.Scalar(lower=0, upper=1) for model in feature_cols
+        }
+        parametrization = ng.p.Instrumentation(**coefs)
+        optimizer = ng.optimizers.OnePlusOne(
+            parametrization=parametrization, budget=self.budget
+        )
+        base = [
+            dict(zip(feature_cols, vals)) for vals in np.eye(len(feature_cols))
+        ]
+        for one_model in base:
+            optimizer.suggest(**one_model)
+        return optimizer
+
+    def _create_train(self, df):
+        top_train = []
+        top_test = []
+        # pylint: disable=invalid-name
         for i, (train, test) in enumerate(k_folds(df, self.n_folds)):
             self._logger.info("Processing fold #%d", i)
-            fold_train = State().session.createDataFrame(
-                data=[], schema=SCHEMA
-            )
             test_items = test.select("item_id").distinct()
             train_items = train.select("item_id").distinct()
             items_pos = test_items.join(train_items, on="item_id", how="inner")
@@ -79,46 +117,22 @@ class Stack(Recommender):
                 .agg({"count": "max"})
                 .collect()[0][0]
             )
-            for model in self.models:
-                scores = model.fit_predict(train, k=n_pos * 2,)
-                scores = scores.withColumnRenamed("relevance", str(model))
-                fold_train = fold_train.join(
-                    scores, on=["user_id", "item_id"], how="outer"
-                ).fillna(0)
+            fold_train = self._fold_predictions(train, n_pos * 2)
             top_train.append(fold_train)
             top_test.append(test)
+        return top_train, top_test
 
-        feature_cols = [str(model) for model in self.models]
-        # pylint: disable=attribute-defined-outside-init
-        self.top_train = top_train
-
-        coefs = {
-            model: ng.p.Scalar(lower=0, upper=1) for model in feature_cols
-        }
-        parametrization = ng.p.Instrumentation(**coefs)
-        optimizer = ng.optimizers.OnePlusOne(
-            parametrization=parametrization, budget=self.budget
+    def _fold_predictions(self, train, n_pos):
+        fold_train = State().session.createDataFrame(
+            data=[], schema=BASE_SCHEMA
         )
-        base = [dict(zip(feature_cols, vals)) for vals in np.eye(len(feature_cols))]
-        for one_model in base:
-            optimizer.suggest(**one_model)
-        for _ in tqdm(range(optimizer.budget)):
-            weights = optimizer.ask()
-            ranking = [
-                NDCG()(rerank(pred, **weights.kwargs), true, 50)
-                for pred, true in zip(top_train, top_test)
-            ]
-            loss = -np.mean(ranking)
-            optimizer.tell(weights, loss)
-
-        # pylint: disable=attribute-defined-outside-init
-        self.params = optimizer.provide_recommendation().kwargs
-        s = np.array(list(self.params.values()))
-        if (s == 1).sum() == 1 and s.sum() == 1:
-            name = [name for name in feature_cols if self.params[name] == 1][0]
-            self._logger.warn("Could not find combination to improve quality, %s works best on its own", name)
         for model in self.models:
-            model.fit(df)
+            scores = model.fit_predict(train, k=n_pos)
+            scores = scores.withColumnRenamed("relevance", str(model))
+            fold_train = fold_train.join(
+                scores, on=["user_id", "item_id"], how="outer"
+            ).fillna(0)
+        return fold_train
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -131,12 +145,7 @@ class Stack(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        top = State().session.createDataFrame(data=[], schema=SCHEMA)
-        top = top.withColumnRenamed("user_id", "user_idx").withColumnRenamed(
-            "item_id", "item_idx"
-        )
-        top = top.withColumn("user_idx", top["user_idx"].cast("integer"))
-        top = top.withColumn("item_idx", top["item_idx"].cast("integer"))
+        top = State().session.createDataFrame(data=[], schema=IDX_SCHEMA)
         for model in self.models:
             # pylint: disable=protected-access
             scores = model._predict(
@@ -155,7 +164,9 @@ class Stack(Recommender):
                 ),
             )
             scores = scores.withColumnRenamed("relevance", str(model))
-            top = top.join(scores, on=["user_idx", "item_idx"], how="outer").fillna(0)
+            top = top.join(
+                scores, on=["user_idx", "item_idx"], how="outer"
+            ).fillna(0)
         feature_cols = [str(model) for model in self.models]
         pred = rerank(top, **self.params)
         pred = pred.drop(*feature_cols)
