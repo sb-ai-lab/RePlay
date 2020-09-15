@@ -36,7 +36,7 @@ class RandomRec(Recommender):
     >>> state = State(spark)
 
     >>> import pandas as pd
-    >>> from replay.converter import convert2spark
+    >>> from replay.utils import convert2spark
     >>>
     >>> log = convert2spark(pd.DataFrame({
     ...     "user_id": ["1", "1", "2", "2", "3", "4"],
