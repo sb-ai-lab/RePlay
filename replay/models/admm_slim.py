@@ -9,6 +9,7 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from scipy.sparse import coo_matrix, csr_matrix
+import nevergrad as ng
 
 from replay.models.base_rec import Recommender
 from replay.session_handler import State
@@ -90,6 +91,17 @@ class ADMMSLIM(Recommender):
     _mat_c: np.ndarray
     _mat_b: np.ndarray
     _mat_gamma: np.ndarray
+    _search_space: {
+        "optuna": {
+            "lambda_1": {"type": "loguniform", "args": [0, 0.5]},
+            "lambda_2": {"type": "loguniform", "args": [0, 1000]},
+        },
+        "nevergrad":{
+            "lambda_1": ng.p.Log(lower=0, upper=0.5),
+            "lambda_2": ng.p.Log(lower=0, upper=1000),
+        }
+    }
+
 
     def __init__(
         self, lambda_1: float, lambda_2: float, seed: Optional[int] = None

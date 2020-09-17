@@ -13,6 +13,7 @@ from sklearn.model_selection import train_test_split
 from torch import LongTensor, Tensor, nn
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
+import nevergrad as ng
 
 from replay.models.base_torch_rec import TorchRecommender
 from replay.session_handler import State
@@ -247,6 +248,20 @@ class NeuroMF(TorchRecommender):
     n_saved: int = 2
     valid_split_size: float = 0.1
     seed: int = 42
+    _search_space: {
+        "optuna": {
+            "learning_rate": {"type": "loguniform", "args": [0.0001, 0.5]},
+            "l2_reg": {"type": "loguniform", "args": [0, 5]},
+            "gamma": {"type": "uniform", "args": [0.8, 0.99]},
+            "count_negative_sample": {"type": "int", "args": [1, 30]}
+        },
+        "nevergrad":{
+            "learning_rate": ng.p.Log(lower=0.0001, upper=0.5),
+            "l2_reg": ng.p.Log(lower=0, upper=5),
+            "gamma": ng.p.Scalar(lower=0.8, upper=0.99),
+            "count_negative_sample": ng.p.Scalar(init=15, lower=1, upper=30).set_integer_casting()
+        }
+    }
 
     # pylint: disable=too-many-arguments
     def __init__(

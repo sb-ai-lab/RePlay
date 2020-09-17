@@ -10,6 +10,7 @@ from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
+import nevergrad as ng
 
 from replay.models.base_rec import Recommender
 from replay.session_handler import State
@@ -21,6 +22,16 @@ class SLIM(Recommender):
 
     similarity: DataFrame
     can_predict_cold_users = True
+    _search_space: {
+        "optuna": {
+            "beta": {"type": "loguniform", "args": [0, 0.5]},
+            "lambda_": {"type": "loguniform", "args": [0, 0.5]},
+        },
+        "nevergrad":{
+            "beta": ng.p.Log(lower=0, upper=0.5),
+            "lambda_": ng.p.Log(lower=0, upper=0.5),
+        }
+    }
 
     def __init__(
         self,

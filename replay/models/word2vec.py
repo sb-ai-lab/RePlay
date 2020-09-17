@@ -8,6 +8,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 from pyspark.ml.stat import Summarizer
+import nevergrad as ng
 
 from replay.models.base_rec import Recommender
 from replay.utils import vector_dot, vector_mult
@@ -21,6 +22,18 @@ class Word2VecRec(Recommender):
 
     idf: DataFrame
     vectors: DataFrame
+    _search_space: {
+        "optuna": {
+            "rank": {"type": "int", "args": [50, 300]},
+            "window_size": {"type": "int", "args": [1, 100]},
+            "use_idf": {"type": "categorical", "args": [True, False]},
+        },
+        "nevergrad":{
+            "rank": ng.p.Scalar(lower=50, upper=300).set_integer_casting(),
+            "window_sizeank": ng.p.Scalar(lower=1, upper=100).set_integer_casting(),
+            "use_idf": ng.p.Choice([True, False]),
+        }
+    }
 
     def __init__(
         self,
