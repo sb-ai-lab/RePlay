@@ -136,6 +136,7 @@ class RandomRec(Recommender):
         distribution: str = "uniform",
         alpha: float = 0.0,
         seed: Optional[int] = None,
+        add_cold: Optional[bool] = True
     ):
         """
         :param distribution: вероятностоное распределение выбора элементов.
@@ -144,6 +145,7 @@ class RandomRec(Recommender):
             что случайно выбранный пользователь взаимодействовал с объектом
         :param alpha: параметр аддитивного сглаживания. Чем он больше, тем чаще рекомендуются непопулярные объекты.
         :param seed: инициализация генератора псевдослучайности
+        :param add_cold: может добавлять холодные айтемы с минимальной вероятностью в выдачу
         """
         if distribution not in ("popular_based", "uniform"):
             raise ValueError(
@@ -154,6 +156,7 @@ class RandomRec(Recommender):
         self.distribution = distribution
         self.alpha = alpha
         self.seed = seed
+        self.add_cold = add_cold
 
     def _fit(
         self,
@@ -171,7 +174,10 @@ class RandomRec(Recommender):
         self.item_popularity = self.item_popularity.selectExpr(
             "item_idx", f"{probability} AS probability"
         ).cache()
-        self.fill = self.item_popularity.agg({"probability": "min"}).collect()[0][0]
+        if self.add_cold:
+            self.fill = self.item_popularity.agg({"probability": "min"}).collect()[0][0]
+        else:
+            self.fill = 0
 
     # pylint: disable=too-many-arguments
     def _predict(
