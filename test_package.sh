@@ -12,4 +12,4 @@ pycodestyle --ignore=E203,E501,W503,W605 --max-doc-length=160 ${PACKAGE_NAME} te
 pylint --rcfile=.pylintrc ${PACKAGE_NAME}
 #mypy --ignore-missing-imports ${PACKAGE_NAME} tests
 pytest --cov=${PACKAGE_NAME} --cov-report=term-missing \
-       --doctest-modules ${PACKAGE_NAME} --cov-fail-under=93 tests
+       --doctest-modules ${PACKAGE_NAME} --cov-fail-under=94 tests
