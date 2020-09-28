@@ -30,7 +30,7 @@ class Stack(Recommender):
         models: List[Recommender],
         n_folds: Optional[int] = 5,
         budget: Optional[int] = 30,
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
     ):
         """
         :param models: список инициализированных моделей
@@ -83,7 +83,8 @@ class Stack(Recommender):
         if (s == 1).sum() == 1 and s.sum() == 1:
             name = [name for name in feature_cols if self.params[name] == 1][0]
             self._logger.warning(
-                "Could not find combination to improve quality, %s works best on its own",
+                "Could not find combination to improve quality, "
+                "%s works best on its own",
                 name,
             )
 
@@ -102,11 +103,14 @@ class Stack(Recommender):
             optimizer.suggest(**one_model)
         return optimizer
 
+    # pylint: disable=invalid-name
     def _create_train(self, df):
         top_train = []
         top_test = []
         # pylint: disable=invalid-name
-        for i, (train, test) in enumerate(k_folds(df, self.n_folds, self.seed)):
+        for i, (train, test) in enumerate(
+            k_folds(df, self.n_folds, self.seed)
+        ):
             self._logger.info("Processing fold #%d", i)
             test_items = test.select("item_id").distinct()
             train_items = train.select("item_id").distinct()
