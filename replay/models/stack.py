@@ -46,7 +46,7 @@ class Stack(Recommender):
         self._logger = logging.getLogger("replay")
         self.seed = seed
 
-    # pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals, invalid-name
     def _fit(
         self,
         log: DataFrame,
@@ -78,7 +78,7 @@ class Stack(Recommender):
 
         # pylint: disable=attribute-defined-outside-init
         self.params = optimizer.provide_recommendation().kwargs
-
+        # pylint: disable=invalid-name
         s = np.array(list(self.params.values()))
         if (s == 1).sum() == 1 and s.sum() == 1:
             name = [name for name in feature_cols if self.params[name] == 1][0]
@@ -103,8 +103,7 @@ class Stack(Recommender):
             optimizer.suggest(**one_model)
         return optimizer
 
-    # pylint: disable=invalid-name
-    def _create_train(self, df):
+    def _create_train(self, df): # pylint: disable=invalid-name
         top_train = []
         top_test = []
         # pylint: disable=invalid-name
