@@ -45,6 +45,7 @@ def plot_item_dist(
     """
     limits = list(range(len(item_dist), 0, -len(item_dist) // 10))[::-1]
     values = [(item_dist.iloc[:limit][col]).sum() for limit in limits]
+    # pylint: disable=too-many-function-args
     plot = sns.barplot(
         list(range(1, 11)),
         values / max(values),

@@ -1,6 +1,8 @@
 """
 Класс, реализующий стэккинг моделей.
 """
+# pylint: disable=invalid-name
+
 import logging
 from functools import reduce
 from operator import add
