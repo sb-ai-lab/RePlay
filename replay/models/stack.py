@@ -103,7 +103,7 @@ class Stack(Recommender):
             optimizer.suggest(**one_model)
         return optimizer
 
-    def _create_train(self, df): # pylint: disable=invalid-name
+    def _create_train(self, df):  # pylint: disable=invalid-name
         top_train = []
         top_test = []
         # pylint: disable=invalid-name
