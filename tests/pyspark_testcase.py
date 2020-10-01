@@ -1,6 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
+# pylint: disable-all
 import logging
 import multiprocessing
 import unittest
@@ -11,7 +12,7 @@ import numpy as np
 import pandas as pd
 from pyspark.ml.linalg import DenseVector
 from pyspark.sql import DataFrame, SparkSession
-from replay.session_handler import State
+from replay.session_handler import get_spark_session
 
 
 def unify_dataframe(data_frame: DataFrame):
@@ -69,4 +70,4 @@ class PySparkTest(unittest.TestCase):
         logger = logging.getLogger("replay")
         logger.setLevel("WARN")
         warnings.filterwarnings(action="ignore", category=ResourceWarning)
-        cls.spark = State().session
+        cls.spark = get_spark_session(1, 1)
