@@ -179,7 +179,7 @@ class RandomRec(Recommender):
             fill = fill.collect()[0][0]
         else:
             fill = 0
-        self.fill = fill  #  pylint: disable=attribute-defined-outside-init
+        self.fill = fill #  pylint: disable=attribute-defined-outside-init
 
     # pylint: disable=too-many-arguments
     def _predict(
