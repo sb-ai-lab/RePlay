@@ -96,12 +96,11 @@ class ADMMSLIM(Recommender):
             "lambda_1": {"type": "loguniform", "args": [0, 0.5]},
             "lambda_2": {"type": "loguniform", "args": [0, 1000]},
         },
-        "nevergrad":{
+        "nevergrad": {
             "lambda_1": ng.p.Log(lower=0.0001, upper=0.5),
             "lambda_2": ng.p.Log(lower=0.0001, upper=1000),
-        }
+        },
     }
-
 
     def __init__(
         self, lambda_1: float, lambda_2: float, seed: Optional[int] = None

@@ -28,11 +28,13 @@ class Word2VecRec(Recommender):
             "window_size": {"type": "int", "args": [1, 100]},
             "use_idf": {"type": "categorical", "args": [True, False]},
         },
-        "nevergrad":{
+        "nevergrad": {
             "rank": ng.p.Scalar(lower=50, upper=300).set_integer_casting(),
-            "window_sizeank": ng.p.Scalar(lower=1, upper=100).set_integer_casting(),
+            "window_sizeank": ng.p.Scalar(
+                lower=1, upper=100
+            ).set_integer_casting(),
             "use_idf": ng.p.Choice([True, False]),
-        }
+        },
     }
 
     def __init__(

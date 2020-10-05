@@ -27,10 +27,10 @@ class SLIM(Recommender):
             "beta": {"type": "loguniform", "args": [0, 0.5]},
             "lambda_": {"type": "loguniform", "args": [0, 0.5]},
         },
-        "nevergrad":{
+        "nevergrad": {
             "beta": ng.p.Log(lower=0.0001, upper=0.5),
             "lambda_": ng.p.Log(lower=0.0001, upper=0.5),
-        }
+        },
     }
 
     def __init__(

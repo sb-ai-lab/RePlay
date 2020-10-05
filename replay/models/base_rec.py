@@ -465,7 +465,9 @@ class BaseRecommender(ABC):
             filter_seen_items,
         )
 
-    def default_search_space(self, optuna: bool = True) -> Union[Dict[str, List[Any]], Instrumentation]:
+    def default_search_space(
+        self, optuna: bool = True
+    ) -> Union[Dict[str, List[Any]], Instrumentation]:
         """
         Возвращает стандартные границы для перебора параметров.
         :param optuna: по-умолчанию возвращается формат оптюны для использования в сценарии,

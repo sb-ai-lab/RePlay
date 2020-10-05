@@ -21,12 +21,16 @@ class KNN(Recommender):
     _search_space: {
         "optuna": {
             "num_neighbours": {"type": "int", "args": [5, 100]},
-            "shrink": {"type": "discrete_uniform", "args": [0, 50, 10]}
+            "shrink": {"type": "discrete_uniform", "args": [0, 50, 10]},
         },
-        "nevergrad":{
-            "num_neighbours": ng.p.Scalar(lower=5, upper=100).set_integer_casting(),
-            "shrink": ng.p.Scalar(init=50, lower=5, upper=100).set_integer_casting()
-        }
+        "nevergrad": {
+            "num_neighbours": ng.p.Scalar(
+                lower=5, upper=100
+            ).set_integer_casting(),
+            "shrink": ng.p.Scalar(
+                init=50, lower=5, upper=100
+            ).set_integer_casting(),
+        },
     }
 
     def __init__(self, num_neighbours: int = 10, shrink: float = 0.0):
