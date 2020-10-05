@@ -12,30 +12,31 @@ import torch
 from pyspark.sql import SparkSession
 
 
-def get_spark_session(spark_memory: Optional[int] = None) -> SparkSession:
+def get_spark_session(
+    spark_memory: Optional[int] = None,
+    shuffle_partitions: Optional[int] = None,
+) -> SparkSession:
     """
     инициализирует и возращает SparkSession с "годными" параметрами по
     умолчанию (для пользователей, которые не хотят сами настраивать Spark)
 
     :param spark_memory: количество гигабайт оперативной памяти, которую нужно выделить под Spark;
         если не задано, выделяется половина всей доступной памяти
+    :param shuffle_partitions: количество партиций для Spark; если не задано, равно числу доступных цпу
     """
     if spark_memory is None:
         spark_memory = floor(psutil.virtual_memory().total / 1024 ** 3 / 2)
-    if os.environ.get("PYTEST_RUNNING", "N") == "Y":
-        driver_memory = "512m"
-        shuffle_partitions = "1"
-    else:
-        driver_memory = f"{spark_memory}g"
-        shuffle_partitions = str(os.cpu_count())
+    if shuffle_partitions is None:
+        shuffle_partitions = os.cpu_count()
+    driver_memory = f"{spark_memory}g"
     user_home = os.environ["HOME"]
     spark = (
         SparkSession.builder.config("spark.driver.memory", driver_memory)
-        .config("spark.sql.shuffle.partitions", shuffle_partitions)
+        .config("spark.sql.shuffle.partitions", str(shuffle_partitions))
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
         .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.host", "localhost")
-        .config("spark.sql.execution.arrow.pyspark.enabled", "true")
+        .config("spark.sql.execution.arrow.enabled", "true")
         .master("local[*]")
         .enableHiveSupport()
         .getOrCreate()
@@ -49,16 +50,16 @@ def logger_with_settings() -> logging.Logger:
     spark_logger.setLevel(logging.WARN)
     ignite_engine_logger = logging.getLogger("ignite.engine.engine.Engine")
     ignite_engine_logger.setLevel(logging.WARN)
-    sponge_logger = logging.getLogger("replay")
+    logger = logging.getLogger("replay")
     formatter = logging.Formatter(
         "%(asctime)s, %(name)s, %(levelname)s: %(message)s",
         datefmt="%d-%b-%y %H:%M:%S",
     )
     hdlr = logging.StreamHandler()
     hdlr.setFormatter(formatter)
-    sponge_logger.addHandler(hdlr)
-    sponge_logger.setLevel(logging.INFO)
-    return sponge_logger
+    logger.addHandler(hdlr)
+    logger.setLevel(logging.DEBUG)
+    return logger
 
 
 # pylint: disable=too-few-public-methods
