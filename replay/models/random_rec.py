@@ -136,7 +136,7 @@ class RandomRec(Recommender):
         distribution: str = "uniform",
         alpha: float = 0.0,
         seed: Optional[int] = None,
-        add_cold: Optional[bool] = True
+        add_cold: Optional[bool] = True,
     ):
         """
         :param distribution: вероятностоное распределение выбора элементов.
@@ -175,9 +175,11 @@ class RandomRec(Recommender):
             "item_idx", f"{probability} AS probability"
         ).cache()
         if self.add_cold:
-            self.fill = self.item_popularity.agg({"probability": "min"}).collect()[0][0]
+            fill = self.item_popularity.agg({"probability": "min"})
+            fill = fill.collect()[0][0]
         else:
-            self.fill = 0
+            fill = 0
+        self.fill = fill  #  pylint: disable=attribute-defined-outside-init
 
     # pylint: disable=too-many-arguments
     def _predict(
