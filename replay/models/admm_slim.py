@@ -97,8 +97,8 @@ class ADMMSLIM(Recommender):
             "lambda_2": {"type": "loguniform", "args": [0, 1000]},
         },
         "nevergrad":{
-            "lambda_1": ng.p.Log(lower=0, upper=0.5),
-            "lambda_2": ng.p.Log(lower=0, upper=1000),
+            "lambda_1": ng.p.Log(lower=0.0001, upper=0.5),
+            "lambda_2": ng.p.Log(lower=0.0001, upper=1000),
         }
     }
 

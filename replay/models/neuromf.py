@@ -257,7 +257,7 @@ class NeuroMF(TorchRecommender):
         },
         "nevergrad":{
             "learning_rate": ng.p.Log(lower=0.0001, upper=0.5),
-            "l2_reg": ng.p.Log(lower=0, upper=5),
+            "l2_reg": ng.p.Log(lower=0.0001, upper=5),
             "gamma": ng.p.Scalar(lower=0.8, upper=0.99),
             "count_negative_sample": ng.p.Scalar(init=15, lower=1, upper=30).set_integer_casting()
         }

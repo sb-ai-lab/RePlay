@@ -165,7 +165,7 @@ class MultVAE(TorchRecommender):
         },
         "nevergrad":{
             "learning_rate": ng.p.Log(lower=0.0001, upper=0.5),
-            "l2_reg": ng.p.Log(lower=0, upper=5),
+            "l2_reg": ng.p.Log(lower=0.0001, upper=5),
             "gamma": ng.p.Scalar(lower=0.8, upper=0.99),
             "dropout": ng.p.Scalar(lower=0, upper=0.9),
             "anneal": ng.p.Scalar(lower=0, upper=0.99),
