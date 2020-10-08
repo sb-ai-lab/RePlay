@@ -35,6 +35,15 @@ class Wilson(PopRec):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
+        vals = (
+            log.select("relevance")
+            .distinct()
+            .orderBy("relevance")
+            .toPandas()["relevance"]
+            .to_list()
+        )
+        if vals != [0, 1]:
+            raise ValueError("Relevance values in log must be 0 or 1")
         data_frame = (
             log.groupby("item_idx")
             .agg(
