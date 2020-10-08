@@ -44,7 +44,7 @@ class Wilson(PopRec):
             .toPandas()["relevance"]
             .to_list()
         )
-        if vals != [0, 1]:
+        if set(vals) - {0, 1}:
             raise ValueError("Relevance values in log must be 0 or 1")
         data_frame = (
             log.groupby("item_idx")
