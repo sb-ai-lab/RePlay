@@ -36,7 +36,7 @@ def get_spark_session(
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
         .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.host", "localhost")
-        .config("spark.sql.execution.arrow.enabled", "true")
+        .config("spark.sql.execution.arrow.pyspark.enabled", "true")
         .master("local[*]")
         .enableHiveSupport()
         .getOrCreate()
