@@ -175,8 +175,7 @@ class RandomRec(Recommender):
             "item_idx", f"{probability} AS probability"
         ).cache()
         if self.add_cold:
-            fill = self.item_popularity.agg({"probability": "min"})
-            fill = fill.collect()[0][0]
+            fill = self.item_popularity.agg({"probability": "min"}).first()[0]
         else:
             fill = 0
         self.fill = fill  # pylint: disable=attribute-defined-outside-init
