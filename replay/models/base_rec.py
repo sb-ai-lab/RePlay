@@ -4,10 +4,9 @@
 import collections
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterable, Optional, Union, List
+from typing import Any, Dict, Iterable, Optional, Union
 
 import pandas as pd
-from nevergrad.parametrization.container import Instrumentation
 from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -464,18 +463,6 @@ class BaseRecommender(ABC):
             item_features,
             filter_seen_items,
         )
-
-    def default_search_space(
-        self, optuna: bool = True
-    ) -> Union[Dict[str, List[Any]], Instrumentation]:
-        """
-        Возвращает стандартные границы для перебора параметров.
-        :param optuna: по-умолчанию возвращается формат оптюны для использования в сценарии,
-            иначе используется формат неверграда
-        :return:
-        """
-        kind = "optuna" if optuna else "nevergrad"
-        return self._search_space.get(kind, None)
 
 
 # pylint: disable=abstract-method
