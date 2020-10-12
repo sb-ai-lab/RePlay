@@ -247,7 +247,7 @@ class NeuroMF(TorchRecommender):
     n_saved: int = 2
     valid_split_size: float = 0.1
     seed: int = 42
-    _search_space: {
+    _search_space = {
         "learning_rate": {"type": "loguniform", "args": [0.0001, 0.5]},
         "l2_reg": {"type": "loguniform", "args": [0, 5]},
         "gamma": {"type": "uniform", "args": [0.8, 0.99]},

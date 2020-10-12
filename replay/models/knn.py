@@ -17,7 +17,7 @@ class KNN(Recommender):
     dot_products: Optional[DataFrame]
     item_norms: Optional[DataFrame]
     similarity: Optional[DataFrame]
-    _search_space: {
+    _search_space = {
         "num_neighbours": {"type": "int", "args": [5, 100]},
         "shrink": {"type": "discrete_uniform", "args": [0, 50, 10]},
     }
