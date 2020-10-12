@@ -90,6 +90,15 @@ class RandomRec(Recommender):
     |      4|      1|0.33333334|
     +-------+-------+----------+
     <BLANKLINE>
+    >>> recs = random_pop.predict(log, 2, users=[1], items=[7, 8])
+    >>> recs.show()
+    +-------+-------+---------+
+    |user_id|item_id|relevance|
+    +-------+-------+---------+
+    |      1|      7|      1.0|
+    |      1|      8|      0.5|
+    +-------+-------+---------+
+    <BLANKLINE>
     >>> random_pop = RandomRec(seed=555)
     >>> random_pop.fit(log)
     >>> random_pop.item_popularity.show()
@@ -120,12 +129,14 @@ class RandomRec(Recommender):
 
     item_popularity: DataFrame
     can_predict_cold_users = True
+    can_predict_cold_items = True
 
     def __init__(
         self,
         distribution: str = "uniform",
         alpha: float = 0.0,
         seed: Optional[int] = None,
+        add_cold: Optional[bool] = True,
     ):
         """
         :param distribution: вероятностоное распределение выбора элементов.
@@ -134,6 +145,7 @@ class RandomRec(Recommender):
             что случайно выбранный пользователь взаимодействовал с объектом
         :param alpha: параметр аддитивного сглаживания. Чем он больше, тем чаще рекомендуются непопулярные объекты.
         :param seed: инициализация генератора псевдослучайности
+        :param add_cold: может добавлять холодные айтемы с минимальной вероятностью в выдачу
         """
         if distribution not in ("popular_based", "uniform"):
             raise ValueError(
@@ -144,6 +156,7 @@ class RandomRec(Recommender):
         self.distribution = distribution
         self.alpha = alpha
         self.seed = seed
+        self.add_cold = add_cold
 
     def _fit(
         self,
@@ -161,6 +174,11 @@ class RandomRec(Recommender):
         self.item_popularity = self.item_popularity.selectExpr(
             "item_idx", f"{probability} AS probability"
         ).cache()
+        if self.add_cold:
+            fill = self.item_popularity.agg({"probability": "min"}).first()[0]
+        else:
+            fill = 0
+        self.fill = fill  # pylint: disable=attribute-defined-outside-init
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -178,9 +196,10 @@ class RandomRec(Recommender):
             items.join(
                 self.item_popularity.withColumnRenamed("item_idx", "item"),
                 on=sf.col("item_idx") == sf.col("item"),
-                how="inner",
+                how="left",
             )
             .drop("item")
+            .fillna(self.fill)
             .toPandas()
         )
         items_pd.loc[:, "probability"] = (
