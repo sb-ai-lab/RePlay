@@ -39,12 +39,9 @@ class Wilson(PopRec):
     ) -> None:
         vals = (
             log.select("relevance")
-            .distinct()
-            .orderBy("relevance")
-            .toPandas()["relevance"]
-            .to_list()
+            .where((sf.col("relevance") != 1) & (sf.col("relevance") != 0))
         )
-        if set(vals) - {0, 1}:
+        if vals.count() > 0:
             raise ValueError("Relevance values in log must be 0 or 1")
         data_frame = (
             log.groupby("item_idx")
