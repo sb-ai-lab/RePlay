@@ -17,6 +17,8 @@ class Wilson(PopRec):
     Подсчитевает для каждого айтема нижнюю границу
     доверительного интервала истинной доли положительных оценок.
 
+    При этом данные ``relevance`` должны быть приведены к виду 0 и 1.
+
     Для каждого пользователя отфильтровываются просмотренные айтемы.
 
     >>> import pandas as pd
@@ -35,6 +37,12 @@ class Wilson(PopRec):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
+        vals = (
+            log.select("relevance")
+            .where((sf.col("relevance") != 1) & (sf.col("relevance") != 0))
+        )
+        if vals.count() > 0:
+            raise ValueError("Relevance values in log must be 0 or 1")
         data_frame = (
             log.groupby("item_idx")
             .agg(
