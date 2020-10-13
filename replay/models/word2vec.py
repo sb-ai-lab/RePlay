@@ -21,6 +21,11 @@ class Word2VecRec(Recommender):
 
     idf: DataFrame
     vectors: DataFrame
+    _search_space = {
+        "rank": {"type": "int", "args": [50, 300]},
+        "window_size": {"type": "int", "args": [1, 100]},
+        "use_idf": {"type": "categorical", "args": [True, False]},
+    }
 
     def __init__(
         self,

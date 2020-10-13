@@ -247,6 +247,12 @@ class NeuroMF(TorchRecommender):
     n_saved: int = 2
     valid_split_size: float = 0.1
     seed: int = 42
+    _search_space = {
+        "learning_rate": {"type": "loguniform", "args": [0.0001, 0.5]},
+        "l2_reg": {"type": "loguniform", "args": [0, 5]},
+        "gamma": {"type": "uniform", "args": [0.8, 0.99]},
+        "count_negative_sample": {"type": "int", "args": [1, 30]},
+    }
 
     # pylint: disable=too-many-arguments
     def __init__(

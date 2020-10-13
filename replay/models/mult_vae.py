@@ -154,6 +154,13 @@ class MultVAE(TorchRecommender):
     can_predict_cold_users = True
     train_user_batch: csr_matrix
     valid_user_batch: csr_matrix
+    _search_space = {
+        "learning_rate": {"type": "loguniform", "args": [0.0001, 0.5]},
+        "l2_reg": {"type": "loguniform", "args": [0, 5]},
+        "gamma": {"type": "uniform", "args": [0.8, 0.99]},
+        "dropout": {"type": "uniform", "args": [0, 0.9]},
+        "anneal": {"type": "uniform", "args": [0, 0.99]},
+    }
 
     # pylint: disable=too-many-arguments
     def __init__(
