@@ -223,19 +223,14 @@ class BaseRecommender(ABC):
             item_features,
             filter_seen_items,
         )
+        recs = recs.join(items, on="item_idx", how="left")
         if filter_seen_items:
-            recs = self._mark_seen_items(recs, self._convert_index(log))
+            recs = recs.join(log.select("item_idx"), on="item_idx", how="anti")
+
         recs = self._convert_back(recs, user_type, item_type).select(
             "user_id", "item_id", "relevance"
         )
         recs = get_top_k_recs(recs, k)
-        recs = (
-            recs.withColumn(
-                "relevance",
-                sf.when(recs["relevance"] < 0, 0).otherwise(recs["relevance"]),
-            )
-        ).cache()
-
         return recs
 
     def _convert_index(self, data_frame: DataFrame) -> DataFrame:
@@ -379,35 +374,6 @@ class BaseRecommender(ABC):
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
-
-    @staticmethod
-    def _mark_seen_items(recs: DataFrame, log: DataFrame) -> DataFrame:
-        """
-        Преобразует рекомендации, заменяя для каждого пользователя
-        relevance уже увиденных им объектов (на основе лога) на -1.
-
-        :param recs: рекомендации, спарк-датафрейм с колонками
-            ``[user_id, item_id, relevance]``
-        :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками
-            ``[user_id, item_id, timestamp, relevance]``
-        :return: измененные рекомендации, спарк-датафрейм с колонками
-            ``[user_id, item_id, relevance]``
-        """
-        user_item_log = log.select(
-            sf.col("item_idx").alias("item"), sf.col("user_idx").alias("user")
-        ).withColumn("in_log", sf.lit(True))
-        recs = recs.join(
-            user_item_log,
-            (recs.item_idx == user_item_log.item)
-            & (recs.user_idx == user_item_log.user),
-            how="left",
-        )
-        recs = recs.withColumn(
-            "relevance",
-            sf.when(recs["in_log"], -1).otherwise(recs["relevance"]),
-        ).drop("in_log", "item", "user")
-        return recs
 
     @property
     def logger(self) -> logging.Logger:
