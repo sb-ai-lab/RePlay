@@ -226,7 +226,6 @@ class BaseRecommender(ABC):
         recs = recs.join(items, on="item_idx", how="left")
         if filter_seen_items:
             recs = recs.join(log.select("item_idx"), on="item_idx", how="anti")
-
         recs = self._convert_back(recs, user_type, item_type).select(
             "user_id", "item_id", "relevance"
         )
