@@ -225,7 +225,14 @@ class BaseRecommender(ABC):
         )
         recs = recs.join(items, on="item_idx", how="left")
         if filter_seen_items:
-            recs = recs.join(log.select("item_idx"), on="item_idx", how="anti")
+            recs = recs.join(
+                log.withColumnRenamed("item_idx", "item")
+                .withColumnRenamed("user_idx", "user")
+                .select("user", "item"),
+                on=(sf.col("user_idx") == sf.col("user"))
+                & (sf.col("item_idx") == sf.col("item")),
+                how="anti",
+            ).drop("user", "item")
         recs = self._convert_back(recs, user_type, item_type).select(
             "user_id", "item_id", "relevance"
         )
