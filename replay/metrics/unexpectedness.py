@@ -81,7 +81,7 @@ class Unexpectedness(RecOnlyMetric):
         else:
             pred = self.log  # type: ignore
         items_by_users = pred.groupby("user_id").agg(
-                sf.collect_list("item_id").alias("items_id")
+            sf.collect_list("item_id").alias("items_id")
         )
         res = recommendations.join(items_by_users, how="inner", on=["user_id"])
         return res
