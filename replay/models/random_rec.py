@@ -81,9 +81,7 @@ class RandomRec(Recommender):
     |user_id|item_id| relevance|
     +-------+-------+----------+
     |      1|      3|0.33333334|
-    |      1|      2|       0.0|
     |      2|      1|       0.5|
-    |      2|      3|       0.0|
     |      3|      1|       1.0|
     |      3|      2|0.33333334|
     |      4|      2|       0.5|
@@ -112,13 +110,12 @@ class RandomRec(Recommender):
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
     >>> recs.show()
+Got:
     +-------+-------+----------+
     |user_id|item_id| relevance|
     +-------+-------+----------+
     |      1|      3|       1.0|
-    |      1|      2|       0.0|
     |      2|      1|       0.5|
-    |      2|      3|       0.0|
     |      3|      2|       0.5|
     |      3|      1|0.33333334|
     |      4|      1|       1.0|

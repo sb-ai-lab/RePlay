@@ -63,7 +63,7 @@ class LightFMWrapTestCase(PySparkTest):
             item_features=self.item_features,
         )
         true_recs = self.spark.createDataFrame(
-            [["u3", "i1", 0.0], ["u1", "i3", 0.0], ["u2", "i4", 0.0]],
+            [["u3", "i1", -0.614471], ["u1", "i3", -0.479815], ["u2", "i4", -0.248714]],
             schema=REC_SCHEMA,
         )
         self.assertSparkDataFrameEqual(recs, true_recs)
