@@ -110,7 +110,6 @@ class RandomRec(Recommender):
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
     >>> recs.show()
-Got:
     +-------+-------+----------+
     |user_id|item_id| relevance|
     +-------+-------+----------+
