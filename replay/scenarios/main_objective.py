@@ -7,13 +7,12 @@ from typing import Any, Dict, List, Optional
 
 from optuna import Trial
 from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
 
 from replay.constants import IntOrList
 from replay.experiment import Experiment
 from replay.metrics.base_metric import Metric
 from replay.models.base_rec import Recommender
-from replay.utils import get_top_k_recs
+from replay.utils import fallback
 
 SplitData = collections.namedtuple(
     "SplitData", "train test users items user_features item_features"
@@ -50,20 +49,7 @@ class MainObjective:
         self.split_data = split_data
         self.recommender = recommender
         self.search_space = search_space
-        self.max_in_fallback_recs = (
-            (fallback_recs.agg({"relevance": "max"}).collect()[0][0])
-            if fallback_recs is not None
-            else 0
-        )
-        self.fallback_recs = (
-            (
-                fallback_recs.withColumnRenamed(
-                    "relevance", "relevance_fallback"
-                )
-            )
-            if fallback_recs is not None
-            else None
-        )
+        self.fallback_recs = fallback_recs
         self.logger = logging.getLogger("replay")
         self.experiment = Experiment(split_data.test, metrics)
 
@@ -101,41 +87,10 @@ class MainObjective:
             user_features=self.split_data.user_features,
             item_features=self.split_data.item_features,
         ).cache()
-        recs = self._join_fallback_recs(
-            recs, self.fallback_recs, self.k, self.max_in_fallback_recs
-        )
+        if self.fallback_recs is not None:
+            recs = fallback(recs, self.fallback_recs, self.k)
         self.logger.debug("-- Подсчет метрики в оптимизации")
         criterion_value = self.criterion(recs, self.split_data.test, self.k)
         self.experiment.add_result(f"{str(self.recommender)}{params}", recs)
         self.logger.debug("%s=%.2f", self.criterion, criterion_value)
         return criterion_value  # type: ignore
-
-    def _join_fallback_recs(
-        self,
-        recs: DataFrame,
-        fallback_recs: Optional[DataFrame],
-        k: int,
-        max_in_fallback_recs: float,
-    ) -> DataFrame:
-        """ Добавляет к рекомендациям fallback-рекомендации. """
-        self.logger.debug("-- Длина рекомендаций: %d", recs.count())
-        if fallback_recs is not None:
-            self.logger.debug("-- Добавляем fallback рекомендации")
-            # добавим максимум из fallback реков,
-            # чтобы сохранить порядок при заборе топ-k
-            recs = recs.withColumn(
-                "relevance", sf.col("relevance") + 10 * max_in_fallback_recs
-            )
-            recs = recs.join(
-                fallback_recs, on=["user_id", "item_id"], how="full_outer"
-            )
-            recs = recs.withColumn(
-                "relevance", sf.coalesce("relevance", "relevance_fallback")
-            ).select("user_id", "item_id", "relevance")
-            recs = get_top_k_recs(recs, k)
-            self.logger.debug(
-                "-- Длина рекомендаций после добавления %s: %d",
-                "fallback-рекомендаций",
-                recs.count(),
-            )
-        return recs

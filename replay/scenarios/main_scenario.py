@@ -18,6 +18,7 @@ from replay.models.pop_rec import PopRec
 from replay.scenarios.main_objective import MainObjective, SplitData
 from replay.splitters.base_splitter import Splitter
 from replay.splitters.log_splitter import RandomSplitter
+from replay.utils import fallback
 
 
 class MainScenario:
@@ -224,6 +225,7 @@ class MainScenario:
         items: Optional[DataFrame] = None,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
         k: int = 10,
     ) -> DataFrame:
         """
@@ -248,18 +250,34 @@ class MainScenario:
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
             ``[item_id , timestamp]`` и колонки с признаками
+        :param filter_seen_items: если ``True``, из рекомендаций каждому
+            пользователю удаляются виденные им объекты на основе лога
         :param k: количество рекомендаций для каждого пользователя;
             должно быть не больше, чем количество объектов в ``items``
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
         self.recommender.set_params(**params)
-        return self.recommender._fit_predict(  # pylint: disable=protected-access
+        res = self.recommender.fit_predict(  # pylint: disable=protected-access
             log,
             k,
             users,
             items,
             user_features,
             item_features,
+            filter_seen_items,
             force_reindex=False,
         )
+        self.fallback_model.fit(log, force_reindex=False)
+        fallback_recs = self.fallback_model.predict(
+            log.union(res),
+            k,
+            users,
+            items,
+            user_features,
+            item_features,
+            filter_seen_items,
+            force_reindex=False,
+        )
+        res = fallback(res, fallback_recs, k)
+        return res
