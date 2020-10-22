@@ -46,4 +46,4 @@ class ClassifierRecTestCase(PySparkTest):
             item_features=self.item_features,
             filter_seen_items=True,
         )
-        self.assertEqual(empty_prediction.count(), 2)
+        self.assertEqual(empty_prediction.count(), 0)

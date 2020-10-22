@@ -42,19 +42,19 @@ class PopRec(Recommender):
     >>> from replay.utils import convert2spark
     >>> res = PopRec().fit_predict(convert2spark(data_frame), 1)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
-      user_id item_id  relevance
-    0       1       3       0.75
-    1       2       1       0.25
-    2       3       2       0.50
-    3       4       2       0.50
+       user_id  item_id  relevance
+    0        1        3       0.75
+    1        2        1       0.25
+    2        3        2       0.50
+    3        4        2       0.50
 
     >>> res = PopRec().fit_predict(convert2spark(data_frame), 1, filter_seen_items=False)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
-      user_id item_id  relevance
-    0       1       3       0.75
-    1       2       3       0.75
-    2       3       3       0.75
-    3       4       3       0.75
+       user_id  item_id  relevance
+    0        1        3       0.75
+    1        2        3       0.75
+    2        3        3       0.75
+    3        4        3       0.75
     """
 
     item_popularity: DataFrame

@@ -27,7 +27,7 @@ class Unexpectedness(RecOnlyMetric):
     >>> recs = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": ["1", "2", "3", "1"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
     >>> metric = Unexpectedness(log)
     >>> metric(recs, [1, 2])
-    {1: 0.5, 2: 0.25}
+    {1: 0.5, 2: 0.5}
 
 
     Возможен также режим, в котором рекомендации базового алгоритма передаются сразу при инициализации и рекомендатель не обучается

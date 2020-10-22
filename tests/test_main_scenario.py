@@ -44,4 +44,4 @@ class MainScenarioTestCase(PySparkTest):
         best_params = self.scenario.research(grid, self.log, k=2, n_trials=1)
         self.assertEqual(best_params, {"rank": 1})
         recs = self.scenario.production(best_params, self.log, k=2)
-        self.assertEqual(recs.count(), 6)
+        self.assertEqual(recs.count(), 2)

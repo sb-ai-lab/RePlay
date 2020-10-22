@@ -128,7 +128,7 @@ class NeuroCFRecTestCase(PySparkTest):
                 predictions.toPandas()[["user_id", "item_id"]]
                 .astype(int)
                 .values,
-                [[0, 0], [1, 2]],
+                [[1, 2]],
                 atol=1.0e-3,
             )
         )
