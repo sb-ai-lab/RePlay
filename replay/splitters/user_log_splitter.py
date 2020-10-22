@@ -299,7 +299,10 @@ class UserSplitter(Splitter):
 
 
 def k_folds(
-    log: AnyDataFrame, n_folds: Optional[int] = 5, seed: Optional[int] = None
+    log: AnyDataFrame,
+    n_folds: Optional[int] = 5,
+    seed: Optional[int] = None,
+    splitter: Optional[str] = "user",
 ) -> SplitterReturnType:
     """
     Делит лог внутри каждого пользователя на фолды случайным образом.
@@ -307,15 +310,22 @@ def k_folds(
     :param log: датафрейм для деления
     :param n_folds: количество фолдов
     :param seed: сид разбиения
+    :param splitter: стратегия разбиения на фолды.
+        Сейчас доступен только вариант user, который разбивает лог каждого пользователя независимо, случайным образом
     :return: трейн и тест по фолдам
     """
-    dataframe = convert2spark(log).withColumn("rand", sf.rand(seed))
-    dataframe = dataframe.withColumn(
-        "fold",
-        sf.row_number().over(Window.partitionBy("user_id").orderBy("rand"))
-        % n_folds,
-    ).drop("rand")
-    for i in range(n_folds):
-        train = dataframe.filter(f"fold != {i}").drop("fold")
-        test = dataframe.filter(f"fold == {i}").drop("fold")
-        yield train, test
+    if splitter not in {"user"}:
+        raise ValueError(
+            "Недопустимое значение параметра splitter: %s" % splitter
+        )
+    if splitter == "user":
+        dataframe = convert2spark(log).withColumn("rand", sf.rand(seed))
+        dataframe = dataframe.withColumn(
+            "fold",
+            sf.row_number().over(Window.partitionBy("user_id").orderBy("rand"))
+            % n_folds,
+        ).drop("rand")
+        for i in range(n_folds):
+            train = dataframe.filter(f"fold != {i}").drop("fold")
+            test = dataframe.filter(f"fold == {i}").drop("fold")
+            yield train, test
