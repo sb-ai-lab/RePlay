@@ -136,8 +136,6 @@ class MainScenario:
         log: DataFrame,
         users: Optional[DataFrame] = None,
         items: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
         k: int = 10,
         n_trials: int = 10,
     ) -> Dict[str, Any]:
@@ -155,12 +153,6 @@ class MainScenario:
         :param items: список объектов, которые необходимо рекомендовать;
             спарк-датафрейм с колонкой ``[item_id]``;
             если ``None``, выбираются все объекты из тестовой выборки
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонками
-            ``[user_id , timestamp]`` и колонки с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонками
-            ``[item_id , timestamp]`` и колонки с признаками
         :param k: количество рекомендаций для каждого пользователя;
             должно быть не больше, чем количество объектов в ``items``
         :param n_trials: количество уникальных испытаний; должно быть от 1
@@ -170,7 +162,7 @@ class MainScenario:
         """
         self.logger.debug("Деление лога на обучающую и тестовую выборку")
         split_data = self._prepare_data(
-            log, users, items, user_features, item_features
+            log, users, items, None, None
         )
         self.logger.debug("Инициализация метрик")
         criterion = self.criterion()
@@ -223,8 +215,6 @@ class MainScenario:
         log: DataFrame,
         users: Optional[DataFrame] = None,
         items: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
         k: int = 10,
     ) -> DataFrame:
@@ -244,12 +234,6 @@ class MainScenario:
         :param items: список объектов, которые необходимо рекомендовать;
             спарк-датафрейм с колонкой ``[item_id]``;
             если ``None``, выбираются все объекты из тестовой выборки
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонками
-            ``[user_id , timestamp]`` и колонки с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонками
-            ``[item_id , timestamp]`` и колонки с признаками
         :param filter_seen_items: если ``True``, из рекомендаций каждому
             пользователю удаляются виденные им объекты на основе лога
         :param k: количество рекомендаций для каждого пользователя;
@@ -263,21 +247,16 @@ class MainScenario:
             k,
             users,
             items,
-            user_features,
-            item_features,
             filter_seen_items,
             force_reindex=False,
         )
         self.fallback_model.fit(log, force_reindex=False)
         fallback_recs = self.fallback_model.predict(
-            log.union(res),
+            log,
             k,
             users,
             items,
-            user_features,
-            item_features,
             filter_seen_items,
-            force_reindex=False,
         )
         res = fallback(res, fallback_recs, k)
         return res
