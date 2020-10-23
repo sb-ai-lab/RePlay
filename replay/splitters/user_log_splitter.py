@@ -8,12 +8,10 @@ from pyspark.sql import DataFrame, Window
 
 from replay.constants import AnyDataFrame
 from replay.splitters.base_splitter import Splitter, SplitterReturnType
-
-
-# pylint: disable=too-few-public-methods
 from replay.utils import convert2spark
 
 
+# pylint: disable=too-few-public-methods
 class UserSplitter(Splitter):
     """
     Данный сплиттер применяет логику разбиения не на весь лог сразу,
