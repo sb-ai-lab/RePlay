@@ -32,6 +32,8 @@ def get_spark_session(
     user_home = os.environ["HOME"]
     spark = (
         SparkSession.builder.config("spark.driver.memory", driver_memory)
+        .config("spark.driver.extraJavaOptions",
+                "-Dio.netty.tryReflectionSetAccessible=true")
         .config("spark.sql.shuffle.partitions", str(shuffle_partitions))
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
         .config("spark.driver.bindAddress", "127.0.0.1")
