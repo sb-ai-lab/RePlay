@@ -268,7 +268,7 @@ class MainScenario:
             filter_seen_items,
             force_reindex=False,
         )
-        self.fallback_model._fit_wrap(
+        self.fallback_model._fit_wrap(  # pylint: disable=protected-access
             log, user_features, item_features, force_reindex=False
         )
         fallback_recs = self.fallback_model._predict_wrap(  # pylint: disable=protected-access
