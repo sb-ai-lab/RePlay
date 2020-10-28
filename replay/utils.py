@@ -5,7 +5,7 @@ from typing import Any, List, Optional, Set, Union
 
 import numpy as np
 from pyspark.ml.linalg import DenseVector, VectorUDT
-from pyspark.sql import Column, DataFrame, Window
+from pyspark.sql import Column, DataFrame, Window, functions as sf
 from pyspark.sql.functions import col, element_at, row_number, udf
 from pyspark.sql.types import DoubleType
 from scipy.sparse import csr_matrix
@@ -280,3 +280,26 @@ def horizontal_explode(
             for i in range(num_columns)
         ],
     )
+
+
+def fallback(base: DataFrame, fill: DataFrame, k: int) -> DataFrame:
+    """Подмешивает к основным рекомендациям запасные
+    для юзеров, у которых количество рекомендаций меньше ``k``.
+
+    :param base: основные рекомендации
+    :param fill: запасные рекомендации
+    :param k: сколько должно быть для каждого пользователя
+    :return: дополненные рекомендации
+    """
+    max_in_fill = fill.agg({"relevance": "max"}).collect()[0][0]
+    fill = fill.withColumnRenamed("relevance", "relevance_fallback")
+    if fill is not None:
+        recs = base.withColumn(
+            "relevance", sf.col("relevance") + 10 * max_in_fill
+        )
+        recs = recs.join(fill, on=["user_id", "item_id"], how="full_outer")
+        recs = recs.withColumn(
+            "relevance", sf.coalesce("relevance", "relevance_fallback")
+        ).select("user_id", "item_id", "relevance")
+        recs = get_top_k_recs(recs, k)
+    return recs

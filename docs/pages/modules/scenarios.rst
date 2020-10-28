@@ -8,6 +8,10 @@
    :special-members: __init__
    :members:
 
+Дополнение рекомендаций до необходимой длинны можно использовать и вне сценария.
+
+.. autofunction:: replay.utils.fallback
+
 Двухуровневый сценарий
 ----------------------
 .. autoclass:: replay.scenarios.TwoStagesScenario
