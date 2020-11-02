@@ -240,3 +240,9 @@ Word2Vec Recommender
 
 .. autoclass:: replay.models.Word2VecRec
     :special-members: __init__
+
+Stack
+-------
+
+.. autoclass:: replay.models.Stack
+    :special-members: __init__

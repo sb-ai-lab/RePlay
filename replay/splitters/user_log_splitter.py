@@ -6,7 +6,9 @@ from typing import Optional, Union
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
 
+from replay.constants import AnyDataFrame
 from replay.splitters.base_splitter import Splitter, SplitterReturnType
+from replay.utils import convert2spark
 
 
 # pylint: disable=too-few-public-methods
@@ -292,3 +294,36 @@ class UserSplitter(Splitter):
             ),
         ).cache()
         return res
+
+
+def k_folds(
+    log: AnyDataFrame,
+    n_folds: Optional[int] = 5,
+    seed: Optional[int] = None,
+    splitter: Optional[str] = "user",
+) -> SplitterReturnType:
+    """
+    Делит лог внутри каждого пользователя на фолды случайным образом.
+
+    :param log: датафрейм для деления
+    :param n_folds: количество фолдов
+    :param seed: сид разбиения
+    :param splitter: стратегия разбиения на фолды.
+        Сейчас доступен только вариант user, который разбивает лог каждого пользователя независимо, случайным образом
+    :return: трейн и тест по фолдам
+    """
+    if splitter not in {"user"}:
+        raise ValueError(
+            "Недопустимое значение параметра splitter: %s" % splitter
+        )
+    if splitter == "user":
+        dataframe = convert2spark(log).withColumn("rand", sf.rand(seed))
+        dataframe = dataframe.withColumn(
+            "fold",
+            sf.row_number().over(Window.partitionBy("user_id").orderBy("rand"))
+            % n_folds,
+        ).drop("rand")
+        for i in range(n_folds):
+            train = dataframe.filter(f"fold != {i}").drop("fold")
+            test = dataframe.filter(f"fold == {i}").drop("fold")
+            yield train, test

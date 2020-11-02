@@ -12,6 +12,7 @@ from pyspark.sql.types import (
     StructField,
     StructType,
     TimestampType,
+    IntegerType,
 )
 
 LOG_SCHEMA = StructType(
@@ -28,6 +29,20 @@ REC_SCHEMA = StructType(
         StructField("user_id", StringType()),
         StructField("item_id", StringType()),
         StructField("relevance", DoubleType()),
+    ]
+)
+
+BASE_SCHEMA = StructType(
+    [
+        StructField("user_id", StringType()),
+        StructField("item_id", StringType()),
+    ]
+)
+
+IDX_SCHEMA = StructType(
+    [
+        StructField("user_idx", IntegerType()),
+        StructField("item_idx", IntegerType()),
     ]
 )
 
