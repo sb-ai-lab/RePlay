@@ -45,6 +45,7 @@
 ```bash
 git clone https://sbtatlas.sigma.sbrf.ru/stash/scm/ailab/replay.git
 cd replay
+pip install --upgrade pip
 pip install poetry
 poetry install
 ```
