@@ -70,8 +70,7 @@ class KNN(Recommender):
             )
             .withColumn(
                 "similarity",
-                1
-                - sf.col("dot_product")
+                sf.col("dot_product")
                 / (sf.col("norm1") * sf.col("norm2") + self.shrink),
             )
             .select("item_id_one", "item_id_two", "similarity")
@@ -98,7 +97,7 @@ class KNN(Recommender):
             .withColumn(
                 "similarity_order",
                 sf.row_number().over(
-                    Window.partitionBy("item_id_one").orderBy("similarity")
+                    Window.partitionBy("item_id_one").orderBy(sf.col("similarity").desc())
                 ),
             )
             .filter(sf.col("similarity_order") <= self.num_neighbours)
