@@ -98,7 +98,8 @@ class KNN(Recommender):
                 "similarity_order",
                 sf.row_number().over(
                     Window.partitionBy("item_id_one").orderBy(
-                        sf.col("similarity").desc(), sf.col("item_id_two").desc()
+                        sf.col("similarity").desc(),
+                        sf.col("item_id_two").desc(),
                     )
                 ),
             )
