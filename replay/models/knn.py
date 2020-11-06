@@ -97,7 +97,9 @@ class KNN(Recommender):
             .withColumn(
                 "similarity_order",
                 sf.row_number().over(
-                    Window.partitionBy("item_id_one").orderBy(sf.col("similarity").desc())
+                    Window.partitionBy("item_id_one").orderBy(
+                        sf.col("similarity").desc()
+                    )
                 ),
             )
             .filter(sf.col("similarity_order") <= self.num_neighbours)
