@@ -291,15 +291,19 @@ def fallback(base: DataFrame, fill: DataFrame, k: int) -> DataFrame:
     :param k: сколько должно быть для каждого пользователя
     :return: дополненные рекомендации
     """
+    if fill is None:
+        return base
+    min_in_base = base.agg({"relevance": "min"}).collect()[0][0]
     max_in_fill = fill.agg({"relevance": "max"}).collect()[0][0]
+    diff = max_in_fill - min_in_base
     fill = fill.withColumnRenamed("relevance", "relevance_fallback")
-    if fill is not None:
-        recs = base.withColumn(
-            "relevance", sf.col("relevance") + 10 * max_in_fill
+    if diff > 0:
+        fill = fill.withColumn(
+            "relevance_fallback", sf.col("relevance_fallback") - diff - 0.1
         )
-        recs = recs.join(fill, on=["user_id", "item_id"], how="full_outer")
-        recs = recs.withColumn(
-            "relevance", sf.coalesce("relevance", "relevance_fallback")
-        ).select("user_id", "item_id", "relevance")
-        recs = get_top_k_recs(recs, k)
+    recs = base.join(fill, on=["user_id", "item_id"], how="full_outer")
+    recs = recs.withColumn(
+        "relevance", sf.coalesce("relevance", "relevance_fallback")
+    ).select("user_id", "item_id", "relevance")
+    recs = get_top_k_recs(recs, k)
     return recs
