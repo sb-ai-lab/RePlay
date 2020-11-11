@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional, Callable, Union
 from optuna import Trial
 from pyspark.sql import DataFrame
 
-from replay.constants import IntOrList
 from replay.experiment import Experiment
 from replay.metrics.base_metric import Metric
 from replay.models.base_rec import Recommender
@@ -35,9 +34,7 @@ class ObjectiveWrapper:
     # pylint: disable=too-many-arguments,too-many-instance-attributes
 
     def __init__(
-        self,
-        objective_calculator: Callable[..., float],
-        **kwargs: Any
+        self, objective_calculator: Callable[..., float], **kwargs: Any
     ):
         self.objective_calculator = objective_calculator
         self.kwargs = kwargs
@@ -54,46 +51,89 @@ class ObjectiveWrapper:
 
 
 def suggest_param_value(
-        trial: Trial,
-        param_name: str,
-        param_bounds: List[Any],
-        default_params_data: Dict[str, Dict[str, Union[str, List[Any]]]])\
-        -> Union[str, float, int]:
+    trial: Trial,
+    param_name: str,
+    param_bounds: List[Any],
+    default_params_data: Dict[str, Dict[str, Union[str, List[Any]]]],
+) -> Union[str, float, int]:
+    """
+    Функция принимает границы поиска значения гиперпараметра, заданные пользователем, и
+    список гиперпараметров модели, их типов и границ модели. Вызывает метод trial-а,
+    соотвествующий типу параметра и возвращает сэмплированное значение.
 
-    to_optuna_types_dict = {'uniform': trial.suggest_uniform, 'int': trial.suggest_int,
-                        'loguniform': trial.suggest_loguniform}
+    :param trial: optuna trial, текущий запуск поиска гиперпараметров
+    :param param_name: имя гиперпараметра
+    :param param_bounds: нижняя и верхняя граница поиска, список значений для категориального
+    или пустой список, если нужно использовать границы поиска, определенные в модели
+    :param default_params_data: список гиперпараметров, их типы и дефолтные границы/значения,
+    определенные для модели
+    :return: значение гиперпараметра
+    """
+    to_optuna_types_dict = {
+        "uniform": trial.suggest_uniform,
+        "int": trial.suggest_int,
+        "loguniform": trial.suggest_loguniform,
+    }
     if param_name not in default_params_data:
-        raise ValueError('Гиперпараметр {} не определен для выбранной модели'.format(param_name))
-    param_type = default_params_data[param_name]['type']
-    param_args = param_bounds if param_bounds else default_params_data[param_name]['args']
-    if param_type == 'categorical':
+        raise ValueError(
+            "Гиперпараметр {} не определен для выбранной модели".format(
+                param_name
+            )
+        )
+    param_type = default_params_data[param_name]["type"]
+    param_args = (
+        param_bounds
+        if param_bounds
+        else default_params_data[param_name]["args"]
+    )
+    if param_type == "categorical":
         return trial.suggest_categorical(param_name, param_args)
-    else:
-        if len(param_args) != 2:
-            raise ValueError('''
-            Гиперпараметр {} является числовым. Передайте верхнюю 
-            и нижнюю границы поиска в фомате [lower, upper]'''.format(param_name))
-        lower, upper = param_args
+    if len(param_args) != 2:
+        raise ValueError(
+            """
+        Гиперпараметр {} является числовым. Передайте верхнюю
+        и нижнюю границы поиска в фомате [lower, upper]""".format(
+                param_name
+            )
+        )
+    lower, upper = param_args
 
-        return to_optuna_types_dict[param_type](param_name, low=lower, high=upper)
+    return to_optuna_types_dict[param_type](
+        param_name, low=lower, high=upper
+    )
 
 
+# pylint: disable=too-many-arguments
 def scenario_objective_calculator(
-        trial: Trial,
-        search_space: Dict[str, List[Any]],
-        split_data: SplitData,
-        recommender: Recommender,
-        criterion: Metric,
-        k: int,
-        experiment: Optional[Experiment] = None,
-        fallback_recs: Optional[DataFrame] = None,
-        ) -> float:
+    trial: Trial,
+    search_space: Dict[str, List[Any]],
+    split_data: SplitData,
+    recommender: Recommender,
+    criterion: Metric,
+    k: int,
+    experiment: Optional[Experiment] = None,
+    fallback_recs: Optional[DataFrame] = None,
+) -> float:
+    '''
+    Функция для вычисления значения критерия при выбранных гиперпараметрах.
+    :param trial: optuna trial, текущий запуск поиска гиперпараметров
+    :param search_space: пространство поиска гиперпарамтеров, определенное пользователем
+    :param split_data: данные для обучения
+    :param recommender: модель replay
+    :param criterion: критерий оптимизации (метрика)
+    :param k: число рекомендаций
+    :param experiment: объект Experiment для логирования результатов
+    :param fallback_recs: рекомендации, полученные с помощью fallback_model
+    :return: значение оптимизируемого критерия
+    '''
     logger = logging.getLogger("replay")
 
     params_for_trial = dict()
     for param_name, param_data in search_space.items():
         params_for_trial[param_name] = suggest_param_value(
-            trial, param_name, param_data, recommender._search_space)  # pylint: disable=protected-access
+            # pylint: disable=protected-access
+            trial, param_name, param_data, recommender._search_space
+        )
 
     recommender.set_params(**params_for_trial)
     logger.debug("-- Второй фит модели в оптимизации")
@@ -121,4 +161,3 @@ def scenario_objective_calculator(
         experiment.add_result(f"{str(recommender)}{params_for_trial}", recs)
     logger.debug("%s=%.2f", criterion, criterion_value)
     return criterion_value
-    # type: ignore

@@ -15,8 +15,11 @@ from replay.metrics.hitrate import HitRate
 from replay.models.als import ALSWrap
 from replay.models.base_rec import Recommender
 from replay.models.pop_rec import PopRec
-from replay.scenarios.main_objective import ObjectiveWrapper, SplitData, \
-    scenario_objective_calculator
+from replay.scenarios.main_objective import (
+    ObjectiveWrapper,
+    SplitData,
+    scenario_objective_calculator,
+)
 from replay.splitters.base_splitter import Splitter
 from replay.splitters.log_splitter import RandomSplitter
 from replay.utils import fallback
@@ -111,7 +114,9 @@ class MainScenario:
         """ Запускает подбор параметров в ``optuna``. """
         sampler = TPESampler()
         study = create_study(direction="maximize", sampler=sampler)
-        self.experiment = Experiment(split_data.test, metrics) if metrics else None
+        self.experiment = (
+            Experiment(split_data.test, metrics) if metrics else None
+        )
         objective = ObjectiveWrapper(
             objective_calculator=scenario_objective_calculator,
             search_space=params_grid,
