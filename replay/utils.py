@@ -295,14 +295,14 @@ def fallback(base: DataFrame, fill: DataFrame, k: int) -> DataFrame:
     """
     if fill is None:
         return base
-    MARGIN = 0.1
+    margin = 0.1
     min_in_base = base.agg({"relevance": "min"}).collect()[0][0]
     max_in_fill = fill.agg({"relevance": "max"}).collect()[0][0]
     diff = max_in_fill - min_in_base
     fill = fill.withColumnRenamed("relevance", "relevance_fallback")
     if diff >= 0:
         fill = fill.withColumn(
-            "relevance_fallback", sf.col("relevance_fallback") - diff - MARGIN
+            "relevance_fallback", sf.col("relevance_fallback") - diff - margin
         )
     recs = base.join(fill, on=["user_id", "item_id"], how="full_outer")
     recs = recs.withColumn(
