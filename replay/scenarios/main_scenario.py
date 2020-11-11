@@ -5,7 +5,7 @@ import logging
 from typing import Any, Dict, List, Optional, Type
 
 from optuna import create_study
-from optuna.samplers import GridSampler
+from optuna.samplers import TPESampler
 from pyspark.sql import DataFrame
 
 from replay.constants import IntOrList
@@ -15,7 +15,8 @@ from replay.metrics.hitrate import HitRate
 from replay.models.als import ALSWrap
 from replay.models.base_rec import Recommender
 from replay.models.pop_rec import PopRec
-from replay.scenarios.main_objective import MainObjective, SplitData
+from replay.scenarios.main_objective import ObjectiveWrapper, SplitData, \
+    scenario_objective_calculator
 from replay.splitters.base_splitter import Splitter
 from replay.splitters.log_splitter import RandomSplitter
 from replay.utils import fallback
@@ -103,31 +104,29 @@ class MainScenario:
         params_grid: Dict[str, List[Any]],
         split_data: SplitData,
         criterion: Metric,
-        metrics: Dict[Metric, IntOrList],
+        metrics: Optional[Dict[Metric, IntOrList]],
         k: int = 10,
         fallback_recs: Optional[DataFrame] = None,
     ) -> Dict[str, Any]:
         """ Запускает подбор параметров в ``optuna``. """
-        sampler = GridSampler(params_grid)
+        sampler = TPESampler()
         study = create_study(direction="maximize", sampler=sampler)
-        objective = MainObjective(
+        self.experiment = Experiment(split_data.test, metrics) if metrics else None
+        objective = ObjectiveWrapper(
+            objective_calculator=scenario_objective_calculator,
             search_space=params_grid,
             split_data=split_data,
             recommender=self.recommender,
             criterion=criterion,
-            metrics=metrics,
+            experiment=self.experiment,
             fallback_recs=fallback_recs,
             k=k,
         )
         study.optimize(objective, n_trials)
-        self.experiment = objective.experiment
+        # self.experiment = objective.experiment
         self.logger.debug("Лучшее значение метрики: %.2f", study.best_value)
         self.logger.debug("Лучшие параметры: %s", study.best_params)
-        best_params = {
-            key: params_grid[key][study.best_params[key]]
-            for key in study.best_params
-        }
-        return best_params
+        return study.best_params
 
     # pylint: disable=too-many-arguments
     def research(

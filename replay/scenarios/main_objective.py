@@ -3,7 +3,7 @@
 """
 import collections
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Callable, Union
 
 from optuna import Trial
 from pyspark.sql import DataFrame
@@ -20,7 +20,7 @@ SplitData = collections.namedtuple(
 
 
 # pylint: disable=too-few-public-methods
-class MainObjective:
+class ObjectiveWrapper:
     """
     Данный класс реализован в соответствии с
     `инструкцией <https://optuna.readthedocs.io/en/stable/faq.html#how-to-define-objective-functions-that-have-own-arguments>`_
@@ -33,25 +33,14 @@ class MainObjective:
     """
 
     # pylint: disable=too-many-arguments,too-many-instance-attributes
+
     def __init__(
         self,
-        search_space: Dict[str, List[Any]],
-        split_data: SplitData,
-        recommender: Recommender,
-        criterion: Metric,
-        metrics: Dict[Metric, IntOrList],
-        fallback_recs: Optional[DataFrame],
-        k: int,
+        objective_calculator: Callable[..., float],
+        **kwargs: Any
     ):
-        self.metrics = metrics
-        self.criterion = criterion
-        self.k = k
-        self.split_data = split_data
-        self.recommender = recommender
-        self.search_space = search_space
-        self.fallback_recs = fallback_recs
-        self.logger = logging.getLogger("replay")
-        self.experiment = Experiment(split_data.test, metrics)
+        self.objective_calculator = objective_calculator
+        self.kwargs = kwargs
 
     def __call__(self, trial: Trial) -> float:
         """
@@ -61,36 +50,75 @@ class MainObjective:
         :param trial: текущее испытание
         :return: значение критерия, который оптимизируется
         """
-        params = dict()
-        for key in self.search_space:
-            params[key] = self.search_space[key][
-                trial.suggest_int(
-                    key, low=0, high=len(self.search_space[key]) - 1,
-                )
-            ]
-        self.recommender.set_params(**params)
-        self.logger.debug("-- Второй фит модели в оптимизации")
-        # pylint: disable=protected-access
-        self.recommender._fit_wrap(
-            self.split_data.train,
-            self.split_data.user_features,
-            self.split_data.item_features,
-            False,
-        )
-        self.logger.debug("-- Предикт модели в оптимизации")
-        # pylint: disable=protected-access
-        recs = self.recommender._predict_wrap(
-            log=self.split_data.train,
-            k=self.k,
-            users=self.split_data.users,
-            items=self.split_data.items,
-            user_features=self.split_data.user_features,
-            item_features=self.split_data.item_features,
-        ).cache()
-        if self.fallback_recs is not None:
-            recs = fallback(recs, self.fallback_recs, self.k)
-        self.logger.debug("-- Подсчет метрики в оптимизации")
-        criterion_value = self.criterion(recs, self.split_data.test, self.k)
-        self.experiment.add_result(f"{str(self.recommender)}{params}", recs)
-        self.logger.debug("%s=%.2f", self.criterion, criterion_value)
-        return criterion_value  # type: ignore
+        return self.objective_calculator(trial=trial, **self.kwargs)
+
+
+def suggest_param_value(
+        trial: Trial,
+        param_name: str,
+        param_bounds: List[Any],
+        default_params_data: Dict[str, Dict[str, Union[str, List[Any]]]])\
+        -> Union[str, float, int]:
+
+    to_optuna_types_dict = {'uniform': trial.suggest_uniform, 'int': trial.suggest_int,
+                        'loguniform': trial.suggest_loguniform}
+    if param_name not in default_params_data:
+        raise ValueError('Гиперпараметр {} не определен для выбранной модели'.format(param_name))
+    param_type = default_params_data[param_name]['type']
+    param_args = param_bounds if param_bounds else default_params_data[param_name]['args']
+    if param_type == 'categorical':
+        return trial.suggest_categorical(param_name, param_args)
+    else:
+        if len(param_args) != 2:
+            raise ValueError('''
+            Гиперпараметр {} является числовым. Передайте верхнюю 
+            и нижнюю границы поиска в фомате [lower, upper]'''.format(param_name))
+        lower, upper = param_args
+
+        return to_optuna_types_dict[param_type](param_name, low=lower, high=upper)
+
+
+def scenario_objective_calculator(
+        trial: Trial,
+        search_space: Dict[str, List[Any]],
+        split_data: SplitData,
+        recommender: Recommender,
+        criterion: Metric,
+        k: int,
+        experiment: Optional[Experiment] = None,
+        fallback_recs: Optional[DataFrame] = None,
+        ) -> float:
+    logger = logging.getLogger("replay")
+
+    params_for_trial = dict()
+    for param_name, param_data in search_space.items():
+        params_for_trial[param_name] = suggest_param_value(
+            trial, param_name, param_data, recommender._search_space)  # pylint: disable=protected-access
+
+    recommender.set_params(**params_for_trial)
+    logger.debug("-- Второй фит модели в оптимизации")
+    # pylint: disable=protected-access
+    recommender._fit_wrap(
+        split_data.train,
+        split_data.user_features,
+        split_data.item_features,
+        False,
+    )
+    logger.debug("-- Предикт модели в оптимизации")
+    recs = recommender._predict_wrap(
+        log=split_data.train,
+        k=k,
+        users=split_data.users,
+        items=split_data.items,
+        user_features=split_data.user_features,
+        item_features=split_data.item_features,
+    ).cache()
+    if fallback_recs is not None:
+        recs = fallback(recs, fallback_recs, k)
+    logger.debug("-- Подсчет метрики в оптимизации")
+    criterion_value = criterion(recs, split_data.test, k)
+    if experiment is not None:
+        experiment.add_result(f"{str(recommender)}{params_for_trial}", recs)
+    logger.debug("%s=%.2f", criterion, criterion_value)
+    return criterion_value
+    # type: ignore
