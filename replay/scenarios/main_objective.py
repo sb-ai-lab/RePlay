@@ -98,9 +98,7 @@ def suggest_param_value(
         )
     lower, upper = param_args
 
-    return to_optuna_types_dict[param_type](
-        param_name, low=lower, high=upper
-    )
+    return to_optuna_types_dict[param_type](param_name, low=lower, high=upper)
 
 
 # pylint: disable=too-many-arguments
@@ -114,7 +112,7 @@ def scenario_objective_calculator(
     experiment: Optional[Experiment] = None,
     fallback_recs: Optional[DataFrame] = None,
 ) -> float:
-    '''
+    """
     Функция для вычисления значения критерия при выбранных гиперпараметрах.
     :param trial: optuna trial, текущий запуск поиска гиперпараметров
     :param search_space: пространство поиска гиперпарамтеров, определенное пользователем
@@ -125,14 +123,17 @@ def scenario_objective_calculator(
     :param experiment: объект Experiment для логирования результатов
     :param fallback_recs: рекомендации, полученные с помощью fallback_model
     :return: значение оптимизируемого критерия
-    '''
+    """
     logger = logging.getLogger("replay")
 
     params_for_trial = dict()
     for param_name, param_data in search_space.items():
         params_for_trial[param_name] = suggest_param_value(
             # pylint: disable=protected-access
-            trial, param_name, param_data, recommender._search_space
+            trial,
+            param_name,
+            param_data,
+            recommender._search_space,
         )
 
     recommender.set_params(**params_for_trial)
