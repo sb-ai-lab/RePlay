@@ -37,9 +37,8 @@ class Wilson(PopRec):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        vals = (
-            log.select("relevance")
-            .where((sf.col("relevance") != 1) & (sf.col("relevance") != 0))
+        vals = log.select("relevance").where(
+            (sf.col("relevance") != 1) & (sf.col("relevance") != 0)
         )
         if vals.count() > 0:
             raise ValueError("Relevance values in log must be 0 or 1")
