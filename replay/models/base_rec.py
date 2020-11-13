@@ -4,7 +4,7 @@
 import collections
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterable, Optional, Union
+from typing import Any, Dict, Iterable, Optional, Union, List
 
 import pandas as pd
 from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
@@ -27,7 +27,7 @@ class BaseRecommender(ABC):
     _logger: Optional[logging.Logger] = None
     can_predict_cold_users: bool = False
     can_predict_cold_items: bool = False
-    _search_space: dict()
+    _search_space: Dict[str, Union[str, List[Union[str, int, float], ...]]]
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """

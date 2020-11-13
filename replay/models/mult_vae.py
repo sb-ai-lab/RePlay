@@ -156,18 +156,20 @@ class MultVAE(TorchRecommender):
     valid_user_batch: csr_matrix
     _search_space = {
         "learning_rate": {"type": "loguniform", "args": [0.0001, 0.5]},
-        "l2_reg": {"type": "loguniform", "args": [0, 5]},
-        "gamma": {"type": "uniform", "args": [0.8, 0.99]},
+        "epochs": {"type": "int", "args": [20, 20]},
+        "latent_dim": {"type": "int", "args": [128, 128]},
         "dropout": {"type": "uniform", "args": [0, 0.9]},
         "anneal": {"type": "uniform", "args": [0, 0.99]},
+        "l2_reg": {"type": "loguniform", "args": [1e-9, 5]},
+        "gamma": {"type": "uniform", "args": [0.8, 0.99]},
     }
 
     # pylint: disable=too-many-arguments
     def __init__(
         self,
         learning_rate: float = 0.05,
-        epochs: int = 1,
-        latent_dim: int = 10,
+        epochs: int = 10,
+        latent_dim: int = 128,
         decoder_dims: Optional[List[int]] = None,
         encoder_dims: Optional[List[int]] = None,
         dropout: float = 0.3,
