@@ -25,6 +25,8 @@ class Stack(Recommender):
     """Стэк базовых моделей возвращает свои скоры, которые взвешиваются,
     чтобы получить новое ранжирование."""
 
+    _search_space = dict()
+
     def __init__(
         self,
         models: List[Recommender],

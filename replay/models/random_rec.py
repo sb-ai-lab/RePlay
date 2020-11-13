@@ -126,6 +126,10 @@ class RandomRec(Recommender):
     item_popularity: DataFrame
     can_predict_cold_users = True
     can_predict_cold_items = True
+    _search_space = {
+        "distribution": {"type": "categorical", "args": ["popular_based", "uniform"]},
+        "alpha": {"type": "uniform", "args": [-0.5, 100]},
+    }
 
     def __init__(
         self,

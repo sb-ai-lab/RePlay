@@ -21,6 +21,7 @@ class LightFMWrap(HybridRecommender):
     """ Обёртка вокруг стандартной реализации LightFM. """
 
     epochs: int = 10
+    _search_space = dict()
 
     def __init__(
         self,

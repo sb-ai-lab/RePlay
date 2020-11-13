@@ -35,6 +35,10 @@ class GMF(nn.Module):
     """Generalized Matrix Factorization (GMF) модель - нейросетевая
     реализация матричной факторизации"""
 
+    _search_space = {
+        "embedding_dim": {"type": "int", "args": [128, 128]}
+    }
+
     def __init__(self, user_count: int, item_count: int, embedding_dim: int):
         """
         Инициализация модели. Создает эмбеддинги пользователей и объектов.
@@ -82,6 +86,10 @@ class GMF(nn.Module):
 
 class MLP(nn.Module):
     """Multi-Layer Perceptron (MLP) модель"""
+
+    _search_space = {
+        "embedding_dim": {"type": "int", "args": [128, 128]}
+    }
 
     def __init__(
         self,
@@ -157,6 +165,11 @@ class MLP(nn.Module):
 
 class NMF(nn.Module):
     """NMF модель (MLP + GMF)"""
+
+    _search_space = {
+        "embedding_gmf_dim": {"type": "int", "args": [128, 128]},
+        "embedding_mlp_dim": {"type": "int", "args": [128, 128]}
+    }
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -248,10 +261,12 @@ class NeuroMF(TorchRecommender):
     valid_split_size: float = 0.1
     seed: int = 42
     _search_space = {
+        "embedding_gmf_dim": {"type": "int", "args": [128, 128]},
+        "embedding_mlp_dim": {"type": "int", "args": [128, 128]},
         "learning_rate": {"type": "loguniform", "args": [0.0001, 0.5]},
-        "l2_reg": {"type": "loguniform", "args": [0, 5]},
+        "l2_reg": {"type": "loguniform", "args": [1e-9, 5]},
         "gamma": {"type": "uniform", "args": [0.8, 0.99]},
-        "count_negative_sample": {"type": "int", "args": [1, 30]},
+        "count_negative_sample": {"type": "int", "args": [1, 20]}
     }
 
     # pylint: disable=too-many-arguments

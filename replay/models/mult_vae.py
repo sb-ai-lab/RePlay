@@ -35,8 +35,7 @@ class VAE(nn.Module):
 
         :param item_count: количество объектов
         :param latent_dim: размерность скрытого представления
-        :param decoder_dims: последовательность размеров скрытых слоев декодера
-        :param encoder_dims: последовательность размеров скрытых слоев энкодера
+        :param hidden_dim: размерность скрытого слоя энкодера и декодера
         :param dropout: коэффициент дропаута
         """
         super().__init__()
@@ -147,21 +146,24 @@ class MultVAE(TorchRecommender):
     valid_user_batch: csr_matrix
     _search_space = {
         "learning_rate": {"type": "loguniform", "args": [0.0001, 0.5]},
-        "l2_reg": {"type": "loguniform", "args": [0, 5]},
-        "gamma": {"type": "uniform", "args": [0.8, 0.99]},
+        "epochs": {"type": "int", "args": [100, 100]},
+        "latent_dim": {"type": "int", "args": [200, 200]},
+        "hidden_dim": {"type": "int",  "args": [600, 600]},
         "dropout": {"type": "uniform", "args": [0, 0.9]},
         "anneal": {"type": "uniform", "args": [0, 0.99]},
+        "l2_reg": {"type": "loguniform", "args": [1e-9, 5]},
+        "gamma": {"type": "uniform", "args": [0.8, 0.99]},
     }
 
     # pylint: disable=too-many-arguments
     def __init__(
         self,
         learning_rate: float = 0.05,
-        epochs: int = 1,
-        latent_dim: int = 10,
+        epochs: int = 100,
+        latent_dim: int = 200,
         hidden_dim: int = 600,
         dropout: float = 0.3,
-        anneal: float = 0.005,
+        anneal: float = 0.02,
         l2_reg: float = 0,
         gamma: float = 0.99,
     ):
