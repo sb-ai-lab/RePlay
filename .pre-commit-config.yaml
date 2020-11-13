@@ -5,19 +5,19 @@ repos:
             name: black
             entry: black -l 79
             language: system
-            types: [python3]
+            types: [python]
         -   id: pycodestyle
             name: pycodestyle
             entry: pycodestyle --ignore=E501,W605,W503,E203,E231 --max-doc-length=160
             language: system
-            types: [python3]
+            types: [python]
         -   id: pylint
             name: pylint
             entry: pylint --rcfile .pylintrc
             language: system
-            types: [python3]
+            types: [python]
 #        -   id: mypy
 #            name: mypy
-#            entry: mypy --ignore-missing-imports
+#            entry: mypy  --ignore-missing-imports
 #            language: system
 #            types: [python]
