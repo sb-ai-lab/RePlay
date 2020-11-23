@@ -27,9 +27,9 @@ class BaseRecommender(ABC):
     _logger: Optional[logging.Logger] = None
     can_predict_cold_users: bool = False
     can_predict_cold_items: bool = False
-    _search_space: Dict[
-        str, Union[str, Sequence[Union[str, int, float]]]
-    ] = dict()
+    _search_space: Optional[
+        Dict[str, Union[str, Sequence[Union[str, int, float]]]]
+    ] = None
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
