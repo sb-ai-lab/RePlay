@@ -34,7 +34,6 @@ class ClassifierRec(HybridRecommender):
 
     model: JavaClassificationModel
     augmented_data: DataFrame
-    _search_space = dict()
 
     def __init__(
         self,

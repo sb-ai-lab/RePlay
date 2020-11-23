@@ -149,8 +149,8 @@ class MultVAE(TorchRecommender):
         "epochs": {"type": "int", "args": [100, 100]},
         "latent_dim": {"type": "int", "args": [200, 200]},
         "hidden_dim": {"type": "int",  "args": [600, 600]},
-        "dropout": {"type": "uniform", "args": [0, 0.9]},
-        "anneal": {"type": "uniform", "args": [0, 0.99]},
+        "dropout": {"type": "uniform", "args": [0, 0.5]},
+        "anneal": {"type": "uniform", "args": [0.2, 1]},
         "l2_reg": {"type": "loguniform", "args": [1e-9, 5]},
         "gamma": {"type": "uniform", "args": [0.8, 0.99]},
     }
