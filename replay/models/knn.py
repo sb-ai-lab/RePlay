@@ -18,7 +18,7 @@ class KNN(Recommender):
     item_norms: Optional[DataFrame]
     similarity: Optional[DataFrame]
     _search_space = {
-        "num_neighbours": {"type": "int", "args": [5, 100]},
+        "num_neighbours": {"type": "int", "args": [1, 100]},
         "shrink": {"type": "int", "args": [0, 100]},
     }
 

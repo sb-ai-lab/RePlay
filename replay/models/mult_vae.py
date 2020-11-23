@@ -156,8 +156,8 @@ class MultVAE(TorchRecommender):
     valid_user_batch: csr_matrix
     _search_space = {
         "learning_rate": {"type": "loguniform", "args": [0.0001, 0.5]},
-        "epochs": {"type": "int", "args": [20, 20]},
-        "latent_dim": {"type": "int", "args": [128, 128]},
+        "epochs": {"type": "int", "args": [100, 100]},
+        "latent_dim": {"type": "int", "args": [200, 200]},
         "dropout": {"type": "uniform", "args": [0, 0.5]},
         "anneal": {"type": "uniform", "args": [0.2, 1]},
         "l2_reg": {"type": "loguniform", "args": [1e-9, 5]},
@@ -168,8 +168,8 @@ class MultVAE(TorchRecommender):
     def __init__(
         self,
         learning_rate: float = 0.05,
-        epochs: int = 10,
-        latent_dim: int = 128,
+        epochs: int = 100,
+        latent_dim: int = 200,
         decoder_dims: Optional[List[int]] = None,
         encoder_dims: Optional[List[int]] = None,
         dropout: float = 0.3,
