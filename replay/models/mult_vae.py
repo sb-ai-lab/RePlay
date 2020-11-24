@@ -168,8 +168,8 @@ class MultVAE(TorchRecommender):
         learning_rate: float = 0.05,
         epochs: int = 1,
         latent_dim: int = 10,
-        decoder_dims: Optional[List[int]] = None,
-        encoder_dims: Optional[List[int]] = None,
+        decoder_dim: int = 600,
+        encoder_dim: int = 600,
         dropout: float = 0.3,
         anneal: float = 0.005,
         l2_reg: float = 0,
@@ -180,9 +180,9 @@ class MultVAE(TorchRecommender):
 
         :param learning_rate: шаг обучения
         :param epochs: количество эпох, в течение которых учимся
-        :param latent_dim: размер скрытого представления пользователя
-        :param decoder_dims: последовательность размеров скрытых слоев декодера
-        :param encoder_dims: последовательность размеров скрытых слоев энкодера
+        :param latent_dim: размерность скрытого представления пользователя
+        :param decoder_dim: размерность скрытого слоя декодера
+        :param encoder_dim: размерность скрытого слоя энкодера
         :param dropout: коэффициент дропаута
         :param anneal: коэффициент отжига от 0 до 1
         :param l2_reg: коэффициент l2 регуляризации
@@ -192,8 +192,8 @@ class MultVAE(TorchRecommender):
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.latent_dim = latent_dim
-        self.decoder_dims = decoder_dims
-        self.encoder_dims = encoder_dims
+        self.decoder_dim = decoder_dim
+        self.encoder_dim = encoder_dim
         self.dropout = dropout
         self.anneal = anneal
         self.l2_reg = l2_reg
@@ -249,8 +249,8 @@ class MultVAE(TorchRecommender):
         self.model = VAE(
             item_count=self.items_count,
             latent_dim=self.latent_dim,
-            decoder_dims=self.decoder_dims,
-            encoder_dims=self.encoder_dims,
+            decoder_dims=[self.decoder_dim],
+            encoder_dims=[self.encoder_dim],
             dropout=self.dropout,
         ).to(self.device)
 

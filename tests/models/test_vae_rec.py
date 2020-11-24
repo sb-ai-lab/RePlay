@@ -25,8 +25,8 @@ class VAERecTestCase(PySparkTest):
             "learning_rate": 0.5,
             "epochs": 1,
             "latent_dim": 1,
-            "decoder_dims": [1],
-            "encoder_dims": [1],
+            "decoder_dim": 1,
+            "encoder_dim": 1,
         }
         self.parameter_stubs = [
             [[0.0, 0.0, 0.0]],
@@ -99,7 +99,9 @@ class VAERecTestCase(PySparkTest):
                 break
         self.assertTrue(matched)
         new_model = MultVAE()
-        new_model.model = VAE(3, 1, [1])
+        new_model.model = VAE(item_count=3,
+                              latent_dim=1,
+                              decoder_dims=[1])
         new_model.load_model(path)
         for i, parameter in enumerate(new_model.model.parameters()):
             self.assertEqual(
