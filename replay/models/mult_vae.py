@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -27,8 +27,7 @@ class VAE(nn.Module):
         self,
         item_count: int,
         latent_dim: int,
-        decoder_dims: Optional[List[int]] = None,
-        encoder_dims: Optional[List[int]] = None,
+        hidden_dim: int = 600,
         dropout: float = 0.3,
     ):
         """
@@ -41,18 +40,10 @@ class VAE(nn.Module):
         :param dropout: коэффициент дропаута
         """
         super().__init__()
-        if decoder_dims:
-            if encoder_dims:
-                self.encoder_dims = encoder_dims
-            else:
-                self.encoder_dims = decoder_dims[::-1]
-            self.decoder_dims = decoder_dims
-        else:
-            self.encoder_dims = []
-            self.decoder_dims = []
+
         self.latent_dim = latent_dim
-        self.encoder_dims = [item_count] + self.encoder_dims + [latent_dim * 2]
-        self.decoder_dims = [latent_dim] + self.decoder_dims + [item_count]
+        self.encoder_dims = [item_count, hidden_dim, latent_dim * 2]
+        self.decoder_dims = [latent_dim, hidden_dim, item_count]
 
         self.encoder = nn.ModuleList(
             [
@@ -168,8 +159,7 @@ class MultVAE(TorchRecommender):
         learning_rate: float = 0.05,
         epochs: int = 1,
         latent_dim: int = 10,
-        decoder_dim: int = 600,
-        encoder_dim: int = 600,
+        hidden_dim: int = 600,
         dropout: float = 0.3,
         anneal: float = 0.005,
         l2_reg: float = 0,
@@ -181,8 +171,7 @@ class MultVAE(TorchRecommender):
         :param learning_rate: шаг обучения
         :param epochs: количество эпох, в течение которых учимся
         :param latent_dim: размерность скрытого представления пользователя
-        :param decoder_dim: размерность скрытого слоя декодера
-        :param encoder_dim: размерность скрытого слоя энкодера
+        :param hidden_dim: размерность скрытого слоя для декодера и энкодера
         :param dropout: коэффициент дропаута
         :param anneal: коэффициент отжига от 0 до 1
         :param l2_reg: коэффициент l2 регуляризации
@@ -192,8 +181,7 @@ class MultVAE(TorchRecommender):
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.latent_dim = latent_dim
-        self.decoder_dim = decoder_dim
-        self.encoder_dim = encoder_dim
+        self.hidden_dim = hidden_dim
         self.dropout = dropout
         self.anneal = anneal
         self.l2_reg = l2_reg
@@ -249,8 +237,7 @@ class MultVAE(TorchRecommender):
         self.model = VAE(
             item_count=self.items_count,
             latent_dim=self.latent_dim,
-            decoder_dims=[self.decoder_dim],
-            encoder_dims=[self.encoder_dim],
+            hidden_dim=self.hidden_dim,
             dropout=self.dropout,
         ).to(self.device)
 
