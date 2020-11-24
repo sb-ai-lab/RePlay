@@ -158,6 +158,8 @@ class MultVAE(TorchRecommender):
         "learning_rate": {"type": "loguniform", "args": [0.0001, 0.5]},
         "epochs": {"type": "int", "args": [100, 100]},
         "latent_dim": {"type": "int", "args": [200, 200]},
+        'decoder_dim': {"type": "int", "args": [600, 600]},
+        'encoder_dim': {"type": "int", "args": [600, 600]},
         "dropout": {"type": "uniform", "args": [0, 0.5]},
         "anneal": {"type": "uniform", "args": [0.2, 1]},
         "l2_reg": {"type": "loguniform", "args": [1e-9, 5]},

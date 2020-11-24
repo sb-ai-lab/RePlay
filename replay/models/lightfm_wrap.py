@@ -26,7 +26,7 @@ class LightFMWrap(HybridRecommender):
             "type": "categorical",
             "args": ["logistic", "bpr", "warp", "warp-kos"],
         },
-        "no_components": {"type": "int", "args": [8, 512]},
+        "no_components": {"type": "loguniform_int", "args": [8, 512]},
     }
 
     def __init__(
