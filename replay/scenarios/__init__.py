@@ -8,6 +8,6 @@
 
 Перед использованием сценария необходимо перевести свои данные во :ref:`внутренний формат <data-preparator>` библиотеки.
 """
-from replay.scenarios.main_objective import MainObjective
+from replay.scenarios.main_objective import ObjectiveWrapper
 from replay.scenarios.main_scenario import MainScenario
 from replay.scenarios.two_stages_scenario import TwoStagesScenario

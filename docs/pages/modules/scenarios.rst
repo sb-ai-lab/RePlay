@@ -20,5 +20,5 @@
 
 Интеграция с `optuna`
 ----------------------
-.. autoclass:: replay.scenarios.MainObjective
+.. autoclass:: replay.scenarios.ObjectiveWrapper
    :special-members: __call__
