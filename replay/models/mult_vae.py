@@ -148,7 +148,7 @@ class MultVAE(TorchRecommender):
         "learning_rate": {"type": "loguniform", "args": [0.0001, 0.5]},
         "epochs": {"type": "int", "args": [100, 100]},
         "latent_dim": {"type": "int", "args": [200, 200]},
-        "hidden_dim": {"type": "int",  "args": [600, 600]},
+        "hidden_dim": {"type": "int", "args": [600, 600]},
         "dropout": {"type": "uniform", "args": [0, 0.5]},
         "anneal": {"type": "uniform", "args": [0.2, 1]},
         "l2_reg": {"type": "loguniform", "args": [1e-9, 5]},
@@ -158,12 +158,12 @@ class MultVAE(TorchRecommender):
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        learning_rate: float = 0.05,
+        learning_rate: float = 0.01,
         epochs: int = 100,
         latent_dim: int = 200,
         hidden_dim: int = 600,
         dropout: float = 0.3,
-        anneal: float = 0.02,
+        anneal: float = 0.1,
         l2_reg: float = 0,
         gamma: float = 0.99,
     ):

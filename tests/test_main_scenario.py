@@ -5,10 +5,8 @@ from datetime import datetime
 
 from tests.pyspark_testcase import PySparkTest
 
-from replay.constants import REC_SCHEMA
-from replay.metrics import NDCG, HitRate, Precision, Surprisal
-from replay.models.knn import KNN
-from replay.models.pop_rec import PopRec
+from replay.metrics import NDCG, Precision, Surprisal
+from replay.models import ALSWrap, LightFMWrap
 from replay.scenarios.main_scenario import MainScenario
 from replay.splitters.log_splitter import DateSplitter
 
@@ -40,8 +38,18 @@ class MainScenarioTestCase(PySparkTest):
         )
 
     def test_research_and_production(self):
-        grid = {"rank": [1, 1]}
-        best_params = self.scenario.research(grid, self.log, k=2, n_trials=1)
-        self.assertEqual(best_params, {"rank": 1})
-        recs = self.scenario.production(best_params, self.log, k=2)
-        self.assertEqual(recs.count(), 2)
+        for rec, grid, best in (
+            (ALSWrap(), {"rank": [1, 1]}, {"rank": 1}),
+            (
+                LightFMWrap(random_state=10),
+                {"loss": ["warp"]},
+                {"loss": "warp"},
+            ),
+        ):
+            self.scenario.recommender = rec
+            best_params = self.scenario.research(
+                grid, self.log, k=2, n_trials=1
+            )
+            self.assertEqual(best_params, best)
+            recs = self.scenario.production(best_params, self.log, k=2)
+            self.assertEqual(recs.count(), 2)
