@@ -195,7 +195,7 @@ def check_numeric(
     """
     Проверяет, что столбцы spark DataFrame feature_table за исключением columns_to_skip принадлежат к типу NumericType
     :param feature_table: spark DataFrame, типы столбцов которого нужно проверить
-    :param columns_to_skip: list столбцов, которые не нужно проверять
+    :param columns_to_skip: list столбцов, тип которых не нужно проверять
     """
     columns_to_skip = [] if columns_to_skip is None else columns_to_skip
     columns_to_check = set(feature_table.columns).difference(columns_to_skip)
