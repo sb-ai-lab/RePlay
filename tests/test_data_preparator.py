@@ -411,9 +411,9 @@ class DataPreparatorTest(PySparkTest):
                 ],
                 ["user", "f0"],
                 [
-                    ["user1", datetime(1999, 5, 1), "feature1"],
-                    ["user1", datetime(1999, 5, 1), "feature2"],
-                    ["user2", datetime(1999, 5, 1), "feature1"],
+                    ["user1", "feature1"],
+                    ["user1", "feature2"],
+                    ["user2", "feature1"],
                 ],
                 {"user_id": "user"},
                 "f0",
@@ -467,15 +467,21 @@ class DataPreparatorTest(PySparkTest):
                 column, sf.col(column).cast(StringType())
             )
 
-        schema = ["user_id", "timestamp"] + [
-            f"f{i}" for i in range(len(true_feature_data[0]) - 2)
-        ]
+        if "timestamp" in columns_names:
+            schema = ["user_id", "timestamp"] + [
+                f"f{i}" for i in range(len(true_feature_data[0]) - 2)
+            ]
+        else:
+            schema = ["user_id"] + [
+                f"f{i}" for i in range(len(true_feature_data[0]) - 1)
+            ]
+
         true_features = self.spark.createDataFrame(
             data=true_feature_data, schema=schema
         )
         true_features = true_features.withColumn(
             "user_id", sf.col("user_id").cast(StringType())
-        ).withColumn("timestamp", sf.to_timestamp("timestamp"))
+        )
 
         test_features = self.data_preparator.transform(
             data=features,

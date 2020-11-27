@@ -353,7 +353,11 @@ class DataPreparator:
         features_columns: Union[str, Iterable[str], None],
     ) -> Tuple[List[str], Dict, Dict]:
         """Возвращает колонки для таблицы с фичами"""
-        optional_columns = {"timestamp": ("1999-05-01", TimestampType())}
+        optional_columns = (
+            {"timestamp": ("1999-05-01", TimestampType())}
+            if "timestamp" in columns_names
+            else dict()
+        )
         if "user_id" in columns_names:
             required_columns = {"user_id": (None, StringType())}
         elif "item_id" in columns_names:
@@ -368,7 +372,7 @@ class DataPreparator:
             features_columns = sorted(
                 list(dataframe_columns.difference(given_columns))
             )
-            if not features_columns:
+            if not features_columns and not optional_columns:
                 raise ValueError("В датафрейме нет колонок с фичами")
 
         else:

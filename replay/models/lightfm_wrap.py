@@ -14,7 +14,7 @@ from scipy.sparse import csr_matrix, hstack, identity
 
 from replay.models.base_rec import HybridRecommender
 from replay.session_handler import State
-from replay.utils import to_csr
+from replay.utils import to_csr, check_numeric
 
 
 class LightFMWrap(HybridRecommender):
@@ -43,6 +43,10 @@ class LightFMWrap(HybridRecommender):
             все остальные колонки которой считаются значениями свойства пользователя или объекта соответстввенно
         :returns: матрица, в которой строки --- пользователи или объекты, столбцы --- их свойства
         """
+
+        #  пока весь код ниже только для признаков айтемов
+        check_numeric(feature_table, columns_to_skip=["item_idx"])
+
         all_features = (
             State()
             .session.createDataFrame(
@@ -68,6 +72,7 @@ class LightFMWrap(HybridRecommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         interactions_matrix = to_csr(log, self.users_count, self.items_count)
+
         csr_item_features = (
             self._feature_table_to_csr(item_features)
             if item_features is not None
