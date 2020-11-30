@@ -22,8 +22,8 @@ class SLIM(Recommender):
     similarity: DataFrame
     can_predict_cold_users = True
     _search_space = {
-        "beta": {"type": "loguniform", "args": [0, 0.5]},
-        "lambda_": {"type": "loguniform", "args": [0, 0.5]},
+        "beta": {"type": "loguniform", "args": [1e-9, 2]},
+        "lambda_": {"type": "loguniform", "args": [1e-9, 2]},
     }
 
     def __init__(

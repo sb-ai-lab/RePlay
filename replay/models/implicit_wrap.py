@@ -32,7 +32,7 @@ class ImplicitWrap(Recommender):
     """
 
     def __init__(self, model):
-        """На вход принимаестя инициализированная модель implicit."""
+        """На вход принимается инициализированная модель implicit."""
         self.model = model
 
     def _fit(

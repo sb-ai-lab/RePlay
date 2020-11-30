@@ -74,6 +74,7 @@ def suggest_param_value(
         "int": trial.suggest_int,
         "loguniform": trial.suggest_loguniform,
     }
+
     if param_name not in default_params_data:
         raise ValueError(
             "Гиперпараметр {} не определен для выбранной модели".format(
@@ -88,6 +89,7 @@ def suggest_param_value(
     )
     if param_type == "categorical":
         return trial.suggest_categorical(param_name, param_args)
+
     if len(param_args) != 2:
         raise ValueError(
             """
@@ -97,6 +99,10 @@ def suggest_param_value(
             )
         )
     lower, upper = param_args
+    if param_type == "loguniform_int":
+        return round(
+            trial.suggest_loguniform(param_name, low=lower, high=upper)
+        )
 
     return to_optuna_types_dict[param_type](param_name, low=lower, high=upper)
 
