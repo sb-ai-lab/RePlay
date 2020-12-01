@@ -44,8 +44,7 @@ class LightFMWrap(HybridRecommender):
         :returns: матрица, в которой строки --- пользователи или объекты, столбцы --- их свойства
         """
 
-        #  пока весь код ниже только для признаков айтемов
-        check_numeric(feature_table, columns_to_skip=["item_idx"])
+        check_numeric(feature_table)
 
         all_features = (
             State()
