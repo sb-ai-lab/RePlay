@@ -68,7 +68,7 @@ class LightFMWrap(HybridRecommender):
         all_features_np = self.scaler.transform(all_features_np)
 
         features_with_identity = hstack(
-            [identity(self.items_count), csr_matrix(all_features_np),]
+            [identity(self.items_count), csr_matrix(all_features_np)]
         )
 
         # сумма весов признаков по айтему равна 1
@@ -83,6 +83,7 @@ class LightFMWrap(HybridRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
+        self.scaler = None
         interactions_matrix = to_csr(log, self.users_count, self.items_count)
         csr_item_features = (
             self._feature_table_to_csr(item_features)
