@@ -66,18 +66,17 @@ class DataPreparator:
     ...             )
     >>> dp = DataPreparator()
     >>> correct_log = dp.transform(data=log,
-    ...                            columns_names={"user_id": "user",
-    ...                                           "timestamp": "ts"},
+    ...                            columns_names={"user_id": "user"},
     ...                            features_columns=["f0"]
     ...                             )
     >>> correct_log.show(3)
-    +-------+-------------------+--------+
-    |user_id|          timestamp|      f0|
-    +-------+-------------------+--------+
-    |  user1|2019-01-01 00:00:00|feature1|
-    |  user1|2019-01-01 00:00:00|feature2|
-    |  user2|2019-01-01 00:00:00|feature1|
-    +-------+-------------------+--------+
+    +-------+--------+
+    |user_id|      f0|
+    +-------+--------+
+    |  user1|feature1|
+    |  user1|feature2|
+    |  user2|feature1|
+    +-------+--------+
     <BLANKLINE>
 
     Загрузка таблицы с признакми пользователя без явной передачи списка признаков.
@@ -93,17 +92,16 @@ class DataPreparator:
     ...             )
     >>> dp = DataPreparator()
     >>> correct_log = dp.transform(data=log,
-    ...                            columns_names={"user_id": "user",
-    ...                                           "timestamp": "ts"}
+    ...                            columns_names={"user_id": "user"}
     ...                             )
     >>> correct_log.show(3)
-    +-------+-------------------+--------+------+
-    |user_id|          timestamp|      f0|    f1|
-    +-------+-------------------+--------+------+
-    |  user1|2019-01-01 00:00:00|feature1|  left|
-    |  user1|2019-01-01 00:00:00|feature2|  left|
-    |  user2|2019-01-01 00:00:00|feature1|center|
-    +-------+-------------------+--------+------+
+    +-------+--------+------+----------+
+    |user_id|      f0|    f1|        ts|
+    +-------+--------+------+----------+
+    |  user1|feature1|  left|2019-01-01|
+    |  user1|feature2|  left|2019-01-01|
+    |  user2|feature1|center|2019-01-01|
+    +-------+--------+------+----------+
     <BLANKLINE>
     """
 
