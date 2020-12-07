@@ -66,9 +66,9 @@ class UserPopRec(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         user_item_count = (log.groupBy("user_idx")
-                         .agg(sf.count("item_idx").alias("item_count"))
-                         .withColumnRenamed("user_idx", "user")
-                         .select("user", "item_count"))
+                           .agg(sf.count("item_idx").alias("item_count"))
+                           .withColumnRenamed("user_idx", "user")
+                           .select("user", "item_count"))
         self.item_popularity = (
             log.groupBy("user_idx", "item_idx")
             .agg(sf.count("user_idx").alias("user_count"))
