@@ -66,18 +66,17 @@ class DataPreparator:
     ...             )
     >>> dp = DataPreparator()
     >>> correct_log = dp.transform(data=log,
-    ...                            columns_names={"user_id": "user",
-    ...                                           "timestamp": "ts"},
+    ...                            columns_names={"user_id": "user"},
     ...                            features_columns=["f0"]
     ...                             )
     >>> correct_log.show(3)
-    +-------+-------------------+--------+
-    |user_id|          timestamp|      f0|
-    +-------+-------------------+--------+
-    |  user1|2019-01-01 00:00:00|feature1|
-    |  user1|2019-01-01 00:00:00|feature2|
-    |  user2|2019-01-01 00:00:00|feature1|
-    +-------+-------------------+--------+
+    +-------+--------+
+    |user_id|      f0|
+    +-------+--------+
+    |  user1|feature1|
+    |  user1|feature2|
+    |  user2|feature1|
+    +-------+--------+
     <BLANKLINE>
 
     Загрузка таблицы с признакми пользователя без явной передачи списка признаков.
@@ -93,17 +92,16 @@ class DataPreparator:
     ...             )
     >>> dp = DataPreparator()
     >>> correct_log = dp.transform(data=log,
-    ...                            columns_names={"user_id": "user",
-    ...                                           "timestamp": "ts"}
+    ...                            columns_names={"user_id": "user"}
     ...                             )
     >>> correct_log.show(3)
-    +-------+-------------------+--------+------+
-    |user_id|          timestamp|      f0|    f1|
-    +-------+-------------------+--------+------+
-    |  user1|2019-01-01 00:00:00|feature1|  left|
-    |  user1|2019-01-01 00:00:00|feature2|  left|
-    |  user2|2019-01-01 00:00:00|feature1|center|
-    +-------+-------------------+--------+------+
+    +-------+--------+------+----------+
+    |user_id|      f0|    f1|        ts|
+    +-------+--------+------+----------+
+    |  user1|feature1|  left|2019-01-01|
+    |  user1|feature2|  left|2019-01-01|
+    |  user2|feature1|center|2019-01-01|
+    +-------+--------+------+----------+
     <BLANKLINE>
     """
 
@@ -144,23 +142,27 @@ class DataPreparator:
             )
 
     @staticmethod
-    def _check_dataframe(dataframe: DataFrame, columns_names: Dict[str, str]):
+    def _check_dataframe(
+        dataframe: DataFrame,
+        columns_names: Dict[str, str],
+        feature_columns: List[str],
+    ):
         # чекаем, что датафрейм не пустой
         if not dataframe.head(1):
             raise ValueError("Датафрейм пустой")
 
         # чекаем, что данные юзером колонки реально есть в датафрейме
-        given_columns = set(columns_names.values())
+        columns_to_check = {*columns_names.values(), *feature_columns}
         dataframe_columns = set(dataframe.columns)
-        if not given_columns.issubset(dataframe_columns):
+        if not columns_to_check.issubset(dataframe_columns):
             raise ValueError(
                 "В columns_names в значениях есть колонки, "
                 "которых нет в датафрейме: "
-                f"{given_columns.difference(dataframe_columns)}"
+                f"{columns_to_check.difference(dataframe_columns)}"
             )
 
-        # чекаем на нуллы
-        for column in given_columns:
+        # чекаем на нуллы только столбцы из columns_names
+        for column in columns_names.values():
             if dataframe.where(sf.col(column).isNull()).count() > 0:
                 raise ValueError(f"В колонке '{column}' есть значения NULL")
 
@@ -270,40 +272,34 @@ class DataPreparator:
         """
         Преобразовывает лог, либо признаки пользователей или объектов
         в спарк-датафрейм вида
-        ``[user_id, timestamp, *features]`` или ``[item_id, timestamp, *features]``
+        ``[user_id, *features]`` или ``[item_id, *features]``
         или ``[user_id, user_id, timestamp, relevance]``.
         На вход необходимо передать либо файл формата ``format_type``
         по пути ``path``, либо ``pandas.DataFrame`` или ``spark.DataFrame``.
+        :param columns_names: словарь "стандартное имя столбца: имя столбца в dataframe" для лога обязательно задать
+        соответствие для столбцов ``user_id`` и ``item_id``, опционально можно указать соответствия для столбцов
+        ``timestamp`` (время взаимодействия) и ``relevance`` (релевантность, оценка взаимодействия). Если
+        соответствие для данных столбцов не указаны, они будут созданы автоматически с дефолтными значениями.
 
-        :param columns_names: маппинг колонок, ключ-значение из списка
-            ``[user_id / item_id , timestamp , *columns]``;
-            обязательными являются только ``[user_id]`` или ``[item_id]``
-            (должен быть хотя бы один из них);
+            для таблиц признаков пользователей и объектов необходимо задать соответствие для ``user_id``
+             или ``item_id``.
+
             В зависимости от маппинга определяется какого типа таблица передана.
-
             - Если присутствуют оба столбца ``[user_id, item_id]``, то передана таблица с логом
             - Если присутствует только ``[user_id]``, то передана таблица с признаками пользователей
             - Если присутствует только ``[item_id]``, то передана таблица с признаками объектов
 
         :param data: dataframe с логом
-        :param path: путь к файлу с признаками
+        :param path: путь к файлу с данными
         :param format_type: тип файла, принимает значения из списка
             ``[csv , parquet , json , table]``
-        :param date_format: формат даты; нужен,
-            если формат колонки ``timestamp`` особенный
-        :param features_columns: столбец либо список столбцов, в которых хранятся
-            признаки пользователей/объектов. Если ``features`` пуст и при этом
-            передается таблица с признаками пользователей или объектов,
-            то признаками фичей явлются все оставшиеся колонки;
-            в качестве ``features`` может подаваться как список, так и отдельное
-            значение колонки (если признак один);
-            значения - колонки в табличке признаков
+        :param date_format: формат даты для корректной обработки столбца ``timestamp``
+        :param features_columns: имя столбца либо список имен столбцов с признаками
+         для таблиц признаков пользователей/объектов.
+         если не задан, в качестве признаков используются все столбцы датафрейма.
         :param kwargs: дополнительные аргументы, которые передаются в функцию
             ``spark.read.csv(path, **kwargs)``
-        :return: спарк-датафрейм с колонками
-            ``[user_id / item_id , timestamp]`` и прочие колонки из ``columns_names``;
-            колонки, не предоставленные в ``columns_names``,
-            заполянются дефолтными значениями
+        :return: спарк-датафрейм со столцами, определенными в ``columns_names`` и features_columns
         """
         if data is not None:
             dataframe = convert2spark(data)
@@ -314,6 +310,8 @@ class DataPreparator:
                 "Один из параметров data, path должен быть отличным от None"
             )
 
+        optional_columns = dict()
+
         if "user_id" in columns_names and "item_id" in columns_names:
             (
                 features_columns,
@@ -321,11 +319,12 @@ class DataPreparator:
                 required_columns,
             ) = self.base_columns(features_columns)
         else:
-            (
-                features_columns,
-                optional_columns,
-                required_columns,
-            ) = self.feature_columns(
+            if len(columns_names) > 1:
+                raise ValueError(
+                    "Для датафрейма с признаками пользователей / объектов укажите в columns_names только"
+                    " соответствие для текущего ключа (user_id или item_id)"
+                )
+            (features_columns, required_columns,) = self.feature_columns(
                 columns_names, dataframe, features_columns  # type: ignore
             )
 
@@ -335,7 +334,7 @@ class DataPreparator:
             optional_columns=set(optional_columns),
         )
 
-        self._check_dataframe(dataframe, columns_names)  # type: ignore
+        self._check_dataframe(dataframe, columns_names, features_columns)
 
         dataframe2 = self._rename_columns(
             dataframe,  # type: ignore
@@ -351,9 +350,8 @@ class DataPreparator:
         columns_names: Dict[str, str],
         dataframe: DataFrame,
         features_columns: Union[str, Iterable[str], None],
-    ) -> Tuple[List[str], Dict, Dict]:
+    ) -> Tuple[List[str], Dict]:
         """Возвращает колонки для таблицы с фичами"""
-        optional_columns = {"timestamp": ("1999-05-01", TimestampType())}
         if "user_id" in columns_names:
             required_columns = {"user_id": (None, StringType())}
         elif "item_id" in columns_names:
@@ -376,7 +374,7 @@ class DataPreparator:
                 features_columns = [features_columns]
             else:
                 features_columns = list(features_columns)
-        return features_columns, optional_columns, required_columns
+        return features_columns, required_columns
 
     @staticmethod
     def base_columns(

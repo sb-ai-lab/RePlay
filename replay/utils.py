@@ -7,7 +7,7 @@ import numpy as np
 from pyspark.ml.linalg import DenseVector, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
 from pyspark.sql.functions import col, element_at, row_number, udf
-from pyspark.sql.types import DoubleType
+from pyspark.sql.types import DoubleType, NumericType
 from scipy.sparse import csr_matrix
 
 from replay.constants import NumType, AnyDataFrame
@@ -187,6 +187,20 @@ def get_log_info(log: DataFrame) -> str:
             f"total items: {item_cnt}",
         ]
     )
+
+
+def check_numeric(feature_table: DataFrame) -> None:
+    """
+    Проверяет, что столбцы spark DataFrame feature_table принадлежат к типу NumericType
+    :param feature_table: spark DataFrame, типы столбцов которого нужно проверить
+    """
+    for column in feature_table.columns:
+        if not isinstance(feature_table.schema[column].dataType, NumericType):
+            raise ValueError(
+                "Столбец {} имеет неверный тип {}, столбец должен иметь числовой тип.".format(
+                    column, feature_table.schema[column].dataType
+                )
+            )
 
 
 def to_csr(

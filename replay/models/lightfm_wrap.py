@@ -10,11 +10,12 @@ from lightfm import LightFM
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import PandasUDFType, pandas_udf
 from pyspark.sql.types import IntegerType
-from scipy.sparse import csr_matrix, hstack, identity
+from scipy.sparse import csr_matrix, hstack, identity, diags
+from sklearn.preprocessing import MinMaxScaler
 
 from replay.models.base_rec import HybridRecommender
 from replay.session_handler import State
-from replay.utils import to_csr
+from replay.utils import to_csr, check_numeric
 
 
 class LightFMWrap(HybridRecommender):
@@ -41,6 +42,7 @@ class LightFMWrap(HybridRecommender):
         self.random_state = random_state
         cpu_count = os.cpu_count()
         self.num_threads = cpu_count if cpu_count is not None else 1
+        self.scaler = None
 
     def _feature_table_to_csr(self, feature_table: DataFrame) -> csr_matrix:
         """
@@ -50,6 +52,9 @@ class LightFMWrap(HybridRecommender):
             все остальные колонки которой считаются значениями свойства пользователя или объекта соответстввенно
         :returns: матрица, в которой строки --- пользователи или объекты, столбцы --- их свойства
         """
+
+        check_numeric(feature_table)
+
         all_features = (
             State()
             .session.createDataFrame(
@@ -61,12 +66,23 @@ class LightFMWrap(HybridRecommender):
             .sort("item_idx")
             .drop("item_idx")
         )
-        return hstack(
-            [
-                identity(self.items_count),
-                csr_matrix(all_features.toPandas().to_numpy()),
-            ]
+
+        all_features_np = all_features.toPandas().to_numpy()
+
+        if self.scaler is None:
+            self.scaler = MinMaxScaler()
+            self.scaler.fit(all_features_np)
+        all_features_np = self.scaler.transform(all_features_np)
+
+        features_with_identity = hstack(
+            [identity(self.items_count), csr_matrix(all_features_np)]
         )
+
+        # сумма весов признаков по айтему равна 1
+        features_with_identity_sum = diags(
+            1 / features_with_identity.sum(axis=1).A.ravel(), format="csr"
+        )
+        return features_with_identity_sum @ features_with_identity
 
     def _fit(
         self,
@@ -74,6 +90,7 @@ class LightFMWrap(HybridRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
+        self.scaler = None
         interactions_matrix = to_csr(log, self.users_count, self.items_count)
         csr_item_features = (
             self._feature_table_to_csr(item_features)

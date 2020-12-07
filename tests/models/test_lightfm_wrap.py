@@ -44,11 +44,11 @@ class LightFMWrapTestCase(PySparkTest):
             np.allclose(
                 item_factors,
                 [
-                    [0.01821348],
-                    [0.55787325],
-                    [-0.01927805],
-                    [0.3785215],
-                    [-0.04293519],
+                    [-0.0717992],
+                    [0.5836115],
+                    [-0.03614512],
+                    [0.15231915],
+                    [-0.29032075],
                 ],
             )
         )
@@ -63,7 +63,11 @@ class LightFMWrapTestCase(PySparkTest):
             item_features=self.item_features,
         )
         true_recs = self.spark.createDataFrame(
-            [["u3", "i1", -0.614471], ["u1", "i3", -0.479815], ["u2", "i4", -0.248714]],
+            [
+                ["u3", "i1", -0.281625],
+                ["u1", "i3", -0.593911],
+                ["u2", "i4", -0.321806],
+            ],
             schema=REC_SCHEMA,
         )
         self.assertSparkDataFrameEqual(recs, true_recs)
