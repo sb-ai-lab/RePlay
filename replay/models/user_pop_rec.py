@@ -72,8 +72,9 @@ class UserPopRec(Recommender):
         self.item_popularity = (
             log.groupBy("user_idx", "item_idx")
             .agg(sf.count("user_idx").alias("user_count"))
-            .join(user_item_count, how="inner", on=sf.col("user_idx") == sf.col(
-                "user"))
+            .join(user_item_count,
+                  how="inner",
+                  on=sf.col("user_idx") == sf.col("user"))
             .select(
                 "user_idx",
                 "item_idx",

@@ -103,3 +103,21 @@ class Splitter(ABC):
             train, test, self.drop_cold_items, self.drop_cold_users
         )
         return train, self._filter_zero_relevance(test)
+
+class Cutting:
+    """ Класс обрезания данных  для тренировочной или тестовой выборки."""
+    @staticmethod
+    def cut(dataframe: DataFrame, rule: str, count, asc: bool=False):
+        if rule not in ("user_days","user_count","global_days"):
+            raise Exception("Неверно указан параметр rule")
+        elif "timestamp" not in dataframe.columns:
+            raise Exception("Отсутствует столбец timestamp")
+        elif rule == "user_days":
+            Cutting.cut_by_user_days(dataframe,count,asc)
+
+    @staticmethod
+    def cut_by_user_days(dataframe: DataFrame, count, asc: bool=False):
+        cutting_dataframe = dataframe.orderBy("timestamp").groupBy("user_id")
+        threshold_by_user = cutting_dataframe.agg({"max": "timestamp",
+                                                   "min": "timestamp"})
+
