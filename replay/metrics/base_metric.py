@@ -306,8 +306,6 @@ class Metric(ABC):
         left_count: int = left.count()
         right_count: int = right.count()
         inner_count: int = left.join(right, on="user_id").count()
-        left.unpersist()
-        right.unpersist()
         return left_count == inner_count and right_count == inner_count
 
     def user_distribution(
