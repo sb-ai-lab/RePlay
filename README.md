@@ -41,7 +41,7 @@
 
 ### Установка
 Для корректной работы используйте python 3.6+ и java 8+. \
-Клонируйте репозиторий и установите библиотеку:
+Сделайте клон репозитория и установите библиотеку:
 ```bash
 git clone https://sbtatlas.sigma.sbrf.ru/stash/scm/ailab/replay.git
 cd replay
