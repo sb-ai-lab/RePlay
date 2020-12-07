@@ -31,15 +31,17 @@ class UserPopRec(Recommender):
     независимо от взаимодействия с объектом.
 
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 2, 3, 4], "item_id": [1, 2, 2, 3, 3, 3]})
+    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 1, 2, 2, 2, 3, 4], "item_id": [1, 1, 2, 2, 3, 3, 3, 3]})
     >>> data_frame
        user_id  item_id
     0        1        1
-    1        1        2
-    2        2        2
-    3        2        3
-    4        3        3
-    5        4        3
+    1        1        1
+    2        1        2
+    3        2        2
+    4        2        3
+    5        2        3
+    6        3        3
+    7        4        3
 
     >>> from replay.utils import convert2spark
     >>> res = UserPopRec().fit_predict(convert2spark(data_frame), 1)
@@ -51,10 +53,10 @@ class UserPopRec(Recommender):
     >>> res = UserPopRec().fit_predict(convert2spark(data_frame), 1, filter_seen_items=False)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
        user_id  item_id  relevance
-    0        1        1        0.5
-    1        2        3        0.5
-    2        3        3        1.0
-    3        4        3        1.0
+    0        1        1   0.666667
+    1        2        3   0.666667
+    2        3        3   1.000000
+    3        4        3   1.000000
     """
 
     item_popularity: DataFrame
