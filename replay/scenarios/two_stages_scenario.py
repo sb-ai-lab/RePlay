@@ -51,7 +51,7 @@ class TwoStagesScenario:
         self,
         second_stage_splitter: Splitter = DEFAULT_SECOND_STAGE_SPLITTER,
         first_stage_splitter: Splitter = DEFAULT_FIRST_STAGE_SPLITTER,
-        first_model: Recommender = ALSWrap(rank=40),
+        first_model: Recommender = ALSWrap(rank=100),
         second_model: Optional[ClassifierRec] = None,
         first_stage_k: int = 100,
         metrics: Optional[Dict[Metric, IntOrList]] = None,
@@ -236,7 +236,8 @@ class TwoStagesScenario:
         ...     first_stage_splitter=splitter,
         ...     second_stage_splitter=splitter,
         ...     metrics={HitRate(): 1},
-        ...     second_model=ClassifierRec(RandomForestClassifier(seed=47))
+        ...     second_model=ClassifierRec(RandomForestClassifier(seed=47)),
+        ...     calculate_statistical_features=False
         ... )
         >>> two_stages.experiment
         Traceback (most recent call last):
