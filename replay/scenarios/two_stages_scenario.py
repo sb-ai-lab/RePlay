@@ -15,7 +15,7 @@ from replay.models.base_rec import Recommender
 from replay.models.classifier_rec import ClassifierRec
 from replay.session_handler import State
 from replay.splitters import Splitter, UserSplitter
-from replay.utils import get_log_info, horizontal_explode
+from replay.utils import get_log_info, horizontal_explode, calculate_statistics
 
 DEFAULT_SECOND_STAGE_SPLITTER = UserSplitter(
     drop_cold_items=False, item_test_size=1, shuffle=True, seed=42
@@ -25,6 +25,7 @@ DEFAULT_FIRST_STAGE_SPLITTER = UserSplitter(
 )
 
 
+# pylint: disable=too-many-instance-attributes
 class TwoStagesScenario:
     """
     Двухуровневый сценарий:
@@ -50,11 +51,12 @@ class TwoStagesScenario:
         self,
         second_stage_splitter: Splitter = DEFAULT_SECOND_STAGE_SPLITTER,
         first_stage_splitter: Splitter = DEFAULT_FIRST_STAGE_SPLITTER,
-        first_model: Recommender = ALSWrap(rank=100),
+        first_model: Recommender = ALSWrap(rank=40),
         second_model: Optional[ClassifierRec] = None,
         first_stage_k: int = 100,
         metrics: Optional[Dict[Metric, IntOrList]] = None,
-    ):
+        calculate_statistical_features: bool = True,
+    ) -> None:
         """
         собрать двухуровневую рекомендательную архитектуру из блоков
 
@@ -68,7 +70,8 @@ class TwoStagesScenario:
         :param first_stage_k: сколько объектов будем рекомендовать моделью первого уровня (``first_model``). По умолчанию 100
         :param second_model: какую модель будем обучать на результате сравнения предсказаний ``first_model`` и ``first_stage_test``
         :param metrics: какие метрики будем оценивать у ``second_model`` на ``test``. По умолчанию :ref:`HitRate@10<hit-rate>`.
-
+        :param calculate_statistical_features: выполнить подсчет статистических признаков по логу взаимодействия для пользователей
+                                               и объектов для обучения модели второго уровня
         """
 
         self.second_stage_splitter = second_stage_splitter
@@ -80,6 +83,7 @@ class TwoStagesScenario:
         else:
             self.second_model = second_model
         self.metrics = {HitRate(): [10]} if metrics is None else metrics
+        self.calculate_statistical_features = calculate_statistical_features
 
     @property
     def experiment(self) -> Experiment:
@@ -112,9 +116,21 @@ class TwoStagesScenario:
             items=first_train.select("item_id").distinct().cache(),
         ).cache()
 
+    @staticmethod
+    def _join_features(
+        first_df: DataFrame,
+        other_df: Optional[DataFrame] = None,
+        on_col="user_id",
+        how="inner",
+    ) -> DataFrame:
+        if other_df is None:
+            return first_df
+        return first_df.join(other_df, how=how, on=on_col).cache()
+
     def _second_stage_data(
         self,
         first_recs: DataFrame,
+        first_train: DataFrame,
         first_test: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
@@ -131,18 +147,20 @@ class TwoStagesScenario:
             .drop("user_idx")
             .cache()
         )
-        if user_features is None:
-            user_features = user_features_factors
-        else:
-            user_features = (
-                user_features.withColumnRenamed("user_id", "user")
-                .join(
-                    user_features_factors,
-                    how="inner",
-                    on=col("user_id") == col("user"),
-                )
-                .drop("user")
+        if self.calculate_statistical_features:
+            user_statistics = calculate_statistics(first_train)
+            user_features = self._join_features(user_statistics, user_features)
+
+            item_statistics = calculate_statistics(
+                first_train, group_by="item_id"
             )
+            item_features = self._join_features(
+                item_statistics, item_features, on_col="item_id"
+            )
+
+        user_features = self._join_features(
+            user_features_factors, user_features
+        )
 
         item_features_factors = (
             self.first_model.inv_item_indexer.transform(
@@ -156,18 +174,9 @@ class TwoStagesScenario:
             .drop("item_idx")
             .cache()
         )
-        if item_features is None:
-            item_features = item_features_factors
-        else:
-            item_features = (
-                item_features.withColumnRenamed("item_id", "item")
-                .join(
-                    item_features_factors,
-                    how="inner",
-                    on=col("item_id") == col("item"),
-                )
-                .drop("item")
-            )
+        item_features = self._join_features(
+            item_features_factors, item_features, "item_id"
+        )
 
         second_train = (
             first_recs.withColumnRenamed("relevance", "recs")
@@ -272,7 +281,7 @@ class TwoStagesScenario:
 
         first_recs = self._get_first_stage_recs(first_train, first_test)
         user_features, item_features, second_train = self._second_stage_data(
-            first_recs, first_test, user_features, item_features
+            first_recs, first_train, first_test, user_features, item_features
         )
         first_recs_for_test = self.first_model.predict(
             log=full_train,
