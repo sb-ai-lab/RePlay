@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Callable, Union
 
 from optuna import Trial
 from pyspark.sql import DataFrame
+from functools import partial
 
 from replay.experiment import Experiment
 from replay.metrics.base_metric import Metric
@@ -53,7 +54,7 @@ class ObjectiveWrapper:
 def suggest_param_value(
     trial: Trial,
     param_name: str,
-    param_bounds: List[Any],
+    param_bounds: List[Optional[Any]],
     default_params_data: Dict[str, Dict[str, Union[str, List[Any]]]],
 ) -> Union[str, float, int]:
     """
@@ -73,6 +74,7 @@ def suggest_param_value(
         "uniform": trial.suggest_uniform,
         "int": trial.suggest_int,
         "loguniform": trial.suggest_loguniform,
+        "loguniform_int": partial(trial.suggest_int, log=True),
     }
 
     if param_name not in default_params_data:
@@ -99,8 +101,6 @@ def suggest_param_value(
             )
         )
     lower, upper = param_args
-    if param_type == "loguniform_int":
-        return trial.suggest_int(param_name, low=lower, high=upper, log=True)
 
     return to_optuna_types_dict[param_type](param_name, low=lower, high=upper)
 
@@ -108,7 +108,7 @@ def suggest_param_value(
 # pylint: disable=too-many-arguments
 def scenario_objective_calculator(
     trial: Trial,
-    search_space: Dict[str, List[Any]],
+    search_space: Dict[str, List[Optional[Any]]],
     split_data: SplitData,
     recommender: Recommender,
     criterion: Metric,
