@@ -47,8 +47,7 @@ nevergrad = "*"
 [tool.poetry.dev-dependencies]
 # fixing versions of package dependencies (non-dev)
 lightfm = "1.15"
-setuptools="51.0"
-optuna = "2.3"
+# optuna = "2.3"
 pandas = "1.0.5"
 pyspark = "3.0.0"
 pyarrow = "0.17.1"
