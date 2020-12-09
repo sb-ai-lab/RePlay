@@ -100,9 +100,7 @@ def suggest_param_value(
         )
     lower, upper = param_args
     if param_type == "loguniform_int":
-        return round(
-            trial.suggest_loguniform(param_name, low=lower, high=upper)
-        )
+        return trial.suggest_int(param_name, low=lower, high=upper, log=True)
 
     return to_optuna_types_dict[param_type](param_name, low=lower, high=upper)
 
