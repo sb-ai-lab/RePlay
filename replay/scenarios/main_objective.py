@@ -94,7 +94,7 @@ def suggest_param_value(
         raise ValueError(
             """
         Гиперпараметр {} является числовым. Передайте верхнюю
-        и нижнюю границы поиска в фомате [lower, upper]""".format(
+        и нижнюю границы поиска в формате [lower, upper]""".format(
                 param_name
             )
         )
