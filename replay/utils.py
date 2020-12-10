@@ -189,7 +189,7 @@ def get_log_info(log: DataFrame) -> str:
     )
 
 
-def calculate_statistics(
+def get_stats(
     log: DataFrame, group_by: str = "user_id", target_column: str = "relevance"
 ) -> DataFrame:
     """
@@ -200,14 +200,14 @@ def calculate_statistics(
     ...   createDataFrame([(1, 2, 1), (1, 3, 3), (1, 1, 2), (2, 3, 2)])
     ...   .toDF("user_id", "item_id", "rel")
     ...   )
-    >>> calculate_statistics(test_df, target_column='rel').show()
+    >>> get_stats(test_df, target_column='rel').show()
     +-------+--------+-------+-------+---------+----------+
     |user_id|mean_rel|max_rel|min_rel|count_rel|median_rel|
     +-------+--------+-------+-------+---------+----------+
     |      1|     2.0|      3|      1|        3|         2|
     |      2|     2.0|      2|      2|        1|         2|
     +-------+--------+-------+-------+---------+----------+
-    >>> calculate_statistics(test_df, group_by='item_id', target_column='rel').show()
+    >>> get_stats(test_df, group_by='item_id', target_column='rel').show()
     +-------+--------+-------+-------+---------+----------+
     |item_id|mean_rel|max_rel|min_rel|count_rel|median_rel|
     +-------+--------+-------+-------+---------+----------+

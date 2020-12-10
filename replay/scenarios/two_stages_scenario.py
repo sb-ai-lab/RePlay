@@ -15,7 +15,7 @@ from replay.models.base_rec import Recommender
 from replay.models.classifier_rec import ClassifierRec
 from replay.session_handler import State
 from replay.splitters import Splitter, UserSplitter
-from replay.utils import get_log_info, horizontal_explode, calculate_statistics
+from replay.utils import get_log_info, horizontal_explode, get_stats
 
 DEFAULT_SECOND_STAGE_SPLITTER = UserSplitter(
     drop_cold_items=False, item_test_size=1, shuffle=True, seed=42
@@ -55,7 +55,7 @@ class TwoStagesScenario:
         second_model: Optional[ClassifierRec] = None,
         first_stage_k: int = 100,
         metrics: Optional[Dict[Metric, IntOrList]] = None,
-        calculate_statistical_features: bool = True,
+        stat_features: bool = True,
     ) -> None:
         """
         собрать двухуровневую рекомендательную архитектуру из блоков
@@ -70,7 +70,7 @@ class TwoStagesScenario:
         :param first_stage_k: сколько объектов будем рекомендовать моделью первого уровня (``first_model``). По умолчанию 100
         :param second_model: какую модель будем обучать на результате сравнения предсказаний ``first_model`` и ``first_stage_test``
         :param metrics: какие метрики будем оценивать у ``second_model`` на ``test``. По умолчанию :ref:`HitRate@10<hit-rate>`.
-        :param calculate_statistical_features: выполнить подсчет статистических признаков по логу взаимодействия для пользователей
+        :param stat_features: выполнить подсчет статистических признаков по логу взаимодействия для пользователей
                                                и объектов для обучения модели второго уровня
         """
 
@@ -83,7 +83,7 @@ class TwoStagesScenario:
         else:
             self.second_model = second_model
         self.metrics = {HitRate(): [10]} if metrics is None else metrics
-        self.calculate_statistical_features = calculate_statistical_features
+        self.stat_features = stat_features
 
     @property
     def experiment(self) -> Experiment:
@@ -147,13 +147,11 @@ class TwoStagesScenario:
             .drop("user_idx")
             .cache()
         )
-        if self.calculate_statistical_features:
-            user_statistics = calculate_statistics(first_train)
+        if self.stat_features:
+            user_statistics = get_stats(first_train)
             user_features = self._join_features(user_statistics, user_features)
 
-            item_statistics = calculate_statistics(
-                first_train, group_by="item_id"
-            )
+            item_statistics = get_stats(first_train, group_by="item_id")
             item_features = self._join_features(
                 item_statistics, item_features, on_col="item_id"
             )
@@ -237,7 +235,7 @@ class TwoStagesScenario:
         ...     second_stage_splitter=splitter,
         ...     metrics={HitRate(): 1},
         ...     second_model=ClassifierRec(RandomForestClassifier(seed=47)),
-        ...     calculate_statistical_features=False
+        ...     stat_features=False
         ... )
         >>> two_stages.experiment
         Traceback (most recent call last):
