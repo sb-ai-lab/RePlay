@@ -25,14 +25,14 @@ RePlay поможет:
 |Classifier Recommender     |PySpark       | Оценка релевантности объекта для пользователя по их признакам в модели бинарной классификации          |
 |Alternating Least Squares  |PySpark       | Алгоритм матричной факторизации на основе [Collaborative Filtering for Implicit Feedback Datasets](https://ieeexplore.ieee.org/document/4781121)           |
 |Neural Matrix Factorization|Python CPU/GPU| Алгоритм нейросетевой матричной факторизации на базе [Neural Collaborative Filtering](https://arxiv.org/pdf/1708.05031.pdf)          |
-|SLIM                       |PySpark       | +          |
-|ADMM SLIM                  |PySpark       | +          |
-|Mult-VAE                   |Python CPU/GPU| -          |
-|Word2Vec Recommender       |Python CPU/GPU| -          |
-|Обертка LightFM            |Python CPU    | +          |
-|Обертка Implicit           |Python CPU    | +          |
-|Stack Recommender          |Python CPU    | `*`        |
-|Двухуровневый классификатор|PySpark       | -          |
+|SLIM                       |PySpark       | Алгоритм, обучающий матрицу близости объектов восстановления матрицы взаимодействия [SLIM: Sparse Linear Methods for Top-N Recommender Systems](http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf)          |
+|ADMM SLIM                  |PySpark       | Улучшение стандартного алгоритма SLIM, [ADMM SLIM: Sparse Recommendations for Many Users](ADMM SLIM: Sparse Recommendations for Many Users)          |
+|MultVAE                    |Python CPU/GPU| Вариационный автоэнкодер, восстанавливающий вектор взаимодействий для пользователя [Variational Autoencoders for Collaborative Filtering](Variational Autoencoders for Collaborative Filtering)          |
+|Word2Vec Recommender       |Python CPU/GPU| Рекомендатель на основе word2vec, в котором items сопоставляются словам, а пользователи предложениям.          |
+|Обертка LightFM            |Python CPU    | Обертка для обучения моделей [LightFM](https://making.lyst.com/lightfm/docs/home.html)          |
+|Обертка Implicit           |Python CPU    | Обертка для обучения моделей [Implicit](https://implicit.readthedocs.io/en/latest/)          |
+|Stack Recommender          |Python CPU    | Модель стекинга, перевзвешивающая предсказания моделей первого уровня        |
+|Двухуровневый классификатор|PySpark       | Классификатор, использующий для обучения эмбеддинги пользователей и объектов, полученные базовым алгоритмом (например, матричной факторизацией), и признаки пользователей и объектов, переданные пользователем.   |
 
 **Особенности данных и алгоритмы**
 - В качестве входных данных модели используют историю взаимодействия пользователей и объектов (коллаборативная информация) и информацию о признаках пользователей, объектов и контектста.
@@ -55,8 +55,8 @@ RePlay поможет:
 |Classifier Recommender     |Content-based    | -          | + | + |
 |Alternating Least Squares  |Collaborative    | +          | - | - |
 |Neural Matrix Factorization|Collaborative    | +          | - | - |
-|SLIM                       |Collaborative    | +          | - | - |
-|ADMM SLIM                  |Collaborative    | +          | - | - |
+|SLIM                       |Collaborative    | -          | - | - |
+|ADMM SLIM                  |Collaborative    | -          | - | - |
 |Mult-VAE                   |Collaborative    | -          | + | - |
 |Word2Vec Recommender       |Collaborative    | -          | + | - |
 |Обертка LightFM            |Hybrid           | +          | + | + |
