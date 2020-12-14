@@ -13,24 +13,24 @@ RePlay поможет:
 Примеры использования библиотеки в директории `/experiments`.
 
 ### Алгоритмы, реализованные в RePlay
-| Алгоритм       | Реализация          | Описание |
-| ---------------|--------------|-------|
-|Popular Recommender        |PySpark       | Рекомендует популярные объекты (встречавшиеся в истории взаимодействия чаще остальных)    |
-|Popular By Users           |PySpark       | Рекомендует объекты, которые пользователь ранее выбирал чаще всего |
-|Wilson Recommender         |Python CPU    | Рекомендует объекты по нижней границе доверительного интервала Вильсона для доли положительных оценок     |
-|Random Recommender         |PySpark       | Рекомендует случайные объекты или сэмлпирует с вероятностью, пропорциональной популярности объекта   |
-|K-Nearest Neighbours       |PySpark       | Рекомендует объекты, похожие на те, с которыми у пользователя было взаимодействие
-|Classifier Recommender     |PySpark       | Алгоритм бинарной классификации для релевантности объекта для пользователя по их признакам          |
-|Alternating Least Squares  |PySpark       | Алгоритм матричной факторизации [Collaborative Filtering for Implicit Feedback Datasets](https://ieeexplore.ieee.org/document/4781121)           |
-|Neural Matrix Factorization|Python CPU/GPU| Алгоритм нейросетевой матричной факторизации на базе [Neural Collaborative Filtering](https://arxiv.org/pdf/1708.05031.pdf)          |
-|SLIM                       |PySpark       | Алгоритм, обучающий матрицу близости объектов, для восстановления матрицы взаимодействия [SLIM: Sparse Linear Methods for Top-N Recommender Systems](http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf)          |
-|ADMM SLIM                  |PySpark       | Улучшение стандартного алгоритма SLIM, [ADMM SLIM: Sparse Recommendations for Many Users](ADMM SLIM: Sparse Recommendations for Many Users)          |
-|MultVAE                    |Python CPU/GPU| Вариационный автоэнкодер, восстанавливающий вектор взаимодействий для пользователя [Variational Autoencoders for Collaborative Filtering](Variational Autoencoders for Collaborative Filtering)          |
-|Word2Vec Recommender       |Python CPU/GPU| Рекомендатель на основе word2vec, в котором объекты сопоставляются словам, а пользователи - предложениям.          |
-|Обертка LightFM            |Python CPU    | Обертка для обучения моделей [LightFM](https://making.lyst.com/lightfm/docs/home.html)          |
-|Обертка Implicit           |Python CPU    | Обертка для обучения моделей [Implicit](https://implicit.readthedocs.io/en/latest/)          |
-|Stack Recommender          |Python CPU    | Модель стекинга, перевзвешивающая предсказания моделей первого уровня        |
-|Двухуровневый классификатор|PySpark       | Классификатор, использующий для обучения эмбеддинги пользователей и объектов, полученные базовым алгоритмом (например, матричной факторизацией), и признаки пользователей и объектов, переданные пользователем.   |
+| Алгоритм       | Реализация train   | Реализация inference   | Описание |
+| ---------------|--------------------|------------------------|-------|
+|Popular Recommender        |PySpark       |PySpark       | Рекомендует популярные объекты (встречавшиеся в истории взаимодействия чаще остальных)    |
+|Popular By Users           |PySpark       |PySpark       | Рекомендует объекты, которые пользователь ранее выбирал чаще всего |
+|Wilson Recommender         |Python CPU    |PySpark       | Рекомендует объекты по нижней границе доверительного интервала Вильсона для доли положительных оценок     |
+|Random Recommender         |PySpark       |PySpark       | Рекомендует случайные объекты или сэмлпирует с вероятностью, пропорциональной популярности объекта   |
+|K-Nearest Neighbours       |PySpark       |PySpark       | Рекомендует объекты, похожие на те, с которыми у пользователя было взаимодействие
+|Classifier Recommender     |PySpark       |PySpark       | Алгоритм бинарной классификации для релевантности объекта для пользователя по их признакам          |
+|Alternating Least Squares  |PySpark       |PySpark       | Алгоритм матричной факторизации [Collaborative Filtering for Implicit Feedback Datasets](https://ieeexplore.ieee.org/document/4781121)           |
+|Neural Matrix Factorization|Python CPU/GPU|PySpark       | Алгоритм нейросетевой матричной факторизации на базе [Neural Collaborative Filtering](https://arxiv.org/pdf/1708.05031.pdf)          |
+|SLIM                       |PySpark       |PySpark       | Алгоритм, обучающий матрицу близости объектов, для восстановления матрицы взаимодействия [SLIM: Sparse Linear Methods for Top-N Recommender Systems](http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf)          |
+|ADMM SLIM                  |PySpark       |PySpark       | Улучшение стандартного алгоритма SLIM, [ADMM SLIM: Sparse Recommendations for Many Users](ADMM SLIM: Sparse Recommendations for Many Users)          |
+|MultVAE                    |Python CPU/GPU|PySpark       | Вариационный автоэнкодер, восстанавливающий вектор взаимодействий для пользователя [Variational Autoencoders for Collaborative Filtering](Variational Autoencoders for Collaborative Filtering)          |
+|Word2Vec Recommender       |Python CPU/GPU|PySpark       | Рекомендатель на основе word2vec, в котором объекты сопоставляются словам, а пользователи - предложениям.          |
+|Обертка LightFM            |Python CPU    |PySpark       | Обертка для обучения моделей [LightFM](https://making.lyst.com/lightfm/docs/home.html)          |
+|Обертка Implicit           |Python CPU    |PySpark       | Обертка для обучения моделей [Implicit](https://implicit.readthedocs.io/en/latest/)          |
+|Stack Recommender          |Python CPU + PySpark   |Python CPU + PySpark    | Модель стекинга, перевзвешивающая предсказания моделей первого уровня        |
+|Двухуровневый классификатор|PySpark       |PySpark       | Классификатор, использующий для обучения эмбеддинги пользователей и объектов, полученные базовым алгоритмом (например, матричной факторизацией), и признаки пользователей и объектов, переданные пользователем.   |
 
 Выбор алгоритма рекомендательной системы зависит от данных и требований пользователя к рекомендациям.
 
@@ -42,30 +42,30 @@ RePlay поможет:
     - Collaborative, коллаборативные. Используют историю взаимодействия пользователей и объектов для построения рекомендаций. 
     - Content-based. Используют признаковые описания пользователей и объектов для построения рекомендаций.
     - Hybrid, гибридные. Используют коллаборативную информацию, признаки пользователей/объектов, результаты работы других алгоритмов.
-- _Тип взаимодействия._ История взаимодействия может отражать явные предпочтения пользователя, например, оценки, покупки (explicit feedback) или неявные предпочтения, например, время просмотра (implicit feedback). 
-    Implicit feedback можно привести к explicit, придумав для этого правила. 
-    Но некоторые алгоритмы изначально ориентированы на работу с implicit feedback и позволяют работать с данными как есть. 
+- _Тип взаимодействия._ История взаимодействия может отражать явные предпочтения пользователя, например, оценки (explicit feedback), или неявные предпочтения, например, факт просмотра, количество прослушиваний(implicit feedback). 
+    Explicit feedback может содержать информацию об отрицательных взаимодействиях, тогда как implicit feedback рассматривается как индикатор положительного взаимодействия.
+    Некоторые алгоритмы RePlay игнорируют значение релевантности, переданные пользователем, и используют пары пользователь-объект из лога как одинаково релевантные взаимодействия (unary ratings). Для таких алгоритмов стоит удалить из обучающей выборки взаимодействия, которые нельзя считать положительными.
 - _Постоянство пользователей._ Некоторые алгоритмы требуют переобучения модели, чтобы рекомендовать пользователям, отсутствующим в обучающей выборке.
-- _Постоянство объектов._ Большинство алгоритмы требуют переобучения модели, чтобы рекомендовать объекты, отсутствующие в обучающей выборке.
+- _Постоянство объектов._ Большинство алгоритмов требуют переобучения модели, чтобы рекомендовать объекты, отсутствующие в обучающей выборке.
 
-| Алгоритм       | Тип данных          | Подходит для implicit | Рекомендует для новых пользователи | Рекомендует новые объекты |
+| Алгоритм       | Тип данных          | Тип взаимодействия | Рекомендует для новых пользователи | Рекомендует новые объекты |
 | ---------------|--------------|-------|-------|-------|
-|Popular Recommender        |Collaborative    | -          | + | - |
-|Popular By Users           |Collaborative    | -          | - | - |
-|Wilson Recommender         |Collaborative    | -          | + | - |
-|Random Recommender         |Collaborative    | -          | + | - |
-|K-Nearest Neighbours       |Collaborative    | -          | + | - |
-|Classifier Recommender     |Content-based    | -          | + | + |
-|Alternating Least Squares  |Collaborative    | +          | - | - |
-|Neural Matrix Factorization|Collaborative    | +          | - | - |
-|SLIM                       |Collaborative    | -          | - | - |
-|ADMM SLIM                  |Collaborative    | -          | - | - |
-|Mult-VAE                   |Collaborative    | -          | + | - |
-|Word2Vec Recommender       |Collaborative    | -          | + | - |
-|Обертка LightFM            |Hybrid           | +          | + | + |
-|Обертка Implicit           |Collaborative    | +          | - | - |
-|Stack Recommender          | `*`             | `*`        | `*` | `*` |
-|Двухуровневый классификатор|Hybrid           | -          | `*` | `*` |
+|Popular Recommender        |Collaborative    | приводятся к unary ratings             | + | - |
+|Popular By Users           |Collaborative    | приводятся к unary ratings             | - | - |
+|Wilson Recommender         |Collaborative    | binary ratings                         | + | - |
+|Random Recommender         |Collaborative    | приводятся к unary ratings             | + | + |
+|K-Nearest Neighbours       |Collaborative    | приводятся к unary ratings             | + | - |
+|Classifier Recommender     |Content-based    | binary ratings                         | + | + |
+|Alternating Least Squares  |Collaborative    | implicit feedback                      | - | - |
+|Neural Matrix Factorization|Collaborative    | приводятся к unary ratings             | - | - |
+|SLIM                       |Collaborative    | unary ratings, explicit feedback       | + | - |
+|ADMM SLIM                  |Collaborative    | unary ratings, explicit feedback       | + | - |
+|Mult-VAE                   |Collaborative    | приводятся к unary ratings             | + | - |
+|Word2Vec Recommender       |Collaborative    | приводятся к unary ratings             | + | - |
+|Обертка LightFM            |Hybrid           | [в зависимости от типа loss](https://making.lyst.com/lightfm/docs/lightfm.html#lightfm)       | + | + |
+|Обертка Implicit           |Collaborative    | [в зависимости от выбранной модели](https://implicit.readthedocs.io/en/latest/index.html)    | - | - |
+|Stack Recommender          | `*`             | `*`  | `*` | `*` |
+|Двухуровневый классификатор|Hybrid           | приводятся к unary ratings для модели второго уровня    | `*` | `*` |
 
 `*` - зависит от алгоритмов, используемых в качестве базовых. 
 
@@ -81,7 +81,7 @@ RePlay поможет:
 |Popular Recommender          | - | + | - | + |
 |Popular By Users             | + | - | - | - |
 |Wilson Recommender           | - | + | - | + |
-|Random Recommender           | - | + | - | + |
+|Random Recommender           | - | + | + | + |
 |K-Nearest Neighbours         | + | + | - | + |
 |Classifier Recommender       | + | + | + | + |
 |Alternating Least Squares    | + | - | - | + |
@@ -103,15 +103,15 @@ RePlay поможет:
 В библиотеке реализованы метрики для оценки качества рекомендательных систем: HitRate, Precision, MAP, Recall, ROC-AUC, MRR, NDCG, Surprisal, Unexpectedness, Coverage.
 Метрики можно посчитать для различных значений _k_ (числа рекомендаций для подсчета метрики), оценить среднее или медианное значение метрики по пользователям и нижнюю границу доверительного интервала.  
 
+### Эксперименты
+Класс Experiment позволяет посчитать метрики для рекомендаций, полученных несколькими моделями, и сравнить их. 
+
 ### Сценарии
-В библиотеке реализованы сценарии для обучения модели с нуля, включая:
+В библиотеке реализованы пайплайны, объединяющие применение нискольких модулей библиотеки, включая:
 * разбиение данных на обучающую и валидационную выборки
 * автоматический подбор гиперпараметров моделей
 * расчёт метрик и сравнение моделей
 * обучение на всём объёме данных и построение рекомендаций
-
-### Эксперименты
-Класс Experiment позволяет посчитать метрики для рекомендаций, полученных несколькими моделями, и сравнить их. 
 
 ## Как начать пользоваться библиотекой
 
@@ -144,7 +144,7 @@ pytest ./tests
 
 ### Документация
 
-Чтобы сформировать документацию, выполните из директории `replay`:
+Запустите формирование документации из директории `replay`:
 ```bash
 cd ./docs
 mkdir -p _static
