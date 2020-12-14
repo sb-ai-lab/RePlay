@@ -189,6 +189,57 @@ def get_log_info(log: DataFrame) -> str:
     )
 
 
+def get_stats(
+    log: DataFrame, group_by: str = "user_id", target_column: str = "relevance"
+) -> DataFrame:
+    """
+    Подсчет статистик (минимальная, максимальная, средняя, медианая оценки, число оценок) по логу взаимодействия.
+    >>> from replay.session_handler import get_spark_session, State
+    >>> spark = get_spark_session(1, 1)
+    >>> test_df = (spark.
+    ...   createDataFrame([(1, 2, 1), (1, 3, 3), (1, 1, 2), (2, 3, 2)])
+    ...   .toDF("user_id", "item_id", "rel")
+    ...   )
+    >>> get_stats(test_df, target_column='rel').show()
+    +-------+--------+-------+-------+---------+----------+
+    |user_id|mean_rel|max_rel|min_rel|count_rel|median_rel|
+    +-------+--------+-------+-------+---------+----------+
+    |      1|     2.0|      3|      1|        3|         2|
+    |      2|     2.0|      2|      2|        1|         2|
+    +-------+--------+-------+-------+---------+----------+
+    >>> get_stats(test_df, group_by='item_id', target_column='rel').show()
+    +-------+--------+-------+-------+---------+----------+
+    |item_id|mean_rel|max_rel|min_rel|count_rel|median_rel|
+    +-------+--------+-------+-------+---------+----------+
+    |      2|     1.0|      1|      1|        1|         1|
+    |      3|     2.5|      3|      2|        2|         2|
+    |      1|     2.0|      2|      2|        1|         2|
+    +-------+--------+-------+-------+---------+----------+
+
+    :param log: spark DataFrame с колонками ``user_id``, ``item_id`` и ``relevance``
+    :param group_by: колонка для группировки, ``user_id`` или ``item_id``
+    :param target_column: колонка с оценками взаимодействия, ``relevance``
+    :return: spark DataFrame со статистиками взаимодействия по пользователям|объектам
+    """
+    agg_functions = {
+        "mean": sf.avg,
+        "max": sf.max,
+        "min": sf.min,
+        "count": sf.count,
+    }
+    agg_functions_list = [
+        func(target_column).alias(str(name + "_" + target_column))
+        for name, func in agg_functions.items()
+    ]
+    agg_functions_list.append(
+        sf.expr("percentile_approx({}, 0.5)".format(target_column)).alias(
+            "median_" + target_column
+        )
+    )
+
+    return log.groupBy(group_by).agg(*agg_functions_list)
+
+
 def check_numeric(feature_table: DataFrame) -> None:
     """
     Проверяет, что столбцы spark DataFrame feature_table принадлежат к типу NumericType
