@@ -61,6 +61,7 @@ class UserPopRec(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
+
         user_item_count = (
             log.groupBy("user_idx")
             .agg(sf.count("item_idx").alias("item_count"))
