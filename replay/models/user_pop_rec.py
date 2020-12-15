@@ -31,32 +31,26 @@ class UserPopRec(Recommender):
     независимо от взаимодействия с объектом.
 
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 1, 2, 2, 2, 3, 4], "item_id": [1, 1, 2, 2, 3, 3, 3, 3]})
+    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 1, 3], "item_id": [1, 1, 2, 3]})
     >>> data_frame
        user_id  item_id
     0        1        1
     1        1        1
     2        1        2
-    3        2        2
-    4        2        3
-    5        2        3
-    6        3        3
-    7        4        3
+    3        4        3
 
     >>> from replay.utils import convert2spark
-    >>> res = UserPopRec().fit_predict(convert2spark(data_frame), 1)
+    >>> res = UserPopRec().fit_predict(data_frame, 1)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
     Empty DataFrame
     Columns: [user_id, item_id, relevance]
     Index: []
 
-    >>> res = UserPopRec().fit_predict(convert2spark(data_frame), 1, filter_seen_items=False)
+    >>> res = UserPopRec().fit_predict(data_frame, 1, filter_seen_items=False)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
        user_id  item_id  relevance
     0        1        1   0.666667
-    1        2        3   0.666667
-    2        3        3   1.000000
-    3        4        3   1.000000
+    1        3        3   1.000000
     """
 
     item_popularity: DataFrame
@@ -67,22 +61,26 @@ class UserPopRec(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        user_item_count = (log.groupBy("user_idx")
-                           .agg(sf.count("item_idx").alias("item_count"))
-                           .withColumnRenamed("user_idx", "user")
-                           .select("user", "item_count"))
+        user_item_count = (
+            log.groupBy("user_idx")
+            .agg(sf.count("item_idx").alias("item_count"))
+            .withColumnRenamed("user_idx", "user")
+            .select("user", "item_count")
+        )
         self.item_popularity = (
             log.groupBy("user_idx", "item_idx")
             .agg(sf.count("user_idx").alias("user_count"))
-            .join(user_item_count,
-                  how="inner",
-                  on=sf.col("user_idx") == sf.col("user"))
+            .join(
+                user_item_count,
+                how="inner",
+                on=sf.col("user_idx") == sf.col("user"),
+            )
             .select(
                 "user_idx",
                 "item_idx",
                 (sf.col("user_count") / sf.col("item_count")).alias(
                     "relevance"
-                )
+                ),
             )
         ).cache()
 
@@ -99,17 +97,17 @@ class UserPopRec(Recommender):
     ) -> DataFrame:
         # удаляем ненужные items
         if filter_seen_items:
-            self.logger.warning("Для рекомендателя UserPopRec параметр "
-                                "filter_seen_items должен иметь значение False"
-                                " иначе результат будет пустым.")
+            self.logger.warning(
+                "Для рекомендателя UserPopRec параметр "
+                "filter_seen_items должен иметь значение False"
+                " иначе результат будет пустым."
+            )
 
-        item_popularity_by_user = (
-            items.join(
-                self.item_popularity.withColumnRenamed("item_idx", "item"),
-                on=sf.col("item_idx") == sf.col("item"),
-                how="inner",
-            ).drop("item")
-        )
+        item_popularity_by_user = items.join(
+            self.item_popularity.withColumnRenamed("item_idx", "item"),
+            on=sf.col("item_idx") == sf.col("item"),
+            how="inner",
+        ).drop("item")
 
         @sf.pandas_udf(
             st.StructType(
@@ -124,7 +122,6 @@ class UserPopRec(Recommender):
         def grouped_map(pandas_df):
             user_idx = pandas_df["user_idx"][0]
             cnt = pandas_df["cnt"][0]
-
             items_idx = np.argsort(pandas_df["relevance"].values)[-cnt:]
 
             return pd.DataFrame(
@@ -144,7 +141,8 @@ class UserPopRec(Recommender):
                 item_popularity_by_user.withColumnRenamed("user_idx", "user"),
                 on=sf.col("user_idx") == sf.col("user"),
                 how="inner",
-            ).drop("user")
+            )
+            .drop("user")
         )
         recs = (
             recs.selectExpr(
