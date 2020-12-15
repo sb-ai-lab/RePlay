@@ -8,7 +8,7 @@ from replay.metrics.base_metric import Metric
 class MRR(Metric):
     """
     Mean Reciprocal Rank --
-    для списка рекомендаций i, Reciprocal Rank определяется как позиция первой релевантной рекомендации
+    Reciprocal Rank определяется как позиция первой релевантной рекомендации (i) в списке первых K рекомендаций
     в минус первой степени, то есть  :math:`\\frac {1}{rank_i}`. Это значение усредняется по всем пользователям.
 
     >>> import pandas as pd
@@ -16,6 +16,8 @@ class MRR(Metric):
     >>> true = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [2, 4, 5], "relevance": [5, 5, 5]})
     >>> MRR()(pred, true, 3)
     0.5
+    >>> MRR()(pred, true, 1)
+    0.0
     >>> MRR()(true, pred, 1)
     1.0
     """
