@@ -8,7 +8,7 @@ from replay.splitters.base_splitter import (
     SplitterReturnType,
 )
 from replay.splitters.log_splitter import (
-    ColdUserByDateSplitter,
+    NewUsersSplitter,
     ColdUserRandomSplitter,
     DateSplitter,
     RandomSplitter,

@@ -27,7 +27,10 @@ class UserSplitter(Splitter):
 
     >>> from replay.splitters import UserSplitter
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_id": [1,1,1,2,2,2], "item_id": [1,2,3,1,2,3], "relevance": [1,2,3,4,5,6], "timestamp": [1,2,3,3,2,1]})
+    >>> data_frame = pd.DataFrame({"user_id": [1,1,1,2,2,2],
+    ...    "item_id": [1,2,3,1,2,3],
+    ...    "relevance": [1,2,3,4,5,6],
+    ...    "timestamp": [1,2,3,3,2,1]})
     >>> data_frame
        user_id  item_id  relevance  timestamp
     0        1        1          1          1
