@@ -36,7 +36,7 @@ class UserPopRec(Recommender):
     0        1        1
     1        1        1
     2        1        2
-    3        4        3
+    3        3        3
 
     >>> from replay.utils import convert2spark
     >>> res = UserPopRec().fit_predict(data_frame, 1)
