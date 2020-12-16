@@ -165,7 +165,7 @@ class TestLogSplitRandomlySplitter(PySparkTest):
             self.assertSetEqual(test_users, train_users)
 
 
-class TestColdUserByDateSplitter(PySparkTest):
+class TestNewUsersSplitter(PySparkTest):
     def test_split(self):
         log = self.spark.createDataFrame(
             data=[
