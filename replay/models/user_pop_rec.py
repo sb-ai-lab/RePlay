@@ -1,7 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-from typing import Optional
+from typing import Optional, Union, Iterable
 
 import numpy as np
 import pandas as pd
@@ -9,6 +9,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
+from replay.constants import AnyDataFrame
 from replay.models.base_rec import Recommender
 
 
@@ -36,10 +37,6 @@ class UserPopRec(Recommender):
     0        1        1          2
     1        1        2          1
     2        3        3          1
-
-    >>> res = UserPopRec().fit_predict(data_frame, 1)
-    >>> res.count() == 0
-    True
 
     >>> res = UserPopRec().fit_predict(data_frame, 1, filter_seen_items=False)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
@@ -145,3 +142,26 @@ class UserPopRec(Recommender):
         )
 
         return recs
+
+    # pylint: disable=too-many-arguments
+    def fit_predict(
+        self,
+        log: AnyDataFrame,
+        k: int,
+        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        items: Optional[Union[AnyDataFrame, Iterable]] = None,
+        filter_seen_items: bool = True,
+        force_reindex: bool = True,
+    ) -> DataFrame:
+        return super().fit_predict(log, k, users, items, False, force_reindex)
+
+    # pylint: disable=too-many-arguments
+    def predict(
+        self,
+        log: AnyDataFrame,
+        k: int,
+        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        items: Optional[Union[AnyDataFrame, Iterable]] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        return super().predict(log, k, users, items, False)
