@@ -151,7 +151,7 @@ class UserPopRec(Recommender):
         users: Optional[Union[AnyDataFrame, Iterable]] = None,
         items: Optional[Union[AnyDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
-        force_reindex: bool = True,
+        force_reindex: bool = False,
     ) -> DataFrame:
         return super().fit_predict(log, k, users, items, False, force_reindex)
 
@@ -162,6 +162,6 @@ class UserPopRec(Recommender):
         k: int,
         users: Optional[Union[AnyDataFrame, Iterable]] = None,
         items: Optional[Union[AnyDataFrame, Iterable]] = None,
-        filter_seen_items: bool = True,
+        filter_seen_items: bool = False,
     ) -> DataFrame:
         return super().predict(log, k, users, items, False)
