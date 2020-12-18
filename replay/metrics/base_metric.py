@@ -234,19 +234,19 @@ class Metric(ABC):
         )
         max_k = self.max_k
 
-        @sf.pandas_udf(
-            st.StructType(
-                [
-                    st.StructField(
-                        "user_id", recs.schema["user_id"].dataType, True
-                    ),
-                    st.StructField("cum_agg", st.DoubleType(), True),
-                    st.StructField("k", st.LongType(), True),
-                ]
-            ),
-            sf.PandasUDFType.GROUPED_MAP,
+        grouped_map_schema = st.StructType(
+            [
+                st.StructField(
+                    "user_id", recs.schema["user_id"].dataType, True
+                ),
+                st.StructField("cum_agg", st.DoubleType(), True),
+                st.StructField("k", st.LongType(), True),
+            ]
         )
-        def grouped_map(pandas_df):  # pragma: no cover
+
+        def grouped_map(
+            pandas_df: pd.DataFrame,
+        ) -> pd.DataFrame:  # pragma: no cover
             additional_rows = max_k - len(pandas_df)
             one_row = pandas_df[
                 pandas_df["relevance"] == pandas_df["relevance"].min()
@@ -258,7 +258,7 @@ class Metric(ABC):
                     [one_row] * additional_rows, ignore_index=True
                 )
             pandas_df = (
-                pandas_df.sort_values("relevance", ascending=False)
+                pandas_df.sort_values(["relevance"], ascending=False)
                 .reset_index(drop=True)
                 .assign(k=pandas_df.index + 1)
             )
@@ -266,7 +266,7 @@ class Metric(ABC):
 
         distribution = (
             recs.groupby("user_id")
-            .apply(grouped_map)
+            .applyInPandas(grouped_map, grouped_map_schema)
             .where(sf.col("k").isin(k_set))
         )
 
