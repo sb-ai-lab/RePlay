@@ -234,16 +234,6 @@ class Metric(ABC):
         )
         max_k = self.max_k
 
-        grouped_map_schema = st.StructType(
-            [
-                st.StructField(
-                    "user_id", recs.schema["user_id"].dataType, True
-                ),
-                st.StructField("cum_agg", st.DoubleType(), True),
-                st.StructField("k", st.LongType(), True),
-            ]
-        )
-
         def grouped_map(
             pandas_df: pd.DataFrame,
         ) -> pd.DataFrame:  # pragma: no cover
@@ -266,7 +256,12 @@ class Metric(ABC):
 
         distribution = (
             recs.groupby("user_id")
-            .applyInPandas(grouped_map, grouped_map_schema)
+            .applyInPandas(
+                grouped_map,
+                "user_id {}, cum_agg double, k long".format(
+                    recs.schema["user_id"].dataType.typeName()
+                ),
+            )
             .where(sf.col("k").isin(k_set))
         )
 
