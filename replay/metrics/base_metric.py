@@ -341,7 +341,7 @@ class Metric(ABC):
 # pylint: disable=too-few-public-methods
 class RecOnlyMetric(Metric):
     """Базовый класс для метрик,
-    которые измеряют качество списков рекомендаций,
+    которые измеряют качество рекомендаций,
     не сравнивая их с holdout значениями"""
 
     @abstractmethod
