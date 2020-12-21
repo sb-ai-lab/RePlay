@@ -10,7 +10,7 @@ from tests.pyspark_testcase import PySparkTest
 
 from replay.constants import LOG_SCHEMA
 from replay.splitters.log_splitter import (
-    ColdUserByDateSplitter,
+    NewUsersSplitter,
     ColdUserRandomSplitter,
     DateSplitter,
     RandomSplitter,
@@ -165,7 +165,7 @@ class TestLogSplitRandomlySplitter(PySparkTest):
             self.assertSetEqual(test_users, train_users)
 
 
-class TestColdUserByDateSplitter(PySparkTest):
+class TestNewUsersSplitter(PySparkTest):
     def test_split(self):
         log = self.spark.createDataFrame(
             data=[
@@ -182,7 +182,7 @@ class TestColdUserByDateSplitter(PySparkTest):
             schema=LOG_SCHEMA,
         )
 
-        train, test = ColdUserByDateSplitter(
+        train, test = NewUsersSplitter(
             test_size=1 / 4, drop_cold_items=False, drop_cold_users=False
         ).split(log=log)
         true_train = self.spark.createDataFrame(
