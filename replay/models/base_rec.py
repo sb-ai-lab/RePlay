@@ -334,7 +334,7 @@ class BaseRecommender(ABC):
             self.logger.debug("Выделение дефолтных юзеров")
             unique = log.select(column).distinct()
         elif not isinstance(array, DataFrame):
-            if isinstance(array, collections.Iterable):
+            if isinstance(array, collections.abc.Iterable):
                 unique = spark.createDataFrame(
                     data=pd.DataFrame(pd.unique(list(array)), columns=[column])
                 )
