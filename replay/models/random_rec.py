@@ -7,9 +7,9 @@ import numpy as np
 import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-from pyspark.sql import types as st
 
 from replay.models.base_rec import Recommender
+from replay.constants import IDX_REC_SCHEMA
 
 
 class RandomRec(Recommender):
@@ -77,16 +77,16 @@ class RandomRec(Recommender):
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
     >>> recs.show()
-    +-------+-------+----------+
-    |user_id|item_id| relevance|
-    +-------+-------+----------+
-    |      1|      3|0.33333334|
-    |      2|      1|       0.5|
-    |      3|      1|       1.0|
-    |      3|      2|0.33333334|
-    |      4|      2|       0.5|
-    |      4|      1|0.33333334|
-    +-------+-------+----------+
+    +-------+-------+------------------+
+    |user_id|item_id|         relevance|
+    +-------+-------+------------------+
+    |      1|      3|0.3333333333333333|
+    |      2|      1|               0.5|
+    |      3|      1|               1.0|
+    |      3|      2|0.3333333333333333|
+    |      4|      2|               0.5|
+    |      4|      1|0.3333333333333333|
+    +-------+-------+------------------+
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2, users=[1], items=[7, 8])
     >>> recs.show()
@@ -110,16 +110,16 @@ class RandomRec(Recommender):
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
     >>> recs.show()
-    +-------+-------+----------+
-    |user_id|item_id| relevance|
-    +-------+-------+----------+
-    |      1|      3|       1.0|
-    |      2|      1|       0.5|
-    |      3|      2|       0.5|
-    |      3|      1|0.33333334|
-    |      4|      1|       1.0|
-    |      4|      2|       0.5|
-    +-------+-------+----------+
+    +-------+-------+------------------+
+    |user_id|item_id|         relevance|
+    +-------+-------+------------------+
+    |      1|      3|               1.0|
+    |      2|      1|               0.5|
+    |      3|      2|               0.5|
+    |      3|      1|0.3333333333333333|
+    |      4|      1|               1.0|
+    |      4|      2|               0.5|
+    +-------+-------+------------------+
     <BLANKLINE>
     """
 
@@ -210,17 +210,7 @@ class RandomRec(Recommender):
         )
         seed = self.seed
 
-        @sf.pandas_udf(
-            st.StructType(
-                [
-                    st.StructField("user_idx", st.IntegerType(), True),
-                    st.StructField("item_idx", st.IntegerType(), True),
-                    st.StructField("relevance", st.FloatType(), True),
-                ]
-            ),
-            sf.PandasUDFType.GROUPED_MAP,
-        )
-        def grouped_map(pandas_df):
+        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
             user_idx = pandas_df["user_idx"][0]
             cnt = pandas_df["cnt"][0]
             if seed is not None:
@@ -248,7 +238,7 @@ class RandomRec(Recommender):
             .agg(sf.countDistinct("item_idx").alias("cnt"))
             .selectExpr("user_idx", f"LEAST(cnt + {k}, {model_len}) AS cnt",)
             .groupby("user_idx")
-            .apply(grouped_map)
+            .applyInPandas(grouped_map, IDX_REC_SCHEMA)
         )
 
         return recs

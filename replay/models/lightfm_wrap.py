@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 from lightfm import LightFM
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import PandasUDFType, pandas_udf
 from pyspark.sql.types import IntegerType
 from scipy.sparse import csr_matrix, hstack, identity, diags
 from sklearn.preprocessing import MinMaxScaler
@@ -16,6 +15,7 @@ from sklearn.preprocessing import MinMaxScaler
 from replay.models.base_rec import HybridRecommender
 from replay.session_handler import State
 from replay.utils import to_csr, check_numeric
+from replay.constants import IDX_REC_SCHEMA
 
 
 class LightFMWrap(HybridRecommender):
@@ -119,10 +119,6 @@ class LightFMWrap(HybridRecommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        @pandas_udf(
-            "user_idx int, item_idx int, relevance double",
-            PandasUDFType.GROUPED_MAP,
-        )
         def predict_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
             pandas_df["relevance"] = model.predict(
                 user_ids=pandas_df["user_idx"].to_numpy(),
@@ -138,5 +134,7 @@ class LightFMWrap(HybridRecommender):
             else None
         )
         return (
-            users.crossJoin(items).groupby("user_idx").apply(predict_by_user)
+            users.crossJoin(items)
+            .groupby("user_idx")
+            .applyInPandas(predict_by_user, IDX_REC_SCHEMA)
         )

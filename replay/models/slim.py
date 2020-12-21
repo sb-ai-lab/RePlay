@@ -73,11 +73,7 @@ class SLIM(Recommender):
             positive=True,
         )
 
-        @sf.pandas_udf(
-            "item_id_one int, item_id_two int, similarity double",
-            sf.PandasUDFType.GROUPED_MAP,
-        )
-        def slim_row(pandas_df):
+        def slim_row(pandas_df: pd.DataFrame) -> pd.DataFrame:
             """
             Построчное обучение матрицы близости объектов, стохастическим
             градиентным спуском
@@ -103,7 +99,9 @@ class SLIM(Recommender):
             return pd.DataFrame(data=similarity_row)
 
         self.similarity = (
-            similarity.groupby("item_id_one").apply(slim_row)
+            similarity.groupby("item_id_one").applyInPandas(
+                slim_row, "item_id_one int, item_id_two int, similarity double"
+            )
         ).cache()
 
     # pylint: disable=too-many-arguments

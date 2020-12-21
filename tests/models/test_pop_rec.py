@@ -6,6 +6,10 @@ from parameterized import parameterized
 from tests.pyspark_testcase import PySparkTest
 
 from replay.models.pop_rec import PopRec
+from replay.constants import LOG_SCHEMA
+from datetime import datetime
+
+TEST_DATE = datetime(2019, 1, 1)
 
 
 class PopRecTestCase(PySparkTest):
@@ -44,25 +48,25 @@ class PopRecTestCase(PySparkTest):
         ]
     )
     def test_popularity_recs(self, users, k, items_relevance):
+        self.some_date = datetime(2019, 1, 1)
         log_data = [
-            ["u1", "i1", 1.0, "2019-01-01"],
-            ["u2", "i1", 1.0, "2019-01-01"],
-            ["u3", "i3", 2.0, "2019-01-01"],
-            ["u3", "i3", 2.0, "2019-01-01"],
-            ["u2", "i3", 2.0, "2019-01-01"],
-            ["u3", "i4", 2.0, "2019-01-01"],
-            ["u1", "i4", 2.0, "2019-01-01"],
-            ["u2", "i1", 3.0, "2019-01-01"],
-            ["u3", "i2", 1.0, "2019-01-01"],
-            ["u2", "i2", 1.0, "2019-01-01"],
-            ["u2", "i3", 2.0, "2019-01-01"],
-            ["u3", "i4", 3.0, "2019-01-01"],
-            ["u2", "i4", 2.0, "2019-01-01"],
-            ["u1", "i4", 1.0, "2019-01-01"],
+            ["u1", "i1", TEST_DATE, 1.0],
+            ["u2", "i1", TEST_DATE, 1.0],
+            ["u3", "i3", TEST_DATE, 2.0],
+            ["u3", "i3", TEST_DATE, 2.0],
+            ["u2", "i3", TEST_DATE, 2.0],
+            ["u3", "i4", TEST_DATE, 2.0],
+            ["u1", "i4", TEST_DATE, 2.0],
+            ["u2", "i1", TEST_DATE, 3.0],
+            ["u3", "i2", TEST_DATE, 1.0],
+            ["u2", "i2", TEST_DATE, 1.0],
+            ["u2", "i3", TEST_DATE, 2.0],
+            ["u3", "i4", TEST_DATE, 3.0],
+            ["u2", "i4", TEST_DATE, 2.0],
+            ["u1", "i4", TEST_DATE, 1.0],
         ]
-        log_schema = ["user_id", "item_id", "relevance", "timestamp"]
-        log = self.spark.createDataFrame(data=log_data, schema=log_schema)
-
+        log = self.spark.createDataFrame(data=log_data, schema=LOG_SCHEMA)
+        print(log.schema)
         items_relevance = self.spark.createDataFrame(
             items_relevance, schema=["item_id", "relevance"]
         )
@@ -71,6 +75,7 @@ class PopRecTestCase(PySparkTest):
         )
 
         true_recs = users.crossJoin(items_relevance)
+        print(true_recs.schema)
         # два вызова нужны, чтобы проверить, что они возващают одно и то же
         test_recs_first = self.model.fit_predict(
             log=log,
@@ -79,6 +84,7 @@ class PopRecTestCase(PySparkTest):
             items=items_relevance.select("item_id"),
             filter_seen_items=False,
         )
+        print(test_recs_first.schema)
         test_recs_second = self.model.fit_predict(
             log=log,
             k=k,
@@ -92,16 +98,15 @@ class PopRecTestCase(PySparkTest):
 
     def test_popularity_recs_filter_seen_items(self):
         log_data = [
-            ["u1", "i1", 1.0, "2019-01-01"],
-            ["u1", "i4", 2.0, "2019-01-01"],
-            ["u2", "i1", 1.0, "2019-01-01"],
-            ["u2", "i3", 2.0, "2019-01-01"],
-            ["u3", "i3", 2.0, "2019-01-01"],
-            ["u3", "i4", 1.0, "2019-01-01"],
-            ["u3", "i3", 2.0, "2019-01-01"],
+            ["u1", "i1", TEST_DATE, 1.0],
+            ["u1", "i4", TEST_DATE, 2.0],
+            ["u2", "i1", TEST_DATE, 1.0],
+            ["u2", "i3", TEST_DATE, 2.0],
+            ["u3", "i3", TEST_DATE, 2.0],
+            ["u3", "i4", TEST_DATE, 1.0],
+            ["u3", "i3", TEST_DATE, 2.0],
         ]
-        log_schema = ["user_id", "item_id", "relevance", "timestamp"]
-        log = self.spark.createDataFrame(data=log_data, schema=log_schema)
+        log = self.spark.createDataFrame(data=log_data, schema=LOG_SCHEMA)
         true_recs_data = [
             ["u1", "i3", 2 / 3],
             ["u2", "i4", 2 / 3],
@@ -125,19 +130,18 @@ class PopRecTestCase(PySparkTest):
 
     def test_popularity_recs_default_items_users(self):
         log_data = [
-            ["u2", "i1", 1.0, "2019-01-01"],
-            ["u3", "i3", 2.0, "2019-01-01"],
-            ["u1", "i4", 2.0, "2019-01-01"],
-            ["u1", "i1", 1.0, "2019-01-01"],
-            ["u3", "i1", 2.0, "2019-01-01"],
-            ["u2", "i2", 1.0, "2019-01-01"],
-            ["u2", "i3", 3.0, "2019-01-01"],
-            ["u3", "i4", 2.0, "2019-01-01"],
-            ["u1", "i4", 2.0, "2019-01-01"],
-            ["u3", "i4", 4.0, "2019-01-01"],
+            ["u2", "i1", TEST_DATE, 1.0],
+            ["u3", "i3", TEST_DATE, 2.0],
+            ["u1", "i4", TEST_DATE, 2.0],
+            ["u1", "i1", TEST_DATE, 1.0],
+            ["u3", "i1", TEST_DATE, 2.0],
+            ["u2", "i2", TEST_DATE, 1.0],
+            ["u2", "i3", TEST_DATE, 3.0],
+            ["u3", "i4", TEST_DATE, 2.0],
+            ["u1", "i4", TEST_DATE, 2.0],
+            ["u3", "i4", TEST_DATE, 4.0],
         ]
-        log_schema = ["user_id", "item_id", "relevance", "timestamp"]
-        log = self.spark.createDataFrame(data=log_data, schema=log_schema)
+        log = self.spark.createDataFrame(data=log_data, schema=LOG_SCHEMA)
         true_recs_data = [
             ["u1", "i1", 1.0],
             ["u1", "i3", 2 / 3],
