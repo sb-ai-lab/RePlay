@@ -6,7 +6,6 @@ from datetime import datetime
 
 from pyspark.sql.types import (
     DoubleType,
-    FloatType,
     StructField,
     StructType,
     IntegerType,

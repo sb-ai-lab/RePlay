@@ -11,7 +11,7 @@ from pyspark.ml.classification import (
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit, udf, when
-from pyspark.sql.types import FloatType
+from pyspark.sql.types import DoubleType
 
 from replay.constants import AnyDataFrame
 from replay.models.base_rec import HybridRecommender
@@ -150,7 +150,7 @@ class ClassifierRec(HybridRecommender):
             "user_idx",
             "item_idx",
             # pylint: disable=redundant-keyword-arg
-            udf(func_get, FloatType())("probability", lit(1)).alias(
+            udf(func_get, DoubleType())("probability", lit(1)).alias(
                 "relevance"
             ),
         )
@@ -181,7 +181,7 @@ class ClassifierRec(HybridRecommender):
             "user_idx",
             "item_idx",
             # pylint: disable=redundant-keyword-arg
-            udf(func_get, FloatType())("probability", lit(1)).alias(
+            udf(func_get, DoubleType())("probability", lit(1)).alias(
                 "relevance"
             ),
         )

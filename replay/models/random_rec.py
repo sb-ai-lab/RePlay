@@ -168,7 +168,7 @@ class RandomRec(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         if self.distribution == "popular_based":
-            probability = f"CAST(user_count + {self.alpha} AS FLOAT)"
+            probability = f"CAST(user_count + {self.alpha} AS DOUBLE)"
         else:
             probability = "1"
         self.item_popularity = log.groupBy("item_idx").agg(
