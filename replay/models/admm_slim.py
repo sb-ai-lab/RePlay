@@ -176,8 +176,8 @@ class ADMMSLIM(Recommender):
         mat_c_sparse = coo_matrix(mat_c)
         mat_c_pd = pd.DataFrame(
             {
-                "item_id_one": mat_c_sparse.row.astype(np.float32),
-                "item_id_two": mat_c_sparse.col.astype(np.float32),
+                "item_id_one": mat_c_sparse.row.astype(np.int32),
+                "item_id_two": mat_c_sparse.col.astype(np.int32),
                 "similarity": mat_c_sparse.data,
             }
         )
