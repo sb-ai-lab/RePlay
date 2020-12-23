@@ -13,6 +13,11 @@ Popular Recommender
 
 .. autoclass:: replay.models.PopRec
 
+User Popular Recommender
+-------------------------
+
+.. autoclass:: replay.models.UserPopRec
+
 Wilson Recommender
 -------------------
 
