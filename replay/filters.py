@@ -1,8 +1,11 @@
 """
 Содержит функции, позволяющие отобрать данные по некоторому критерию.
 """
+from datetime import datetime, timedelta
 from pyspark.sql import DataFrame, Window, functions as sf
 from pyspark.sql.functions import col
+from pyspark.sql.types import TimestampType
+from typing import Union, Optional
 
 from replay.constants import AnyDataFrame
 from replay.utils import convert2spark
@@ -110,7 +113,7 @@ def filter_user_interactions(
 
     :param log: лог взаимодействия пользователей с объектами, спарк-датафрейм
     :param num_interact: число взаимодействий, которое будет выбрано для каждого пользователя
-    :param first: выбор первых/последних взаимодействий. Выбираются взаимодействий от начала истории, если True,
+    :param first: выбор первых/последних взаимодействий. Выбираются взаимодействия от начала истории, если True,
         последние, если False
     :param date_col: имя стоблца с датой взаимодействия
     :param user_col: имя столбца с id пользователей
@@ -200,7 +203,7 @@ def filter_by_user_duration(
 
     :param log: лог взаимодействия пользователей с объектами, спарк-датафрейм
     :param days: длительность лога взаимодействия для каждого пользователя после фильтрации
-    :param first: выбор первых/последних взаимодействий. Выбираются взаимодействий от начала истории, если True,
+    :param first: выбор первых/последних взаимодействий. Выбираются взаимодействия от начала истории, если True,
         последние, если False
     :param date_col: имя стоблца с датой взаимодействия
     :param user_col: имя столбца с id пользователей
@@ -225,4 +228,153 @@ def filter_by_user_duration(
             > col("max_date") - sf.expr("INTERVAL {} days".format(days))
         )
         .drop("max_date")
+    )
+
+
+def filter_between_dates(
+    log: DataFrame,
+    start_date: Optional[Union[str, datetime]] = None,
+    end_date: Optional[Union[str, datetime]] = None,
+    date_column: str = "timestamp",
+) -> DataFrame:
+    """
+    Возвращает лог за период в интервале [start_date, end_date). Если start_date или end_date не указаны,
+    возвращается лог от начала/до конца соотвественно.
+
+    >>> import pandas as pd
+    >>> from replay.utils import convert2spark
+    >>> log_pd = pd.DataFrame({"user_id": ["u1", "u2", "u2", "u3", "u3", "u3"],
+    ...                     "item_id": ["i1", "i2","i3", "i1", "i2","i3"],
+    ...                     "rel": [1., 0.5, 3, 1, 0, 1],
+    ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01", "2020-02-01",
+    ...                            "2020-01-01 00:04:15", "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
+    ...             )
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_sp = convert2spark(log_pd)
+    >>> log_sp.show()
+    +-------+-------+---+-------------------+
+    |user_id|item_id|rel|          timestamp|
+    +-------+-------+---+-------------------+
+    |     u1|     i1|1.0|2020-01-01 23:59:59|
+    |     u2|     i2|0.5|2020-02-01 00:00:00|
+    |     u2|     i3|3.0|2020-02-01 00:00:00|
+    |     u3|     i1|1.0|2020-01-01 00:04:15|
+    |     u3|     i2|0.0|2020-01-02 00:04:14|
+    |     u3|     i3|1.0|2020-01-05 23:59:59|
+    +-------+-------+---+-------------------+
+    <BLANKLINE>
+
+    >>> filter_between_dates(log_sp, start_date="2020-01-01 14:00:00", end_date=datetime(2020, 1, 3, 0, 0, 0)).show()
+    +-------+-------+---+-------------------+
+    |user_id|item_id|rel|          timestamp|
+    +-------+-------+---+-------------------+
+    |     u1|     i1|1.0|2020-01-01 23:59:59|
+    |     u3|     i2|0.0|2020-01-02 00:04:14|
+    +-------+-------+---+-------------------+
+    <BLANKLINE>
+
+    :param log: лог взаимодействия пользователей с объектами, спарк-датафрейм
+    :param start_date: дата в datetime или строка в формате "yyyy-MM-dd HH:mm:ss".
+        Начиная с этой даты данные будут включены в отфильтрованный лог
+    :param end_date: дата в datetime или строка в формате "yyyy-MM-dd HH:mm:ss".
+        Данные до этой даты будут включены в отфильтрованный лог
+    :param date_column: имя стоблца с датой взаимодействия
+    :return: спарк-датафрейм, содержащий выбранные взаимодействия
+    """
+    if start_date is None:
+        start_date = log.agg(sf.min(date_column)).first()[0]
+    if end_date is None:
+        end_date = log.agg(sf.max(date_column)).first()[0] + timedelta(
+            seconds=1
+        )
+
+    return log.filter(
+        (col(date_column) >= sf.lit(start_date).cast(TimestampType()))
+        & (col(date_column) < sf.lit(end_date).cast(TimestampType()))
+    )
+
+
+def filter_by_date_duration(
+    log: DataFrame,
+    duration_days: int,
+    start_date: Optional[Union[str, datetime]] = None,
+    after_start_date: bool = True,
+    date_column: str = "timestamp",
+) -> DataFrame:
+    """
+    Возвращает лог взаимодействия за выбранное число дней от/до start_date.
+    Если start_date не задан, то от начала/конца лога в зависимости от значения параметра after_start_date.
+
+    >>> import pandas as pd
+    >>> from replay.utils import convert2spark
+    >>> log_pd = pd.DataFrame({"user_id": ["u1", "u2", "u2", "u3", "u3", "u3"],
+    ...                     "item_id": ["i1", "i2","i3", "i1", "i2","i3"],
+    ...                     "rel": [1., 0.5, 3, 1, 0, 1],
+    ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01", "2020-02-01",
+    ...                            "2020-01-01 00:04:15", "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
+    ...             )
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_sp = convert2spark(log_pd)
+    >>> log_sp.show()
+    +-------+-------+---+-------------------+
+    |user_id|item_id|rel|          timestamp|
+    +-------+-------+---+-------------------+
+    |     u1|     i1|1.0|2020-01-01 23:59:59|
+    |     u2|     i2|0.5|2020-02-01 00:00:00|
+    |     u2|     i3|3.0|2020-02-01 00:00:00|
+    |     u3|     i1|1.0|2020-01-01 00:04:15|
+    |     u3|     i2|0.0|2020-01-02 00:04:14|
+    |     u3|     i3|1.0|2020-01-05 23:59:59|
+    +-------+-------+---+-------------------+
+    <BLANKLINE>
+
+    >>> filter_by_date_duration(log_sp, 1, after_start_date=False).show()
+    +-------+-------+---+-------------------+
+    |user_id|item_id|rel|          timestamp|
+    +-------+-------+---+-------------------+
+    |     u2|     i2|0.5|2020-02-01 00:00:00|
+    |     u2|     i3|3.0|2020-02-01 00:00:00|
+    +-------+-------+---+-------------------+
+    <BLANKLINE>
+
+    >>> filter_by_date_duration(log_sp, 1, start_date="2020-01-01 14:00:00").show()
+    +-------+-------+---+-------------------+
+    |user_id|item_id|rel|          timestamp|
+    +-------+-------+---+-------------------+
+    |     u1|     i1|1.0|2020-01-01 23:59:59|
+    |     u3|     i2|0.0|2020-01-02 00:04:14|
+    +-------+-------+---+-------------------+
+    <BLANKLINE>
+
+    :param log: лог взаимодействия пользователей с объектами, спарк-датафрейм
+    :param duration_days: число дней, которые нужно включить в отфильтрованный лог
+    :param start_date: дата в datetime или строка в формате "yyyy-MM-dd HH:mm:ss".
+        Начиная с этой даты данные будут включены в отфильтрованный лог
+    :param after_start_date: выбор первых/последних взаимодействий от start_date.
+        Выбираются взаимодействия от начала истории, если True, последние, если False
+    :param date_column: имя стоблца с датой взаимодействия
+    :return: спарк-датафрейм, содержащий выбранные взаимодействия
+    """
+    if start_date is None:
+        if after_start_date:
+            start_date = log.agg(sf.min(date_column)).first()[0]
+        else:
+            start_date = log.agg(sf.max(date_column)).first()[0] + timedelta(
+                seconds=1
+            )
+
+    if after_start_date:
+        start_date = sf.lit(start_date).cast(TimestampType())
+        end_date = start_date + sf.expr(
+            "INTERVAL {} days".format(duration_days)
+        )
+
+    else:
+        end_date = sf.lit(start_date).cast(TimestampType())
+        start_date = end_date - sf.expr(
+            "INTERVAL {} days".format(duration_days)
+        )
+
+    return log.filter(
+        (col(date_column) >= start_date) & (col(date_column) < end_date)
     )
