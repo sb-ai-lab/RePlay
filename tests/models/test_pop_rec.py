@@ -74,7 +74,7 @@ class PopRecTestCase(PySparkTest):
         )
 
         true_recs = users.crossJoin(items_relevance)
-        # два вызова нужны, чтобы проверить, что они возващают одно и то же
+        # два вызова нужны, чтобы проверить, что они возвращают одно и то же
         test_recs_first = self.model.fit_predict(
             log=log,
             k=k,
