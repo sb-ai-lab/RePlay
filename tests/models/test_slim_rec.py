@@ -6,9 +6,9 @@ from datetime import datetime
 
 from pyspark.sql.types import (
     DoubleType,
+    IntegerType,
     StructField,
     StructType,
-    IntegerType,
 )
 from tests.pyspark_testcase import PySparkTest
 

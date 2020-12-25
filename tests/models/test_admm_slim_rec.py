@@ -4,7 +4,7 @@
 # pylint: disable-all
 from datetime import datetime
 
-from pyspark.sql.types import DoubleType, FloatType, StructField, StructType
+from pyspark.sql.types import DoubleType, IntegerType, StructField, StructType
 from tests.pyspark_testcase import PySparkTest
 
 from replay.constants import LOG_SCHEMA, REC_SCHEMA
@@ -34,17 +34,17 @@ class AdmmSlimRecTestCase(PySparkTest):
             self.model.similarity,
             self.spark.createDataFrame(
                 [
-                    (0.0, 1.0, 0.03095617860316846),
-                    (0.0, 2.0, 0.030967752554031502),
-                    (1.0, 0.0, 0.031891083964224354),
-                    (1.0, 2.0, 0.1073860741574666),
-                    (2.0, 0.0, 0.031883667509449376),
-                    (2.0, 1.0, 0.10739028463512135),
+                    (0, 1, 0.03095617860316846),
+                    (0, 2, 0.030967752554031502),
+                    (1, 0, 0.031891083964224354),
+                    (1, 2, 0.1073860741574666),
+                    (2, 0, 0.031883667509449376),
+                    (2, 1, 0.10739028463512135),
                 ],
                 schema=StructType(
                     [
-                        StructField("item_id_one", FloatType()),
-                        StructField("item_id_two", FloatType()),
+                        StructField("item_id_one", IntegerType()),
+                        StructField("item_id_two", IntegerType()),
                         StructField("similarity", DoubleType()),
                     ]
                 ),

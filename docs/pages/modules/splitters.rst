@@ -24,5 +24,5 @@
 ------------------
 
 .. automodule:: replay.splitters.log_splitter
-   :members: DateSplitter, RandomSplitter, ColdUserByDateSplitter, ColdUserRandomSplitter
+   :members: DateSplitter, RandomSplitter, NewUsersSplitter, ColdUserRandomSplitter
    :special-members:

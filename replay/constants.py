@@ -7,11 +7,11 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql.types import (
     DoubleType,
+    IntegerType,
     StringType,
     StructField,
     StructType,
     TimestampType,
-    IntegerType,
 )
 
 LOG_SCHEMA = StructType(
