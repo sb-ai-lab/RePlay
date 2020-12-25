@@ -66,7 +66,6 @@ class PopRecTestCase(PySparkTest):
             ["u1", "i4", TEST_DATE, 1.0],
         ]
         log = self.spark.createDataFrame(data=log_data, schema=LOG_SCHEMA)
-        print(log.schema)
         items_relevance = self.spark.createDataFrame(
             items_relevance, schema=["item_id", "relevance"]
         )
@@ -75,7 +74,6 @@ class PopRecTestCase(PySparkTest):
         )
 
         true_recs = users.crossJoin(items_relevance)
-        print(true_recs.schema)
         # два вызова нужны, чтобы проверить, что они возващают одно и то же
         test_recs_first = self.model.fit_predict(
             log=log,
