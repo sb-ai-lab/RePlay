@@ -7,9 +7,9 @@ import numpy as np
 import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-from pyspark.sql import types as st
 
 from replay.models.base_rec import Recommender
+from replay.constants import IDX_REC_SCHEMA
 
 
 class PopRec(Recommender):
@@ -99,17 +99,7 @@ class PopRec(Recommender):
             .toPandas()
         )
 
-        @sf.pandas_udf(
-            st.StructType(
-                [
-                    st.StructField("user_idx", st.IntegerType(), True),
-                    st.StructField("item_idx", st.IntegerType(), True),
-                    st.StructField("relevance", st.DoubleType(), True),
-                ]
-            ),
-            sf.PandasUDFType.GROUPED_MAP,
-        )
-        def grouped_map(pandas_df):
+        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
             user_idx = pandas_df["user_idx"][0]
             cnt = pandas_df["cnt"][0]
 
@@ -135,7 +125,7 @@ class PopRec(Recommender):
                 "user_idx", f"LEAST(cnt + {k}, {model_len}) AS cnt",
             )
             .groupby("user_idx")
-            .apply(grouped_map)
+            .applyInPandas(grouped_map, IDX_REC_SCHEMA)
         )
 
         return recs

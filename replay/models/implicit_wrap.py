@@ -5,10 +5,10 @@ from typing import Optional
 
 import pandas as pd
 from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
 
 from replay.models.base_rec import Recommender
 from replay.utils import to_csr
+from replay.constants import IDX_REC_SCHEMA
 
 
 class ImplicitWrap(Recommender):
@@ -55,11 +55,7 @@ class ImplicitWrap(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        @sf.pandas_udf(
-            "user_idx int, item_idx int, relevance double",
-            sf.PandasUDFType.GROUPED_MAP,
-        )
-        def predict_by_user(pandas_df):
+        def predict_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
             user = int(pandas_df["user_idx"].iloc[0])
             res = model.recommend(
                 user, user_item_data, k, filter_seen_items, items_to_drop
@@ -82,5 +78,7 @@ class ImplicitWrap(Recommender):
         user_item_data = to_csr(log).tocsr()
         model = self.model
         return (
-            users.select("user_idx").groupby("user_idx").apply(predict_by_user)
+            users.select("user_idx")
+            .groupby("user_idx")
+            .applyInPandas(predict_by_user, IDX_REC_SCHEMA)
         )

@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as sf
-from pyspark.sql.types import FloatType, StringType, TimestampType
+from pyspark.sql.types import DoubleType, StringType, TimestampType
 
 from replay.constants import AnyDataFrame
 from replay.utils import convert2spark
@@ -387,7 +387,7 @@ class DataPreparator:
         }
         optional_columns = {
             "timestamp": ("1999-05-01", TimestampType()),
-            "relevance": (1.0, FloatType()),
+            "relevance": (1.0, DoubleType()),
         }
         if features_columns is None:
             features_columns = []
