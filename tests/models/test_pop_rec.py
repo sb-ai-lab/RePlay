@@ -82,7 +82,6 @@ class PopRecTestCase(PySparkTest):
             items=items_relevance.select("item_id"),
             filter_seen_items=False,
         )
-        print(test_recs_first.schema)
         test_recs_second = self.model.fit_predict(
             log=log,
             k=k,
