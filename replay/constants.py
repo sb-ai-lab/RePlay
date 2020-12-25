@@ -8,11 +8,11 @@ from pyspark.sql import DataFrame
 from pyspark.sql.types import (
     DoubleType,
     FloatType,
+    IntegerType,
     StringType,
     StructField,
     StructType,
     TimestampType,
-    IntegerType,
 )
 
 LOG_SCHEMA = StructType(
