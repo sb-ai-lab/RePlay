@@ -109,9 +109,10 @@ class NeuroCFRecTestCase(PySparkTest):
         self.assertTrue(
             np.allclose(
                 predictions.toPandas()[["user_id", "item_id"]]
+                .sort_values('user_id')
                 .astype(int)
                 .values,
-                [[1, 3], [3, 0], [0, 3]],
+                [[0, 3], [1, 3], [3, 0]],
                 atol=1.0e-3,
             )
         )
