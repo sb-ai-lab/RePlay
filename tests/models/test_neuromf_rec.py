@@ -3,6 +3,7 @@
 """
 # pylint: disable-all
 import os
+import re
 from datetime import datetime
 
 import numpy as np
@@ -109,7 +110,7 @@ class NeuroCFRecTestCase(PySparkTest):
         self.assertTrue(
             np.allclose(
                 predictions.toPandas()[["user_id", "item_id"]]
-                .sort_values('user_id')
+                .sort_values("user_id")
                 .astype(int)
                 .values,
                 [[0, 3], [1, 3], [3, 0]],
@@ -153,14 +154,19 @@ class NeuroCFRecTestCase(PySparkTest):
         self.assertFalse(raised)
 
     def test_save_load(self):
-        path = os.path.join(
-            self.spark.conf.get("spark.local.dir"),
-            "best_neuromf_1_loss=-0.7371938228607178.pth",
-        )
-        if os.path.exists(path):
-            os.remove(path)
+        spark_local_dir = self.spark.conf.get("spark.local.dir")
+        pattern = "best_neuromf_1_loss=-\\d\\.\\d+.pth"
+        for filename in os.listdir(spark_local_dir):
+            if re.match(pattern, filename):
+                os.remove(os.path.join(spark_local_dir, filename))
         self.model.fit(log=self.log)
-        self.assertTrue(os.path.exists(path))
+        matched = False
+        for filename in os.listdir(spark_local_dir):
+            if re.match(pattern, filename):
+                path = os.path.join(spark_local_dir, filename)
+                matched = True
+                break
+        self.assertTrue(matched)
 
         new_model = NeuroMF(embedding_mlp_dim=1)
         new_model.model = NMF(3, 4, 2, 2, [2])
