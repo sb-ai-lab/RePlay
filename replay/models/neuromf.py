@@ -269,7 +269,7 @@ class NeuroMF(TorchRecommender):
     def __init__(
         self,
         learning_rate: float = 0.05,
-        epochs: int = 5,
+        epochs: int = 20,
         embedding_gmf_dim: Optional[int] = None,
         embedding_mlp_dim: Optional[int] = None,
         hidden_mlp_dims: Optional[List[int]] = None,
@@ -359,7 +359,6 @@ class NeuroMF(TorchRecommender):
         tensor_data = log.select("user_idx", "item_idx").toPandas()
         train_tensor_data, valid_tensor_data = train_test_split(
             tensor_data,
-            stratify=tensor_data["user_idx"],
             test_size=self.valid_split_size,
             random_state=self.seed,
         )
