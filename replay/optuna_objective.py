@@ -6,13 +6,9 @@ import logging
 from typing import Any, Dict, List, Optional, Callable, Union
 
 from optuna import Trial
-from pyspark.sql import DataFrame
 from functools import partial
 
-from replay.experiment import Experiment
 from replay.metrics.base_metric import Metric
-from replay.models.base_rec import Recommender
-from replay.utils import fallback
 
 SplitData = collections.namedtuple(
     "SplitData", "train test users items user_features item_features"
@@ -110,11 +106,9 @@ def scenario_objective_calculator(
     trial: Trial,
     search_space: Dict[str, List[Optional[Any]]],
     split_data: SplitData,
-    recommender: Recommender,
+    recommender,
     criterion: Metric,
     k: int,
-    experiment: Optional[Experiment] = None,
-    fallback_recs: Optional[DataFrame] = None,
 ) -> float:
     """
     Функция для вычисления значения критерия при выбранных гиперпараметрах.
@@ -124,8 +118,6 @@ def scenario_objective_calculator(
     :param recommender: модель replay
     :param criterion: критерий оптимизации (метрика)
     :param k: число рекомендаций
-    :param experiment: объект Experiment для логирования результатов
-    :param fallback_recs: рекомендации, полученные с помощью fallback_model
     :return: значение оптимизируемого критерия
     """
     logger = logging.getLogger("replay")
@@ -158,11 +150,12 @@ def scenario_objective_calculator(
         user_features=split_data.user_features,
         item_features=split_data.item_features,
     ).cache()
-    if fallback_recs is not None:
-        recs = fallback(recs, fallback_recs, k)
     logger.debug("-- Подсчет метрики в оптимизации")
     criterion_value = criterion(recs, split_data.test, k)
-    if experiment is not None:
-        experiment.add_result(f"{str(recommender)}{params_for_trial}", recs)
     logger.debug("%s=%.2f", criterion, criterion_value)
     return criterion_value
+
+
+MainObjective = partial(
+    ObjectiveWrapper, objective_calculator=scenario_objective_calculator
+)

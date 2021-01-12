@@ -4,14 +4,18 @@
 import collections
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterable, Optional, Union, Sequence
+from typing import Any, Dict, Iterable, Optional, Union, Sequence, List
 
 import pandas as pd
+from optuna import create_study
+from optuna.samplers import TPESampler
 from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from replay.constants import AnyDataFrame
+from replay.metrics import Metric, NDCG
+from replay.optuna_objective import SplitData, MainObjective
 from replay.session_handler import State
 from replay.utils import get_top_k_recs, convert2spark
 
@@ -30,6 +34,71 @@ class BaseRecommender(ABC):
     _search_space: Optional[
         Dict[str, Union[str, Sequence[Union[str, int, float]]]]
     ] = None
+
+    # pylint: disable=too-many-arguments, too-many-locals
+    def optimize(
+        self,
+        train: DataFrame,
+        test: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        param_grid: Optional[Dict[str, List[Any]]] = None,
+        criterion: Metric = NDCG(),
+        k: int = 10,
+        budget: int = 10,
+        sampler: Optional = TPESampler(),
+    ) -> Dict[str, Any]:
+        """
+        Подбирает лучшие гиперпараметры с помощью optuna.
+
+        :param train: датафрейм для обучения
+        :param test: датафрейм для проверки качества
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            ``[user_id , timestamp]`` и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            ``[item_id , timestamp]`` и колонки с признаками
+        :param param_grid: сетка параметров, задается словарем, где ключ ---
+            название параметра, значение --- список возможных значений
+        :param criterion: метрика, которая будет оптимизироваться
+        :param k: количество рекомендаций для каждого пользователя;
+            должно быть не больше, чем количество объектов в ``items``
+        :param budget: количество попыток при поиске лучших гиперпараметров
+        :sampler: сэмплер параметров optuna
+        :return: словарь оптимальных параметров
+        """
+        train = convert2spark(train)
+        test = convert2spark(test)
+        if user_features is not None:
+            user_features = convert2spark(user_features)
+        if item_features is not None:
+            item_features = convert2spark(item_features)
+
+        users = test.select("user_id").distinct().cache()
+        items = test.select("item_id").distinct().cache()
+        split_data = SplitData(
+            train.cache(),
+            test.cache(),
+            users,
+            items,
+            user_features,
+            item_features,
+        )
+        if param_grid is None:
+            params = self._search_space.keys()
+            vals = [None] * len(params)
+            param_grid = dict(zip(params, vals))
+        study = create_study(direction="maximize", sampler=sampler)
+        objective = MainObjective(
+            search_space=param_grid,
+            split_data=split_data,
+            recommender=self,
+            criterion=criterion,
+            k=k,
+        )
+        study.optimize(objective, budget)
+        return study.best_params
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
