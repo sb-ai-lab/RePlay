@@ -1,8 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import numpy as np
-import pandas as pd
+import math
 
 from replay.metrics.base_metric import Metric
 
@@ -40,28 +39,18 @@ class NDCG(Metric):
         nDCG@K = \\frac {\sum_{i=1}^{N}nDCG@K(i)}{N}
     """
 
-    @staticmethod
-    def _get_metric_value_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
-        def check_is_in(dataframe: pd.DataFrame):
-            return int(dataframe["item_id"] in dataframe["items_id"])
+    _max_k = 1000
+    _denom = [math.log2(i + 2) for i in range(_max_k)]
 
-        pandas_df = pandas_df.assign(  # type: ignore
-            is_good_item=pandas_df[["item_id", "items_id"]].apply(
-                check_is_in, 1
-            )
-        )
-        pandas_df = pandas_df.assign(  # type: ignore
-            sorted_good_item=pandas_df["k"].le(  # type: ignore
-                pandas_df["items_id"].str.len()
-            )  # type: ignore
-        )
-        return pandas_df.assign(  # type: ignore
-            cum_agg=(
-                pandas_df["is_good_item"]
-                / np.log2(pandas_df["k"] + 1)  # type: ignore
-            ).cumsum()
-            / (
-                pandas_df["sorted_good_item"]
-                / np.log2(pandas_df["k"] + 1)  # type: ignore
-            ).cumsum()
-        )
+    def _get_metric_value_by_user(self, pred, ground_truth, k) -> float:
+        length = max(k, min(len(ground_truth), len(pred)))
+        if len(ground_truth) == 0:
+            return 0
+        dcg = 0
+        dcg_ideal = 0
+        for i in range(length):
+            if i < len(pred) and pred[i] in ground_truth:
+                dcg += self._denom[i]
+            if i < len(ground_truth):
+                dcg_ideal += self._denom[i]
+        return dcg / dcg_ideal

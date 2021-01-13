@@ -1,11 +1,10 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import logging
+import operator
 from abc import ABC, abstractmethod
 from typing import Dict, Union
 
-import numpy as np
 import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -18,8 +17,6 @@ from replay.utils import convert2spark
 
 class Metric(ABC):
     """ Базовый класс метрик. """
-
-    max_k: int
 
     def __str__(self):
         """ Строковое представление метрики. """
@@ -183,16 +180,32 @@ class Metric(ABC):
             спарк-датафрейм вида ``[user_id, item_id, relevance, *columns]``
         """
         true_items_by_users = ground_truth.groupby("user_id").agg(
-            sf.collect_set("item_id").alias("items_id")
+            sf.collect_set("item_id").alias("ground_truth")
         )
-        recommendations = recommendations.join(
-            true_items_by_users, how="left", on=["user_id"]
+
+        def sorter(items):
+            res = sorted(items, key=operator.itemgetter(0), reverse=True)
+            return [item[1] for item in res]
+
+        sort_udf = sf.udf(
+            sorter,
+            returnType=st.ArrayType(ground_truth.schema["item_id"].dataType),
+        )
+        recommendations = (
+            recommendations.groupby("user_id")
+            .agg(
+                sf.collect_list(sf.struct("relevance", "item_id")).alias(
+                    "pred"
+                )
+            )
+            .select("user_id", sort_udf(sf.col("pred")).alias("pred"))
+            .join(true_items_by_users, how="left", on=["user_id"])
         )
 
         return recommendations.withColumn(
-            "items_id",
+            "ground_truth",
             sf.coalesce(
-                "items_id",
+                "ground_truth",
                 sf.array().cast(
                     st.ArrayType(ground_truth.schema["item_id"].dataType)
                 ),
@@ -215,61 +228,41 @@ class Metric(ABC):
         """
         recommendations_spark = convert2spark(recommendations)
         ground_truth_spark = convert2spark(ground_truth)
-        if not self._check_users(recommendations_spark, ground_truth_spark):
-            logger = logging.getLogger("replay")
-            logger.warning(
-                "Значение метрики может быть неожиданным: "
-                "пользователи в recommendations и ground_truth различаются!"
-            )
 
         if isinstance(k, int):
             k_set = {k}
         else:
             k_set = set(k)
-        self.max_k = max(k_set)
-        agg_fn = self._get_metric_value_by_user
 
         recs = self._get_enriched_recommendations(
             recommendations_spark, ground_truth_spark
         )
-        max_k = self.max_k
-
-        def grouped_map(
-            pandas_df: pd.DataFrame,
-        ) -> pd.DataFrame:  # pragma: no cover
-            additional_rows = max_k - len(pandas_df)
-            one_row = pandas_df[
-                pandas_df["relevance"] == pandas_df["relevance"].min()
-            ].iloc[0]
-            one_row["relevance"] = -np.inf
-            one_row["item_id"] = np.nan
-            if additional_rows > 0:
-                pandas_df = pandas_df.append(
-                    [one_row] * additional_rows, ignore_index=True
-                )
-            pandas_df = (
-                pandas_df.sort_values(["relevance"], ascending=False)
-                .reset_index(drop=True)
-                .assign(k=pandas_df.index + 1)
+        distribution = recs.rdd.flatMap(
+            lambda x: self._get_metric_value_by_user_all_k(*x, k_set)
+        ).toDF(
+            "user_id {}, cum_agg double, k long".format(
+                recs.schema["user_id"].dataType.typeName()
             )
-            return agg_fn(pandas_df)[["user_id", "cum_agg", "k"]]
-
-        distribution = (
-            recs.groupby("user_id")
-            .applyInPandas(
-                grouped_map,
-                "user_id {}, cum_agg double, k long".format(
-                    recs.schema["user_id"].dataType.typeName()
-                ),
-            )
-            .where(sf.col("k").isin(k_set))
         )
 
         return distribution
 
-    @staticmethod
+    def _get_metric_value_by_user_all_k(
+        self, user_id, pred, ground_truth, k_set
+    ):
+        result = []
+        for k in k_set:
+            result.append(
+                (
+                    user_id,
+                    self._get_metric_value_by_user(pred, ground_truth, k),
+                    k,
+                )
+            )
+        return result
+
     @abstractmethod
-    def _get_metric_value_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
+    def _get_metric_value_by_user(self, pred, ground_truth, k) -> float:
         """
         Расчёт значения метрики для каждого пользователя
 

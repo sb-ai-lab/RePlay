@@ -19,11 +19,8 @@ class HitRate(Metric):
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
 
-    @staticmethod
-    def _get_metric_value_by_user(pandas_df):
-        pandas_df = pandas_df.assign(
-            is_good_item=pandas_df[["item_id", "items_id"]].apply(
-                lambda x: int(x["item_id"] in x["items_id"]), 1
-            )
-        )
-        return pandas_df.assign(cum_agg=pandas_df.is_good_item.cummax())
+    def _get_metric_value_by_user(self, pred, ground_truth, k) -> float:
+        for i in pred[:k]:
+            if i in ground_truth:
+                return 1.0
+        return 0.0
