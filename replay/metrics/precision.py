@@ -18,7 +18,7 @@ class Precision(Metric):
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
 
-    def _get_metric_value_by_user(self, pred, ground_truth, k) -> float:
+    def _get_metric_value_by_user(self, k, pred, ground_truth) -> float:
         if len(pred) == 0:
             return 0
         return len(set(pred[:k]) & set(ground_truth)) / len(pred)

@@ -17,7 +17,7 @@ class MAP(Metric):
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
     """
 
-    def _get_metric_value_by_user(self, pred, ground_truth, k) -> float:
+    def _get_metric_value_by_user(self, k, pred, ground_truth) -> float:
         length = min(k, len(pred))
         max_good = min(k, len(ground_truth))
         if len(ground_truth) == 0 or len(pred) == 0:

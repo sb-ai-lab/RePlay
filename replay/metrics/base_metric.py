@@ -182,13 +182,8 @@ class Metric(ABC):
         true_items_by_users = ground_truth.groupby("user_id").agg(
             sf.collect_set("item_id").alias("ground_truth")
         )
-
-        def sorter(items):
-            res = sorted(items, key=operator.itemgetter(0), reverse=True)
-            return [item[1] for item in res]
-
         sort_udf = sf.udf(
-            sorter,
+            self._sorter,
             returnType=st.ArrayType(ground_truth.schema["item_id"].dataType),
         )
         recommendations = (
@@ -211,6 +206,11 @@ class Metric(ABC):
                 ),
             ),
         )
+
+    @staticmethod
+    def _sorter(items):
+        res = sorted(items, key=operator.itemgetter(0), reverse=True)
+        return [item[1] for item in res]
 
     def _get_metric_distribution(
         self,
@@ -238,7 +238,7 @@ class Metric(ABC):
             recommendations_spark, ground_truth_spark
         )
         distribution = recs.rdd.flatMap(
-            lambda x: self._get_metric_value_by_user_all_k(*x, k_set)
+            lambda x: self._get_metric_value_by_user_all_k(k_set, *x)
         ).toDF(
             "user_id {}, cum_agg double, k long".format(
                 recs.schema["user_id"].dataType.typeName()
@@ -248,21 +248,22 @@ class Metric(ABC):
         return distribution
 
     def _get_metric_value_by_user_all_k(
-        self, user_id, pred, ground_truth, k_set
+        self, k_set, user_id, *args,
     ):
         result = []
         for k in k_set:
             result.append(
                 (
                     user_id,
-                    self._get_metric_value_by_user(pred, ground_truth, k),
+                    # pylint: disable=no-value-for-parameter
+                    self._get_metric_value_by_user(k, *args),
                     k,
                 )
             )
         return result
 
     @abstractmethod
-    def _get_metric_value_by_user(self, pred, ground_truth, k) -> float:
+    def _get_metric_value_by_user(self, k, pred, ground_truth) -> float:
         """
         Расчёт значения метрики для каждого пользователя
 
@@ -276,25 +277,6 @@ class Metric(ABC):
         :return: DataFrame c рассчитанным полем ``cum_agg`` --
             pandas-датафрейм вида ``[user_id , item_id , cum_agg, *columns]``
         """
-
-    @staticmethod
-    def _check_users(
-        recommendations: DataFrame, ground_truth: DataFrame
-    ) -> bool:
-        """
-        Вспомогательный метод, который сравнивает множества пользователей,
-        которым выдали рекомендации, и тех, кто есть в тестовых данных
-
-        :param recommendations: рекомендации
-        :param ground_truth: лог тестовых действий
-        :return: совпадают ли множества пользователей
-        """
-        left = recommendations.select("user_id").distinct().cache()
-        right = ground_truth.select("user_id").distinct().cache()
-        left_count: int = left.count()
-        right_count: int = right.count()
-        inner_count: int = left.join(right, on="user_id").count()
-        return left_count == inner_count and right_count == inner_count
 
     def user_distribution(
         self,
@@ -353,3 +335,19 @@ class RecOnlyMetric(Metric):
         """
         recommendations_spark = convert2spark(recommendations)
         return self.mean(recommendations_spark, recommendations_spark, k)
+
+    @abstractmethod
+    def _get_metric_value_by_user(self, k, *args) -> float:
+        """
+        Расчёт значения метрики для каждого пользователя
+
+        :param pandas_df: DataFrame, содержащий рекомендации по каждому
+            пользователю -- pandas-датафрейм вида ``[user_id, item_id,
+            items_id, k, *columns]``, где
+            ``k`` --- порядковый номер рекомендованного объекта ``item_id`` в
+            списке рекомендаций для пользоавтеля ``user_id``,
+            ``items_id`` --- список объектов, с которыми действительно
+            взаимодействовал пользователь в тесте
+        :return: DataFrame c рассчитанным полем ``cum_agg`` --
+            pandas-датафрейм вида ``[user_id , item_id , cum_agg, *columns]``
+        """

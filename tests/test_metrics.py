@@ -156,30 +156,6 @@ class TestMetrics(PySparkTest):
             5 * (1 - 1 / log2(3)) / 9 + 4 / 9,
         )
 
-    def test_check_users(self):
-        class NewMetric(Metric):
-            def __str__(self):
-                return ""
-
-            def _get_metric_value(self, recommendations, ground_truth, k):
-                return 1.0
-
-            @staticmethod
-            def _get_metric_value_by_user(pdf):
-                return pdf
-
-        test_cases = [
-            [True, self.recs, self.ground_truth_recs],
-            [False, self.recs, self.log],
-            [False, self.log, self.recs],
-        ]
-        new_metric = NewMetric()
-        for correct_value, left, right in test_cases:
-            with self.subTest():
-                self.assertEqual(
-                    new_metric._check_users(left, right), correct_value
-                )
-
     def test_coverage(self):
         coverage = Coverage(
             self.recs.union(self.ground_truth_recs.drop("timestamp"))

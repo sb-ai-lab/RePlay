@@ -42,7 +42,7 @@ class NDCG(Metric):
     _max_k = 1000
     _denom = [math.log2(i + 2) for i in range(_max_k)]
 
-    def _get_metric_value_by_user(self, pred, ground_truth, k) -> float:
+    def _get_metric_value_by_user(self, k, pred, ground_truth) -> float:
         length = max(k, min(len(ground_truth), len(pred)))
         if len(ground_truth) == 0:
             return 0

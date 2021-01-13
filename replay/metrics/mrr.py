@@ -22,7 +22,7 @@ class MRR(Metric):
     1.0
     """
 
-    def _get_metric_value_by_user(self, pred, ground_truth, k) -> float:
+    def _get_metric_value_by_user(self, k, pred, ground_truth) -> float:
         for i in range(min(k, len(pred))):
             if pred[i] in ground_truth:
                 return 1.0 / (1 + i)
