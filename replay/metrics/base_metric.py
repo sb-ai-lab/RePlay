@@ -1,5 +1,5 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+Базовый класс для метрик качества (Metric) и метрик разнообразия (RecOnlyMetric)
 """
 import logging
 from abc import ABC, abstractmethod
@@ -33,7 +33,7 @@ class Metric(ABC):
     ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида ``[user_id, item_id, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, relevance]``
 
         :param ground_truth: реальный лог действий пользователей,
             спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
@@ -55,7 +55,7 @@ class Metric(ABC):
         """Функция возвращает половину ширины доверительного интервала
 
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида ``[user_id, item_id, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, relevance]``
 
         :param ground_truth: реальный лог действий пользователей,
             спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
@@ -103,7 +103,7 @@ class Metric(ABC):
         """Функция возвращает медиану метрики
 
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида ``[user_id, item_id, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, relevance]``
 
         :param ground_truth: реальный лог действий пользователей,
             спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
@@ -145,7 +145,7 @@ class Metric(ABC):
         """Функция возвращает среднее значение метрики
 
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида  ``[user_id, item_id, relevance]``
+            спарк-датафрейм вида  ``[user_id, item_id, relevance]``
 
         :param ground_truth: реальный лог действий пользователей,
             спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
@@ -277,7 +277,7 @@ class Metric(ABC):
             пользователю -- pandas-датафрейм вида ``[user_id, item_id,
             items_id, k, *columns]``, где
             ``k`` --- порядковый номер рекомендованного объекта ``item_id`` в
-            списке рекомендаций для пользоавтеля ``user_id``,
+            списке рекомендаций для пользователя ``user_id``,
             ``items_id`` --- список объектов, с которыми действительно
             взаимодействовал пользователь в тесте
         :return: DataFrame c рассчитанным полем ``cum_agg`` --
@@ -316,8 +316,8 @@ class Metric(ABC):
         :param log: датафрейм с логом оценок для подсчета количества оценок у пользователей
         :param recommendations: датафрейм с рекомендациями
         :param ground_truth: тестовые данные
-        :param k: сколько брать айтемов из рекомендаций
-        :return: пандас датафрейм
+        :param k: сколько брать объектов из рекомендаций
+        :return: pandas-датафрейм
         """
         log = convert2spark(log)
         count = log.groupBy("user_id").count()
@@ -348,7 +348,7 @@ class RecOnlyMetric(Metric):
     ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида ``[user_id, item_id, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, relevance]``
 
         :param ground_truth: реальный лог действий пользователей,
             спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``

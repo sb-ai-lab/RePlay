@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 import numpy as np
 
 from replay.metrics.base_metric import Metric

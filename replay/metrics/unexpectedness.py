@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -48,8 +45,8 @@ class Unexpectedness(RecOnlyMetric):
         Если ``rec is None``, то ``log`` считается готовыми предсказаниями какой-то внешней модели,
         с которой необходимо сравниться.
 
-        :param log: пандас или спарк датафрейм
-        :param rec: одна из проинициализированных моделей библиотеки, либо ``None``
+        :param log: pandas или spark датафрейм
+        :param rec: одна из инициализированных моделей библиотеки, либо ``None``
         """
         self.log = convert2spark(log)
         self.train_model = False

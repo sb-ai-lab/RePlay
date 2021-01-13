@@ -1,5 +1,7 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+Реализация рекомендательной модели MultVAE
+(Variational Autoencoders for Collaborative Filtering)
+и используемой в ней нейросетевой модели вариационного автокодировщика (VAE)
 """
 from typing import Optional, Tuple
 
@@ -86,7 +88,7 @@ class VAE(nn.Module):
     def reparameterize(
         self, mu_latent: torch.Tensor, logvar_latent: torch.Tensor
     ) -> torch.Tensor:
-        """Репараметризационный трюк, необходимый для обрабного прохождения
+        """Репараметризационный трюк, необходимый для обратного прохождения
         сигнала по семплированным данным"""
 
         if self.training:
@@ -111,7 +113,7 @@ class VAE(nn.Module):
         Один проход нейросети.
 
         :param batch: батч пользователей
-        :return: батч реконструированнх пользователей, а также матожидание и
+        :return: батч реконструированных пользователей, а также матожидание и
         логарифм отклонения латентного распределения
         """
         mu_latent, logvar_latent = self.encode(batch)
