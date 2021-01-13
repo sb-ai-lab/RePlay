@@ -350,9 +350,6 @@ class RecOnlyMetric(Metric):
         :param recommendations: выдача рекомендательной системы,
             спарк-датафрейм вида ``[user_id, item_id, relevance]``
 
-        :param ground_truth: реальный лог действий пользователей,
-            спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
-
         :param k: список индексов, показывающий какое максимальное количество
         объектов брать из топа рекомендованных для оценки
 
