@@ -19,12 +19,7 @@ class Precision(Metric):
 """
 
     @staticmethod
-    def _get_metric_value_by_user(pandas_df):
-        pandas_df = pandas_df.assign(
-            is_good_item=pandas_df[["item_id", "items_id"]].apply(
-                lambda x: int(x["item_id"] in x["items_id"]), 1
-            )
-        )
-        return pandas_df.assign(
-            cum_agg=pandas_df["is_good_item"].cumsum() / pandas_df.k
-        )
+    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
+        if len(pred) == 0:
+            return 0
+        return len(set(pred[:k]) & set(ground_truth)) / len(pred[:k])
