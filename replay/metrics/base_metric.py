@@ -1,5 +1,5 @@
 """
-Базовый класс для метрик качества (Metric) и метрик разнообразия (RecOnlyMetric)
+Базовые классы для метрик качества (Metric) и метрик разнообразия (RecOnlyMetric)
 """
 import logging
 from abc import ABC, abstractmethod
