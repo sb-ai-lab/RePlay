@@ -41,17 +41,14 @@ class NDCG(Metric):
 
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
-        length = min(k, max(len(ground_truth), len(pred)))
+        pred_len = min(k, len(pred))
+        ground_truth_len = min(k, len(ground_truth))
         if len(ground_truth) == 0:
             return 0
-        denom = [1 / math.log2(i + 2) for i in range(length)]
+        denom = [1 / math.log2(i + 2) for i in k]
         dcg = sum(
-            [
-                denom[i]
-                for i in range(length)
-                if i < len(pred) and i < k and pred[i] in ground_truth
-            ]
+            [denom[i] for i in range(pred_len) if pred[i] in ground_truth]
         )
-        dcg_ideal = sum(denom[: min(len(ground_truth), k)])
+        dcg_ideal = sum(denom[:ground_truth_len])
 
         return dcg / dcg_ideal
