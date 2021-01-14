@@ -16,8 +16,8 @@ class MAP(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 
-    >>> roc = MAP()
-    >>> roc._get_metric_value_by_user(4, [1,2,3,4], [2,4])
+    >>> map_ = MAP()
+    >>> map_._get_metric_value_by_user(4, [1,2,3,4], [2,4])
     0.5
     """
 

@@ -20,6 +20,9 @@ class MRR(Metric):
     0.0
     >>> MRR()(true, pred, 1)
     1.0
+    >>> mrr = MRR()
+    >>> mrr._get_metric_value_by_user(4, [1,2,3,4], [2,4])
+    0.5
     """
 
     @staticmethod

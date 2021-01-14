@@ -17,7 +17,14 @@ class HitRate(Metric):
         HitRate@K = \\frac {\sum_{i=1}^{N}HitRate@K(i)}{N}
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
-"""
+
+    >>> hr = HitRate()
+    >>> hr._get_metric_value_by_user(4, [1,2,3,4], [2,4])
+    1.0
+
+    >>> hr._get_metric_value_by_user(4, [1,2,3,4], [5,6])
+    0.0
+    """
 
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
