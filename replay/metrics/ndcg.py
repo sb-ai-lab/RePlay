@@ -45,10 +45,13 @@ class NDCG(Metric):
         if len(ground_truth) == 0:
             return 0
         denom = [1 / math.log2(i + 2) for i in range(length)]
-        dcg = 0
+        dcg = sum(
+            [
+                denom[i]
+                for i in range(length)
+                if i < len(pred) and i < k and pred[i] in ground_truth
+            ]
+        )
         dcg_ideal = sum(denom[: min(len(ground_truth), k)])
 
-        for i in range(length):
-            if i < len(pred) and i < k and pred[i] in ground_truth:
-                dcg += denom[i]
         return dcg / dcg_ideal

@@ -45,6 +45,9 @@ class RocAuc(Metric):
     >>> roc(pred, true, 7)
     0.75
 
+    >>> roc = RocAuc()
+    >>> roc._get_metric_value_by_user(4, [1,2,3,4], [2,4])
+    0.25
     """
 
     @staticmethod
