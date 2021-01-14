@@ -233,12 +233,13 @@ class Metric(ABC):
             k_set = {k}
         else:
             k_set = set(k)
-
         recs = self._get_enriched_recommendations(
             recommendations_spark, ground_truth_spark
         )
+        cur_class = self.__class__
         distribution = recs.rdd.flatMap(
-            lambda x: self._get_metric_value_by_user_all_k(k_set, *x)
+            # pylint: disable=protected-access
+            lambda x: cur_class._get_metric_value_by_user_all_k(k_set, *x)
         ).toDF(
             "user_id {}, cum_agg double, k long".format(
                 recs.schema["user_id"].dataType.typeName()
@@ -247,35 +248,41 @@ class Metric(ABC):
 
         return distribution
 
-    def _get_metric_value_by_user_all_k(
-        self, k_set, user_id, *args,
-    ):
+    @classmethod
+    def _get_metric_value_by_user_all_k(cls, k_set, user_id, *args):
+        """
+        Расчёт значения метрики для каждого пользователя для нескольких k
+
+        :param k_set --- набор чисел, для которых расчитывается метрика,
+        :param user_id --- идентификатор пользователя,
+        :param *args --- дополнительные параметры, необходимые для расчета
+            метрики. Перечень параметров совпадает со списком столбцов
+            датафрейма, который возвращает метод '''_get_enriched_recommendations'''
+        :return: значение метрики для данного пользователя
+        """
         result = []
         for k in k_set:
             result.append(
                 (
                     user_id,
                     # pylint: disable=no-value-for-parameter
-                    self._get_metric_value_by_user(k, *args),
+                    cls._get_metric_value_by_user(k, *args),
                     k,
                 )
             )
         return result
 
+    @staticmethod
     @abstractmethod
-    def _get_metric_value_by_user(self, k, pred, ground_truth) -> float:
+    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         """
         Расчёт значения метрики для каждого пользователя
 
-        :param pandas_df: DataFrame, содержащий рекомендации по каждому
-            пользователю -- pandas-датафрейм вида ``[user_id, item_id,
-            items_id, k, *columns]``, где
-            ``k`` --- порядковый номер рекомендованного объекта ``item_id`` в
-            списке рекомендаций для пользоавтеля ``user_id``,
-            ``items_id`` --- список объектов, с которыми действительно
+        :param k --- число, для которого расчитывается метрика,
+        :param pred --- список объектов, рекомендованных пользователю
+        :param ground_truth --- список объектов, с которыми действительно
             взаимодействовал пользователь в тесте
-        :return: DataFrame c рассчитанным полем ``cum_agg`` --
-            pandas-датафрейм вида ``[user_id , item_id , cum_agg, *columns]``
+        :return: значение метрики для данного пользователя
         """
 
     def user_distribution(
@@ -333,21 +340,18 @@ class RecOnlyMetric(Metric):
 
         :return: значение метрики
         """
-        recommendations_spark = convert2spark(recommendations)
-        return self.mean(recommendations_spark, recommendations_spark, k)
+        return self.mean(recommendations, recommendations, k)
 
+    @staticmethod
     @abstractmethod
-    def _get_metric_value_by_user(self, k, *args) -> float:
+    def _get_metric_value_by_user(k, *args) -> float:
         """
         Расчёт значения метрики для каждого пользователя
 
-        :param pandas_df: DataFrame, содержащий рекомендации по каждому
-            пользователю -- pandas-датафрейм вида ``[user_id, item_id,
-            items_id, k, *columns]``, где
-            ``k`` --- порядковый номер рекомендованного объекта ``item_id`` в
-            списке рекомендаций для пользоавтеля ``user_id``,
-            ``items_id`` --- список объектов, с которыми действительно
-            взаимодействовал пользователь в тесте
-        :return: DataFrame c рассчитанным полем ``cum_agg`` --
-            pandas-датафрейм вида ``[user_id , item_id , cum_agg, *columns]``
+        :param k --- число, для которого расчитывается метрика,
+        :param pred --- список объектов, рекомендованных пользователю
+        :param *args --- дополнительные параметры, необходимые для расчета
+            метрики. Перечень параметров совпадает со списком столбцов
+            датафрейма, который возвращает метод '''_get_enriched_recommendations'''
+        :return: значение метрики для данного пользователя
         """

@@ -14,27 +14,17 @@ from replay.metrics.base_metric import RecOnlyMetric
 class Unexpectedness(RecOnlyMetric):
     """
     Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.
-    По умолчанию используется рекомендатель по популярности ``PopRec``.
 
     >>> from replay.session_handler import get_spark_session, State
     >>> spark = get_spark_session(1, 1)
     >>> state = State(spark)
 
     >>> import pandas as pd
-    >>> log = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": ["1", "2", "1", "3"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
-    >>> recs = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": ["1", "2", "3", "1"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
+    >>> log = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": [1, 2, 1, 3], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
+    >>> recs = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": [1, 2, 3, 1], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
     >>> metric = Unexpectedness(log)
-    >>> metric(recs, [1, 2])
+    >>> metric(recs,[1, 2])
     {1: 0.5, 2: 0.5}
-
-
-    Возможен также режим, в котором рекомендации базового алгоритма передаются сразу при инициализации и рекомендатель не обучается
-
-    >>> log = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
-    >>> recs = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [0, 0, 1], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
-    >>> metric = Unexpectedness(log, None)
-    >>> round(metric(recs, 3), 2)
-    0.67
     """
 
     def __init__(
@@ -51,10 +41,11 @@ class Unexpectedness(RecOnlyMetric):
         """
         self.log = convert2spark(log)
 
-    def _get_metric_value_by_user(self, k, *args):
+    @staticmethod
+    def _get_metric_value_by_user(k, *args) -> float:
         pred = args[0]
         base_pred = args[1]
-        return 1 - len(set(pred[:k]) & set(base_pred[:k])) / k
+        return 1.0 - len(set(pred[:k]) & set(base_pred[:k])) / k
 
     def _get_enriched_recommendations(
         self, recommendations: DataFrame, ground_truth: DataFrame

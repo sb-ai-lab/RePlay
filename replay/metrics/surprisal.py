@@ -60,9 +60,10 @@ class Surprisal(RecOnlyMetric):
             ).alias("rec_weight")
         )
 
-    def _get_metric_value_by_user(self, k, *args):
+    @staticmethod
+    def _get_metric_value_by_user(k, *args):
         weigths = args[0]
-        return sum(weigths) / k
+        return sum(weigths[:k]) / k
 
     def _get_enriched_recommendations(
         self, recommendations: DataFrame, ground_truth: DataFrame

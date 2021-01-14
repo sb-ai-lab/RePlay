@@ -47,7 +47,8 @@ class RocAuc(Metric):
 
     """
 
-    def _get_metric_value_by_user(self, k, pred, ground_truth) -> float:
+    @staticmethod
+    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         length = min(k, len(pred))
         if len(ground_truth) == 0 or len(pred) == 0:
             return 0
@@ -59,8 +60,8 @@ class RocAuc(Metric):
                 fp_cum += fp_cur
             else:
                 fp_cur += 1
-        if fp_cum == 0:
-            return 1
         if fp_cur == length:
             return 0
+        if fp_cum == 0:
+            return 1
         return 1 - fp_cum / (fp_cur * (length - fp_cur))

@@ -20,7 +20,8 @@ class Recall(Metric):
     :math:`|Rel_i|` -- количество элементов, с которыми взаимодействовал пользователь :math:`i`
     """
 
-    def _get_metric_value_by_user(self, k, pred, ground_truth) -> float:
+    @staticmethod
+    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         if len(ground_truth) == 0:
             return 0
         return len(set(pred[:k]) & set(ground_truth)) / len(ground_truth)

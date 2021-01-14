@@ -39,7 +39,8 @@ class Coverage(RecOnlyMetric):
         self.item_count = self.items.count()
         self.logger = logging.getLogger("replay")
 
-    def _get_metric_value_by_user(self, k, *args):
+    @staticmethod
+    def _get_metric_value_by_user(k, *args):
         # эта метрика не является средним по всем пользователям
         pass
 
