@@ -4,7 +4,7 @@
 # pylint: disable-all
 from datetime import datetime
 
-from pyspark.sql.types import DoubleType, StructField, StructType, IntegerType
+from pyspark.sql.types import DoubleType, IntegerType, StructField, StructType
 from tests.pyspark_testcase import PySparkTest
 
 from replay.constants import LOG_SCHEMA, REC_SCHEMA

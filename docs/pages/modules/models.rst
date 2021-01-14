@@ -3,6 +3,42 @@
 
 .. automodule:: replay.models
 
+**Базовые алгоритмы**
+
+.. csv-table::
+   :header: "Алгоритм", "Реализация", "Описание"
+   :widths: 10, 10, 10
+
+    "Popular Recommender", "PySpark", "Рекомендует популярные объекты (встречавшиеся в истории взаимодействия чаще остальных)"
+    "Popular By Users", "PySpark", "Рекомендует объекты, которые пользователь ранее выбирал чаще всего"
+    "Wilson Recommender", "Python CPU", "Рекомендует объекты с лучшими оценками. Оценка объекта определяется как нижняя граница доверительного интервала Уилсона для доли положительных взаимодействий"
+    "Random Recommender", "PySpark", "Рекомендует случайные объекты или сэмплирует с вероятностью, пропорциональной популярности объекта"
+    "K-Nearest Neighbours", "PySpark", "Рекомендует объекты, похожие на те, с которыми взаимодействовал пользователь"
+    "Classifier Recommender", "PySpark", "Алгоритм бинарной классификации для релевантности объекта для пользователя по их признакам"
+    "Alternating Least Squares", "PySpark", "Алгоритм матричной факторизации `Collaborative Filtering for Implicit Feedback Datasets <https://ieeexplore.ieee.org/document/4781121>`_"
+    "Neural Matrix Factorization", "Python CPU/GPU", "Алгоритм нейросетевой матричной факторизации на базе `Neural Collaborative Filtering <https://arxiv.org/pdf/1708.05031.pdf>`_"
+    "SLIM", "PySpark", "Алгоритм, обучающий матрицу близости объектов для восстановления матрицы взаимодействия `SLIM: Sparse Linear Methods for Top-N Recommender Systems <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"
+    "ADMM SLIM", "Python CPU", "Улучшение стандартного алгоритма SLIM, `ADMM SLIM: Sparse Recommendations for Many Users <http://www.cs.columbia.edu/~jebara/papers/wsdm20_ADMM.pdf>`_"
+    "MultVAE", "Python CPU/GPU", "Вариационный автоэнкодер, восстанавливающий вектор взаимодействий для пользователя `Variational Autoencoders for Collaborative Filtering <https://arxiv.org/pdf/1802.05814.pdf>`_"
+    "Word2Vec Recommender", "Python CPU/GPU", "Рекомендатель на основе word2vec, в котором объекты сопоставляются словам, а пользователи - предложениям"
+    "Обертка LightFM", "Python CPU", "Обертка для обучения `моделей LightFM <https://making.lyst.com/lightfm/docs/home.html>`_"
+    "Обертка Implicit", "Python CPU", "Обертка для обучения `моделей Implicit <https://implicit.readthedocs.io/en/latest/>`_"
+
+Для всех базовых алгоритмов выдача рекоментаций (inference) реализована с использованием PySpark.
+
+**Многоуровневые алгоритмы**
+
+.. csv-table::
+   :header: "Алгоритм", "Реализация", "Описание"
+   :widths: 10, 10, 10
+
+   "Stack Recommender", "`*`", "Модель стекинга, перевзвешивающая предсказания моделей первого уровня"
+   "Двухуровневый классификатор", "`*`", "Классификатор, использующий для обучения эмбеддинги пользователей и объектов, полученные базовым алгоритмом (например, матричной факторизацией), и признаки пользователей и объектов, переданные пользователем"
+
+`*` - зависит от алгоритмов, используемых в качестве базовых.
+
+Больше информации об алгоритмах и их применимости для различных данных :doc:`здесь </pages/useful_data/algorithm_selection>`.
+
 .. autoclass:: replay.models.Recommender
     :members:
 
@@ -12,6 +48,11 @@ Popular Recommender
 --------------------
 
 .. autoclass:: replay.models.PopRec
+
+User Popular Recommender
+-------------------------
+
+.. autoclass:: replay.models.UserPopRec
 
 Wilson Recommender
 -------------------

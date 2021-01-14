@@ -1,3 +1,4 @@
+# pylint: skip-file
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -28,7 +29,13 @@ author = "Sberbank AI Laboratory"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["sphinx.ext.autodoc", "sphinx_autodoc_typehints"]
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx_autodoc_typehints",
+    "recommonmark",
+    "sphinx_markdown_tables",
+]
+source_suffix = [".rst", ".md"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]

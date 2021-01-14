@@ -16,6 +16,7 @@ from replay.models.lightfm_wrap import LightFMWrap
 from replay.models.mult_vae import MultVAE
 from replay.models.neuromf import NeuroMF
 from replay.models.pop_rec import PopRec
+from replay.models.user_pop_rec import UserPopRec
 from replay.models.random_rec import RandomRec
 from replay.models.slim import SLIM
 from replay.models.wilson import Wilson

@@ -29,6 +29,7 @@ from torch.utils.data import DataLoader
 
 from replay.models.base_rec import Recommender
 from replay.session_handler import State
+from replay.constants import IDX_REC_SCHEMA
 
 
 class TorchRecommender(Recommender):
@@ -52,17 +53,7 @@ class TorchRecommender(Recommender):
         model = self.model.cpu()
         agg_fn = self._predict_by_user
 
-        @sf.pandas_udf(
-            st.StructType(
-                [
-                    st.StructField("user_idx", st.IntegerType(), True),
-                    st.StructField("item_idx", st.IntegerType(), True),
-                    st.StructField("relevance", st.FloatType(), True),
-                ]
-            ),
-            sf.PandasUDFType.GROUPED_MAP,
-        )
-        def grouped_map(pandas_df):
+        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
             return agg_fn(pandas_df, model, items_pd, k, items_count)[
                 ["user_idx", "item_idx", "relevance"]
             ]
@@ -72,7 +63,7 @@ class TorchRecommender(Recommender):
             users.join(log, how="left", on="user_idx")
             .selectExpr("user_idx AS user_idx", "item_idx AS item_idx",)
             .groupby("user_idx")
-            .apply(grouped_map)
+            .applyInPandas(grouped_map, IDX_REC_SCHEMA)
         )
 
         recs = self.min_max_scale_column(recs, "relevance")

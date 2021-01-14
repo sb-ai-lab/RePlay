@@ -6,11 +6,11 @@ import numpy as np
 import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (
-    StructType,
-    StructField,
+    DoubleType,
     LongType,
     StringType,
-    DoubleType,
+    StructField,
+    StructType,
 )
 
 from tests.pyspark_testcase import PySparkTest

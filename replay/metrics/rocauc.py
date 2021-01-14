@@ -1,8 +1,6 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import numpy as np
-
 from replay.metrics.base_metric import Metric
 
 
@@ -47,37 +45,26 @@ class RocAuc(Metric):
     >>> roc(pred, true, 7)
     0.75
 
+    >>> roc = RocAuc()
+    >>> roc._get_metric_value_by_user(4, [1,2,3,4], [2,4])
+    0.25
     """
 
     @staticmethod
-    def _get_metric_value_by_user(pandas_df):
-        pandas_df = pandas_df.assign(
-            is_good_item=pandas_df[["item_id", "items_id"]].apply(
-                lambda x: int(x["item_id"] in x["items_id"]), 1
-            )
-        )
-        pandas_df = pandas_df.assign(
-            сum_bad_item=(1 - pandas_df["is_good_item"]).cumsum()
-        )
-        pandas_df = pandas_df.assign(
-            auc=(
-                pandas_df["is_good_item"] * pandas_df["сum_bad_item"]
-            ).cumsum()
-        )
-        return pandas_df.assign(
-            cum_agg=(
-                1
-                - np.where(
-                    (
-                        pandas_df["сum_bad_item"]
-                        * (pandas_df.k - pandas_df["сum_bad_item"])
-                    ),
-                    pandas_df["auc"]
-                    / (
-                        pandas_df["сum_bad_item"]
-                        * (pandas_df.k - pandas_df["сum_bad_item"])
-                    ),
-                    0,
-                )
-            )
-        )
+    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
+        length = min(k, len(pred))
+        if len(ground_truth) == 0 or len(pred) == 0:
+            return 0
+
+        fp_cur = 0
+        fp_cum = 0
+        for item in pred[:length]:
+            if item in ground_truth:
+                fp_cum += fp_cur
+            else:
+                fp_cur += 1
+        if fp_cur == length:
+            return 0
+        if fp_cum == 0:
+            return 1
+        return 1 - fp_cum / (fp_cur * (length - fp_cur))

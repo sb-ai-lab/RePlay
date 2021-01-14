@@ -1,11 +1,10 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import logging
+import operator
 from abc import ABC, abstractmethod
 from typing import Dict, Union
 
-import numpy as np
 import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -18,8 +17,6 @@ from replay.utils import convert2spark
 
 class Metric(ABC):
     """ Базовый класс метрик. """
-
-    max_k: int
 
     def __str__(self):
         """ Строковое представление метрики. """
@@ -183,21 +180,37 @@ class Metric(ABC):
             спарк-датафрейм вида ``[user_id, item_id, relevance, *columns]``
         """
         true_items_by_users = ground_truth.groupby("user_id").agg(
-            sf.collect_set("item_id").alias("items_id")
+            sf.collect_set("item_id").alias("ground_truth")
         )
-        recommendations = recommendations.join(
-            true_items_by_users, how="left", on=["user_id"]
+        sort_udf = sf.udf(
+            self._sorter,
+            returnType=st.ArrayType(ground_truth.schema["item_id"].dataType),
+        )
+        recommendations = (
+            recommendations.groupby("user_id")
+            .agg(
+                sf.collect_list(sf.struct("relevance", "item_id")).alias(
+                    "pred"
+                )
+            )
+            .select("user_id", sort_udf(sf.col("pred")).alias("pred"))
+            .join(true_items_by_users, how="left", on=["user_id"])
         )
 
         return recommendations.withColumn(
-            "items_id",
+            "ground_truth",
             sf.coalesce(
-                "items_id",
+                "ground_truth",
                 sf.array().cast(
                     st.ArrayType(ground_truth.schema["item_id"].dataType)
                 ),
             ),
         )
+
+    @staticmethod
+    def _sorter(items):
+        res = sorted(items, key=operator.itemgetter(0), reverse=True)
+        return [item[1] for item in res]
 
     def _get_metric_distribution(
         self,
@@ -215,98 +228,62 @@ class Metric(ABC):
         """
         recommendations_spark = convert2spark(recommendations)
         ground_truth_spark = convert2spark(ground_truth)
-        if not self._check_users(recommendations_spark, ground_truth_spark):
-            logger = logging.getLogger("replay")
-            logger.warning(
-                "Значение метрики может быть неожиданным: "
-                "пользователи в recommendations и ground_truth различаются!"
-            )
 
         if isinstance(k, int):
             k_set = {k}
         else:
             k_set = set(k)
-        self.max_k = max(k_set)
-        agg_fn = self._get_metric_value_by_user
-
         recs = self._get_enriched_recommendations(
             recommendations_spark, ground_truth_spark
         )
-        max_k = self.max_k
-
-        @sf.pandas_udf(
-            st.StructType(
-                [
-                    st.StructField(
-                        "user_id", recs.schema["user_id"].dataType, True
-                    ),
-                    st.StructField("cum_agg", st.DoubleType(), True),
-                    st.StructField("k", st.LongType(), True),
-                ]
-            ),
-            sf.PandasUDFType.GROUPED_MAP,
-        )
-        def grouped_map(pandas_df):  # pragma: no cover
-            additional_rows = max_k - len(pandas_df)
-            one_row = pandas_df[
-                pandas_df["relevance"] == pandas_df["relevance"].min()
-            ].iloc[0]
-            one_row["relevance"] = -np.inf
-            one_row["item_id"] = np.nan
-            if additional_rows > 0:
-                pandas_df = pandas_df.append(
-                    [one_row] * additional_rows, ignore_index=True
-                )
-            pandas_df = (
-                pandas_df.sort_values("relevance", ascending=False)
-                .reset_index(drop=True)
-                .assign(k=pandas_df.index + 1)
+        cur_class = self.__class__
+        distribution = recs.rdd.flatMap(
+            # pylint: disable=protected-access
+            lambda x: cur_class._get_metric_value_by_user_all_k(k_set, *x)
+        ).toDF(
+            "user_id {}, cum_agg double, k long".format(
+                recs.schema["user_id"].dataType.typeName()
             )
-            return agg_fn(pandas_df)[["user_id", "cum_agg", "k"]]
-
-        distribution = (
-            recs.groupby("user_id")
-            .apply(grouped_map)
-            .where(sf.col("k").isin(k_set))
         )
 
         return distribution
 
+    @classmethod
+    def _get_metric_value_by_user_all_k(cls, k_set, user_id, *args):
+        """
+        Расчёт значения метрики для каждого пользователя для нескольких k
+
+        :param k_set: набор чисел, для которых расчитывается метрика,
+        :param user_id: идентификатор пользователя,
+        :param *args: дополнительные параметры, необходимые для расчета
+            метрики. Перечень параметров совпадает со списком столбцов
+            датафрейма, который возвращает метод '''_get_enriched_recommendations'''
+        :return: значение метрики для данного пользователя
+        """
+        result = []
+        for k in k_set:
+            result.append(
+                (
+                    user_id,
+                    # pylint: disable=no-value-for-parameter
+                    cls._get_metric_value_by_user(k, *args),
+                    k,
+                )
+            )
+        return result
+
     @staticmethod
     @abstractmethod
-    def _get_metric_value_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
+    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         """
         Расчёт значения метрики для каждого пользователя
 
-        :param pandas_df: DataFrame, содержащий рекомендации по каждому
-            пользователю -- pandas-датафрейм вида ``[user_id, item_id,
-            items_id, k, *columns]``, где
-            ``k`` --- порядковый номер рекомендованного объекта ``item_id`` в
-            списке рекомендаций для пользоавтеля ``user_id``,
-            ``items_id`` --- список объектов, с которыми действительно
+        :param k: число, для которого расчитывается метрика,
+        :param pred: список объектов, рекомендованных пользователю
+        :param ground_truth: список объектов, с которыми действительно
             взаимодействовал пользователь в тесте
-        :return: DataFrame c рассчитанным полем ``cum_agg`` --
-            pandas-датафрейм вида ``[user_id , item_id , cum_agg, *columns]``
+        :return: значение метрики для данного пользователя
         """
-
-    @staticmethod
-    def _check_users(
-        recommendations: DataFrame, ground_truth: DataFrame
-    ) -> bool:
-        """
-        Вспомогательный метод, который сравнивает множества пользователей,
-        которым выдали рекомендации, и тех, кто есть в тестовых данных
-
-        :param recommendations: рекомендации
-        :param ground_truth: лог тестовых действий
-        :return: совпадают ли множества пользователей
-        """
-        left = recommendations.select("user_id").distinct().cache()
-        right = ground_truth.select("user_id").distinct().cache()
-        left_count: int = left.count()
-        right_count: int = right.count()
-        inner_count: int = left.join(right, on="user_id").count()
-        return left_count == inner_count and right_count == inner_count
 
     def user_distribution(
         self,
@@ -341,7 +318,7 @@ class Metric(ABC):
 # pylint: disable=too-few-public-methods
 class RecOnlyMetric(Metric):
     """Базовый класс для метрик,
-    которые измеряют качество списков рекомендаций,
+    которые измеряют качество рекомендаций,
     не сравнивая их с holdout значениями"""
 
     @abstractmethod
@@ -363,5 +340,18 @@ class RecOnlyMetric(Metric):
 
         :return: значение метрики
         """
-        recommendations_spark = convert2spark(recommendations)
-        return self.mean(recommendations_spark, recommendations_spark, k)
+        return self.mean(recommendations, recommendations, k)
+
+    @staticmethod
+    @abstractmethod
+    def _get_metric_value_by_user(k, *args) -> float:
+        """
+        Расчёт значения метрики для каждого пользователя
+
+        :param k: число, для которого расчитывается метрика,
+        :param *args: дополнительные параметры, необходимые для расчета
+            метрики. Перечень параметров совпадает со списком столбцов
+            датафрейма, который возвращает метод '''_get_enriched_recommendations'''
+
+        :return: значение метрики для данного пользователя
+        """

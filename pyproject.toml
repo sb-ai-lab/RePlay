@@ -77,6 +77,8 @@ pylint = "2.5.3"
 Sphinx = "3.1.2"
 sphinx-rtd-theme = "0.5.0"
 sphinx-autodoc-typehints = "1.11.0"
+recommonmark = "*"
+sphinx-markdown-tables = "*"
 # emacs dependencies
 rope = "0.17.0"
 virtualenv = "20.0.9"

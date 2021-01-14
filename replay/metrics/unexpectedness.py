@@ -1,9 +1,9 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
+from pyspark.sql import types as st
 
 from replay.constants import AnyDataFrame
 from replay.utils import convert2spark
@@ -37,23 +37,47 @@ class Unexpectedness(RecOnlyMetric):
         self.pred = convert2spark(pred)
 
     @staticmethod
-    def _get_metric_value_by_user(pandas_df):
-        recs = pandas_df["item_id"]
-        pandas_df["cum_agg"] = pandas_df.apply(
-            lambda row: (
-                row["k"]
-                - np.isin(recs[: row["k"]], row["items_id"][: row["k"]]).sum()
-            )
-            / row["k"],
-            axis=1,
-        )
-        return pandas_df
+    def _get_metric_value_by_user(k, *args) -> float:
+        pred = args[0]
+        base_pred = args[1]
+        return 1.0 - len(set(pred[:k]) & set(base_pred[:k])) / k
 
     def _get_enriched_recommendations(
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
-        items_by_users = self.pred.groupby("user_id").agg(
-            sf.collect_list("item_id").alias("items_id")
+        base_pred = self.pred
+        sort_udf = sf.udf(
+            self._sorter,
+            returnType=st.ArrayType(base_pred.schema["item_id"].dataType),
         )
-        res = recommendations.join(items_by_users, how="inner", on=["user_id"])
-        return res
+        base_recs = (
+            base_pred.groupby("user_id")
+            .agg(
+                sf.collect_list(sf.struct("relevance", "item_id")).alias(
+                    "base_pred"
+                )
+            )
+            .select(
+                "user_id", sort_udf(sf.col("base_pred")).alias("base_pred")
+            )
+        )
+
+        recommendations = (
+            recommendations.groupby("user_id")
+            .agg(
+                sf.collect_list(sf.struct("relevance", "item_id")).alias(
+                    "pred"
+                )
+            )
+            .select("user_id", sort_udf(sf.col("pred")).alias("pred"))
+            .join(base_recs, how="left", on=["user_id"])
+        )
+        return recommendations.withColumn(
+            "base_pred",
+            sf.coalesce(
+                "base_pred",
+                sf.array().cast(
+                    st.ArrayType(base_pred.schema["item_id"].dataType)
+                ),
+            ),
+        )

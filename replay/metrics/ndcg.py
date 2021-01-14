@@ -1,8 +1,7 @@
 """
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
-import numpy as np
-import pandas as pd
+import math
 
 from replay.metrics.base_metric import Metric
 
@@ -41,27 +40,15 @@ class NDCG(Metric):
     """
 
     @staticmethod
-    def _get_metric_value_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
-        def check_is_in(dataframe: pd.DataFrame):
-            return int(dataframe["item_id"] in dataframe["items_id"])
+    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
+        pred_len = min(k, len(pred))
+        ground_truth_len = min(k, len(ground_truth))
+        if len(ground_truth) == 0:
+            return 0
+        denom = [1 / math.log2(i + 2) for i in range(k)]
+        dcg = sum(
+            [denom[i] for i in range(pred_len) if pred[i] in ground_truth]
+        )
+        dcg_ideal = sum(denom[:ground_truth_len])
 
-        pandas_df = pandas_df.assign(  # type: ignore
-            is_good_item=pandas_df[["item_id", "items_id"]].apply(
-                check_is_in, 1
-            )
-        )
-        pandas_df = pandas_df.assign(  # type: ignore
-            sorted_good_item=pandas_df["k"].le(  # type: ignore
-                pandas_df["items_id"].str.len()
-            )  # type: ignore
-        )
-        return pandas_df.assign(  # type: ignore
-            cum_agg=(
-                pandas_df["is_good_item"]
-                / np.log2(pandas_df["k"] + 1)  # type: ignore
-            ).cumsum()
-            / (
-                pandas_df["sorted_good_item"]
-                / np.log2(pandas_df["k"] + 1)  # type: ignore
-            ).cumsum()
-        )
+        return dcg / dcg_ideal
