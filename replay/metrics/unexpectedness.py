@@ -15,13 +15,14 @@ class Unexpectedness(RecOnlyMetric):
     """
     Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.
 
+    >>> import pandas as pd
     >>> from replay.session_handler import get_spark_session, State
     >>> spark = get_spark_session(1, 1)
     >>> state = State(spark)
 
     >>> log = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
     >>> recs = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [0, 0, 1], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
-    >>> metric = Unexpectedness(log, None)
+    >>> metric = Unexpectedness(log)
     >>> round(metric(recs, 3), 2)
     0.67
     """
