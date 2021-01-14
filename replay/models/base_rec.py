@@ -66,7 +66,7 @@ class BaseRecommender(ABC):
         :param k: количество рекомендаций для каждого пользователя;
             должно быть не больше, чем количество объектов в ``items``
         :param budget: количество попыток при поиске лучших гиперпараметров
-        :sampler: сэмплер параметров optuna
+        :param sampler: сэмплер параметров optuna
         :return: словарь оптимальных параметров
         """
         train = convert2spark(train)

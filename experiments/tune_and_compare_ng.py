@@ -29,10 +29,14 @@ for dataset in ["1m", "10m"]:
     splitter = UserSplitter(0.2, shuffle=True, drop_cold_items=True, seed=seed)
     train, test = splitter.split(df)
     train, val = splitter.split(train)
+    cov = Coverage(df)
 
-    def train_als(factors, regularization):
-        model = AlternatingLeastSquares(factors, regularization)
-        return train_implicit(model)
+    def train_slim(beta, lambda_):
+        model = SLIM(beta, lambda_)
+        pred = model.fit_predict(train, k=2000)
+        n = NDCG()(pred, val, 100)
+        c = cov(pred, 2000)
+        return -(n * c) / (n + c)
 
     def train_bpr(factors, regularization, learning_rate):
         model = BayesianPersonalizedRanking(
@@ -45,20 +49,17 @@ for dataset in ["1m", "10m"]:
         pred = model.fit_predict(train, k=max(k))
         return -NDCG()(pred, val, max(k))
 
-    e = Experiment(test, {NDCG(): k, HitRate(): k, MRR(): k, Recall(): k,},)
+    e = Experiment(test, {NDCG(): [100], cov: [100, 2000], Recall(): [100],},)
 
-    lr = ng.p.Log(lower=0.0001, upper=1.0)
-    reg = ng.p.Log(lower=0.001, upper=1.0)
-    factors = ng.p.Scalar(lower=5, upper=300).set_integer_casting()
+    beta = ng.p.Scalar(lower=0, upper=5)
+    lambda_ = ng.p.Scalar(lower=0, upper=5.0)
 
-    parametrization = ng.p.Instrumentation(
-        regularization=reg, factors=factors,
-    )
+    parametrization = ng.p.Instrumentation(beta=beta, lambda_=lambda_,)
 
     optimizer = ng.optimizers.OnePlusOne(
         parametrization=parametrization, budget=budget
     )
-    recommendation = optimizer.minimize(train_als)
+    recommendation = optimizer.minimize(train_slim)
     model = AlternatingLeastSquares(**recommendation.kwargs)
     model = ImplicitWrap(model)
     pred = model.fit_predict(train, k=max(k))
