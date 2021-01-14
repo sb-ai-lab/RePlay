@@ -246,11 +246,12 @@ class NeuroCFRecTestCase(PySparkTest):
             )
 
     def test_embeddings_size(self):
+        # параметры по умолчанию
         model = NeuroMF()
         self.assertTrue(
             (model.embedding_gmf_dim == 128) & (model.embedding_mlp_dim == 128)
         )
-
+        # одна базовая модель, определенная пользователем
         model = NeuroMF(embedding_gmf_dim=16)
         self.assertTrue(
             (model.embedding_gmf_dim == 16) & (model.embedding_mlp_dim is None)
