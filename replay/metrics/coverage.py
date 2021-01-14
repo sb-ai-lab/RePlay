@@ -37,7 +37,7 @@ class Coverage(RecOnlyMetric):
         self.logger = logging.getLogger("replay")
 
     @staticmethod
-    def _get_metric_value_by_user(pandas_df):
+    def _get_metric_value_by_user(k, *args):
         # эта метрика не является средним по всем пользователям
         pass
 

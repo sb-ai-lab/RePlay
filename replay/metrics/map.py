@@ -12,22 +12,22 @@ class MAP(Metric):
         &MAP@K = \\frac {\sum_{i=1}^{N}AP@K(i)}{N}
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
+
+    >>> map_ = MAP()
+    >>> map_._get_metric_value_by_user(4, [1,2,3,4], [2,4])
+    0.5
     """
 
     @staticmethod
-    def _get_metric_value_by_user(pandas_df):
-        pandas_df = pandas_df.assign(
-            is_good_item=pandas_df[["item_id", "items_id"]].apply(
-                lambda x: int(x["item_id"] in x["items_id"]), 1
-            ),
-            good_items_count=pandas_df["items_id"].str.len(),
-        )
-
-        return pandas_df.assign(
-            cum_agg=(
-                pandas_df["is_good_item"].cumsum()
-                * pandas_df["is_good_item"]
-                / pandas_df.k
-                / pandas_df[["k", "good_items_count"]].min(axis=1)
-            ).cumsum()
-        )
+    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
+        length = min(k, len(pred))
+        max_good = min(k, len(ground_truth))
+        if len(ground_truth) == 0 or len(pred) == 0:
+            return 0.0
+        tp_cum = 0
+        result = 0.0
+        for i in range(length):
+            if pred[i] in ground_truth:
+                tp_cum += 1
+                result += tp_cum / ((i + 1) * max_good)
+        return result

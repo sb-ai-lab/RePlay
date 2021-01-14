@@ -1,6 +1,7 @@
 import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
+from pyspark.sql import types as st
 
 from replay.constants import AnyDataFrame
 from replay.utils import convert2spark
@@ -57,14 +58,26 @@ class Surprisal(RecOnlyMetric):
         )
 
     @staticmethod
-    def _get_metric_value_by_user(pandas_df):
-        return pandas_df.assign(
-            cum_agg=pandas_df["rec_weight"].cumsum() / pandas_df["k"]
-        )
+    def _get_metric_value_by_user(k, *args):
+        weigths = args[0]
+        return sum(weigths[:k]) / k
 
     def _get_enriched_recommendations(
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
-        return recommendations.join(
-            self.item_weights, on="item_id", how="left"  # type: ignore
-        ).fillna(1)
+        sort_udf = sf.udf(
+            self._sorter, returnType=st.ArrayType(st.DoubleType()),
+        )
+        return (
+            recommendations.join(self.item_weights, on="item_id", how="left")
+            .fillna(1)
+            .groupby("user_id")
+            .agg(
+                sf.collect_list(sf.struct("relevance", "rec_weight")).alias(
+                    "rec_weight"
+                )
+            )
+            .select(
+                "user_id", sort_udf(sf.col("rec_weight")).alias("rec_weight")
+            )
+        )
