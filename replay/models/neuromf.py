@@ -293,10 +293,7 @@ class NeuroMF(TorchRecommender):
         :param count_negative_sample: количество отрицательных примеров
         """
         if not embedding_gmf_dim and not embedding_mlp_dim:
-            raise ValueError(
-                "Хотя бы один из параметров embedding_gmf_dim, "
-                "embedding_mlp_dim должен быть не пуст"
-            )
+            embedding_gmf_dim, embedding_mlp_dim = [128, 128]
 
         if (embedding_gmf_dim is None or embedding_gmf_dim < 0) and (
             embedding_mlp_dim is None or embedding_mlp_dim < 0

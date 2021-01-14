@@ -245,9 +245,20 @@ class NeuroCFRecTestCase(PySparkTest):
                 )
             )
 
-    def test_empty_embeddings_exception(self):
-        self.assertRaises(
-            ValueError, NeuroMF,
+    def test_embeddings_size(self):
+        model = NeuroMF()
+        self.assertTrue(
+            (model.embedding_gmf_dim == 128) & (model.embedding_mlp_dim == 128)
+        )
+
+        model = NeuroMF(embedding_gmf_dim=16)
+        self.assertTrue(
+            (model.embedding_gmf_dim == 16) & (model.embedding_mlp_dim is None)
+        )
+
+        model = NeuroMF(embedding_gmf_dim=16, embedding_mlp_dim=32)
+        self.assertTrue(
+            (model.embedding_gmf_dim == 16) & (model.embedding_mlp_dim == 32)
         )
 
     def test_negative_dims_exception(self):
