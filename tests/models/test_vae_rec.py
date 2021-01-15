@@ -60,6 +60,9 @@ class VAERecTestCase(PySparkTest):
 
     def test_fit(self):
         self.model.fit(log=self.log)
+        self.assertEqual(
+            len(self.param_shapes), len(list(self.model.model.parameters()))
+        )
         for i, parameter in enumerate(self.model.model.parameters()):
             a = parameter.shape
             self.assertEqual(self.param_shapes[i], tuple(parameter.shape))
