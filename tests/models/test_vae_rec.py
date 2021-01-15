@@ -9,6 +9,7 @@ from datetime import datetime
 import numpy as np
 import torch
 from tests.pyspark_testcase import PySparkTest
+from tests.test_utils import del_files_by_pattern, find_file_by_pattern
 
 from replay.constants import LOG_SCHEMA
 from replay.models.mult_vae import VAE, MultVAE
@@ -64,7 +65,6 @@ class VAERecTestCase(PySparkTest):
             len(self.param_shapes), len(list(self.model.model.parameters()))
         )
         for i, parameter in enumerate(self.model.model.parameters()):
-            a = parameter.shape
             self.assertEqual(self.param_shapes[i], tuple(parameter.shape))
 
     def test_predict(self):
@@ -89,22 +89,16 @@ class VAERecTestCase(PySparkTest):
     def test_save_load(self):
         spark_local_dir = self.spark.conf.get("spark.local.dir")
         pattern = "best_multvae_1_loss=-\\d\\.\\d+.pth"
-        for filename in os.listdir(spark_local_dir):
-            if re.match(pattern, filename):
-                os.remove(os.path.join(spark_local_dir, filename))
+        del_files_by_pattern(spark_local_dir, pattern)
+
         self.model.fit(log=self.log)
         old_params = [
             param.detach().cpu().numpy()
             for param in self.model.model.parameters()
         ]
 
-        matched = False
-        for filename in os.listdir(spark_local_dir):
-            if re.match(pattern, filename):
-                path = os.path.join(spark_local_dir, filename)
-                matched = True
-                break
-        self.assertTrue(matched)
+        path = find_file_by_pattern(spark_local_dir, pattern)
+        self.assertIsNotNone(path)
 
         new_model = MultVAE()
         new_model.model = VAE(item_count=3, latent_dim=1, hidden_dim=1)
