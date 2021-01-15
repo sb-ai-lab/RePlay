@@ -50,52 +50,27 @@ class NeuroCFRecTestCase(PySparkTest):
             ],
             schema=LOG_SCHEMA,
         )
-        self.true_params = [
-            [
-                [-0.08055201, 0.21044976],
-                [0.04180124, 0.30946603],
-                [-0.12870437, 0.6478908],
-            ],
-            [
-                [0.15194291, 0.4323138],
-                [0.61440194, 0.25606853],
-                [0.451958, -0.06795466],
-                [-0.22132027, -0.60869837],
-            ],
-            [[-0.49999988], [0.4999998], [0.49999988], [-0.49999973]],
-            [[0.49999976], [-0.49999994], [-0.4999939]],
-            [
-                [-0.89578515, -0.7183033],
-                [-0.88041973, -0.16961475],
-                [-0.48463845, -0.08171481],
-            ],
-            [
-                [-0.68096894, 0.18050548],
-                [-0.2244729, 0.48060486],
-                [-0.47243598, -0.04344084],
-                [0.10215224, 0.47986147],
-            ],
-            [[0.0], [0.0], [0.0], [0.0]],
-            [[0.0], [0.0], [0.0]],
-            [
-                [0.5002869, -0.09522208, -0.56052274, -0.2334511],
-                [-0.06946294, 1.3970579, -0.1873725, -0.9444881],
-            ],
-            [1.2796186e-04, -3.2406952e-06],
-            [[0.4148497, -0.6594144, 0.13334092, 0.42699796]],
-            [-0.49998853],
+        self.param_shapes = [
+            (3, 2),
+            (4, 2),
+            (4, 1),
+            (3, 1),
+            (3, 2),
+            (4, 2),
+            (4, 1),
+            (3, 1),
+            (2, 4),
+            (2,),
+            (1, 4),
+            (1,),
         ]
 
     def test_fit(self):
         self.model.fit(log=self.log)
 
         for i, parameter in enumerate(self.model.model.parameters()):
-            self.assertTrue(
-                np.allclose(
-                    parameter.detach().cpu().numpy(),
-                    self.true_params[i],
-                    atol=1.0e-3,
-                )
+            self.assertEqual(
+                self.param_shapes[i], tuple(parameter.shape),
             )
 
     def test_predict(self):
@@ -160,6 +135,10 @@ class NeuroCFRecTestCase(PySparkTest):
             if re.match(pattern, filename):
                 os.remove(os.path.join(spark_local_dir, filename))
         self.model.fit(log=self.log)
+        old_params = [
+            param.detach().cpu().numpy()
+            for param in self.model.model.parameters()
+        ]
         matched = False
         for filename in os.listdir(spark_local_dir):
             if re.match(pattern, filename):
@@ -170,13 +149,16 @@ class NeuroCFRecTestCase(PySparkTest):
 
         new_model = NeuroMF(embedding_mlp_dim=1)
         new_model.model = NMF(3, 4, 2, 2, [2])
-        new_model.load_model(path)
+        self.assertEqual(
+            len(old_params), len(list(new_model.model.parameters()))
+        )
 
+        new_model.load_model(path)
         for i, parameter in enumerate(new_model.model.parameters()):
             self.assertTrue(
                 np.allclose(
                     parameter.detach().cpu().numpy(),
-                    self.true_params[i],
+                    old_params[i],
                     atol=1.0e-3,
                 )
             )

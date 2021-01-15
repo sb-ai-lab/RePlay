@@ -27,16 +27,7 @@ class VAERecTestCase(PySparkTest):
             "latent_dim": 1,
             "hidden_dim": 1,
         }
-        self.parameter_stubs = [
-            [[0.0, 0.0, 0.0]],
-            [0.0],
-            [[0.0], [0.0]],
-            [0.0, 0.0],
-            [[0.0]],
-            [0.0],
-            [[0.0], [0.0], [0.0]],
-            [0.0, 0.0, 0.0],
-        ]
+
         self.model = MultVAE(**params)
         self.log = self.spark.createDataFrame(
             [
@@ -56,13 +47,22 @@ class VAERecTestCase(PySparkTest):
             ],
             schema=LOG_SCHEMA,
         )
+        self.param_shapes = [
+            (1, 3),
+            (1,),
+            (2, 1),
+            (2,),
+            (1, 1),
+            (1,),
+            (3, 1),
+            (3,),
+        ]
 
     def test_fit(self):
         self.model.fit(log=self.log)
         for i, parameter in enumerate(self.model.model.parameters()):
-            self.assertEqual(
-                parameter.shape, torch.tensor(self.parameter_stubs[i]).shape
-            )
+            a = parameter.shape
+            self.assertEqual(self.param_shapes[i], tuple(parameter.shape))
 
     def test_predict(self):
         self.model.fit(log=self.log)
@@ -90,6 +90,11 @@ class VAERecTestCase(PySparkTest):
             if re.match(pattern, filename):
                 os.remove(os.path.join(spark_local_dir, filename))
         self.model.fit(log=self.log)
+        old_params = [
+            param.detach().cpu().numpy()
+            for param in self.model.model.parameters()
+        ]
+
         matched = False
         for filename in os.listdir(spark_local_dir):
             if re.match(pattern, filename):
@@ -97,12 +102,19 @@ class VAERecTestCase(PySparkTest):
                 matched = True
                 break
         self.assertTrue(matched)
+
         new_model = MultVAE()
-        new_model.model = VAE(item_count=3,
-                              latent_dim=1,
-                              hidden_dim=1)
+        new_model.model = VAE(item_count=3, latent_dim=1, hidden_dim=1)
+        self.assertEqual(
+            len(old_params), len(list(new_model.model.parameters()))
+        )
+
         new_model.load_model(path)
         for i, parameter in enumerate(new_model.model.parameters()):
-            self.assertEqual(
-                parameter.shape, torch.tensor(self.parameter_stubs[i]).shape
+            self.assertTrue(
+                np.allclose(
+                    parameter.detach().cpu().numpy(),
+                    old_params[i],
+                    atol=1.0e-3,
+                )
             )
