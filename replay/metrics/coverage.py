@@ -102,4 +102,11 @@ class Coverage(RecOnlyMetric):
             cum_set = cum_set.union(set(row.items))
             if row.row_num in k_set:
                 res[row.row_num] = len(cum_set) / self.item_count
+
+        if len(k_set) > len(res.keys()):
+            max_coverage = len(cum_set) / self.item_count
+            for current_k in k_set:
+                if current_k not in res.keys():
+                    res[current_k] = max_coverage
+
         return self.unpack_if_int(res, k)

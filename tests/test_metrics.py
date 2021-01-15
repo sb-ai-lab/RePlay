@@ -42,6 +42,9 @@ class TestMetrics(PySparkTest):
             data=[["user1", "item4", 4.0], ["user1", "item5", 5.0]],
             schema=REC_SCHEMA,
         )
+        self.empty_recs = self.spark.createDataFrame(
+            data=[], schema=REC_SCHEMA,
+        )
         self.ground_truth_recs = self.spark.createDataFrame(
             data=[
                 ["user1", "item1", datetime(2019, 9, 12), 3.0],
@@ -164,8 +167,15 @@ class TestMetrics(PySparkTest):
             self.recs.union(self.ground_truth_recs.drop("timestamp"))
         )
         self.assertDictAlmostEqual(
-            coverage(self.recs, [1, 3]),
-            {1: 0.3333333333333333, 3: 0.8333333333333334},
+            coverage(self.recs, [1, 3, 5]),
+            {
+                1: 0.3333333333333333,
+                3: 0.8333333333333334,
+                5: 0.8333333333333334,
+            },
+        )
+        self.assertDictAlmostEqual(
+            coverage(self.empty_recs, [1, 3, 5]), {1: 0.0, 3: 0.0, 5: 0.0},
         )
 
     def test_bad_coverage(self):
