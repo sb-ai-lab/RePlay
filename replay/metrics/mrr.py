@@ -29,5 +29,5 @@ class MRR(Metric):
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         for i in range(min(k, len(pred))):
             if pred[i] in ground_truth:
-                return 1.0 / (1 + i)
-        return 0.0
+                return 1 / (1 + i)
+        return 0
