@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 from pyspark.ml.classification import RandomForestClassifier
 
 # pylint: disable-all

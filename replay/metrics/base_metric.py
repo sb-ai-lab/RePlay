@@ -1,5 +1,5 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+Базовые классы для метрик качества (Metric) и метрик разнообразия (RecOnlyMetric)
 """
 import operator
 from abc import ABC, abstractmethod
@@ -30,7 +30,7 @@ class Metric(ABC):
     ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида ``[user_id, item_id, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, relevance]``
 
         :param ground_truth: реальный лог действий пользователей,
             спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
@@ -52,7 +52,7 @@ class Metric(ABC):
         """Функция возвращает половину ширины доверительного интервала
 
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида ``[user_id, item_id, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, relevance]``
 
         :param ground_truth: реальный лог действий пользователей,
             спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
@@ -100,7 +100,7 @@ class Metric(ABC):
         """Функция возвращает медиану метрики
 
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида ``[user_id, item_id, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, relevance]``
 
         :param ground_truth: реальный лог действий пользователей,
             спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
@@ -142,7 +142,7 @@ class Metric(ABC):
         """Функция возвращает среднее значение метрики
 
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида  ``[user_id, item_id, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, relevance]``
 
         :param ground_truth: реальный лог действий пользователей,
             спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
@@ -253,7 +253,7 @@ class Metric(ABC):
         """
         Расчёт значения метрики для каждого пользователя для нескольких k
 
-        :param k_set: набор чисел, для которых расчитывается метрика,
+        :param k_set: набор чисел, для которых рассчитывается метрика,
         :param user_id: идентификатор пользователя,
         :param *args: дополнительные параметры, необходимые для расчета
             метрики. Перечень параметров совпадает со списком столбцов
@@ -278,7 +278,7 @@ class Metric(ABC):
         """
         Расчёт значения метрики для каждого пользователя
 
-        :param k: число, для которого расчитывается метрика,
+        :param k: число, для которого рассчитывается метрика,
         :param pred: список объектов, рекомендованных пользователю
         :param ground_truth: список объектов, с которыми действительно
             взаимодействовал пользователь в тесте
@@ -298,8 +298,8 @@ class Metric(ABC):
         :param log: датафрейм с логом оценок для подсчета количества оценок у пользователей
         :param recommendations: датафрейм с рекомендациями
         :param ground_truth: тестовые данные
-        :param k: сколько брать айтемов из рекомендаций
-        :return: пандас датафрейм
+        :param k: сколько брать объектов из рекомендаций
+        :return: pandas-датафрейм
         """
         log = convert2spark(log)
         count = log.groupBy("user_id").count()
@@ -330,10 +330,7 @@ class RecOnlyMetric(Metric):
     ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: выдача рекомендательной системы,
-            спарк-датарейм вида ``[user_id, item_id, relevance]``
-
-        :param ground_truth: реальный лог действий пользователей,
-            спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
+            спарк-датафрейм вида ``[user_id, item_id, relevance]``
 
         :param k: список индексов, показывающий какое максимальное количество
         объектов брать из топа рекомендованных для оценки
@@ -348,7 +345,7 @@ class RecOnlyMetric(Metric):
         """
         Расчёт значения метрики для каждого пользователя
 
-        :param k: число, для которого расчитывается метрика,
+        :param k: число, для которого рассчитывается метрика,
         :param *args: дополнительные параметры, необходимые для расчета
             метрики. Перечень параметров совпадает со списком столбцов
             датафрейма, который возвращает метод '''_get_enriched_recommendations'''

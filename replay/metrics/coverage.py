@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 import logging
 from typing import Dict, Set, Union
 
@@ -70,13 +67,13 @@ class Coverage(RecOnlyMetric):
         k: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
         recommendations_spark = convert2spark(recommendations)
-        unknows_item_count = (
+        unknown_item_count = (
             recommendations_spark.select("item_id")  # type: ignore
             .distinct()
             .exceptAll(self.items)
             .count()
         )
-        if unknows_item_count > 0:
+        if unknown_item_count > 0:
             self.logger.warning(
                 "В рекомендациях есть объекты, которых не было в изначальном логе! "
                 "Значение метрики может получиться больше единицы ¯\_(ツ)_/¯"

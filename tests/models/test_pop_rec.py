@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 # pylint: disable-all
 from parameterized import parameterized
 from tests.pyspark_testcase import PySparkTest

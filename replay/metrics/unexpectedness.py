@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
@@ -31,13 +28,8 @@ class Unexpectedness(RecOnlyMetric):
         self, log: AnyDataFrame
     ):  # pylint: disable=super-init-not-called
         """
-        Есть два варианта инициализации в зависимости от значения параметра ``rec``.
-        Если ``rec`` -- рекомендатель, то ``log`` считается данными для обучения.
-        Если ``rec is None``, то ``log`` считается готовыми предсказаниями какой-то внешней модели,
-        с которой необходимо сравниться.
-
-        :param log: пандас или спарк датафрейм
-        :param rec: одна из проинициализированных моделей библиотеки, либо ``None``
+        :param log: pandas или spark датафрейм, рекомендации базовой модели,
+            в сравнении с которыми будет рассчитываться метрика
         """
         self.log = convert2spark(log)
 

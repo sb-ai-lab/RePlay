@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf

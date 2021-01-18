@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 import logging
 from typing import Any, Dict, List, Optional, Type
 
@@ -31,7 +28,7 @@ class MainScenario:
 
     * разбивает лог случайно 70/30 (холодных пользователей и объекты просто выбрасывает)
     * обучает дефолтный рекомендатель (:ref:`ALS <als-rec>`)
-    * для тех случаев, когда `KNN` выдаёт слишком мало рекомендаций (мешьше, top-N, которые требуются), добирает рекомендации из fallback-рекомендателя
+    * для тех случаев, когда `KNN` выдаёт слишком мало рекомендаций (меньше, top-N, которые требуются), добирает рекомендации из fallback-рекомендателя
       (:ref:`PopRec <pop-rec>`)
     * оптимизирует, подбирая гиперпараметры, и включает в отчёт только :ref:`HitRate <hit-rate>`
     """
@@ -73,7 +70,7 @@ class MainScenario:
         user_features: Optional[DataFrame],
         item_features: Optional[DataFrame],
     ) -> SplitData:
-        """ Делит лог и готовит объекти типа ``SplitData``. """
+        """ Делит лог и готовит объекты типа ``SplitData``. """
         train, test = self.splitter.split(log)
         self.logger.debug(
             "Длина трейна и теста: %d %d", train.count(), test.count()

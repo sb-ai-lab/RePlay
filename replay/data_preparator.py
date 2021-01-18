@@ -79,7 +79,7 @@ class DataPreparator:
     +-------+--------+
     <BLANKLINE>
 
-    Загрузка таблицы с признакми пользователя без явной передачи списка признаков.
+    Загрузка таблицы с признаками пользователя без явной передачи списка признаков.
     В случае если параметр features_columns не задан, признаками считаются все остальные столбцы.
 
     >>> import pandas as pd
@@ -299,7 +299,7 @@ class DataPreparator:
          если не задан, в качестве признаков используются все столбцы датафрейма.
         :param kwargs: дополнительные аргументы, которые передаются в функцию
             ``spark.read.csv(path, **kwargs)``
-        :return: спарк-датафрейм со столцами, определенными в ``columns_names`` и features_columns
+        :return: спарк-датафрейм со столбцами, определенными в ``columns_names`` и features_columns
         """
         if data is not None:
             dataframe = convert2spark(data)

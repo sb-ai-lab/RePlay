@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 from typing import Optional
 
 from pyspark.ml.feature import Word2Vec
@@ -37,7 +34,7 @@ class Word2VecRec(Recommender):
         """
         Инициализирует параметры модели .
 
-        :param rank: размерность вектора ембеддингов
+        :param rank: размерность вектора эмбеддингов
         :param window_size: размер окна
         :param use_idf: использовать ли взвешенное суммирование векторов с
             помощью idf

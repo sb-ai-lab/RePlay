@@ -1,4 +1,3 @@
-# type: ignore
 # pylint: disable-all
 
 import pandas as pd
@@ -24,6 +23,10 @@ def test_finishes(df):
     State(get_spark_session(1, 1))
     stack = Stack([KNN()], n_folds=2, budget=1, seed=1)
     pred = stack.fit_predict(df, 1).toPandas()
-    pred = pred.loc[:, ["user_id", "item_id"]].sort_values("user_id").reset_index(drop=True)
+    pred = (
+        pred.loc[:, ["user_id", "item_id"]]
+        .sort_values("user_id")
+        .reset_index(drop=True)
+    )
     res = pd.DataFrame({"user_id": [1, 2, 3, 4], "item_id": [4, 5, 2, 3]})
     pd.testing.assert_frame_equal(pred, res)

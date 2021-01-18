@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 from typing import Iterable, Optional, Union
 
 from pyspark.ml.classification import (
@@ -85,7 +82,7 @@ class ClassifierRec(HybridRecommender):
         :param log: лог в стандартном формате
         :param user_features: свойства пользователей в стандартном формате
         :param item_features: свойства объектов в стандартном формате
-        :return: новый спарк-датайрейм, в котором к каждой строчке лога
+        :return: новый спарк-датафрейм, в котором к каждой строчке лога
             добавлены фичи пользователя и объекта, которые в ней встречаются
         """
         feature_cols = ["recs"] if self.use_recs_value else []
@@ -129,7 +126,7 @@ class ClassifierRec(HybridRecommender):
         raise ValueError(
             "модель должна использовать хотя бы одно из: "
             "свойства пользователей, свойства объектов, "
-            "екомендации предыдущего шага при стекинге"
+            "рекомендации предыдущего шага при стекинге"
         )
 
     # pylint: disable=too-many-arguments

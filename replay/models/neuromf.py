@@ -1,5 +1,9 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+Реализация рекомендательной модели Neural Matrix Factorization (NeuMF)
+и ее компонент:
+Generalized Matrix Factorization (GMF),
+Multi-Layer Perceptron (MLP),
+Neural Matrix Factorization (MLP + GMF).
 """
 from typing import List, Optional
 
@@ -234,7 +238,7 @@ class NMF(nn.Module):
 # pylint: disable=too-many-instance-attributes
 class NeuroMF(TorchRecommender):
     """
-    Эта модель является вариацей на модель из статьи Neural Matrix Factorization
+    Эта модель является вариацией на модель из статьи Neural Matrix Factorization
     (NeuMF, NCF).
 
     Модель позволяет использовать архитектуры MLP и GMF как отдельно,

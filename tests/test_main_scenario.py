@@ -1,6 +1,4 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
+# pylint: skip-file
 from datetime import datetime
 
 from tests.pyspark_testcase import PySparkTest

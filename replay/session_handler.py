@@ -17,7 +17,7 @@ def get_spark_session(
     shuffle_partitions: Optional[int] = None,
 ) -> SparkSession:
     """
-    инициализирует и возращает SparkSession с "годными" параметрами по
+    инициализирует и возвращает SparkSession с "годными" параметрами по
     умолчанию (для пользователей, которые не хотят сами настраивать Spark)
 
     :param spark_memory: количество гигабайт оперативной памяти, которую нужно выделить под Spark;
@@ -32,8 +32,10 @@ def get_spark_session(
     user_home = os.environ["HOME"]
     spark = (
         SparkSession.builder.config("spark.driver.memory", driver_memory)
-        .config("spark.driver.extraJavaOptions",
-                "-Dio.netty.tryReflectionSetAccessible=true")
+        .config(
+            "spark.driver.extraJavaOptions",
+            "-Dio.netty.tryReflectionSetAccessible=true",
+        )
         .config("spark.sql.shuffle.partitions", str(shuffle_partitions))
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
         .config("spark.driver.bindAddress", "127.0.0.1")
