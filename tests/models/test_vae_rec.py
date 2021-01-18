@@ -6,6 +6,7 @@ from datetime import datetime
 import numpy as np
 import torch
 from tests.pyspark_testcase import PySparkTest
+from tests.test_utils import del_files_by_pattern, find_file_by_pattern
 
 from replay.constants import LOG_SCHEMA
 from replay.models.mult_vae import VAE, MultVAE
@@ -24,16 +25,7 @@ class VAERecTestCase(PySparkTest):
             "latent_dim": 1,
             "hidden_dim": 1,
         }
-        self.parameter_stubs = [
-            [[0.0, 0.0, 0.0]],
-            [0.0],
-            [[0.0], [0.0]],
-            [0.0, 0.0],
-            [[0.0]],
-            [0.0],
-            [[0.0], [0.0], [0.0]],
-            [0.0, 0.0, 0.0],
-        ]
+
         self.model = MultVAE(**params)
         self.log = self.spark.createDataFrame(
             [
@@ -53,13 +45,24 @@ class VAERecTestCase(PySparkTest):
             ],
             schema=LOG_SCHEMA,
         )
+        self.param_shapes = [
+            (1, 3),
+            (1,),
+            (2, 1),
+            (2,),
+            (1, 1),
+            (1,),
+            (3, 1),
+            (3,),
+        ]
 
     def test_fit(self):
         self.model.fit(log=self.log)
+        self.assertEqual(
+            len(self.param_shapes), len(list(self.model.model.parameters()))
+        )
         for i, parameter in enumerate(self.model.model.parameters()):
-            self.assertEqual(
-                parameter.shape, torch.tensor(self.parameter_stubs[i]).shape
-            )
+            self.assertEqual(self.param_shapes[i], tuple(parameter.shape))
 
     def test_predict(self):
         self.model.fit(log=self.log)
@@ -83,21 +86,29 @@ class VAERecTestCase(PySparkTest):
     def test_save_load(self):
         spark_local_dir = self.spark.conf.get("spark.local.dir")
         pattern = "best_multvae_1_loss=-\\d\\.\\d+.pth"
-        for filename in os.listdir(spark_local_dir):
-            if re.match(pattern, filename):
-                os.remove(os.path.join(spark_local_dir, filename))
+        del_files_by_pattern(spark_local_dir, pattern)
+
         self.model.fit(log=self.log)
-        matched = False
-        for filename in os.listdir(spark_local_dir):
-            if re.match(pattern, filename):
-                path = os.path.join(spark_local_dir, filename)
-                matched = True
-                break
-        self.assertTrue(matched)
+        old_params = [
+            param.detach().cpu().numpy()
+            for param in self.model.model.parameters()
+        ]
+
+        path = find_file_by_pattern(spark_local_dir, pattern)
+        self.assertIsNotNone(path)
+
         new_model = MultVAE()
         new_model.model = VAE(item_count=3, latent_dim=1, hidden_dim=1)
+        self.assertEqual(
+            len(old_params), len(list(new_model.model.parameters()))
+        )
+
         new_model.load_model(path)
         for i, parameter in enumerate(new_model.model.parameters()):
-            self.assertEqual(
-                parameter.shape, torch.tensor(self.parameter_stubs[i]).shape
+            self.assertTrue(
+                np.allclose(
+                    parameter.detach().cpu().numpy(),
+                    old_params[i],
+                    atol=1.0e-3,
+                )
             )
