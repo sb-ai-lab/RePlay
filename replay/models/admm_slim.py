@@ -99,6 +99,7 @@ class ADMMSLIM(Recommender):
         """
         :param lambda_1: параметр l1 регуляризации
         :param lambda_2: параметр l2 регуляризации
+        :param seed: random seed
         """
         if lambda_1 < 0 or lambda_2 <= 0:
             raise ValueError("Неверно указаны параметры для регуляризации")
