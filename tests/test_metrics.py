@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 # pylint: skip-file
 from datetime import datetime
 from math import log2
@@ -104,14 +101,16 @@ class TestMetrics(PySparkTest):
         )
 
     def test_ndcg_at_k(self):
-        one_user = pd.DataFrame({"item_id": [300, 200, 100]})
-        one_user["k"] = [1, 2, 3]
-        one_user["user_id"] = 1
-        one_user["items_id"] = 3 * [[200, 400]]
+        pred = [300, 200, 100]
+        k_set = [1, 2, 3]
+        user_id = 1
+        ground_truth = [200, 400]
         ndcg_value = 1 / log2(3) / (1 / log2(2) + 1 / log2(3))
         self.assertEqual(
-            NDCG._get_metric_value_by_user(one_user)["cum_agg"].tolist(),
-            [0.0, ndcg_value, ndcg_value],
+            NDCG()._get_metric_value_by_user_all_k(
+                k_set, user_id, pred, ground_truth
+            ),
+            [(1, 0, 1), (1, ndcg_value, 2), (1, ndcg_value, 3)],
         )
         self.assertDictAlmostEqual(
             NDCG()(self.recs, self.ground_truth_recs, [1, 3]),
@@ -135,9 +134,10 @@ class TestMetrics(PySparkTest):
         )
 
     def test_map_at_k(self):
+        print(MAP()(self.recs, self.ground_truth_recs, [1, 3]))
         self.assertDictAlmostEqual(
             MAP()(self.recs, self.ground_truth_recs, [1, 3]),
-            {3: 7 / 12, 1: 1 / 3},
+            {3: 11 / 36, 1: 1 / 3},
         )
 
     def test_recall_at_k(self):
@@ -155,30 +155,6 @@ class TestMetrics(PySparkTest):
             Surprisal(self.log2)(self.recs, 3),
             5 * (1 - 1 / log2(3)) / 9 + 4 / 9,
         )
-
-    def test_check_users(self):
-        class NewMetric(Metric):
-            def __str__(self):
-                return ""
-
-            def _get_metric_value(self, recommendations, ground_truth, k):
-                return 1.0
-
-            @staticmethod
-            def _get_metric_value_by_user(pdf):
-                return pdf
-
-        test_cases = [
-            [True, self.recs, self.ground_truth_recs],
-            [False, self.recs, self.log],
-            [False, self.log, self.recs],
-        ]
-        new_metric = NewMetric()
-        for correct_value, left, right in test_cases:
-            with self.subTest():
-                self.assertEqual(
-                    new_metric._check_users(left, right), correct_value
-                )
 
     def test_coverage(self):
         coverage = Coverage(

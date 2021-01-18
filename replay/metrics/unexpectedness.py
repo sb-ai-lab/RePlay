@@ -1,87 +1,80 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
-import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
+from pyspark.sql import types as st
 
 from replay.constants import AnyDataFrame
 from replay.utils import convert2spark
 from replay.metrics.base_metric import RecOnlyMetric
-from replay.models.base_rec import Recommender
-from replay.models.pop_rec import PopRec
 
 
 # pylint: disable=too-few-public-methods
 class Unexpectedness(RecOnlyMetric):
     """
     Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.
-    По умолчанию используется рекомендатель по популярности ``PopRec``.
 
     >>> from replay.session_handler import get_spark_session, State
     >>> spark = get_spark_session(1, 1)
     >>> state = State(spark)
 
     >>> import pandas as pd
-    >>> log = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": ["1", "2", "1", "3"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
-    >>> recs = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": ["1", "2", "3", "1"], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
+    >>> log = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": [1, 2, 1, 3], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
+    >>> recs = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": [1, 2, 3, 1], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
     >>> metric = Unexpectedness(log)
-    >>> metric(recs, [1, 2])
+    >>> metric(recs,[1, 2])
     {1: 0.5, 2: 0.5}
-
-
-    Возможен также режим, в котором рекомендации базового алгоритма передаются сразу при инициализации и рекомендатель не обучается
-
-    >>> log = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
-    >>> recs = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [0, 0, 1], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
-    >>> metric = Unexpectedness(log, None)
-    >>> round(metric(recs, 3), 2)
-    0.67
     """
 
     def __init__(
-        self, log: AnyDataFrame, rec: Recommender = PopRec()
+        self, log: AnyDataFrame
     ):  # pylint: disable=super-init-not-called
         """
-        Есть два варианта инициализации в зависимости от значения параметра ``rec``.
-        Если ``rec`` -- рекомендатель, то ``log`` считается данными для обучения.
-        Если ``rec is None``, то ``log`` считается готовыми предсказаниями какой-то внешней модели,
-        с которой необходимо сравниться.
-
-        :param log: пандас или спарк датафрейм
-        :param rec: одна из проинициализированных моделей библиотеки, либо ``None``
+        :param log: pandas или spark датафрейм, рекомендации базовой модели,
+            в сравнении с которыми будет рассчитываться метрика
         """
         self.log = convert2spark(log)
-        self.train_model = False
-        if rec is not None:
-            self.train_model = True
-            rec.fit(log=self.log)  # type: ignore
-            self.model = rec
 
     @staticmethod
-    def _get_metric_value_by_user(pandas_df):
-        recs = pandas_df["item_id"]
-        pandas_df["cum_agg"] = pandas_df.apply(
-            lambda row: (
-                row["k"]
-                - np.isin(recs[: row["k"]], row["items_id"][: row["k"]]).sum()
-            )
-            / row["k"],
-            axis=1,
-        )
-        return pandas_df
+    def _get_metric_value_by_user(k, *args) -> float:
+        pred = args[0]
+        base_pred = args[1]
+        return 1.0 - len(set(pred[:k]) & set(base_pred[:k])) / k
 
     def _get_enriched_recommendations(
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
-        if self.train_model:
-            pred = self.model.predict(
-                log=self.log, k=self.max_k
-            )  # type: ignore
-        else:
-            pred = self.log  # type: ignore
-        items_by_users = pred.groupby("user_id").agg(
-            sf.collect_list("item_id").alias("items_id")
+        base_pred = self.log
+        sort_udf = sf.udf(
+            self._sorter,
+            returnType=st.ArrayType(base_pred.schema["item_id"].dataType),
         )
-        res = recommendations.join(items_by_users, how="inner", on=["user_id"])
-        return res
+        base_recs = (
+            base_pred.groupby("user_id")
+            .agg(
+                sf.collect_list(sf.struct("relevance", "item_id")).alias(
+                    "base_pred"
+                )
+            )
+            .select(
+                "user_id", sort_udf(sf.col("base_pred")).alias("base_pred")
+            )
+        )
+
+        recommendations = (
+            recommendations.groupby("user_id")
+            .agg(
+                sf.collect_list(sf.struct("relevance", "item_id")).alias(
+                    "pred"
+                )
+            )
+            .select("user_id", sort_udf(sf.col("pred")).alias("pred"))
+            .join(base_recs, how="left", on=["user_id"])
+        )
+        return recommendations.withColumn(
+            "base_pred",
+            sf.coalesce(
+                "base_pred",
+                sf.array().cast(
+                    st.ArrayType(base_pred.schema["item_id"].dataType)
+                ),
+            ),
+        )

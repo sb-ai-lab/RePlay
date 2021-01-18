@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 from typing import Optional
 
 from pyspark.sql import DataFrame
@@ -25,7 +22,7 @@ class KNN(Recommender):
     def __init__(self, num_neighbours: int = 10, shrink: float = 0.0):
         """
         :param num_neighbours:  ограничение на количество рассматриваемых соседей
-        :param shrink: добавляется в знаменатель при подсчете сходства айтемов
+        :param shrink: добавляется в знаменатель при подсчете сходства объектов
         """
         self.shrink: float = shrink
         self.num_neighbours: int = num_neighbours

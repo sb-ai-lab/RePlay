@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 import os
 from typing import Optional
 
@@ -46,10 +43,10 @@ class LightFMWrap(HybridRecommender):
 
     def _feature_table_to_csr(self, feature_table: DataFrame) -> csr_matrix:
         """
-        преобразоавть свойства пользователей или объектов в разреженную матрицу
+        Преобразует признаки пользователей или объектов в разреженную матрицу
 
         :param feature_table: таблица с колонкой ``user_idx`` или ``item_idx``,
-            все остальные колонки которой считаются значениями свойства пользователя или объекта соответстввенно
+            все остальные колонки которой считаются значениями свойства пользователя или объекта соответственно
         :returns: матрица, в которой строки --- пользователи или объекты, столбцы --- их свойства
         """
 
@@ -78,7 +75,7 @@ class LightFMWrap(HybridRecommender):
             [identity(self.items_count), csr_matrix(all_features_np)]
         )
 
-        # сумма весов признаков по айтему равна 1
+        # сумма весов признаков по объекту равна 1
         features_with_identity_sum = diags(
             1 / features_with_identity.sum(axis=1).A.ravel(), format="csr"
         )

@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 from abc import abstractmethod
 from typing import Any, Dict, Optional, Tuple, Union
 
@@ -81,7 +78,7 @@ class TorchRecommender(Recommender):
         """
         Расчёт значения метрики для каждого пользователя
 
-        :param pandas_df: DataFrame, содержащий индексы просмотренных айтемов
+        :param pandas_df: DataFrame, содержащий индексы просмотренных объектов
             по каждому пользователю -- pandas-датафрейм вида
             ``[user_idx, item_idx]``
         :param model: обученная модель
@@ -142,7 +139,7 @@ class TorchRecommender(Recommender):
         """
         Метод, возвращающий trainer, evaluator для обучения нейронной сети.
 
-        :param opt: Оптимимайзер
+        :param opt: Оптимайзер
         :param valid_data_loader: Загрузчик данных для валидации
         :param scheduler: Расписания для уменьшения шага обучения
         :param early_stopping_patience: количество эпох для ранней остановки

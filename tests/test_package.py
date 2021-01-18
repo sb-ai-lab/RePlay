@@ -1,6 +1,4 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
+# pylint: skip-file
 from unittest import TestCase
 
 import replay

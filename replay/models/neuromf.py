@@ -1,5 +1,9 @@
 """
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
+Реализация рекомендательной модели Neural Matrix Factorization (NeuMF)
+и ее компонент:
+Generalized Matrix Factorization (GMF),
+Multi-Layer Perceptron (MLP),
+Neural Matrix Factorization (MLP + GMF).
 """
 from typing import List, Optional
 
@@ -16,6 +20,8 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from replay.models.base_torch_rec import TorchRecommender
 from replay.session_handler import State
+
+EMBED_DIM = 128
 
 
 def xavier_init_(layer: nn.Module):
@@ -34,8 +40,6 @@ def xavier_init_(layer: nn.Module):
 class GMF(nn.Module):
     """Generalized Matrix Factorization (GMF) модель - нейросетевая
     реализация матричной факторизации"""
-
-    _search_space = {"embedding_dim": {"type": "int", "args": [128, 128]}}
 
     def __init__(self, user_count: int, item_count: int, embedding_dim: int):
         """
@@ -84,8 +88,6 @@ class GMF(nn.Module):
 
 class MLP(nn.Module):
     """Multi-Layer Perceptron (MLP) модель"""
-
-    _search_space = {"embedding_dim": {"type": "int", "args": [128, 128]}}
 
     def __init__(
         self,
@@ -162,11 +164,6 @@ class MLP(nn.Module):
 class NMF(nn.Module):
     """NMF модель (MLP + GMF)"""
 
-    _search_space = {
-        "embedding_gmf_dim": {"type": "int", "args": [128, 128]},
-        "embedding_mlp_dim": {"type": "int", "args": [128, 128]},
-    }
-
     # pylint: disable=too-many-arguments
     def __init__(
         self,
@@ -241,7 +238,7 @@ class NMF(nn.Module):
 # pylint: disable=too-many-instance-attributes
 class NeuroMF(TorchRecommender):
     """
-    Эта модель является вариацей на модель из статьи Neural Matrix Factorization
+    Эта модель является вариацией на модель из статьи Neural Matrix Factorization
     (NeuMF, NCF).
 
     Модель позволяет использовать архитектуры MLP и GMF как отдельно,
@@ -257,8 +254,8 @@ class NeuroMF(TorchRecommender):
     valid_split_size: float = 0.1
     seed: int = 42
     _search_space = {
-        "embedding_gmf_dim": {"type": "int", "args": [128, 128]},
-        "embedding_mlp_dim": {"type": "int", "args": [128, 128]},
+        "embedding_gmf_dim": {"type": "int", "args": [EMBED_DIM, EMBED_DIM]},
+        "embedding_mlp_dim": {"type": "int", "args": [EMBED_DIM, EMBED_DIM]},
         "learning_rate": {"type": "loguniform", "args": [0.0001, 0.5]},
         "l2_reg": {"type": "loguniform", "args": [1e-9, 5]},
         "gamma": {"type": "uniform", "args": [0.8, 0.99]},
@@ -293,10 +290,7 @@ class NeuroMF(TorchRecommender):
         :param count_negative_sample: количество отрицательных примеров
         """
         if not embedding_gmf_dim and not embedding_mlp_dim:
-            raise ValueError(
-                "Хотя бы один из параметров embedding_gmf_dim, "
-                "embedding_mlp_dim должен быть не пуст"
-            )
+            embedding_gmf_dim, embedding_mlp_dim = EMBED_DIM, EMBED_DIM
 
         if (embedding_gmf_dim is None or embedding_gmf_dim < 0) and (
             embedding_mlp_dim is None or embedding_mlp_dim < 0

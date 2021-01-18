@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 from replay.metrics.base_metric import Metric
 
 
@@ -17,13 +14,18 @@ class HitRate(Metric):
         HitRate@K = \\frac {\sum_{i=1}^{N}HitRate@K(i)}{N}
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
-"""
+
+    >>> hr = HitRate()
+    >>> hr._get_metric_value_by_user(4, [1,2,3,4], [2,4])
+    1.0
+
+    >>> hr._get_metric_value_by_user(4, [1,2,3,4], [5,6])
+    0.0
+    """
 
     @staticmethod
-    def _get_metric_value_by_user(pandas_df):
-        pandas_df = pandas_df.assign(
-            is_good_item=pandas_df[["item_id", "items_id"]].apply(
-                lambda x: int(x["item_id"] in x["items_id"]), 1
-            )
-        )
-        return pandas_df.assign(cum_agg=pandas_df.is_good_item.cummax())
+    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
+        for i in pred[:k]:
+            if i in ground_truth:
+                return 1.0
+        return 0.0
