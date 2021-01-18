@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 # pylint: disable-all
 import os
 import re
@@ -98,9 +95,7 @@ class VAERecTestCase(PySparkTest):
                 break
         self.assertTrue(matched)
         new_model = MultVAE()
-        new_model.model = VAE(item_count=3,
-                              latent_dim=1,
-                              hidden_dim=1)
+        new_model.model = VAE(item_count=3, latent_dim=1, hidden_dim=1)
         new_model.load_model(path)
         for i, parameter in enumerate(new_model.model.parameters()):
             self.assertEqual(

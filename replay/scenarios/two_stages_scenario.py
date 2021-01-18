@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 from typing import Dict, Optional, Tuple
 
 from pyspark.ml.evaluation import BinaryClassificationEvaluator

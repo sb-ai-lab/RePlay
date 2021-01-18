@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 from typing import Optional, Tuple
 
 import numba as nb
@@ -70,6 +67,7 @@ def _main_iteration(
 
 
 # pylint: disable=too-many-instance-attributes
+# noinspection SpellCheckingInspection
 class ADMMSLIM(Recommender):
     """`ADMM SLIM: Sparse Recommendations for Many Users
     <http://www.cs.columbia.edu/~jebara/papers/wsdm20_ADMM.pdf>`_
@@ -101,7 +99,7 @@ class ADMMSLIM(Recommender):
         """
         :param lambda_1: параметр l1 регуляризации
         :param lambda_2: параметр l2 регуляризации
-        :param use_prefit: необходимо ли кэшировать данные
+        :param seed: random seed
         """
         if lambda_1 < 0 or lambda_2 <= 0:
             raise ValueError("Неверно указаны параметры для регуляризации")
@@ -126,7 +124,7 @@ class ADMMSLIM(Recommender):
             ),
             shape=(self.users_count, self.items_count),
         )
-        self.logger.debug("Матриица Грама")
+        self.logger.debug("Матрица Грама")
         xtx = (interactions_matrix.T @ interactions_matrix).toarray()
         self.logger.debug("Поиск обратной матрицы")
         inv_matrix = np.linalg.inv(
@@ -186,7 +184,7 @@ class ADMMSLIM(Recommender):
     def _init_matrix(
         self, size: int
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Начальная инициализвция матриц"""
+        """Начальная инициализация матриц"""
         if self.seed is not None:
             np.random.seed(self.seed)
         mat_b = np.random.rand(size, size)  # type: ignore

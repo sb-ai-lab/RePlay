@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 # pylint: skip-file
 from datetime import datetime
 from math import log2

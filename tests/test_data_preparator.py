@@ -1,6 +1,3 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
-"""
 # pylint: disable-all
 from datetime import datetime
 from unittest.mock import Mock
