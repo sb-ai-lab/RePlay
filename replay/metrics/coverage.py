@@ -105,8 +105,7 @@ class Coverage(RecOnlyMetric):
 
         if len(k_set) > len(res.keys()):
             max_coverage = len(cum_set) / self.item_count
-            for current_k in k_set:
-                if current_k not in res.keys():
-                    res[current_k] = max_coverage
+            for current_k in k_set.difference(res.keys()):
+                res[current_k] = max_coverage
 
         return self.unpack_if_int(res, k)
