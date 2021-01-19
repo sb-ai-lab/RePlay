@@ -29,7 +29,6 @@ class Unexpectedness(RecOnlyMetric):
     ):  # pylint: disable=super-init-not-called
         """
         :param pred: предсказания модели, относительно которых необходимо посчитать метрику.
-        :param rec: одна из проинициализированных моделей библиотеки, либо ``None``
         """
         self.pred = convert2spark(pred)
 

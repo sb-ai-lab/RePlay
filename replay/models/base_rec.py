@@ -41,10 +41,10 @@ class BaseRecommender(ABC):
     # pylint: disable=too-many-arguments, too-many-locals
     def optimize(
         self,
-        train: DataFrame,
-        test: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        train: AnyDataFrame,
+        test: AnyDataFrame,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
         param_grid: Optional[Dict[str, List[Any]]] = None,
         criterion: Metric = NDCG(),
         k: int = 10,
@@ -56,18 +56,13 @@ class BaseRecommender(ABC):
 
         :param train: датафрейм для обучения
         :param test: датафрейм для проверки качества
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонками
-            ``[user_id , timestamp]`` и колонки с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонками
-            ``[item_id , timestamp]`` и колонки с признаками
+        :param user_features: датафрейм с признаками пользователей
+        :param item_features: датафрейм с признаками объектов
         :param param_grid: сетка параметров, задается словарем, где ключ ---
             название параметра, значение --- границы возможных значений.
             ``{param: [low, high]}``.
         :param criterion: метрика, которая будет оптимизироваться
-        :param k: количество рекомендаций для каждого пользователя;
-            должно быть не больше, чем количество объектов в ``items``
+        :param k: количество рекомендаций для каждого пользователя
         :param budget: количество попыток при поиске лучших гиперпараметров
         :param sampler: сэмплер параметров optuna
         :return: словарь оптимальных параметров

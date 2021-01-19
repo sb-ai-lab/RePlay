@@ -38,6 +38,10 @@ for dataset in ["1m", "10m"]:
         c = cov(pred, 2000)
         return -(n * c) / (n + c)
 
+    def train_als(factors, regularization):
+        model = AlternatingLeastSquares(factors, regularization)
+        return train_implicit(model)
+
     def train_bpr(factors, regularization, learning_rate):
         model = BayesianPersonalizedRanking(
             factors, learning_rate, regularization
@@ -51,15 +55,18 @@ for dataset in ["1m", "10m"]:
 
     e = Experiment(test, {NDCG(): [100], cov: [100, 2000], Recall(): [100],},)
 
-    beta = ng.p.Scalar(lower=0, upper=5)
-    lambda_ = ng.p.Scalar(lower=0, upper=5.0)
+    lr = ng.p.Log(lower=0.0001, upper=1.0)
+    reg = ng.p.Log(lower=0.001, upper=1.0)
+    factors = ng.p.Scalar(lower=5, upper=300).set_integer_casting()
 
-    parametrization = ng.p.Instrumentation(beta=beta, lambda_=lambda_,)
+    parametrization = ng.p.Instrumentation(
+        regularization=reg, factors=factors,
+    )
 
     optimizer = ng.optimizers.OnePlusOne(
         parametrization=parametrization, budget=budget
     )
-    recommendation = optimizer.minimize(train_slim)
+    recommendation = optimizer.minimize(train_als)
     model = AlternatingLeastSquares(**recommendation.kwargs)
     model = ImplicitWrap(model)
     pred = model.fit_predict(train, k=max(k))
