@@ -2,7 +2,7 @@
 Библиотека рекомендательных систем Лаборатории по искусственному интеллекту.
 """
 import logging
-from typing import Dict, Set, Union
+from typing import Dict, Union
 
 from pyspark.sql import Window
 from pyspark.sql import functions as sf
@@ -104,9 +104,9 @@ class Coverage(RecOnlyMetric):
         ).cache()
 
         if isinstance(k, int):
-            k_set: Set[int] = {k}
+            k_set = {k}
         else:
-            k_set: Set[int] = set(k)
+            k_set = set(k)
 
         res = (
             coverage_spark.filter(coverage_spark.row_num.isin(k_set))

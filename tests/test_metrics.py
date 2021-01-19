@@ -18,7 +18,6 @@ from replay.metrics import (
     Recall,
     Surprisal,
 )
-from replay.metrics.base_metric import Metric
 from replay.distributions import item_distribution
 
 
