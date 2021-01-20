@@ -15,13 +15,6 @@ class MAP(Metric):
         &MAP@K = \\frac {\sum_{i=1}^{N}AP@K(i)}{N}
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
-
-    >>> map_ = MAP()
-    >>> map_._get_metric_value_by_user(4, [1,2,3,4], [2,5])
-    0.25
-
-    >>> map_._get_metric_value_by_user(4, [1,2], [2,4])
-    0.25
     """
 
     @staticmethod

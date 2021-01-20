@@ -18,12 +18,6 @@ class HitRate(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 
-    >>> hr = HitRate()
-    >>> hr._get_metric_value_by_user(4, [1,2,3,4], [2,4])
-    1
-
-    >>> hr._get_metric_value_by_user(4, [1,2,3,4], [5,6])
-    0
     """
 
     @staticmethod
