@@ -5,7 +5,6 @@
 from datetime import datetime
 from math import log2
 
-import pandas as pd
 from tests.pyspark_testcase import PySparkTest
 
 from replay.constants import LOG_SCHEMA, REC_SCHEMA
