@@ -19,7 +19,6 @@ from replay.metrics import (
     Recall,
     RocAuc,
     Surprisal,
-    Unexpectedness,
 )
 from replay.distributions import item_distribution
 
