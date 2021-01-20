@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Set, Union
+from typing import Dict, Union
 
 from pyspark.sql import Window
 from pyspark.sql import functions as sf
@@ -78,25 +78,50 @@ class Coverage(RecOnlyMetric):
                 "В рекомендациях есть объекты, которых не было в изначальном логе! "
                 "Значение метрики может получиться больше единицы ¯\_(ツ)_/¯"
             )
-        item_sets = (
+        coverage_spark = (
             recommendations_spark.withColumn(  # type: ignore
                 "row_num",
                 sf.row_number().over(
                     Window.partitionBy("user_id").orderBy(sf.desc("relevance"))
                 ),
             )
+            .withColumn(
+                "cum_cov",
+                sf.size(
+                    sf.collect_set("item_id").over(
+                        Window.orderBy("row_num").rowsBetween(
+                            Window.unboundedPreceding, Window.currentRow
+                        )
+                    )
+                )
+                / self.item_count,
+            )
             .groupBy("row_num")
-            .agg(sf.collect_set("item_id").alias("items"))
-            .orderBy("row_num")
-        ).collect()
-        cum_set: Set[str] = set()
-        res = {}
+            .agg(sf.max("cum_cov").alias("coverage"))
+        ).cache()
+
         if isinstance(k, int):
             k_set = {k}
         else:
             k_set = set(k)
-        for row in item_sets:
-            cum_set = cum_set.union(set(row.items))
-            if row.row_num in k_set:
-                res[row.row_num] = len(cum_set) / self.item_count
+
+        res = (
+            coverage_spark.filter(coverage_spark.row_num.isin(k_set))
+            .toPandas()
+            .set_index("row_num")
+            .to_dict()["coverage"]
+        )
+
+        if not res:
+            return self.unpack_if_int(
+                {current_k: 0.0 for current_k in k_set}, k
+            )
+
+        if len(k_set) > len(res.keys()):
+            max_coverage = coverage_spark.agg({"coverage": "max"}).collect()[
+                0
+            ][0]
+            for current_k in k_set.difference(res.keys()):
+                res[current_k] = max_coverage
+
         return self.unpack_if_int(res, k)
