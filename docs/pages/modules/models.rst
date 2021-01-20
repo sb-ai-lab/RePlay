@@ -42,6 +42,13 @@
 .. autoclass:: replay.models.Recommender
     :members:
 
+Интеграция с `optuna`
+----------------------
+Нативные модели можно оптимизировать с помощью optuna встроенным методом
+
+.. autoclass:: replay.models.base_rec.BaseRecommender
+    :members: optimize
+
 .. _pop-rec:
 
 Popular Recommender
