@@ -49,7 +49,6 @@ class BaseRecommender(ABC):
         criterion: Metric = NDCG(),
         k: int = 10,
         budget: int = 10,
-        sampler: Optional = TPESampler(),
     ) -> Dict[str, Any]:
         """
         Подбирает лучшие гиперпараметры с помощью optuna.
@@ -64,7 +63,6 @@ class BaseRecommender(ABC):
         :param criterion: метрика, которая будет оптимизироваться
         :param k: количество рекомендаций для каждого пользователя
         :param budget: количество попыток при поиске лучших гиперпараметров
-        :param sampler: сэмплер параметров optuna
         :return: словарь оптимальных параметров
         """
         train = convert2spark(train)
@@ -88,7 +86,7 @@ class BaseRecommender(ABC):
             params = self._search_space.keys()
             vals = [None] * len(params)
             param_grid = dict(zip(params, vals))
-        study = create_study(direction="maximize", sampler=sampler)
+        study = create_study(direction="maximize", sampler=TPESampler())
         objective = MainObjective(
             search_space=param_grid,
             split_data=split_data,
