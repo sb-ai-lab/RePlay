@@ -29,6 +29,14 @@ for dataset in ["1m", "10m"]:
     splitter = UserSplitter(0.2, shuffle=True, drop_cold_items=True, seed=seed)
     train, test = splitter.split(df)
     train, val = splitter.split(train)
+    cov = Coverage(df)
+
+    def train_slim(beta, lambda_):
+        model = SLIM(beta, lambda_)
+        pred = model.fit_predict(train, k=2000)
+        n = NDCG()(pred, val, 100)
+        c = cov(pred, 2000)
+        return -(n * c) / (n + c)
 
     def train_als(factors, regularization):
         model = AlternatingLeastSquares(factors, regularization)
@@ -45,7 +53,7 @@ for dataset in ["1m", "10m"]:
         pred = model.fit_predict(train, k=max(k))
         return -NDCG()(pred, val, max(k))
 
-    e = Experiment(test, {NDCG(): k, HitRate(): k, MRR(): k, Recall(): k,},)
+    e = Experiment(test, {NDCG(): [100], cov: [100, 2000], Recall(): [100],},)
 
     lr = ng.p.Log(lower=0.0001, upper=1.0)
     reg = ng.p.Log(lower=0.001, upper=1.0)

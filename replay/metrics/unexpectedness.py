@@ -12,26 +12,25 @@ class Unexpectedness(RecOnlyMetric):
     """
     Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.
 
+    >>> import pandas as pd
     >>> from replay.session_handler import get_spark_session, State
     >>> spark = get_spark_session(1, 1)
     >>> state = State(spark)
 
-    >>> import pandas as pd
-    >>> log = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": [1, 2, 1, 3], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
-    >>> recs = pd.DataFrame({"user_id": [1, 2, 1, 2], "item_id": [1, 2, 3, 1], "relevance": [5, 5, 5, 5], "timestamp": [1, 1, 1, 1]})
+    >>> log = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
+    >>> recs = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [0, 0, 1], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
     >>> metric = Unexpectedness(log)
-    >>> metric(recs,[1, 2])
-    {1: 0.5, 2: 0.5}
+    >>> round(metric(recs, 3), 2)
+    0.67
     """
 
     def __init__(
-        self, log: AnyDataFrame
+        self, pred: AnyDataFrame
     ):  # pylint: disable=super-init-not-called
         """
-        :param log: pandas или spark датафрейм, рекомендации базовой модели,
-            в сравнении с которыми будет рассчитываться метрика
+        :param pred: предсказания модели, относительно которых необходимо посчитать метрику.
         """
-        self.log = convert2spark(log)
+        self.pred = convert2spark(pred)
 
     @staticmethod
     def _get_metric_value_by_user(k, *args) -> float:
@@ -42,7 +41,7 @@ class Unexpectedness(RecOnlyMetric):
     def _get_enriched_recommendations(
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
-        base_pred = self.log
+        base_pred = self.pred
         sort_udf = sf.udf(
             self._sorter,
             returnType=st.ArrayType(base_pred.schema["item_id"].dataType),
