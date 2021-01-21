@@ -15,17 +15,11 @@ class HitRate(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 
-    >>> hr = HitRate()
-    >>> hr._get_metric_value_by_user(4, [1,2,3,4], [2,4])
-    1.0
-
-    >>> hr._get_metric_value_by_user(4, [1,2,3,4], [5,6])
-    0.0
     """
 
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         for i in pred[:k]:
             if i in ground_truth:
-                return 1.0
-        return 0.0
+                return 1
+        return 0

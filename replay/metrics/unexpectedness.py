@@ -36,6 +36,8 @@ class Unexpectedness(RecOnlyMetric):
     def _get_metric_value_by_user(k, *args) -> float:
         pred = args[0]
         base_pred = args[1]
+        if len(pred) == 0:
+            return 0
         return 1.0 - len(set(pred[:k]) & set(base_pred[:k])) / k
 
     def _get_enriched_recommendations(

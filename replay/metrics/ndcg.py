@@ -35,6 +35,17 @@ class NDCG(Metric):
 
     .. math::
         nDCG@K = \\frac {\sum_{i=1}^{N}nDCG@K(i)}{N}
+
+    >>> import pandas as pd
+    >>> pred=pd.DataFrame({"user_id": [1, 1, 2, 2],
+    ...                    "item_id": [4, 5, 6, 7],
+    ...                    "relevance": [1, 1, 1, 1]})
+    >>> true=pd.DataFrame({"user_id": [1, 1, 1, 1, 1],
+    ...                    "item_id": [1, 2, 3, 4, 5],
+    ...                    "relevance": [0.5, 0.1, 0.25, 0.6, 0.2]})
+    >>> ndcg = NDCG()
+    >>> ndcg(pred, true, 2)
+    0.5
     """
 
     @staticmethod
@@ -47,6 +58,6 @@ class NDCG(Metric):
         dcg = sum(
             [denom[i] for i in range(pred_len) if pred[i] in ground_truth]
         )
-        dcg_ideal = sum(denom[:ground_truth_len])
+        idcg = sum(denom[:ground_truth_len])
 
-        return dcg / dcg_ideal
+        return dcg / idcg

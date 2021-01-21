@@ -2,17 +2,18 @@
 from datetime import datetime
 from math import log2
 
-import pandas as pd
 from tests.pyspark_testcase import PySparkTest
 
 from replay.constants import LOG_SCHEMA, REC_SCHEMA
 from replay.metrics import (
-    MAP,
-    NDCG,
     Coverage,
     HitRate,
+    MAP,
+    MRR,
+    NDCG,
     Precision,
     Recall,
+    RocAuc,
     Surprisal,
 )
 from replay.distributions import item_distribution
@@ -20,6 +21,15 @@ from replay.distributions import item_distribution
 
 class TestMetrics(PySparkTest):
     def setUp(self) -> None:
+        self.quality_metrics = (
+            HitRate,
+            MAP,
+            MRR,
+            NDCG,
+            Precision,
+            Recall,
+            RocAuc,
+        )
         self.recs = self.spark.createDataFrame(
             data=[
                 ["user1", "item1", 3.0],
@@ -176,3 +186,35 @@ class TestMetrics(PySparkTest):
 
     def test_bad_coverage(self):
         self.assertEqual(Coverage(self.ground_truth_recs)(self.recs, 3), 1.25)
+
+    def test_empty_recs(self):
+        for metric_class in self.quality_metrics:
+            self.assertEqual(
+                metric_class._get_metric_value_by_user(
+                    k=4, pred=[], ground_truth=[2, 4]
+                ),
+                0,
+                metric_class.__name__,
+            )
+
+    def test_bad_recs(self):
+        for metric_class in self.quality_metrics:
+            self.assertEqual(
+                metric_class._get_metric_value_by_user(
+                    k=4, pred=[1, 3], ground_truth=[2, 4]
+                ),
+                0,
+                metric_class.__name__,
+            )
+
+    def test_not_full_recs(self):
+        for metric_class in self.quality_metrics:
+            self.assertEqual(
+                metric_class._get_metric_value_by_user(
+                    k=4, pred=[4, 1, 2], ground_truth=[2, 4]
+                ),
+                metric_class._get_metric_value_by_user(
+                    k=3, pred=[4, 1, 2], ground_truth=[2, 4]
+                ),
+                metric_class.__name__,
+            )

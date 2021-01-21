@@ -266,7 +266,7 @@ class Metric(ABC):
                 (
                     user_id,
                     # pylint: disable=no-value-for-parameter
-                    cls._get_metric_value_by_user(k, *args),
+                    float(cls._get_metric_value_by_user(k, *args)),
                     k,
                 )
             )

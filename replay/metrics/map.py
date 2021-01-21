@@ -12,10 +12,6 @@ class MAP(Metric):
         &MAP@K = \\frac {\sum_{i=1}^{N}AP@K(i)}{N}
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
-
-    >>> map_ = MAP()
-    >>> map_._get_metric_value_by_user(4, [1,2,3,4], [2,4])
-    0.5
     """
 
     @staticmethod
@@ -23,9 +19,9 @@ class MAP(Metric):
         length = min(k, len(pred))
         max_good = min(k, len(ground_truth))
         if len(ground_truth) == 0 or len(pred) == 0:
-            return 0.0
+            return 0
         tp_cum = 0
-        result = 0.0
+        result = 0
         for i in range(length):
             if pred[i] in ground_truth:
                 tp_cum += 1
