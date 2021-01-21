@@ -204,7 +204,7 @@ class TestMetrics(PySparkTest):
         for metric_class in self.quality_metrics:
             self.assertEqual(
                 metric_class._get_metric_value_by_user(
-                    k=4, pred=[4, 1, 2], ground_truth=[1, 4]
+                    k=4, pred=[4, 1, 2], ground_truth=[2, 4]
                 ),
                 metric_class._get_metric_value_by_user(
                     k=3, pred=[4, 1, 2], ground_truth=[2, 4]
