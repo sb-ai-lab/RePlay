@@ -187,7 +187,7 @@ class TestMetrics(PySparkTest):
                     k=4, pred=[], ground_truth=[2, 4]
                 ),
                 0,
-                metric_class(),
+                metric_class.__name__,
             )
 
     def test_bad_recs(self):
@@ -197,7 +197,7 @@ class TestMetrics(PySparkTest):
                     k=4, pred=[1, 3], ground_truth=[2, 4]
                 ),
                 0,
-                metric_class(),
+                metric_class.__name__,
             )
 
     def test_not_full_recs(self):
@@ -209,5 +209,5 @@ class TestMetrics(PySparkTest):
                 metric_class._get_metric_value_by_user(
                     k=3, pred=[4, 1, 2], ground_truth=[2, 4]
                 ),
-                metric_class(),
+                metric_class.__name__,
             )
