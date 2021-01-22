@@ -68,12 +68,12 @@ class Unexpectedness(RecOnlyMetric):
                 )
             )
             .select("user_id", sort_udf(sf.col("pred")).alias("pred"))
-            .join(base_recs, how="left", on=["user_id"])
+            .join(base_recs, how="right", on=["user_id"])
         )
         return recommendations.withColumn(
-            "base_pred",
+            "pred",
             sf.coalesce(
-                "base_pred",
+                "pred",
                 sf.array().cast(
                     st.ArrayType(base_pred.schema["item_id"].dataType)
                 ),

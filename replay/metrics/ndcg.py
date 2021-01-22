@@ -52,8 +52,6 @@ class NDCG(Metric):
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         pred_len = min(k, len(pred))
         ground_truth_len = min(k, len(ground_truth))
-        if len(ground_truth) == 0:
-            return 0
         denom = [1 / math.log2(i + 2) for i in range(k)]
         dcg = sum(
             [denom[i] for i in range(pred_len) if pred[i] in ground_truth]
