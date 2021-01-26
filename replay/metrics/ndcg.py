@@ -40,9 +40,9 @@ class NDCG(Metric):
     >>> pred=pd.DataFrame({"user_id": [1, 1, 2, 2],
     ...                    "item_id": [4, 5, 6, 7],
     ...                    "relevance": [1, 1, 1, 1]})
-    >>> true=pd.DataFrame({"user_id": [1, 1, 1, 1, 1],
-    ...                    "item_id": [1, 2, 3, 4, 5],
-    ...                    "relevance": [0.5, 0.1, 0.25, 0.6, 0.2]})
+    >>> true=pd.DataFrame({"user_id": [1, 1, 1, 1, 1, 2],
+    ...                    "item_id": [1, 2, 3, 4, 5, 8],
+    ...                    "relevance": [0.5, 0.1, 0.25, 0.6, 0.2, 0.3]})
     >>> ndcg = NDCG()
     >>> ndcg(pred, true, 2)
     0.5
