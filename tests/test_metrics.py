@@ -1,4 +1,5 @@
 # pylint: skip-file
+import pandas as pd
 from datetime import datetime
 from math import log2
 
@@ -88,6 +89,13 @@ class TestMetrics(PySparkTest):
                 ["user4", "item1", datetime(2019, 8, 26), 1.0],
             ],
             schema=LOG_SCHEMA,
+        )
+
+        self.one_user = pd.DataFrame(
+            {"user_id": [1], "item_id": [1], "relevance": [1]}
+        )
+        self.two_users = pd.DataFrame(
+            {"user_id": [1, 2], "item_id": [1, 2], "relevance": [1, 1]}
         )
 
     def test_hit_rate_at_k(self):
@@ -217,4 +225,18 @@ class TestMetrics(PySparkTest):
                     k=3, pred=[4, 1, 2], ground_truth=[2, 4]
                 ),
                 metric_class.__name__,
+            )
+
+    def test_test_is_bigger(self):
+        for metric in self.quality_metrics:
+            assert (
+                metric()(self.one_user, self.two_users, 1) == 0.5,
+                metric.__name__,
+            )
+
+    def test_pred_is_bigger(self):
+        for metric in self.quality_metrics:
+            assert (
+                metric()(self.two_users, self.one_user, 1) == 1.0,
+                metric.__name__,
             )

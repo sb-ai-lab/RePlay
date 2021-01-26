@@ -194,13 +194,13 @@ class Metric(ABC):
                 )
             )
             .select("user_id", sort_udf(sf.col("pred")).alias("pred"))
-            .join(true_items_by_users, how="left", on=["user_id"])
+            .join(true_items_by_users, how="right", on=["user_id"])
         )
 
         return recommendations.withColumn(
-            "ground_truth",
+            "pred",
             sf.coalesce(
-                "ground_truth",
+                "pred",
                 sf.array().cast(
                     st.ArrayType(ground_truth.schema["item_id"].dataType)
                 ),
