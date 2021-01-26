@@ -92,10 +92,10 @@ class TestMetrics(PySparkTest):
         )
 
         self.one_user = pd.DataFrame(
-            {"user_id": [1], "item_id": [1], "relevance": [1],}
+            {"user_id": [1], "item_id": [1], "relevance": [1]}
         )
         self.two_users = pd.DataFrame(
-            {"user_id": [1, 2], "item_id": [1, 2], "relevance": [1, 1],}
+            {"user_id": [1, 2], "item_id": [1, 2], "relevance": [1, 1]}
         )
 
     def test_hit_rate_at_k(self):
