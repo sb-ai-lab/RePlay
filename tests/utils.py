@@ -8,8 +8,18 @@ import pytest
 from numpy.testing import assert_allclose
 
 from replay.constants import REC_SCHEMA, LOG_SCHEMA
-from replay.metrics import NDCG, HitRate, Precision, Recall, MAP, MRR, RocAuc
 from replay.session_handler import get_spark_session
+
+
+def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
+    assert set(d1.keys()) == set(d2.keys())
+    for key in d1:
+        assert_allclose(d1[key], d2[key])
+
+
+@pytest.fixture
+def spark():
+    return get_spark_session(1, 1)
 
 
 @pytest.fixture
@@ -24,16 +34,6 @@ def two_users():
         {"user_id": [1, 2], "item_id": [1, 2], "relevance": [1, 1]}
     )
     return df
-
-
-@pytest.fixture
-def quality_metrics():
-    return [NDCG(), HitRate(), Precision(), Recall(), MAP(), MRR(), RocAuc()]
-
-
-@pytest.fixture
-def spark():
-    return get_spark_session(1, 1)
 
 
 @pytest.fixture
@@ -115,9 +115,3 @@ def log(spark):
         ],
         schema=LOG_SCHEMA,
     )
-
-
-def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
-    assert set(d1.keys()) == set(d2.keys())
-    for key in d1:
-        assert_allclose(d1[key], d2[key])

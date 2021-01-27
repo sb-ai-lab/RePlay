@@ -5,7 +5,12 @@ from numpy.testing import assert_allclose
 from replay.metrics import *
 
 from replay.distributions import item_distribution
-from tests.utils import assertDictAlmostEqual
+from tests.utils import *
+
+
+@pytest.fixture
+def quality_metrics():
+    return [NDCG(), HitRate(), Precision(), Recall(), MAP(), MRR(), RocAuc()]
 
 
 def test_test_is_bigger(quality_metrics, one_user, two_users):
