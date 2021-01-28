@@ -8,6 +8,7 @@ packages = "poetry pip pypandoc cython optuna"
 
 def fix():
     net = "free"
+
     try:
         urllib.request.urlopen("http://mirror.ca.sbrf.ru")
         net = "ca"
