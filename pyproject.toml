@@ -38,6 +38,7 @@ numba = "*"
 llvmlite = "*"
 seaborn = "*"
 nevergrad = "*"
+toml = "*"
 
 [tool.poetry.dev-dependencies]
 # fixing versions of package dependencies (non-dev)

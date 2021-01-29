@@ -3,6 +3,8 @@ import urllib.request
 import urllib
 import os
 
+import toml
+
 packages = "poetry pip pypandoc cython optuna"
 
 
@@ -29,15 +31,15 @@ def fix():
         command = f"pip install --index-url {url} --trusted-host {host}  -U {packages}"
         os.system(command)
 
-        with open("pyproject.toml", "a") as file:
-            file.write(
-                f"""
-[[tool.poetry.source]]
-name = "private-pypi"
-url = "http://mirror.{net}.sbrf.ru/pypi/simple/"
-default = true
-"""
-            )
+        with open("pyproject.toml") as file:
+            pp = toml.load(file)
+            pp["tool"]["poetry"]["source"] = {
+                "name": "private-pypi",
+                "url": f"{url}",
+                "default": True,
+            }
+        with open("pyproject.toml", "w") as file:
+            toml.dump(pp, file)
 
 
 if __name__ == "__main__":
