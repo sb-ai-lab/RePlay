@@ -15,7 +15,7 @@ class ALSWrap(Recommender):
 
     _seed: Optional[int] = None
     _search_space = {
-        "rank": {"type": "loguniform_int", "args": [8, 512]},
+        "rank": {"type": "loguniform_int", "args": [8, 256]},
     }
 
     def __init__(self, rank: int = 10, seed: Optional[int] = None):

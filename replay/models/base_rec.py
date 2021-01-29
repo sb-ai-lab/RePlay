@@ -65,6 +65,11 @@ class BaseRecommender(ABC):
         :param budget: количество попыток при поиске лучших гиперпараметров
         :return: словарь оптимальных параметров
         """
+        if self._search_space is None:
+            self.logger.warning(
+                "%s has no hyper parameters to optimize", str(self)
+            )
+            return None
         train = convert2spark(train)
         test = convert2spark(test)
         if user_features is not None:
