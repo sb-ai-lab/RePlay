@@ -245,7 +245,7 @@ class NeuroMF(TorchRecommender):
     так и совместно.
     """
 
-    num_workers: int = 16
+    num_workers: int = 0
     batch_size_users: int = 100000
     trainer: Engine
     val_evaluator: Engine
