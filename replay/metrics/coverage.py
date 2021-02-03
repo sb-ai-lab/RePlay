@@ -105,17 +105,17 @@ class Coverage(RecOnlyMetric):
         else:
             k_set = set(k)
 
+        if coverage_spark.rdd.isEmpty():
+            return self.unpack_if_int(
+                {current_k: 0.0 for current_k in k_set}, k
+            )
+
         res = (
             coverage_spark.filter(coverage_spark.row_num.isin(k_set))
             .toPandas()
             .set_index("row_num")
             .to_dict()["coverage"]
         )
-
-        if not res:
-            return self.unpack_if_int(
-                {current_k: 0.0 for current_k in k_set}, k
-            )
 
         if len(k_set) > len(res.keys()):
             max_coverage = coverage_spark.agg({"coverage": "max"}).collect()[
