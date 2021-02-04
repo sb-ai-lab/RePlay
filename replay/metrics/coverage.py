@@ -105,7 +105,7 @@ class Coverage(RecOnlyMetric):
         else:
             k_set = set(k)
 
-        if coverage_spark.rdd.isEmpty():
+        if coverage_spark.first() is None:
             return self.unpack_if_int(
                 {current_k: 0.0 for current_k in k_set}, k
             )
