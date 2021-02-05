@@ -105,7 +105,7 @@ class ADMMSLIM(Recommender):
         :param seed: random seed
         """
         if lambda_1 < 0 or lambda_2 <= 0:
-            raise ValueError("Неверно указаны параметры для регуляризации")
+            raise ValueError("Неверно указаны параметры регуляризации")
         self.lambda_1 = lambda_1
         self.lambda_2 = lambda_2
         self.rho = lambda_2
