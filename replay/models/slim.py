@@ -73,8 +73,8 @@ class SLIM(Recommender):
 
         def slim_row(pandas_df: pd.DataFrame) -> pd.DataFrame:
             """
-            Построчное обучение матрицы близости объектов стохастическим
-            градиентным спуском
+            Построчное обучение матрицы близости объектов
+            стохастическим градиентным спуском
             :param pandas_df: pd.Dataframe
             :return: pd.Dataframe
             """
