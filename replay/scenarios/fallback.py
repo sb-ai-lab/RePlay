@@ -23,12 +23,12 @@ class Fallback(HybridRecommender):
         :param main_model: основная инициализированная модель
         :param fallback_model: дополнительная инициализированная модель
         """
-        self.model = main_model
+        self.main_model = main_model
         # pylint: disable=invalid-name
-        self.fb = fallback_model
+        self.fb_model = fallback_model
 
     def __str__(self):
-        return f"Fallback({str(self.model)}, {str(self.fb)})"
+        return f"Fallback({str(self.main_model)}, {str(self.fb_model)})"
 
     # pylint: disable=too-many-arguments, too-many-locals
     def optimize(
@@ -62,7 +62,7 @@ class Fallback(HybridRecommender):
         if param_grid is None:
             param_grid = {"main": None, "fallback": None}
         self.logger.info("Optimizing main model...")
-        params = self.model.optimize(
+        params = self.main_model.optimize(
             train,
             test,
             user_features,
@@ -72,10 +72,10 @@ class Fallback(HybridRecommender):
             k,
             budget,
         )
-        self.model.set_params(**params)
-        if self.fb._search_space is not None:
+        self.main_model.set_params(**params)
+        if self.fb_model._search_space is not None:
             self.logger.info("Optimizing fallback model...")
-            fb_params = self.fb.optimize(
+            fb_params = self.fb_model.optimize(
                 train,
                 test,
                 user_features,
@@ -85,7 +85,7 @@ class Fallback(HybridRecommender):
                 k,
                 budget,
             )
-            self.fb.set_params(**fb_params)
+            self.fb_model.set_params(**fb_params)
         else:
             fb_params = None
         return params, fb_params
@@ -96,8 +96,8 @@ class Fallback(HybridRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self.model._fit(log, user_features, item_features)
-        self.fb._fit(log, user_features, item_features)
+        self.main_model._fit(log, user_features, item_features)
+        self.fb_model._fit(log, user_features, item_features)
 
     def _predict(
         self,
@@ -109,7 +109,7 @@ class Fallback(HybridRecommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        pred = self.model._predict(
+        pred = self.main_model._predict(
             log,
             k,
             users,
@@ -118,7 +118,7 @@ class Fallback(HybridRecommender):
             item_features,
             filter_seen_items,
         )
-        extra_pred = self.fb._predict(
+        extra_pred = self.fb_model._predict(
             log,
             k,
             users,
