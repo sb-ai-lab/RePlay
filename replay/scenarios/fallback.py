@@ -5,6 +5,7 @@ from pyspark.sql import DataFrame
 
 from replay.constants import AnyDataFrame
 from replay.metrics import Metric, NDCG
+from replay.models import PopRec
 from replay.models.base_rec import HybridRecommender, BaseRecommender
 from replay.utils import fallback
 
@@ -14,7 +15,9 @@ class Fallback(HybridRecommender):
     Ведет себя точно также, как обычный рекомендатель и имеет такой же интерфейс."""
 
     def __init__(
-        self, main_model: BaseRecommender, fallback_model: BaseRecommender
+        self,
+        main_model: BaseRecommender,
+        fallback_model: BaseRecommender = PopRec(),
     ):
         """Для каждого пользователя будем брать рекомендации от `main_model`, а если не хватает,
         то дополним рекомендациями от `fallback_model` снизу. `relevance` побочной модели при этом
