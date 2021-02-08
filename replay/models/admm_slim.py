@@ -89,8 +89,8 @@ class ADMMSLIM(Recommender):
     _mat_b: np.ndarray
     _mat_gamma: np.ndarray
     _search_space = {
-        "lambda_1": {"type": "uniform", "args": [1e-9, 50]},
-        "lambda_2": {"type": "uniform", "args": [1e-9, 5000]},
+        "lambda_1": {"type": "loguniform", "args": [1e-9, 50]},
+        "lambda_2": {"type": "loguniform", "args": [1e-9, 5000]},
     }
 
     def __init__(
