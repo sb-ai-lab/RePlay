@@ -127,10 +127,7 @@ class ColdUser:
         user_features_train = convert2spark(user_features_train)
         user_features_test = convert2spark(user_features_test)
         split_data = ColdSplitData(
-            train.cache(),
-            test.cache(),
-            user_features_train.cache(),
-            user_features_test.cache(),
+            train, test, user_features_train, user_features_test,
         )
         study = create_study(direction="maximize", sampler=TPESampler())
         objective = ColdObjective(
