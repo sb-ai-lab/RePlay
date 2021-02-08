@@ -72,15 +72,10 @@ class BaseRecommender(ABC):
         if item_features is not None:
             item_features = convert2spark(item_features)
 
-        users = test.select("user_id").distinct().cache()
-        items = test.select("item_id").distinct().cache()
+        users = test.select("user_id").distinct()
+        items = test.select("item_id").distinct()
         split_data = SplitData(
-            train.cache(),
-            test.cache(),
-            users,
-            items,
-            user_features,
-            item_features,
+            train, test, users, items, user_features, item_features,
         )
         if param_grid is None:
             params = self._search_space.keys()

@@ -96,11 +96,9 @@ class SLIM(Recommender):
             }
             return pd.DataFrame(data=similarity_row)
 
-        self.similarity = (
-            similarity.groupby("item_id_one").applyInPandas(
-                slim_row, "item_id_one int, item_id_two int, similarity double"
-            )
-        ).cache()
+        self.similarity = similarity.groupby("item_id_one").applyInPandas(
+            slim_row, "item_id_one int, item_id_two int, similarity double"
+        )
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -133,7 +131,6 @@ class SLIM(Recommender):
             .groupby("user_idx", "item_idx")
             .agg(sf.sum("similarity").alias("relevance"))
             .select("user_idx", "item_idx", "relevance")
-            .cache()
         )
 
         return recs

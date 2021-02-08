@@ -69,7 +69,7 @@ class UserPopRec(Recommender):
                     "relevance"
                 ),
             )
-        ).cache()
+        )
 
     # pylint: disable=too-many-arguments
     def _predict(

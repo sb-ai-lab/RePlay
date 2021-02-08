@@ -64,7 +64,7 @@ class Word2VecRec(Recommender):
                     else sf.lit(1.0)
                 ).alias("idf"),
             )
-        ).cache()
+        )
         log_by_users = (
             log.orderBy("timestamp")
             .groupBy("user_idx")
@@ -87,7 +87,6 @@ class Word2VecRec(Recommender):
             word_2_vec.fit(log_by_users)
             .getVectors()
             .select(sf.col("word").cast("int").alias("item"), "vector")
-            .cache()
         )
 
     # pylint: disable=too-many-arguments
@@ -122,14 +121,12 @@ class Word2VecRec(Recommender):
             )
             .select("user_idx", "user_vector")
         )
-        recs = (
-            user_vectors.crossJoin(self.vectors).select(
-                "user_idx",
-                (
-                    vector_dot(sf.col("vector"), sf.col("user_vector"))
-                    + sf.lit(self.rank)
-                ).alias("relevance"),
-                sf.col("item").alias("item_idx"),
-            )
-        ).cache()
+        recs = user_vectors.crossJoin(self.vectors).select(
+            "user_idx",
+            (
+                vector_dot(sf.col("vector"), sf.col("user_vector"))
+                + sf.lit(self.rank)
+            ).alias("relevance"),
+            sf.col("item").alias("item_idx"),
+        )
         return recs

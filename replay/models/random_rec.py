@@ -173,7 +173,7 @@ class RandomRec(Recommender):
         )
         self.item_popularity = self.item_popularity.selectExpr(
             "item_idx", f"{probability} AS probability"
-        ).cache()
+        )
         if self.add_cold:
             fill = self.item_popularity.agg({"probability": "min"}).first()[0]
         else:

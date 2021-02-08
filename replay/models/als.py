@@ -41,7 +41,7 @@ class ALSWrap(Recommender):
             ratingCol="relevance",
             implicitPrefs=True,
             seed=self._seed,
-        ).fit(log.cache())
+        ).fit(log)
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -56,9 +56,8 @@ class ALSWrap(Recommender):
     ) -> DataFrame:
         test_data = users.crossJoin(items).withColumn("relevance", lit(1))
         recs = (
-            self.model.transform(test_data.cache())
+            self.model.transform(test_data)
             .withColumn("relevance", col("prediction").cast(DoubleType()))
             .drop("prediction")
-            .cache()
         )
         return recs
