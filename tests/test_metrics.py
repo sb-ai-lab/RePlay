@@ -107,10 +107,6 @@ def test_coverage(true, recs, empty_recs):
         {1: 0.3333333333333333, 3: 0.8333333333333334, 5: 0.8333333333333334},
     )
     assertDictAlmostEqual(
-        coverage(recs, [5, 10]),
-        {5: 0.8333333333333334, 10: 0.8333333333333334},
-    )
-    assertDictAlmostEqual(
         coverage(empty_recs, [1, 3, 5]), {1: 0.0, 3: 0.0, 5: 0.0},
     )
 
