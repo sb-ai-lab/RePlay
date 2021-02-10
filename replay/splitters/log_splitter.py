@@ -80,6 +80,8 @@ class RandomSplitter(Splitter):
         )
         self.seed = seed
         self.test_size = test_size
+        if test_size < 0 or test_size > 1:
+            raise ValueError("test_size должен быть от 0 до 1")
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         train, test = log.randomSplit(
