@@ -2,10 +2,9 @@
 from datetime import datetime
 
 import pytest
-import numpy as np
 
 from replay.constants import LOG_SCHEMA
-from replay.splitters import NewUsersSplitter
+from replay.splitters import ColdUserRandomSplitter
 from tests.utils import spark
 
 
@@ -24,16 +23,12 @@ def log(spark):
             ["user1", "item3", datetime(2019, 9, 17), 1.0],
         ],
         schema=LOG_SCHEMA,
-    )
+    ).repartition(1)
 
 
-def test_users_are_cold(log):
-    splitter = NewUsersSplitter(
-        test_size=0.25, drop_cold_items=False, drop_cold_users=False
-    )
-    train, test = splitter.split(log)
-
-    train_users = train.toPandas().user_id
-    test_users = test.toPandas().user_id
-
-    assert not np.isin(test_users, train_users).any()
+def test(log):
+    cold_user_splitter = ColdUserRandomSplitter(1 / 4)
+    cold_user_splitter.seed = 27
+    train, test = cold_user_splitter.split(log)
+    test_users = test.toPandas().user_id.unique()
+    assert len(test_users) == 2  # спарк плевать хотел на weights ¯\_(ツ)_/¯
