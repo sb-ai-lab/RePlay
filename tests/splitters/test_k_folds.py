@@ -1,3 +1,4 @@
+# pylint: disable-all
 import pytest
 import pandas as pd
 
