@@ -83,7 +83,7 @@ class ClassifierRec(HybridRecommender):
         :param user_features: свойства пользователей в стандартном формате
         :param item_features: свойства объектов в стандартном формате
         :return: новый спарк-датафрейм, в котором к каждой строчке лога
-            добавлены фичи пользователя и объекта, которые в ней встречаются
+            добавлены фичи соответствующих пользователя и объекта
         """
         feature_cols = ["recs"] if self.use_recs_value else []
         raw_join = log
