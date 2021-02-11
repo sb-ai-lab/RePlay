@@ -8,49 +8,6 @@ from replay.constants import LOG_SCHEMA
 from replay.splitters.user_log_splitter import UserSplitter
 
 
-class TestUserLogSplitter(PySparkTest):
-    def setUp(self):
-        data = [
-            ["user1", "item4", datetime(2019, 9, 12), 1.0],
-            ["user2", "item5", datetime(2019, 9, 13), 2.0],
-            ["user3", "item7", datetime(2019, 9, 17), 1.0],
-            ["user4", "item6", datetime(2019, 9, 17), 1.0],
-            ["user5", "item6", datetime(2019, 9, 17), 1.0],
-            ["user1", "item6", datetime(2019, 9, 12), 1.0],
-            ["user2", "item7", datetime(2019, 9, 13), 2.0],
-            ["user3", "item8", datetime(2019, 9, 17), 1.0],
-            ["user4", "item9", datetime(2019, 9, 17), 1.0],
-            ["user5", "item1", datetime(2019, 9, 17), 1.0],
-        ]
-        self.log = self.spark.createDataFrame(data=data, schema=LOG_SCHEMA)
-
-    @parameterized.expand([(3,), (0.6,)])
-    def test_get_test_users(self, fraction):
-        test_users = UserSplitter(
-            drop_cold_items=False,
-            drop_cold_users=False,
-            user_test_size=fraction,
-            seed=1234,
-        )._get_test_users(self.log)
-        self.assertEqual(test_users.count(), 3)
-        self.assertSparkDataFrameEqual(
-            test_users,
-            self.spark.createDataFrame(
-                data=[("user1",), ("user3",), ("user4",)]
-            ).toDF("user_id"),
-        )
-
-    @parameterized.expand([(5,), (1.0,)])
-    def test_exceptions(self, wrong_fraction):
-        with self.assertRaises(ValueError):
-            UserSplitter(
-                drop_cold_items=False,
-                drop_cold_users=False,
-                item_test_size=1,
-                user_test_size=wrong_fraction,
-            )._get_test_users(self.log)
-
-
 class TestRandomUserLogSplitter(PySparkTest):
     def setUp(self):
         self.log = self.spark.createDataFrame(
