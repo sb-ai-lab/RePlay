@@ -3,7 +3,7 @@ import urllib.request
 import urllib
 import os
 
-packages = "poetry pip pypandoc cython optuna"
+packages = "pypandoc cython optuna poetry"
 
 
 def fix():
@@ -21,13 +21,11 @@ def fix():
     except urllib.error.URLError:
         pass
 
-    if net == "free":
-        os.system(f"pip install {packages}")
-    else:
+    pip_install = "pip install -U "
+    if net != "free":
         url = f"http://mirror.{net}.sbrf.ru/pypi/simple"
         host = f"mirror.{net}.sbrf.ru"
-        command = f"pip install --index-url {url} --trusted-host {host}  -U {packages}"
-        os.system(command)
+        pip_install += f"--index-url {url} --trusted-host {host} "
 
         with open("pyproject.toml") as file:
             txt = file.read()
@@ -41,6 +39,8 @@ url = "{url}"
 default = true
 """
                 )
+    os.system(pip_install + "pip")
+    os.system(pip_install + packages)
 
 
 if __name__ == "__main__":
