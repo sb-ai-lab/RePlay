@@ -2,7 +2,6 @@
 
 python3 -m venv venv
 source ./venv/bin/activate
-pip install --upgrade pip
 # Прописываем откуда брать пакеты и устанавливаем то, что через поэтри не ставится
 python3 resolve_mirror.py
 
