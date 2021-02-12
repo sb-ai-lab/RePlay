@@ -23,6 +23,8 @@ def fix():
 
     pip_install = "pip install -U "
     if net != "free":
+    command = f"pip install -U {packages}"
+    if net != "free":
         url = f"http://mirror.{net}.sbrf.ru/pypi/simple"
         host = f"mirror.{net}.sbrf.ru"
         pip_install += f"--index-url {url} --trusted-host {host} "
