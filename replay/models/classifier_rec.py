@@ -7,7 +7,7 @@ from pyspark.ml.classification import (
 )
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import col, lit, udf, when
+from pyspark.sql.functions import lit, udf, when
 from pyspark.sql.types import DoubleType
 
 from replay.constants import AnyDataFrame
@@ -83,12 +83,10 @@ class ClassifierRec(HybridRecommender):
         :param user_features: свойства пользователей в стандартном формате
         :param item_features: свойства объектов в стандартном формате
         :return: новый спарк-датафрейм, в котором к каждой строчке лога
-            добавлены фичи пользователя и объекта, которые в ней встречаются
+            добавлены фичи соответствующих пользователя и объекта
         """
         feature_cols = ["recs"] if self.use_recs_value else []
-        raw_join = log.withColumnRenamed("user_idx", "uid").withColumnRenamed(
-            "item_idx", "iid"
-        )
+        raw_join = log
         if user_features is not None:
             user_vectors = (
                 VectorAssembler(
@@ -100,7 +98,7 @@ class ClassifierRec(HybridRecommender):
             )
             raw_join = raw_join.join(
                 user_vectors.select("user_idx", "user_features"),
-                on=col("user_idx") == col("uid"),
+                on="user_idx",
                 how="inner",
             )
             feature_cols += ["user_features"]
@@ -115,14 +113,14 @@ class ClassifierRec(HybridRecommender):
             )
             raw_join = raw_join.join(
                 item_vectors.select("item_idx", "item_features"),
-                on=col("item_idx") == col("iid"),
+                on="item_idx",
                 how="inner",
             )
             feature_cols += ["item_features"]
         if feature_cols:
             return VectorAssembler(
                 inputCols=feature_cols, outputCol="features",
-            ).transform(raw_join.drop("iid", "uid"))
+            ).transform(raw_join)
         raise ValueError(
             "модель должна использовать хотя бы одно из: "
             "свойства пользователей, свойства объектов, "
@@ -161,11 +159,7 @@ class ClassifierRec(HybridRecommender):
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
         data = self._augment_data(
-            log.join(
-                users.withColumnRenamed("user_idx", "user"),
-                how="inner",
-                on=col("user_idx") == col("user"),
-            ).select(
+            log.join(users, on="user_idx", how="inner").select(
                 *(
                     ["item_idx", "user_idx"]
                     + (["recs"] if self.use_recs_value else [])
