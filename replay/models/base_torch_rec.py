@@ -34,6 +34,9 @@ class TorchRecommender(Recommender):
 
     device: torch.device
 
+    def _clear_cache(self):
+        pass
+
     # pylint: disable=too-many-arguments
     def _predict(
         self,
