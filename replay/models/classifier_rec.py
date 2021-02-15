@@ -70,9 +70,6 @@ class ClassifierRec(HybridRecommender):
         )
         self.model = self.spark_classifier.fit(self.augmented_data)
 
-    def _clear_cache(self):
-        pass
-
     def _augment_data(
         self,
         log: DataFrame,

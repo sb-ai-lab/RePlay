@@ -18,9 +18,6 @@ class RecTestCase(PySparkTest):
         ) -> None:
             pass
 
-        def _clear_cache(self):
-            pass
-
         def _predict(
             self,
             log: DataFrame,
