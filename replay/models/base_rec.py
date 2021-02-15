@@ -102,6 +102,7 @@ class BaseRecommender(ABC):
         """
         for param, value in params.items():
             setattr(self, param, value)
+        self._clear_cache()
 
     def __str__(self):
         return type(self).__name__
@@ -286,7 +287,6 @@ class BaseRecommender(ABC):
             item_features,
             filter_seen_items,
         )
-        recs = recs.join(items, on="item_idx", how="left")
         if filter_seen_items:
             recs = recs.join(
                 log.withColumnRenamed("item_idx", "item")
@@ -498,6 +498,11 @@ class BaseRecommender(ABC):
             item_features,
             filter_seen_items,
         )
+
+    def _clear_cache(self):
+        """
+        Очищает закэшированные данные.
+        """
 
 
 # pylint: disable=abstract-method
