@@ -499,9 +499,10 @@ class BaseRecommender(ABC):
             filter_seen_items,
         )
 
+    @abstractmethod
     def _clear_cache(self):
         """
-        Очищает закэшированные данные.
+        Очищает закэшированные данные spark.
         """
 
 

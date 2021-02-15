@@ -105,6 +105,9 @@ class LightFMWrap(HybridRecommender):
             item_features=csr_item_features,
         )
 
+    def _clear_cache(self):
+        pass
+
     # pylint: disable=too-many-arguments
     def _predict(
         self,

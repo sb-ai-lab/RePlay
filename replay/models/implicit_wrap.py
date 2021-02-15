@@ -41,6 +41,9 @@ class ImplicitWrap(Recommender):
         matrix = to_csr(log).T
         self.model.fit(matrix)
 
+    def _clear_cache(self):
+        pass
+
     # pylint: disable=too-many-arguments
     def _predict(
         self,

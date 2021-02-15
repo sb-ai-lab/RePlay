@@ -135,7 +135,10 @@ class KNN(Recommender):
             all_items, dot_products, item_norms
         )
 
-        self.similarity = self._get_k_most_similar(similarity_matrix)
+        self.similarity = self._get_k_most_similar(similarity_matrix).cache()
+
+    def _clear_cache(self):
+        self.similarity.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(

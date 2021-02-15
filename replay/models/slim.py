@@ -99,6 +99,10 @@ class SLIM(Recommender):
         self.similarity = similarity.groupby("item_id_one").applyInPandas(
             slim_row, "item_id_one int, item_id_two int, similarity double"
         )
+        self.similarity.cache()
+
+    def _clear_cache(self):
+        self.similarity.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(

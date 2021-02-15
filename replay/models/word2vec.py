@@ -65,6 +65,7 @@ class Word2VecRec(Recommender):
                 ).alias("idf"),
             )
         )
+        self.idf.cache()
         log_by_users = (
             log.orderBy("timestamp")
             .groupBy("user_idx")
@@ -88,6 +89,11 @@ class Word2VecRec(Recommender):
             .getVectors()
             .select(sf.col("word").cast("int").alias("item"), "vector")
         )
+        self.vectors.cache()
+
+    def _clear_cache(self):
+        self.idf.unpersist()
+        self.vectors.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(

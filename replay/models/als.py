@@ -42,6 +42,12 @@ class ALSWrap(Recommender):
             implicitPrefs=True,
             seed=self._seed,
         ).fit(log)
+        self.model.itemFactors.cache()
+        self.model.userFactors.cache()
+
+    def _clear_cache(self):
+        self.model.itemFactors.unpersist()
+        self.model.userFactors.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(
