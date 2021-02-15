@@ -63,6 +63,9 @@ class Stack(Recommender):
         for model in self.models:
             model.fit(df)
 
+    def _clear_cache(self):
+        pass
+
     def _optimize_weights(self, top_train, top_test):
         feature_cols = [str(model) for model in self.models]
         optimizer = self._get_optimizer(feature_cols)
