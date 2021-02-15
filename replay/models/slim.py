@@ -102,7 +102,8 @@ class SLIM(Recommender):
         self.similarity.cache()
 
     def _clear_cache(self):
-        self.similarity.unpersist()
+        if self.similarity:
+            self.similarity.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(

@@ -183,6 +183,11 @@ class ADMMSLIM(Recommender):
             }
         )
         self.similarity = State().session.createDataFrame(mat_c_pd)
+        self.similarity.cache()
+
+    def _clear_cache(self):
+        if self.similarity:
+            self.similarity.unpersist()
 
     def _init_matrix(
         self, size: int

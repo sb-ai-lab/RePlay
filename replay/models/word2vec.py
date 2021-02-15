@@ -92,8 +92,9 @@ class Word2VecRec(Recommender):
         self.vectors.cache()
 
     def _clear_cache(self):
-        self.idf.unpersist()
-        self.vectors.unpersist()
+        if self.idf and self.vectors:
+            self.idf.unpersist()
+            self.vectors.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(

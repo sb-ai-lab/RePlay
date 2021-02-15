@@ -46,8 +46,9 @@ class ALSWrap(Recommender):
         self.model.userFactors.cache()
 
     def _clear_cache(self):
-        self.model.itemFactors.unpersist()
-        self.model.userFactors.unpersist()
+        if self.model:
+            self.model.itemFactors.unpersist()
+            self.model.userFactors.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(

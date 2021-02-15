@@ -76,7 +76,8 @@ class PopRec(Recommender):
         self.item_popularity.cache()
 
     def _clear_cache(self):
-        self.item_popularity.unpersist()
+        if self.item_popularity:
+            self.item_popularity.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(
