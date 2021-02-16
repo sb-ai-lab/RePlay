@@ -53,4 +53,5 @@ class Wilson(PopRec):
             pos, total, method="wilson"
         )[0]
         data_frame = data_frame.drop(["pos", "total"], axis=1)
-        self.item_popularity = convert2spark(data_frame).cache()
+        self.item_popularity = convert2spark(data_frame)
+        self.item_popularity.cache()

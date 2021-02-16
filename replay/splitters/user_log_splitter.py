@@ -133,16 +133,13 @@ class UserSplitter(Splitter):
         if self.user_test_size is not None:
             value_error = False
             if isinstance(self.user_test_size, int):
-                if (
-                    self.user_test_size >= 1
-                    and self.user_test_size < user_count
-                ):
+                if 1 <= self.user_test_size < user_count:
                     test_user_count = self.user_test_size
                 else:
                     value_error = True
             else:
-                if self.user_test_size < 1 and self.user_test_size > 0:
-                    test_user_count = all_users.count() * self.user_test_size
+                if 1 > self.user_test_size > 0:
+                    test_user_count = user_count * self.user_test_size
                 else:
                     value_error = True
             if value_error:
@@ -191,9 +188,7 @@ class UserSplitter(Splitter):
             )
 
         res = res.join(counts, on="user_id", how="left")
-        res = res.withColumn(
-            "frac", sf.col("row_num") / sf.col("count")
-        ).cache()
+        res = res.withColumn("frac", sf.col("row_num") / sf.col("count"))
         train = res.filter(
             f"""
                     frac > {self.item_test_size} OR
@@ -275,7 +270,7 @@ class UserSplitter(Splitter):
             sf.row_number().over(
                 Window.partitionBy("user_id").orderBy("rand")
             ),
-        ).cache()
+        )
         return dataframe
 
     @staticmethod
@@ -296,7 +291,7 @@ class UserSplitter(Splitter):
                     sf.col("timestamp").desc()
                 )
             ),
-        ).cache()
+        )
         return res
 
 

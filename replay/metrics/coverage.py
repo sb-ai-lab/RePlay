@@ -28,10 +28,7 @@ class Coverage(RecOnlyMetric):
                     Важно, чтобы log содержал все доступные объекты (items). Coverage будет рассчитываться как доля по отношению к ним.
         """
         self.items = (
-            convert2spark(log)
-            .select("item_id")
-            .distinct()  # type: ignore
-            .cache()
+            convert2spark(log).select("item_id").distinct()  # type: ignore
         )
         self.item_count = self.items.count()
         self.logger = logging.getLogger("replay")

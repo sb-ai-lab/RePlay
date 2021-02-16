@@ -67,7 +67,7 @@ class ClassifierRec(HybridRecommender):
             self._augment_data(log, user_features, item_features)
             .withColumnRenamed("relevance", "label")
             .select("label", "features", "user_idx", "item_idx")
-        ).cache()
+        )
         self.model = self.spark_classifier.fit(self.augmented_data)
 
     def _augment_data(
@@ -88,14 +88,10 @@ class ClassifierRec(HybridRecommender):
         feature_cols = ["recs"] if self.use_recs_value else []
         raw_join = log
         if user_features is not None:
-            user_vectors = (
-                VectorAssembler(
-                    inputCols=user_features.drop("user_idx").columns,
-                    outputCol="user_features",
-                )
-                .transform(user_features)
-                .cache()
-            )
+            user_vectors = VectorAssembler(
+                inputCols=user_features.drop("user_idx").columns,
+                outputCol="user_features",
+            ).transform(user_features)
             raw_join = raw_join.join(
                 user_vectors.select("user_idx", "user_features"),
                 on="user_idx",
@@ -103,14 +99,10 @@ class ClassifierRec(HybridRecommender):
             )
             feature_cols += ["user_features"]
         if item_features is not None:
-            item_vectors = (
-                VectorAssembler(
-                    inputCols=item_features.drop("item_idx").columns,
-                    outputCol="item_features",
-                )
-                .transform(item_features)
-                .cache()
-            )
+            item_vectors = VectorAssembler(
+                inputCols=item_features.drop("item_idx").columns,
+                outputCol="item_features",
+            ).transform(item_features)
             raw_join = raw_join.join(
                 item_vectors.select("item_idx", "item_features"),
                 on="item_idx",
@@ -225,10 +217,8 @@ class ClassifierRec(HybridRecommender):
             "user_id", "item_id", "relevance"
         )
         recs = get_top_k_recs(recs, k)
-        recs = (
-            recs.withColumn(
-                "relevance",
-                when(recs["relevance"] < 0, 0).otherwise(recs["relevance"]),
-            )
-        ).cache()
+        recs = recs.withColumn(
+            "relevance",
+            when(recs["relevance"] < 0, 0).otherwise(recs["relevance"]),
+        )
         return recs

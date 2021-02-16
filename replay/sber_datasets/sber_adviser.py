@@ -53,7 +53,7 @@ class SberAdviser(SberDataset):
             )
             .where(col("okato") == okato)
             .select("ID")
-        ).cache()
+        )
         self.filtered_ids_array = (
             self.filtered_ids.toPandas()["ID"].astype(int).to_numpy()
         )
@@ -101,7 +101,7 @@ class SberAdviser(SberDataset):
                 on="user_id",
             )
             .withColumn("relevance", lit(feedback_part))
-        ).cache()
+        )
         return log_with_filtered_ids
 
     @property
@@ -153,7 +153,7 @@ class SberAdviser(SberDataset):
         item_features_wntm = self._load_features("wntm")
         return item_features_wntm.join(
             item_features_okved, on="item_id", how="inner"
-        ).cache()
+        )
 
     @property
     def item_features(self):

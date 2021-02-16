@@ -1,7 +1,6 @@
 # pylint: skip-file
 
 import numpy as np
-from numpy.testing import assert_allclose
 from replay.metrics import *
 
 from replay.distributions import item_distribution
@@ -21,12 +20,6 @@ def test_test_is_bigger(quality_metrics, one_user, two_users):
 def test_pred_is_bigger(quality_metrics, one_user, two_users):
     for metric in quality_metrics:
         assert metric(two_users, one_user, 1) == 1.0, str(metric)
-
-
-def test_hit_rate_at_k(recs, true):
-    assertDictAlmostEqual(
-        HitRate()(recs, true, [3, 1]), {3: 2 / 3, 1: 1 / 3},
-    )
 
 
 def test_hit_rate_at_k(recs, true):
