@@ -37,3 +37,9 @@ def test_users_are_cold(log):
     test_users = test.toPandas().user_id
 
     assert not np.isin(test_users, train_users).any()
+
+
+@pytest.mark.parametrize("test_size", [-1.0, 2.0])
+def test_bad_test_size(log, test_size):
+    with pytest.raises(ValueError):
+        NewUsersSplitter(test_size)

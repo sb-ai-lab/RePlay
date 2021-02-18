@@ -17,3 +17,8 @@ def test_sum(df):
         res = res.append(test.toPandas(), ignore_index=True)
     res = res.sort_values(["user_id", "item_id"]).reset_index(drop=True)
     assert all(res == df)
+
+
+def test_wrong_type(df):
+    with pytest.raises(ValueError):
+        next(k_folds(df, splitter="totally not user"))
