@@ -170,10 +170,8 @@ class NewUsersSplitter(Splitter):
             raise ValueError("test_size должен быть от 0 до 1")
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
-        start_date_by_user = (
-            log.groupby("user_id")
-            .agg(sf.min("timestamp").alias("start_dt"))
-            .cache()
+        start_date_by_user = log.groupby("user_id").agg(
+            sf.min("timestamp").alias("start_dt")
         )
         test_start_date = (
             start_date_by_user.groupby("start_dt")
@@ -190,20 +188,13 @@ class NewUsersSplitter(Splitter):
             .head()[0]
         )
 
-        train = log.filter(sf.col("timestamp") < test_start_date).cache()
+        train = log.filter(sf.col("timestamp") < test_start_date)
 
-        test = (
-            log.join(
-                start_date_by_user.filter(
-                    sf.col("start_dt") >= test_start_date
-                ),
-                how="inner",
-                on="user_id",
-            )
-            .drop("start_dt")
-            .cache()
-        )
-
+        test = log.join(
+            start_date_by_user.filter(sf.col("start_dt") >= test_start_date),
+            how="inner",
+            on="user_id",
+        ).drop("start_dt")
         return train, test
 
 
@@ -239,6 +230,6 @@ class ColdUserRandomSplitter(Splitter):
         train_users, test_users = users.randomSplit(
             [1 - self.test_size, self.test_size], seed=self.seed,
         )
-        train = log.join(train_users, on="user_id", how="inner").cache()
-        test = log.join(test_users, on="user_id", how="inner").cache()
+        train = log.join(train_users, on="user_id", how="inner")
+        test = log.join(test_users, on="user_id", how="inner")
         return train, test

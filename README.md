@@ -93,11 +93,11 @@ git clone https://sbtatlas.sigma.sbrf.ru/stash/scm/ailab/replay.git
 ```bash
 git clone ssh://git@stash.delta.sbrf.ru:7999/ailabrecsys/replay.git
 ```
- и установите библиотеку с помощью poetry:
+Рекомендуется устанавливать библиотеку в виртуальное окружение. 
+Если оно не создано, можно воспользоваться `install.sh`, который создаст окружение и установит туда библиотеку.
+Если необходимо установить в уже имеющееся окружение, это можно сделать с помощью следующих команд из папки `replay`.
 ```
-cd replay
-pip install --upgrade pip
-pip install poetry
+python3 resolve_mirror.py
 poetry install
 ```
 

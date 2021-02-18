@@ -102,7 +102,6 @@ class KNN(Recommender):
             )
             .filter(sf.col("similarity_order") <= self.num_neighbours)
             .drop("similarity_order")
-            .cache()
         )
 
     def _fit(
@@ -123,22 +122,24 @@ class KNN(Recommender):
             )
             .groupby("item_id_one", "item_id_two")
             .agg(sf.count("user_idx").alias("dot_product"))
-            .cache()
         )
         item_norms = (
             log.select("user_idx", "item_idx")
             .groupby("item_idx")
             .agg(sf.count("user_idx").alias("square_norm"))
             .select(sf.col("item_idx"), sf.sqrt("square_norm").alias("norm"))
-            .cache()
         )
-        all_items = log.select("item_idx").distinct().cache()
+        all_items = log.select("item_idx").distinct()
 
         similarity_matrix = self._get_similarity_matrix(
             all_items, dot_products, item_norms
-        ).cache()
+        )
 
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()
+
+    def _clear_cache(self):
+        if self.similarity:
+            self.similarity.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -161,7 +162,6 @@ class KNN(Recommender):
             .groupby("user_idx", "item_id_two")
             .agg(sf.sum("similarity").alias("relevance"))
             .withColumnRenamed("item_id_two", "item_idx")
-            .cache()
         )
 
         return recs

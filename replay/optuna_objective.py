@@ -149,7 +149,7 @@ def scenario_objective_calculator(
         items=split_data.items,
         user_features=split_data.user_features,
         item_features=split_data.item_features,
-    ).cache()
+    )
     logger.debug("-- Подсчет метрики в оптимизации")
     criterion_value = criterion(recs, split_data.test, k)
     logger.debug("%s=%.2f", criterion, criterion_value)
