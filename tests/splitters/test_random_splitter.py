@@ -1,28 +1,20 @@
 # pylint: disable-all
-from datetime import datetime
-
 import pytest
+import numpy as np
 
-from replay.constants import LOG_SCHEMA
 from replay.splitters import RandomSplitter
-from tests.utils import spark
 
 
 @pytest.fixture
-def log(spark):
-    return spark.createDataFrame(
-        data=[
-            ["user1", "item4", datetime(2019, 9, 12), 1.0],
-            ["user4", "item1", datetime(2019, 9, 12), 1.0],
-            ["user4", "item2", datetime(2019, 9, 13), 2.0],
-            ["user2", "item4", datetime(2019, 9, 14), 3.0],
-            ["user2", "item1", datetime(2019, 9, 14), 3.0],
-            ["user2", "item2", datetime(2019, 9, 15), 4.0],
-            ["user3", "item1", datetime(2019, 9, 16), 5.0],
-            ["user3", "item4", datetime(2019, 9, 16), 5.0],
-            ["user1", "item3", datetime(2019, 9, 17), 1.0],
-        ],
-        schema=LOG_SCHEMA,
+def log():
+    import pandas as pd
+
+    return pd.DataFrame(
+        {
+            "user_id": list(range(5000)),
+            "item_id": list(range(5000)),
+            "relevance": [1] * 5000,
+        }
     )
 
 
@@ -38,7 +30,9 @@ def test_nothing_is_lost(test_size, log):
         seed=1234,
     )
     train, test = splitter.split(log)
-    assert train.count() + test.count() == log.count()
+    real_test_size = test.count() / len(log)
+    assert train.count() + test.count() == len(log)
+    assert np.isclose(real_test_size, test_size, atol=0.01)
 
 
 @pytest.mark.parametrize("test_size", [-1.0, 2.0])

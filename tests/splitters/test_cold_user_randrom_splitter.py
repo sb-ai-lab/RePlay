@@ -31,4 +31,4 @@ def test(log):
     real_ratio = len(test_users) / len(log)
     assert np.isclose(
         real_ratio, ratio, atol=0.01
-    )  # спарк плевать хотел на weights ¯\_(ツ)_/¯
+    )  # weights у спарка стохастические ¯\_(ツ)_/¯
