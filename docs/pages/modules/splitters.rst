@@ -9,20 +9,37 @@
 
 .. autofunction:: replay.splitters.base_splitter.Splitter.split
 
-Делим внутри пользователя
---------------------------
 
-.. automodule:: replay.splitters.user_log_splitter
-   :members: UserSplitter
+UserSplitter
+-------------
+
+.. autoclass:: replay.splitters.user_log_splitter.UserSplitter
    :special-members: __init__
+
+k_folds
+---------
 
 Для разделения внутри пользователя также доступно разделение по фолдам.
 
 .. autofunction:: replay.splitters.user_log_splitter.k_folds
 
-Делим весь лог
-------------------
 
-.. automodule:: replay.splitters.log_splitter
-   :members: DateSplitter, RandomSplitter, NewUsersSplitter, ColdUserRandomSplitter
-   :special-members:
+DateSplitter
+-------------
+.. autoclass:: replay.splitters.log_splitter.DateSplitter
+   :special-members: __init__
+
+RandomSplitter
+----------------
+.. autoclass:: replay.splitters.log_splitter.RandomSplitter
+   :special-members: __init__
+
+NewUsersSplitter
+-----------------
+.. autoclass:: replay.splitters.log_splitter.NewUsersSplitter
+   :special-members: __init__
+
+ColdUserRandomSplitter
+------------------------
+.. autoclass:: replay.splitters.log_splitter.ColdUserRandomSplitter
+   :special-members: __init__
