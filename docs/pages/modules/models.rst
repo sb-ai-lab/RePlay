@@ -294,3 +294,8 @@ Stack
 
 .. autoclass:: replay.models.Stack
     :special-members: __init__
+
+Модель для холодных пользователей
+-----------------------------------
+.. autoclass:: replay.models.ColdUser
+   :members:
