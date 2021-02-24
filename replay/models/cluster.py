@@ -1,5 +1,5 @@
 # pylint: disable=invalid-name, too-many-arguments, attribute-defined-outside-init
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union, Iterable
 
 from pandas import DataFrame
 from pyspark.ml.clustering import KMeans
@@ -43,14 +43,23 @@ class ColdUser(BaseRecommender):
             raise ValueError("Wrong parameter name")
         self.kmeans = self.kmeans.setK(params["n"])
 
-    def fit(self, log: AnyDataFrame, user_features: AnyDataFrame) -> None:
+    def fit(
+        self,
+        log: AnyDataFrame,
+        user_features: AnyDataFrame,
+        force_reindex: bool = True,
+    ) -> None:
         """
         Выделить кластеры и посчитать популярность объектов в них.
 
         :param log: логи пользователей с историей для подсчета популярности объектов
         :param user_features: датафрейм связывающий `user_id` пользователей и их числовые признаки
+        :param force_reindex: обязательно создавать
+            индексы, даже если они были созданы ранее
         """
-        self._fit_wrap(log=log, user_features=user_features)
+        self._fit_wrap(
+            log=log, user_features=user_features, force_reindex=force_reindex
+        )
 
     def _fit(
         self,
@@ -86,9 +95,11 @@ class ColdUser(BaseRecommender):
 
     def predict(
         self,
-        user_features: DataFrame,
+        user_features: AnyDataFrame,
         k: int,
-        log: Optional[DataFrame] = None,
+        log: Optional[AnyDataFrame] = None,
+        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        items: Optional[Union[AnyDataFrame, Iterable]] = None,
     ) -> DataFrame:
         """
         Получить предсказания для переданных пользователей
@@ -105,6 +116,8 @@ class ColdUser(BaseRecommender):
             user_features=user_features,
             k=k,
             filter_seen_items=filter_seen,
+            users=users,
+            items=items,
         )
 
     def _predict(
