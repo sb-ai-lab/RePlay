@@ -7,7 +7,7 @@ from pyspark.ml.classification import (
 )
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import col, lit, udf, when
+from pyspark.sql.functions import lit, udf, when
 from pyspark.sql.types import DoubleType
 
 from replay.constants import AnyDataFrame
@@ -67,7 +67,7 @@ class ClassifierRec(HybridRecommender):
             self._augment_data(log, user_features, item_features)
             .withColumnRenamed("relevance", "label")
             .select("label", "features", "user_idx", "item_idx")
-        ).cache()
+        )
         self.model = self.spark_classifier.fit(self.augmented_data)
 
     def _augment_data(
@@ -83,46 +83,36 @@ class ClassifierRec(HybridRecommender):
         :param user_features: свойства пользователей в стандартном формате
         :param item_features: свойства объектов в стандартном формате
         :return: новый спарк-датафрейм, в котором к каждой строчке лога
-            добавлены фичи пользователя и объекта, которые в ней встречаются
+            добавлены фичи соответствующих пользователя и объекта
         """
         feature_cols = ["recs"] if self.use_recs_value else []
-        raw_join = log.withColumnRenamed("user_idx", "uid").withColumnRenamed(
-            "item_idx", "iid"
-        )
+        raw_join = log
         if user_features is not None:
-            user_vectors = (
-                VectorAssembler(
-                    inputCols=user_features.drop("user_idx").columns,
-                    outputCol="user_features",
-                )
-                .transform(user_features)
-                .cache()
-            )
+            user_vectors = VectorAssembler(
+                inputCols=user_features.drop("user_idx").columns,
+                outputCol="user_features",
+            ).transform(user_features)
             raw_join = raw_join.join(
                 user_vectors.select("user_idx", "user_features"),
-                on=col("user_idx") == col("uid"),
+                on="user_idx",
                 how="inner",
             )
             feature_cols += ["user_features"]
         if item_features is not None:
-            item_vectors = (
-                VectorAssembler(
-                    inputCols=item_features.drop("item_idx").columns,
-                    outputCol="item_features",
-                )
-                .transform(item_features)
-                .cache()
-            )
+            item_vectors = VectorAssembler(
+                inputCols=item_features.drop("item_idx").columns,
+                outputCol="item_features",
+            ).transform(item_features)
             raw_join = raw_join.join(
                 item_vectors.select("item_idx", "item_features"),
-                on=col("item_idx") == col("iid"),
+                on="item_idx",
                 how="inner",
             )
             feature_cols += ["item_features"]
         if feature_cols:
             return VectorAssembler(
                 inputCols=feature_cols, outputCol="features",
-            ).transform(raw_join.drop("iid", "uid"))
+            ).transform(raw_join)
         raise ValueError(
             "модель должна использовать хотя бы одно из: "
             "свойства пользователей, свойства объектов, "
@@ -161,11 +151,7 @@ class ClassifierRec(HybridRecommender):
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
         data = self._augment_data(
-            log.join(
-                users.withColumnRenamed("user_idx", "user"),
-                how="inner",
-                on=col("user_idx") == col("user"),
-            ).select(
+            log.join(users, on="user_idx", how="inner").select(
                 *(
                     ["item_idx", "user_idx"]
                     + (["recs"] if self.use_recs_value else [])
@@ -231,10 +217,8 @@ class ClassifierRec(HybridRecommender):
             "user_id", "item_id", "relevance"
         )
         recs = get_top_k_recs(recs, k)
-        recs = (
-            recs.withColumn(
-                "relevance",
-                when(recs["relevance"] < 0, 0).otherwise(recs["relevance"]),
-            )
-        ).cache()
+        recs = recs.withColumn(
+            "relevance",
+            when(recs["relevance"] < 0, 0).otherwise(recs["relevance"]),
+        )
         return recs

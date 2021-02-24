@@ -26,6 +26,32 @@ class ClassifierRecTestCase(PySparkTest):
             user_features=self.user_features,
             item_features=self.item_features,
         )
+        self.assertEqual(
+            ["label", "features", "user_idx", "item_idx"],
+            self.model.augmented_data.columns,
+        )
+        self.assertEqual(
+            self.model.augmented_data.sort(["user_idx", "item_idx"])
+            .select("features")
+            .head()[0]
+            .toArray()
+            .tolist(),
+            [1.0, 2.0, 3.0, 4.0],
+        )
+        self.assertEqual(self.model.model.treeWeights, 20 * [1.0])
+
+    def test_fit_item_features_only(self):
+        self.model.fit(
+            log=self.log, user_features=None, item_features=self.item_features,
+        )
+        self.assertEqual(
+            self.model.augmented_data.sort(["user_idx", "item_idx"])
+            .select("features")
+            .head()[0]
+            .toArray()
+            .tolist(),
+            [3.0, 4.0],
+        )
         self.assertEqual(self.model.model.treeWeights, 20 * [1.0])
 
     def test_predict(self):

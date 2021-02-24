@@ -66,6 +66,11 @@ class BaseRecommender(ABC):
         :param budget: количество попыток при поиске лучших гиперпараметров
         :return: словарь оптимальных параметров
         """
+        if self._search_space is None:
+            self.logger.warning(
+                "%s has no hyper parameters to optimize", str(self)
+            )
+            return None
         train = convert2spark(train)
         test = convert2spark(test)
 
@@ -93,11 +98,11 @@ class BaseRecommender(ABC):
             item_features_train = None
             item_features_test = None
 
-        users = test.select("user_id").distinct().cache()
-        items = test.select("item_id").distinct().cache()
+        users = test.select("user_id").distinct()
+        items = test.select("item_id").distinct()
         split_data = SplitData(
-            train.cache(),
-            test.cache(),
+            train,
+            test,
             users,
             items,
             user_features_train,
@@ -130,6 +135,7 @@ class BaseRecommender(ABC):
         """
         for param, value in params.items():
             setattr(self, param, value)
+        self._clear_cache()
 
     def __str__(self):
         return type(self).__name__
@@ -542,6 +548,11 @@ class BaseRecommender(ABC):
             item_features,
             filter_seen_items,
         )
+
+    def _clear_cache(self):
+        """
+        Очищает закэшированные данные spark.
+        """
 
 
 # pylint: disable=abstract-method

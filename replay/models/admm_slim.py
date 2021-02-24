@@ -89,12 +89,15 @@ class ADMMSLIM(Recommender):
     _mat_b: np.ndarray
     _mat_gamma: np.ndarray
     _search_space = {
-        "lambda_1": {"type": "loguniform", "args": [1e-9, 10]},
-        "lambda_2": {"type": "loguniform", "args": [1e-9, 1000]},
+        "lambda_1": {"type": "loguniform", "args": [1e-9, 50]},
+        "lambda_2": {"type": "loguniform", "args": [1e-9, 5000]},
     }
 
     def __init__(
-        self, lambda_1: float, lambda_2: float, seed: Optional[int] = None
+        self,
+        lambda_1: float = 5,
+        lambda_2: float = 5000,
+        seed: Optional[int] = None,
     ):
         """
         :param lambda_1: параметр l1 регуляризации
@@ -102,7 +105,7 @@ class ADMMSLIM(Recommender):
         :param seed: random seed
         """
         if lambda_1 < 0 or lambda_2 <= 0:
-            raise ValueError("Неверно указаны параметры для регуляризации")
+            raise ValueError("Неверно указаны параметры регуляризации")
         self.lambda_1 = lambda_1
         self.lambda_2 = lambda_2
         self.rho = lambda_2
@@ -179,7 +182,12 @@ class ADMMSLIM(Recommender):
                 "similarity": mat_c_sparse.data,
             }
         )
-        self.similarity = State().session.createDataFrame(mat_c_pd).cache()
+        self.similarity = State().session.createDataFrame(mat_c_pd)
+        self.similarity.cache()
+
+    def _clear_cache(self):
+        if self.similarity:
+            self.similarity.unpersist()
 
     def _init_matrix(
         self, size: int
@@ -223,7 +231,6 @@ class ADMMSLIM(Recommender):
             .groupby("user_idx", "item_idx")
             .agg(sf.sum("similarity").alias("relevance"))
             .select("user_idx", "item_idx", "relevance")
-            .cache()
         )
 
         return recs

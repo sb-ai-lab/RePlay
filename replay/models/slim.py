@@ -19,14 +19,14 @@ class SLIM(Recommender):
     similarity: DataFrame
     can_predict_cold_users = True
     _search_space = {
-        "beta": {"type": "loguniform", "args": [1e-9, 2]},
+        "beta": {"type": "loguniform", "args": [1e-9, 5]},
         "lambda_": {"type": "loguniform", "args": [1e-9, 2]},
     }
 
     def __init__(
         self,
-        beta: float = 2.0,
-        lambda_: float = 0.5,
+        beta: float = 4.0,
+        lambda_: float = 0.02,
         seed: Optional[int] = None,
     ):
         """
@@ -65,6 +65,7 @@ class SLIM(Recommender):
             alpha=alpha,
             l1_ratio=l1_ratio,
             fit_intercept=False,
+            max_iter=5000,
             random_state=self.seed,
             selection="random",
             positive=True,
@@ -72,8 +73,8 @@ class SLIM(Recommender):
 
         def slim_row(pandas_df: pd.DataFrame) -> pd.DataFrame:
             """
-            Построчное обучение матрицы близости объектов, стохастическим
-            градиентным спуском
+            Построчное обучение матрицы близости объектов
+            стохастическим градиентным спуском
             :param pandas_df: pd.Dataframe
             :return: pd.Dataframe
             """
@@ -95,11 +96,14 @@ class SLIM(Recommender):
             }
             return pd.DataFrame(data=similarity_row)
 
-        self.similarity = (
-            similarity.groupby("item_id_one").applyInPandas(
-                slim_row, "item_id_one int, item_id_two int, similarity double"
-            )
-        ).cache()
+        self.similarity = similarity.groupby("item_id_one").applyInPandas(
+            slim_row, "item_id_one int, item_id_two int, similarity double"
+        )
+        self.similarity.cache()
+
+    def _clear_cache(self):
+        if self.similarity:
+            self.similarity.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -132,7 +136,6 @@ class SLIM(Recommender):
             .groupby("user_idx", "item_idx")
             .agg(sf.sum("similarity").alias("relevance"))
             .select("user_idx", "item_idx", "relevance")
-            .cache()
         )
 
         return recs

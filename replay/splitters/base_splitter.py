@@ -99,4 +99,4 @@ class Splitter(ABC):
         test = self._drop_cold_items_and_users(
             train, test, self.drop_cold_items, self.drop_cold_users
         )
-        return train, self._filter_zero_relevance(test)
+        return train.cache(), self._filter_zero_relevance(test).cache()

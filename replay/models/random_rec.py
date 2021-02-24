@@ -121,6 +121,7 @@ class RandomRec(Recommender):
     """
 
     item_popularity: DataFrame
+    fill: float
     can_predict_cold_users = True
     can_predict_cold_items = True
     _search_space = {
@@ -173,12 +174,17 @@ class RandomRec(Recommender):
         )
         self.item_popularity = self.item_popularity.selectExpr(
             "item_idx", f"{probability} AS probability"
-        ).cache()
+        )
+        self.item_popularity.cache()
         if self.add_cold:
             fill = self.item_popularity.agg({"probability": "min"}).first()[0]
         else:
             fill = 0
-        self.fill = fill  # pylint: disable=attribute-defined-outside-init
+        self.fill = fill
+
+    def _clear_cache(self):
+        if self.item_popularity:
+            self.item_popularity.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(

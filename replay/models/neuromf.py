@@ -245,7 +245,7 @@ class NeuroMF(TorchRecommender):
     так и совместно.
     """
 
-    num_workers: int = 16
+    num_workers: int = 0
     batch_size_users: int = 100000
     trainer: Engine
     val_evaluator: Engine
@@ -276,6 +276,10 @@ class NeuroMF(TorchRecommender):
     ):
         """
         Инициализирует параметры модели.
+        Чтобы использовать только одну из архитектур (MLP или GMF), необходимо установить
+        для нее размерность эмбеддинга (embedding_mlp_dim или embedding_gmf_dim),
+        а для второй оставить значение None. При инициализации без указания размерностей
+        эмбеддингов создается модель MLP + GMF с размерностью эмбеддингов 128.
 
         :param learning_rate: шаг обучения
         :param epochs: количество эпох, в течение которых учимся

@@ -2,10 +2,12 @@
 ==========
 .. automodule:: replay.scenarios
 
-Модель для холодных пользователей
------------------------------------
-.. autoclass:: replay.scenarios.ColdUser
-   :members:
+
+Fallback
+---------
+.. autoclass:: replay.scenarios.Fallback
+   :special-members: __init__
+   :members: optimize
 
 Двухуровневый сценарий
 ----------------------
