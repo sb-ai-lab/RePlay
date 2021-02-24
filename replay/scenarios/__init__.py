@@ -3,4 +3,3 @@
 Например, разбиение данных, обучение моделей, подсчет метрик.
 """
 from replay.scenarios.two_stages_scenario import TwoStagesScenario
-from replay.scenarios.cluster import ColdUser

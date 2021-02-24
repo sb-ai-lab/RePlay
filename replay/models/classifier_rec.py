@@ -224,7 +224,7 @@ class ClassifierRec(HybridRecommender):
         item_features = self._convert_index(item_features)
         users = self._convert_index(users)
         log = self._convert_index(log)
-        users = self._extract_unique(log, users, "user_idx")
+        users = self._get_ids(users or log, "user_idx")
 
         recs = self._rerank(log, users, user_features, item_features)
         recs = self._convert_back(recs, user_type, item_type).select(

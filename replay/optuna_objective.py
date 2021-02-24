@@ -11,11 +11,9 @@ from optuna import Trial
 from replay.metrics.base_metric import Metric
 
 SplitData = collections.namedtuple(
-    "SplitData", "train test users items user_features item_features"
-)
-
-ColdSplitData = collections.namedtuple(
-    "ColdSplitData", "train test user_features_train user_features_test"
+    "SplitData",
+    "train test users items user_features_train "
+    "user_features_test item_features_train item_features_test",
 )
 
 
@@ -141,8 +139,8 @@ def scenario_objective_calculator(
     # pylint: disable=protected-access
     recommender._fit_wrap(
         split_data.train,
-        split_data.user_features,
-        split_data.item_features,
+        split_data.user_features_train,
+        split_data.item_features_train,
         False,
     )
     logger.debug("-- Предикт модели в оптимизации")
@@ -151,8 +149,8 @@ def scenario_objective_calculator(
         k=k,
         users=split_data.users,
         items=split_data.items,
-        user_features=split_data.user_features,
-        item_features=split_data.item_features,
+        user_features=split_data.user_features_test,
+        item_features=split_data.item_features_test,
     ).cache()
     logger.debug("-- Подсчет метрики в оптимизации")
     criterion_value = criterion(recs, split_data.test, k)
@@ -162,38 +160,4 @@ def scenario_objective_calculator(
 
 MainObjective = partial(
     ObjectiveWrapper, objective_calculator=scenario_objective_calculator
-)
-
-
-def cold_user_objective_calculator(
-    trial: Trial,
-    search_space: List,
-    split_data: ColdSplitData,
-    recommender,
-    criterion: Metric,
-    k: int,
-):
-    """
-    Функция для вычисления значения критерия при выбранных гиперпараметрах.
-    :param trial: optuna trial, текущий запуск поиска гиперпараметров
-    :param search_space: пространство поиска гиперпараметров, определенное пользователем
-    :param split_data: данные для обучения
-    :param recommender: модель replay
-    :param criterion: критерий оптимизации (метрика)
-    :param k: число рекомендаций
-    :return: значение оптимизируемого критерия
-    """
-    low, high = search_space
-    # pylint: disable=invalid-name
-    n = trial.suggest_int("n", low=low, high=high, log=True)
-    recommender.fit(split_data.train, split_data.user_features_train, n)
-    pred = recommender.predict(
-        split_data.user_features_test, k, split_data.train
-    )
-    criterion_value = criterion(pred, split_data.test, k)
-    return criterion_value
-
-
-ColdObjective = partial(
-    ObjectiveWrapper, objective_calculator=cold_user_objective_calculator
 )
