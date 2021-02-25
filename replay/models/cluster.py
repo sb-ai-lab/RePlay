@@ -11,7 +11,7 @@ from replay.models.base_rec import BaseRecommender
 from replay.session_handler import State
 
 
-class ColdUser(BaseRecommender):
+class ClusterRec(BaseRecommender):
     """
     Модель для рекомендаций холодным пользователям популярных объектов из их кластера.
     Кластеры выделяются из пользователей с историей по их признакам с помощью k means.

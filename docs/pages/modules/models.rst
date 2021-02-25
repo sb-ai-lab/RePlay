@@ -297,5 +297,5 @@ Stack
 
 Модель для холодных пользователей
 -----------------------------------
-.. autoclass:: replay.models.ColdUser
+.. autoclass:: replay.models.ClusterRec
    :members:
