@@ -182,7 +182,12 @@ class ADMMSLIM(Recommender):
                 "similarity": mat_c_sparse.data,
             }
         )
-        self.similarity = State().session.createDataFrame(mat_c_pd).cache()
+        self.similarity = State().session.createDataFrame(mat_c_pd)
+        self.similarity.cache()
+
+    def _clear_cache(self):
+        if self.similarity:
+            self.similarity.unpersist()
 
     def _init_matrix(
         self, size: int
@@ -226,7 +231,6 @@ class ADMMSLIM(Recommender):
             .groupby("user_idx", "item_idx")
             .agg(sf.sum("similarity").alias("relevance"))
             .select("user_idx", "item_idx", "relevance")
-            .cache()
         )
 
         return recs

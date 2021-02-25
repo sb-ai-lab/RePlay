@@ -342,7 +342,7 @@ class DataPreparator:
             features_columns,
             default_schema={**required_columns, **optional_columns},
             date_format=date_format,
-        ).cache()
+        )
         return dataframe2
 
     @staticmethod

@@ -95,13 +95,12 @@ class TwoStagesScenario:
         self, log: DataFrame
     ) -> Tuple[DataFrame, DataFrame, DataFrame]:
         mixed_train, test = self.second_stage_splitter.split(log)
-        mixed_train.cache()
         State().logger.debug("mixed_train stat: %s", get_log_info(mixed_train))
         State().logger.debug("test stat: %s", get_log_info(test))
         first_train, first_test = self.first_stage_splitter.split(mixed_train)
         State().logger.debug("first_train stat: %s", get_log_info(first_train))
         State().logger.debug("first_test stat: %s", get_log_info(first_test))
-        return first_train.cache(), first_test.cache(), test.cache()
+        return first_train, first_test, test
 
     def _get_first_stage_recs(
         self, first_train: DataFrame, first_test: DataFrame
@@ -109,9 +108,9 @@ class TwoStagesScenario:
         return self.first_model.fit_predict(
             log=first_train,
             k=self.first_stage_k,
-            users=first_test.select("user_id").distinct().cache(),
-            items=first_train.select("item_id").distinct().cache(),
-        ).cache()
+            users=first_test.select("user_id").distinct(),
+            items=first_train.select("item_id").distinct(),
+        )
 
     @staticmethod
     def _join_features(
@@ -122,7 +121,7 @@ class TwoStagesScenario:
     ) -> DataFrame:
         if other_df is None:
             return first_df
-        return first_df.join(other_df, how=how, on=on_col).cache()
+        return first_df.join(other_df, how=how, on=on_col)
 
     def _second_stage_data(
         self,
@@ -132,18 +131,14 @@ class TwoStagesScenario:
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> Tuple[DataFrame, DataFrame, DataFrame]:
-        user_features_factors = (
-            self.first_model.inv_user_indexer.transform(
-                horizontal_explode(
-                    self.first_model.model.userFactors,
-                    "features",
-                    "user_feature",
-                    [col("id").alias("user_idx")],
-                )
+        user_features_factors = self.first_model.inv_user_indexer.transform(
+            horizontal_explode(
+                self.first_model.model.userFactors,
+                "features",
+                "user_feature",
+                [col("id").alias("user_idx")],
             )
-            .drop("user_idx")
-            .cache()
-        )
+        ).drop("user_idx")
         if self.stat_features:
             user_statistics = get_stats(first_train)
             user_features = self._join_features(user_statistics, user_features)
@@ -157,18 +152,14 @@ class TwoStagesScenario:
             user_features_factors, user_features
         )
 
-        item_features_factors = (
-            self.first_model.inv_item_indexer.transform(
-                horizontal_explode(
-                    self.first_model.model.itemFactors,
-                    "features",
-                    "item_feature",
-                    [col("id").alias("item_idx")],
-                )
+        item_features_factors = self.first_model.inv_item_indexer.transform(
+            horizontal_explode(
+                self.first_model.model.itemFactors,
+                "features",
+                "item_feature",
+                [col("id").alias("item_idx")],
             )
-            .drop("item_idx")
-            .cache()
-        )
+        ).drop("item_idx")
         item_features = self._join_features(
             item_features_factors, item_features, "item_id"
         )
@@ -190,7 +181,7 @@ class TwoStagesScenario:
                 when(isnull("relevance"), lit(0)).otherwise(lit(1)),
             )
             .drop("uid", "iid")
-        ).cache()
+        )
         State().logger.debug(
             "баланс классов: положительных %d из %d",
             second_train.filter("relevance = 1").count(),
@@ -273,7 +264,7 @@ class TwoStagesScenario:
         """
 
         first_train, first_test, test = self._split_data(log)
-        full_train = first_train.union(first_test).cache()
+        full_train = first_train.union(first_test)
 
         first_recs = self._get_first_stage_recs(first_train, first_test)
         user_features, item_features, second_train = self._second_stage_data(
@@ -284,7 +275,7 @@ class TwoStagesScenario:
             k=self.first_stage_k,
             users=test.select("user_id").distinct(),
             items=first_train.select("item_id").distinct(),
-        ).cache()
+        )
         # pylint: disable=protected-access
         self.second_model._fit_wrap(
             log=second_train,
@@ -297,8 +288,8 @@ class TwoStagesScenario:
             k=k,
             user_features=user_features,
             item_features=item_features,
-            users=test.select("user_id").distinct().cache(),
-        ).cache()
+            users=test.select("user_id").distinct(),
+        )
         State().logger.debug(
             "ROC AUC модели второго уровня (как классификатора): %.4f",
             BinaryClassificationEvaluator().evaluate(
