@@ -33,9 +33,9 @@ def test_works(model):
 
 def test_raises_many_params(model):
     with pytest.raises(ValueError):
-        model.set_params(ђ=8, ў=10)
+        model.set_params(a=8, b=10)
 
 
 def test_raises_wrong_param(model):
     with pytest.raises(ValueError):
-        model.set_params(ў=1)
+        model.set_params(a=1)
