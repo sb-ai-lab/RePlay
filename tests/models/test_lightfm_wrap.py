@@ -52,8 +52,6 @@ def test_predict(log, user_features, item_features, model):
     pred = model.predict(
         log=log,
         k=1,
-        users=user_features.select("user_id"),
-        items=item_features.select("item_id"),
         user_features=user_features,
         item_features=item_features,
         filter_seen_items=True,

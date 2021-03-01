@@ -50,7 +50,7 @@ def test_predict(log, model):
     model.fit(log)
     recs = model.predict(log, k=1)
     assert np.allclose(
-        recs.toPandas().relevance,
+        recs.toPandas().sort_values("item_id").relevance,
         [
             0.06377475147367373,
             0.1383464632382898,
