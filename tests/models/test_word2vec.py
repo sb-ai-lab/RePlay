@@ -45,7 +45,7 @@ def test_fit(log, model):
     )
     assert np.allclose(
         vectors,
-        [[0, 5.45887464e-04], [2, 1.54838404e-01], [1, 2.13055389e-01],],
+        [[0, 5.45887464e-04], [2, 1.54838404e-01], [1, 2.13055389e-01]],
     )
 
 
@@ -54,5 +54,5 @@ def test_predict(log, model):
     recs = model.predict(log, k=1)
     assert np.allclose(
         recs.toPandas().sort_values("user_id").relevance,
-        [1.000322493440465, 0.9613139892286415, 0.9783670469059589,],
+        [1.000322493440465, 0.9613139892286415, 0.9783670469059589],
     )
