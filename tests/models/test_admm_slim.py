@@ -49,15 +49,7 @@ def test_fit(log, model):
 def test_predict(log, model):
     model.fit(log)
     recs = model.predict(log, k=1)
-    assert np.allclose(
-        recs.toPandas().sort_values("item_id").relevance,
-        [
-            0.06377475147367373,
-            0.1383464632382898,
-            0.030967752554031502,
-            0.1383538267114981,
-        ],
-    )
+    assert recs.count() == 4
 
 
 @pytest.mark.parametrize(
