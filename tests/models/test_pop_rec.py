@@ -37,3 +37,10 @@ def test_works(log, model):
         model.fit_predict(log, k=1)
     except:  # noqa
         pytest.fail()
+
+
+def test_clear_cache(model):
+    try:
+        model._clear_cache()
+    except:  # noqa
+        pytest.fail()

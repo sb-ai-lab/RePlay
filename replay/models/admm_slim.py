@@ -186,7 +186,7 @@ class ADMMSLIM(Recommender):
         self.similarity.cache()
 
     def _clear_cache(self):
-        if self.similarity:
+        if hasattr(self, "similarity"):
             self.similarity.unpersist()
 
     def _init_matrix(

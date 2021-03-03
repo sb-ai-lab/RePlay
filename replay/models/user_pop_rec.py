@@ -73,7 +73,7 @@ class UserPopRec(Recommender):
         self.item_popularity.cache()
 
     def _clear_cache(self):
-        if self.item_popularity:
+        if hasattr(self, "item_popularity"):
             self.item_popularity.unpersist()
 
     # pylint: disable=too-many-arguments
