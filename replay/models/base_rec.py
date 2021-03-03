@@ -26,7 +26,7 @@ from replay.utils import get_top_k_recs, convert2spark
 class BaseRecommender(ABC):
     """ Базовый класс-рекомендатель. """
 
-    model: Any = None
+    model: Any
     user_indexer: StringIndexerModel
     item_indexer: StringIndexerModel
     inv_user_indexer: IndexToString
