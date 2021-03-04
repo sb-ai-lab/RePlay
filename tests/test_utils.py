@@ -1,63 +1,32 @@
-"""
-Библиотека рекомендательных систем Лаборатории по искусственному интеллекту
-"""
 # pylint: disable-all
 import os
 import re
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 from pyspark.sql import SparkSession
-from pyspark.sql.types import (
-    DoubleType,
-    LongType,
-    StringType,
-    StructField,
-    StructType,
-)
 
-from tests.pyspark_testcase import PySparkTest
 
 import replay.session_handler
 from replay import utils
 
 
-class UtilsTestCase(PySparkTest):
-    def test_func_get(self):
-        vector = np.arange(2)
-        self.assertEqual(utils.func_get(vector, 0), 0.0)
+def test_func_get():
+    vector = np.arange(2)
+    assert utils.func_get(vector, 0) == 0.0
 
-    def test_get_spark_session(self):
-        spark = replay.session_handler.get_spark_session(1)
-        self.assertIsInstance(spark, SparkSession)
-        self.assertEqual(spark.conf.get("spark.driver.memory"), "1g")
 
-    def setUp(self):
-        self.pandas_data_frame = pd.DataFrame(
-            [[1, "a", 3.0], [3, "b", 5.0]], columns=["a", "b", "c"]
-        )
-        self.spark_data_frame = self.spark.createDataFrame(
-            [[1, "a", 3.0], [3, "b", 5.0]],
-            schema=StructType(
-                [
-                    StructField("a", LongType()),
-                    StructField("b", StringType()),
-                    StructField("c", DoubleType()),
-                ]
-            ),
-        )
+def test_get_spark_session():
+    spark = replay.session_handler.get_spark_session(1)
+    assert isinstance(spark, SparkSession)
+    assert spark.conf.get("spark.driver.memory") == "1g"
 
-    def test_pandas_convert(self):
-        self.assertSparkDataFrameEqual(
-            self.spark_data_frame, utils.convert2spark(self.pandas_data_frame)
-        )
 
-    def test_spark_is_unchanged(self):
-        spark_data_frame = utils.convert2spark(self.pandas_data_frame)
-        self.assertEqual(
-            spark_data_frame, utils.convert2spark(spark_data_frame)
-        )
+def test_convert():
+    df = pd.DataFrame([[1, "a", 3.0], [3, "b", 5.0]], columns=["a", "b", "c"])
+    sf = utils.convert2spark(df)
+    pd.testing.assert_frame_equal(df, sf.toPandas())
+    assert utils.convert2spark(sf) is sf
 
 
 def del_files_by_pattern(directory: str, pattern: str) -> None:
@@ -67,13 +36,3 @@ def del_files_by_pattern(directory: str, pattern: str) -> None:
     for filename in os.listdir(directory):
         if re.match(pattern, filename):
             os.remove(os.path.join(directory, filename))
-
-
-def find_file_by_pattern(directory: str, pattern: str) -> Optional[str]:
-    """
-    Возвращает путь к первому найденному файлу в директории, соответствующему паттерну,
-    или None, если таких файлов нет
-    """
-    for filename in os.listdir(directory):
-        if re.match(pattern, filename):
-            return os.path.join(directory, filename)
