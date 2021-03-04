@@ -295,7 +295,7 @@ Stack
 .. autoclass:: replay.models.Stack
     :special-members: __init__
 
-Модель для холодных пользователей
+Кластерная модель для холодных пользователей
 -----------------------------------
 .. autoclass:: replay.models.ClusterRec
    :members:

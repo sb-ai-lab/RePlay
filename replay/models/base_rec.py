@@ -74,29 +74,12 @@ class BaseRecommender(ABC):
         train = convert2spark(train)
         test = convert2spark(test)
 
-        if user_features is not None:
-            user_features = convert2spark(user_features)
-            user_features_train = user_features.join(
-                train.select("user_id"), on="user_id"
-            )
-            user_features_test = user_features.join(
-                test.select("user_id"), on="user_id"
-            )
-        else:
-            user_features_train = None
-            user_features_test = None
-
-        if item_features is not None:
-            item_features = convert2spark(item_features)
-            item_features_train = item_features.join(
-                train.select("item_id"), on="item_id"
-            )
-            item_features_test = item_features.join(
-                test.select("item_id"), on="item_id"
-            )
-        else:
-            item_features_train = None
-            item_features_test = None
+        user_features_train, user_features_test = self._train_test_features(
+            train, test, user_features
+        )
+        item_features_train, item_features_test = self._train_test_features(
+            train, test, item_features
+        )
 
         users = test.select("user_id").distinct()
         items = test.select("item_id").distinct()
@@ -124,6 +107,21 @@ class BaseRecommender(ABC):
         )
         study.optimize(objective, budget)
         return study.best_params
+
+    @staticmethod
+    def _train_test_features(train, test, features):
+        if features is not None:
+            features = convert2spark(features)
+            user_features_train = features.join(
+                train.select("user_id"), on="user_id"
+            )
+            user_features_test = features.join(
+                test.select("user_id"), on="user_id"
+            )
+        else:
+            user_features_train = None
+            user_features_test = None
+        return user_features_train, user_features_test
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
