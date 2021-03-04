@@ -20,6 +20,8 @@ def test_get_spark_session():
     spark = replay.session_handler.get_spark_session(1)
     assert isinstance(spark, SparkSession)
     assert spark.conf.get("spark.driver.memory") == "1g"
+    assert replay.session_handler.State(spark).session is spark
+    assert replay.session_handler.State().session is spark
 
 
 def test_convert():
