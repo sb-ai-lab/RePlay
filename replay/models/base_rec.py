@@ -289,15 +289,13 @@ class BaseRecommender(ABC):
         user_features = convert2spark(user_features)
         item_features = convert2spark(item_features)
 
-        item_type, user_type = self._get_input_types(
-            log, user_features, item_features
-        )
-
         user_data = users or log or user_features or self.user_indexer.labels
         users = self._get_ids(user_data, "user_id")
+        user_type = users.schema["user_id"].dataType
 
         item_data = items or log or item_features or self.item_indexer.labels
         items = self._get_ids(item_data, "item_id")
+        item_type = items.schema["item_id"].dataType
 
         log = self._convert_index(log)
         users = self._convert_index(users)
@@ -320,7 +318,6 @@ class BaseRecommender(ABC):
             item_features,
             filter_seen_items,
         )
-        recs = recs.join(items, on="item_idx", how="left")
         if filter_seen_items:
             recs = recs.join(
                 log.withColumnRenamed("item_idx", "item")
@@ -335,22 +332,6 @@ class BaseRecommender(ABC):
         )
         recs = get_top_k_recs(recs, k)
         return recs
-
-    @staticmethod
-    def _get_input_types(log, user_features, item_features):
-        if log is not None:
-            user_type = log.schema["user_id"].dataType
-            item_type = log.schema["item_id"].dataType
-        else:
-            if user_features is not None:
-                user_type = user_features.schema["user_id"].dataType
-            else:
-                user_type = "string"
-            if item_features is not None:
-                item_type = item_features.schema["item_id"].dataType
-            else:
-                item_type = "string"
-        return item_type, user_type
 
     def _convert_index(self, data_frame: DataFrame) -> DataFrame:
         """
