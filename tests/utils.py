@@ -1,11 +1,14 @@
 # pylint: skip-file
 
 from datetime import datetime
-from typing import Dict
+from typing import Dict, List
 
+import numpy as np
 import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
+from pyspark.ml.linalg import DenseVector
+from pyspark.sql import DataFrame
 
 from replay.constants import REC_SCHEMA, LOG_SCHEMA
 from replay.session_handler import get_spark_session
@@ -114,4 +117,32 @@ def log(spark):
             ["user4", "item1", datetime(2019, 8, 26), 1.0],
         ],
         schema=LOG_SCHEMA,
+    )
+
+
+def unify_dataframe(data_frame: DataFrame):
+    pandas_df = data_frame.toPandas()
+    columns_to_sort_by: List[str] = []
+
+    if len(pandas_df) == 0:
+        columns_to_sort_by = pandas_df.columns
+    else:
+        for column in pandas_df.columns:
+            if not type(pandas_df[column][0]) in {
+                DenseVector,
+                list,
+                np.ndarray,
+            }:
+                columns_to_sort_by.append(column)
+
+    return (
+        pandas_df[sorted(data_frame.columns)]
+        .sort_values(by=sorted(columns_to_sort_by))
+        .reset_index(drop=True)
+    )
+
+
+def sparkDataFrameEqual(df1: DataFrame, df2: DataFrame):
+    return pd.testing.assert_frame_equal(
+        unify_dataframe(df1), unify_dataframe(df2), check_like=True
     )
