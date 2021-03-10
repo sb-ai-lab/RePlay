@@ -112,14 +112,12 @@ class BaseRecommender(ABC):
     def _train_test_features(train, test, features, column):
         if features is not None:
             features = convert2spark(features)
-            user_features_train = features.join(
-                train.select(column), on=column
-            )
-            user_features_test = features.join(test.select(column), on=column)
+            features_train = features.join(train.select(column), on=column)
+            features_test = features.join(test.select(column), on=column)
         else:
-            user_features_train = None
-            user_features_test = None
-        return user_features_train, user_features_test
+            features_train = None
+            features_test = None
+        return features_train, features_test
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
