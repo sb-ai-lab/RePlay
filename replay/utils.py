@@ -11,9 +11,7 @@ from replay.constants import NumType, AnyDataFrame
 from replay.session_handler import State
 
 
-def convert2spark(
-    data_frame: Union[AnyDataFrame, None]
-) -> Union[DataFrame, None]:
+def convert2spark(data_frame: Optional[AnyDataFrame]) -> Optional[DataFrame]:
     """
     Обеспечивает конвертацию данных в спарк и обратно.
 

@@ -80,8 +80,10 @@ class ClusterRec(BaseRecommender):
         log = log.groupBy(["cluster", "item_idx"]).agg(
             sf.count("item_idx").alias("count")
         )
-        m = log.groupby("cluster").agg(sf.max("count").alias("max"))
-        log = log.join(m, on="cluster", how="left")
+        max_count_per_cluster = log.groupby("cluster").agg(
+            sf.max("count").alias("max")
+        )
+        log = log.join(max_count_per_cluster, on="cluster", how="left")
         log = log.withColumn(
             "relevance", sf.col("count") / sf.col("max")
         ).drop("count", "max")
@@ -137,5 +139,5 @@ class ClusterRec(BaseRecommender):
             .select("user_idx", "prediction")
             .withColumnRenamed("prediction", "cluster")
         )
-        pred = df.join(self.recs, on="cluster")
+        pred = df.join(self.recs, on="cluster").drop("cluster")
         return pred

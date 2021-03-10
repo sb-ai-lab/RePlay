@@ -75,10 +75,10 @@ class BaseRecommender(ABC):
         test = convert2spark(test)
 
         user_features_train, user_features_test = self._train_test_features(
-            train, test, user_features
+            train, test, user_features, "user_id"
         )
         item_features_train, item_features_test = self._train_test_features(
-            train, test, item_features
+            train, test, item_features, "item_id"
         )
 
         users = test.select("user_id").distinct()
@@ -109,15 +109,13 @@ class BaseRecommender(ABC):
         return study.best_params
 
     @staticmethod
-    def _train_test_features(train, test, features):
+    def _train_test_features(train, test, features, column):
         if features is not None:
             features = convert2spark(features)
             user_features_train = features.join(
-                train.select("user_id"), on="user_id"
+                train.select(column), on=column
             )
-            user_features_test = features.join(
-                test.select("user_id"), on="user_id"
-            )
+            user_features_test = features.join(test.select(column), on=column)
         else:
             user_features_train = None
             user_features_test = None
