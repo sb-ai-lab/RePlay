@@ -242,7 +242,7 @@ class BaseRecommender(ABC):
     # pylint: disable=too-many-arguments
     def _predict_wrap(
         self,
-        log: AnyDataFrame,
+        log: Optional[AnyDataFrame],
         k: int,
         users: Optional[Union[AnyDataFrame, Iterable]] = None,
         items: Optional[Union[AnyDataFrame, Iterable]] = None,
@@ -314,7 +314,7 @@ class BaseRecommender(ABC):
             item_features,
             filter_seen_items,
         )
-        if filter_seen_items:
+        if filter_seen_items and log:
             recs = recs.join(
                 log.withColumnRenamed("item_idx", "item")
                 .withColumnRenamed("user_idx", "user")
@@ -773,4 +773,54 @@ class Recommender(BaseRecommender):
             item_features=None,
             filter_seen_items=filter_seen_items,
             force_reindex=force_reindex,
+        )
+
+
+class UserRecommender(BaseRecommender):
+    """Использует фичи пользователей, но не использует фичи айтемов. Лог — необязательный параметр."""
+
+    def fit(
+        self,
+        log: AnyDataFrame,
+        user_features: AnyDataFrame,
+        force_reindex: bool = True,
+    ) -> None:
+        """
+        Выделить кластеры и посчитать популярность объектов в них.
+
+        :param log: логи пользователей с историей для подсчета популярности объектов
+        :param user_features: датафрейм связывающий `user_id` пользователей и их числовые признаки
+        :param force_reindex: обязательно создавать
+            индексы, даже если они были созданы ранее
+        """
+        self._fit_wrap(
+            log=log, user_features=user_features, force_reindex=force_reindex
+        )
+
+    # pylint: disable=too-many-arguments
+    def predict(
+        self,
+        user_features: AnyDataFrame,
+        k: int,
+        log: Optional[AnyDataFrame] = None,
+        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        items: Optional[Union[AnyDataFrame, Iterable]] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        """
+        Получить предсказания для переданных пользователей
+
+        :param user_features: айди пользователей с числовыми фичами
+        :param k: длина рекомендаций
+        :param log: опциональный датафрейм с логами пользователей.
+            Если передан, объекты отсюда удаляются из рекомендаций для соответствующих пользователей.
+        :return: датафрейм с рекомендациями
+        """
+        return self._predict_wrap(
+            log=log,
+            user_features=user_features,
+            k=k,
+            filter_seen_items=filter_seen_items,
+            users=users,
+            items=items,
         )

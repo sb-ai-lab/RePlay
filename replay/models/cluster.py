@@ -1,17 +1,16 @@
 # pylint: disable=invalid-name, too-many-arguments, attribute-defined-outside-init
-from typing import Optional, Dict, Any, Union, Iterable
+from typing import Optional, Dict, Any
 
 from pandas import DataFrame
 from pyspark.ml.clustering import KMeans
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import functions as sf
 
-from replay.constants import AnyDataFrame
-from replay.models.base_rec import BaseRecommender
+from replay.models.base_rec import UserRecommender
 from replay.session_handler import State
 
 
-class ClusterRec(BaseRecommender):
+class ClusterRec(UserRecommender):
     """
     Модель для рекомендаций холодным пользователям популярных объектов из их кластера.
     Кластеры выделяются из пользователей с историей по их признакам с помощью k means.
@@ -42,24 +41,6 @@ class ClusterRec(BaseRecommender):
         if "n" not in params:
             raise ValueError("Wrong parameter name")
         self.kmeans = self.kmeans.setK(params["n"])
-
-    def fit(
-        self,
-        log: AnyDataFrame,
-        user_features: AnyDataFrame,
-        force_reindex: bool = True,
-    ) -> None:
-        """
-        Выделить кластеры и посчитать популярность объектов в них.
-
-        :param log: логи пользователей с историей для подсчета популярности объектов
-        :param user_features: датафрейм связывающий `user_id` пользователей и их числовые признаки
-        :param force_reindex: обязательно создавать
-            индексы, даже если они были созданы ранее
-        """
-        self._fit_wrap(
-            log=log, user_features=user_features, force_reindex=force_reindex
-        )
 
     def _fit(
         self,
@@ -94,33 +75,6 @@ class ClusterRec(BaseRecommender):
         feature_columns = df.drop("user_idx").columns
         vec = VectorAssembler(inputCols=feature_columns, outputCol="features")
         return vec.transform(df).select("user_idx", "features")
-
-    def predict(
-        self,
-        user_features: AnyDataFrame,
-        k: int,
-        log: Optional[AnyDataFrame] = None,
-        users: Optional[Union[AnyDataFrame, Iterable]] = None,
-        items: Optional[Union[AnyDataFrame, Iterable]] = None,
-    ) -> DataFrame:
-        """
-        Получить предсказания для переданных пользователей
-
-        :param user_features: айди пользователей с числовыми фичами
-        :param k: длина рекомендаций
-        :param log: опциональный датафрейм с логами пользователей.
-            Если передан, объекты отсюда удаляются из рекомендаций для соответствующих пользователей.
-        :return: датафрейм с рекомендациями
-        """
-        filter_seen = bool(log)
-        return self._predict_wrap(
-            log=log,
-            user_features=user_features,
-            k=k,
-            filter_seen_items=filter_seen,
-            users=users,
-            items=items,
-        )
 
     def _predict(
         self,
