@@ -1,6 +1,7 @@
 # pylint: disable-all
 import os
 import re
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -38,3 +39,13 @@ def del_files_by_pattern(directory: str, pattern: str) -> None:
     for filename in os.listdir(directory):
         if re.match(pattern, filename):
             os.remove(os.path.join(directory, filename))
+
+
+def find_file_by_pattern(directory: str, pattern: str) -> Optional[str]:
+    """
+    Возвращает путь к первому найденному файлу в директории, соответствующему паттерну,
+    или None, если таких файлов нет
+    """
+    for filename in os.listdir(directory):
+        if re.match(pattern, filename):
+            return os.path.join(directory, filename)
