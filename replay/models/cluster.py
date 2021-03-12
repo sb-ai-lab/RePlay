@@ -1,5 +1,5 @@
 # pylint: disable=invalid-name, too-many-arguments, attribute-defined-outside-init
-from typing import Optional, Dict, Any
+from typing import Optional
 
 from pandas import DataFrame
 from pyspark.ml.clustering import KMeans
@@ -26,21 +26,7 @@ class ClusterRec(UserRecommender):
         :param n: количество кластеров
         """
         State()  # инициализируем сессию, если не создана
-        self.kmeans = KMeans().setK(n).setFeaturesCol("features")
-
-    def set_params(self, **params: Dict[str, Any]) -> None:
-        """
-        Устанавливает параметры модели.
-
-        :param params: словарь, ключ - название параметра,
-            значение - значение параметра
-        :return:
-        """
-        if len(params) != 1:
-            raise ValueError("Wrong number of params passed")
-        if "n" not in params:
-            raise ValueError("Wrong parameter name")
-        self.kmeans = self.kmeans.setK(params["n"])
+        self.n = n
 
     def _fit(
         self,
@@ -49,8 +35,9 @@ class ClusterRec(UserRecommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
 
+        kmeans = KMeans().setK(self.n).setFeaturesCol("features")
         df = self._transform_features(user_features)
-        self.model = self.kmeans.fit(df)
+        self.model = kmeans.fit(df)
         df = (
             self.model.transform(df)
             .select("user_idx", "prediction")
