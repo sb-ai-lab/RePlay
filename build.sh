@@ -11,4 +11,4 @@ make clean html --directory=docs
 cp -R docs/_build/html/. $1/docs
 poetry build
 cp -R dist/. $1/dist
-rsync -a --exclude=".*" experiments/ ../replay-distr/examples
+rsync -a --exclude=".*" experiments/ $1/examples
