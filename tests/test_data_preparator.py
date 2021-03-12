@@ -129,7 +129,7 @@ big_test = [
             ["u2", "12", datetime(1935, 12, 15), 1.0],
             ["u5", "303030", datetime(1989, 6, 26), 1.0],
         ],
-        {"user_id": "user_like", "item_id": "item_like", "timestamp": "ts",},
+        {"user_id": "user_like", "item_id": "item_like", "timestamp": "ts"},
     ),
     (
         [
@@ -157,7 +157,7 @@ big_test = [
             ["u6788888", "1", datetime(2045, 7, 18), 1.0],
             ["1222222", "item10000", datetime(2019, 9, 30), 0.001],
         ],
-        {"user_id": "u", "item_id": "i", "timestamp": "d", "relevance": "r",},
+        {"user_id": "u", "item_id": "i", "timestamp": "d", "relevance": "r"},
     ),
 ]
 
@@ -240,7 +240,7 @@ format_data = [
             ["u1", "f2", datetime(1995, 11, 1), 1.0],
             ["u2", "f1", datetime(2000, 3, 30), 1.0],
         ],
-        {"user_id": "user", "item_id": "item", "timestamp": "string_time",},
+        {"user_id": "user", "item_id": "item", "timestamp": "string_time"},
     ),
 ]
 
@@ -299,9 +299,9 @@ null_column_data = [
         {"item_id": "item", "timestamp": "ts"},
     ),
     (
-        [["1", 1, None], ["1", 2, "2019-01-01"], ["2", 3, "2019-01-01"],],
+        [["1", 1, None], ["1", 2, "2019-01-01"], ["2", 3, "2019-01-01"]],
         ["user", "feature", "timestamp"],
-        {"user_id": "user", "feature": "feature", "timestamp": "timestamp",},
+        {"user_id": "user", "feature": "feature", "timestamp": "timestamp"},
     ),
     (
         [
@@ -390,9 +390,9 @@ def test_transform_features_no_feature_columns_exception(
 transform_data = [
     # feature_data, feature_schema, true_feature_data, columns_names, features_columns
     (
-        [["user1", "feature1"], ["user1", "feature2"], ["user2", "feature1"],],
+        [["user1", "feature1"], ["user1", "feature2"], ["user2", "feature1"]],
         ["user", "f0"],
-        [["user1", "feature1"], ["user1", "feature2"], ["user2", "feature1"],],
+        [["user1", "feature1"], ["user1", "feature2"], ["user2", "feature1"]],
         {"user_id": "user"},
         "f0",
     ),
