@@ -52,7 +52,7 @@ def model():
 def test_extract_if_needed(spark, model, array):
     log = spark.createDataFrame(data=[[1], [2], [3]], schema=["test"])
     assert sorted(
-        list(model._extract_unique(log, log, "test").toPandas()["test"])
+        list(model._get_ids(log, log, "test").toPandas()["test"])
     ) == [1, 2, 3]
 
 

@@ -37,6 +37,7 @@ class BaseRecommender(ABC):
     _search_space: Optional[
         Dict[str, Union[str, Sequence[Union[str, int, float]]]]
     ] = None
+    _objective = MainObjective
 
     # pylint: disable=too-many-arguments, too-many-locals
     def optimize(
@@ -72,22 +73,32 @@ class BaseRecommender(ABC):
             return None
         train = convert2spark(train)
         test = convert2spark(test)
-        if user_features is not None:
-            user_features = convert2spark(user_features)
-        if item_features is not None:
-            item_features = convert2spark(item_features)
+
+        user_features_train, user_features_test = self._train_test_features(
+            train, test, user_features, "user_id"
+        )
+        item_features_train, item_features_test = self._train_test_features(
+            train, test, item_features, "item_id"
+        )
 
         users = test.select("user_id").distinct()
         items = test.select("item_id").distinct()
         split_data = SplitData(
-            train, test, users, items, user_features, item_features,
+            train,
+            test,
+            users,
+            items,
+            user_features_train,
+            user_features_test,
+            item_features_train,
+            item_features_test,
         )
         if param_grid is None:
             params = self._search_space.keys()
             vals = [None] * len(params)
             param_grid = dict(zip(params, vals))
         study = create_study(direction="maximize", sampler=TPESampler())
-        objective = MainObjective(
+        objective = self._objective(
             search_space=param_grid,
             split_data=split_data,
             recommender=self,
@@ -96,6 +107,17 @@ class BaseRecommender(ABC):
         )
         study.optimize(objective, budget)
         return study.best_params
+
+    @staticmethod
+    def _train_test_features(train, test, features, column):
+        if features is not None:
+            features = convert2spark(features)
+            features_train = features.join(train.select(column), on=column)
+            features_test = features.join(test.select(column), on=column)
+        else:
+            features_train = None
+            features_test = None
+        return features_train, features_test
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
@@ -137,19 +159,17 @@ class BaseRecommender(ABC):
         """
         self.logger.debug("Начало обучения %s", type(self).__name__)
         log = convert2spark(log)
-        if user_features is not None:
-            user_features = convert2spark(user_features)
-        if item_features is not None:
-            item_features = convert2spark(item_features)
+        user_features = convert2spark(user_features)
+        item_features = convert2spark(item_features)
+
         if "user_indexer" not in self.__dict__ or force_reindex:
             self.logger.debug("Предварительная стадия обучения (pre-fit)")
             self._create_indexers(log, user_features, item_features)
         self.logger.debug("Основная стадия обучения (fit)")
+
         log = self._convert_index(log)
-        if user_features is not None:
-            user_features = self._convert_index(user_features)
-        if item_features is not None:
-            item_features = self._convert_index(item_features)
+        user_features = self._convert_index(user_features)
+        item_features = self._convert_index(item_features)
         self._fit(log, user_features, item_features)
 
     def _create_indexers(
@@ -222,7 +242,7 @@ class BaseRecommender(ABC):
     # pylint: disable=too-many-arguments
     def _predict_wrap(
         self,
-        log: AnyDataFrame,
+        log: Optional[AnyDataFrame],
         k: int,
         users: Optional[Union[AnyDataFrame, Iterable]] = None,
         items: Optional[Union[AnyDataFrame, Iterable]] = None,
@@ -260,22 +280,24 @@ class BaseRecommender(ABC):
             ``[user_id, item_id, relevance]``
         """
         self.logger.debug("Начало предикта %s", type(self).__name__)
+
         log = convert2spark(log)
-        user_type = log.schema["user_id"].dataType
-        item_type = log.schema["item_id"].dataType
-        if user_features is not None:
-            user_features = convert2spark(user_features)
-        if item_features is not None:
-            item_features = convert2spark(item_features)
-        users = self._extract_unique(log, users, "user_id")
-        items = self._extract_unique(log, items, "item_id")
+        user_features = convert2spark(user_features)
+        item_features = convert2spark(item_features)
+
+        user_data = users or log or user_features or self.user_indexer.labels
+        users = self._get_ids(user_data, "user_id")
+        user_type = users.schema["user_id"].dataType
+
+        item_data = items or log or item_features or self.item_indexer.labels
+        items = self._get_ids(item_data, "item_id")
+        item_type = items.schema["item_id"].dataType
+
+        log = self._convert_index(log)
         users = self._convert_index(users)
         items = self._convert_index(items)
-        if item_features is not None:
-            item_features = self._convert_index(item_features)
-        if user_features is not None:
-            user_features = self._convert_index(user_features)
-        log = self._convert_index(log)
+        item_features = self._convert_index(item_features)
+        user_features = self._convert_index(user_features)
 
         num_items = items.count()
         if num_items < k:
@@ -292,7 +314,7 @@ class BaseRecommender(ABC):
             item_features,
             filter_seen_items,
         )
-        if filter_seen_items:
+        if filter_seen_items and log:
             recs = recs.join(
                 log.withColumnRenamed("item_idx", "item")
                 .withColumnRenamed("user_idx", "user")
@@ -315,6 +337,8 @@ class BaseRecommender(ABC):
         :param data_frame: спарк-датафрейм со строковыми индексами
         :return: спарк-датафрейм с числовыми индексами
         """
+        if data_frame is None:
+            return None
         if "user_id" in data_frame.columns:
             self._reindex("user", data_frame)
             data_frame = self.user_indexer.transform(data_frame).drop(
@@ -385,27 +409,23 @@ class BaseRecommender(ABC):
                 self.logger.warning(message)
                 indexer.setHandleInvalid("skip")
 
-    def _extract_unique(
-        self,
-        log: AnyDataFrame,
-        array: Optional[Union[Iterable, AnyDataFrame]],
-        column: str,
+    @staticmethod
+    def _get_ids(
+        log: Union[Iterable, AnyDataFrame], column: str,
     ) -> DataFrame:
         """
         Получить уникальные значения из ``array`` и положить в датафрейм с колонкой ``column``.
         Если ``array is None``, то вытащить значение из ``log``.
         """
         spark = State().session
-        if array is None:
-            self.logger.debug("Выделение дефолтных пользователей")
+        if isinstance(log, DataFrame):
             unique = log.select(column).distinct()
-        elif not isinstance(array, DataFrame):
-            if isinstance(array, collections.abc.Iterable):
-                unique = spark.createDataFrame(
-                    data=pd.DataFrame(pd.unique(list(array)), columns=[column])
-                )
+        elif isinstance(log, collections.abc.Iterable):
+            unique = spark.createDataFrame(
+                data=pd.DataFrame(pd.unique(list(log)), columns=[column])
+            )
         else:
-            unique = array.select(column).distinct()
+            raise ValueError("Wrong type %s" % type(log))
         return unique
 
     # pylint: disable=too-many-arguments
@@ -753,4 +773,54 @@ class Recommender(BaseRecommender):
             item_features=None,
             filter_seen_items=filter_seen_items,
             force_reindex=force_reindex,
+        )
+
+
+class UserRecommender(BaseRecommender):
+    """Использует фичи пользователей, но не использует фичи айтемов. Лог — необязательный параметр."""
+
+    def fit(
+        self,
+        log: AnyDataFrame,
+        user_features: AnyDataFrame,
+        force_reindex: bool = True,
+    ) -> None:
+        """
+        Выделить кластеры и посчитать популярность объектов в них.
+
+        :param log: логи пользователей с историей для подсчета популярности объектов
+        :param user_features: датафрейм связывающий `user_id` пользователей и их числовые признаки
+        :param force_reindex: обязательно создавать
+            индексы, даже если они были созданы ранее
+        """
+        self._fit_wrap(
+            log=log, user_features=user_features, force_reindex=force_reindex
+        )
+
+    # pylint: disable=too-many-arguments
+    def predict(
+        self,
+        user_features: AnyDataFrame,
+        k: int,
+        log: Optional[AnyDataFrame] = None,
+        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        items: Optional[Union[AnyDataFrame, Iterable]] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        """
+        Получить предсказания для переданных пользователей
+
+        :param user_features: айди пользователей с числовыми фичами
+        :param k: длина рекомендаций
+        :param log: опциональный датафрейм с логами пользователей.
+            Если передан, объекты отсюда удаляются из рекомендаций для соответствующих пользователей.
+        :return: датафрейм с рекомендациями
+        """
+        return self._predict_wrap(
+            log=log,
+            user_features=user_features,
+            k=k,
+            filter_seen_items=filter_seen_items,
+            users=users,
+            items=items,
         )
