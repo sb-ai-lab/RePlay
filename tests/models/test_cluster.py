@@ -29,13 +29,3 @@ def test_works(model):
     model.predict(user_features, k=1)
     res = model.optimize(train, test, user_features, k=1, budget=1)
     assert type(res["n"]) == int
-
-
-def test_raises_many_params(model):
-    with pytest.raises(ValueError):
-        model.set_params(a=8, b=10)
-
-
-def test_raises_wrong_param(model):
-    with pytest.raises(ValueError):
-        model.set_params(a=1)
