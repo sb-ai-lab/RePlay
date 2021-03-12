@@ -46,7 +46,7 @@ class RecTestCase(PySparkTest):
         for array in [log, None, [1, 2, 2, 3]]:
             with self.subTest():
                 self.assertSparkDataFrameEqual(
-                    log, self.model._extract_unique(log, array, "test")
+                    log, self.model._get_ids(array or log, "test")
                 )
 
     def test_users_count(self):
