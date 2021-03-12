@@ -141,3 +141,14 @@ def test_not_full_recs(quality_metrics):
             ),
             err_msg=str(metric),
         )
+
+
+def test_duplicate_recs(quality_metrics, duplicate_recs, recs, true):
+    for metric in quality_metrics:
+        assert_allclose(
+            metric.mean(
+                k=4, recommendations=duplicate_recs, ground_truth=true
+            ),
+            metric.mean(k=4, recommendations=recs, ground_truth=true),
+            err_msg=str(metric),
+        )
