@@ -5,7 +5,7 @@ from pyspark.sql import types as st
 
 from replay.constants import AnyDataFrame
 from replay.utils import convert2spark
-from replay.metrics.base_metric import RecOnlyMetric
+from replay.metrics.base_metric import RecOnlyMetric, _sorter
 
 
 # pylint: disable=too-few-public-methods
@@ -65,9 +65,8 @@ class Surprisal(RecOnlyMetric):
     def _get_enriched_recommendations(
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
-        sort_udf = sf.udf(
-            self._sorter, returnType=st.ArrayType(st.DoubleType()),
-        )
+        recommendations = convert2spark(recommendations)
+        sort_udf = sf.udf(_sorter, returnType=st.ArrayType(st.DoubleType()),)
         return (
             recommendations.join(self.item_weights, on="item_id", how="left")
             .fillna(1)

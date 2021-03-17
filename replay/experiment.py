@@ -4,7 +4,11 @@ import pandas as pd
 
 from replay.constants import IntOrList, NumType
 from replay.utils import convert2spark
-from replay.metrics.base_metric import Metric, RecOnlyMetric
+from replay.metrics.base_metric import (
+    Metric,
+    RecOnlyMetric,
+    _get_enriched_recommendations,
+)
 
 
 # pylint: disable=too-few-public-methods
@@ -85,23 +89,20 @@ class Experiment:
         :param name: имя модели/эксперимента для сохранения результатов
         :param pred: список рекомендаций для подсчета метрик
         """
-        recs = convert2spark(pred)
+        recs = _get_enriched_recommendations(pred, self.test)
         for metric, k_list in sorted(
             self.metrics.items(), key=lambda x: str(x[0])
         ):
-
             if isinstance(metric, RecOnlyMetric):
-                values = metric(recs, k_list)
+                enriched = metric._get_enriched_recommendations(
+                    pred, self.test
+                )
+                values, median, conf_interval = self._calculate(
+                    metric, enriched, k_list
+                )
             else:
-                values = metric(recs, self.test, k_list)
-
-            median = None
-            conf_interval = None
-            if self.calc_median:
-                median = metric.median(recs, self.test, k_list)
-            if self.calc_conf_interval is not None:
-                conf_interval = metric.conf_interval(
-                    recs, self.test, k_list, self.calc_conf_interval
+                values, median, conf_interval = self._calculate(
+                    metric, recs, k_list
                 )
 
             if isinstance(k_list, int):
@@ -123,6 +124,18 @@ class Experiment:
                         None if median is None else median[k],
                         None if conf_interval is None else conf_interval[k],
                     )
+
+    def _calculate(self, metric, enriched, k_list):
+        median = None
+        conf_interval = None
+        values = metric._mean(enriched, k_list)
+        if self.calc_median:
+            median = metric._median(enriched, k_list)
+        if self.calc_conf_interval is not None:
+            conf_interval = metric._conf_interval(
+                enriched, k_list, self.calc_conf_interval
+            )
+        return values, median, conf_interval
 
     # pylint: disable=too-many-arguments
     def _add_metric(
