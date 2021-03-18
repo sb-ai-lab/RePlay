@@ -208,14 +208,14 @@ class Metric(ABC):
         )
 
     @staticmethod
-    def _sorter(items):
+    def _sorter(items, index=1):
         res = sorted(items, key=operator.itemgetter(0), reverse=True)
         set_res = set()
         list_res = []
         for item in res:
             if item[1] not in set_res:
                 set_res.add(item[1])
-                list_res.append(item[1])
+                list_res.append(item[index])
         return list_res
 
     def _get_metric_distribution(
