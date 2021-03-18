@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional
 import pandas as pd
 
 from replay.constants import IntOrList, NumType
+from replay.metrics import Coverage
 from replay.utils import convert2spark
 from replay.metrics.base_metric import (
     Metric,
@@ -94,12 +95,19 @@ class Experiment:
             self.metrics.items(), key=lambda x: str(x[0])
         ):
             if isinstance(metric, RecOnlyMetric):
-                enriched = metric._get_enriched_recommendations(
-                    pred, self.test
-                )
-                values, median, conf_interval = self._calculate(
-                    metric, enriched, k_list
-                )
+                if isinstance(metric, Coverage):
+                    values = metric.mean(pred, self.test, k_list)
+                    median = values
+                    conf_interval = metric.conf_interval(
+                        pred, self.test, k_list
+                    )
+                else:
+                    enriched = metric._get_enriched_recommendations(
+                        pred, self.test
+                    )
+                    values, median, conf_interval = self._calculate(
+                        metric, enriched, k_list
+                    )
             else:
                 values, median, conf_interval = self._calculate(
                     metric, recs, k_list
