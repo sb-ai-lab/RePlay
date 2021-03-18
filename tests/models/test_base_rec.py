@@ -10,7 +10,7 @@ from pyspark.sql import functions as sf
 from replay.constants import LOG_SCHEMA
 from replay.models import Word2VecRec, Recommender
 from replay.utils import vector_dot
-from tests.utils import spark
+from tests.utils import spark, log
 
 
 class DerivedRec(Recommender):
@@ -35,12 +35,12 @@ class DerivedRec(Recommender):
         pass
 
 
-@pytest.fixture
-def log(spark):
-    return spark.createDataFrame(
-        data=[["1", "2", "3", "4"]],
-        schema=["item_id", "user_id", "timestamp", "relevance"],
-    )
+# @pytest.fixture
+# def log(spark):
+#     return spark.createDataFrame(
+#         data=[["1", "2", "3", "4"]],
+#         schema=["item_id", "user_id", "timestamp", "relevance"],
+#     )
 
 
 @pytest.fixture
@@ -60,14 +60,14 @@ def test_users_count(model, log):
     with pytest.raises(AttributeError):
         model.users_count
     model.fit(log)
-    assert model.users_count == 1
+    assert model.users_count == 4
 
 
 def test_items_count(model, log):
     with pytest.raises(AttributeError):
         model.items_count
     model.fit(log)
-    assert model.items_count == 1
+    assert model.items_count == 4
 
 
 def test_str(model):
