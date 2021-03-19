@@ -6,7 +6,7 @@ import numpy as np
 
 from replay.constants import LOG_SCHEMA
 from replay.models import ALSWrap
-from tests.utils import log
+from tests.utils import log, spark
 
 
 @pytest.fixture
