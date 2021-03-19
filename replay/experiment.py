@@ -90,7 +90,7 @@ class Experiment:
         :param name: имя модели/эксперимента для сохранения результатов
         :param pred: список рекомендаций для подсчета метрик
         """
-        recs = _get_enriched_recommendations(pred, self.test)
+        recs = _get_enriched_recommendations(pred, self.test).cache()
         for metric, k_list in sorted(
             self.metrics.items(), key=lambda x: str(x[0])
         ):
@@ -132,6 +132,7 @@ class Experiment:
                         None if median is None else median[k],
                         None if conf_interval is None else conf_interval[k],
                     )
+        recs.unpersist()
 
     def _calculate(self, metric, enriched, k_list):
         median = None
