@@ -12,6 +12,26 @@ def quality_metrics():
     return [NDCG(), HitRate(), Precision(), Recall(), MAP(), MRR(), RocAuc()]
 
 
+@pytest.fixture
+def duplicate_recs(spark):
+    return spark.createDataFrame(
+        data=[
+            ["user1", "item1", 3.0],
+            ["user1", "item2", 2.0],
+            ["user1", "item3", 1.0],
+            ["user1", "item1", 3.0],
+            ["user2", "item1", 3.0],
+            ["user2", "item2", 4.0],
+            ["user2", "item5", 1.0],
+            ["user2", "item2", 2.0],
+            ["user3", "item1", 5.0],
+            ["user3", "item3", 1.0],
+            ["user3", "item4", 2.0],
+        ],
+        schema=REC_SCHEMA,
+    )
+
+
 def test_test_is_bigger(quality_metrics, one_user, two_users):
     for metric in quality_metrics:
         assert metric(one_user, two_users, 1) == 0.5, str(metric)
@@ -161,4 +181,4 @@ def test_duplicate_recs(quality_metrics, duplicate_recs, recs, true):
 
 def test_sorter():
     result = Metric._sorter(((1, 2), (2, 3), (3, 2)))
-    assert_allclose(result, (2, 3))
+    assert result == [2, 3]

@@ -68,26 +68,6 @@ def empty_recs(spark):
 
 
 @pytest.fixture
-def duplicate_recs(spark):
-    return spark.createDataFrame(
-        data=[
-            ["user1", "item1", 3.0],
-            ["user1", "item2", 2.0],
-            ["user1", "item3", 1.0],
-            ["user1", "item1", 3.0],
-            ["user2", "item1", 3.0],
-            ["user2", "item2", 4.0],
-            ["user2", "item5", 1.0],
-            ["user2", "item2", 2.0],
-            ["user3", "item1", 5.0],
-            ["user3", "item3", 1.0],
-            ["user3", "item4", 2.0],
-        ],
-        schema=REC_SCHEMA,
-    )
-
-
-@pytest.fixture
 def true(spark):
     return spark.createDataFrame(
         data=[
