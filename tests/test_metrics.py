@@ -93,6 +93,11 @@ def test_surprisal_at_k(true, recs, recs2):
     )
 
 
+def test_unexpectedness_at_k(true, recs, recs2):
+    assert Unexpectedness._get_metric_value_by_user(2, (), (2, 3)) == 0
+    assert Unexpectedness._get_metric_value_by_user(2, (1, 2), (1,)) == 0.5
+
+
 def test_coverage(true, recs, empty_recs):
     coverage = Coverage(recs.union(true.drop("timestamp")))
     assertDictAlmostEqual(
