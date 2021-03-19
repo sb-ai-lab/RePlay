@@ -152,3 +152,8 @@ def test_duplicate_recs(quality_metrics, duplicate_recs, recs, true):
             metric.mean(k=4, recommendations=recs, ground_truth=true),
             err_msg=str(metric),
         )
+
+
+def test_sorter():
+    result = Metric._sorter(((1, 2), (2, 3), (3, 2)))
+    assert_allclose(result, (2, 3))
