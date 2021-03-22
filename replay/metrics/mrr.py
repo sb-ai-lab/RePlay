@@ -1,4 +1,4 @@
-from replay.metrics.base_metric import Metric
+from replay.metrics.base_metric import Metric, get_enriched_recommendations
 
 
 # pylint: disable=too-few-public-methods
@@ -18,6 +18,9 @@ class MRR(Metric):
     >>> MRR()(true, pred, 1)
     1.0
     """
+
+    def __init__(self):
+        self._get_enriched_recommendations = get_enriched_recommendations
 
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:

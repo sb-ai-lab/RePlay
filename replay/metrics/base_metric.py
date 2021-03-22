@@ -20,7 +20,7 @@ def _sorter(items):
     return [item[1] for item in res]
 
 
-def _get_enriched_recommendations(
+def get_enriched_recommendations(
     recommendations: AnyDataFrame, ground_truth: AnyDataFrame
 ) -> DataFrame:
     """
@@ -86,79 +86,17 @@ class Metric(ABC):
 
         :return: значение метрики
         """
-        return self.mean(recommendations, ground_truth, k)
+        recs = self._get_enriched_recommendations(
+            recommendations, ground_truth
+        )
+        return self._mean(recs, k)
 
+    @abstractmethod
     @staticmethod
     def _get_enriched_recommendations(
         recommendations: AnyDataFrame, ground_truth: AnyDataFrame
     ) -> DataFrame:
-        """
-        Обогащение рекомендаций дополнительной информацией.
-        По умолчанию к рекомендациям добавляется столбец,
-        содержащий множество элементов,
-        с которыми взаимодействовал пользователь
-
-        :param recommendations: рекомендации
-        :param ground_truth: лог тестовых действий
-        :return: рекомендации обогащенные дополнительной информацией
-            спарк-датафрейм вида ``[user_id, item_id, relevance, *columns]``
-        """
-        recommendations = convert2spark(recommendations)
-        ground_truth = convert2spark(ground_truth)
-        true_items_by_users = ground_truth.groupby("user_id").agg(
-            sf.collect_set("item_id").alias("ground_truth")
-        )
-        sort_udf = sf.udf(
-            _sorter,
-            returnType=st.ArrayType(ground_truth.schema["item_id"].dataType),
-        )
-        recommendations = (
-            recommendations.groupby("user_id")
-            .agg(
-                sf.collect_list(sf.struct("relevance", "item_id")).alias(
-                    "pred"
-                )
-            )
-            .select("user_id", sort_udf(sf.col("pred")).alias("pred"))
-            .join(true_items_by_users, how="right", on=["user_id"])
-        )
-
-        return recommendations.withColumn(
-            "pred",
-            sf.coalesce(
-                "pred",
-                sf.array().cast(
-                    st.ArrayType(ground_truth.schema["item_id"].dataType)
-                ),
-            ),
-        )
-
-    def conf_interval(
-        self,
-        recommendations: AnyDataFrame,
-        ground_truth: AnyDataFrame,
-        k: IntOrList,
-        alpha: float = 0.95,
-    ) -> Union[Dict[int, NumType], NumType]:
-        """Функция возвращает половину ширины доверительного интервала
-
-        :param recommendations: выдача рекомендательной системы,
-            спарк-датафрейм вида ``[user_id, item_id, relevance]``
-
-        :param ground_truth: реальный лог действий пользователей,
-            спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
-
-        :param k: список индексов, показывающий какое максимальное количество
-            объектов брать из топа рекомендованных для оценки
-
-        :param alpha: квантиль нормального распределения
-
-        :return: половина ширины доверительного интервала
-        """
-        recs = self._get_enriched_recommendations(
-            recommendations, ground_truth
-        )
-        return self._conf_interval(recs, k, alpha)
+        pass
 
     def _conf_interval(self, recs: DataFrame, k: IntOrList, alpha: float):
         distribution = self._get_metric_distribution(recs, k)
@@ -186,31 +124,6 @@ class Metric(ABC):
 
         return self.unpack_if_int(res, k)
 
-    def median(
-        self,
-        recommendations: AnyDataFrame,
-        ground_truth: AnyDataFrame,
-        k: IntOrList,
-    ) -> Union[Dict[int, NumType], NumType]:
-        """Функция возвращает медиану метрики
-
-        :param recommendations: выдача рекомендательной системы,
-            спарк-датафрейм вида ``[user_id, item_id, relevance]``
-
-        :param ground_truth: реальный лог действий пользователей,
-            спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
-
-        :param k: список индексов, показывающий какое максимальное
-            количество объектов брать из топа рекомендованных для оценки
-
-        :return: значение медианы
-        """
-
-        recs = self._get_enriched_recommendations(
-            recommendations, ground_truth
-        )
-        return self._median(recs, k)
-
     def _median(self, recs: DataFrame, k: IntOrList):
         distribution = self._get_metric_distribution(recs, k)
         total_metric = (
@@ -232,30 +145,6 @@ class Metric(ABC):
         if isinstance(k, int):
             return res[k]
         return res
-
-    def mean(
-        self,
-        recommendations: AnyDataFrame,
-        ground_truth: AnyDataFrame,
-        k: IntOrList,
-    ) -> Union[Dict[int, NumType], NumType]:
-        """Функция возвращает среднее значение метрики
-
-        :param recommendations: выдача рекомендательной системы,
-            спарк-датафрейм вида ``[user_id, item_id, relevance]``
-
-        :param ground_truth: реальный лог действий пользователей,
-            спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
-
-        :param k: список индексов, показывающий какое максимальное
-            количество объектов брать из топа рекомендованных для оценки
-
-        :return: среднее значение
-        """
-        recs = self._get_enriched_recommendations(
-            recommendations, ground_truth
-        )
-        return self._mean(recs, k)
 
     def _mean(self, recs: DataFrame, k: IntOrList):
         distribution = self._get_metric_distribution(recs, k)
@@ -387,7 +276,8 @@ class RecOnlyMetric(Metric):
 
         :return: значение метрики
         """
-        return self.mean(recommendations, recommendations, k)
+        recs = self._get_enriched_recommendations(recommendations, None)
+        return self._mean(recs, k)
 
     @staticmethod
     @abstractmethod
