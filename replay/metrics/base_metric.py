@@ -209,6 +209,16 @@ class Metric(ABC):
 
     @staticmethod
     def _sorter(items, index=1):
+        """Сортирует списки и выбирает уникальные объекты
+
+        :param items: списки для сортировки вида ``(relevance, item_id,
+        *args)``. Сортировка идет по первому элементу, отбор уникальных по
+        второму.
+        :param index: индекс элементов в списках, которые необходмо отобрать
+        в результат функции
+        :return: список уникальных отсортированных объектов``
+        """
+
         res = sorted(items, key=operator.itemgetter(0), reverse=True)
         set_res = set()
         list_res = []
