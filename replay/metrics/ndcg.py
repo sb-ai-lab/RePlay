@@ -1,6 +1,6 @@
 import math
 
-from replay.metrics.base_metric import Metric, get_enriched_recommendations
+from replay.metrics.base_metric import Metric
 
 
 # pylint: disable=too-few-public-methods
@@ -47,9 +47,6 @@ class NDCG(Metric):
     >>> ndcg(pred, true, 2)
     0.5
     """
-
-    def __init__(self):
-        self._get_enriched_recommendations = get_enriched_recommendations
 
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:

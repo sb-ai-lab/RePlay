@@ -1,4 +1,4 @@
-from replay.metrics.base_metric import Metric, get_enriched_recommendations
+from replay.metrics.base_metric import Metric
 
 
 # pylint: disable=too-few-public-methods
@@ -16,9 +16,6 @@ class Recall(Metric):
 
     :math:`|Rel_i|` -- количество элементов, с которыми взаимодействовал пользователь :math:`i`
     """
-
-    def __init__(self):
-        self._get_enriched_recommendations = get_enriched_recommendations
 
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:

@@ -15,6 +15,7 @@ from replay.constants import AnyDataFrame, IntOrList, NumType
 from replay.utils import convert2spark
 
 
+# pylint: disable=no-member
 def _sorter(items):
     res = sorted(items, key=operator.itemgetter(0), reverse=True)
     return [item[1] for item in res]
@@ -86,17 +87,8 @@ class Metric(ABC):
 
         :return: значение метрики
         """
-        recs = self._get_enriched_recommendations(
-            recommendations, ground_truth
-        )
+        recs = get_enriched_recommendations(recommendations, ground_truth)
         return self._mean(recs, k)
-
-    @abstractmethod
-    @staticmethod
-    def _get_enriched_recommendations(
-        recommendations: AnyDataFrame, ground_truth: AnyDataFrame
-    ) -> DataFrame:
-        pass
 
     def _conf_interval(self, recs: DataFrame, k: IntOrList, alpha: float):
         distribution = self._get_metric_distribution(recs, k)
@@ -239,9 +231,12 @@ class Metric(ABC):
         """
         log = convert2spark(log)
         count = log.groupBy("user_id").count()
-        recs = self._get_enriched_recommendations(
-            recommendations, ground_truth
-        )
+        if hasattr(self, "_get_enriched_recommendations"):
+            recs = self._get_enriched_recommendations(
+                recommendations, ground_truth
+            )
+        else:
+            recs = get_enriched_recommendations(recommendations, ground_truth)
         dist = self._get_metric_distribution(recs, k)
         res = count.join(dist, on="user_id")
         res = (
@@ -262,6 +257,13 @@ class RecOnlyMetric(Metric):
 
     @abstractmethod
     def __init__(self, log: AnyDataFrame, *args, **kwargs):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def _get_enriched_recommendations(
+        recommendations: AnyDataFrame, ground_truth: AnyDataFrame
+    ) -> DataFrame:
         pass
 
     def __call__(  # type: ignore

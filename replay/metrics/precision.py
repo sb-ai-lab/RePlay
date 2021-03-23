@@ -1,4 +1,4 @@
-from replay.metrics.base_metric import Metric, get_enriched_recommendations
+from replay.metrics.base_metric import Metric
 
 
 # pylint: disable=too-few-public-methods
@@ -14,9 +14,6 @@ class Precision(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
 """
-
-    def __init__(self):
-        self._get_enriched_recommendations = get_enriched_recommendations
 
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
