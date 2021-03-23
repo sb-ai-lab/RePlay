@@ -18,6 +18,10 @@ def model():
 
 def test_works(log, model):
     try:
-        model.fit_predict(log, k=1)
+        pred = model.fit_predict(log, k=1)
+        np.allclose(
+            pred.toPandas().sort_values("user_id")["relevance"].values,
+            [0.559088, 0.816796, 0.566497, 0.783326],
+        )
     except:  # noqa
         pytest.fail()

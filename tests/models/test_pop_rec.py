@@ -34,7 +34,12 @@ def model():
 
 def test_works(log, model):
     try:
-        model.fit_predict(log, k=1)
+        pred = model.fit_predict(log, k=1)
+        assert list(pred.toPandas().sort_values("user_id")["item_id"]) == [
+            "i3",
+            "i4",
+            "i1",
+        ]
     except:  # noqa
         pytest.fail()
 

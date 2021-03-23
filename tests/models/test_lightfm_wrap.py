@@ -56,4 +56,8 @@ def test_predict(log, user_features, item_features, model):
         item_features=item_features,
         filter_seen_items=True,
     )
-    assert pred.count() == 3
+    assert list(pred.toPandas().sort_values("user_id")["item_id"]) == [
+        "i3",
+        "i4",
+        "i1",
+    ]
