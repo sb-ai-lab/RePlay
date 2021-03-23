@@ -12,6 +12,26 @@ def quality_metrics():
     return [NDCG(), HitRate(), Precision(), Recall(), MAP(), MRR(), RocAuc()]
 
 
+@pytest.fixture
+def duplicate_recs(spark):
+    return spark.createDataFrame(
+        data=[
+            ["user1", "item1", 3.0],
+            ["user1", "item2", 2.0],
+            ["user1", "item3", 1.0],
+            ["user1", "item1", 3.0],
+            ["user2", "item1", 3.0],
+            ["user2", "item2", 4.0],
+            ["user2", "item5", 1.0],
+            ["user2", "item2", 2.0],
+            ["user3", "item1", 5.0],
+            ["user3", "item3", 1.0],
+            ["user3", "item4", 2.0],
+        ],
+        schema=REC_SCHEMA,
+    )
+
+
 def test_test_is_bigger(quality_metrics, one_user, two_users):
     for metric in quality_metrics:
         assert metric(one_user, two_users, 1) == 0.5, str(metric)
@@ -93,6 +113,11 @@ def test_surprisal_at_k(true, recs, recs2):
     )
 
 
+def test_unexpectedness_at_k(true, recs, recs2):
+    assert Unexpectedness._get_metric_value_by_user(2, (), (2, 3)) == 0
+    assert Unexpectedness._get_metric_value_by_user(2, (1, 2), (1,)) == 0.5
+
+
 def test_coverage(true, recs, empty_recs):
     coverage = Coverage(recs.union(true.drop("timestamp")))
     assertDictAlmostEqual(
@@ -141,3 +166,19 @@ def test_not_full_recs(quality_metrics):
             ),
             err_msg=str(metric),
         )
+
+
+def test_duplicate_recs(quality_metrics, duplicate_recs, recs, true):
+    for metric in quality_metrics:
+        assert_allclose(
+            metric.mean(
+                k=4, recommendations=duplicate_recs, ground_truth=true
+            ),
+            metric.mean(k=4, recommendations=recs, ground_truth=true),
+            err_msg=str(metric),
+        )
+
+
+def test_sorter():
+    result = Metric._sorter(((1, 2), (2, 3), (3, 2)))
+    assert result == [2, 3]

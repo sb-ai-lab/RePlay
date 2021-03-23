@@ -1,3 +1,5 @@
+from functools import partial
+
 import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -66,16 +68,17 @@ class Surprisal(RecOnlyMetric):
         self, recommendations: DataFrame, ground_truth: DataFrame
     ) -> DataFrame:
         sort_udf = sf.udf(
-            self._sorter, returnType=st.ArrayType(st.DoubleType()),
+            partial(self._sorter, index=2),
+            returnType=st.ArrayType(st.DoubleType()),
         )
         return (
             recommendations.join(self.item_weights, on="item_id", how="left")
             .fillna(1)
             .groupby("user_id")
             .agg(
-                sf.collect_list(sf.struct("relevance", "rec_weight")).alias(
-                    "rec_weight"
-                )
+                sf.collect_list(
+                    sf.struct("relevance", "item_id", "rec_weight")
+                ).alias("rec_weight")
             )
             .select(
                 "user_id", sort_udf(sf.col("rec_weight")).alias("rec_weight")
