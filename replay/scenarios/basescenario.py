@@ -1,21 +1,21 @@
 # pylint: disable=too-many-arguments
-import collections
+# pragma: no cover
 from abc import abstractmethod
 from typing import Optional, Union, Iterable, Dict, List, Any, Tuple
 
 from pyspark.sql import DataFrame
-import pandas as pd
 
 from replay.constants import AnyDataFrame
 from replay.filters import min_entries
 from replay.metrics import Metric, NDCG
 from replay.models.base_rec import BaseRecommender
-from replay.session_handler import State
 from replay.utils import convert2spark
 
 
-class HotnCold(BaseRecommender):
+class BaseScenario(BaseRecommender):
     """Базовый класс сценариев для предсказания всем пользователям"""
+
+    can_predict_cold_users: bool = False
 
     def __init__(self, cold_model, threshold=5):
         self.threshold = threshold
@@ -51,25 +51,6 @@ class HotnCold(BaseRecommender):
         self.cold_model._fit_wrap(
             log, user_features, item_features, force_reindex
         )
-
-    @staticmethod
-    def _get_ids(
-        log: Union[Iterable, AnyDataFrame], column: str,
-    ) -> DataFrame:
-        """
-        Получить уникальные значения из ``array`` и положить в датафрейм с колонкой ``column``.
-        Если ``array is None``, то вытащить значение из ``log``.
-        """
-        spark = State().session
-        if isinstance(log, DataFrame):
-            unique = log.select(column).distinct()
-        elif isinstance(log, collections.abc.Iterable):
-            unique = spark.createDataFrame(
-                data=pd.DataFrame(pd.unique(list(log)), columns=[column])
-            )
-        else:
-            raise ValueError("Wrong type %s" % type(log))
-        return unique
 
     # pylint: disable=too-many-arguments
     def predict(
@@ -116,7 +97,8 @@ class HotnCold(BaseRecommender):
         users = self._get_ids(users, "user_id")
         hot_data = min_entries(log, self.threshold)
         hot_users = hot_data.select("user_id").distinct()
-        hot_users = hot_users.join(self.hot_users)
+        if self.can_predict_cold_users:
+            hot_users = hot_users.join(self.hot_users)
         hot_users = hot_users.join(users, on="user_id", how="inner")
 
         hot_pred = self.predict(
