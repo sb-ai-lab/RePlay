@@ -4,7 +4,7 @@ from pyspark.sql import types as st
 
 from replay.constants import AnyDataFrame
 from replay.utils import convert2spark
-from replay.metrics.base_metric import RecOnlyMetric, _sorter
+from replay.metrics.base_metric import RecOnlyMetric, sorter
 
 
 # pylint: disable=too-few-public-methods
@@ -46,7 +46,7 @@ class Unexpectedness(RecOnlyMetric):
         recommendations = convert2spark(recommendations)
         base_pred = self.pred
         sort_udf = sf.udf(
-            _sorter,
+            sorter,
             returnType=st.ArrayType(base_pred.schema["item_id"].dataType),
         )
         base_recs = (
