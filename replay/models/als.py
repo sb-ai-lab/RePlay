@@ -46,7 +46,7 @@ class ALSWrap(Recommender):
         self.model.userFactors.cache()
 
     def _clear_cache(self):
-        if self.model:
+        if hasattr(self, "model"):
             self.model.itemFactors.unpersist()
             self.model.userFactors.unpersist()
 
