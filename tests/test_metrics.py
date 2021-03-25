@@ -4,6 +4,7 @@ import numpy as np
 from replay.metrics import *
 
 from replay.distributions import item_distribution
+from replay.metrics.base_metric import sorter
 from tests.utils import *
 
 
@@ -231,14 +232,17 @@ def test_not_full_recs(quality_metrics):
 def test_duplicate_recs(quality_metrics, duplicate_recs, recs, true):
     for metric in quality_metrics:
         assert_allclose(
-            metric.mean(
-                k=4, recommendations=duplicate_recs, ground_truth=true
-            ),
-            metric.mean(k=4, recommendations=recs, ground_truth=true),
+            metric(k=4, recommendations=duplicate_recs, ground_truth=true),
+            metric(k=4, recommendations=recs, ground_truth=true),
             err_msg=str(metric),
         )
 
 
 def test_sorter():
-    result = Metric._sorter(((1, 2), (2, 3), (3, 2)))
+    result = sorter(((1, 2), (2, 3), (3, 2)))
     assert result == [2, 3]
+
+
+def test_sorter_index():
+    result = sorter([(1, 2, 3), (2, 3, 4), (3, 3, 5)], index=2)
+    assert result == [5, 3]
