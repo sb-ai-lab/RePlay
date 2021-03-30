@@ -1,67 +1,74 @@
 # pylint: disable-all
-from typing import Dict, Optional
+from datetime import datetime
+from typing import Optional
 
-from pyspark.sql import DataFrame
-from pyspark.sql.types import StructType
-from tests.pyspark_testcase import PySparkTest
+import pytest
+import numpy as np
+from pandas import DataFrame
+from pyspark.sql import functions as sf
 
-from replay.models.base_rec import Recommender
+from replay.constants import LOG_SCHEMA
+from replay.models import Word2VecRec, Recommender
+from replay.utils import vector_dot
+from tests.utils import spark, log
 
 
-class RecTestCase(PySparkTest):
-    class DerivedRec(Recommender):
-        def _fit(
-            self,
-            log: DataFrame,
-            user_features: Optional[DataFrame] = None,
-            item_features: Optional[DataFrame] = None,
-        ) -> None:
-            pass
+class DerivedRec(Recommender):
+    def _fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
+        pass
 
-        def _predict(
-            self,
-            log: DataFrame,
-            k: int,
-            users: DataFrame,
-            items: DataFrame,
-            user_features: Optional[DataFrame] = None,
-            item_features: Optional[DataFrame] = None,
-            filter_seen_items: bool = True,
-        ) -> DataFrame:
-            pass
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        pass
 
-    def setUp(self):
-        self.model = self.DerivedRec()
-        self.empty_df = self.spark.createDataFrame(
-            data=[], schema=StructType([])
-        )
-        self.log = self.spark.createDataFrame(
-            data=[["1", "2", "3", "4"]],
-            schema=["item_id", "user_id", "timestamp", "relevance"],
-        )
 
-    def test_extract_if_needed(self):
-        log = self.spark.createDataFrame(data=[[1], [2], [3]], schema=["test"])
+# @pytest.fixture
+# def log(spark):
+#     return spark.createDataFrame(
+#         data=[["1", "2", "3", "4"]],
+#         schema=["item_id", "user_id", "timestamp", "relevance"],
+#     )
 
-        for array in [log, None, [1, 2, 2, 3]]:
-            with self.subTest():
-                self.assertSparkDataFrameEqual(
-                    log, self.model._get_ids(array or log, "test")
-                )
 
-    def test_users_count(self):
-        model = self.DerivedRec()
-        with self.assertRaises(AttributeError):
-            model.users_count
-        model.fit(self.log)
-        self.assertEqual(model.users_count, 1)
+@pytest.fixture
+def model():
+    return DerivedRec()
 
-    def test_items_count(self):
-        model = self.DerivedRec()
-        with self.assertRaises(AttributeError):
-            model.items_count
-        model.fit(self.log)
-        self.assertEqual(model.items_count, 1)
 
-    def test_str(self):
-        self.assertEqual(str(self.model), "DerivedRec")
+@pytest.mark.parametrize("array", [None, [1, 2, 2, 3]])
+def test_extract_if_needed(spark, model, array):
+    log = spark.createDataFrame(data=[[1], [2], [3]], schema=["test"])
+    assert sorted(
+        list(model._get_ids(array or log, "test").toPandas()["test"])
+    ) == [1, 2, 3]
+
+
+def test_users_count(model, log):
+    with pytest.raises(AttributeError):
+        model.users_count
+    model.fit(log)
+    assert model.users_count == 4
+
+
+def test_items_count(model, log):
+    with pytest.raises(AttributeError):
+        model.items_count
+    model.fit(log)
+    assert model.items_count == 4
+
+
+def test_str(model):
+    assert str(model) == "DerivedRec"

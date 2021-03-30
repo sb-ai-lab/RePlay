@@ -80,10 +80,12 @@ Coverage
 - **_get_enriched_recommendations**
 - **_get_metric_value_by_user**
 
-``_get_enriched_recommendations`` уже реализован, и его стоит переопределять только в случае необходимости.
+``get_enriched_recommendations`` уже реализован в виде функции, и его стоит переопределять методом только в случае необходимости.
 Последний метод необходимо реализовать для всех метрик, так как в нём происходит основное вычисление метрики.
 
+.. autofunction:: replay.metrics.base_metric.get_enriched_recommendations
+
 .. autoclass:: replay.metrics.base_metric.Metric
-   :special-members: _get_enriched_recommendations, _get_metric_value_by_user
+   :special-members: _get_metric_value_by_user
 
 .. autoclass:: replay.metrics.base_metric.RecOnlyMetric

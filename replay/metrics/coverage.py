@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Union
 
-from pyspark.sql import Window
+from pyspark.sql import Window, DataFrame
 from pyspark.sql import functions as sf
 
 from replay.constants import AnyDataFrame, IntOrList, NumType
@@ -9,7 +9,7 @@ from replay.utils import convert2spark
 from replay.metrics.base_metric import RecOnlyMetric
 
 
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods, arguments-differ, unused-argument
 class Coverage(RecOnlyMetric):
     """
     Метрика вычисляется так:
@@ -38,34 +38,29 @@ class Coverage(RecOnlyMetric):
         # эта метрика не является средним по всем пользователям
         pass
 
-    def conf_interval(
-        self,
-        recommendations: AnyDataFrame,
-        ground_truth: AnyDataFrame,
-        k: IntOrList,
-        alpha: float = 0.95,
+    @staticmethod
+    def _get_enriched_recommendations(
+        recommendations: AnyDataFrame, ground_truth: AnyDataFrame
+    ) -> DataFrame:
+        return convert2spark(recommendations)
+
+    def _conf_interval(
+        self, recommendations: AnyDataFrame, k: IntOrList, alpha: float = 0.95,
     ) -> Union[Dict[int, float], float]:
         if isinstance(k, int):
             return 0.0
         return {i: 0.0 for i in k}
 
-    def median(
-        self,
-        recommendations: AnyDataFrame,
-        ground_truth: AnyDataFrame,
-        k: IntOrList,
+    def _median(
+        self, recommendations: AnyDataFrame, k: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
-        return self.mean(recommendations, ground_truth, k)
+        return self._mean(recommendations, k)
 
-    def mean(
-        self,
-        recommendations: AnyDataFrame,
-        ground_truth: AnyDataFrame,
-        k: IntOrList,
+    def _mean(
+        self, recommendations: DataFrame, k: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
-        recommendations_spark = convert2spark(recommendations)
         unknown_item_count = (
-            recommendations_spark.select("item_id")  # type: ignore
+            recommendations.select("item_id")  # type: ignore
             .distinct()
             .exceptAll(self.items)
             .count()
@@ -77,7 +72,7 @@ class Coverage(RecOnlyMetric):
             )
 
         best_positions = (
-            recommendations_spark.withColumn(
+            recommendations.withColumn(
                 "row_num",
                 sf.row_number().over(
                     Window.partitionBy("user_id").orderBy(sf.desc("relevance"))

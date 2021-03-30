@@ -92,7 +92,7 @@ class Word2VecRec(Recommender):
         self.vectors.cache()
 
     def _clear_cache(self):
-        if self.idf and self.vectors:
+        if hasattr(self, "idf") and hasattr(self, "vectors"):
             self.idf.unpersist()
             self.vectors.unpersist()
 

@@ -4,12 +4,93 @@ import numpy as np
 from replay.metrics import *
 
 from replay.distributions import item_distribution
+from replay.metrics.base_metric import sorter
 from tests.utils import *
+
+
+@pytest.fixture
+def one_user():
+    df = pd.DataFrame({"user_id": [1], "item_id": [1], "relevance": [1]})
+    return df
+
+
+@pytest.fixture
+def two_users():
+    df = pd.DataFrame(
+        {"user_id": [1, 2], "item_id": [1, 2], "relevance": [1, 1]}
+    )
+    return df
+
+
+@pytest.fixture
+def recs(spark):
+    return spark.createDataFrame(
+        data=[
+            ["user1", "item1", 3.0],
+            ["user1", "item2", 2.0],
+            ["user1", "item3", 1.0],
+            ["user2", "item1", 3.0],
+            ["user2", "item2", 4.0],
+            ["user2", "item5", 1.0],
+            ["user3", "item1", 5.0],
+            ["user3", "item3", 1.0],
+            ["user3", "item4", 2.0],
+        ],
+        schema=REC_SCHEMA,
+    )
+
+
+@pytest.fixture
+def recs2(spark):
+    return spark.createDataFrame(
+        data=[["user1", "item4", 4.0], ["user1", "item5", 5.0]],
+        schema=REC_SCHEMA,
+    )
+
+
+@pytest.fixture
+def empty_recs(spark):
+    return spark.createDataFrame(data=[], schema=REC_SCHEMA,)
+
+
+@pytest.fixture
+def true(spark):
+    return spark.createDataFrame(
+        data=[
+            ["user1", "item1", datetime(2019, 9, 12), 3.0],
+            ["user1", "item5", datetime(2019, 9, 13), 2.0],
+            ["user1", "item2", datetime(2019, 9, 17), 1.0],
+            ["user2", "item6", datetime(2019, 9, 14), 4.0],
+            ["user2", "item1", datetime(2019, 9, 15), 3.0],
+            ["user3", "item2", datetime(2019, 9, 15), 3.0],
+        ],
+        schema=LOG_SCHEMA,
+    )
 
 
 @pytest.fixture
 def quality_metrics():
     return [NDCG(), HitRate(), Precision(), Recall(), MAP(), MRR(), RocAuc()]
+
+
+@pytest.fixture
+def duplicate_recs(spark):
+    return spark.createDataFrame(
+        data=[
+            ["user1", "item1", 3.0],
+            ["user1", "item2", 2.0],
+            ["user1", "item3", 1.0],
+            ["user1", "item1", 3.0],
+            ["user2", "item1", 3.0],
+            ["user2", "item2", 4.0],
+            ["user2", "item5", 1.0],
+            ["user2", "item2", 2.0],
+            ["user3", "item1", 5.0],
+            ["user3", "item3", 1.0],
+            ["user3", "item4", 2.0],
+        ],
+        schema=REC_SCHEMA,
+    )
 
 
 def test_test_is_bigger(quality_metrics, one_user, two_users):
@@ -93,6 +174,11 @@ def test_surprisal_at_k(true, recs, recs2):
     )
 
 
+def test_unexpectedness_at_k(true, recs, recs2):
+    assert Unexpectedness._get_metric_value_by_user(2, (), (2, 3)) == 0
+    assert Unexpectedness._get_metric_value_by_user(2, (1, 2), (1,)) == 0.5
+
+
 def test_coverage(true, recs, empty_recs):
     coverage = Coverage(recs.union(true.drop("timestamp")))
     assertDictAlmostEqual(
@@ -141,3 +227,22 @@ def test_not_full_recs(quality_metrics):
             ),
             err_msg=str(metric),
         )
+
+
+def test_duplicate_recs(quality_metrics, duplicate_recs, recs, true):
+    for metric in quality_metrics:
+        assert_allclose(
+            metric(k=4, recommendations=duplicate_recs, ground_truth=true),
+            metric(k=4, recommendations=recs, ground_truth=true),
+            err_msg=str(metric),
+        )
+
+
+def test_sorter():
+    result = sorter(((1, 2), (2, 3), (3, 2)))
+    assert result == [2, 3]
+
+
+def test_sorter_index():
+    result = sorter([(1, 2, 3), (2, 3, 4), (3, 3, 5)], index=2)
+    assert result == [5, 3]

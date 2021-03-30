@@ -138,7 +138,7 @@ class KNN(Recommender):
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()
 
     def _clear_cache(self):
-        if self.similarity:
+        if hasattr(self, "similarity"):
             self.similarity.unpersist()
 
     # pylint: disable=too-many-arguments

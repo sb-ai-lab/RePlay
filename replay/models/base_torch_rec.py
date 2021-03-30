@@ -32,6 +32,7 @@ from replay.constants import IDX_REC_SCHEMA
 class TorchRecommender(Recommender):
     """ Базовый класс-рекомендатель для нейросетевой модели. """
 
+    model: Any
     device: torch.device
 
     # pylint: disable=too-many-arguments
