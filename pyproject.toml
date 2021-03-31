@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "replay"
-version = "0.3.0"
+version = "0.4.0"
 description = "Библиотека рекомендательных систем"
 authors = ["Шминке Борис <Shminke.B.A@sberbank.ru>",
            "Васильев Алексей <AVaVasilyev@sberbank.ru>",

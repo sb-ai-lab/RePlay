@@ -101,7 +101,7 @@ class BaseScenario(BaseRecommender):
             hot_users = hot_users.join(self.hot_users)
         hot_users = hot_users.join(users, on="user_id", how="inner")
 
-        hot_pred = self.predict(
+        hot_pred = self._predict_wrap(
             log=hot_data,
             k=k,
             users=hot_users,
@@ -115,7 +115,7 @@ class BaseScenario(BaseRecommender):
         else:
             cold_data = None
         cold_users = users.join(self.hot_users, how="anti", on="user_id")
-        cold_pred = self.cold_model.predict(
+        cold_pred = self.cold_model._predict_wrap(
             log=cold_data,
             k=k,
             users=cold_users,
@@ -219,7 +219,8 @@ class BaseScenario(BaseRecommender):
             k,
             budget,
         )
-        self.set_params(**params)
+        if not isinstance(params, tuple):
+            self.set_params(**params)
         if self.cold_model._search_space is not None:
             self.logger.info("Optimizing cold model...")
             cold_params = self.cold_model._optimize(
@@ -232,7 +233,8 @@ class BaseScenario(BaseRecommender):
                 k,
                 budget,
             )
-            self.cold_model.set_params(**cold_params)
+            if not isinstance(cold_params, tuple):
+                self.cold_model.set_params(**cold_params)
         else:
             cold_params = None
         return params, cold_params

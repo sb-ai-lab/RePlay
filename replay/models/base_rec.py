@@ -298,7 +298,6 @@ class BaseRecommender(ABC):
         items = self._convert_index(items)
         item_features = self._convert_index(item_features)
         user_features = self._convert_index(user_features)
-
         num_items = items.count()
         if num_items < k:
             raise ValueError(
