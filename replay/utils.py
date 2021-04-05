@@ -351,7 +351,7 @@ def horizontal_explode(
 
 
 def fallback(
-    base: DataFrame, fill: DataFrame, k: int, x: bool = False
+    base: DataFrame, fill: DataFrame, k: int, idx: bool = False
 ) -> DataFrame:
     """Подмешивает к основным рекомендациям запасные
     для пользователей, у которых количество рекомендаций меньше ``k``.
@@ -366,7 +366,7 @@ def fallback(
     """
     if fill is None:
         return base
-    x = "x" if x else ""
+    x = "x" if idx else ""
     margin = 0.1
     min_in_base = base.agg({"relevance": "min"}).collect()[0][0]
     max_in_fill = fill.agg({"relevance": "max"}).collect()[0][0]
@@ -380,5 +380,5 @@ def fallback(
     recs = recs.withColumn(
         "relevance", sf.coalesce("relevance", "relevance_fallback")
     ).select("user_id" + x, "item_id" + x, "relevance")
-    recs = get_top_k_recs(recs, k, True)
+    recs = get_top_k_recs(recs, k, idx)
     return recs
