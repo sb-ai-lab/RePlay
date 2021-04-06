@@ -39,9 +39,12 @@ class LightFMWrap(HybridRecommender):
         self.random_state = random_state
         cpu_count = os.cpu_count()
         self.num_threads = cpu_count if cpu_count is not None else 1
-        self.scaler = None
+        self.user_feat_scaler = None
+        self.item_feat_scaler = None
 
-    def _feature_table_to_csr(self, feature_table: DataFrame) -> csr_matrix:
+    def _feature_table_to_csr(
+        self, feature_table: Optional[DataFrame], is_item_features=True
+    ) -> Optional[csr_matrix]:
         """
         Преобразует признаки пользователей или объектов в разреженную матрицу
 
@@ -50,29 +53,42 @@ class LightFMWrap(HybridRecommender):
         :returns: матрица, в которой строки --- пользователи или объекты, столбцы --- их свойства
         """
 
+        if feature_table is None:
+            return None
+
         check_numeric(feature_table)
+
+        if is_item_features:
+            df_len, idx_col_name, attr_ = (
+                len(self.item_indexer.labels),
+                "item_idx",
+                "item_feat_scaler",
+            )
+        else:
+            df_len, idx_col_name, attr_ = (
+                len(self.user_indexer.labels),
+                "user_idx",
+                "user_feat_scaler",
+            )
 
         all_features = (
             State()
-            .session.createDataFrame(
-                range(len(self.item_indexer.labels)), schema=IntegerType()
-            )
-            .toDF("item_idx")
-            .join(feature_table, on="item_idx", how="left")
+            .session.createDataFrame(range(df_len), schema=IntegerType())
+            .toDF(idx_col_name)
+            .join(feature_table, on=idx_col_name, how="left")
             .fillna(0.0)
-            .sort("item_idx")
-            .drop("item_idx")
+            .sort(idx_col_name)
+            .drop(idx_col_name)
         )
 
         all_features_np = all_features.toPandas().to_numpy()
 
-        if self.scaler is None:
-            self.scaler = MinMaxScaler()
-            self.scaler.fit(all_features_np)
-        all_features_np = self.scaler.transform(all_features_np)
+        if getattr(self, attr_) is None:
+            setattr(self, attr_, MinMaxScaler().fit(all_features_np))
+        all_features_np = getattr(self, attr_).transform(all_features_np)
 
         features_with_identity = hstack(
-            [identity(self.items_count), csr_matrix(all_features_np)]
+            [identity(df_len), csr_matrix(all_features_np)]
         )
 
         # сумма весов признаков по объекту равна 1
@@ -87,13 +103,15 @@ class LightFMWrap(HybridRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self.scaler = None
+        self.user_feat_scaler = None
+        self.item_feat_scaler = None
+
         interactions_matrix = to_csr(log, self.users_count, self.items_count)
-        csr_item_features = (
-            self._feature_table_to_csr(item_features)
-            if item_features is not None
-            else None
+        csr_item_features = self._feature_table_to_csr(item_features)
+        csr_user_features = self._feature_table_to_csr(
+            user_features, is_item_features=False
         )
+
         self.model = LightFM(
             loss=self.loss,
             no_components=self.no_components,
@@ -103,6 +121,7 @@ class LightFMWrap(HybridRecommender):
             epochs=self.epochs,
             num_threads=self.num_threads,
             item_features=csr_item_features,
+            user_features=csr_user_features,
         )
 
     # pylint: disable=too-many-arguments
@@ -121,15 +140,17 @@ class LightFMWrap(HybridRecommender):
                 user_ids=pandas_df["user_idx"].to_numpy(),
                 item_ids=pandas_df["item_idx"].to_numpy(),
                 item_features=csr_item_features,
+                user_features=csr_user_features,
             )
             return pandas_df
 
         model = self.model
-        csr_item_features = (
-            self._feature_table_to_csr(item_features)
-            if item_features is not None
-            else None
+
+        csr_item_features = self._feature_table_to_csr(item_features)
+        csr_user_features = self._feature_table_to_csr(
+            user_features, is_item_features=False
         )
+
         return (
             users.crossJoin(items)
             .groupby("user_idx")
