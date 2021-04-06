@@ -145,7 +145,6 @@ class LightFMWrap(HybridRecommender):
             return pandas_df
 
         model = self.model
-
         csr_item_features = self._feature_table_to_csr(item_features)
         csr_user_features = self._feature_table_to_csr(
             user_features, is_item_features=False
