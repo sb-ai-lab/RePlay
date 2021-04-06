@@ -34,7 +34,7 @@ class DateSplitter(Splitter):
         drop_cold_users: bool = False,
     ):
         """
-        :param test_start: дата в формате ``yyyy-mm-dd``
+        :param test_start: дата в формате ``yyyy-mm-dd`` или доля дат, которая пойдет в тест
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
@@ -46,12 +46,17 @@ class DateSplitter(Splitter):
         self.test_start = test_start
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
+        if isinstance(self.test_start, float):
+            dates = log.select("timestamp").distinct().toPandas()
+            dates = dates.sort_values("timestamp")["timestamp"]
+            test_start = dates.iloc[int(len(dates) * (1 - self.test_start))]
+        else:
+            test_start = self.test_start
         train = log.filter(
-            sf.col("timestamp") < sf.lit(self.test_start).cast(TimestampType())
+            sf.col("timestamp") < sf.lit(test_start).cast(TimestampType())
         )
         test = log.filter(
-            sf.col("timestamp")
-            >= sf.lit(self.test_start).cast(TimestampType())
+            sf.col("timestamp") >= sf.lit(test_start).cast(TimestampType())
         )
         return train, test
 
