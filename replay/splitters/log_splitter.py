@@ -9,7 +9,7 @@
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
@@ -29,7 +29,7 @@ class DateSplitter(Splitter):
 
     def __init__(
         self,
-        test_start: datetime,
+        test_start: Union[datetime, float],
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
     ):
