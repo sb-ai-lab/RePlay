@@ -43,7 +43,8 @@ def test_split(log, split_date):
 
 
 def test_proportion(log):
-    splitter = DateSplitter(0.1)
+    test_size = 0.15
+    splitter = DateSplitter(test_size)
     train, test = splitter.split(log)
 
     train_max_date = train.toPandas().timestamp.max()
@@ -52,6 +53,7 @@ def test_proportion(log):
 
     assert train_max_date < split_date
     assert test_min_date >= split_date
+    assert np.isclose(test.count() / log.count(), test_size, atol=0.1)
 
 
 def test_drop_cold_items(log, split_date):
