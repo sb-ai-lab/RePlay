@@ -135,7 +135,7 @@ def scenario_objective_calculator(
         )
 
     recommender.set_params(**params_for_trial)
-    logger.debug("-- Второй фит модели в оптимизации")
+    logger.debug("Фит модели в оптимизации")
     # pylint: disable=protected-access
     recommender._fit_wrap(
         split_data.train,
@@ -143,7 +143,7 @@ def scenario_objective_calculator(
         split_data.item_features_train,
         False,
     )
-    logger.debug("-- Предикт модели в оптимизации")
+    logger.debug("Предикт модели в оптимизации")
     recs = recommender._predict_wrap(
         log=split_data.train,
         k=k,
@@ -152,9 +152,9 @@ def scenario_objective_calculator(
         user_features=split_data.user_features_test,
         item_features=split_data.item_features_test,
     )
-    logger.debug("-- Подсчет метрики в оптимизации")
+    logger.debug("Подсчет метрики в оптимизации")
     criterion_value = criterion(recs, split_data.test, k)
-    logger.debug("%s=%.2f", criterion, criterion_value)
+    logger.debug("%s=%.6f", criterion, criterion_value)
     return criterion_value
 
 
