@@ -38,6 +38,7 @@ class BaseRecommender(ABC):
         Dict[str, Union[str, Sequence[Union[str, int, float]]]]
     ] = None
     _objective = MainObjective
+    study = None
 
     # pylint: disable=too-many-arguments, too-many-locals
     def optimize(
@@ -97,7 +98,10 @@ class BaseRecommender(ABC):
             params = self._search_space.keys()
             vals = [None] * len(params)
             param_grid = dict(zip(params, vals))
-        study = create_study(direction="maximize", sampler=TPESampler())
+        if self.study is None:
+            self.study = create_study(
+                direction="maximize", sampler=TPESampler()
+            )
         objective = self._objective(
             search_space=param_grid,
             split_data=split_data,
@@ -105,8 +109,8 @@ class BaseRecommender(ABC):
             criterion=criterion,
             k=k,
         )
-        study.optimize(objective, budget)
-        return study.best_params
+        self.study.optimize(objective, budget)
+        return self.study.best_params
 
     @staticmethod
     def _train_test_features(train, test, features, column):
