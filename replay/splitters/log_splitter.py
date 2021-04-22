@@ -9,7 +9,7 @@
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
@@ -29,12 +29,12 @@ class DateSplitter(Splitter):
 
     def __init__(
         self,
-        test_start: datetime,
+        test_start: Union[datetime, float],
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
     ):
         """
-        :param test_start: дата в формате ``yyyy-mm-dd``
+        :param test_start: дата в формате ``yyyy-mm-dd`` или доля записей, которые пойдут в тест
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
@@ -46,12 +46,23 @@ class DateSplitter(Splitter):
         self.test_start = test_start
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
+        if isinstance(self.test_start, float):
+            dates = log.select("timestamp").withColumn(
+                "idx", sf.row_number().over(Window.orderBy("timestamp"))
+            )
+            test_start = int(dates.count() * (1 - self.test_start)) + 1
+            test_start = (
+                dates.filter(sf.col("idx") == test_start)
+                .select("timestamp")
+                .collect()[0][0]
+            )
+        else:
+            test_start = self.test_start
         train = log.filter(
-            sf.col("timestamp") < sf.lit(self.test_start).cast(TimestampType())
+            sf.col("timestamp") < sf.lit(test_start).cast(TimestampType())
         )
         test = log.filter(
-            sf.col("timestamp")
-            >= sf.lit(self.test_start).cast(TimestampType())
+            sf.col("timestamp") >= sf.lit(test_start).cast(TimestampType())
         )
         return train, test
 

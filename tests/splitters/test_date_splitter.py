@@ -42,6 +42,20 @@ def test_split(log, split_date):
     assert test_min_date >= split_date
 
 
+def test_proportion(log):
+    test_size = 0.15
+    splitter = DateSplitter(test_size)
+    train, test = splitter.split(log)
+
+    train_max_date = train.toPandas().timestamp.max()
+    test_min_date = test.toPandas().timestamp.min()
+    split_date = datetime(2019, 9, 17)
+
+    assert train_max_date < split_date
+    assert test_min_date >= split_date
+    assert np.isclose(test.count() / log.count(), test_size, atol=0.1)
+
+
 def test_drop_cold_items(log, split_date):
     splitter = DateSplitter(
         split_date, drop_cold_items=True, drop_cold_users=False
