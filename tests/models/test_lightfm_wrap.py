@@ -61,3 +61,19 @@ def test_predict(log, user_features, item_features, model):
         "i4",
         "i1",
     ]
+
+
+def test_predict_no_user_features(log, user_features, item_features, model):
+    model.fit(log, user_features, item_features)
+    pred = model.predict(
+        log=log,
+        k=1,
+        user_features=None,
+        item_features=item_features,
+        filter_seen_items=True,
+    )
+    assert list(pred.toPandas().sort_values("user_id")["item_id"]) == [
+        "i3",
+        "i4",
+        "i1",
+    ]
