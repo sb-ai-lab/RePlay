@@ -28,9 +28,7 @@ def log(spark):
 
 
 def test_users_are_cold(log):
-    splitter = NewUsersSplitter(
-        test_size=0.25, drop_cold_items=False, drop_cold_users=False
-    )
+    splitter = NewUsersSplitter(test_size=0.25, drop_cold_items=False)
     train, test = splitter.split(log)
 
     train_users = train.toPandas().user_id

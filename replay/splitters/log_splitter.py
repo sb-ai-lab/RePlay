@@ -149,21 +149,14 @@ class NewUsersSplitter(Splitter):
     <BLANKLINE>
     """
 
-    def __init__(
-        self,
-        test_size: float,
-        drop_cold_items: bool = False,
-        drop_cold_users: bool = False,
-    ):
+    def __init__(self, test_size: float, drop_cold_items: bool = False):
         """
         :param test_size: размер тестовой выборки, от 0 до 1
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
-        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
-           которых нет в обучающей
         """
         super().__init__(
-            drop_cold_items=drop_cold_items, drop_cold_users=drop_cold_users
+            drop_cold_items=drop_cold_items, drop_cold_users=False
         )
         self.test_size = test_size
         if test_size < 0 or test_size > 1:
