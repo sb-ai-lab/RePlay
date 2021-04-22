@@ -7,7 +7,6 @@ from pyspark.ml.evaluation import BinaryClassificationEvaluator
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, isnull, lit, when
 
-
 from lightautoml.automl.presets.tabular_presets import TabularAutoML
 
 # from lightautoml.dataset.roles import DatetimeRole, TextRole
@@ -15,16 +14,18 @@ from lightautoml.tasks import Task
 
 # from lightautoml.utils.profiler import Profiler
 
+from replay.constants import AnyDataFrame
 from replay.experiment import Experiment
 
 # from replay.metrics import HitRate, Metric
-from replay.models.als import ALSWrap
+from replay.models import ALSWrap, RandomRec
 from replay.models.base_rec import Recommender
 
 # from replay.models.classifier_rec import ClassifierRec
+from replay.scenarios import BaseScenario
 from replay.session_handler import State
 from replay.splitters import Splitter, UserSplitter
-from replay.utils import get_log_info, horizontal_explode, get_stats
+from replay.utils import get_log_info, horizontal_explode, join_or_return
 
 
 def _create_cols_list(log: DataFrame, agg_col: str = "user_id") -> List:
@@ -253,12 +254,13 @@ class TwoStagesFeaturesProcessor:
             abnormality_res, on="user_id", how="left"
         ).cache()
 
-        # Mean rating distribution by cat feature(e.g. 80% of ratings of the film(item) are given by males (categorical user feature))
+        # Mean rating distribution by the users' cat features
         if user_features is not None and user_cat_features_list is not None:
             self.item_cond_dist_cat_features = _add_cond_distr_features(
                 user_cat_features_list, base_df, user_features
             )
 
+        # Mean rating distribution by the items' cat features
         if item_features is not None and item_cat_features_list is not None:
             self.user_cond_dist_cat_features = _add_cond_distr_features(
                 item_cat_features_list, base_df, item_features
@@ -266,7 +268,7 @@ class TwoStagesFeaturesProcessor:
 
         self.fitted = True
 
-    def __call__(self, log: DataFrame):
+    def __call__(self, log: DataFrame, step="train"):
         joined = (
             log.join(self.user_log_features, on="user_id", how="left")
             .join(self.item_log_features, on="item_id", how="left")
@@ -319,7 +321,7 @@ class TwoStagesFeaturesProcessor:
 
 
 # pylint: disable=too-many-instance-attributes
-class TwoStagesScenario:
+class TwoStagesScenario(BaseScenario):
     """
     Двухуровневый сценарий состоит из следующих этапов:
     train:
@@ -363,7 +365,10 @@ class TwoStagesScenario:
         second_model_params: Optional[Union[Dict, str]] = None,
         second_model_config_path: Optional[str] = None,
         num_negatives: int = 100,
+        negatives_type: str = "first_level",
         use_generated_features: bool = False,
+        user_cat_features_list: Optional[List] = None,
+        item_cat_features_list: Optional[List] = None,
         custom_features_processor: Callable = None,
         seed: int = 123,
     ) -> None:
@@ -385,8 +390,15 @@ class TwoStagesScenario:
         :param second_model_params: Параметры TabularAutoML в виде многоуровневого dict
         :param second_model_config_path: Путь к конфиг-файлу для настройки TabularAutoML
         :param num_negatives: сколько объектов класса 0 будем генерировать для обучения
+        :param negatives_type: каким образом генерировать негативные примеры для обучения модели второго уровня,
+            случайно ``random`` или как наиболее релевантные предсказанные моделью первого уровня ``first-level``
         :param use_generated_features: нужно ли использовать автоматически сгенерированные
             по логу признаки для обучения модели второго уровня
+        :param user_cat_features_list: категориальные признаки пользователей, которые нужно использовать для построения признаков
+            популярности объекта у пользователей в зависимости от значения категориального признака
+            (например, популярность фильма у пользователей данной возрастной группы)
+        :param item_cat_features_list: категориальные признаки объектов, которые нужно использовать для построения признаков
+            популярности у пользователя объектов в зависимости от значения категориального признака
         :param custom_features_processor: в двухуровневый сценарий можно передать свой callable-объект для
             генерации признаков для выбранных пар пользователь-объект во время обучения и inference
             на базе лога и признаков пользователей и объектов.
@@ -394,6 +406,7 @@ class TwoStagesScenario:
         :param seed: random seed для обеспечения воспроизводимости результатов.
         """
 
+        super().__init__(cold_model=None, threshold=0)
         self.train_splitter = train_splitter
 
         self.first_level_models = (
@@ -402,10 +415,12 @@ class TwoStagesScenario:
             else [first_level_models]
         )
 
+        self.random_model = RandomRec(seed=seed)
+
         if isinstance(use_first_level_features, bool):
-            self.first_level_models_feat = [use_first_level_features] * len(
-                self.first_level_models
-            )
+            self.use_first_level_models_feat = [
+                use_first_level_features
+            ] * len(self.first_level_models)
         else:
             if len(self.first_level_models) != len(use_first_level_features):
                 raise ValueError(
@@ -417,7 +432,7 @@ class TwoStagesScenario:
                     )
                 )
 
-            self.first_level_models_feat = use_first_level_features
+            self.use_first_level_models_feat = use_first_level_features
 
         if (
             second_model_config_path is not None
@@ -436,9 +451,158 @@ class TwoStagesScenario:
             )
 
         self.num_negatives = num_negatives
+        if negatives_type not in ["random", "first_level"]:
+            raise ValueError(
+                "incorrect negatives_type, select random or first_level"
+            )
+        self.negatives_type = negatives_type
+
         self.use_generated_features = use_generated_features
-        self.custom_features_processor = custom_features_processor
+        self.user_cat_features_list = user_cat_features_list
+        self.item_cat_features_list = item_cat_features_list
+        self.features_processor = (
+            custom_features_processor if custom_features_processor else None
+        )
         self.seed = seed
+
+    def add_features(self, log, user_features, item_features, step="train"):
+        self.logger.info("Feature enrichment: first-level features")
+        # first-level pred and features
+        full_second_level_train = log
+        for idx, model in enumerate(self.first_level_models):
+            current_pred = model.predict_for_pairs(
+                full_second_level_train.select("user_id", "item_id"),
+                user_features,
+                item_features,
+            ).withColumnRenamed("relevance", "{}_{}_rel".format(idx, model))
+            full_second_level_train = full_second_level_train.join(
+                current_pred, on=["user_id", "item_id"], how="left"
+            )
+            if self.use_first_level_models_feat[idx]:
+                prefix = "{}_{}".format(idx, model)
+                features = model.add_features(
+                    full_second_level_train.select("user_id", "item_id"),
+                    user_features,
+                    item_features,
+                    prefix,
+                )
+                full_second_level_train = full_second_level_train.join(
+                    features, on=["user_id", "item_id"], how="left"
+                )
+        full_second_level_train = full_second_level_train.fillna(0).cache()
+
+        self.logger.info(full_second_level_train.columns)
+
+        # dataset features
+        self.logger.info("Feature enrichment: dataset features")
+        full_second_level_train = join_or_return(
+            full_second_level_train, user_features, on="user_id", how="left"
+        )
+        full_second_level_train = join_or_return(
+            full_second_level_train, item_features, on="item_id", how="left"
+        )
+        full_second_level_train.cache()
+
+        self.logger.info(full_second_level_train.columns)
+
+        # generated features
+        self.logger.info("Feature enrichment: generated features")
+        if self.use_generated_features:
+            full_second_level_train = self.features_processor(
+                full_second_level_train, step=step
+            )
+            self.logger.info(full_second_level_train.columns)
+
+        return full_second_level_train
+
+    def fit(
+        self,
+        log: AnyDataFrame,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
+        force_reindex: bool = True,
+    ) -> None:
+        """
+        Обучает модель на логе и признаках пользователей и объектов.
+
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_id, item_id, timestamp, relevance]``
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            ``[user_id, timestamp]`` и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            ``[item_id, timestamp]`` и колонки с признаками
+        :param force_reindex: обязательно создавать
+            индексы, даже если они были созданы ранее
+        """
+
+        # split
+        # на каком уровне логирования пишем?
+        self.logger.info("Data split")
+        first_level_train, second_level_train = self._split_data(log)
+
+        # нужны ли одинаковые индексы для всех моделей? место для оптимизации
+        self.logger.info("First level models train")
+        for base_model in self.first_level_models:
+            base_model._fit_wrap(
+                first_level_train, user_features, item_features, force_reindex
+            )
+
+        self.random_model.fit(log=log, force_reindex=force_reindex)
+
+        self.logger.info("Negatives generation")
+        negatives_source = (
+            self.first_level_models[0]
+            if self.negatives_type == "first_level"
+            else self.random_model
+        )
+        negatives = negatives_source.predict(
+            log,
+            k=self.num_negatives,
+            users=log.select("user_id").distinct(),
+            items=log.select("item_id").distinct(),
+            filter_seen_items=True,
+        ).withColumn("relevance", sf.lit(0.0))
+
+        full_second_level_train = (
+            second_level_train.withColumn("relevance", sf.lit(1))
+            .unionByName(negatives)
+            .cache()
+        )
+        full_second_level_train.groupBy("relevance").agg(
+            sf.count(sf.col("relevance"))
+        ).show()
+
+        self.logger.info("Feature enrichment")
+        if self.features_processor is None:
+            self.features_processor = TwoStagesFeaturesProcessor(
+                log,
+                first_level_train=first_level_train,
+                second_level_train=second_level_train,
+                user_features=user_features,
+                item_features=item_features,
+                user_cat_features_list=self.user_cat_features_list,
+                item_cat_features_list=self.item_cat_features_list,
+            )
+
+        full_second_level_train = self.add_features(
+            log=full_second_level_train,
+            user_features=user_features,
+            item_features=item_features,
+            step="train",
+        )
+        self.logger.info("Convert to pandas")
+        full_second_level_train_pd = full_second_level_train.toPandas()
+        full_second_level_train.unpersist()
+
+        hot_data = log
+        self.hot_users = hot_data.select("user_id").distinct()
+        self._fit_wrap(hot_data, user_features, item_features, force_reindex)
+        self.cold_model._fit_wrap(
+            log, user_features, item_features, force_reindex
+        )
 
     def _split_data(self, log: DataFrame) -> Tuple[DataFrame, DataFrame]:
         first_level_train, second_level_train = self.train_splitter.split(log)
@@ -460,17 +624,6 @@ class TwoStagesScenario:
             users=first_test.select("user_id").distinct(),
             items=first_train.select("item_id").distinct(),
         )
-
-    @staticmethod
-    def _join_features(
-        first_df: DataFrame,
-        other_df: Optional[DataFrame] = None,
-        on_col="user_id",
-        how="inner",
-    ) -> DataFrame:
-        if other_df is None:
-            return first_df
-        return first_df.join(other_df, how=how, on=on_col)
 
     def _second_stage_data(
         self,
