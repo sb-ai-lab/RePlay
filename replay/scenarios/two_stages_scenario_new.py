@@ -496,10 +496,16 @@ class TwoStagesScenario(BaseScenario):
         # dataset features
         self.logger.info("Feature enrichment: dataset features")
         full_second_level_train = join_or_return(
-            full_second_level_train, user_features, on="user_id", how="left"
+            full_second_level_train,
+            user_features,
+            on_col="user_id",
+            how="left",
         )
         full_second_level_train = join_or_return(
-            full_second_level_train, item_features, on="item_id", how="left"
+            full_second_level_train,
+            item_features,
+            on_col="item_id",
+            how="left",
         )
         full_second_level_train.cache()
 
@@ -514,6 +520,17 @@ class TwoStagesScenario(BaseScenario):
             self.logger.info(full_second_level_train.columns)
 
         return full_second_level_train
+
+    def _split_data(self, log: DataFrame) -> Tuple[DataFrame, DataFrame]:
+        first_level_train, second_level_train = self.train_splitter.split(log)
+        State().logger.debug("Log info: %s", get_log_info(log))
+        State().logger.debug(
+            "first_level_train info: %s", get_log_info(first_level_train)
+        )
+        State().logger.debug(
+            "second_level_train info: %s", get_log_info(second_level_train)
+        )
+        return first_level_train, second_level_train
 
     def fit(
         self,
@@ -567,7 +584,8 @@ class TwoStagesScenario(BaseScenario):
         ).withColumn("relevance", sf.lit(0.0))
 
         full_second_level_train = (
-            second_level_train.withColumn("relevance", sf.lit(1))
+            second_level_train.select("user_id", "item_id", "relevance")
+            .withColumn("relevance", sf.lit(1))
             .unionByName(negatives)
             .cache()
         )
@@ -597,209 +615,212 @@ class TwoStagesScenario(BaseScenario):
         full_second_level_train_pd = full_second_level_train.toPandas()
         full_second_level_train.unpersist()
 
-        hot_data = log
-        self.hot_users = hot_data.select("user_id").distinct()
-        self._fit_wrap(hot_data, user_features, item_features, force_reindex)
-        self.cold_model._fit_wrap(
-            log, user_features, item_features, force_reindex
+        oof_pred = self.second_stage_model.fit_predict(
+            full_second_level_train_pd, roles={"target": "relevance"}
+        )
+        print(
+            self.second_stage_model.levels[0][0]
+            .ml_algos[0]
+            .get_features_score()
         )
 
-    def _split_data(self, log: DataFrame) -> Tuple[DataFrame, DataFrame]:
-        first_level_train, second_level_train = self.train_splitter.split(log)
-        State().logger.debug("Log info: %s", get_log_info(log))
-        State().logger.debug(
-            "first_level_train info: %s", get_log_info(first_level_train)
-        )
-        State().logger.debug(
-            "second_level_train info: %s", get_log_info(second_level_train)
-        )
-        return first_level_train, second_level_train
-
-    def _get_first_stage_recs(
-        self, first_train: DataFrame, first_test: DataFrame
-    ) -> DataFrame:
-        return self.first_model.fit_predict(
-            log=first_train,
-            k=self.first_stage_k,
-            users=first_test.select("user_id").distinct(),
-            items=first_train.select("item_id").distinct(),
-        )
-
-    def _second_stage_data(
+    # pylint: disable=too-many-arguments
+    def predict(
         self,
-        first_recs: DataFrame,
-        first_train: DataFrame,
-        first_test: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> Tuple[DataFrame, DataFrame, DataFrame]:
-        user_features_factors = self.first_model.inv_user_indexer.transform(
-            horizontal_explode(
-                self.first_model.model.userFactors,
-                "features_df",
-                "user_feature",
-                [col("id").alias("user_idx")],
-            )
-        ).drop("user_idx")
-        if self.stat_features:
-            user_statistics = get_stats(first_train)
-            user_features = self._join_features(user_statistics, user_features)
-
-            item_statistics = get_stats(first_train, group_by="item_id")
-            item_features = self._join_features(
-                item_statistics, item_features, on_col="item_id"
-            )
-
-        user_features = self._join_features(
-            user_features_factors, user_features
-        )
-
-        item_features_factors = self.first_model.inv_item_indexer.transform(
-            horizontal_explode(
-                self.first_model.model.itemFactors,
-                "features_df",
-                "item_feature",
-                [col("id").alias("item_idx")],
-            )
-        ).drop("item_idx")
-        item_features = self._join_features(
-            item_features_factors, item_features, "item_id"
-        )
-
-        second_train = (
-            first_recs.withColumnRenamed("relevance", "recs")
-            .join(
-                first_test.select("user_id", "item_id", "relevance").toDF(
-                    "uid", "iid", "relevance"
-                ),
-                how="left",
-                on=[
-                    col("user_id") == col("uid"),
-                    col("item_id") == col("iid"),
-                ],
-            )
-            .withColumn(
-                "relevance",
-                when(isnull("relevance"), lit(0)).otherwise(lit(1)),
-            )
-            .drop("uid", "iid")
-        )
-        State().logger.debug(
-            "баланс классов: положительных %d из %d",
-            second_train.filter("relevance = 1").count(),
-            second_train.count(),
-        )
-        return user_features, item_features, second_train
-
-    def get_recs(
-        self,
-        log: DataFrame,
+        log: AnyDataFrame,
         k: int,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        items: Optional[Union[AnyDataFrame, Iterable]] = None,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
+        filter_seen_items: bool = True,
     ) -> DataFrame:
         """
-        обучить двухуровневую модель и выдать рекомендации на тестовом множестве,
-        полученном в соответствии с выбранной схемой валидации
+        Выдача рекомендаций для пользователей.
 
-        >>> from replay.session_handler import get_spark_session, State
-        >>> spark = get_spark_session(1, 1)
-        >>> state = State(spark)
-
-        >>> import numpy as np
-        >>> np.random.seed(47)
-        >>> from logging import ERROR
-        >>> State().logger.setLevel(ERROR)
-        >>> from replay.splitters import UserSplitter
-        >>> splitter = UserSplitter(
-        ...    item_test_size=1,
-        ...    shuffle=True,
-        ...    drop_cold_items=False,
-        ...    seed=147
-        ... )
-        >>> from replay.metrics import HitRate
-        >>> from pyspark.ml.classification import RandomForestClassifier
-        >>> two_stages = TwoStagesScenario(
-        ...     first_stage_k=10,
-        ...     first_stage_splitter=splitter,
-        ...     second_stage_splitter=splitter,
-        ...     metrics={HitRate(): 1},
-        ...     second_model=ClassifierRec(RandomForestClassifier(seed=47)),
-        ...     stat_features=False
-        ... )
-        >>> two_stages.experiment
-        Traceback (most recent call last):
-            ...
-        ValueError: нужно запустить метод get_recs, чтобы провести эксперимент
-        >>> log = spark.createDataFrame(
-        ...     [(i, i + j, 1) for i in range(10) for j in range(10)]
-        ... ).toDF("user_id", "item_id", "relevance")
-        >>> two_stages.get_recs(log, 1).show()
-        +-------+-------+-------------------+
-        |user_id|item_id|          relevance|
-        +-------+-------+-------------------+
-        |      0|     10|                0.1|
-        |      1|     10|              0.215|
-        |      2|      5| 0.0631733611545818|
-        |      3|     13|0.07817336115458182|
-        |      4|     12| 0.1131733611545818|
-        |      5|      3|0.11263157894736842|
-        |      6|     10|                0.3|
-        |      7|      8| 0.1541358024691358|
-        |      8|      6| 0.2178571428571429|
-        |      9|     14|0.21150669448791515|
-        +-------+-------+-------------------+
-        <BLANKLINE>
-        >>> two_stages.experiment.results
-                             HitRate@1
-        two_stages_scenario        0.6
-
-        :param log: лог пользовательских предпочтений
-        :param k: количество рекомендаций, которые нужно вернуть каждому пользователю
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_id, item_id, timestamp, relevance]``
+        :param k: количество рекомендаций для каждого пользователя;
+            должно быть не больше, чем количество объектов в ``items``
+        :param users: список пользователей, для которых необходимо получить
+            рекомендации, спарк-датафрейм с колонкой ``[user_id]`` или ``array-like``;
+            если ``None``, выбираются все пользователи из лога;
+            если в этом списке есть пользователи, про которых модель ничего
+            не знает, то вызывается ошибка
+        :param items: список объектов, которые необходимо рекомендовать;
+            спарк-датафрейм с колонкой ``[item_id]`` или ``array-like``;
+            если ``None``, выбираются все объекты из лога;
+            если в этом списке есть объекты, про которых модель ничего
+            не знает, то в ``relevance`` в рекомендациях к ним будет стоять ``0``
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
             ``[user_id , timestamp]`` и колонки с признаками
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
             ``[item_id , timestamp]`` и колонки с признаками
-        :return: DataFrame со списком рекомендаций
+        :param filter_seen_items: если True, из рекомендаций каждому
+            пользователю удаляются виденные им объекты на основе лога
+        :return: рекомендации, спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]``
         """
+        log = convert2spark(log)
+        users = users or log or user_features or self.user_indexer.labels
+        users = self._get_ids(users, "user_id")
+        hot_data = min_entries(log, self.threshold)
+        hot_users = hot_data.select("user_id").distinct()
+        if self.can_predict_cold_users:
+            hot_users = hot_users.join(self.hot_users)
+        hot_users = hot_users.join(users, on="user_id", how="inner")
 
-        first_train, first_test, test = self._split_data(log)
-        full_train = first_train.union(first_test)
-
-        first_recs = self._get_first_stage_recs(first_train, first_test)
-        user_features, item_features, second_train = self._second_stage_data(
-            first_recs, first_train, first_test, user_features, item_features
-        )
-        first_recs_for_test = self.first_model.predict(
-            log=full_train,
-            k=self.first_stage_k,
-            users=test.select("user_id").distinct(),
-            items=first_train.select("item_id").distinct(),
-        )
-        # pylint: disable=protected-access
-        self.second_model._fit_wrap(
-            log=second_train,
-            user_features=user_features,
-            item_features=item_features,
-        )
-
-        second_recs = self.second_model.rerank(  # type: ignore
-            log=first_recs_for_test.withColumnRenamed("relevance", "recs"),
+        hot_pred = self._predict_wrap(
+            log=hot_data,
             k=k,
+            users=hot_users,
+            items=items,
             user_features=user_features,
             item_features=item_features,
-            users=test.select("user_id").distinct(),
+            filter_seen_items=filter_seen_items,
         )
-        State().logger.debug(
-            "ROC AUC модели второго уровня (как классификатора): %.4f",
-            BinaryClassificationEvaluator().evaluate(
-                self.second_model.model.transform(
-                    self.second_model.augmented_data
-                )
-            ),
+        if log is not None:
+            cold_data = log.join(self.hot_users, how="anti", on="user_id")
+        else:
+            cold_data = None
+        cold_users = users.join(self.hot_users, how="anti", on="user_id")
+        cold_pred = self.cold_model._predict_wrap(
+            log=cold_data,
+            k=k,
+            users=cold_users,
+            items=items,
+            user_features=user_features,
+            item_features=item_features,
+            filter_seen_items=filter_seen_items,
         )
-        self._experiment = Experiment(test, self.metrics)  # type: ignore
-        self._experiment.add_result("two_stages_scenario", second_recs)
-        return second_recs
+        return hot_pred.union(cold_pred)
+
+    def fit_predict(
+        self,
+        log: AnyDataFrame,
+        k: int,
+        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        items: Optional[Union[AnyDataFrame, Iterable]] = None,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
+        filter_seen_items: bool = True,
+        force_reindex: bool = True,
+    ) -> DataFrame:
+        """
+        Обучает модель и выдает рекомендации.
+
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_id, item_id, timestamp, relevance]``
+        :param k: количество рекомендаций для каждого пользователя;
+            должно быть не больше, чем количество объектов в ``items``
+        :param users: список пользователей, для которых необходимо получить
+            рекомендации; если ``None``, выбираются все пользователи из лога;
+            если в этом списке есть пользователи, про которых модель ничего
+            не знает, то поднимается исключение
+        :param items: список объектов, которые необходимо рекомендовать;
+            если ``None``, выбираются все объекты из лога;
+            если в этом списке есть объекты, про которых модель ничего
+            не знает, то в рекомендациях к ним будет стоять ``0``
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с колонками
+            ``[user_id , timestamp]`` и колонки с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с колонками
+            ``[item_id , timestamp]`` и колонки с признаками
+        :param filter_seen_items: если ``True``, из рекомендаций каждому
+            пользователю удаляются виденные им объекты на основе лога
+        :param force_reindex: обязательно создавать
+            индексы, даже если они были созданы ранее
+        :return: рекомендации, спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]``
+        """
+        self.fit(log, user_features, item_features, force_reindex)
+        return self.predict(
+            log,
+            k,
+            users,
+            items,
+            user_features,
+            item_features,
+            filter_seen_items,
+        )
+
+    # pylint: disable=too-many-arguments, too-many-locals
+    def optimize(
+        self,
+        train: AnyDataFrame,
+        test: AnyDataFrame,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
+        param_grid: Optional[Dict[str, Dict[str, List[Any]]]] = None,
+        criterion: Metric = NDCG(),
+        k: int = 10,
+        budget: int = 10,
+    ) -> Tuple[Dict[str, Any]]:
+        """
+        Подбирает лучшие гиперпараметры с помощью optuna для обоих моделей
+        и инициализирует эти значения.
+
+        :param train: датафрейм для обучения
+        :param test: датафрейм для проверки качества
+        :param user_features: датафрейм с признаками пользователей
+        :param item_features: датафрейм с признаками объектов
+        :param param_grid: словарь с ключами main, cold, и значеними в виде сеток параметров.
+            Сетка задается словарем, где ключ ---
+            название параметра, значение --- границы возможных значений.
+            ``{param: [low, high]}``.
+        :param criterion: метрика, которая будет оптимизироваться
+        :param k: количество рекомендаций для каждого пользователя
+        :param budget: количество попыток при поиске лучших гиперпараметров
+        :return: словари оптимальных параметров
+        """
+        if param_grid is None:
+            param_grid = {"main": None, "cold": None}
+        self.logger.info("Optimizing main model...")
+        params = self._optimize(
+            train,
+            test,
+            user_features,
+            item_features,
+            param_grid["main"],
+            criterion,
+            k,
+            budget,
+        )
+        if not isinstance(params, tuple):
+            self.set_params(**params)
+        if self.cold_model._search_space is not None:
+            self.logger.info("Optimizing cold model...")
+            cold_params = self.cold_model._optimize(
+                train,
+                test,
+                user_features,
+                item_features,
+                param_grid["cold"],
+                criterion,
+                k,
+                budget,
+            )
+            if not isinstance(cold_params, tuple):
+                self.cold_model.set_params(**cold_params)
+        else:
+            cold_params = None
+        return params, cold_params
+
+    @abstractmethod
+    def _optimize(
+        self,
+        train: AnyDataFrame,
+        test: AnyDataFrame,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
+        param_grid: Optional[Dict[str, Dict[str, List[Any]]]] = None,
+        criterion: Metric = NDCG(),
+        k: int = 10,
+        budget: int = 10,
+    ):
+        pass
