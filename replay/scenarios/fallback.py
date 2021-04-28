@@ -144,5 +144,5 @@ class Fallback(BaseScenario):
             item_features,
             filter_seen_items,
         )
-        pred = fallback(pred, extra_pred, k, idx=True)
+        pred = fallback(pred, extra_pred, k, id_type="idx")
         return pred

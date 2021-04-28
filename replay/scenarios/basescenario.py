@@ -97,7 +97,7 @@ class BaseScenario(BaseRecommender):
         users = self._get_ids(users, "user_id")
         hot_data = min_entries(log, self.threshold)
         hot_users = hot_data.select("user_id").distinct()
-        if self.can_predict_cold_users:
+        if not self.can_predict_cold_users:
             hot_users = hot_users.join(self.hot_users)
         hot_users = hot_users.join(users, on="user_id", how="inner")
 

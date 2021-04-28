@@ -56,19 +56,18 @@ def func_get(vector: np.ndarray, i: int) -> float:
     return float(vector[i])
 
 
-def get_top_k_recs(recs: DataFrame, k: int, x: bool = False) -> DataFrame:
+def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "id") -> DataFrame:
     """
     Выбирает из рекомендаций топ-k штук на основе `relevance`.
 
     :param recs: рекомендации, спарк-датафрейм с колонками
         `[user_id, item_id, relevance]`
     :param k: число рекомендаций для каждого пользователя
-    :param x: использовать ли idx вместо id в колонках
+    :param id_type: использовать id или idx в колонках
     :return: топ-k рекомендации, спарк-датафрейм с колонками
         `[user_id, item_id, relevance]`
     """
-    x = "x" if x else ""
-    window = Window.partitionBy(recs["user_id" + x]).orderBy(
+    window = Window.partitionBy(recs["user_" + id_type]).orderBy(
         recs["relevance"].desc()
     )
     return (
@@ -351,7 +350,7 @@ def horizontal_explode(
 
 
 def fallback(
-    base: DataFrame, fill: DataFrame, k: int, idx: bool = False
+    base: DataFrame, fill: DataFrame, k: int, id_type: str = "id"
 ) -> DataFrame:
     """Подмешивает к основным рекомендациям запасные
     для пользователей, у которых количество рекомендаций меньше ``k``.
@@ -361,12 +360,11 @@ def fallback(
     :param base: основные рекомендации
     :param fill: запасные рекомендации
     :param k: сколько должно быть для каждого пользователя
-    :param x: использовать ли idx вместо id в колонках
+    :param id_type: использовать id или idx в колонках
     :return: дополненные рекомендации
     """
     if fill is None:
         return base
-    x = "x" if idx else ""
     margin = 0.1
     min_in_base = base.agg({"relevance": "min"}).collect()[0][0]
     max_in_fill = fill.agg({"relevance": "max"}).collect()[0][0]
@@ -376,9 +374,11 @@ def fallback(
         fill = fill.withColumn(
             "relevance_fallback", sf.col("relevance_fallback") - diff - margin
         )
-    recs = base.join(fill, on=["user_id" + x, "item_id" + x], how="full_outer")
+    recs = base.join(
+        fill, on=["user_" + id_type, "item_" + id_type], how="full_outer"
+    )
     recs = recs.withColumn(
         "relevance", sf.coalesce("relevance", "relevance_fallback")
-    ).select("user_id" + x, "item_id" + x, "relevance")
-    recs = get_top_k_recs(recs, k, idx)
+    ).select("user_" + id_type, "item_" + id_type, "relevance")
+    recs = get_top_k_recs(recs, k, id_type)
     return recs
