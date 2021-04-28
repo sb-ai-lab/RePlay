@@ -15,6 +15,8 @@ class Fallback(BaseScenario):
     """Дополняет основную модель рекомендациями с помощью fallback модели.
     Ведет себя точно также, как обычный рекомендатель и имеет такой же интерфейс."""
 
+    can_predict_cold_users: bool = True
+
     def __init__(
         self,
         main_model: BaseRecommender,
