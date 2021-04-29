@@ -6,18 +6,23 @@ from pyspark.sql import DataFrame
 from replay.constants import AnyDataFrame
 from replay.metrics import Metric, NDCG
 from replay.models import PopRec
-from replay.models.base_rec import HybridRecommender, BaseRecommender
+from replay.models.base_rec import BaseRecommender
+from replay.scenarios.basescenario import BaseScenario
 from replay.utils import fallback
 
 
-class Fallback(HybridRecommender):
+class Fallback(BaseScenario):
     """Дополняет основную модель рекомендациями с помощью fallback модели.
     Ведет себя точно также, как обычный рекомендатель и имеет такой же интерфейс."""
+
+    can_predict_cold_users: bool = True
 
     def __init__(
         self,
         main_model: BaseRecommender,
         fallback_model: BaseRecommender = PopRec(),
+        cold_model: BaseRecommender = PopRec(),
+        threshold: int = 5,
     ):
         """Для каждого пользователя будем брать рекомендации от `main_model`, а если не хватает,
         то дополним рекомендациями от `fallback_model` снизу. `relevance` побочной модели при этом
@@ -26,6 +31,7 @@ class Fallback(HybridRecommender):
         :param main_model: основная инициализированная модель
         :param fallback_model: дополнительная инициализированная модель
         """
+        super().__init__(cold_model, threshold)
         self.main_model = main_model
         # pylint: disable=invalid-name
         self.fb_model = fallback_model
@@ -34,7 +40,7 @@ class Fallback(HybridRecommender):
         return f"Fallback({str(self.main_model)}, {str(self.fb_model)})"
 
     # pylint: disable=too-many-arguments, too-many-locals
-    def optimize(
+    def _optimize(
         self,
         train: AnyDataFrame,
         test: AnyDataFrame,
@@ -140,5 +146,5 @@ class Fallback(HybridRecommender):
             item_features,
             filter_seen_items,
         )
-        pred = fallback(pred, extra_pred, k)
+        pred = fallback(pred, extra_pred, k, id_type="idx")
         return pred

@@ -27,10 +27,12 @@ def test_fallback():
 
 
 def test_class(log, log2):
-    model = Fallback(KNN())
+    model = Fallback(KNN(), threshold=3)
     s = str(model)
     assert s == "Fallback(KNN, PopRec)"
     model.fit(log2)
-    p1, p2 = model.optimize(log, log2, k=1, budget=1)
+    (p1, p2), p3 = model.optimize(log, log2, k=1, budget=1)
     assert p2 is None
+    assert p3 is None
     assert isinstance(p1, dict)
+    model.predict(log2, k=1)
