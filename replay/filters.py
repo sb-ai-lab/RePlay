@@ -35,11 +35,14 @@ def min_entries(data_frame: AnyDataFrame, num_entries: int) -> DataFrame:
     )  # type: ignore
     output_count = data_frame.count()
     diff = (input_count - output_count) / input_count
-    if diff > 0.1:
-        State().logger.warning(
-            "при текущем значении threshold для обучения горрячей модели выкидывается %s%% данных",
-            diff,
-        )
+    if diff > 0.5:
+        logger_level = State().logger.warning
+    else:
+        logger_level = State().logger.info
+    logger_level(
+        "при текущем значении threshold для обучения горячей модели выкидывается %s%% данных",
+        diff,
+    )
     return data_frame
 
 
