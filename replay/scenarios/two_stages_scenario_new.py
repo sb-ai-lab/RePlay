@@ -28,16 +28,16 @@ from replay.splitters import Splitter, UserSplitter
 from replay.utils import get_log_info, horizontal_explode, join_or_return
 
 
-def _create_cols_list(log: DataFrame, agg_col: str = "user_id") -> List:
+def _create_cols_list(log: DataFrame, agg_col: str = "user_idx") -> List:
     """
     Создание списка статистических признаков в зависимости от типа значений relevance (унарные или нет)
     и наличия времени оценки (timestamp).
     :param log: лог взаимодействий пользователей и объектов, спарк-датафрейм с колонками
-            ``[user_id, item_id, timestamp, relevance]``
-    :param agg_col: столбец, по которому будут строиться статистические признаки, user_id или item_id
+            ``[user_idx, item_id, timestamp, relevance]``
+    :param agg_col: столбец, по которому будут строиться статистические признаки, user_idx или item_id
     :return: список столбцов для передачи в pyspark agg
     """
-    if agg_col != "user_id" and agg_col != "item_id":
+    if agg_col != "user_idx" and agg_col != "item_idx":
         raise ValueError(
             "некорректный столбец для агрегации: {} ".format(agg_col)
         )
@@ -83,7 +83,7 @@ def _create_cols_list(log: DataFrame, agg_col: str = "user_id") -> List:
             aggregates.append(
                 sf.expr(
                     "percentile_approx({}, {})".format("relevance", percentile)
-                ).alias("{}_quantile_{}".format(prefix, percentile))
+                ).alias("{}_quantile_{}".format(prefix, str(percentile)[2:]))
             )
 
     return aggregates
@@ -99,17 +99,17 @@ def _add_cond_distr_features(
     результат будет содержать признаки объектов и наоборот.
     :param cat_cols: список категориальных признаков для подсчета популярности
     :param log: лог взаимодействий пользователей и объектов, спарк-датафрейм с колонками
-        ``[user_id, item_id, timestamp, relevance]``
+        ``[user_idx, item_idx, timestamp, relevance]``
     :param features_df: спарк-датафрейм с признаками пользователей или объектов
     :return: словарь "имя категориального признака - датафрейм с вычисленными значениями популярности
         по id и значениям категориального признака"
     """
-    if "item_id" in features_df.columns:
-        join_col, agg_col = "item_id", "user_id"
+    if "item_idx" in features_df.columns:
+        join_col, agg_col = "item_idx", "user_idx"
     else:
-        join_col, agg_col = "user_id", "item_id"
+        join_col, agg_col = "user_idx", "item_idx"
 
-    join_col = "item_id" if agg_col == "user_id" else "user_id"
+    join_col = "item_idx" if agg_col == "user_idx" else "user_idx"
     conditional_dist = dict()
     log_with_features = log.join(features_df, on=join_col, how="left")
     count_by_agg_col_name = "count_by_{}".format(agg_col)
@@ -132,88 +132,64 @@ def _add_cond_distr_features(
 
 
 class TwoStagesFeaturesProcessor:
-    user_log_features = None
-    item_log_features = None
-    user_cond_dist_cat_features = None
-    items_cond_dist_cat_features = None
+    train_features = None
+    inference_features = None
+    fitted = False
 
-    def __init__(
+    def _calc_features_for_df(
         self,
-        log: DataFrame,
-        first_level_train: DataFrame,
-        second_level_train: DataFrame,
+        base_df: DataFrame,
+        features_for_train: bool = True,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         user_cat_features_list: Optional[List] = None,
         item_cat_features_list: Optional[List] = None,
     ) -> None:
-        """
-        Подсчет признаков пользователей и объектов, основанные на логе.
-        Признаки выбираются таким образом, чтобы корректно рассчитываться и для implicit,
-        и для explicit feedback.
-        :param log: лог взаимодействий пользователей и объектов, спарк-датафрейм с колонками
-            ``[user_id, item_id, timestamp, relevance]``
-        :param first_level_train: лог взаимодействий пользователей и объектов для обучения моделей первого уровня
-        Чтобы избежать переобучения статистические признаки рассчитываются на основании данного лога.
-        :param second_level_train: лог взаимодействий пользователей и объектов для обучения модели второго уровня
-        :param user_features: признаки пользователей, лог с обязательным столбцом ``user_id`` и столбцами с признаками
-        :param item_features: признаки объектов, лог с обязательным столбцом `` item_id`` и столбцами с признаками
-        :param user_cat_features_list: категориальные признаки пользователей, которые нужно использовать для построения признаков
-            популярности объекта у пользователей в зависимости от значения категориального признака
-            (например, популярность фильма у пользователей данной возрастной группы)
-        :param item_cat_features_list: категориальные признаки объектов, которые нужно использовать для построения признаков
-            популярности у пользователя объектов в зависимости от значения категориального признака
-        """
 
-        self.all_users = log.select("user_id").distinct().cache()
-        self.all_items = log.select("item_id").distinct().cache()
+        user_aggs = _create_cols_list(base_df, agg_col="user_idx")
+        user_log_features = base_df.groupBy("user_idx").agg(*user_aggs)
 
-        base_df = first_level_train
-
-        user_aggs = _create_cols_list(base_df, agg_col="user_id")
-        self.user_log_features = base_df.groupBy("user_id").agg(*user_aggs)
-
-        item_aggs = _create_cols_list(base_df, agg_col="item_id")
-        self.item_log_features = base_df.groupBy("item_id").agg(*item_aggs)
+        item_aggs = _create_cols_list(base_df, agg_col="item_idx")
+        item_log_features = base_df.groupBy("item_idx").agg(*item_aggs)
 
         # Average log number of ratings for the user items
         mean_log_rating_of_user_items = base_df.join(
-            self.item_log_features.select("item_id", "i_log_ratings_count"),
-            on="item_id",
+            item_log_features.select("item_idx", "i_log_ratings_count"),
+            on="item_idx",
             how="left",
         )
         mean_log_rating_of_user_items = mean_log_rating_of_user_items.groupBy(
-            "user_id"
+            "user_idx"
         ).agg(
             sf.mean("i_log_ratings_count").alias(
                 "u_mean_log_items_ratings_count"
             )
         )
-        self.user_log_features = self.user_log_features.join(
-            mean_log_rating_of_user_items, on="user_id", how="left"
+        user_log_features = user_log_features.join(
+            mean_log_rating_of_user_items, on="user_idx", how="left"
         )
 
         # Average log number of ratings for the item users
         mean_log_rating_of_item_users = base_df.join(
-            self.user_log_features.select("user_id", "u_log_ratings_count"),
-            on="user_id",
+            user_log_features.select("user_idx", "u_log_ratings_count"),
+            on="user_idx",
             how="left",
         )
         mean_log_rating_of_item_users = mean_log_rating_of_item_users.groupBy(
-            "item_id"
+            "item_idx"
         ).agg(
             sf.mean("u_log_ratings_count").alias(
                 "i_mean_log_users_ratings_count"
             )
         )
-        self.item_log_features = self.item_log_features.join(
-            mean_log_rating_of_item_users, on="item_id", how="left"
+        item_log_features = item_log_features.join(
+            mean_log_rating_of_item_users, on="item_idx", how="left"
         ).cache()
 
         # Abnormality: https://hal.inria.fr/hal-01254172/document
         abnormality_df = base_df.join(
-            self.item_log_features.select("item_id", "i_mean", "i_std"),
-            on="item_id",
+            item_log_features.select("item_idx", "i_mean", "i_std"),
+            on="item_idx",
             how="left",
         )
         abnormality_df = abnormality_df.withColumn(
@@ -225,12 +201,8 @@ class TwoStagesFeaturesProcessor:
         ]
 
         # Abnormality CR: https://hal.inria.fr/hal-01254172/document
-        max_std = self.item_log_features.select(sf.max("i_std")).collect()[0][
-            0
-        ]
-        min_std = self.item_log_features.select(sf.min("i_std")).collect()[0][
-            0
-        ]
+        max_std = item_log_features.select(sf.max("i_std")).collect()[0][0]
+        min_std = item_log_features.select(sf.min("i_std")).collect()[0][0]
 
         if max_std - min_std != 0:
             abnormality_df = abnormality_df.withColumn(
@@ -247,49 +219,124 @@ class TwoStagesFeaturesProcessor:
                 sf.mean(sf.col("abnormalityCR")).alias("abnormalityCR")
             )
 
-        abnormality_res = abnormality_df.groupBy("user_id").agg(
+        abnormality_res = abnormality_df.groupBy("user_idx").agg(
             *abnormality_aggs
         )
-        self.user_log_features = self.user_log_features.join(
-            abnormality_res, on="user_id", how="left"
+        user_log_features = user_log_features.join(
+            abnormality_res, on="user_idx", how="left"
         ).cache()
 
+        item_cond_dist_cat_features = None
         # Mean rating distribution by the users' cat features
         if user_features is not None and user_cat_features_list is not None:
-            self.item_cond_dist_cat_features = _add_cond_distr_features(
+            item_cond_dist_cat_features = _add_cond_distr_features(
                 user_cat_features_list, base_df, user_features
             )
 
         # Mean rating distribution by the items' cat features
+        user_cond_dist_cat_features = None
         if item_features is not None and item_cat_features_list is not None:
-            self.user_cond_dist_cat_features = _add_cond_distr_features(
+            user_cond_dist_cat_features = _add_cond_distr_features(
                 item_cat_features_list, base_df, item_features
+            )
+
+        res = {
+            "user_log_features": user_log_features,
+            "item_log_features": item_log_features,
+            "user_cond_dist_cat_features": user_cond_dist_cat_features,
+            "item_cond_dist_cat_features": item_cond_dist_cat_features,
+        }
+
+        if features_for_train:
+            self.train_features = res
+        else:
+            self.inference_features = res
+
+    def __init__(
+        self,
+        log: DataFrame,
+        first_level_train: DataFrame,
+        second_level_train: DataFrame,
+        inf_on_full_train: bool = False,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        user_cat_features_list: Optional[List] = None,
+        item_cat_features_list: Optional[List] = None,
+    ) -> None:
+        """
+        Подсчет признаков пользователей и объектов, основанные на логе.
+        Признаки выбираются таким образом, чтобы корректно рассчитываться и для implicit,
+        и для explicit feedback.
+        :param log: лог взаимодействий пользователей и объектов, спарк-датафрейм с колонками
+            ``[user_id, item_idx, timestamp, relevance]``
+        :param first_level_train: лог взаимодействий пользователей и объектов для обучения моделей первого уровня
+        Чтобы избежать переобучения статистические признаки рассчитываются на основании данного лога.
+        :param second_level_train: лог взаимодействий пользователей и объектов для обучения модели второго уровня
+        :param user_features: признаки пользователей, лог с обязательным столбцом ``user_id`` и столбцами с признаками
+        :param item_features: признаки объектов, лог с обязательным столбцом `` item_id`` и столбцами с признаками
+        :param user_cat_features_list: категориальные признаки пользователей, которые нужно использовать для построения
+            признаков популярности объекта у пользователей в зависимости от значения категориального признака
+            (например, популярность фильма у пользователей данной возрастной группы)
+        :param item_cat_features_list: категориальные признаки объектов, которые нужно использовать для построения признаков
+            популярности у пользователя объектов в зависимости от значения категориального признака
+        """
+
+        self.all_users = log.select("user_idx").distinct().cache()
+        self.all_items = log.select("item_idx").distinct().cache()
+        self.inf_on_full_train = inf_on_full_train
+
+        df_for_fit = first_level_train
+
+        self._calc_features_for_df(
+            df_for_fit,
+            True,
+            user_features,
+            item_features,
+            user_cat_features_list,
+            item_cat_features_list,
+        )
+
+        if inf_on_full_train:
+            df_for_inf = first_level_train.unionByName(second_level_train)
+            self._calc_features_for_df(
+                df_for_inf,
+                False,
+                user_features,
+                item_features,
+                user_cat_features_list,
+                item_cat_features_list,
             )
 
         self.fitted = True
 
-    def __call__(self, log: DataFrame, step="train"):
+    def __call__(self, log: DataFrame, data, step="train", seed=42):
+        features = (
+            self.train_features
+            if (not self.inf_on_full_train) or (step == "train")
+            else self.inference_features
+        )
+
         joined = (
-            log.join(self.user_log_features, on="user_id", how="left")
-            .join(self.item_log_features, on="item_id", how="left")
+            log.join(features["user_log_features"], on="user_idx", how="left")
+            .join(features["item_log_features"], on="item_idx", how="left")
             .fillna(
                 {
                     col_name: 0
-                    for col_name in self.user_log_features.columns
-                    + self.item_log_features.columns
+                    for col_name in features["user_log_features"].columns
+                    + features["item_log_features"].columns
                 }
             )
         )
 
-        if self.user_cond_dist_cat_features is not None:
-            for key, value in self.user_cond_dist_cat_features.items():
-                joined = joined.join(value, on=["user_id", key], how="left")
+        if features["user_cond_dist_cat_features"] is not None:
+            for key, value in features["user_cond_dist_cat_features"].items():
+                joined = joined.join(value, on=["user_idx", key], how="left")
                 joined = joined.fillna(
                     {col_name: 0 for col_name in value.columns}
                 )
 
-        if self.item_cond_dist_cat_features is not None:
-            for key, value in self.item_cond_dist_cat_features.items():
+        if features["item_cond_dist_cat_features"] is not None:
+            for key, value in features["item_cond_dist_cat_features"].items():
                 joined = joined.join(value, on=["item_id", key], how="left")
                 joined = joined.fillna(
                     {col_name: 0 for col_name in value.columns}
@@ -308,16 +355,22 @@ class TwoStagesFeaturesProcessor:
         return joined
 
     def __del__(self):
-        self.user_log_features.unpersist()
-        self.item_log_features.unpersist()
+        for features in [self.inference_features, self.train_features]:
+            if features is not None:
+                features["user_log_features"].unpersist()
+                features["item_log_features"].unpersist()
 
-        if self.user_cond_dist_cat_features is not None:
-            for value in self.user_cond_dist_cat_features.values():
-                value.unpersist()
+                if features["user_cond_dist_cat_features"] is not None:
+                    for value in features[
+                        "user_cond_dist_cat_features"
+                    ].values():
+                        value.unpersist()
 
-        if self.item_cond_dist_cat_features is not None:
-            for value in self.item_cond_dist_cat_features.values():
-                value.unpersist()
+                if features["item_cond_dist_cat_features"] is not None:
+                    for value in features[
+                        "item_cond_dist_cat_features"
+                    ].values():
+                        value.unpersist()
 
 
 # pylint: disable=too-many-instance-attributes
@@ -471,23 +524,23 @@ class TwoStagesScenario(BaseScenario):
         full_second_level_train = log
         for idx, model in enumerate(self.first_level_models):
             current_pred = model.predict_for_pairs(
-                full_second_level_train.select("user_id", "item_id"),
+                full_second_level_train.select("user_idx", "item_idx"),
                 user_features,
                 item_features,
             ).withColumnRenamed("relevance", "{}_{}_rel".format(idx, model))
             full_second_level_train = full_second_level_train.join(
-                current_pred, on=["user_id", "item_id"], how="left"
+                current_pred, on=["user_idx", "item_idx"], how="left"
             )
             if self.use_first_level_models_feat[idx]:
                 prefix = "{}_{}".format(idx, model)
                 features = model.add_features(
-                    full_second_level_train.select("user_id", "item_id"),
+                    full_second_level_train.select("user_idx", "item_idxx"),
                     user_features,
                     item_features,
                     prefix,
                 )
                 full_second_level_train = full_second_level_train.join(
-                    features, on=["user_id", "item_id"], how="left"
+                    features, on=["user_idx", "item_idx"], how="left"
                 )
         full_second_level_train = full_second_level_train.fillna(0).cache()
 
@@ -498,13 +551,13 @@ class TwoStagesScenario(BaseScenario):
         full_second_level_train = join_or_return(
             full_second_level_train,
             user_features,
-            on_col="user_id",
+            on_col="user_idx",
             how="left",
         )
         full_second_level_train = join_or_return(
             full_second_level_train,
             item_features,
-            on_col="item_id",
+            on_col="item_idx",
             how="left",
         )
         full_second_level_train.cache()
@@ -532,7 +585,7 @@ class TwoStagesScenario(BaseScenario):
         )
         return first_level_train, second_level_train
 
-    def fit(
+    def _fit(
         self,
         log: AnyDataFrame,
         user_features: Optional[AnyDataFrame] = None,
@@ -578,13 +631,13 @@ class TwoStagesScenario(BaseScenario):
         negatives = negatives_source.predict(
             log,
             k=self.num_negatives,
-            users=log.select("user_id").distinct(),
-            items=log.select("item_id").distinct(),
+            users=log.select("user_idx").distinct(),
+            items=log.select("item_idx").distinct(),
             filter_seen_items=True,
         ).withColumn("relevance", sf.lit(0.0))
 
         full_second_level_train = (
-            second_level_train.select("user_id", "item_id", "relevance")
+            second_level_train.select("user_idx", "item_idx", "relevance")
             .withColumn("relevance", sf.lit(1))
             .unionByName(negatives)
             .cache()
@@ -611,6 +664,10 @@ class TwoStagesScenario(BaseScenario):
             item_features=item_features,
             step="train",
         )
+
+        full_second_level_train = full_second_level_train.drop(
+            "user_idx", "item_idx"
+        )
         self.logger.info("Convert to pandas")
         full_second_level_train_pd = full_second_level_train.toPandas()
         full_second_level_train.unpersist()
@@ -621,7 +678,7 @@ class TwoStagesScenario(BaseScenario):
         print(
             self.second_stage_model.levels[0][0]
             .ml_algos[0]
-            .get_features_score()
+            .get_features_score()[:20]
         )
 
     # pylint: disable=too-many-arguments
