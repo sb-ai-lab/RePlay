@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """
 Реализация абстрактных классов рекомендательных моделей:
 - BaseRecommender - базовый класс для всех рекомендательных моделей
@@ -15,6 +16,7 @@ from optuna.samplers import TPESampler
 from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
+from pyspark.sql.types import DataType
 
 from replay.constants import AnyDataFrame
 from replay.metrics import Metric, NDCG
@@ -51,7 +53,7 @@ class BaseRecommender(ABC):
         criterion: Metric = NDCG(),
         k: int = 10,
         budget: int = 10,
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         """
         Подбирает лучшие гиперпараметры с помощью optuna.
 
@@ -250,7 +252,15 @@ class BaseRecommender(ABC):
         items: Optional[Union[AnyDataFrame, Iterable]] = None,
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
-    ) -> Tuple[DataFrame, ...]:
+    ) -> Tuple[
+        Optional[DataFrame],
+        Optional[DataFrame],
+        Optional[DataFrame],
+        Optional[DataFrame],
+        Optional[DataFrame],
+        DataType,
+        DataType,
+    ]:
         """
         Конвертация данных для _predict_wrap или _predict_pairs.
         1) Перевод в spark-dataframe
