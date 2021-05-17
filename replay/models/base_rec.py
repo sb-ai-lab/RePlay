@@ -607,16 +607,16 @@ class BaseRecommender(ABC):
 
     def _predict_pairs(
         self,
-        log: AnyDataFrame,
         pairs: AnyDataFrame,
+        log: Optional[AnyDataFrame] = None,
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
     ):
         """
+        :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``.
-        :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]`` для переданных пар
         """
@@ -734,7 +734,6 @@ class HybridRecommender(BaseRecommender):
             filter_seen_items=filter_seen_items,
         )
 
-    # pylint: disable=too-many-arguments
     def fit_predict(
         self,
         log: AnyDataFrame,
@@ -789,7 +788,7 @@ class HybridRecommender(BaseRecommender):
     def predict_pairs(
         self,
         pairs: AnyDataFrame,
-        log: Optional[AnyDataFrame],
+        log: Optional[AnyDataFrame] = None,
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
     ):
@@ -804,7 +803,9 @@ class HybridRecommender(BaseRecommender):
             ``[user_id, item_id, relevance]`` для переданных пар.
             В случае, если модель не вернула результат для каких-то из пар, relevance для них будет null.
         """
-        return self._predict_pairs(log, pairs, user_features, item_features)
+        return self._predict_pairs(pairs, log, user_features, item_features)
+
+    # pylint: disable=too-many-arguments
 
 
 # pylint: disable=abstract-method
@@ -872,7 +873,9 @@ class Recommender(BaseRecommender):
             filter_seen_items=filter_seen_items,
         )
 
-    def predict_pairs(self, pairs: AnyDataFrame, log: Optional[AnyDataFrame]):
+    def predict_pairs(
+        self, pairs: AnyDataFrame, log: Optional[AnyDataFrame] = None
+    ):
         """
         :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
         :param log: лог взаимодействий пользователей и объектов,
@@ -883,7 +886,7 @@ class Recommender(BaseRecommender):
             ``[user_id, item_id, relevance]`` для переданных пар.
             В случае, если модель не вернула результат для каких-то из пар, relevance для них будет null.
         """
-        return self._predict_pairs(log, pairs, None, None)
+        return self._predict_pairs(pairs, log, None, None)
 
     # pylint: disable=too-many-arguments
     def fit_predict(
@@ -990,7 +993,7 @@ class UserRecommender(BaseRecommender):
     def predict_pairs(
         self,
         pairs: AnyDataFrame,
-        log: Optional[AnyDataFrame],
+        log: Optional[AnyDataFrame] = None,
         user_features: Optional[AnyDataFrame] = None,
     ):
         """
@@ -1003,4 +1006,4 @@ class UserRecommender(BaseRecommender):
             ``[user_id, item_id, relevance]`` для переданных пар.
             В случае, если модель не вернула результат для каких-то из пар, relevance для них будет null.
         """
-        return self._predict_pairs(log, pairs, user_features, None)
+        return self._predict_pairs(pairs, log, user_features, None)
