@@ -57,3 +57,19 @@ def test_diff_feedback_type(log, model):
         pred_imp.toPandas().sort_values("user_id")["relevance"].values,
     )
 
+
+def test_predict_pairs(log, model):
+    try:
+        model.fit(log.filter(sf.col("item_id") != "item1"))
+        pred = model.predict_pairs(log.filter(sf.col("user_id") == "user1"))
+        assert pred.count() == 2
+        assert pred.select("user_id").distinct().collect()[0][0] == "user1"
+        assert list(
+            pred.select("item_id")
+            .distinct()
+            .toPandas()
+            .sort_values("item_id")["item_id"]
+        ) == ["item2", "item3"]
+    except:  # noqa
+        pytest.fail()
+

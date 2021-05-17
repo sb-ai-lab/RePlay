@@ -601,6 +601,7 @@ class BaseRecommender(ABC):
         item_features: Optional[AnyDataFrame] = None,
     ) -> DataFrame:
         """
+<<<<<<< HEAD
         Обертка для _predict_pairs отдельных алгоритмов.
         Выполняет:
         1) конвертацию в spark
@@ -614,6 +615,12 @@ class BaseRecommender(ABC):
         :param log: лог взаимодействий пользователей и объектов,
             spark- или pandas-датафрейм с колонками
             ``[user_id, item_id, timestamp, relevance]``.
+=======
+        :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]``.
+>>>>>>> als predict_pairs
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]`` для переданных пар
         """
