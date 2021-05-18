@@ -596,7 +596,7 @@ class BaseRecommender(ABC):
         log: Optional[AnyDataFrame] = None,
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
-    ):
+    ) -> DataFrame:
         """
         :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
         :param log: лог взаимодействий пользователей и объектов,
@@ -635,7 +635,7 @@ class BaseRecommender(ABC):
         log: Optional[DataFrame] = None,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
-    ):
+    ) -> DataFrame:
         """
         :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
         :param log: лог взаимодействий пользователей и объектов,
@@ -814,7 +814,7 @@ class HybridRecommender(BaseRecommender):
         log: Optional[AnyDataFrame] = None,
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
-    ):
+    ) -> DataFrame:
         """
         :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
         :param log: лог взаимодействий пользователей и объектов,
@@ -900,7 +900,7 @@ class Recommender(BaseRecommender):
 
     def predict_pairs(
         self, pairs: AnyDataFrame, log: Optional[AnyDataFrame] = None
-    ):
+    ) -> DataFrame:
         """
         :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
         :param log: лог взаимодействий пользователей и объектов,
@@ -1020,7 +1020,7 @@ class UserRecommender(BaseRecommender):
         pairs: AnyDataFrame,
         log: Optional[AnyDataFrame] = None,
         user_features: Optional[AnyDataFrame] = None,
-    ):
+    ) -> DataFrame:
         """
         :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
         :param log: лог взаимодействий пользователей и объектов,

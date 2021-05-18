@@ -170,7 +170,7 @@ class LightFMWrap(HybridRecommender):
         log: Optional[DataFrame] = None,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
-    ):
+    ) -> DataFrame:
         """
         :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
         :param log: лог взаимодействий пользователей и объектов,

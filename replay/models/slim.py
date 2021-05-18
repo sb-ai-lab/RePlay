@@ -5,6 +5,7 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
+from pyspark.sql.column import Column
 from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
@@ -105,6 +106,33 @@ class SLIM(Recommender):
         if hasattr(self, "similarity"):
             self.similarity.unpersist()
 
+    def _predict_pairs_inner(
+        self,
+        log: DataFrame,
+        filter_df: DataFrame,
+        condition: Column,
+        users: DataFrame,
+    ):
+        if log is None:
+            raise ValueError(
+                "Для predict {} необходим log.".format(self.__str__())
+            )
+
+        recs = (
+            users.withColumnRenamed("user_idx", "user")
+            .join(log, how="inner", on=sf.col("user") == sf.col("user_idx"),)
+            .join(
+                self.similarity,
+                how="inner",
+                on=sf.col("item_idx") == sf.col("item_id_one"),
+            )
+            .join(filter_df, how="inner", on=condition,)
+            .groupby("user_idx", "item_id_two")
+            .agg(sf.sum("similarity").alias("relevance"))
+            .withColumnRenamed("item_id_two", "item_idx")
+        )
+        return recs
+
     # pylint: disable=too-many-arguments
     def _predict(
         self,
@@ -116,26 +144,29 @@ class SLIM(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        recs = (
-            users.withColumnRenamed("user_idx", "user")
-            .join(
-                log.withColumnRenamed("item_idx", "item"),
-                how="inner",
-                on=sf.col("user") == sf.col("user_idx"),
-            )
-            .join(
-                self.similarity,
-                how="inner",
-                on=sf.col("item") == sf.col("item_id_one"),
-            )
-            .join(
-                items,
-                how="inner",
-                on=sf.col("item_idx") == sf.col("item_id_two"),
-            )
-            .groupby("user_idx", "item_idx")
-            .agg(sf.sum("similarity").alias("relevance"))
-            .select("user_idx", "item_idx", "relevance")
+
+        return self._predict_pairs_inner(
+            log=log,
+            filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
+            condition=sf.col("item_id_two") == sf.col("item_idx_filter"),
+            users=users,
         )
 
-        return recs
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+        return self._predict_pairs_inner(
+            log=log,
+            filter_df=(
+                pairs.withColumnRenamed(
+                    "user_idx", "user_idx_filter"
+                ).withColumnRenamed("item_idx", "item_idx_filter")
+            ),
+            condition=(sf.col("user_idx") == sf.col("user_idx_filter"))
+            & (sf.col("item_id_two") == sf.col("item_idx_filter")),
+            users=pairs.select("user_idx").distinct(),
+        )
