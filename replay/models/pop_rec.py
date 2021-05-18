@@ -131,3 +131,20 @@ class PopRec(Recommender):
         )
 
         return recs
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ):
+        """
+        :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками ``[user_id, item_id, relevance]``.
+            Может использоваться для inference.
+        :return: рекомендации, спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]`` для переданных пар
+        """
+        return pairs.join(self.item_popularity, on="item_idx", how="inner")

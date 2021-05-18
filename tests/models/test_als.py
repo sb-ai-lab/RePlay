@@ -32,9 +32,12 @@ def test_works(log, model):
 def test_predict_pairs(log, model):
     try:
         model.fit(log.filter(sf.col("item_id") != "item1"))
+        # исходное количество пар - 3
         pred = model.predict_pairs(log.filter(sf.col("user_id") == "user1"))
+        # для холодного объекта не возвращаем ничего
         assert pred.count() == 2
         assert pred.select("user_id").distinct().collect()[0][0] == "user1"
+        # предсказываем для всех теплых объектов
         assert list(
             pred.select("item_id")
             .distinct()

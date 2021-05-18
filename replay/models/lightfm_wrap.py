@@ -124,17 +124,12 @@ class LightFMWrap(HybridRecommender):
             user_features=csr_user_features,
         )
 
-    # pylint: disable=too-many-arguments
-    def _predict(
+    def _predict_selected_pairs(
         self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
+        pairs: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ):
         def predict_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
             pandas_df["relevance"] = model.predict(
                 user_ids=pandas_df["user_idx"].to_numpy(),
@@ -150,8 +145,44 @@ class LightFMWrap(HybridRecommender):
             user_features, is_item_features=False
         )
 
-        return (
-            users.crossJoin(items)
-            .groupby("user_idx")
-            .applyInPandas(predict_by_user, IDX_REC_SCHEMA)
+        return pairs.groupby("user_idx").applyInPandas(
+            predict_by_user, IDX_REC_SCHEMA
+        )
+
+    # pylint: disable=too-many-arguments
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        return self._predict_selected_pairs(
+            users.crossJoin(items), user_features, item_features
+        )
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ):
+        """
+        :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками ``[user_id, item_id, relevance]``.
+            Может использоваться для inference.
+        :param user_features: признаки пользователей,
+            спарк-датафрейм с user_id и столбцами с признаками
+        :param item_features: признаки объектов,
+            спарк-датафрейм с item_id и столбцами с признаками
+        :return: рекомендации, спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]`` для переданных пар
+        """
+        return self._predict_selected_pairs(
+            pairs, user_features, item_features
         )

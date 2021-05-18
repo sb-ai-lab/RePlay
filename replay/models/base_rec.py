@@ -16,13 +16,38 @@ from optuna.samplers import TPESampler
 from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-from pyspark.sql.types import DataType
 
 from replay.constants import AnyDataFrame
 from replay.metrics import Metric, NDCG
 from replay.optuna_objective import SplitData, MainObjective
 from replay.session_handler import State
 from replay.utils import get_top_k_recs, convert2spark
+
+
+def convert2spark_all(
+    log: Optional[AnyDataFrame] = None,
+    user_features: Optional[AnyDataFrame] = None,
+    item_features: Optional[AnyDataFrame] = None,
+) -> Tuple[Optional[DataFrame], ...]:
+    """
+    Конвертация в spark основных датафреймов
+
+    :param log: лог взаимодействий пользователей и объектов,
+        спарк-датафрейм с колонками
+        ``[user_id, item_id, timestamp, relevance]``
+    :param user_features: признаки пользователей,
+        спарк-датафрейм с колонками
+        ``[user_id , timestamp]`` и колонки с признаками
+    :param item_features: признаки объектов,
+        спарк-датафрейм с колонками
+        ``[item_id , timestamp]`` и колонки с признаками
+    :return: спарк-датафреймы log, item_features, user_features
+    """
+    return (
+        convert2spark(log),
+        convert2spark(user_features),
+        convert2spark(item_features),
+    )
 
 
 class BaseRecommender(ABC):
@@ -164,18 +189,18 @@ class BaseRecommender(ABC):
         :return:
         """
         self.logger.debug("Начало обучения %s", type(self).__name__)
-        log = convert2spark(log)
-        user_features = convert2spark(user_features)
-        item_features = convert2spark(item_features)
+        log, user_features, item_features = convert2spark_all(
+            log, user_features, item_features
+        )
 
         if "user_indexer" not in self.__dict__ or force_reindex:
             self.logger.debug("Предварительная стадия обучения (pre-fit)")
             self._create_indexers(log, user_features, item_features)
         self.logger.debug("Основная стадия обучения (fit)")
 
-        log = self._convert_index(log)
-        user_features = self._convert_index(user_features)
-        item_features = self._convert_index(item_features)
+        log, item_features, user_features = self._convert_index_all(
+            log, user_features, item_features
+        )
         self._fit(log, user_features, item_features)
 
     def _create_indexers(
@@ -245,78 +270,30 @@ class BaseRecommender(ABC):
         :return:
         """
 
-    def _convert_for_predict(
+    def _convert_index_all(
         self,
-        log: Optional[AnyDataFrame],
-        users: Optional[Union[AnyDataFrame, Iterable]] = None,
-        items: Optional[Union[AnyDataFrame, Iterable]] = None,
+        log: Optional[AnyDataFrame] = None,
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
-    ) -> Tuple[
-        Optional[DataFrame],
-        Optional[DataFrame],
-        Optional[DataFrame],
-        Optional[DataFrame],
-        Optional[DataFrame],
-        DataType,
-        DataType,
-    ]:
+    ) -> Tuple[Optional[DataFrame], ...]:
         """
-        Конвертация данных для _predict_wrap или _predict_pairs.
-        1) Перевод в spark-dataframe
-        2) Выделение объектов и пользователей
-        3) Переиндексирование объектов и пользователей
+        Переиндексирование объектов и пользователей
 
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             ``[user_id, item_id, timestamp, relevance]``
-        :param users: список пользователей, для которых необходимо получить
-            рекомендации, спарк-датафрейм с колонкой ``[user_id]`` или ``array-like``;
-            если ``None``, выбираются все пользователи из лога;
-            если в этом списке есть пользователи, про которых модель ничего
-            не знает, то вызывается ошибка
-        :param items: список объектов, которые необходимо рекомендовать;
-            спарк-датафрейм с колонкой ``[item_id]`` или ``array-like``;
-            если ``None``, выбираются все объекты из лога;
-            если в этом списке есть объекты, про которых модель ничего
-            не знает, то в ``relevance`` в рекомендациях к ним будет стоять ``0``
         :param user_features: признаки пользователей,
             спарк-датафрейм с колонками
             ``[user_id , timestamp]`` и колонки с признаками
         :param item_features: признаки объектов,
             спарк-датафрейм с колонками
             ``[item_id , timestamp]`` и колонки с признаками
-        :return: рекомендации, спарк-датафрейм с колонками
-            ``[user_id, item_id, relevance]``
-        :return: спарк-датафреймы log, users, items, item_features, user_features
+        :return: спарк-датафреймы log, item_features, user_features
         """
-        log = convert2spark(log)
-        user_features = convert2spark(user_features)
-        item_features = convert2spark(item_features)
-
-        user_data = users or log or user_features or self.user_indexer.labels
-        users = self._get_ids(user_data, "user_id")
-
-        item_data = items or log or item_features or self.item_indexer.labels
-        items = self._get_ids(item_data, "item_id")
-
-        users_type = users.schema["user_id"].dataType
-        items_type = items.schema["item_id"].dataType
-
-        log = self._convert_index(log)
-        users = self._convert_index(users)
-        items = self._convert_index(items)
-        item_features = self._convert_index(item_features)
-        user_features = self._convert_index(user_features)
-
         return (
-            log,
-            users,
-            items,
-            item_features,
-            user_features,
-            users_type,
-            items_type,
+            self._convert_index(log),
+            self._convert_index(item_features),
+            self._convert_index(user_features),
         )
 
     # pylint: disable=too-many-arguments
@@ -361,17 +338,25 @@ class BaseRecommender(ABC):
         """
         self.logger.debug("Начало предикта %s", type(self).__name__)
 
-        (
-            log,
-            users,
-            items,
-            item_features,
-            user_features,
-            users_type,
-            items_type,
-        ) = self._convert_for_predict(
-            log, users, items, user_features, item_features
+        log, user_features, item_features = convert2spark_all(
+            log, user_features, item_features
         )
+
+        user_data = users or log or user_features or self.user_indexer.labels
+        users = self._get_ids(user_data, "user_id")
+
+        item_data = items or log or item_features or self.item_indexer.labels
+        items = self._get_ids(item_data, "item_id")
+
+        users_type = users.schema["user_id"].dataType
+        items_type = items.schema["item_id"].dataType
+
+        log, item_features, user_features = self._convert_index_all(
+            log, user_features, item_features
+        )
+
+        users = self._convert_index(users)
+        items = self._convert_index(items)
 
         num_items = items.count()
         if num_items < k:
@@ -605,12 +590,51 @@ class BaseRecommender(ABC):
         Очищает закэшированные данные spark.
         """
 
-    def _predict_pairs(
+    def _predict_pairs_wrap(
         self,
         pairs: AnyDataFrame,
         log: Optional[AnyDataFrame] = None,
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
+    ):
+        """
+        :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]``.
+        :return: рекомендации, спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]`` для переданных пар
+        """
+        pairs = convert2spark(pairs)
+        users_type = pairs.schema["user_id"].dataType
+        items_type = pairs.schema["item_id"].dataType
+        pairs = self._convert_index(pairs.select("user_id", "item_id"))
+
+        log, user_features, item_features = convert2spark_all(
+            log, user_features, item_features
+        )
+        log, user_features, item_features = self._convert_index_all(
+            log, user_features, item_features
+        )
+
+        pred = self._predict_pairs(
+            pairs=pairs,
+            log=log,
+            user_features=user_features,
+            item_features=item_features,
+        )
+
+        pred = self._convert_back(pred, users_type, items_type).select(
+            "user_id", "item_id", "relevance"
+        )
+        return pred
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
     ):
         """
         :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
@@ -627,9 +651,8 @@ class BaseRecommender(ABC):
         )
         self.logger.warning(message)
 
-        pairs = convert2spark(pairs)
-        users = pairs.select("user_id").distinct()
-        items = pairs.select("item_id").distinct()
+        users = pairs.select("user_idx").distinct()
+        items = pairs.select("item_idx").distinct()
         k = items.count()
 
         pred = self._predict_wrap(
@@ -643,8 +666,8 @@ class BaseRecommender(ABC):
         )
 
         pred = pred.join(
-            pairs.select("user_id", "item_id"),
-            on=["user_id", "item_id"],
+            pairs.select("user_idx", "item_idx"),
+            on=["user_idx", "item_idx"],
             how="inner",
         )
         return pred
@@ -803,7 +826,9 @@ class HybridRecommender(BaseRecommender):
             ``[user_id, item_id, relevance]`` для переданных пар.
             В случае, если модель не вернула результат для каких-то из пар, relevance для них будет null.
         """
-        return self._predict_pairs(pairs, log, user_features, item_features)
+        return self._predict_pairs_wrap(
+            pairs, log, user_features, item_features
+        )
 
     # pylint: disable=too-many-arguments
 
@@ -886,7 +911,7 @@ class Recommender(BaseRecommender):
             ``[user_id, item_id, relevance]`` для переданных пар.
             В случае, если модель не вернула результат для каких-то из пар, relevance для них будет null.
         """
-        return self._predict_pairs(pairs, log, None, None)
+        return self._predict_pairs_wrap(pairs, log, None, None)
 
     # pylint: disable=too-many-arguments
     def fit_predict(
@@ -1006,4 +1031,4 @@ class UserRecommender(BaseRecommender):
             ``[user_id, item_id, relevance]`` для переданных пар.
             В случае, если модель не вернула результат для каких-то из пар, relevance для них будет null.
         """
-        return self._predict_pairs(pairs, log, user_features, None)
+        return self._predict_pairs_wrap(pairs, log, user_features, None)

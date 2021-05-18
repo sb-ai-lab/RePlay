@@ -69,7 +69,7 @@ class ALSWrap(Recommender):
         )
         return recs
 
-    def _predict_pairs(
+    def _predict_pairs_wrap(
         self,
         pairs: DataFrame,
         log: Optional[DataFrame] = None,
