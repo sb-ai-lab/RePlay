@@ -56,3 +56,4 @@ def test_diff_feedback_type(log, model):
         pred_exp.toPandas().sort_values("user_id")["relevance"].values,
         pred_imp.toPandas().sort_values("user_id")["relevance"].values,
     )
+
