@@ -18,14 +18,21 @@ class ALSWrap(Recommender):
         "rank": {"type": "loguniform_int", "args": [8, 256]},
     }
 
-    def __init__(self, rank: int = 10, seed: Optional[int] = None):
+    def __init__(
+        self,
+        rank: int = 10,
+        implicit_prefs: bool = True,
+        seed: Optional[int] = None,
+    ):
         """
         Инициализирует параметры модели и сохраняет спарк-сессию.
 
         :param rank: матрицей какого ранга приближаем исходную
+        :param implicit_prefs: используем ли модель для implicit feedback
         :param seed: random seed
         """
         self.rank = rank
+        self.implicit_prefs = implicit_prefs
         self._seed = seed
 
     def _fit(
@@ -39,8 +46,9 @@ class ALSWrap(Recommender):
             userCol="user_idx",
             itemCol="item_idx",
             ratingCol="relevance",
-            implicitPrefs=True,
+            implicitPrefs=self.implicit_prefs,
             seed=self._seed,
+            coldStartStrategy="drop",
         ).fit(log)
         self.model.itemFactors.cache()
         self.model.userFactors.cache()
