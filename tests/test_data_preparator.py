@@ -16,18 +16,28 @@ def data_preparator():
     return DataPreparator()
 
 
-def test_read_data_wrong_columns_exception(data_preparator):
-    with pytest.raises(ValueError):
-        data_preparator._read_data(path="", format_type="blabla")
+def test_read_data_invalid_format(data_preparator):
+    with pytest.raises(ValueError, match=r"Invalid value of format_type.*"):
+        data_preparator._read_data(path="/test_path", format_type="blabla")
+
+
+def test_read_data_empty_pass(data_preparator):
+    with pytest.raises(
+        ValueError,
+        match=r"Один из параметров data, path должен быть отличным от None.*",
+    ):
+        data_preparator.transform(
+            columns_names={"user_id": ""}, path=None, data=None
+        )
 
 
 def test_transform_log_empty_dataframe_exception(data_preparator, spark):
     log = spark.createDataFrame(data=[], schema=StructType([]))
     data_preparator._read_data = Mock(return_value=log)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Датафрейм пустой.*"):
         data_preparator.transform(
-            path="",
-            format_type="",
+            path="/test_path",
+            format_type="json",
             columns_names={"user_id": "", "item_id": ""},
         )
 
@@ -59,11 +69,6 @@ test_data = [
         {"user_id": "user", "item_id": "item", "timestamp": "ts"},
     ),
     (
-        [["1", "1"], ["1", "2"], ["2", "3"]],
-        ["user", "item"],
-        {"user_id": "user", "item_id": "item"},
-    ),
-    (
         [["1", "1", 1.0], ["1", "2", 1.0], ["2", "3", None]],
         ["user", "item", "r"],
         {"user_id": "user", "item_id": "item", "relevance": "r"},
@@ -78,9 +83,12 @@ def test_transform_log_null_column_exception(
     print(columns_names)
     log = spark.createDataFrame(data=log_data, schema=log_schema)
     data_preparator._read_data = Mock(return_value=log)
-    with pytest.raises(ValueError):
+
+    with pytest.raises(ValueError, match=r".* есть значения NULL"):
         data_preparator.transform(
-            path="", format_type="", columns_names=columns_names
+            path="/test_path",
+            format_type="parquet",
+            columns_names=columns_names,
         )
 
 
@@ -95,13 +103,43 @@ column_names = [
 
 @pytest.mark.parametrize("columns_names", column_names)
 def test_transform_log_redundant_columns_exception(
-    data_preparator, columns_names
+    spark, data_preparator, columns_names
 ):
+    log = spark.createDataFrame(
+        data=[
+            ["user1", "item1", "2019-01-01", 0],
+            ["user1", "item2", "2019-01-01", 1],
+        ],
+        schema=["user", "item", "timestamp", "relevance"],
+    )
+    data_preparator._read_data = Mock(return_value=log)
     # добавим обязательные колонки
     columns_names.update({"user_id": "", "item_id": ""})
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match=r"В 'columns_names' есть лишние колонки:.*"
+    ):
         data_preparator.transform(
-            path="", format_type="", columns_names=columns_names
+            path="/test_path", format_type="table", columns_names=columns_names
+        )
+
+
+@pytest.mark.parametrize("columns_names", column_names)
+def test_transform_log_no_cols(spark, data_preparator, columns_names):
+    log = spark.createDataFrame(
+        data=[
+            ["user1", "item1", "2019-01-01", 0],
+            ["user1", "item2", "2019-01-01", 1],
+        ],
+        schema=["user_id", "item_id", "timestamp", "relevance"],
+    )
+    data_preparator._read_data = Mock(return_value=log)
+    with pytest.raises(
+        ValueError,
+        match=r"Для датафрейма с признаками пользователей . объектов "
+        "укажите в columns_names только соответствие для текущего ключа.*",
+    ):
+        data_preparator.transform(
+            path="/test_path", format_type="table", columns_names=columns_names
         )
 
 
