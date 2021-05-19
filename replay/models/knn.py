@@ -2,19 +2,17 @@ from typing import Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-from pyspark.sql.column import Column
 from pyspark.sql.window import Window
 
-from replay.models.base_rec import Recommender
+from replay.models.base_rec import NeighbourRec
 
 
-class KNN(Recommender):
+class KNN(NeighbourRec):
     """ Item-based KNN на сглаженной косинусной мере схожести. """
 
     all_items: Optional[DataFrame]
     dot_products: Optional[DataFrame]
     item_norms: Optional[DataFrame]
-    similarity: Optional[DataFrame]
     _search_space = {
         "num_neighbours": {"type": "int", "args": [1, 100]},
         "shrink": {"type": "int", "args": [0, 100]},
@@ -137,70 +135,3 @@ class KNN(Recommender):
         )
 
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()
-
-    def _clear_cache(self):
-        if hasattr(self, "similarity"):
-            self.similarity.unpersist()
-
-    def _predict_pairs_inner(
-        self,
-        log: DataFrame,
-        filter_df: DataFrame,
-        condition: Column,
-        users: DataFrame,
-    ):
-        if log is None:
-            raise ValueError(
-                "Для predict {} необходим log.".format(self.__str__())
-            )
-
-        recs = (
-            log.join(users, how="inner", on="user_idx")
-            .join(
-                self.similarity,
-                how="inner",
-                on=sf.col("item_idx") == sf.col("item_id_one"),
-            )
-            .join(filter_df, how="inner", on=condition,)
-            .groupby("user_idx", "item_id_two")
-            .agg(sf.sum("similarity").alias("relevance"))
-            .withColumnRenamed("item_id_two", "item_idx")
-        )
-        return recs
-
-    # pylint: disable=too-many-arguments
-    def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> DataFrame:
-        return self._predict_pairs_inner(
-            log=log,
-            filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
-            condition=sf.col("item_id_two") == sf.col("item_idx_filter"),
-            users=users,
-        )
-
-    def _predict_pairs(
-        self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
-        return self._predict_pairs_inner(
-            log=log,
-            filter_df=(
-                pairs.withColumnRenamed(
-                    "user_idx", "user_idx_filter"
-                ).withColumnRenamed("item_idx", "item_idx_filter")
-            ),
-            condition=(sf.col("user_idx") == sf.col("user_idx_filter"))
-            & (sf.col("item_id_two") == sf.col("item_idx_filter")),
-            users=pairs.select("user_idx").distinct(),
-        )

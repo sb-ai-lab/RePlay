@@ -3,21 +3,18 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
 from pyspark.sql import types as st
-from pyspark.sql.column import Column
 from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
-from replay.models.base_rec import Recommender
+from replay.models.base_rec import NeighbourRec
 from replay.session_handler import State
 
 
-class SLIM(Recommender):
+class SLIM(NeighbourRec):
     """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
 
-    similarity: DataFrame
     can_predict_cold_users = True
     _search_space = {
         "beta": {"type": "loguniform", "args": [1e-9, 5]},
@@ -101,72 +98,3 @@ class SLIM(Recommender):
             slim_row, "item_id_one int, item_id_two int, similarity double"
         )
         self.similarity.cache()
-
-    def _clear_cache(self):
-        if hasattr(self, "similarity"):
-            self.similarity.unpersist()
-
-    def _predict_pairs_inner(
-        self,
-        log: DataFrame,
-        filter_df: DataFrame,
-        condition: Column,
-        users: DataFrame,
-    ):
-        if log is None:
-            raise ValueError(
-                "Для predict {} необходим log.".format(self.__str__())
-            )
-
-        recs = (
-            users.withColumnRenamed("user_idx", "user")
-            .join(log, how="inner", on=sf.col("user") == sf.col("user_idx"),)
-            .join(
-                self.similarity,
-                how="inner",
-                on=sf.col("item_idx") == sf.col("item_id_one"),
-            )
-            .join(filter_df, how="inner", on=condition,)
-            .groupby("user_idx", "item_id_two")
-            .agg(sf.sum("similarity").alias("relevance"))
-            .withColumnRenamed("item_id_two", "item_idx")
-        )
-        return recs
-
-    # pylint: disable=too-many-arguments
-    def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> DataFrame:
-
-        return self._predict_pairs_inner(
-            log=log,
-            filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
-            condition=sf.col("item_id_two") == sf.col("item_idx_filter"),
-            users=users,
-        )
-
-    def _predict_pairs(
-        self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
-        return self._predict_pairs_inner(
-            log=log,
-            filter_df=(
-                pairs.withColumnRenamed(
-                    "user_idx", "user_idx_filter"
-                ).withColumnRenamed("item_idx", "item_idx_filter")
-            ),
-            condition=(sf.col("user_idx") == sf.col("user_idx_filter"))
-            & (sf.col("item_id_two") == sf.col("item_idx_filter")),
-            users=pairs.select("user_idx").distinct(),
-        )

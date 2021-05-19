@@ -16,6 +16,7 @@ from optuna.samplers import TPESampler
 from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
+from pyspark.sql.column import Column
 
 from replay.constants import AnyDataFrame
 from replay.metrics import Metric, NDCG
@@ -198,7 +199,7 @@ class BaseRecommender(ABC):
             self._create_indexers(log, user_features, item_features)
         self.logger.debug("Основная стадия обучения (fit)")
 
-        log, item_features, user_features = self._convert_index_all(
+        log, user_features, item_features = self._convert_index_all(
             log, user_features, item_features
         )
         self._fit(log, user_features, item_features)
@@ -292,8 +293,8 @@ class BaseRecommender(ABC):
         """
         return (
             self._convert_index(log),
-            self._convert_index(item_features),
             self._convert_index(user_features),
+            self._convert_index(item_features),
         )
 
     # pylint: disable=too-many-arguments
@@ -351,7 +352,7 @@ class BaseRecommender(ABC):
         users_type = users.schema["user_id"].dataType
         items_type = items.schema["item_id"].dataType
 
-        log, item_features, user_features = self._convert_index_all(
+        log, user_features, item_features = self._convert_index_all(
             log, user_features, item_features
         )
 
@@ -616,7 +617,6 @@ class BaseRecommender(ABC):
         log, user_features, item_features = self._convert_index_all(
             log, user_features, item_features
         )
-
         pred = self._predict_pairs(
             pairs=pairs,
             log=log,
@@ -640,9 +640,9 @@ class BaseRecommender(ABC):
         :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            ``[user_id, item_id, relevance]``.
+            ``[user_idx, item_idx, relevance]``.
         :return: рекомендации, спарк-датафрейм с колонками
-            ``[user_id, item_id, relevance]`` для переданных пар
+            ``[user_idx, item_idx, relevance]`` для переданных пар
         """
         message = (
             "Метод predict_pairs не определен для выбранного алгоритма. "
@@ -654,8 +654,7 @@ class BaseRecommender(ABC):
         users = pairs.select("user_idx").distinct()
         items = pairs.select("item_idx").distinct()
         k = items.count()
-
-        pred = self._predict_wrap(
+        pred = self._predict(
             log=log,
             k=k,
             users=users,
@@ -674,7 +673,7 @@ class BaseRecommender(ABC):
 
 
 # pylint: disable=abstract-method
-class HybridRecommender(BaseRecommender):
+class HybridRecommender(BaseRecommender, ABC):
     """Рекомендатель, учитывающий фичи"""
 
     def fit(
@@ -834,7 +833,7 @@ class HybridRecommender(BaseRecommender):
 
 
 # pylint: disable=abstract-method
-class Recommender(BaseRecommender):
+class Recommender(BaseRecommender, ABC):
     """Обычный рекомендатель"""
 
     def fit(self, log: AnyDataFrame, force_reindex: bool = True) -> None:
@@ -958,7 +957,7 @@ class Recommender(BaseRecommender):
         )
 
 
-class UserRecommender(BaseRecommender):
+class UserRecommender(BaseRecommender, ABC):
     """Использует фичи пользователей, но не использует фичи айтемов. Лог — необязательный параметр."""
 
     def fit(
@@ -1032,3 +1031,76 @@ class UserRecommender(BaseRecommender):
             В случае, если модель не вернула результат для каких-то из пар, relevance для них будет null.
         """
         return self._predict_pairs_wrap(pairs, log, user_features, None)
+
+
+class NeighbourRec(Recommender, ABC):
+    """ Базовый класс для алгоритмов, использующих join матрицы сходства объектов с логом на inference"""
+
+    similarity: Optional[DataFrame]
+
+    def _clear_cache(self):
+        if hasattr(self, "similarity"):
+            self.similarity.unpersist()
+
+    def _predict_pairs_inner(
+        self,
+        log: DataFrame,
+        filter_df: DataFrame,
+        condition: Column,
+        users: DataFrame,
+    ):
+        if log is None:
+            raise ValueError(
+                "Для predict {} необходим log.".format(self.__str__())
+            )
+
+        recs = (
+            log.join(users, how="inner", on="user_idx")
+            .join(
+                self.similarity,
+                how="inner",
+                on=sf.col("item_idx") == sf.col("item_id_one"),
+            )
+            .join(filter_df, how="inner", on=condition,)
+            .groupby("user_idx", "item_id_two")
+            .agg(sf.sum("similarity").alias("relevance"))
+            .withColumnRenamed("item_id_two", "item_idx")
+        )
+        return recs
+
+    # pylint: disable=too-many-arguments
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        return self._predict_pairs_inner(
+            log=log,
+            filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
+            condition=sf.col("item_id_two") == sf.col("item_idx_filter"),
+            users=users,
+        )
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+        return self._predict_pairs_inner(
+            log=log,
+            filter_df=(
+                pairs.withColumnRenamed(
+                    "user_idx", "user_idx_filter"
+                ).withColumnRenamed("item_idx", "item_idx_filter")
+            ),
+            condition=(sf.col("user_idx") == sf.col("user_idx_filter"))
+            & (sf.col("item_id_two") == sf.col("item_idx_filter")),
+            users=pairs.select("user_idx").distinct(),
+        )

@@ -53,25 +53,6 @@ def test_predict(log, model):
     assert recs.count() == 4
 
 
-def test_predict_pairs(log, model):
-    try:
-        model.fit(log)
-        pred = model.predict_pairs(log.filter(sf.col("user_id") == "u2"), log)
-        assert pred.count() == 2
-        sparkDataFrameEqual(
-            log.filter(sf.col("user_id") == "u2").select("user_id", "item_id"),
-            pred.select("user_id", "item_id"),
-        )
-    except:  # noqa
-        pytest.fail()
-
-
-def test_predict_pairs_raises(log, model):
-    with pytest.raises(ValueError):
-        model.fit(log)
-        model.predict_pairs(log.filter(sf.col("user_id") == "u1"))
-
-
 @pytest.mark.parametrize(
     "lambda_1,lambda_2", [(0.0, 0.0), (-0.1, 0.1), (0.1, -0.1)]
 )

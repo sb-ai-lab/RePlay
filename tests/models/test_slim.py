@@ -61,6 +61,7 @@ def test_predict(log, model):
     )
 
 
+# для всех neighbour-based моделей
 def test_predict_pairs(log, model):
     try:
         model.fit(log)
@@ -74,8 +75,9 @@ def test_predict_pairs(log, model):
         pytest.fail()
 
 
+# для всех neighbour-based моделей
 def test_predict_pairs_raises(log, model):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Для predict .* необходим log"):
         model.fit(log)
         model.predict_pairs(log.filter(sf.col("user_id") == "u1"))
 
