@@ -4,6 +4,9 @@
 - BaseRecommender - базовый класс для всех рекомендательных моделей
 - Recommender - базовый класс для моделей, обучающихся на логе взаимодействия
 - HybridRecommender - базовый класс для моделей, обучающихся на логе взаимодействия и признаках
+- UserRecommender - базовый класс для моделей, использующих признаки пользователей,
+    но не использующих признаки объектов.
+- NeighbourRec - базовый класс для моделей, использующих join матрицы сходства объектов с логом на inference
 """
 import collections
 import logging
@@ -34,15 +37,13 @@ def convert2spark_all(
     Конвертация в spark основных датафреймов
 
     :param log: лог взаимодействий пользователей и объектов,
-        спарк-датафрейм с колонками
+        spark- или pandas-датафрейм с колонками
         ``[user_id, item_id, timestamp, relevance]``
     :param user_features: признаки пользователей,
-        спарк-датафрейм с колонками
-        ``[user_id , timestamp]`` и колонки с признаками
+        spark- или pandas-датафрейм с колонкой  ``user_id`` и колонками с признаками пользователей
     :param item_features: признаки объектов,
-        спарк-датафрейм с колонками
-        ``[item_id , timestamp]`` и колонки с признаками
-    :return: спарк-датафреймы log, item_features, user_features
+        spark- или pandas-датафрейм с колонкой  ``item_id`` и колонками с признаками объектов
+    :return: spark-датафреймы log, item_features, user_features
     """
     return (
         convert2spark(log),
@@ -279,17 +280,14 @@ class BaseRecommender(ABC):
     ) -> Tuple[Optional[DataFrame], ...]:
         """
         Переиндексирование объектов и пользователей
-
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
             ``[user_id, item_id, timestamp, relevance]``
         :param user_features: признаки пользователей,
-            спарк-датафрейм с колонками
-            ``[user_id , timestamp]`` и колонки с признаками
+            спарк-датафрейм с колонкой  ``user_id`` и колонками с признаками пользователей
         :param item_features: признаки объектов,
-            спарк-датафрейм с колонками
-            ``[item_id , timestamp]`` и колонки с признаками
-        :return: спарк-датафреймы log, item_features, user_features
+            спарк-датафрейм с колонкой  ``item_id`` и колонками с признаками объектов
+         :return: спарк-датафреймы log, item_features, user_features
         """
         return (
             self._convert_index(log),
@@ -599,17 +597,31 @@ class BaseRecommender(ABC):
         item_features: Optional[AnyDataFrame] = None,
     ) -> DataFrame:
         """
-        :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
+        Обертка для _predict_pairs отдельных алгоритмов.
+        Выполняет:
+        1) конвертацию в spark
+        2) переиндексирование пользователей и объектов
+        3) вызов _predict_pairs модели
+        4) обратное переиндексирование пользователей и объектов
+
+        :param pairs: пары пользователь-объект, для которых необходимо получить relevance,
+            spark- или pandas-датафрейм с колонками
+                ``[user_id, item_id]``.
         :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками
-            ``[user_id, item_id, relevance]``.
+            spark- или pandas-датафрейм с колонками
+            ``[user_id, item_id, timestamp, relevance]``.
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]`` для переданных пар
         """
         pairs = convert2spark(pairs)
+        if sorted(pairs.columns) != ["item_id", "user_id"]:
+            raise ValueError(
+                "Передайте пары в виде датафрейма со столбцами [user_id, item_id]"
+            )
+
         users_type = pairs.schema["user_id"].dataType
         items_type = pairs.schema["item_id"].dataType
-        pairs = self._convert_index(pairs.select("user_id", "item_id"))
+        pairs = self._convert_index(pairs)
 
         log, user_features, item_features = convert2spark_all(
             log, user_features, item_features
@@ -637,10 +649,14 @@ class BaseRecommender(ABC):
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
         """
-        :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
+        Predict для пар путем join результатов predict по всем объектам с выбранными парами.
+        Используется, если _predict_pairs не реализован для конкретного алгоритма.
+        :param pairs: пары пользователь-объект, для которых необходимо получить relevance,
+            спарк-датафрейм с колонками
+                ``[user_idx, item_idx]``.
         :param log: лог взаимодействий пользователей и объектов,
             спарк-датафрейм с колонками
-            ``[user_idx, item_idx, relevance]``.
+            ``[user_idx, item_idx, timestamp, relevance]``.
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_idx, item_idx, relevance]`` для переданных пар
         """
@@ -815,21 +831,22 @@ class HybridRecommender(BaseRecommender, ABC):
         item_features: Optional[AnyDataFrame] = None,
     ) -> DataFrame:
         """
-        :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
+        Возвращает релевантности для конкретных пар user-item, переданных в pairs.
+        В случае, если модель не вернула relevance для каких-то из пар,
+        они исключаются из возвращаемого датафрейма.
+        :param pairs: пары пользователь-объект, для которых необходимо получить relevance,
+            spark- или pandas-датафрейм с колонками ``[user_id, item_id]``
         :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками ``[user_id, item_id, relevance]``.
-            Необходим для корректной работы inference некоторых алгоритмов.
-        :param user_features: датафрейм, содержащий признаки пользователей и user_id
-        :param item_features: датафрейм, содержащий признаки объектов и item_id
-        :return: рекомендации, спарк-датафрейм с колонками
-            ``[user_id, item_id, relevance]`` для переданных пар.
-            В случае, если модель не вернула результат для каких-то из пар, relevance для них будет null.
+            spark- или pandas-датафрейм с колонками ``[user_id, item_id, timestamp, relevance]``.
+            Необходим для корректной работы inference некоторых алгоритмов
+        :param user_features: spark- или pandas-датафрейм, содержащий признаки пользователей и user_id
+        :param item_features: spark- или pandas-датафрейм, содержащий признаки объектов и item_id
+        :return: рекомендации для переданных пар, спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]``
         """
         return self._predict_pairs_wrap(
             pairs, log, user_features, item_features
         )
-
-    # pylint: disable=too-many-arguments
 
 
 # pylint: disable=abstract-method
@@ -901,14 +918,16 @@ class Recommender(BaseRecommender, ABC):
         self, pairs: AnyDataFrame, log: Optional[AnyDataFrame] = None
     ) -> DataFrame:
         """
-        :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
+        Возвращает релевантности для конкретных пар user-item, переданных в pairs.
+        В случае, если модель не вернула relevance для каких-то из пар,
+        они исключаются из возвращаемого датафрейма.
+        :param pairs: пары пользователь-объект, для которых необходимо получить relevance,
+            spark- или pandas-датафрейм с колонками ``[user_id, item_id]``
         :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками ``[user_id, item_id, relevance]``.
-            Необходим для корректной работы inference некоторых алгоритмов.
-            Используйте train-лог в общем случае или лог, содержащий более полную историю взаимодействия.
-        :return: рекомендации, спарк-датафрейм с колонками
-            ``[user_id, item_id, relevance]`` для переданных пар.
-            В случае, если модель не вернула результат для каких-то из пар, relevance для них будет null.
+            spark- или pandas-датафрейм с колонками ``[user_id, item_id, timestamp, relevance]``.
+            Необходим для корректной работы inference некоторых алгоритмов
+        :return: рекомендации для переданных пар, спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]``
         """
         return self._predict_pairs_wrap(pairs, log, None, None)
 
@@ -1021,14 +1040,17 @@ class UserRecommender(BaseRecommender, ABC):
         user_features: Optional[AnyDataFrame] = None,
     ) -> DataFrame:
         """
-        :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
+        Возвращает релевантности для конкретных пар user-item, переданных в pairs.
+        В случае, если модель не вернула relevance для каких-то из пар,
+        они исключаются из возвращаемого датафрейма.
+        :param pairs: пары пользователь-объект, для которых необходимо получить relevance,
+            spark- или pandas-датафрейм с колонками ``[user_id, item_id]``
         :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками ``[user_id, item_id, relevance]``.
-            Необходим для корректной работы inference некоторых алгоритмов.
-        :param user_features: датафрейм, содержащий числовые признаки пользователей и user_id
-        :return: рекомендации, спарк-датафрейм с колонками
-            ``[user_id, item_id, relevance]`` для переданных пар.
-            В случае, если модель не вернула результат для каких-то из пар, relevance для них будет null.
+            spark- или pandas-датафрейм с колонками ``[user_id, item_id, timestamp, relevance]``.
+            Необходим для корректной работы inference некоторых алгоритмов
+        :param user_features: spark- или pandas-датафрейм, содержащий признаки пользователей и user_id
+        :return: рекомендации для переданных пар, спарк-датафрейм с колонками
+            ``[user_id, item_id, relevance]``
         """
         return self._predict_pairs_wrap(pairs, log, user_features, None)
 
@@ -1048,7 +1070,19 @@ class NeighbourRec(Recommender, ABC):
         filter_df: DataFrame,
         condition: Column,
         users: DataFrame,
-    ):
+    ) -> DataFrame:
+        """
+        Получение рекомендаций для всех выбранных пользователей
+        с фильтрацией объектов путем inner join промежуточных результатов с filter_df по condition.
+        Позволяет реализовать как predict для пар, так и обычный predict top-k.
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками ``[user_idx, item_idx, timestamp, relevance]``.
+        :param filter_df: спарк-датафрейм, по которому будет выполняться фильтрация объектов,
+            спарк-датафрейм с колонками ``[item_idx_filter]`` или ``[user_idx_filter, item_idx_filter]``.
+        :param condition: условие для inner join датафрейма, полученного перед подсчетом relevance и filter_df
+        :param users: пользователи, для которых нужно получить рекомендации
+        :return: спарк-датафрейм с колонками ``[user_idx, item_idx, relevance]``
+        """
         if log is None:
             raise ValueError(
                 "Для predict {} необходим log.".format(self.__str__())

@@ -65,7 +65,10 @@ def test_predict(log, model):
 def test_predict_pairs(log, model):
     try:
         model.fit(log)
-        pred = model.predict_pairs(log.filter(sf.col("user_id") == "u2"), log)
+        pred = model.predict_pairs(
+            log.filter(sf.col("user_id") == "u2").select("user_id", "item_id"),
+            log,
+        )
         assert pred.count() == 2
         sparkDataFrameEqual(
             log.filter(sf.col("user_id") == "u2").select("user_id", "item_id"),
@@ -79,7 +82,9 @@ def test_predict_pairs(log, model):
 def test_predict_pairs_raises(log, model):
     with pytest.raises(ValueError, match=r"Для predict .* необходим log"):
         model.fit(log)
-        model.predict_pairs(log.filter(sf.col("user_id") == "u1"))
+        model.predict_pairs(
+            log.filter(sf.col("user_id") == "u1").select("user_id", "item_id")
+        )
 
 
 @pytest.mark.parametrize(

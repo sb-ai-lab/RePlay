@@ -171,18 +171,6 @@ class LightFMWrap(HybridRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-        """
-        :param pairs: пары пользователь-объект, для которых необходимо сделать предсказание
-        :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками ``[user_id, item_id, relevance]``.
-            Может использоваться для inference.
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с user_id и столбцами с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с item_id и столбцами с признаками
-        :return: рекомендации, спарк-датафрейм с колонками
-            ``[user_id, item_id, relevance]`` для переданных пар
-        """
         return self._predict_selected_pairs(
             pairs, user_features, item_features
         )

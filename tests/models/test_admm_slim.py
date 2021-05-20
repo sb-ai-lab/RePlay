@@ -7,7 +7,7 @@ from pyspark.sql import functions as sf
 
 from replay.constants import LOG_SCHEMA
 from replay.models import ADMMSLIM
-from tests.utils import spark, sparkDataFrameEqual
+from tests.utils import spark
 
 
 @pytest.fixture

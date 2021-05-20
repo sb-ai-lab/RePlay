@@ -6,7 +6,6 @@ import numpy as np
 
 from pyspark.sql import functions as sf
 
-from replay.constants import LOG_SCHEMA
 from replay.models import ALSWrap
 from tests.utils import log, spark
 
@@ -33,7 +32,11 @@ def test_predict_pairs(log, model):
     try:
         model.fit(log.filter(sf.col("item_id") != "item1"))
         # исходное количество пар - 3
-        pred = model.predict_pairs(log.filter(sf.col("user_id") == "user1"))
+        pred = model.predict_pairs(
+            log.filter(sf.col("user_id") == "user1").select(
+                "user_id", "item_id"
+            )
+        )
         # для холодного объекта не возвращаем ничего
         assert pred.count() == 2
         assert pred.select("user_id").distinct().collect()[0][0] == "user1"

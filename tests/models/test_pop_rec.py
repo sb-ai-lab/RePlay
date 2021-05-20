@@ -48,7 +48,9 @@ def test_predict_pairs(log, model):
     try:
         model.fit(log.filter(sf.col("item_id") != "i4"))
         # исходное количество пар - 2
-        pred = model.predict_pairs(log.filter(sf.col("user_id") == "u1"))
+        pred = model.predict_pairs(
+            log.filter(sf.col("user_id") == "u1").select("user_id", "item_id")
+        )
         # для холодного объекта не возвращаем ничего
         assert pred.count() == 1
         assert pred.select("user_id").distinct().collect()[0][0] == "u1"
