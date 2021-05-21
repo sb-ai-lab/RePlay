@@ -12,7 +12,7 @@ from tests.utils import log, spark
 
 @pytest.fixture
 def model():
-    model = ALSWrap(1)
+    model = ALSWrap(1, implicit_prefs=False)
     model._seed = 42
     return model
 
@@ -20,10 +20,7 @@ def model():
 def test_works(log, model):
     try:
         pred = model.fit_predict(log, k=1)
-        np.allclose(
-            pred.toPandas().sort_values("user_id")["relevance"].values,
-            [0.559088, 0.816796, 0.566497, 0.783326],
-        )
+        assert pred.count() == 4
     except:  # noqa
         pytest.fail()
 
@@ -49,3 +46,13 @@ def test_predict_pairs(log, model):
         ) == ["item2", "item3"]
     except:  # noqa
         pytest.fail()
+
+
+def test_diff_feedback_type(log, model):
+    pred_exp = model.fit_predict(log, k=1)
+    model.implicit_prefs = True
+    pred_imp = model.fit_predict(log, k=1)
+    assert not np.allclose(
+        pred_exp.toPandas().sort_values("user_id")["relevance"].values,
+        pred_imp.toPandas().sort_values("user_id")["relevance"].values,
+    )

@@ -37,7 +37,7 @@ def model():
 
 def test_fit(log, user_features, item_features, model):
     model.fit(log, user_features, item_features)
-    np.allclose(model.model.treeWeights, 20 * [1.0])
+    assert np.allclose(model.model.treeWeights, 20 * [1.0])
 
 
 def test_predict(log, user_features, item_features, model):

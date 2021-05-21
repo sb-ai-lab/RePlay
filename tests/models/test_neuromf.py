@@ -83,7 +83,7 @@ def test_fit(log, model):
 def test_predict(log, model):
     model.fit(log)
     pred = model.predict(log=log, k=1)
-    np.allclose(
+    assert np.allclose(
         pred.toPandas()[["user_id", "item_id"]]
         .sort_values("user_id")
         .astype(int)

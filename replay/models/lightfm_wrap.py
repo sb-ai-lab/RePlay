@@ -30,7 +30,7 @@ class LightFMWrap(HybridRecommender):
     def __init__(
         self,
         no_components: int = 128,
-        loss: str = "bpr",
+        loss: str = "warp",
         random_state: Optional[int] = None,
     ):
         np.random.seed(42)
@@ -76,7 +76,6 @@ class LightFMWrap(HybridRecommender):
             .session.createDataFrame(range(df_len), schema=IntegerType())
             .toDF(idx_col_name)
             .join(feature_table, on=idx_col_name, how="left")
-            .fillna(0.0)
             .sort(idx_col_name)
             .drop(idx_col_name)
         )
@@ -86,6 +85,7 @@ class LightFMWrap(HybridRecommender):
         if getattr(self, attr_) is None:
             setattr(self, attr_, MinMaxScaler().fit(all_features_np))
         all_features_np = getattr(self, attr_).transform(all_features_np)
+        np.nan_to_num(all_features_np, copy=False, nan=0)
 
         features_with_identity = hstack(
             [identity(df_len), csr_matrix(all_features_np)]
