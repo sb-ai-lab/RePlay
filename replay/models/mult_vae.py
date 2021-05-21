@@ -314,6 +314,6 @@ class MultVAE(TorchRecommender):
                 {
                     "user_idx": np.array(cnt * [user_idx]),
                     "item_idx": items_np[best_item_idx],
-                    "relevance": user_recs[best_item_idx],
+                    "relevance": user_recs[items_np[best_item_idx]],
                 }
             )
