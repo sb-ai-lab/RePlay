@@ -317,3 +317,31 @@ class MultVAE(TorchRecommender):
                     "relevance": user_recs[items_np[best_item_idx]],
                 }
             )
+
+    @staticmethod
+    def _predict_by_user_pairs(
+        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
+    ) -> pd.DataFrame:
+        user_idx = pandas_df["user_idx"][0]
+        item_idx_to_pred = pandas_df["item_idx_to_pred"][0]
+        cnt = len(item_idx_to_pred)
+
+        model.eval()
+        with torch.no_grad():
+            user_batch = torch.zeros((1, item_count))
+            items_for_batch = (
+                pandas_df["item_idx_history"][0]
+                if pandas_df["item_idx_history"][0] is not None
+                else []
+            )
+            user_batch[0, items_for_batch] = 1
+            user_recs = model(user_batch)[0][0].detach()
+            relevance = user_recs[item_idx_to_pred].numpy()
+
+            return pd.DataFrame(
+                {
+                    "user_idx": np.array(cnt * [user_idx]),
+                    "item_idx": item_idx_to_pred,
+                    "relevance": relevance,
+                }
+            )
