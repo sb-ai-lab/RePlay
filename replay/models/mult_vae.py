@@ -323,16 +323,18 @@ class MultVAE(TorchRecommender):
         pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
     ) -> pd.DataFrame:
         user_idx = pandas_df["user_idx"][0]
-        item_idx_to_pred = pandas_df["item_idx_to_pred"][0]
+        item_idx_to_pred = np.array(pandas_df["item_idx_to_pred"][0])
         cnt = len(item_idx_to_pred)
 
         model.eval()
         with torch.no_grad():
             user_batch = torch.zeros((1, item_count))
-            items_for_batch = (
-                pandas_df["item_idx_history"][0]
-                if pandas_df["item_idx_history"][0] is not None
-                else []
+            items_for_batch = np.array(
+                (
+                    pandas_df["item_idx_history"][0]
+                    if pandas_df["item_idx_history"][0] is not None
+                    else []
+                )
             )
             user_batch[0, items_for_batch] = 1
             user_recs = model(user_batch)[0][0].detach()
