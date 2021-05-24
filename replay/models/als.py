@@ -76,3 +76,16 @@ class ALSWrap(Recommender):
             .drop("prediction")
         )
         return recs
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+        return (
+            self.model.transform(pairs)
+            .withColumn("relevance", col("prediction").cast(DoubleType()))
+            .drop("prediction")
+        )

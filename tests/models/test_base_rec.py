@@ -1,15 +1,10 @@
 # pylint: disable-all
-from datetime import datetime
 from typing import Optional
 
 import pytest
-import numpy as np
 from pandas import DataFrame
-from pyspark.sql import functions as sf
 
-from replay.constants import LOG_SCHEMA
-from replay.models import Word2VecRec, Recommender
-from replay.utils import vector_dot
+from replay.models import Recommender
 from tests.utils import spark, log
 
 
@@ -33,14 +28,6 @@ class DerivedRec(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         pass
-
-
-# @pytest.fixture
-# def log(spark):
-#     return spark.createDataFrame(
-#         data=[["1", "2", "3", "4"]],
-#         schema=["item_id", "user_id", "timestamp", "relevance"],
-#     )
 
 
 @pytest.fixture

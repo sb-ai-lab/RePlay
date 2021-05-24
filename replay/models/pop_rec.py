@@ -131,3 +131,12 @@ class PopRec(Recommender):
         )
 
         return recs
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+        return pairs.join(self.item_popularity, on="item_idx", how="inner")

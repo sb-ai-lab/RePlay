@@ -2,7 +2,7 @@
 from datetime import datetime
 
 import pytest
-import numpy as np
+from pyspark.sql import functions as sf
 
 from replay.constants import LOG_SCHEMA
 from replay.models import LightFMWrap
@@ -77,3 +77,35 @@ def test_predict_no_user_features(log, user_features, item_features, model):
         "i4",
         "i1",
     ]
+
+
+def test_predict_pairs(log, user_features, item_features, model):
+    try:
+        model.fit(
+            log.filter(sf.col("user_id") != "u1"), user_features, item_features
+        )
+        # исходное количество пар - 2
+        # предсказываем для холодного пользователя
+        pred = model.predict_pairs(
+            log.filter(sf.col("user_id") == "u1").select("user_id", "item_id")
+        )
+        assert pred.count() == 2
+        assert pred.select("user_id").distinct().collect()[0][0] == "u1"
+        # предсказываем для теплого пользователя
+        pred = model.predict_pairs(
+            log.filter(sf.col("user_id") == "u2").select("user_id", "item_id")
+        )
+        assert pred.count() == 2
+        assert pred.select("user_id").distinct().collect()[0][0] == "u2"
+    except:  # noqa
+        pytest.fail()
+
+
+def test_predict_pairs_raises(log, user_features, item_features, model):
+    with pytest.raises(
+        ValueError, match=r"Передайте пары в виде датафрейма со столбцами.*"
+    ):
+        model.fit(
+            log.filter(sf.col("user_id") != "u1"), user_features, item_features
+        )
+        model.predict_pairs(log.filter(sf.col("user_id") == "u1"))
