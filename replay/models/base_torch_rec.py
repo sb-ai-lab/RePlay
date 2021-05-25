@@ -3,8 +3,8 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+import torch
 
-# pylint: disable=wrong-import-order
 from ignite.contrib.handlers import LRScheduler
 from ignite.engine import Engine, Events
 from ignite.handlers import (
@@ -13,12 +13,7 @@ from ignite.handlers import (
     global_step_from_engine,
 )
 from ignite.metrics import Loss, RunningAverage
-from pyspark.ml import Pipeline
-from pyspark.ml.feature import MinMaxScaler, VectorAssembler
 from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-from pyspark.sql import types as st
-import torch
 from torch import nn
 from torch.optim.optimizer import Optimizer  # pylint: disable=E0611
 from torch.optim.lr_scheduler import ReduceLROnPlateau, _LRScheduler
@@ -64,7 +59,6 @@ class TorchRecommender(Recommender):
             .applyInPandas(grouped_map, IDX_REC_SCHEMA)
         )
 
-        recs = self.min_max_scale_column(recs, "relevance")
         return recs
 
     @staticmethod
@@ -89,34 +83,6 @@ class TorchRecommender(Recommender):
         :return: DataFrame c рассчитанными релевантностями --
             pandas-датафрейм вида ``[user_idx , item_idx , relevance]``
         """
-
-    @staticmethod
-    def min_max_scale_column(dataframe: DataFrame, column: str) -> DataFrame:
-        """
-        Отнормировать колонку датафрейма.
-        Применяет классическую форму нормализации с минимумом и максимумом:
-        new_value_i = (value_i - min) / (max - min).
-
-        :param dataframe: спарк-датафрейм
-        :param column: имя колонки, которую надо нормализовать
-        :return: исходный датафрейм с измененной колонкой
-        """
-        unlist = sf.udf(lambda x: float(list(x)[0]), st.DoubleType())
-        assembler = VectorAssembler(
-            inputCols=[column], outputCol=f"{column}_Vect"
-        )
-        scaler = MinMaxScaler(
-            inputCol=f"{column}_Vect", outputCol=f"{column}_Scaled"
-        )
-        pipeline = Pipeline(stages=[assembler, scaler])
-        dataframe = (
-            pipeline.fit(dataframe)
-            .transform(dataframe)
-            .withColumn(column, unlist(f"{column}_Scaled"))
-            .drop(f"{column}_Vect", f"{column}_Scaled")
-        )
-
-        return dataframe
 
     def load_model(self, path: str) -> None:
         """

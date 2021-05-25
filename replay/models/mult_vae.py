@@ -305,7 +305,7 @@ class MultVAE(TorchRecommender):
         with torch.no_grad():
             user_batch = torch.zeros((1, item_count))
             user_batch[0, pandas_df["item_idx"].values] = 1
-            user_recs = model(user_batch)[0][0].detach()
+            user_recs = F.softmax(model(user_batch)[0][0].detach(), dim=0)
             best_item_idx = (
                 torch.argsort(user_recs[items_np], descending=True)[:cnt]
             ).numpy()
