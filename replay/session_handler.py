@@ -42,6 +42,7 @@ def get_spark_session(
         )
         .config("spark.sql.shuffle.partitions", str(shuffle_partitions))
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
+        .config("spark.driver.maxResultSize", "4g")
         .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.host", "localhost")
         .config("spark.sql.execution.arrow.pyspark.enabled", "true")
