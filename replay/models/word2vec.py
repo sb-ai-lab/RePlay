@@ -96,25 +96,24 @@ class Word2VecRec(Recommender):
             self.idf.unpersist()
             self.vectors.unpersist()
 
-    # pylint: disable=too-many-arguments
-    def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
+    def _get_user_vectors(
+        self, users: DataFrame, log: DataFrame,
     ) -> DataFrame:
-        idf = self.idf.join(
-            items.withColumnRenamed("item_idx", "item"),
-            how="inner",
-            on=sf.col("item") == sf.col("item_idx"),
-        ).select("item_idx", "idf")
-        user_vectors = (
+        """
+        Возвращает вектора пользователей, посчитанные на основе истории взаимодействия из log.
+
+        :param users: id выбранные пользователей
+            спарк-датафрейм с колонкой ``[user_idx]``
+        :param log: лог взаимодействий пользователей и объектов,
+            спарк-датафрейм с колонками
+            ``[user_idx, item_idx, timestamp, relevance]``
+        :return: вектора пользователей,
+            спарк-датафрейм с колонками
+            ``[user_idx, user_vector]``
+        """
+        return (
             users.join(log, how="inner", on="user_idx")
-            .join(idf, how="inner", on="item_idx")
+            .join(self.idf, how="inner", on="item_idx")
             .join(
                 self.vectors,
                 how="inner",
@@ -128,12 +127,50 @@ class Word2VecRec(Recommender):
             )
             .select("user_idx", "user_vector")
         )
-        recs = user_vectors.crossJoin(self.vectors).select(
+
+    def _predict_pairs_inner(
+        self, pairs: DataFrame, log: DataFrame,
+    ) -> DataFrame:
+        if log is None:
+            raise ValueError(
+                "Для predict {} необходим log.".format(self.__str__())
+            )
+
+        user_vectors = self._get_user_vectors(
+            pairs.select("user_idx").distinct(), log
+        )
+        pairs_with_vectors = pairs.join(
+            user_vectors, on="user_idx", how="inner"
+        ).join(
+            self.vectors, on=sf.col("item_idx") == sf.col("item"), how="inner"
+        )
+        return pairs_with_vectors.select(
             "user_idx",
+            sf.col("item_idx"),
             (
                 vector_dot(sf.col("vector"), sf.col("user_vector"))
                 + sf.lit(self.rank)
             ).alias("relevance"),
-            sf.col("item").alias("item_idx"),
         )
-        return recs
+
+    # pylint: disable=too-many-arguments
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        return self._predict_pairs_inner(users.crossJoin(items), log)
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+        return self._predict_pairs_inner(pairs, log)

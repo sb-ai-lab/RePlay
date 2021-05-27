@@ -337,7 +337,7 @@ class MultVAE(TorchRecommender):
                 )
             )
             user_batch[0, items_for_batch] = 1
-            user_recs = model(user_batch)[0][0].detach()
+            user_recs = F.softmax(model(user_batch)[0][0].detach(), dim=0)
             relevance = user_recs[item_idx_to_pred].numpy()
 
             return pd.DataFrame(

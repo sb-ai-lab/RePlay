@@ -401,9 +401,8 @@ class NeuroMF(TorchRecommender):
 
         return y_pred, y_true
 
-    # pylint: disable=unused-argument
     @staticmethod
-    def _predict_by_user(  # type: ignore
+    def _predict_by_user(
         pandas_df: pd.DataFrame,
         model: nn.Module,
         items_np: np.ndarray,
@@ -417,7 +416,9 @@ class NeuroMF(TorchRecommender):
         with torch.no_grad():
             user_batch = LongTensor([user_idx] * len(items_np))  # type: ignore
             item_batch = LongTensor(items_np)  # type: ignore
-            user_recs = model(user_batch, item_batch).detach()
+            user_recs = torch.reshape(
+                model(user_batch, item_batch).detach(), [-1,]
+            )
             best_item_idx = (
                 torch.argsort(user_recs, descending=True)[:cnt]
             ).numpy()
@@ -426,5 +427,28 @@ class NeuroMF(TorchRecommender):
                     "user_idx": cnt * [user_idx],
                     "item_idx": items_np[best_item_idx],
                     "relevance": user_recs[best_item_idx],
+                }
+            )
+
+    @staticmethod
+    def _predict_by_user_pairs(
+        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
+    ) -> pd.DataFrame:
+        user_idx = pandas_df["user_idx"][0]
+        item_idx_to_pred = np.array(pandas_df["item_idx_to_pred"][0])
+        cnt = len(item_idx_to_pred)
+
+        model.eval()
+        with torch.no_grad():
+            user_batch = LongTensor([user_idx] * cnt)
+            item_batch = LongTensor(item_idx_to_pred)
+            user_recs = torch.reshape(
+                model(user_batch, item_batch).detach(), [-1,]
+            )
+            return pd.DataFrame(
+                {
+                    "user_idx": np.array(cnt * [user_idx]),
+                    "item_idx": item_idx_to_pred,
+                    "relevance": user_recs,
                 }
             )

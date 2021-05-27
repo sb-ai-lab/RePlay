@@ -4,7 +4,6 @@ from datetime import datetime
 import pytest
 import numpy as np
 import torch
-from pyspark.sql import functions as sf
 
 from replay.constants import LOG_SCHEMA
 from replay.models import MultVAE
@@ -87,35 +86,6 @@ def test_predict(log, other_log, model):
         .values,
         [[0, 1], [2, 2]],
         atol=1.0e-3,
-    )
-
-
-def test_predict_pairs(log, other_log, model):
-    model.fit(log)
-    recs = model.predict(other_log, k=3, filter_seen_items=False, users=["2"])
-    pairs_pred = model.predict_pairs(
-        pairs=other_log.select("user_id", "item_id").filter(
-            sf.col("user_id") == "2"
-        ),
-        log=other_log,
-    )
-    sparkDataFrameEqual(
-        pairs_pred.select("user_id", "item_id"),
-        other_log.select("user_id", "item_id").filter(
-            sf.col("user_id") == "2"
-        ),
-    )
-    recs.show()
-    pairs_pred.show()
-    recs_joined = (
-        pairs_pred.withColumnRenamed("relevance", "pairs_relevance")
-        .join(recs, on=["user_id", "item_id"], how="left")
-        .sort("user_id", "item_id")
-    )
-    recs_joined.show()
-    assert np.allclose(
-        recs_joined.select("relevance").toPandas().to_numpy(),
-        recs_joined.select("pairs_relevance").toPandas().to_numpy(),
     )
 
 

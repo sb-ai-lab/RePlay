@@ -14,6 +14,7 @@ from ignite.handlers import (
 )
 from ignite.metrics import Loss, RunningAverage
 from pyspark.sql import DataFrame
+from pyspark.sql import functions as sf
 from torch import nn
 from torch.optim.optimizer import Optimizer  # pylint: disable=E0611
 from torch.optim.lr_scheduler import ReduceLROnPlateau, _LRScheduler
@@ -58,6 +59,39 @@ class TorchRecommender(Recommender):
             .groupby("user_idx")
             .applyInPandas(grouped_map, IDX_REC_SCHEMA)
         )
+        return recs
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+        items_count = self.items_count
+        model = self.model.cpu()
+        agg_fn = self._predict_by_user_pairs
+        users = pairs.select("user_idx").distinct()
+
+        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+            return agg_fn(pandas_df, model, items_count)[
+                ["user_idx", "item_idx", "relevance"]
+            ]
+
+        self.logger.debug("Оценка релевантности для пар")
+        user_history = (
+            users.join(log, how="inner", on="user_idx")
+            .groupBy("user_idx")
+            .agg(sf.collect_list("item_idx").alias("item_idx_history"))
+        )
+        user_pairs = pairs.groupBy("user_idx").agg(
+            sf.collect_list("item_idx").alias("item_idx_to_pred")
+        )
+        full_df = user_pairs.join(user_history, on="user_idx", how="left")
+
+        recs = full_df.groupby("user_idx").applyInPandas(
+            grouped_map, IDX_REC_SCHEMA
+        )
 
         return recs
 
@@ -71,7 +105,7 @@ class TorchRecommender(Recommender):
         item_count: int,
     ) -> pd.DataFrame:
         """
-        Расчёт значения метрики для каждого пользователя
+        Получение рекомендаций для каждого пользователя
 
         :param pandas_df: DataFrame, содержащий индексы просмотренных объектов
             по каждому пользователю -- pandas-датафрейм вида
@@ -79,6 +113,23 @@ class TorchRecommender(Recommender):
         :param model: обученная модель
         :param items_np: список допустимых для рекомендаций объектов
         :param k: количество рекомендаций
+        :param item_count: общее количество объектов в рекомендателе
+        :return: DataFrame c рассчитанными релевантностями --
+            pandas-датафрейм вида ``[user_idx , item_idx , relevance]``
+        """
+
+    @staticmethod
+    @abstractmethod
+    def _predict_by_user_pairs(
+        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
+    ) -> pd.DataFrame:
+        """
+        Получение релевантности для выбранных объектов для каждого пользователя
+
+        :param pandas_df: pandas-датафрейм, содержащий индексы просмотренных объектов
+            по каждому пользователю и индексы объектов, для которых нужно получить предсказание
+            ``[user_idx, item_idx_history, item_idx_to_pred]``
+        :param model: обученная модель
         :param item_count: общее количество объектов в рекомендателе
         :return: DataFrame c рассчитанными релевантностями --
             pandas-датафрейм вида ``[user_idx , item_idx , relevance]``
