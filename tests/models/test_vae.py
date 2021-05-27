@@ -9,7 +9,7 @@ from replay.constants import LOG_SCHEMA
 from replay.models import MultVAE
 from replay.models.mult_vae import VAE
 from tests.test_utils import del_files_by_pattern, find_file_by_pattern
-from tests.utils import spark, sparkDataFrameEqual
+from tests.utils import spark
 
 
 @pytest.fixture(scope="session", autouse=True)
