@@ -192,7 +192,7 @@ def test_conditional_features(spark, two_stages_fp, log, user_features):
     )
     item_cond_dist_cat_features["gender"].show()
     gt_item_feat = spark.createDataFrame(
-        data=[["i1", "M", 0.5], ["i1", "F", 0.5], ["i2", None, 1.0],],
+        data=[["i1", "M", 0.5], ["i1", "F", 0.5], ["i2", None, 1.0]],
         schema=["item_idx", "gender", "item_pop_by_gender"],
     )
     sparkDataFrameEqual(
