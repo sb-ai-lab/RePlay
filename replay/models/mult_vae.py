@@ -291,29 +291,71 @@ class MultVAE(TorchRecommender):
         )
 
     @staticmethod
-    def _predict_by_user(  # type: ignore
+    def _predict_pairs_inner(
+        model: nn.Module,
+        user_idx: int,
+        items_np_history: np.ndarray,
+        items_np_to_pred: np.ndarray,
+        item_count: int,
+        cnt: Optional[int] = None,
+    ) -> DataFrame:
+        model.eval()
+        with torch.no_grad():
+            user_batch = torch.zeros((1, item_count))
+            user_batch[0, items_np_history] = 1
+            user_recs = F.softmax(model(user_batch)[0][0].detach(), dim=0)
+            if cnt is not None:
+                best_item_idx = (
+                    torch.argsort(
+                        user_recs[items_np_to_pred], descending=True
+                    )[:cnt]
+                ).numpy()
+                items_np_to_pred = items_np_to_pred[best_item_idx]
+            return pd.DataFrame(
+                {
+                    "user_idx": np.array(
+                        items_np_to_pred.shape[0] * [user_idx]
+                    ),
+                    "item_idx": items_np_to_pred,
+                    "relevance": user_recs[items_np_to_pred],
+                }
+            )
+
+    @staticmethod
+    def _predict_by_user(
         pandas_df: pd.DataFrame,
         model: nn.Module,
         items_np: np.ndarray,
         k: int,
         item_count: int,
     ) -> pd.DataFrame:
-        user_idx = pandas_df["user_idx"][0]
-        cnt = min(len(pandas_df) + k, len(items_np))
+        return MultVAE._predict_pairs_inner(
+            model=model,
+            user_idx=pandas_df["user_idx"][0],
+            items_np_history=pandas_df["item_idx"].values,
+            items_np_to_pred=items_np,
+            item_count=item_count,
+            cnt=min(len(pandas_df) + k, len(items_np)),
+        )
 
-        model.eval()
-        with torch.no_grad():
-            user_batch = torch.zeros((1, item_count))
-            user_batch[0, pandas_df["item_idx"].values] = 1
-            user_recs = F.softmax(model(user_batch)[0][0].detach(), dim=0)
-            best_item_idx = (
-                torch.argsort(user_recs[items_np], descending=True)[:cnt]
-            ).numpy()
+    @staticmethod
+    def _predict_by_user_pairs(
+        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
+    ) -> pd.DataFrame:
 
-            return pd.DataFrame(
-                {
-                    "user_idx": np.array(cnt * [user_idx]),
-                    "item_idx": items_np[best_item_idx],
-                    "relevance": user_recs[items_np[best_item_idx]],
-                }
+        items_np_history = np.array(
+            (
+                pandas_df["item_idx_history"][0]
+                if pandas_df["item_idx_history"][0] is not None
+                else []
             )
+        )
+
+        return MultVAE._predict_pairs_inner(
+            model=model,
+            user_idx=pandas_df["user_idx"][0],
+            items_np_history=items_np_history,
+            items_np_to_pred=np.array(pandas_df["item_idx_to_pred"][0]),
+            item_count=item_count,
+            cnt=None,
+        )

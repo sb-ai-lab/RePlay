@@ -401,30 +401,57 @@ class NeuroMF(TorchRecommender):
 
         return y_pred, y_true
 
-    # pylint: disable=unused-argument
     @staticmethod
-    def _predict_by_user(  # type: ignore
+    def _predict_pairs_inner(
+        model: nn.Module,
+        user_idx: int,
+        items_np: np.ndarray,
+        cnt: Optional[int] = None,
+    ) -> DataFrame:
+        model.eval()
+        with torch.no_grad():
+            user_batch = LongTensor([user_idx] * len(items_np))
+            item_batch = LongTensor(items_np)
+            user_recs = torch.reshape(
+                model(user_batch, item_batch).detach(), [-1,]
+            )
+            if cnt is not None:
+                best_item_idx = (
+                    torch.argsort(user_recs, descending=True)[:cnt]
+                ).numpy()
+                user_recs = user_recs[best_item_idx]
+                items_np = items_np[best_item_idx]
+
+            return pd.DataFrame(
+                {
+                    "user_idx": user_recs.shape[0] * [user_idx],
+                    "item_idx": items_np,
+                    "relevance": user_recs,
+                }
+            )
+
+    @staticmethod
+    def _predict_by_user(
         pandas_df: pd.DataFrame,
         model: nn.Module,
         items_np: np.ndarray,
         k: int,
         item_count: int,
     ) -> pd.DataFrame:
-        user_idx = pandas_df["user_idx"][0]
-        cnt = min(len(pandas_df) + k, len(items_np))
+        return NeuroMF._predict_pairs_inner(
+            model=model,
+            user_idx=pandas_df["user_idx"][0],
+            items_np=items_np,
+            cnt=min(len(pandas_df) + k, len(items_np)),
+        )
 
-        model.eval()
-        with torch.no_grad():
-            user_batch = LongTensor([user_idx] * len(items_np))  # type: ignore
-            item_batch = LongTensor(items_np)  # type: ignore
-            user_recs = model(user_batch, item_batch).detach()
-            best_item_idx = (
-                torch.argsort(user_recs, descending=True)[:cnt]
-            ).numpy()
-            return pd.DataFrame(
-                {
-                    "user_idx": cnt * [user_idx],
-                    "item_idx": items_np[best_item_idx],
-                    "relevance": user_recs[best_item_idx],
-                }
-            )
+    @staticmethod
+    def _predict_by_user_pairs(
+        pandas_df: pd.DataFrame, model: nn.Module, item_count: int
+    ) -> pd.DataFrame:
+        return NeuroMF._predict_pairs_inner(
+            model=model,
+            user_idx=pandas_df["user_idx"][0],
+            items_np=np.array(pandas_df["item_idx_to_pred"][0]),
+            cnt=None,
+        )

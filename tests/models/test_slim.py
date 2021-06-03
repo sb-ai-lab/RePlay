@@ -61,32 +61,6 @@ def test_predict(log, model):
     )
 
 
-# для всех neighbour-based моделей
-def test_predict_pairs(log, model):
-    try:
-        model.fit(log)
-        pred = model.predict_pairs(
-            log.filter(sf.col("user_id") == "u2").select("user_id", "item_id"),
-            log,
-        )
-        assert pred.count() == 2
-        sparkDataFrameEqual(
-            log.filter(sf.col("user_id") == "u2").select("user_id", "item_id"),
-            pred.select("user_id", "item_id"),
-        )
-    except:  # noqa
-        pytest.fail()
-
-
-# для всех neighbour-based моделей
-def test_predict_pairs_raises(log, model):
-    with pytest.raises(ValueError, match=r"Для predict .* необходим log"):
-        model.fit(log)
-        model.predict_pairs(
-            log.filter(sf.col("user_id") == "u1").select("user_id", "item_id")
-        )
-
-
 @pytest.mark.parametrize(
     "beta,lambda_", [(0.0, 0.0), (-0.1, 0.1), (0.1, -0.1)]
 )
