@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 from pyspark.ml.recommendation import ALS
 from pyspark.sql import DataFrame
@@ -88,4 +88,24 @@ class ALSWrap(Recommender):
             self.model.transform(pairs)
             .withColumn("relevance", col("prediction").cast(DoubleType()))
             .drop("prediction")
+        )
+
+    def get_features(
+        self, users: Optional[DataFrame], items: Optional[DataFrame]
+    ) -> Tuple[Optional[DataFrame], Optional[DataFrame], int]:
+        user_features = self.model.userFactors.withColumnRenamed(
+            "id", "user_idx"
+        ).withColumnRenamed("features", "user_factors")
+        item_features = self.model.itemFactors.withColumnRenamed(
+            "id", "item_idx"
+        ).withColumnRenamed("features", "item_factors")
+
+        return (
+            users.join(user_features, how="left", on="user_idx")
+            if users is not None
+            else None,
+            items.join(item_features, how="left", on="item_idx")
+            if items is not None
+            else None,
+            self.model.rank,
         )

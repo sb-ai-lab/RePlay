@@ -11,7 +11,7 @@
 import collections
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterable, List, Optional, Union, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Union, Sequence, Tuple
 
 import pandas as pd
 from optuna import create_study
@@ -374,11 +374,19 @@ class BaseRecommender(ABC):
         return data_frame
 
     def _convert_back(self, log, user_type, item_type):
-        res = self.inv_user_indexer.transform(
-            self.inv_item_indexer.transform(log)
-        ).drop("user_idx", "item_idx")
-        res = res.withColumn("user_id", res["user_id"].cast(user_type))
-        res = res.withColumn("item_id", res["item_id"].cast(item_type))
+        res = log
+        if "user_idx" in log.columns:
+            res = (
+                self.inv_user_indexer.transform(res)
+                .drop("user_idx")
+                .withColumn("user_id", sf.col("user_id").cast(user_type))
+            )
+        if "item_idx" in log.columns:
+            res = (
+                self.inv_item_indexer.transform(res)
+                .drop("item_idx")
+                .withColumn("item_id", sf.col("item_id").cast(item_type))
+            )
         return res
 
     def _reindex(self, entity: str, objects: DataFrame):
@@ -644,6 +652,19 @@ class BaseRecommender(ABC):
             how="inner",
         )
         return pred
+
+    def get_features(
+        self, users: Optional[DataFrame], items: Optional[DataFrame]
+    ) -> Tuple[Optional[DataFrame], Optional[DataFrame], int]:
+        """
+        Возвращает вектора пользователей и объектов в виде отдельных столбцов с типом ArrayType
+        :param users: пользователи, для которых нужно вернуть вектора
+        :param items: объекты, для которых нужно вернуть вектора
+        :return: вектора пользователей, вектора объектов, длина вектора для заполнение отсутствующих значений
+        """
+        raise NotImplementedError(
+            "Метод реализован только для моделей ALS и LightFMWrap"
+        )
 
 
 # pylint: disable=abstract-method
