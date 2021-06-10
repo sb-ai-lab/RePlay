@@ -1,10 +1,6 @@
 from typing import Iterable, Optional, Union
 
-from pyspark.ml.classification import (
-    JavaClassificationModel,
-    JavaEstimator,
-    RandomForestClassifier,
-)
+import pyspark
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import lit, udf, when
@@ -13,6 +9,20 @@ from pyspark.sql.types import DoubleType
 from replay.constants import AnyDataFrame
 from replay.models.base_rec import HybridRecommender
 from replay.utils import func_get, get_top_k_recs, convert2spark
+
+# pylint: disable=ungrouped-imports
+if pyspark.__version__.startswith("3"):
+    from pyspark.ml.classification import (
+        ClassificationModel,
+        Classifier,
+        RandomForestClassifier,
+    )
+else:
+    from pyspark.ml.classification import (
+        JavaClassificationModel as ClassificationModel,
+        JavaEstimator as Classifier,
+        RandomForestClassifier,
+    )
 
 
 class ClassifierRec(HybridRecommender):
@@ -29,12 +39,12 @@ class ClassifierRec(HybridRecommender):
     В выдачу рекомендаций попадает top K объектов с наивысшим предсказанным скором от классификатора.
     """
 
-    model: JavaClassificationModel
+    model: ClassificationModel
     augmented_data: DataFrame
 
     def __init__(
         self,
-        spark_classifier: Optional[JavaEstimator] = None,
+        spark_classifier: Optional[Classifier] = None,
         use_recs_value: Optional[bool] = False,
     ):
         """
