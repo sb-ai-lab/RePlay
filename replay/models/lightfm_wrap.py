@@ -179,8 +179,8 @@ class LightFMWrap(HybridRecommender):
         self, users: Optional[DataFrame], items: Optional[DataFrame]
     ) -> Tuple[Optional[DataFrame], Optional[DataFrame], int]:
 
-        users_list = users.toPandas().to_numpy().ravel().tolist()
-        items_list = items.toPandas().to_numpy().ravel().tolist()
+        users_list = users.toPandas()["user_idx"]
+        items_list = items.toPandas()["item_idx"]
 
         user_embed_list = list(
             zip(
