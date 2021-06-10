@@ -1,6 +1,7 @@
 from typing import Iterable, Optional, Union
 
 import pyspark
+from pyspark.ml.classification import RandomForestClassifier
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import lit, udf, when
@@ -15,19 +16,16 @@ if pyspark.__version__.startswith("3.1"):
     from pyspark.ml.classification import (
         ClassificationModel,
         Classifier,
-        RandomForestClassifier,
     )
 elif pyspark.__version__.startswith("3.0"):
     from pyspark.ml.classification import (
         JavaClassificationModel as ClassificationModel,
         JavaClassifier as Classifier,
-        RandomForestClassifier,
     )
 else:
     from pyspark.ml.classification import (
         JavaClassificationModel as ClassificationModel,
         JavaEstimator as Classifier,
-        RandomForestClassifier,
     )
 
 
