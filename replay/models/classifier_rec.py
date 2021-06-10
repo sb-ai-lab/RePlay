@@ -11,10 +11,16 @@ from replay.models.base_rec import HybridRecommender
 from replay.utils import func_get, get_top_k_recs, convert2spark
 
 # pylint: disable=ungrouped-imports
-if pyspark.__version__.startswith("3"):
+if pyspark.__version__.startswith("3.1"):
     from pyspark.ml.classification import (
         ClassificationModel,
         Classifier,
+        RandomForestClassifier,
+    )
+elif pyspark.__version__.startswith("3.0"):
+    from pyspark.ml.classification import (
+        JavaClassificationModel as ClassificationModel,
+        JavaClassifier as Classifier,
         RandomForestClassifier,
     )
 else:
