@@ -1,4 +1,5 @@
 # pylint: skip-file
+import copy
 from collections.abc import Iterable
 from typing import Dict, Optional, Tuple, List, Union, Callable, Any
 
@@ -120,9 +121,11 @@ class TwoStagesScenario(BaseScenario):
         :param seed: random seed для обеспечения воспроизводимости результатов.
         """
 
+        # разбиение данных
         super().__init__(cold_model=None, threshold=0)
         self.train_splitter = train_splitter
 
+        # модели первого уровня
         self.first_level_models = (
             first_level_models
             if isinstance(first_level_models, Iterable)
@@ -148,6 +151,7 @@ class TwoStagesScenario(BaseScenario):
 
             self.use_first_level_models_feat = use_first_level_features
 
+        # модель второго уровня
         if (
             second_model_config_path is not None
             or second_model_params is not None
@@ -164,6 +168,7 @@ class TwoStagesScenario(BaseScenario):
                 reader_params={"cv": 5, "random_state": seed},
             )
 
+        # генерация отрицательных примеров
         self.num_negatives = num_negatives
         if negatives_type not in ["random", "first_level"]:
             raise ValueError(
@@ -171,6 +176,7 @@ class TwoStagesScenario(BaseScenario):
             )
         self.negatives_type = negatives_type
 
+        # добавление признаков
         self.use_generated_features = use_generated_features
         self.user_cat_features_list = user_cat_features_list
         self.item_cat_features_list = item_cat_features_list
@@ -246,6 +252,45 @@ class TwoStagesScenario(BaseScenario):
         )
         return first_level_train, second_level_train
 
+    def _fit_wrap(
+        self,
+        log: AnyDataFrame,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
+        force_reindex: bool = True,
+    ) -> None:
+        # разбиение данных
+        log, user_features, item_features = [
+            convert2spark(df) for df in [log, user_features, item_features]
+        ]
+        self.logger.info("Разбиение данных")
+        first_level_train, second_level_train = self._split_data(log)
+        # индексирование
+        self.logger.info("Индексирование пользователей и объектов")
+
+        if "user_indexer" not in self.__dict__ or force_reindex:
+            self._create_indexers(first_level_train, None, None)
+
+        first_level_user_indexer, first_level_item_indexer = (
+            copy.deepcopy(self.user_indexer),
+            copy.deepcopy(self.item_indexer),
+        )
+        first_level_inv_user_indexer, first_level_inv_item_indexer = (
+            copy.deepcopy(self.inv_user_indexer),
+            copy.deepcopy(self.inv_item_indexer),
+        )
+        for model in self.first_level_models:
+            model.user_indexer = copy.deepcopy(self.user_indexer)
+            model.item_indexer = copy.deepcopy(self.item_indexer)
+            model.inv_user_indexer = copy.deepcopy(self.inv_user_indexer)
+            model.inv_item_indexer = copy.deepcopy(self.inv_item_indexer)
+
+        log, user_features, item_features = [
+            self._convert_index(df)
+            for df in [log, user_features, item_features]
+        ]
+        self._fit(log, user_features, item_features)
+
     def _fit(
         self,
         log: AnyDataFrame,
@@ -269,13 +314,6 @@ class TwoStagesScenario(BaseScenario):
             индексы, даже если они были созданы ранее
         """
 
-        # split
-        # на каком уровне логирования пишем?
-        self.logger.info("Data split")
-        first_level_train, second_level_train = self._split_data(log)
-
-        # нужны ли одинаковые индексы для всех моделей? место для оптимизации
-        self.logger.info("First level models train")
         for base_model in self.first_level_models:
             base_model._fit_wrap(
                 first_level_train, user_features, item_features, force_reindex
