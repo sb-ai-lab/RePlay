@@ -3,18 +3,19 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import pyspark.sql.functions as sf
+
 from lightfm import LightFM
 from pyspark.sql import DataFrame
-from pyspark.sql.types import IntegerType
-from scipy.sparse import csr_matrix, hstack, identity, diags
+from scipy.sparse import csr_matrix, hstack, diags
 from sklearn.preprocessing import MinMaxScaler
 
 from replay.models.base_rec import HybridRecommender
-from replay.session_handler import State
 from replay.utils import to_csr, check_numeric
 from replay.constants import IDX_REC_SCHEMA
 
 
+# pylint: disable=too-many-locals, too-many-instance-attributes
 class LightFMWrap(HybridRecommender):
     """ Обёртка вокруг стандартной реализации LightFM. """
 
@@ -41,15 +42,19 @@ class LightFMWrap(HybridRecommender):
         self.num_threads = cpu_count if cpu_count is not None else 1
         self.user_feat_scaler = None
         self.item_feat_scaler = None
+        self.num_of_warm_items = 0
+        self.num_of_warm_users = 0
 
     def _feature_table_to_csr(
-        self, feature_table: Optional[DataFrame], is_item_features=True
+        self, feature_table: Optional[DataFrame], log_ids_list: DataFrame
     ) -> Optional[csr_matrix]:
         """
         Преобразует признаки пользователей или объектов в разреженную матрицу
 
         :param feature_table: таблица с колонкой ``user_idx`` или ``item_idx``,
             все остальные колонки которой считаются значениями свойства пользователя или объекта соответственно
+        :param log_ids_list: таблица с колонкой ``user_idx`` или ``item_idx``, содержащая список уникальных id,
+            присутствующих в логе.
         :returns: матрица, в которой строки --- пользователи или объекты, столбцы --- их свойства
         """
 
@@ -57,45 +62,101 @@ class LightFMWrap(HybridRecommender):
             return None
 
         check_numeric(feature_table)
+        log_ids_list = log_ids_list.distinct()
+        entity = "item" if "item_idx" in feature_table.columns else "user"
+        # print('entity', entity)
+        idx_col_name = "{}_idx".format(entity)
 
-        if is_item_features:
-            df_len, idx_col_name, attr_ = (
-                len(self.item_indexer.labels),
-                "item_idx",
-                "item_feat_scaler",
+        # оставляем признаки только для id из лога
+        feature_table = feature_table.join(
+            log_ids_list, on=idx_col_name, how="inner"
+        )
+
+        # определяем размеры матрицы признаков
+        num_entities_in_fit = getattr(self, "num_of_warm_{}s".format(entity))
+        # print('num_entities_in_fit', num_entities_in_fit)
+        matrix_height = num_entities_in_fit
+        if not feature_table.rdd.isEmpty():
+            matrix_height = max(
+                matrix_height,
+                feature_table.select(sf.max(idx_col_name)).collect()[0][0] + 1,
             )
+
+        features_np = (
+            feature_table.select(
+                idx_col_name,
+                # первый столбец с id, следующие - упорядоченные признаки
+                *(
+                    sorted(
+                        list(
+                            set(feature_table.columns).difference(
+                                {idx_col_name}
+                            )
+                        )
+                    )
+                )
+            )
+            .toPandas()
+            .to_numpy()
+        )
+        entities_ids = features_np[:, 0]
+        features_np = features_np[:, 1:]
+        number_of_features = features_np.shape[1]
+
+        all_ids_list = log_ids_list.toPandas().to_numpy().ravel()
+        entities_seen_in_fit = all_ids_list[all_ids_list < num_entities_in_fit]
+
+        # признаки, соответствующие id
+        entity_id_features = csr_matrix(
+            (
+                [1] * entities_seen_in_fit.shape[0],
+                (entities_seen_in_fit, entities_seen_in_fit),
+            ),
+            shape=(matrix_height, num_entities_in_fit),
+        )
+
+        # признаки из датасета
+        # обучение scaler в fit
+        scaler_name = "{}_feat_scaler".format(entity)
+        if getattr(self, scaler_name) is None:
+            if not features_np.size:
+                raise ValueError(
+                    "В {0}_features отсутствуют признаки для {0}s из лога".format(
+                        entity
+                    )
+                )
+            setattr(self, scaler_name, MinMaxScaler().fit(features_np))
+
+        if features_np.size:
+            features_np = getattr(self, scaler_name).transform(features_np)
+            sparse_features = csr_matrix(
+                (
+                    features_np.ravel(),
+                    (
+                        np.repeat(entities_ids, number_of_features),
+                        np.tile(
+                            np.arange(number_of_features),
+                            entities_ids.shape[0],
+                        ),
+                    ),
+                ),
+                shape=(matrix_height, number_of_features),
+            )
+
         else:
-            df_len, idx_col_name, attr_ = (
-                len(self.user_indexer.labels),
-                "user_idx",
-                "user_feat_scaler",
-            )
+            sparse_features = csr_matrix((matrix_height, number_of_features))
 
-        all_features = (
-            State()
-            .session.createDataFrame(range(df_len), schema=IntegerType())
-            .toDF(idx_col_name)
-            .join(feature_table, on=idx_col_name, how="left")
-            .sort(idx_col_name)
-            .drop(idx_col_name)
-        )
-
-        all_features_np = all_features.toPandas().to_numpy()
-
-        if getattr(self, attr_) is None:
-            setattr(self, attr_, MinMaxScaler().fit(all_features_np))
-        all_features_np = getattr(self, attr_).transform(all_features_np)
-        np.nan_to_num(all_features_np, copy=False, nan=0)
-
-        features_with_identity = hstack(
-            [identity(df_len), csr_matrix(all_features_np)]
-        )
-
+        concat_features = hstack([entity_id_features, sparse_features])
         # сумма весов признаков по объекту равна 1
-        features_with_identity_sum = diags(
-            1 / features_with_identity.sum(axis=1).A.ravel(), format="csr"
+        concat_features_sum = diags(
+            np.where(
+                concat_features.sum(axis=1).A.ravel() == 0,
+                0,
+                1 / concat_features.sum(axis=1).A.ravel(),
+            ),
+            format="csr",
         )
-        return features_with_identity_sum @ features_with_identity
+        return concat_features_sum @ concat_features
 
     def _fit(
         self,
@@ -106,11 +167,21 @@ class LightFMWrap(HybridRecommender):
         self.user_feat_scaler = None
         self.item_feat_scaler = None
 
+        self.num_of_warm_items = len(self.item_indexer.labels)
+        self.num_of_warm_users = len(self.user_indexer.labels)
+
         interactions_matrix = to_csr(log, self.users_count, self.items_count)
-        csr_item_features = self._feature_table_to_csr(item_features)
-        csr_user_features = self._feature_table_to_csr(
-            user_features, is_item_features=False
+        csr_item_features = self._feature_table_to_csr(
+            item_features, log.select("item_idx").distinct()
         )
+        csr_user_features = self._feature_table_to_csr(
+            user_features, log.select("user_idx").distinct()
+        )
+
+        if user_features is not None:
+            self.can_predict_cold_users = True
+        if item_features is not None:
+            self.can_predict_cold_items = True
 
         self.model = LightFM(
             loss=self.loss,
@@ -140,9 +211,21 @@ class LightFMWrap(HybridRecommender):
             return pandas_df
 
         model = self.model
-        csr_item_features = self._feature_table_to_csr(item_features)
+
+        if self.can_predict_cold_users and user_features is None:
+            raise ValueError(
+                "При обучении использовались признаки пользователей, передайте признаки для predict"
+            )
+        if self.can_predict_cold_items and item_features is None:
+            raise ValueError(
+                "При обучении использовались признаки объектов, передайте признаки для predict"
+            )
+
+        csr_item_features = self._feature_table_to_csr(
+            item_features, pairs.select("item_idx").distinct()
+        )
         csr_user_features = self._feature_table_to_csr(
-            user_features, is_item_features=False
+            user_features, pairs.select("user_idx").distinct()
         )
 
         return pairs.groupby("user_idx").applyInPandas(
