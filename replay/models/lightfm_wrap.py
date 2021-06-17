@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -11,7 +11,7 @@ from scipy.sparse import csr_matrix, hstack, diags
 from sklearn.preprocessing import MinMaxScaler
 
 from replay.models.base_rec import HybridRecommender
-from replay.utils import to_csr, check_numeric
+from replay.utils import to_csr, check_numeric, State
 from replay.constants import IDX_REC_SCHEMA
 
 
@@ -64,7 +64,6 @@ class LightFMWrap(HybridRecommender):
         check_numeric(feature_table)
         log_ids_list = log_ids_list.distinct()
         entity = "item" if "item_idx" in feature_table.columns else "user"
-        # print('entity', entity)
         idx_col_name = "{}_idx".format(entity)
 
         # оставляем признаки только для id из лога
@@ -74,7 +73,6 @@ class LightFMWrap(HybridRecommender):
 
         # определяем размеры матрицы признаков
         num_entities_in_fit = getattr(self, "num_of_warm_{}s".format(entity))
-        # print('num_entities_in_fit', num_entities_in_fit)
         matrix_height = num_entities_in_fit
         if not feature_table.rdd.isEmpty():
             matrix_height = max(
@@ -257,3 +255,35 @@ class LightFMWrap(HybridRecommender):
         return self._predict_selected_pairs(
             pairs, user_features, item_features
         )
+
+    def get_features(
+        self, users: Optional[DataFrame], items: Optional[DataFrame]
+    ) -> Tuple[Optional[DataFrame], Optional[DataFrame], int]:
+
+        users_list = users.toPandas()["user_idx"]
+        items_list = items.toPandas()["item_idx"]
+
+        user_embed_list = list(
+            zip(
+                users_list,
+                self.model.user_biases[users_list].tolist(),
+                self.model.user_embeddings[users_list].tolist(),
+            )
+        )
+
+        item_embed_list = list(
+            zip(
+                items_list,
+                self.model.item_biases[items_list].tolist(),
+                self.model.item_embeddings[items_list].tolist(),
+            )
+        )
+
+        item_factors = State().session.createDataFrame(
+            item_embed_list, schema=["item_idx", "item_bias", "item_factors"]
+        )
+
+        user_factors = State().session.createDataFrame(
+            user_embed_list, schema=["user_idx", "user_bias", "user_factors"]
+        )
+        return user_factors, item_factors, self.model.no_components

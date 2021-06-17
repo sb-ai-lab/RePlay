@@ -1,11 +1,13 @@
 # pylint: disable-all
 from datetime import datetime
 
+import numpy as np
 import pytest
 from pyspark.sql import functions as sf
 
 from replay.constants import LOG_SCHEMA
 from replay.models import LightFMWrap
+from replay.utils import get_first_level_model_features
 from tests.utils import spark
 
 
@@ -128,3 +130,28 @@ def test_raises_predict(log, user_features, item_features, model):
             user_features=None,
             item_features=None,
         )
+
+
+def test_enrich_with_features(log, user_features, item_features, model):
+    model.fit(log, user_features, item_features)
+    test_pair = log.filter(
+        (sf.col("item_id") == "i3") & (sf.col("user_id") == "u2")
+    )
+    pred_for_test = (
+        model.predict_pairs(
+            test_pair.select("user_id", "item_id"),
+            log,
+            user_features,
+            item_features,
+        )
+        .select("relevance")
+        .collect()[0][0]
+    )
+    res = get_first_level_model_features(model, test_pair)
+    row_dict = res.collect()[0].asDict()
+    assert np.isclose(
+        row_dict["if_0"] * row_dict["uf_0"]
+        + row_dict["user_bias"]
+        + row_dict["item_bias"],
+        pred_for_test,
+    )
