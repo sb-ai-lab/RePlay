@@ -73,7 +73,10 @@ class LightFMWrap(HybridRecommender):
 
         # определяем размеры матрицы признаков
         num_entities_in_fit = getattr(self, "num_of_warm_{}s".format(entity))
-        matrix_height = num_entities_in_fit
+        matrix_height = max(
+            num_entities_in_fit,
+            log_ids_list.select(sf.max(idx_col_name)).collect()[0][0] + 1,
+        )
         if not feature_table.rdd.isEmpty():
             matrix_height = max(
                 matrix_height,
@@ -200,6 +203,7 @@ class LightFMWrap(HybridRecommender):
         item_features: Optional[DataFrame] = None,
     ):
         def predict_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
+
             pandas_df["relevance"] = model.predict(
                 user_ids=pandas_df["user_idx"].to_numpy(),
                 item_ids=pandas_df["item_idx"].to_numpy(),
@@ -256,34 +260,38 @@ class LightFMWrap(HybridRecommender):
             pairs, user_features, item_features
         )
 
-    def get_features(
-        self, users: Optional[DataFrame], items: Optional[DataFrame]
-    ) -> Tuple[Optional[DataFrame], Optional[DataFrame], int]:
+    def _get_features(
+        self, ids: DataFrame, features: Optional[DataFrame]
+    ) -> Optional[Tuple[DataFrame, int]]:
+        entity = ids.columns[0][:4]
+        ids_list = ids.toPandas()["{}_idx".format(entity)]
 
-        users_list = users.toPandas()["user_idx"]
-        items_list = items.toPandas()["item_idx"]
+        if features is None:
+            matrix_width = getattr(self, "num_of_warm_{}s".format(entity))
+            warm_ids = ids_list[ids_list < matrix_width]
+            sparse_features = csr_matrix(
+                ([1] * warm_ids.shape[0], (warm_ids, warm_ids),),
+                shape=(ids_list.max() + 1, matrix_width),
+            )
+        else:
+            sparse_features = self._feature_table_to_csr(features, ids)
 
-        user_embed_list = list(
+        biases, vectors = getattr(
+            self.model, "get_{}_representations".format(entity)
+        )(sparse_features)
+        embed_list = list(
             zip(
-                users_list,
-                self.model.user_biases[users_list].tolist(),
-                self.model.user_embeddings[users_list].tolist(),
+                ids_list,
+                biases[ids_list].tolist(),
+                vectors[ids_list].tolist(),
             )
         )
-
-        item_embed_list = list(
-            zip(
-                items_list,
-                self.model.item_biases[items_list].tolist(),
-                self.model.item_embeddings[items_list].tolist(),
-            )
+        lightfm_factors = State().session.createDataFrame(
+            embed_list,
+            schema=[
+                "{}_idx".format(entity),
+                "{}_bias".format(entity),
+                "{}_factors".format(entity),
+            ],
         )
-
-        item_factors = State().session.createDataFrame(
-            item_embed_list, schema=["item_idx", "item_bias", "item_factors"]
-        )
-
-        user_factors = State().session.createDataFrame(
-            user_embed_list, schema=["user_idx", "user_bias", "user_factors"]
-        )
-        return user_factors, item_factors, self.model.no_components
+        return lightfm_factors, self.model.no_components

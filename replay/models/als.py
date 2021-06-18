@@ -90,22 +90,15 @@ class ALSWrap(Recommender):
             .drop("prediction")
         )
 
-    def get_features(
-        self, users: Optional[DataFrame], items: Optional[DataFrame]
-    ) -> Tuple[Optional[DataFrame], Optional[DataFrame], int]:
-        user_features = self.model.userFactors.withColumnRenamed(
-            "id", "user_idx"
-        ).withColumnRenamed("features", "user_factors")
-        item_features = self.model.itemFactors.withColumnRenamed(
-            "id", "item_idx"
-        ).withColumnRenamed("features", "item_factors")
-
+    def _get_features(
+        self, ids: DataFrame, features: Optional[DataFrame]
+    ) -> Tuple[Optional[DataFrame], int]:
+        entity = "user" if "user_idx" in ids.columns else "item"
+        als_factors = getattr(self.model, "{}Factors".format(entity))
+        als_factors = als_factors.withColumnRenamed(
+            "id", "{}_idx".format(entity)
+        ).withColumnRenamed("features", "{}_factors".format(entity))
         return (
-            users.join(user_features, how="left", on="user_idx")
-            if users is not None
-            else None,
-            items.join(item_features, how="left", on="item_idx")
-            if items is not None
-            else None,
+            als_factors.join(ids, how="right", on="{}_idx".format(entity)),
             self.model.rank,
         )

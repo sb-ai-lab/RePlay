@@ -132,26 +132,57 @@ def test_raises_predict(log, user_features, item_features, model):
         )
 
 
-def test_enrich_with_features(log, user_features, item_features, model):
-    model.fit(log, user_features, item_features)
-    test_pair = log.filter(
-        (sf.col("item_id") == "i3") & (sf.col("user_id") == "u2")
+def _fit_predict_compare_features(
+    model, log, user_features, user_features_filtered, item_features, test_ids
+):
+    model.fit(
+        log, user_features=user_features_filtered, item_features=item_features
     )
+
     pred_for_test = (
         model.predict_pairs(
-            test_pair.select("user_id", "item_id"),
+            test_ids.select("user_id", "item_id"),
             log,
-            user_features,
-            item_features,
+            user_features=user_features,
+            item_features=item_features,
         )
         .select("relevance")
         .collect()[0][0]
     )
-    res = get_first_level_model_features(model, test_pair)
-    row_dict = res.collect()[0].asDict()
+    row_dict = (
+        get_first_level_model_features(
+            model,
+            test_ids,
+            user_features=user_features,
+            item_features=item_features,
+        )
+        .collect()[0]
+        .asDict()
+    )
     assert np.isclose(
         row_dict["if_0"] * row_dict["uf_0"]
         + row_dict["user_bias"]
         + row_dict["item_bias"],
         pred_for_test,
     )
+
+
+def test_enrich_with_features(log, user_features, item_features, model):
+    test_pair = log.filter(
+        (sf.col("item_id") == "i3") & (sf.col("user_id") == "u2")
+    )
+
+    for user_f, item_f in [[None, None], [user_features, item_features]]:
+        _fit_predict_compare_features(
+            model, log, user_f, user_f, item_f, test_pair
+        )
+        # холодный пользователь
+        if item_f is not None:
+            _fit_predict_compare_features(
+                model,
+                log.filter(sf.col("user_id") != "u2"),
+                user_f,
+                user_f.filter(sf.col("user_id") != "u2"),
+                item_f,
+                test_pair,
+            )
