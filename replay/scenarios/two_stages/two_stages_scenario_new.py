@@ -4,24 +4,17 @@ from collections.abc import Iterable
 from typing import Dict, Optional, Tuple, List, Union, Callable, Any
 
 import pyspark.sql.functions as sf
-from pyspark.ml.evaluation import BinaryClassificationEvaluator
-from pyspark.sql import DataFrame
-from pyspark.sql.functions import col, isnull, lit, when
+from pyspark.sql import DataFrame, Window
 
 from lightautoml.automl.presets.tabular_presets import TabularAutoML
 
 # from lightautoml.dataset.roles import DatetimeRole, TextRole
 from lightautoml.tasks import Task
 
-# from lightautoml.utils.profiler import Profiler
-
 from replay.constants import AnyDataFrame
-from replay.experiment import Experiment
-from replay.filters import min_entries
-
-from replay.metrics import HitRate, Metric, NDCG
-from replay.models import ALSWrap, RandomRec
-from replay.models.base_rec import BaseRecommender
+from replay.metrics import Metric, NDCG, Precision
+from replay.models import ALSWrap, RandomRec, PopRec
+from replay.models.base_rec import BaseRecommender, HybridRecommender
 from replay.scenarios.two_stages import TwoStagesFeaturesProcessor
 
 # from replay.models.classifier_rec import ClassifierRec
@@ -29,6 +22,7 @@ from replay.scenarios.basescenario import BaseScenario
 from replay.session_handler import State
 from replay.splitters import Splitter, UserSplitter
 from replay.utils import (
+    fallback,
     get_log_info,
     get_top_k_recs,
     get_first_level_model_features,
@@ -39,7 +33,7 @@ from replay.utils import (
 
 
 # pylint: disable=too-many-instance-attributes
-class TwoStagesScenario(BaseScenario):
+class TwoStagesScenario(HybridRecommender):
     """
     Двухуровневый сценарий состоит из следующих этапов:
     train:
@@ -79,6 +73,7 @@ class TwoStagesScenario(BaseScenario):
         first_level_models: Union[
             List[BaseRecommender], BaseRecommender
         ] = ALSWrap(rank=128),
+        cold_start_model: Optional[BaseRecommender] = PopRec(),
         use_first_level_features: Union[List[bool], bool] = False,
         second_model_params: Optional[Union[Dict, str]] = None,
         second_model_config_path: Optional[str] = None,
@@ -137,6 +132,7 @@ class TwoStagesScenario(BaseScenario):
         )
 
         self.random_model = RandomRec(seed=seed)
+        self.cold_start_model = cold_start_model
 
         if isinstance(use_first_level_features, bool):
             self.use_first_level_models_feat = [
@@ -198,7 +194,6 @@ class TwoStagesScenario(BaseScenario):
         log_used_in_predict,
         user_features,
         item_features,
-        step="train",
     ):
         self.logger.info(
             "Генерация признаков: релевантность и признаки из моделей первого уровня"
@@ -226,12 +221,6 @@ class TwoStagesScenario(BaseScenario):
                         "user_idx", "item_idx"
                     ),
                 )
-                # features = model.add_features(
-                #
-                #     user_features,
-                #     item_features,
-                #     prefix,
-                # )
                 full_second_level_train = full_second_level_train.join(
                     features, on=["user_idx", "item_idx"], how="left"
                 )
@@ -460,7 +449,11 @@ class TwoStagesScenario(BaseScenario):
             item_features = self._convert_index(item_features).cache()
             self.cached_list.append(item_features)
 
-        for base_model in self.first_level_models:
+        for base_model in [
+            *self.first_level_models,
+            self.random_model,
+            self.cold_start_model,
+        ]:
             base_model._fit(
                 log=first_level_train,
                 user_features=user_features.filter(
@@ -470,8 +463,6 @@ class TwoStagesScenario(BaseScenario):
                     sf.col("item_idx") < self.first_level_item_indexer_len
                 ),
             )
-
-        self.random_model._fit(log=log)
 
         self.logger.info(
             "Генерация негативных примеров для обучения модели второго уровня"
@@ -492,6 +483,25 @@ class TwoStagesScenario(BaseScenario):
             item_features=item_features,
             log_to_filter=log,
         ).withColumn("relevance", sf.lit(0.0))
+
+        if self.cold_start_model is not None:
+            negatives_fallback = self._predict_with_first_level_model(
+                model=self.cold_start_model,
+                log=first_level_train,
+                k=self.num_negatives,
+                users=log.select("user_idx").distinct(),
+                items=log.select("item_idx").distinct(),
+                user_features=user_features,
+                item_features=item_features,
+                log_to_filter=log,
+            ).withColumn("relevance", sf.lit(0.0))
+
+            negatives = fallback(
+                base=negatives,
+                fill=negatives_fallback,
+                k=self.num_negatives,
+                id_type="idx",
+            )
 
         self.logger.info(
             "Формирование датасета для обучения модели второго уровня"
@@ -534,7 +544,6 @@ class TwoStagesScenario(BaseScenario):
             log_used_in_predict=first_level_train,
             user_features=user_features,
             item_features=item_features,
-            step="train",
         )
 
         full_second_level_train = full_second_level_train.drop(
@@ -559,14 +568,14 @@ class TwoStagesScenario(BaseScenario):
         )
 
     # pylint: disable=too-many-arguments
-    def predict(
+    def _predict(
         self,
-        log: AnyDataFrame,
+        log: DataFrame,
         k: int,
-        users: Optional[Union[AnyDataFrame, Iterable]] = None,
-        items: Optional[Union[AnyDataFrame, Iterable]] = None,
-        user_features: Optional[AnyDataFrame] = None,
-        item_features: Optional[AnyDataFrame] = None,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
         """
@@ -598,39 +607,85 @@ class TwoStagesScenario(BaseScenario):
         :return: рекомендации, спарк-датафрейм с колонками
             ``[user_id, item_id, relevance]``
         """
-        log = convert2spark(log)
-        users = users or log or user_features or self.user_indexer.labels
-        users = self._get_ids(users, "user_id")
-        hot_data = min_entries(log, self.threshold)
-        hot_users = hot_data.select("user_id").distinct()
-        if self.can_predict_cold_users:
-            hot_users = hot_users.join(self.hot_users)
-        hot_users = hot_users.join(users, on="user_id", how="inner")
+        State().logger.debug(msg="Генерация кандидатов для переранжирования")
+        candidates = self._predict_with_first_level_model(
+            model=self.first_level_models[0],
+            log=log,
+            k=k,
+            users=users,
+            items=items,
+            user_features=user_features,
+            item_features=item_features,
+            log_to_filter=log,
+        )
 
-        hot_pred = self._predict_wrap(
-            log=hot_data,
-            k=k,
-            users=hot_users,
-            items=items,
+        if self.cold_start_model is not None:
+            fallback_candidates = self._predict_with_first_level_model(
+                model=self.cold_start_model,
+                log=log,
+                k=k,
+                users=users,
+                items=items,
+                user_features=user_features,
+                item_features=item_features,
+                log_to_filter=log,
+            )
+
+            candidates = fallback(
+                base=candidates,
+                fill=fallback_candidates,
+                k=self.num_negatives,
+                id_type="idx",
+            )
+
+        self.logger.info("Дополнение датасета кандидатов признаками")
+        candidates_features = self.add_features(
+            log_to_add_features=candidates,
+            log_used_in_predict=log,
             user_features=user_features,
             item_features=item_features,
-            filter_seen_items=filter_seen_items,
         )
-        if log is not None:
-            cold_data = log.join(self.hot_users, how="anti", on="user_id")
-        else:
-            cold_data = None
-        cold_users = users.join(self.hot_users, how="anti", on="user_id")
-        cold_pred = self.cold_model._predict_wrap(
-            log=cold_data,
-            k=k,
-            users=cold_users,
-            items=items,
-            user_features=user_features,
-            item_features=item_features,
-            filter_seen_items=filter_seen_items,
+        candidates_features.cache()
+        self.logger.info(
+            "Сгенерировано {} кандидатов для {} пользователей".format(
+                candidates_features.count(),
+                candidates_features.select("user_id").distinct().count(),
+            )
         )
-        return hot_pred.union(cold_pred)
+        candidates_features_pd = candidates_features.toPandas()
+        candidates_features.unpersist()
+        candidates_ids = candidates_features_pd[
+            ["user_idx", "item_idx", "relevance"]
+        ]
+        candidates_features_pd.drop(
+            columns=["user_idx", "item_idx"], inplace=True
+        )
+
+        self.logger.info("Начато переранжирование моделью второго уровня")
+        candidates_pred = self.second_stage_model.predict(
+            candidates_features_pd
+        )
+        candidates_ids["relevance"] = candidates_pred.data[:, 0]
+        print(
+            "{} candidates rated for {} users".format(
+                candidates_ids.shape[0],
+                candidates.select("user_idx").distinct().count(),
+            )
+        )
+
+        second_level_res = convert2spark(candidates_ids)
+
+        self.logger.info("Выбор top-k")
+        window = Window.partitionBy(
+            sf.col("user_idx").orderBy(sf.col("relevance")).desc()
+        )
+        pred = (
+            second_level_res.withColumn("rank", sf.row_number().over(window))
+            .filter(sf.col("rank") <= k)
+            .drop("rank")
+        )
+
+        return pred
 
     def fit_predict(
         self,
