@@ -31,6 +31,7 @@ from replay.splitters import Splitter, UserSplitter
 from replay.utils import (
     get_log_info,
     get_top_k_recs,
+    get_first_level_model_features,
     horizontal_explode,
     join_or_return,
     convert2spark,
@@ -126,6 +127,7 @@ class TwoStagesScenario(BaseScenario):
         # разбиение данных
         super().__init__(cold_model=None, threshold=0)
         self.train_splitter = train_splitter
+        self.cached_list = []
 
         # модели первого уровня
         self.first_level_models = (
@@ -190,36 +192,59 @@ class TwoStagesScenario(BaseScenario):
         )
         self.seed = seed
 
-    def add_features(self, log, user_features, item_features, step="train"):
-        self.logger.info("Feature enrichment: first-level features")
+    def add_features(
+        self,
+        log_to_add_features,
+        log_used_in_predict,
+        user_features,
+        item_features,
+        step="train",
+    ):
+        self.logger.info(
+            "Генерация признаков: релевантность и признаки из моделей первого уровня"
+        )
         # first-level pred and features
-        full_second_level_train = log
+        full_second_level_train = log_to_add_features
         for idx, model in enumerate(self.first_level_models):
-            current_pred = model.predict_pairs(
-                full_second_level_train.select("user_idx", "item_idx"),
-                user_features,
-                item_features,
-            ).withColumnRenamed("relevance", "{}_{}_rel".format(idx, model))
+            current_pred = self._predict_pairs_with_first_level_model(
+                model=model,
+                log=log_used_in_predict,
+                pairs=full_second_level_train.select("user_idx", "item_idx"),
+                user_features=user_features,
+                item_features=item_features,
+            ).withColumnRenamed("relevance", "rel_{}_{}".format(idx, model))
             full_second_level_train = full_second_level_train.join(
                 current_pred, on=["user_idx", "item_idx"], how="left"
             )
+
             if self.use_first_level_models_feat[idx]:
                 prefix = "{}_{}".format(idx, model)
-                features = model.add_features(
-                    full_second_level_train.select("user_idx", "item_idx"),
-                    user_features,
-                    item_features,
-                    prefix,
+                # TO DO: после merge пулреквеста с новой сигнатурой get_first_level_model_features обновить код
+                features = get_first_level_model_features(
+                    model=model,
+                    pairs=full_second_level_train.select(
+                        "user_idx", "item_idx"
+                    ),
                 )
+                # features = model.add_features(
+                #
+                #     user_features,
+                #     item_features,
+                #     prefix,
+                # )
                 full_second_level_train = full_second_level_train.join(
                     features, on=["user_idx", "item_idx"], how="left"
                 )
         full_second_level_train = full_second_level_train.fillna(0).cache()
+        self.logger.info(
+            "Колонки после добавления признаков первого уровня: {}".format(
+                full_second_level_train.columns
+            )
+        )
 
-        self.logger.info(full_second_level_train.columns)
-
-        # dataset features
-        self.logger.info("Feature enrichment: dataset features")
+        self.logger.info(
+            "Генерация признаков: добавление признаков из датасета"
+        )
         full_second_level_train = join_or_return(
             full_second_level_train, user_features, on="user_idx", how="left",
         )
@@ -227,16 +252,30 @@ class TwoStagesScenario(BaseScenario):
             full_second_level_train, item_features, on="item_idx", how="left",
         )
         full_second_level_train.cache()
+        self.cached_list.append(full_second_level_train)
 
-        self.logger.info(full_second_level_train.columns)
-
-        # generated features
-        self.logger.info("Feature enrichment: generated features")
         if self.use_generated_features:
-            full_second_level_train = self.features_processor(
-                full_second_level_train, step=step
+            if not self.features_processor.fitted:
+                self.features_processor.fit(
+                    log=log_used_in_predict,
+                    user_features=user_features,
+                    item_features=item_features,
+                    user_cat_features_list=self.user_cat_features_list,
+                    item_cat_features_list=self.item_cat_features_list,
+                )
+            self.logger.info(
+                "Генерация признаков: добавление сгенерированных признаков"
             )
-            self.logger.info(full_second_level_train.columns)
+            full_second_level_train = self.features_processor.transform(
+                log=full_second_level_train,
+                user_features=user_features,
+                item_features=item_features,
+            )
+        self.logger.info(
+            "Колонки после добавления признаков из датасета: {}".format(
+                full_second_level_train.columns
+            )
+        )
 
         return full_second_level_train
 
@@ -262,7 +301,106 @@ class TwoStagesScenario(BaseScenario):
         log, user_features, item_features = [
             convert2spark(df) for df in [log, user_features, item_features]
         ]
-        self._fit(log, user_features, item_features, True)
+        self._fit(log, user_features, item_features)
+
+    @staticmethod
+    def _filter_or_return(df, condition):
+        if df is None:
+            return df
+        return df.filter(condition)
+
+    def _predict_with_first_level_model(
+        self,
+        model,
+        log,
+        k,
+        users,
+        items,
+        user_features,
+        item_features,
+        log_to_filter,
+    ):
+        if not model.can_predict_cold_items:
+            log, items, item_features = [
+                self._filter_or_return(
+                    df=df,
+                    condition=sf.col("item_idx")
+                    < self.first_level_item_indexer_len,
+                )
+                for df in [log, items, item_features]
+            ]
+        if not model.can_predict_cold_users:
+            log, users, user_features = [
+                self._filter_or_return(
+                    df=df,
+                    condition=sf.col("user_idx")
+                    < self.first_level_user_indexer_len,
+                )
+                for df in [log, users, user_features]
+            ]
+
+        max_positives_to_filter = min(
+            [
+                log_to_filter.groupBy("user_idx")
+                .agg(sf.count("item_idx").alias("num_positives"))
+                .select(sf.max("num_positives"))
+                .collect()[0][0],
+                log.select("item_idx").distinct().count() - k,
+                items.select("item_idx").distinct().count() - k,
+            ]
+        )
+
+        print("max_positives_second_level", max_positives_to_filter)
+        negatives = model._predict(
+            log,
+            k=k + max_positives_to_filter,
+            users=users,
+            items=items,
+            user_features=user_features,
+            item_features=item_features,
+            filter_seen_items=False,
+        )
+
+        # TO DO: это неоптимально, можно попробовать для каждого пользователя определять
+        # свое k до фильтрации просмотренных,
+        # фильтровать top-k, а потом исключать просмотренных,
+        # чтобы сделать anti-join не таким объемным
+        negatives = negatives.join(
+            log_to_filter.select("user_idx", "item_idx"),
+            on=["user_idx", "item_idx"],
+            how="anti",
+        ).drop("user", "item")
+
+        return get_top_k_recs(negatives, k)
+
+    def _predict_pairs_with_first_level_model(
+        self, model, log, pairs, user_features, item_features
+    ):
+        if not model.can_predict_cold_items:
+            log, pairs, item_features = [
+                self._filter_or_return(
+                    df=df,
+                    condition=sf.col("item_idx")
+                    < self.first_level_item_indexer_len,
+                )
+                for df in [log, pairs, item_features]
+            ]
+        if not model.can_predict_cold_users:
+            log, pairs, user_features = [
+                self._filter_or_return(
+                    df=df,
+                    condition=sf.col("user_idx")
+                    < self.first_level_user_indexer_len,
+                )
+                for df in [log, pairs, user_features]
+            ]
+
+        return model._predict_pairs(
+            pairs=pairs,
+            log=log,
+            user_features=user_features,
+            item_features=item_features,
+        )
 
     def _fit(
         self,
@@ -287,13 +425,20 @@ class TwoStagesScenario(BaseScenario):
             индексы, даже если они были созданы ранее
         """
 
+        self.cached_list = []
+
         self.logger.info("Разбиение данных")
         first_level_train, second_level_train = self._split_data(log)
         self.logger.info("Индексирование пользователей и объектов")
         self._create_indexers(first_level_train, None, None)
 
+        # индексы для фильтрации при передачи в модели первого уровня
+        self.first_level_item_indexer_len = len(self.item_indexer.labels)
+        self.first_level_user_indexer_len = len(self.user_indexer.labels)
+
         # для моделей 1 уровня используются копии индексеров, обученных на логе для 1 уровня
-        # CHECK! наличие индексеров обязательно для корректной работы некоторых моделей, например, lightFM
+        # TO DO! сейчас наличие индексеров обязательно для корректной работы некоторых моделей, например, lightFM,
+        # но, возможно, надо убрать эту привязку
         for model in self.first_level_models:
             model.user_indexer = copy.deepcopy(self.user_indexer)
             model.item_indexer = copy.deepcopy(self.item_indexer)
@@ -305,40 +450,28 @@ class TwoStagesScenario(BaseScenario):
             self._convert_index(df).cache()
             for df in [log, first_level_train, second_level_train]
         ]
+        self.cached_list.extend([log, first_level_train, second_level_train])
 
-        cached_list = [log, first_level_train, second_level_train]
-
-        first_level_user_features = None
-        first_level_item_features = None
         if user_features is not None:
             user_features = self._convert_index(user_features).cache()
-            first_level_user_features = user_features.join(
-                first_level_train.select("user_idx").distinct(),
-                on="user_idx",
-                how="inner",
-            ).cache()
-            cached_list.append(user_features)
-            cached_list.append(first_level_user_features)
+            self.cached_list.append(user_features)
 
         if item_features is not None:
             item_features = self._convert_index(item_features).cache()
-            first_level_item_features = item_features.join(
-                first_level_train.select("item_idx").distinct(),
-                on="item_idx",
-                how="inner",
-            ).cache()
-            cached_list.append(item_features)
-            cached_list.append(first_level_item_features)
+            self.cached_list.append(item_features)
 
         for base_model in self.first_level_models:
-            base_model._fit_wrap(
-                first_level_train,
-                first_level_user_features,
-                first_level_item_features,
-                force_reindex=True,
+            base_model._fit(
+                log=first_level_train,
+                user_features=user_features.filter(
+                    sf.col("user_idx") < self.first_level_user_indexer_len
+                ),
+                item_features=item_features.filter(
+                    sf.col("item_idx") < self.first_level_item_indexer_len
+                ),
             )
 
-        self.random_model.fit(log=log, force_reindex=True)
+        self.random_model._fit(log=log)
 
         self.logger.info(
             "Генерация негативных примеров для обучения модели второго уровня"
@@ -349,31 +482,16 @@ class TwoStagesScenario(BaseScenario):
             else self.random_model
         )
 
-        max_positives_on_second_level = (
-            second_level_train.groupBy("user_idx")
-            .agg(sf.count("item_idx").alias("num_positives"))
-            .select(sf.max("num_positives"))
-            .collect()[0][0]
-        )
-        print("max_positives_second_level", max_positives_on_second_level)
-
-        # CHECK! как тут лучше сделать, использовать ilter_seen_items = False и потом фильтровать вручную один раз
-        # или оставить, как есть?
-        negatives = negatives_source.predict(
-            first_level_train,
-            k=self.num_negatives + max_positives_on_second_level,
+        negatives = self._predict_with_first_level_model(
+            model=negatives_source,
+            log=first_level_train,
+            k=self.num_negatives,
             users=log.select("user_idx").distinct(),
             items=log.select("item_idx").distinct(),
-            filter_seen_items=True,
+            user_features=user_features,
+            item_features=item_features,
+            log_to_filter=log,
         ).withColumn("relevance", sf.lit(0.0))
-
-        negatives = negatives.join(
-            log.select("user_idx", "item_idx"),
-            on=["user_idx", "item_idx"],
-            how="anti",
-        ).drop("user", "item")
-
-        negatives = get_top_k_recs(negatives, self.num_negatives)
 
         self.logger.info(
             "Формирование датасета для обучения модели второго уровня"
@@ -385,7 +503,7 @@ class TwoStagesScenario(BaseScenario):
             .cache()
         )
 
-        cached_list.append(full_second_level_train)
+        self.cached_list.append(full_second_level_train)
 
         dataset_class_sizes = (
             full_second_level_train.groupBy("relevance")
@@ -402,22 +520,18 @@ class TwoStagesScenario(BaseScenario):
                 )
             )
 
-        # ++++++++++++++++++++++++++++++++++++=
+        self.features_processor.fit(
+            log=first_level_train,
+            user_features=user_features,
+            item_features=item_features,
+            user_cat_features_list=self.user_cat_features_list,
+            item_cat_features_list=self.item_cat_features_list,
+        )
 
-        self.logger.info("Feature enrichment")
-        if self.features_processor is None:
-            self.features_processor = TwoStagesFeaturesProcessor(
-                log,
-                first_level_train=first_level_train,
-                second_level_train=second_level_train,
-                user_features=user_features,
-                item_features=item_features,
-                user_cat_features_list=self.user_cat_features_list,
-                item_cat_features_list=self.item_cat_features_list,
-            )
-
+        self.logger.info("Дополнение train модели второго уровня признаками")
         full_second_level_train = self.add_features(
-            log=full_second_level_train,
+            log_to_add_features=full_second_level_train,
+            log_used_in_predict=first_level_train,
             user_features=user_features,
             item_features=item_features,
             step="train",
@@ -426,13 +540,18 @@ class TwoStagesScenario(BaseScenario):
         full_second_level_train = full_second_level_train.drop(
             "user_idx", "item_idx"
         )
-        self.logger.info("Convert to pandas")
+        self.logger.info("Конвертация в pandas")
+        full_second_level_train.cache()
         full_second_level_train_pd = full_second_level_train.toPandas()
         full_second_level_train.unpersist()
+        for df in self.cached_list:
+            df.unpersist()
 
-        oof_pred = self.second_stage_model.fit_predict(
+        self.second_stage_model.fit_predict(
             full_second_level_train_pd, roles={"target": "relevance"}
         )
+
+        self.logger.info("Завершено обучение модели второго уровня")
         print(
             self.second_stage_model.levels[0][0]
             .ml_algos[0]
