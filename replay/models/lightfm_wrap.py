@@ -10,9 +10,10 @@ from pyspark.sql import DataFrame
 from scipy.sparse import csr_matrix, hstack, diags
 from sklearn.preprocessing import MinMaxScaler
 
-from replay.models.base_rec import HybridRecommender
-from replay.utils import to_csr, check_numeric, State
 from replay.constants import IDX_REC_SCHEMA
+from replay.models.base_rec import HybridRecommender
+from replay.utils import to_csr, check_numeric
+from replay.session_handler import State
 
 
 # pylint: disable=too-many-locals, too-many-instance-attributes
@@ -46,7 +47,9 @@ class LightFMWrap(HybridRecommender):
         self.num_of_warm_users = 0
 
     def _feature_table_to_csr(
-        self, feature_table: Optional[DataFrame], log_ids_list: DataFrame
+        self,
+        log_ids_list: DataFrame,
+        feature_table: Optional[DataFrame] = None,
     ) -> Optional[csr_matrix]:
         """
         Преобразует признаки пользователей или объектов в разреженную матрицу
@@ -173,10 +176,10 @@ class LightFMWrap(HybridRecommender):
 
         interactions_matrix = to_csr(log, self.users_count, self.items_count)
         csr_item_features = self._feature_table_to_csr(
-            item_features, log.select("item_idx").distinct()
+            log.select("item_idx").distinct(), item_features
         )
         csr_user_features = self._feature_table_to_csr(
-            user_features, log.select("user_idx").distinct()
+            log.select("user_idx").distinct(), user_features
         )
 
         if user_features is not None:
@@ -224,10 +227,10 @@ class LightFMWrap(HybridRecommender):
             )
 
         csr_item_features = self._feature_table_to_csr(
-            item_features, pairs.select("item_idx").distinct()
+            pairs.select("item_idx").distinct(), item_features
         )
         csr_user_features = self._feature_table_to_csr(
-            user_features, pairs.select("user_idx").distinct()
+            pairs.select("user_idx").distinct(), user_features
         )
 
         return pairs.groupby("user_idx").applyInPandas(
@@ -274,7 +277,7 @@ class LightFMWrap(HybridRecommender):
                 shape=(ids_list.max() + 1, matrix_width),
             )
         else:
-            sparse_features = self._feature_table_to_csr(features, ids)
+            sparse_features = self._feature_table_to_csr(ids, features)
 
         biases, vectors = getattr(
             self.model, "get_{}_representations".format(entity)
