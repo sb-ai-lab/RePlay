@@ -1,6 +1,6 @@
 import copy
 from collections.abc import Iterable
-from typing import Dict, Optional, Tuple, List, Union, Callable, Any
+from typing import Dict, Optional, Tuple, List, Union, Any
 
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
@@ -77,7 +77,7 @@ class TwoStagesScenario(HybridRecommender):
         first_level_models: Union[
             List[BaseRecommender], BaseRecommender
         ] = ALSWrap(rank=128),
-        cold_start_model: Optional[BaseRecommender] = PopRec(),
+        fallback_model: Optional[BaseRecommender] = PopRec(),
         use_first_level_features: Union[List[bool], bool] = False,
         second_model_params: Optional[Union[Dict, str]] = None,
         second_model_config_path: Optional[str] = None,
@@ -86,7 +86,7 @@ class TwoStagesScenario(HybridRecommender):
         use_generated_features: bool = False,
         user_cat_features_list: Optional[List] = None,
         item_cat_features_list: Optional[List] = None,
-        custom_features_processor: Callable = None,
+        custom_features_processor: TwoStagesFeaturesProcessor = None,
         seed: int = 123,
     ) -> None:
         """
@@ -99,6 +99,9 @@ class TwoStagesScenario(HybridRecommender):
         :param first_level_models: Модель или список инициализированных моделей RePlay, использующихся
             на первом этапе обучения. Для генерации кандидатов для переранжирования моделью второго уровня
             используется первая модель из списка. По умолчанию используется модель :ref:`ALS<als-rec>`.
+        :param fallback_model: Модель для дополнения списка рекомендаций, полученных моделью первого уровня,
+            в случае, если моделью первого уровня получены рекомендации не для всех пользователей или
+            получено недостаточное число объектов
         :param use_first_level_features: Флаг или список флагов, определяющих использование признаков,
             полученных моделью первого уровня (например, вектора пользователей и объектов из ALS,
             эмбеддинги пользователей из multVAE), для обучения модели второго уровня.
@@ -118,7 +121,8 @@ class TwoStagesScenario(HybridRecommender):
         :param item_cat_features_list: категориальные признаки объектов,
             которые нужно использовать для построения признаков
             популярности у пользователя объектов в зависимости от значения категориального признака
-        :param custom_features_processor: в двухуровневый сценарий можно передать свой callable-объект для
+        :param custom_features_processor: в двухуровневый сценарий можно передать свой объект,
+            наследующийся от TwoStagesFeaturesProcessor для
             генерации признаков для выбранных пар пользователь-объект во время обучения и inference
             на базе лога и признаков пользователей и объектов.
             Пример реализации - TwoLevelFeaturesProcessor.
@@ -140,7 +144,7 @@ class TwoStagesScenario(HybridRecommender):
         self.first_level_user_indexer_len = 0
 
         self.random_model = RandomRec(seed=seed)
-        self.fallback_model = cold_start_model
+        self.fallback_model = fallback_model
 
         if isinstance(use_first_level_features, bool):
             self.use_first_level_models_feat = [
@@ -485,6 +489,11 @@ class TwoStagesScenario(HybridRecommender):
             item_features = self._convert_index(item_features).cache()
             self.cached_list.append(item_features)
 
+        # TO DO: добавить отдельную предобработку признаков для моделей первого уровня, например:
+        # one-hot для категориальных признаков с небольшим числом значений,
+        # удаление остальных категориальных признаков,
+        # обработка листов тегов (например, жанров фильма)
+        # для модели второго уровня признаки используются в исходном виде
         for base_model in [
             *self.first_level_models,
             self.random_model,
