@@ -13,6 +13,5 @@
    modules/splitters
    modules/data_preparator
    modules/distributions
-   modules/sber_datasets
    useful_data/content
    
