@@ -60,6 +60,66 @@ def log(spark):
     )
 
 
+@pytest.fixture
+def long_log_with_features(spark):
+    date = datetime(2019, 1, 1)
+    return spark.createDataFrame(
+        data=[
+            ["u1", "i1", date, 1.0],
+            ["u1", "i4", datetime(2019, 1, 5), 3.0],
+            ["u1", "i2", date, 2.0],
+            ["u1", "i5", date, 4.0],
+            ["u2", "i1", date, 1.0],
+            ["u2", "i3", datetime(2018, 1, 1), 2.0],
+            ["u2", "i7", datetime(2019, 1, 1), 4.0],
+            ["u2", "i8", datetime(2020, 1, 1), 4.0],
+            ["u3", "i9", date, 3.0],
+            ["u3", "i2", date, 2.0],
+            ["u3", "i6", datetime(2020, 3, 1), 1.0],
+            ["u3", "i7", date, 5.0],
+        ],
+        schema=["user_id", "item_id", "timestamp", "relevance"],
+    )
+
+
+@pytest.fixture
+def short_log_with_features(spark):
+    date = datetime(2021, 1, 1)
+    return spark.createDataFrame(
+        data=[
+            ["u1", "i3", date, 1.0],
+            ["u1", "i7", datetime(2019, 1, 5), 3.0],
+            ["u2", "i2", date, 1.0],
+            ["u2", "i10", datetime(2018, 1, 1), 2.0],
+            ["u3", "i8", date, 3.0],
+            ["u3", "i1", date, 2.0],
+            ["u4", "i7", date, 5.0],
+        ],
+        schema=["user_id", "item_id", "timestamp", "relevance"],
+    )
+
+
+@pytest.fixture
+def user_features(spark):
+    return spark.createDataFrame(
+        [("u1", 20.0, -3.0, "M"), ("u2", 30.0, 4.0, "F")]
+    ).toDF("user_id", "age", "mood", "gender")
+
+
+@pytest.fixture
+def item_features(spark):
+    return spark.createDataFrame(
+        [
+            ("i1", 4.0, "cat", "black"),
+            ("i2", 10.0, "dog", "green"),
+            ("i3", 7.0, "mouse", "yellow"),
+            ("i4", -1.0, "cat", "yellow"),
+            ("i5", 11.0, "dog", "white"),
+            ("i6", 0.0, "mouse", "yellow"),
+        ]
+    ).toDF("item_id", "iq", "class", "color")
+
+
 def unify_dataframe(data_frame: DataFrame):
     pandas_df = data_frame.toPandas()
     columns_to_sort_by: List[str] = []

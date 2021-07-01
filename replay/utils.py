@@ -1,9 +1,10 @@
 from typing import Any, List, Optional, Set, Union
 
 import numpy as np
+import string
 from pyspark.ml.linalg import DenseVector, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
-from pyspark.sql.functions import col, element_at, row_number, udf
+from pyspark.sql.functions import element_at, row_number, udf
 from pyspark.sql.types import ArrayType, DoubleType, NumericType
 from scipy.sparse import csr_matrix
 
@@ -72,7 +73,7 @@ def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "id") -> DataFrame:
     )
     return (
         recs.withColumn("rank", row_number().over(window))
-        .filter(col("rank") <= k)
+        .filter(sf.col("rank") <= k)
         .drop("rank")
     )
 
@@ -363,7 +364,7 @@ def horizontal_explode(
     |     6|[3.0, 4.0]|
     +------+----------+
     <BLANKLINE>
-    >>> horizontal_explode(input_data, "array_col", "element", [col("id_col")]).show()
+    >>> horizontal_explode(input_data, "array_col", "element", [sf.col("id_col")]).show()
     +------+---------+---------+
     |id_col|element_0|element_1|
     +------+---------+---------+
@@ -535,3 +536,104 @@ def get_first_level_model_features(
         )
 
     return pairs_with_features
+
+
+class CatFeaturesTransformer:
+    """Преобразование категориальных признаков с использованием one-hot encoding.
+    Может использоваться в двух режимах:
+        1) Преобразование заданных колонок. Если передан список колонок для преобразования (cat_cols_list),
+        к ним будет применен one-hot encoding, исходные колонки будут удалены.
+        2) Поиск не числовых колонок и преобразование или удаление данных колонок по условию.
+        После преобразования все колонки в датафрейме, кроме id пользователей и объектов, будут числовыми.
+        Если cat_cols_list = None, будет выполнен поиск категориальных колонок среди всех,
+        за исключением user_id/x, item_id/x.
+        В случае, если задан threshold, колонки с большим, чем threshold числом уникальных значений будут удалены."""
+
+    def __init__(
+        self,
+        cat_cols_list: Optional[List] = None,
+        threshold: Optional[int] = None,
+        alias: str = "ohe",
+    ):
+        """
+        :param cat_cols_list: список категориальных колонок для преобразования
+        :param threshold: количество уникальных значений колонки,
+            при превышении которого колонка будет удалена из результирующего dataframe без преобразования.
+            Не используется, если cat_cols_list явно передан.
+        :param alias: префикс перед именем колонок, к которым применен one-hot encoding
+        """
+        self.cat_cols_list = cat_cols_list if cat_cols_list is not None else []
+        self.cols_to_del = []
+        self.expressions_list = []
+        self.threshold = threshold
+        self.alias = alias
+        self.no_cols_left = False
+        if cat_cols_list and threshold:
+            State().logger.info(
+                "threshold не будет применен, потому что передан cat_cols_list"
+            )
+
+    def fit(self, df: Optional[DataFrame]) -> None:
+        """
+        Определение списка категориальных колонок, если не задан в init,
+        сохранение списка категорий для каждой из колонок.
+        :param df: spark-датафрейм, содержащий категориальные и числовые признаки пользователей / объектов
+        """
+        if df is None:
+            self.no_cols_left = True
+            return
+        if not self.cat_cols_list:
+            for col in df.columns:
+                if col not in ["user_idx", "item_idx", "user_id", "item_id"]:
+                    if not isinstance(df.schema[col].dataType, NumericType):
+                        if (
+                            self.threshold is None
+                            or df.select(
+                                sf.countDistinct(sf.col(col))
+                            ).collect()[0][0]
+                            <= self.threshold
+                        ):
+                            self.cat_cols_list.append(col)
+                        else:
+                            State().logger.warning(
+                                "Колонка %s содержит более threshold уникальных категориальных значений и будет удалена",
+                                col,
+                            )
+                            self.cols_to_del.append(col)
+
+        cat_feat_values_dict = {
+            name: df.select(name).distinct().rdd.flatMap(lambda x: x).collect()
+            for name in self.cat_cols_list
+        }
+        self.expressions_list = [
+            sf.when(sf.col(col_name) == cur_name, 1)
+            .otherwise(0)
+            .alias(
+                self.alias
+                + "_"
+                + str(col_name)[:10]
+                + "_"
+                + str(cur_name).translate(
+                    str.maketrans(
+                        "", "", string.punctuation + string.whitespace
+                    )
+                )[:30]
+            )
+            for col_name, col_values in cat_feat_values_dict.items()
+            for cur_name in col_values
+        ]
+        if len(df.columns) <= len(self.cols_to_del):
+            self.no_cols_left = True
+
+    def transform(self, df: Optional[DataFrame]):
+        """
+        Преобразование категориальных колонок датафрейма.
+        Новые значения категориальных переменных будут проигнорированы при преобразовании.
+        :param df: spark-датафрейм, содержащий категориальные и числовые признаки пользователей / объектов
+        :return: spark-датафрейм после преобразования категориальных признаков
+        """
+        if df is None or self.no_cols_left:
+            return None
+        return df.select(*df.columns, *self.expressions_list).drop(
+            *(self.cols_to_del + self.cat_cols_list)
+        )
