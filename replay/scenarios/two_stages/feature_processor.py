@@ -6,6 +6,19 @@ from pyspark.sql import DataFrame
 from replay.utils import join_or_return
 
 
+# pylint: disable=no-self-use
+class CatFeaturesTransformer:
+    """docs"""
+
+    def fit(self, dataframe: DataFrame):
+        """fit"""
+        dataframe.show()
+
+    def transform(self, dataframe: DataFrame):
+        """transform"""
+        dataframe.show()
+
+
 # pylint: disable=too-many-instance-attributes, too-many-arguments
 class TwoStagesFeaturesProcessor:
     """
@@ -152,7 +165,6 @@ class TwoStagesFeaturesProcessor:
         item_log_features = item_log_features.join(
             mean_log_rating_of_item_users, on=self.item_id, how="left"
         ).cache()
-
         if "i_mean" in item_log_features.columns:
             # Abnormality: https://hal.inria.fr/hal-01254172/document
             abnormality_df = log.join(
@@ -307,13 +319,11 @@ class TwoStagesFeaturesProcessor:
         """
         if not self.fitted:
             raise AttributeError("Вызовите fit перед использованием transform")
-        joined = join_or_return(
-            log, user_features, how="left", on=self.user_id
-        )
-        joined = join_or_return(
-            joined, item_features, how="left", on=self.item_id
-        )
+        joined = log
 
+        joined.show()
+        user_features.show()
+        item_features.show()
         if self.use_log_features:
             joined = (
                 joined.join(

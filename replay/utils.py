@@ -528,3 +528,23 @@ def get_first_level_model_features(
         )
 
     return pairs_with_features
+
+
+def cache_if_exists(dataframe: Optional[DataFrame]) -> Optional[DataFrame]:
+    """
+    Возвращает кэшированный датафрейм
+    :param dataframe: spark-датафрейм или None
+    :return: кэшированный spark-датафрейм или None
+    """
+    if dataframe is not None:
+        return dataframe.cache()
+    return dataframe
+
+
+def unpersist_if_exists(dataframe: Optional[DataFrame]) -> None:
+    """
+    Применяет unpersist к spark-датафрейму
+    :param dataframe: кэшированный spark-датафрейм или None
+    """
+    if dataframe is not None:
+        dataframe.unpersist()
