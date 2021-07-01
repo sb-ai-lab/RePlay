@@ -441,65 +441,72 @@ def fallback(
 
 # pylint: disable=too-many-locals
 def get_first_level_model_features(
-    model: DataFrame, pairs: DataFrame, add_factors_mult: bool = True
+    model: DataFrame,
+    pairs: DataFrame,
+    user_features: Optional[DataFrame] = None,
+    item_features: Optional[DataFrame] = None,
+    add_factors_mult: bool = True,
 ) -> DataFrame:
     """
     Добавление векторов пользователей и объектов из модели replay.
     Если модель может вернуть и вектора пользователей, и вектора объектов,
     можно дополнительно посчитать покомпонентное произведение. Настраивается параметром add_factors_mult.
     Если модель не может вернуть вектора для части пользователей/объектов, для них возвращаются нулевые вектора.
+
     :param model: обученная модель replay, возвращающая вектора пользователей/объектов
-    :param pairs: spark-датафрейм, пары пользователь/объект для которых нужно вернуть вектора.
+    :param pairs: пары пользователь/объект для которых нужно вернуть вектора
+        spark-датафрейм с колонками `[user_id/user_idx, item_id/item_id]`
+    :param user_features: датафрейм, содержащий признаки пользователей,
+        spark-датафрейм с колонками `[user_id/user_idx, feature_1, ....]`
+    :param item_features: spark-датафрейм, содержащий признаки объектов
+        spark-датафрейм с колонками `[item_id/item_idx, feature_1, ....]`
     :param add_factors_mult: добавить ли в качестве признаков результат покомпонентного умножения векторов
     :return: spark-датафрейм, содержащий компоненты векторов в качестве отдельных колонок
     """
-    convert = False
-    pairs_with_features = pairs
-
     if "user_id" in pairs.columns:
-        convert = True
-        users = model._convert_index(pairs.select("user_id").distinct())
-        items = model._convert_index(pairs.select("item_id").distinct())
-        user_id, item_id = "user_id", "item_id"
+        func_name = "_get_features_wrap"
+        suffix = "id"
     else:
-        users = pairs_with_features.select("user_idx").distinct()
-        items = pairs_with_features.select("item_idx").distinct()
-        user_id, item_id = "user_idx", "item_idx"
+        func_name = "_get_features"
+        suffix = "idx"
 
-    user_features, item_features, vector_len = model.get_features(users, items)
-    null_vector = sf.array([sf.lit(0.0)] * vector_len)
-
-    if convert:
-        if user_features is not None:
-            user_features = model._convert_back(
-                user_features,
-                pairs.schema["user_id"].dataType,
-                pairs.schema["item_id"].dataType,
-            )
-        if item_features is not None:
-            item_features = model._convert_back(
-                item_features,
-                pairs.schema["user_id"].dataType,
-                pairs.schema["item_id"].dataType,
-            )
+    users = pairs.select("user_{}".format(suffix)).distinct()
+    items = pairs.select("item_{}".format(suffix)).distinct()
+    user_factors, user_vector_len = getattr(model, func_name)(
+        users, user_features
+    )
+    item_factors, item_vector_len = getattr(model, func_name)(
+        items, item_features
+    )
 
     pairs_with_features = join_or_return(
-        pairs_with_features, user_features, how="left", on=user_id
+        pairs, user_factors, how="left", on="user_{}".format(suffix)
     )
     pairs_with_features = join_or_return(
-        pairs_with_features, item_features, how="left", on=item_id
+        pairs_with_features,
+        item_factors,
+        how="left",
+        on="item_{}".format(suffix),
     )
 
     factors_to_explode = []
-    if user_features is not None:
+    if user_factors is not None:
         pairs_with_features = pairs_with_features.withColumn(
-            "user_factors", sf.coalesce(sf.col("user_factors"), null_vector)
+            "user_factors",
+            sf.coalesce(
+                sf.col("user_factors"),
+                sf.array([sf.lit(0.0)] * user_vector_len),
+            ),
         )
         factors_to_explode.append(("user_factors", "uf"))
 
-    if item_features is not None:
+    if item_factors is not None:
         pairs_with_features = pairs_with_features.withColumn(
-            "item_factors", sf.coalesce(sf.col("item_factors"), null_vector)
+            "item_factors",
+            sf.coalesce(
+                sf.col("item_factors"),
+                sf.array([sf.lit(0.0)] * item_vector_len),
+            ),
         )
         factors_to_explode.append(("item_factors", "if"))
 
@@ -508,8 +515,8 @@ def get_first_level_model_features(
 
     if (
         add_factors_mult
-        and item_features is not None
-        and user_features is not None
+        and user_factors is not None
+        and item_factors is not None
     ):
         pairs_with_features = pairs_with_features.withColumn(
             "factors_mult",
