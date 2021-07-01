@@ -339,22 +339,6 @@ def to_csr(
     )
 
 
-def join_or_return(first, second, on, how):
-    """
-    Обертка над join для удобного join-а датафреймов, например лога с признаками.
-    Если датафрейм second есть, будет выполнен join, иначе возвращен first.
-
-    :param first: spark-dataframe
-    :param second: spark-dataframe
-    :param on: имя столбца, по которому выполняется join
-    :param how: тип join
-    :return: spark-dataframe
-    """
-    if second is None:
-        return first
-    return first.join(second, on=on, how=how)
-
-
 def horizontal_explode(
     data_frame: DataFrame,
     column_to_explode: str,
