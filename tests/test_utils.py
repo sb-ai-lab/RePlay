@@ -1,4 +1,5 @@
-# pylint: disable-all
+# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
+
 import os
 import re
 from typing import Optional
@@ -32,10 +33,12 @@ def test_get_spark_session():
 
 
 def test_convert():
-    df = pd.DataFrame([[1, "a", 3.0], [3, "b", 5.0]], columns=["a", "b", "c"])
-    sf = utils.convert2spark(df)
-    pd.testing.assert_frame_equal(df, sf.toPandas())
-    assert utils.convert2spark(sf) is sf
+    dataframe = pd.DataFrame(
+        [[1, "a", 3.0], [3, "b", 5.0]], columns=["a", "b", "c"]
+    )
+    spark_df = utils.convert2spark(dataframe)
+    pd.testing.assert_frame_equal(dataframe, spark_df.toPandas())
+    assert utils.convert2spark(spark_df) is spark_df
 
 
 def del_files_by_pattern(directory: str, pattern: str) -> None:
@@ -55,6 +58,7 @@ def find_file_by_pattern(directory: str, pattern: str) -> Optional[str]:
     for filename in os.listdir(directory):
         if re.match(pattern, filename):
             return os.path.join(directory, filename)
+    return None
 
 
 def get_transformed_features(transformer, train, test):
@@ -62,14 +66,10 @@ def get_transformed_features(transformer, train, test):
     return transformer.transform(test)
 
 
-def test_cat_features_transformer_with_col_list(
-    long_log_with_features, item_features
-):
+def test_cat_features_transformer_with_col_list(item_features):
     transformed = get_transformed_features(
         # при передаче списка можно сделать кодирование и по числовой фиче
-        transformer=utils.CatFeaturesTransformer(
-            cat_cols_list=["iq", "class"]
-        ),
+        transformer=utils.CatFeaturesTransformer(cat_cols_list=["class"]),
         train=item_features.filter(sf.col("class") != "dog"),
         test=item_features,
     )
@@ -95,16 +95,13 @@ def test_cat_features_transformer_with_col_list_date(
         train=long_log_with_features,
         test=short_log_with_features,
     )
-    transformed.show()
     assert (
         "ohe_timestamp_20190101000000" in transformed.columns
-        and "item_id" in transformed.column
+        and "item_id" in transformed.columns
     )
 
 
-def test_cat_features_transformer_without_col_list(
-    long_log_with_features, item_features
-):
+def test_cat_features_transformer_without_col_list(item_features):
     transformed = get_transformed_features(
         transformer=utils.CatFeaturesTransformer(
             cat_cols_list=None, threshold=3
