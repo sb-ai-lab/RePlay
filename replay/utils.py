@@ -4,7 +4,6 @@ import numpy as np
 import string
 from pyspark.ml.linalg import DenseVector, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
-from pyspark.sql.functions import element_at, row_number, udf
 from pyspark.sql.types import ArrayType, DoubleType, NumericType
 from scipy.sparse import csr_matrix
 
@@ -72,13 +71,13 @@ def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "id") -> DataFrame:
         recs["relevance"].desc()
     )
     return (
-        recs.withColumn("rank", row_number().over(window))
+        recs.withColumn("rank", sf.row_number().over(window))
         .filter(sf.col("rank") <= k)
         .drop("rank")
     )
 
 
-@udf(returnType=DoubleType())  # type: ignore
+@sf.udf(returnType=DoubleType())  # type: ignore
 def vector_dot(one: DenseVector, two: DenseVector) -> float:
     """
     вычисляется скалярное произведение двух колонок-векторов
@@ -117,7 +116,7 @@ def vector_dot(one: DenseVector, two: DenseVector) -> float:
     return float(one.dot(two))
 
 
-@udf(returnType=VectorUDT())  # type: ignore
+@sf.udf(returnType=VectorUDT())  # type: ignore
 def vector_mult(
     one: Union[DenseVector, NumType], two: DenseVector
 ) -> DenseVector:
@@ -158,7 +157,7 @@ def vector_mult(
     return one * two
 
 
-@udf(returnType=ArrayType(DoubleType()))
+@sf.udf(returnType=ArrayType(DoubleType()))
 def array_mult(first: Column, second: Column):
     """
     Покоординатное произведение двух столбцов типа array.
@@ -383,7 +382,7 @@ def horizontal_explode(
     return data_frame.select(
         *other_columns,
         *[
-            element_at(column_to_explode, i + 1).alias(f"{prefix}_{i}")
+            sf.element_at(column_to_explode, i + 1).alias(f"{prefix}_{i}")
             for i in range(num_columns)
         ],
     )
@@ -596,7 +595,8 @@ class CatFeaturesTransformer:
                             self.cat_cols_list.append(col)
                         else:
                             State().logger.warning(
-                                "Колонка %s содержит более threshold уникальных категориальных значений и будет удалена",
+                                "Колонка %s содержит более threshold уникальных "
+                                "категориальных значений и будет удалена",
                                 col,
                             )
                             self.cols_to_del.append(col)
