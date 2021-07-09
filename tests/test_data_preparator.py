@@ -3,12 +3,18 @@ from datetime import datetime
 from unittest.mock import Mock
 
 import pytest
-from tests.utils import spark, sparkDataFrameEqual
 from pyspark.sql import functions as sf
 from pyspark.sql.types import StringType, StructType
 
 from replay.constants import LOG_SCHEMA
-from replay.data_preparator import DataPreparator
+from replay.data_preparator import DataPreparator, CatFeaturesTransformer
+from tests.utils import (
+    item_features,
+    long_log_with_features,
+    short_log_with_features,
+    spark,
+    sparkDataFrameEqual,
+)
 
 
 @pytest.fixture
@@ -450,3 +456,88 @@ def test_transform_features(
         features_columns=features_columns,
     )
     sparkDataFrameEqual(true_features, test_features)
+
+
+def get_transformed_features(transformer, train, test):
+    transformer.fit(train)
+    return transformer.transform(test)
+
+
+def test_cat_features_transformer_with_col_list(item_features):
+    transformed = get_transformed_features(
+        # при передаче списка можно сделать кодирование и по числовой фиче
+        transformer=CatFeaturesTransformer(cat_cols_list=["class"]),
+        train=item_features.filter(sf.col("class") != "dog"),
+        test=item_features,
+    )
+    assert "class" not in transformed.columns
+    assert "iq" in transformed.columns and "color" in transformed.columns
+    assert (
+        "ohe_class_dog" not in transformed.columns
+        and "ohe_class_cat" in transformed.columns
+    )
+    assert (
+        transformed.filter(sf.col("item_id") == "i6")
+        .select("ohe_class_mouse")
+        .collect()[0][0]
+        == 1.0
+    )
+
+
+def test_cat_features_transformer_with_col_list_date(
+    long_log_with_features, short_log_with_features,
+):
+    transformed = get_transformed_features(
+        transformer=CatFeaturesTransformer(),
+        train=long_log_with_features,
+        test=short_log_with_features,
+    )
+    assert (
+        "ohe_timestamp_20190101000000" in transformed.columns
+        and "item_id" in transformed.columns
+    )
+
+
+def test_cat_features_transformer_without_col_list(item_features):
+    transformed = get_transformed_features(
+        transformer=CatFeaturesTransformer(cat_cols_list=None, threshold=3),
+        train=item_features.filter(sf.col("class") != "dog"),
+        test=item_features,
+    )
+    assert "iq" in transformed.columns and "color" not in transformed.columns
+    assert (
+        "ohe_class_dog" not in transformed.columns
+        and "ohe_class_cat" in transformed.columns
+    )
+    assert sorted(transformed.columns) == [
+        "iq",
+        "item_id",
+        "ohe_class_cat",
+        "ohe_class_mouse",
+        "ohe_color_black",
+        "ohe_color_yellow",
+    ]
+
+    # в категориальных колонках больше значений, чем threshold
+    transformed = get_transformed_features(
+        transformer=CatFeaturesTransformer(cat_cols_list=None, threshold=1),
+        train=item_features.filter(sf.col("class") != "dog"),
+        test=item_features,
+    )
+    assert "iq" in transformed.columns and "color" not in transformed.columns
+    assert sorted(transformed.columns) == ["iq", "item_id"]
+
+    # обработка None и случаев, когда все колонки отфильтровались
+    transformer = CatFeaturesTransformer(cat_cols_list=None, threshold=1)
+    transformed = get_transformed_features(
+        transformer=transformer,
+        train=item_features.select("color"),
+        test=item_features,
+    )
+    assert transformer.no_cols_left is True and transformed is None
+    assert (
+        get_transformed_features(
+            transformer=transformer, train=None, test=item_features,
+        )
+        is None
+    )
