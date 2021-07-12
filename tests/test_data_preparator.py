@@ -463,7 +463,7 @@ def get_transformed_features(transformer, train, test):
     return transformer.transform(test)
 
 
-def test_cat_features_transformer_with_col_list(item_features):
+def test_cat_features_transformer(item_features):
     transformed = get_transformed_features(
         # при передаче списка можно сделать кодирование и по числовой фиче
         transformer=CatFeaturesTransformer(cat_cols_list=["class"]),
@@ -484,60 +484,15 @@ def test_cat_features_transformer_with_col_list(item_features):
     )
 
 
-def test_cat_features_transformer_with_col_list_date(
+def test_cat_features_transformer_date(
     long_log_with_features, short_log_with_features,
 ):
     transformed = get_transformed_features(
-        transformer=CatFeaturesTransformer(),
+        transformer=CatFeaturesTransformer(["timestamp"]),
         train=long_log_with_features,
         test=short_log_with_features,
     )
     assert (
         "ohe_timestamp_20190101000000" in transformed.columns
         and "item_id" in transformed.columns
-    )
-
-
-def test_cat_features_transformer_without_col_list(item_features):
-    transformed = get_transformed_features(
-        transformer=CatFeaturesTransformer(cat_cols_list=None, threshold=3),
-        train=item_features.filter(sf.col("class") != "dog"),
-        test=item_features,
-    )
-    assert "iq" in transformed.columns and "color" not in transformed.columns
-    assert (
-        "ohe_class_dog" not in transformed.columns
-        and "ohe_class_cat" in transformed.columns
-    )
-    assert sorted(transformed.columns) == [
-        "iq",
-        "item_id",
-        "ohe_class_cat",
-        "ohe_class_mouse",
-        "ohe_color_black",
-        "ohe_color_yellow",
-    ]
-
-    # в категориальных колонках больше значений, чем threshold
-    transformed = get_transformed_features(
-        transformer=CatFeaturesTransformer(cat_cols_list=None, threshold=1),
-        train=item_features.filter(sf.col("class") != "dog"),
-        test=item_features,
-    )
-    assert "iq" in transformed.columns and "color" not in transformed.columns
-    assert sorted(transformed.columns) == ["iq", "item_id"]
-
-    # обработка None и случаев, когда все колонки отфильтровались
-    transformer = CatFeaturesTransformer(cat_cols_list=None, threshold=1)
-    transformed = get_transformed_features(
-        transformer=transformer,
-        train=item_features.select("color"),
-        test=item_features,
-    )
-    assert transformer.no_cols_left is True and transformed is None
-    assert (
-        get_transformed_features(
-            transformer=transformer, train=None, test=item_features,
-        )
-        is None
     )

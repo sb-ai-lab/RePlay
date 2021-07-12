@@ -19,7 +19,6 @@ from pyspark.sql.types import (
     DoubleType,
     StringType,
     TimestampType,
-    NumericType,
 )
 
 from replay.constants import AnyDataFrame
@@ -408,96 +407,64 @@ class DataPreparator:
 
 class CatFeaturesTransformer:
     """Преобразование категориальных признаков с использованием one-hot encoding.
-    Может использоваться в двух режимах:
-        1) Преобразование заданных колонок. Если передан список колонок для преобразования (cat_cols_list),
-        к ним будет применен one-hot encoding, исходные колонки будут удалены.
-        2) Поиск не числовых колонок и преобразование или удаление данных колонок по условию.
-        После преобразования все колонки в датафрейме, кроме id пользователей и объектов, будут числовыми.
-        Если cat_cols_list = None, будет выполнен поиск категориальных колонок среди всех,
-        за исключением user_id/x, item_id/x.
-        В случае, если задан threshold, колонки с большим, чем threshold числом уникальных значений будут удалены."""
+        К списку колонок для преобразования (cat_cols_list), будет применен one-hot encoding,
+        исходные колонки будут удалены.
+        В случае, если задан threshold, будут сохранены наиболее популярные k=threshold значений,
+        остальные заменены на значение other."""
 
     def __init__(
         self,
-        cat_cols_list: Optional[List] = None,
+        cat_cols_list: List,
         threshold: Optional[int] = None,
         alias: str = "ohe",
     ):
         """
         :param cat_cols_list: список категориальных колонок для преобразования
-        :param threshold: количество уникальных значений колонки,
-            при превышении которого колонка будет удалена из результирующего dataframe без преобразования.
-            Не используется, если cat_cols_list явно передан.
+        :param threshold: TO DO: количество наиболее частых уникальных значений,
+            к которым будет применен one-hot encoding. Остальные значения будут игнорироваться
         :param alias: префикс перед именем колонок, к которым применен one-hot encoding
         """
-        self.cat_cols_list = cat_cols_list if cat_cols_list is not None else []
-        self.cols_to_del = []
+        self.cat_cols_list = cat_cols_list
         self.expressions_list = []
         self.threshold = threshold
         self.alias = alias
-        self.no_cols_left = False
-        if cat_cols_list and threshold:
+        if threshold is not None:
             State().logger.info(
-                "threshold не будет применен, потому что передан cat_cols_list"
+                "threshold не будет применен, функциональность в разработке"
             )
 
     def fit(self, spark_df: Optional[DataFrame]) -> None:
         """
-        Определение списка категориальных колонок, если не задан в init,
-        сохранение списка категорий для каждой из колонок.
-        :param spark_df: spark-датафрейм, содержащий категориальные и числовые признаки пользователей / объектов
+        Сохранение списка категорий для каждой из колонок.
+        :param spark_df: spark-датафрейм, содержащий признаки пользователей / объектов
         """
         if spark_df is None:
-            self.no_cols_left = True
             return
-        if not self.cat_cols_list:
-            for col in spark_df.columns:
-                if col not in ["user_idx", "item_idx", "user_id", "item_id"]:
-                    if not isinstance(
-                        spark_df.schema[col].dataType, NumericType
-                    ):
-                        if (
-                            self.threshold is None
-                            or spark_df.select(
-                                sf.countDistinct(sf.col(col))
-                            ).collect()[0][0]
-                            <= self.threshold
-                        ):
-                            self.cat_cols_list.append(col)
-                        else:
-                            State().logger.warning(
-                                "Колонка %s содержит более threshold уникальных "
-                                "категориальных значений и будет удалена",
-                                col,
-                            )
-                            self.cols_to_del.append(col)
 
         cat_feat_values_dict = {
-            name: spark_df.select(name)
-            .distinct()
-            .rdd.flatMap(lambda x: x)
-            .collect()
+            name: (
+                spark_df.select(sf.collect_set(sf.col(name))).collect()[0][0]
+            )
             for name in self.cat_cols_list
         }
         self.expressions_list = [
             sf.when(sf.col(col_name) == cur_name, 1)
             .otherwise(0)
             .alias(
-                self.alias
-                + "_"
-                + str(col_name)[:10]
-                + "_"
-                + str(cur_name).translate(
-                    str.maketrans(
-                        "", "", string.punctuation + string.whitespace
-                    )
-                )[:30]
+                "{alias}_{col_name}_{value_name}".format(
+                    alias=self.alias,
+                    col_name=col_name,
+                    # faster way to replace punctuation
+                    value_name=str(cur_name).translate(
+                        str.maketrans(
+                            "", "", string.punctuation + string.whitespace
+                        )
+                    )[:30],
+                )
             )
             for col_name, col_values in cat_feat_values_dict.items()
             for cur_name in col_values
         ]
-        if len(spark_df.columns) <= len(self.cols_to_del):
-            self.no_cols_left = True
 
     def transform(self, spark_df: Optional[DataFrame]):
         """
@@ -506,8 +473,8 @@ class CatFeaturesTransformer:
         :param spark_df: spark-датафрейм, содержащий категориальные и числовые признаки пользователей / объектов
         :return: spark-датафрейм после преобразования категориальных признаков
         """
-        if spark_df is None or self.no_cols_left:
+        if spark_df is None:
             return None
         return spark_df.select(*spark_df.columns, *self.expressions_list).drop(
-            *(self.cols_to_del + self.cat_cols_list)
+            *self.cat_cols_list
         )
