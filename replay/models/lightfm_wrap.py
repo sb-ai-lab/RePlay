@@ -43,6 +43,7 @@ class LightFMWrap(HybridRecommender):
         self.num_threads = cpu_count if cpu_count is not None else 1
         self.user_feat_scaler = None
         self.item_feat_scaler = None
+        # определяют количество столбцов единичной матрицы id пользователей и объектов при построении матрицы признаков
         self.num_of_warm_items = 0
         self.num_of_warm_users = 0
 
@@ -53,6 +54,13 @@ class LightFMWrap(HybridRecommender):
     ) -> Optional[csr_matrix]:
         """
         Преобразует признаки пользователей или объектов в разреженную матрицу
+        Матрица состоит из двух частей:
+        1) Левая часть соответствует ohe-hot encoding id пользователей и объектов.
+        Размеры матрицы: количество пользователей/объектов * количество пользователей/объектов в fit.
+        Новым пользователям/объектам соответствуют пустые строки.
+        2) Правая часть содержит числовые признаки пользователей / объектов, переданные в feature_table.
+        К признакам применяется MinMaxScaler по столбцам, затем элементы делятся на сумму по строке
+        (сумма значений признаков по id равна 1).
 
         :param feature_table: таблица с колонкой ``user_idx`` или ``item_idx``,
             все остальные колонки которой считаются значениями свойства пользователя или объекта соответственно
@@ -74,7 +82,7 @@ class LightFMWrap(HybridRecommender):
             log_ids_list, on=idx_col_name, how="inner"
         )
 
-        # определяем размеры матрицы признаков
+        # определяем количество столбцов матрицы признаков
         num_entities_in_fit = getattr(self, "num_of_warm_{}s".format(entity))
         matrix_height = max(
             num_entities_in_fit,
@@ -91,6 +99,7 @@ class LightFMWrap(HybridRecommender):
                 idx_col_name,
                 # первый столбец с id, следующие - упорядоченные признаки
                 *(
+                    # упорядоченные столбцы исходного датафрейма за исключением id
                     sorted(
                         list(
                             set(feature_table.columns).difference(
@@ -108,6 +117,7 @@ class LightFMWrap(HybridRecommender):
         number_of_features = features_np.shape[1]
 
         all_ids_list = log_ids_list.toPandas().to_numpy().ravel()
+        # новым пользователям/объектам соответствуют пустые строки в столбцах, содержащих признаки id
         entities_seen_in_fit = all_ids_list[all_ids_list < num_entities_in_fit]
 
         # признаки, соответствующие id
@@ -131,6 +141,7 @@ class LightFMWrap(HybridRecommender):
                 )
             setattr(self, scaler_name, MinMaxScaler().fit(features_np))
 
+        # применение scaler
         if features_np.size:
             features_np = getattr(self, scaler_name).transform(features_np)
             sparse_features = csr_matrix(
@@ -266,9 +277,24 @@ class LightFMWrap(HybridRecommender):
     def _get_features(
         self, ids: DataFrame, features: Optional[DataFrame]
     ) -> Optional[Tuple[DataFrame, int]]:
-        entity = ids.columns[0][:4]
+        """
+        Получение векторов пользователей и объектов из модели LightFM.
+        У LightFM есть методы get_item_representations/get_user_representations,
+        которые принимают матрицу признаков пользователей/объектов и возвращают вектора для выбранных пользователей.
+
+        Внутри методов LightFM выполняется умножение переданной матрицы на матрицу,
+        содержащую вектора каждого из признаков.
+
+        :param ids: id пользователей/объектов, для которых нужно получить вектора,
+            spark-dataframe с колонкой item_idx/user_idx
+        :param features: spark-dataframe с колонкой item_idx/user_idx
+            и колонками с признаками пользователей/объектов
+        :return: spark-dataframe с bias и векторами пользователей/объектов
+        """
+        entity = "item" if "item_idx" in ids.columns else "user"
         ids_list = ids.toPandas()["{}_idx".format(entity)]
 
+        # для моделей, не использующих признаки, строится разреженная матрица id пользователей/объектов
         if features is None:
             matrix_width = getattr(self, "num_of_warm_{}s".format(entity))
             warm_ids = ids_list[ids_list < matrix_width]
@@ -277,11 +303,13 @@ class LightFMWrap(HybridRecommender):
                 shape=(ids_list.max() + 1, matrix_width),
             )
         else:
+            # для моделей, использующих признаки, строится полная матрица признаков
             sparse_features = self._feature_table_to_csr(ids, features)
 
         biases, vectors = getattr(
             self.model, "get_{}_representations".format(entity)
         )(sparse_features)
+
         embed_list = list(
             zip(
                 ids_list,

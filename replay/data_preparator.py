@@ -1,16 +1,25 @@
 """
+Содержит классы  ``DataPreparator`` и ``CatFeaturesTransformer``.
+``DataPreparator`` используется для приведения лога и признаков в формат библиотеки.
 Для получения рекомендаций данные необходимо предварительно обработать.
 Они должны соответствовать определенной структуре. Перед тем как обучить модель
 необходимо воспользоваться классом ``DataPreparator``. Данные пользователя могут храниться в файле
 либо содержаться внутри объекта ``pandas.DataFrame`` или ``spark.DataFrame``.
 
+`CatFeaturesTransformer`` позволяет удобным образом трансформировать
+категориальные признаки с помощью one-hot encoding.
 """
 import logging
+import string
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as sf
-from pyspark.sql.types import DoubleType, StringType, TimestampType
+from pyspark.sql.types import (
+    DoubleType,
+    StringType,
+    TimestampType,
+)
 
 from replay.constants import AnyDataFrame
 from replay.utils import convert2spark
@@ -394,3 +403,78 @@ class DataPreparator:
         else:
             raise ValueError("В данной таблице features не используются")
         return features_columns, optional_columns, required_columns
+
+
+class CatFeaturesTransformer:
+    """Преобразование категориальных признаков с использованием one-hot encoding.
+        К списку колонок для преобразования (cat_cols_list), будет применен one-hot encoding,
+        исходные колонки будут удалены.
+        В случае, если задан threshold, будут сохранены наиболее популярные k=threshold значений,
+        остальные заменены на значение other."""
+
+    def __init__(
+        self,
+        cat_cols_list: List,
+        threshold: Optional[int] = None,
+        alias: str = "ohe",
+    ):
+        """
+        :param cat_cols_list: список категориальных колонок для преобразования
+        :param threshold: TO DO: количество наиболее частых уникальных значений,
+            к которым будет применен one-hot encoding. Остальные значения будут игнорироваться
+        :param alias: префикс перед именем колонок, к которым применен one-hot encoding
+        """
+        self.cat_cols_list = cat_cols_list
+        self.expressions_list = []
+        self.threshold = threshold
+        self.alias = alias
+        if threshold is not None:
+            State().logger.info(
+                "threshold не будет применен, функциональность в разработке"
+            )
+
+    def fit(self, spark_df: Optional[DataFrame]) -> None:
+        """
+        Сохранение списка категорий для каждой из колонок.
+        :param spark_df: spark-датафрейм, содержащий признаки пользователей / объектов
+        """
+        if spark_df is None:
+            return
+
+        cat_feat_values_dict = {
+            name: (
+                spark_df.select(sf.collect_set(sf.col(name))).collect()[0][0]
+            )
+            for name in self.cat_cols_list
+        }
+        self.expressions_list = [
+            sf.when(sf.col(col_name) == cur_name, 1)
+            .otherwise(0)
+            .alias(
+                "{alias}_{col_name}_{value_name}".format(
+                    alias=self.alias,
+                    col_name=col_name,
+                    # faster way to replace punctuation
+                    value_name=str(cur_name).translate(
+                        str.maketrans(
+                            "", "", string.punctuation + string.whitespace
+                        )
+                    )[:30],
+                )
+            )
+            for col_name, col_values in cat_feat_values_dict.items()
+            for cur_name in col_values
+        ]
+
+    def transform(self, spark_df: Optional[DataFrame]):
+        """
+        Преобразование категориальных колонок датафрейма.
+        Новые значения категориальных переменных будут проигнорированы при преобразовании.
+        :param spark_df: spark-датафрейм, содержащий категориальные и числовые признаки пользователей / объектов
+        :return: spark-датафрейм после преобразования категориальных признаков
+        """
+        if spark_df is None:
+            return None
+        return spark_df.select(*spark_df.columns, *self.expressions_list).drop(
+            *self.cat_cols_list
+        )
