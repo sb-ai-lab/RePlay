@@ -1,15 +1,17 @@
-# pylint: disable-all
+# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
+
 import os
 import re
 from typing import Optional
 
 import numpy as np
 import pandas as pd
+import pyspark.sql.functions as sf
 from pyspark.sql import SparkSession
-
 
 import replay.session_handler
 from replay import utils
+from tests.utils import spark
 
 
 def test_func_get():
@@ -26,10 +28,12 @@ def test_get_spark_session():
 
 
 def test_convert():
-    df = pd.DataFrame([[1, "a", 3.0], [3, "b", 5.0]], columns=["a", "b", "c"])
-    sf = utils.convert2spark(df)
-    pd.testing.assert_frame_equal(df, sf.toPandas())
-    assert utils.convert2spark(sf) is sf
+    dataframe = pd.DataFrame(
+        [[1, "a", 3.0], [3, "b", 5.0]], columns=["a", "b", "c"]
+    )
+    spark_df = utils.convert2spark(dataframe)
+    pd.testing.assert_frame_equal(dataframe, spark_df.toPandas())
+    assert utils.convert2spark(spark_df) is spark_df
 
 
 def del_files_by_pattern(directory: str, pattern: str) -> None:
@@ -49,3 +53,4 @@ def find_file_by_pattern(directory: str, pattern: str) -> Optional[str]:
     for filename in os.listdir(directory):
         if re.match(pattern, filename):
             return os.path.join(directory, filename)
+    return None
