@@ -12,8 +12,8 @@ from replay.metrics import Metric, Precision
 from replay.models import ALSWrap, RandomRec, PopRec
 from replay.models.base_rec import BaseRecommender, HybridRecommender
 from replay.scenarios.two_stages.feature_processor import (
-    TwoStagesFeaturesProcessor,
-    CatFeaturesTransformer,
+    SecondLevelFeaturesProcessor,
+    FirstLevelFeaturesProcessor,
 )
 
 from replay.session_handler import State
@@ -88,7 +88,7 @@ class TwoStagesScenario(HybridRecommender):
         use_generated_features: bool = False,
         user_cat_features_list: Optional[List] = None,
         item_cat_features_list: Optional[List] = None,
-        custom_features_processor: TwoStagesFeaturesProcessor = None,
+        custom_features_processor: SecondLevelFeaturesProcessor = None,
         seed: int = 123,
     ) -> None:
         """
@@ -124,7 +124,7 @@ class TwoStagesScenario(HybridRecommender):
             которые нужно использовать для построения признаков
             популярности у пользователя объектов в зависимости от значения категориального признака
         :param custom_features_processor: в двухуровневый сценарий можно передать свой объект,
-            наследующийся от TwoStagesFeaturesProcessor для
+            наследующийся от SecondLevelFeaturesProcessor для
             генерации признаков для выбранных пар пользователь-объект во время обучения и inference
             на базе лога и признаков пользователей и объектов.
             Пример реализации - TwoLevelFeaturesProcessor.
@@ -146,8 +146,12 @@ class TwoStagesScenario(HybridRecommender):
 
         self.random_model = RandomRec(seed=seed)
         self.fallback_model = fallback_model
-        self.first_level_user_features_transformer = CatFeaturesTransformer()
-        self.first_level_item_features_transformer = CatFeaturesTransformer()
+        self.first_level_user_features_transformer = (
+            FirstLevelFeaturesProcessor()
+        )
+        self.first_level_item_features_transformer = (
+            FirstLevelFeaturesProcessor()
+        )
 
         if isinstance(use_first_level_models_feat, bool):
             self.use_first_level_models_feat = [
@@ -202,7 +206,7 @@ class TwoStagesScenario(HybridRecommender):
         self.features_processor = (
             custom_features_processor
             if custom_features_processor
-            else TwoStagesFeaturesProcessor()
+            else SecondLevelFeaturesProcessor()
         )
         self.seed = seed
 

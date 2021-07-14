@@ -2,27 +2,90 @@ from typing import Dict, Optional, Tuple, List
 
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
+from pyspark.sql.types import NumericType
 
+from replay.data_preparator import CatFeaturesTransformer
+from replay.session_handler import State
 from replay.utils import join_or_return
 
 
-# pylint: disable=no-self-use
-class CatFeaturesTransformer:
-    """docs"""
+class FirstLevelFeaturesProcessor:
+    """Трансформация признаков для моделей первого уровня в двухуровневом сценарии"""
 
-    def fit(self, dataframe: DataFrame):
-        """fit"""
-        dataframe.show()
+    cat_feat_transformer: Optional[CatFeaturesTransformer] = None
+    cat_cols_list: Optional[List] = None
+    cols_to_del: Optional[List] = None
+    all_columns: Optional[List] = None
+    fitted: bool = False
 
-    def transform(self, dataframe: DataFrame):
-        """transform"""
-        dataframe.show()
+    def __init__(self, threshold: Optional[int] = 100):
+        self.threshold = threshold
+        self.fitted = False
+
+    def fit(self, spark_df: Optional[DataFrame]) -> None:
+        """
+        Определение списка категориальных колонок для one-hot encoding.
+        Нечисловые колонки с большим числом уникальных значений, чем threshold, будут удалены.
+        Сохранение списка категорий для каждой из колонок.
+        :param spark_df: spark-датафрейм, содержащий признаки пользователей / объектов
+        """
+        self.cat_feat_transformer = None
+        if spark_df is None:
+            return
+
+        self.all_columns = sorted(spark_df.columns)
+        self.cat_cols_list = []
+        self.cols_to_del = []
+        for col in spark_df.columns:
+            if col not in ["user_idx", "item_idx", "user_id", "item_id"]:
+                if not isinstance(spark_df.schema[col].dataType, NumericType):
+                    if (
+                        self.threshold is None
+                        or spark_df.select(
+                            sf.countDistinct(sf.col(col))
+                        ).collect()[0][0]
+                        <= self.threshold
+                    ):
+                        self.cat_cols_list.append(col)
+                    else:
+                        State().logger.warning(
+                            "Колонка %s содержит более threshold уникальных "
+                            "категориальных значений и будет удалена",
+                            col,
+                        )
+                        self.cols_to_del.append(col)
+
+        self.cat_feat_transformer = CatFeaturesTransformer(
+            cat_cols_list=self.cat_cols_list, threshold=self.threshold
+        )
+        self.cat_feat_transformer.fit(spark_df.drop(*self.cols_to_del))
+
+    def transform(self, spark_df: Optional[DataFrame]) -> Optional[DataFrame]:
+        """
+        Трансформация нечисловых признаков.
+        Нечисловые колонки с большим числом уникальных значений, чем threshold,
+        будут удалены иначе - преобразованы с использованием one-hot encoding.
+        :param spark_df: spark-датафрейм, содержащий признаки пользователей / объектов
+        :return: spark-датафрейм, содержащий числовые признаки пользователей / объектов
+        """
+        if spark_df is None or self.cat_feat_transformer is None:
+            return None
+
+        if sorted(spark_df.columns) != self.all_columns:
+            raise ValueError(
+                "Колонки датафрейма, переданного в fit, не совпадают с колонками, "
+                "датафрейма, переданного в transform."
+            )
+
+        return self.cat_feat_transformer.transform(
+            spark_df.drop(*self.cols_to_del)
+        )
 
 
 # pylint: disable=too-many-instance-attributes, too-many-arguments
-class TwoStagesFeaturesProcessor:
+class SecondLevelFeaturesProcessor:
     """
-    Подсчет дополнительных признаков для двухуровневой модели
+    Подсчет дополнительных признаков для модели второго уровня в двухуровневом сценарии
     """
 
     user_log_features: Optional[DataFrame] = None

@@ -10,7 +10,7 @@ from lightautoml.automl.presets.tabular_presets import TabularAutoML
 
 from replay.models import ALSWrap, KNN, PopRec, LightFMWrap
 from replay.scenarios.two_stages.feature_processor import (
-    TwoStagesFeaturesProcessor,
+    SecondLevelFeaturesProcessor,
 )
 from replay.scenarios.two_stages.two_stages_scenario import TwoStagesScenario
 
@@ -116,7 +116,7 @@ def test_fit(log, pairs, user_features, item_features, two_stages_kwargs):
     two_stages = TwoStagesScenario(**two_stages_kwargs)
 
     two_stages.fit(log, user_features, item_features.filter(sf.col("iq") > 4))
-    # features_proc = TwoStagesFeaturesProcessor(
+    # features_proc = SecondLevelFeaturesProcessor(
     #     use_log_features=True, use_conditional_popularity=False
     # )
     res = two_stages.add_features_for_second_level(

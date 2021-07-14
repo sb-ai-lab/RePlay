@@ -496,3 +496,15 @@ def test_cat_features_transformer_date(
         "ohe_timestamp_20190101000000" in transformed.columns
         and "item_id" in transformed.columns
     )
+
+
+def test_cat_features_transformer_empty_list(
+    long_log_with_features, short_log_with_features,
+):
+    transformed = get_transformed_features(
+        transformer=CatFeaturesTransformer([]),
+        train=long_log_with_features,
+        test=short_log_with_features,
+    )
+    assert len(transformed.columns) == 4
+    assert "timestamp" in transformed.columns

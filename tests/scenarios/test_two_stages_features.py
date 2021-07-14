@@ -8,9 +8,17 @@ import pytest
 from pyspark.sql import functions as sf
 
 from replay.scenarios.two_stages.feature_processor import (
-    TwoStagesFeaturesProcessor,
+    SecondLevelFeaturesProcessor,
+    FirstLevelFeaturesProcessor,
 )
-from tests.utils import spark, sparkDataFrameEqual
+from tests.utils import (
+    spark,
+    sparkDataFrameEqual,
+    long_log_with_features,
+    short_log_with_features,
+    user_features,
+    item_features,
+)
 
 simple_u_columns = ["u_log_ratings_count", "u_mean_log_items_ratings_count"]
 simple_i_columns = ["i_log_ratings_count", "i_mean_log_users_ratings_count"]
@@ -20,7 +28,7 @@ abnormality_columns = ["abnormality", "abnormalityCR"]
 
 
 @pytest.fixture
-def log(spark):
+def log_second_stage(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
         data=[
@@ -37,14 +45,14 @@ def log(spark):
 
 
 @pytest.fixture
-def user_features(spark):
+def user_features_second_stage(spark):
     return spark.createDataFrame(
         [("u1", 2.0, 3.0, "M"), ("u2", 1.0, 4.0, "F")]
     ).toDF("user_idx", "user_feature_1", "user_feature_2", "gender")
 
 
 @pytest.fixture
-def item_features(spark):
+def item_features_second_stage(spark):
     return spark.createDataFrame(
         [("i1", 4.0, "cat"), ("i2", 10.0, "dog"), ("i4", 0.0, "cat")]
     ).toDF("item_idx", "item_feature_1", "class")
@@ -52,12 +60,14 @@ def item_features(spark):
 
 @pytest.fixture
 def two_stages_fp():
-    return TwoStagesFeaturesProcessor()
+    return SecondLevelFeaturesProcessor()
 
 
-def test_log_features_unary_relevance_no_timestamp(spark, two_stages_fp, log):
+def test_log_features_unary_relevance_no_timestamp(
+    spark, two_stages_fp, log_second_stage
+):
     user_log_features, item_log_features = two_stages_fp._calc_log_features(
-        log.withColumn("relevance", sf.lit(1)).withColumn(
+        log_second_stage.withColumn("relevance", sf.lit(1)).withColumn(
             "timestamp", sf.to_timestamp(sf.lit(datetime(2019, 1, 1)))
         )
     )
@@ -89,9 +99,11 @@ def test_log_features_unary_relevance_no_timestamp(spark, two_stages_fp, log):
     sparkDataFrameEqual(gt_item_features, item_log_features)
 
 
-def test_log_features_unary_relevance_timestamp(spark, two_stages_fp, log):
+def test_log_features_unary_relevance_timestamp(
+    spark, two_stages_fp, log_second_stage
+):
     user_log_features, item_log_features = two_stages_fp._calc_log_features(
-        log.withColumn("relevance", sf.lit(1))
+        log_second_stage.withColumn("relevance", sf.lit(1))
     )
 
     assert sorted(user_log_features.columns) == sorted(
@@ -117,9 +129,9 @@ def test_log_features_unary_relevance_timestamp(spark, two_stages_fp, log):
     )
 
 
-def test_log_features_relevance(spark, two_stages_fp, log):
+def test_log_features_relevance(spark, two_stages_fp, log_second_stage):
     user_log_features, item_log_features = two_stages_fp._calc_log_features(
-        log
+        log_second_stage
     )
 
     assert sorted(user_log_features.columns) == sorted(
@@ -185,10 +197,14 @@ def test_log_features_relevance(spark, two_stages_fp, log):
     )
 
 
-def test_conditional_features(spark, two_stages_fp, log, user_features):
+def test_conditional_features(
+    spark, two_stages_fp, log_second_stage, user_features_second_stage
+):
 
     item_cond_dist_cat_features = two_stages_fp._add_cond_distr_feat(
-        log=log, features_df=user_features, cat_cols=["gender"]
+        log=log_second_stage,
+        features_df=user_features_second_stage,
+        cat_cols=["gender"],
     )
     item_cond_dist_cat_features["gender"].show()
     gt_item_feat = spark.createDataFrame(
@@ -203,11 +219,16 @@ def test_conditional_features(spark, two_stages_fp, log, user_features):
     )
 
 
-def test_fit_transform(two_stages_fp, log, user_features, item_features):
+def test_fit_transform(
+    two_stages_fp,
+    log_second_stage,
+    user_features_second_stage,
+    item_features_second_stage,
+):
     two_stages_fp.fit(
-        log,
-        user_features,
-        item_features,
+        log_second_stage,
+        user_features_second_stage,
+        item_features_second_stage,
         user_cat_features_list=["gender"],
         item_cat_features_list=["class"],
     )
@@ -217,15 +238,21 @@ def test_fit_transform(two_stages_fp, log, user_features, item_features):
         "item_pop_by_gender"
         in two_stages_fp.item_cond_dist_cat_features["gender"].columns
     )
-    res = two_stages_fp.transform(log, user_features, item_features)
+    res = two_stages_fp.transform(
+        log_second_stage,
+        user_features_second_stage,
+        item_features_second_stage,
+    )
     assert "gender" in res.columns
     assert "item_pop_by_gender" in res.columns
 
 
-def test_fit_transform_one_features_df(two_stages_fp, log, user_features):
+def test_fit_transform_one_features_df(
+    two_stages_fp, log_second_stage, user_features_second_stage
+):
     two_stages_fp.fit(
-        log,
-        user_features,
+        log_second_stage,
+        user_features_second_stage,
         item_features=None,
         user_cat_features_list=["gender"],
     )
@@ -235,5 +262,46 @@ def test_fit_transform_one_features_df(two_stages_fp, log, user_features):
         "item_pop_by_gender"
         in two_stages_fp.item_cond_dist_cat_features["gender"].columns
     )
-    res = two_stages_fp.transform(log, user_features, None)
+    res = two_stages_fp.transform(
+        log_second_stage, user_features_second_stage, None
+    )
     assert "item_pop_by_gender" in res.columns
+
+
+def test_first_level_features_processor(item_features):
+    processor = FirstLevelFeaturesProcessor(threshold=3)
+    processor.fit(item_features.filter(sf.col("class") != "dog"))
+    transformed = processor.transform(item_features)
+    assert "iq" in transformed.columns and "color" not in transformed.columns
+    assert (
+        "ohe_class_dog" not in transformed.columns
+        and "ohe_class_cat" in transformed.columns
+    )
+    assert sorted(transformed.columns) == [
+        "iq",
+        "item_id",
+        "ohe_class_cat",
+        "ohe_class_mouse",
+        "ohe_color_black",
+        "ohe_color_yellow",
+    ]
+
+
+def test_first_level_features_processor_threshold(item_features):
+    # в категориальных колонках больше значений, чем threshold
+    processor = FirstLevelFeaturesProcessor(threshold=1)
+    processor.fit(item_features.filter(sf.col("class") != "dog"))
+    transformed = processor.transform(item_features)
+    assert "iq" in transformed.columns and "color" not in transformed.columns
+    assert sorted(transformed.columns) == ["iq", "item_id"]
+
+
+def test_first_level_features_processor_empty(item_features):
+    # обработка None и случаев, когда все колонки отфильтровались
+    processor = FirstLevelFeaturesProcessor(threshold=1)
+    processor.fit(None)
+    assert processor.transform(item_features) is None
+
+    processor.fit(item_features.select("item_id", "class"))
+    transformed = processor.transform(item_features.select("item_id", "class"))
+    assert transformed.columns == ["item_id"]

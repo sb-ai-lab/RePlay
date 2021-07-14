@@ -3,5 +3,5 @@
 """
 from replay.scenarios.two_stages.two_stages_scenario import TwoStagesScenario
 from replay.scenarios.two_stages.feature_processor import (
-    TwoStagesFeaturesProcessor,
+    SecondLevelFeaturesProcessor,
 )
