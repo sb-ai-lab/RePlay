@@ -182,7 +182,9 @@ class TwoStagesScenario(HybridRecommender):
                 dict() if second_model_params is None else second_model_params
             )
             self.second_stage_model = TabularAutoML(
-                config_path=second_model_config_path, **second_model_params
+                config_path=second_model_config_path,
+                task=Task("binary"),
+                **second_model_params
             )
         else:
             # CHECK! спросить про параметры у Антона или Саши
@@ -210,10 +212,11 @@ class TwoStagesScenario(HybridRecommender):
         )
         self.seed = seed
 
+    # pylint: disable=too-many-locals
     def add_features_for_second_level(
         self,
         log_to_add_features: DataFrame,
-        log_used_in_predict: DataFrame,
+        log_for_first_level_models: DataFrame,
         user_features: DataFrame,
         item_features: DataFrame,
     ) -> DataFrame:
@@ -230,7 +233,7 @@ class TwoStagesScenario(HybridRecommender):
             для которого нужно получить признаки
             спарк-датафрейм с колонками
             ``[user_idx, item_idx, timestamp, relevance]``
-        :param log_used_in_predict: лог взаимодействий пользователей и объектов,
+        :param log_for_first_level_models: лог взаимодействий пользователей и объектов,
             использующийся в predict моделей первого уровня
             спарк-датафрейм с колонками
             ``[user_idx, item_idx, timestamp, relevance]``
@@ -255,78 +258,79 @@ class TwoStagesScenario(HybridRecommender):
             items_type = log_to_add_features.schema["item_id"].dataType
             (
                 log_to_add_features,
-                log_used_in_predict,
+                log_for_first_level_models,
                 user_features,
                 item_features,
             ) = [
                 self._convert_index(df)
                 for df in [
                     log_to_add_features,
-                    log_used_in_predict,
+                    log_for_first_level_models,
                     user_features,
                     item_features,
                 ]
             ]
 
         full_second_level_train = log_to_add_features
-
-        first_level_item_features = cache_if_exists(
+        first_level_item_features_cached = cache_if_exists(
             self.first_level_item_features_transformer.transform(item_features)
         )
-        first_level_user_features = cache_if_exists(
+        first_level_user_features_cached = cache_if_exists(
             self.first_level_user_features_transformer.transform(user_features)
         )
+
+        pairs = full_second_level_train.select("user_idx", "item_idx")
 
         for idx, model in enumerate(self.first_level_models):
             current_pred = self._predict_pairs_with_first_level_model(
                 model=model,
-                log=log_used_in_predict,
-                pairs=full_second_level_train.select("user_idx", "item_idx"),
-                user_features=first_level_user_features,
-                item_features=first_level_item_features,
+                log=log_for_first_level_models,
+                pairs=pairs,
+                user_features=first_level_user_features_cached,
+                item_features=first_level_item_features_cached,
             ).withColumnRenamed("relevance", "rel_{}_{}".format(idx, model))
             full_second_level_train = full_second_level_train.join(
                 current_pred, on=["user_idx", "item_idx"], how="left"
             )
 
             if self.use_first_level_models_feat[idx]:
-                # prefix = "{}_{}".format(idx, model)
-                # TO DO: после merge пулреквеста с новой сигнатурой get_first_level_model_features обновить код
                 features = get_first_level_model_features(
                     model=model,
                     pairs=full_second_level_train.select(
                         "user_idx", "item_idx"
                     ),
+                    user_features=first_level_user_features_cached,
+                    item_features=first_level_item_features_cached,
+                    prefix="m_{}".format(idx),
                 )
                 full_second_level_train = full_second_level_train.join(
                     features, on=["user_idx", "item_idx"], how="left"
                 )
 
-        unpersist_if_exists(first_level_user_features)
-        unpersist_if_exists(first_level_item_features)
+        unpersist_if_exists(first_level_user_features_cached)
+        unpersist_if_exists(first_level_item_features_cached)
 
-        full_second_level_train = full_second_level_train.fillna(0).cache()
-        self.logger.info(
-            "Колонки после добавления признаков первого уровня: %s",
-            " ".join(full_second_level_train.columns),
-        )
-
+        full_second_level_train_cached = full_second_level_train.fillna(
+            0
+        ).cache()
+        full_second_level_train_cached.count()
         self.logger.info(
             "Генерация признаков: добавление признаков из датасета"
         )
         full_second_level_train = join_or_return(
-            full_second_level_train, user_features, on="user_idx", how="left",
+            full_second_level_train_cached,
+            user_features,
+            on="user_idx",
+            how="left",
         )
         full_second_level_train = join_or_return(
             full_second_level_train, item_features, on="item_idx", how="left",
         )
-        full_second_level_train.cache()
-        self.cached_list.append(full_second_level_train)
 
         if self.use_generated_features:
             if not self.features_processor.fitted:
                 self.features_processor.fit(
-                    log=log_used_in_predict,
+                    log=log_for_first_level_models,
                     user_features=user_features,
                     item_features=item_features,
                     user_cat_features_list=self.user_cat_features_list,
@@ -336,21 +340,21 @@ class TwoStagesScenario(HybridRecommender):
                 "Генерация признаков: добавление сгенерированных признаков"
             )
             full_second_level_train = self.features_processor.transform(
-                log=full_second_level_train,
-                user_features=user_features,
-                item_features=item_features,
+                log=full_second_level_train
             )
+
         self.logger.info(
-            "Колонки после добавления признаков из датасета: %s",
+            "Колонки после добавления признаков для обучения модели второго уровня: %s",
             " ".join(full_second_level_train.columns),
         )
-        full_second_level_train.show()
+
         if convert:
             full_second_level_train = self._convert_back(
                 full_second_level_train,
                 user_type=users_type,
                 item_type=items_type,
             )
+        full_second_level_train_cached.unpersist()
         return full_second_level_train
 
     def _split_data(self, log: DataFrame) -> Tuple[DataFrame, DataFrame]:
@@ -429,7 +433,6 @@ class TwoStagesScenario(HybridRecommender):
             ]
         )
 
-        print("max_positives_second_level", max_positives_to_filter)
         negatives = model._predict(
             log,
             k=k + max_positives_to_filter,
@@ -521,10 +524,6 @@ class TwoStagesScenario(HybridRecommender):
             model.inv_user_indexer = self.inv_user_indexer.copy()
             model.inv_item_indexer = self.inv_item_indexer.copy()
 
-        print(
-            len(self.item_indexer.labels),
-            len(self.first_level_models[0].item_indexer.labels),
-        )
         # конвертация с обновлением индексеров
         log, first_level_train, second_level_train = [
             self._convert_index(df).cache()
@@ -532,10 +531,6 @@ class TwoStagesScenario(HybridRecommender):
         ]
         self.cached_list.extend([log, first_level_train, second_level_train])
 
-        print(
-            len(self.item_indexer.labels),
-            len(self.first_level_models[0].item_indexer.labels),
-        )
         if user_features is not None:
             user_features = self._convert_index(user_features).cache()
             self.cached_list.append(user_features)
@@ -553,9 +548,6 @@ class TwoStagesScenario(HybridRecommender):
         first_level_user_features = cache_if_exists(
             self.first_level_user_features_transformer.transform(user_features)
         )
-
-        first_level_user_features.show()
-        first_level_item_features.show()
 
         for base_model in [
             *self.first_level_models,
@@ -633,7 +625,7 @@ class TwoStagesScenario(HybridRecommender):
         )
 
         self.logger.info("В train для модели второго уровня:")
-        for row_num in range(1):
+        for row_num in range(2):
             self.logger.info(
                 "\t%s объектов класса %s",
                 dataset_class_sizes.loc[row_num, "count_for_class"],
@@ -651,7 +643,7 @@ class TwoStagesScenario(HybridRecommender):
         self.logger.info("Дополнение train модели второго уровня признаками")
         full_second_level_train = self.add_features_for_second_level(
             log_to_add_features=full_second_level_train,
-            log_used_in_predict=first_level_train,
+            log_for_first_level_models=first_level_train,
             user_features=user_features,
             item_features=item_features,
         )
@@ -664,7 +656,6 @@ class TwoStagesScenario(HybridRecommender):
         full_second_level_train_pd = full_second_level_train.toPandas()
         full_second_level_train.unpersist()
         for dataframe in self.cached_list:
-            print(dataframe)
             unpersist_if_exists(dataframe)
 
         self.second_stage_model.fit_predict(
@@ -674,11 +665,6 @@ class TwoStagesScenario(HybridRecommender):
         # TO DO: узнать у коллег, как достать какие-нибудь
         # понятные важности признаков (не от одной модели)
         self.logger.info("Завершено обучение модели второго уровня")
-        # print(
-        #     self.second_stage_model.levels[0][0]
-        #     .ml_algos[0]
-        #     .get_features_score()[:20]
-        # )
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -726,10 +712,8 @@ class TwoStagesScenario(HybridRecommender):
             self.first_level_user_features_transformer.transform(user_features)
         )
         first_level_item_features = cache_if_exists(
-            self.first_level_user_features_transformer.transform(item_features)
+            self.first_level_item_features_transformer.transform(item_features)
         )
-        first_level_user_features.show()
-        first_level_item_features.show()
 
         candidates = self._predict_with_first_level_model(
             model=self.first_level_models[0],
@@ -761,22 +745,26 @@ class TwoStagesScenario(HybridRecommender):
                 id_type="idx",
             )
 
+        candidates_cached = candidates.cache()
         unpersist_if_exists(first_level_user_features)
         unpersist_if_exists(first_level_item_features)
         self.logger.info("Дополнение датасета кандидатов признаками")
         candidates_features = self.add_features_for_second_level(
-            log_to_add_features=candidates,
-            log_used_in_predict=log,
+            log_to_add_features=candidates_cached,
+            log_for_first_level_models=log,
             user_features=user_features,
             item_features=item_features,
         )
         candidates_features.cache()
+        candidates_cached.unpersist()
         self.logger.info(
             "Сгенерировано %s кандидатов для %s пользователей",
             candidates_features.count(),
             candidates_features.select("user_id").distinct().count(),
         )
+        self.logger.info("Predict: before convert to pandas",)
         candidates_features_pd = candidates_features.toPandas()
+        self.logger.info("Predict: after convert to pandas",)
         candidates_features.unpersist()
         candidates_ids = candidates_features_pd[
             ["user_idx", "item_idx", "relevance"]
@@ -796,10 +784,9 @@ class TwoStagesScenario(HybridRecommender):
             candidates.select("user_idx").distinct().count(),
         )
 
-        second_level_res = convert2spark(candidates_ids)
-
         self.logger.info("Выбор top-k")
-        return get_top_k_recs(recs=second_level_res, k=k, id_type="idx")
+        return convert2spark(candidates_ids)
+        # get_top_k_recs(recs=second_level_res, k=k, id_type="idx")
 
     def fit_predict(
         self,
@@ -910,7 +897,8 @@ class TwoStagesScenario(HybridRecommender):
         :param item_features: признаки объектов,
             спарк-датафрейм с колонкой
             ``[item_id]`` и колонками с признаками
-        :param param_grid: лист, содержащий сетки параметров для каждой из моделей первого уровня.
+        :param param_grid: лист, содержащий сетки параметров для каждой из моделей первого уровня
+            и fallback-модели (если есть).
             Для использования дефолтной сетки передайте None в соответствующем элементе листа.
             Чтобы не искать параметры для какой-то из моделей,
             передайте пустой словарь в соответствующем элементе листа.
@@ -931,6 +919,18 @@ class TwoStagesScenario(HybridRecommender):
                 "Передайте сетку параметров или None для каждой из моделей первого уровня и fallback-модели"
             )
 
+        first_level_user_features_tr = FirstLevelFeaturesProcessor()
+        first_level_user_features = first_level_user_features_tr.fit_transform(
+            user_features
+        )
+        first_level_item_features_tr = FirstLevelFeaturesProcessor()
+        first_level_item_features = first_level_item_features_tr.fit_transform(
+            item_features
+        )
+
+        first_level_user_features = cache_if_exists(first_level_user_features)
+        first_level_item_features = cache_if_exists(first_level_item_features)
+
         params_found = []
         for i, model in enumerate(self.first_level_models):
             if param_grid[i] is None or (
@@ -946,10 +946,12 @@ class TwoStagesScenario(HybridRecommender):
                         model=model,
                         train=train,
                         test=test,
-                        user_features=user_features,
-                        item_features=item_features,
+                        user_features=first_level_user_features,
+                        item_features=first_level_item_features,
                         param_grid=param_grid[i],
                         criterion=criterion,
+                        k=k,
+                        budget=budget,
                     )
                 )
             else:
@@ -965,9 +967,11 @@ class TwoStagesScenario(HybridRecommender):
             model=self.fallback_model,
             train=train,
             test=test,
-            user_features=user_features,
-            item_features=item_features,
+            user_features=first_level_user_features,
+            item_features=first_level_item_features,
             param_grid=param_grid[-1],
             criterion=criterion,
         )
+        unpersist_if_exists(first_level_item_features)
+        unpersist_if_exists(first_level_user_features)
         return params_found, fallback_params

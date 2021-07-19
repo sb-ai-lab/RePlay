@@ -438,13 +438,14 @@ def fallback(
     return recs
 
 
-# pylint: disable=too-many-locals
+# pylint: disable=too-many-locals, too-many-arguments
 def get_first_level_model_features(
     model: DataFrame,
     pairs: DataFrame,
     user_features: Optional[DataFrame] = None,
     item_features: Optional[DataFrame] = None,
     add_factors_mult: bool = True,
+    prefix: str = "",
 ) -> DataFrame:
     """
     Добавление векторов пользователей и объектов из модели replay.
@@ -460,17 +461,18 @@ def get_first_level_model_features(
     :param item_features: spark-датафрейм, содержащий признаки объектов
         spark-датафрейм с колонками `[item_id/item_idx, feature_1, ....]`
     :param add_factors_mult: добавить ли в качестве признаков результат покомпонентного умножения векторов
+    :param prefix: добавляемый в конец названия столбца идентификатор, например, имя модели
     :return: spark-датафрейм, содержащий компоненты векторов в качестве отдельных колонок
     """
     if "user_id" in pairs.columns:
         func_name = "_get_features_wrap"
-        suffix = "id"
+        id_type = "id"
     else:
         func_name = "_get_features"
-        suffix = "idx"
+        id_type = "idx"
 
-    users = pairs.select("user_{}".format(suffix)).distinct()
-    items = pairs.select("item_{}".format(suffix)).distinct()
+    users = pairs.select("user_{}".format(id_type)).distinct()
+    items = pairs.select("item_{}".format(id_type)).distinct()
     user_factors, user_vector_len = getattr(model, func_name)(
         users, user_features
     )
@@ -479,13 +481,13 @@ def get_first_level_model_features(
     )
 
     pairs_with_features = join_or_return(
-        pairs, user_factors, how="left", on="user_{}".format(suffix)
+        pairs, user_factors, how="left", on="user_{}".format(id_type)
     )
     pairs_with_features = join_or_return(
         pairs_with_features,
         item_factors,
         how="left",
-        on="item_{}".format(suffix),
+        on="item_{}".format(id_type),
     )
 
     factors_to_explode = []
@@ -523,14 +525,16 @@ def get_first_level_model_features(
         )
         factors_to_explode.append(("factors_mult", "fm"))
 
-    for col_name, prefix in factors_to_explode:
+    for col_name, feature_prefix in factors_to_explode:
         col_set = set(pairs_with_features.columns)
         col_set.remove(col_name)
         pairs_with_features = horizontal_explode(
             data_frame=pairs_with_features,
             column_to_explode=col_name,
             other_columns=[sf.col(column) for column in sorted(list(col_set))],
-            prefix=prefix,
+            prefix="{general_prefix}_{feature_prefix}".format(
+                general_prefix=prefix, feature_prefix=feature_prefix
+            ),
         )
 
     return pairs_with_features
@@ -552,5 +556,5 @@ def unpersist_if_exists(dataframe: Optional[DataFrame]) -> None:
     Применяет unpersist к spark-датафрейму
     :param dataframe: кэшированный spark-датафрейм или None
     """
-    if dataframe is not None:
+    if dataframe is not None and dataframe.is_cached:
         dataframe.unpersist()

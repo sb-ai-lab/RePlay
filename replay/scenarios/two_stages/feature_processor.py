@@ -6,7 +6,7 @@ from pyspark.sql.types import NumericType
 
 from replay.data_preparator import CatFeaturesTransformer
 from replay.session_handler import State
-from replay.utils import join_or_return
+from replay.utils import join_or_return, unpersist_if_exists
 
 
 class FirstLevelFeaturesProcessor:
@@ -74,12 +74,24 @@ class FirstLevelFeaturesProcessor:
         if sorted(spark_df.columns) != self.all_columns:
             raise ValueError(
                 "Колонки датафрейма, переданного в fit, не совпадают с колонками, "
-                "датафрейма, переданного в transform."
+                "датафрейма, переданного в transform. "
+                "Колонки в fit: %s,"
+                "колонки в transform: %s"
+                % (self.all_columns, sorted(spark_df.columns)),
             )
 
         return self.cat_feat_transformer.transform(
             spark_df.drop(*self.cols_to_del)
         )
+
+    def fit_transform(self, spark_df: DataFrame) -> DataFrame:
+        """
+        Последовательное обучение и применение FirstLevelFeaturesProcessor.
+        :param spark_df: исходный spark-датафрейм для one-hot encoding
+        :return: результирующий spark-датафрейм
+        """
+        self.fit(spark_df)
+        return self.transform(spark_df)
 
 
 # pylint: disable=too-many-instance-attributes, too-many-arguments
@@ -88,10 +100,10 @@ class SecondLevelFeaturesProcessor:
     Подсчет дополнительных признаков для модели второго уровня в двухуровневом сценарии
     """
 
-    user_log_features: Optional[DataFrame] = None
-    item_log_features: Optional[DataFrame] = None
-    user_cond_dist_cat_features: Optional[Dict[str, DataFrame]] = None
-    item_cond_dist_cat_features: Optional[Dict[str, DataFrame]] = None
+    user_log_features_cached: Optional[DataFrame] = None
+    item_log_features_cached: Optional[DataFrame] = None
+    user_cond_dist_cat_feat_c: Optional[Dict[str, DataFrame]] = None
+    item_cond_dist_cat_feat_c: Optional[Dict[str, DataFrame]] = None
     fitted = False
 
     def __init__(
@@ -246,8 +258,6 @@ class SecondLevelFeaturesProcessor:
             # Abnormality CR: https://hal.inria.fr/hal-01254172/document
             max_std = item_log_features.select(sf.max("i_std")).collect()[0][0]
             min_std = item_log_features.select(sf.min("i_std")).collect()[0][0]
-            print(max_std)
-            print(min_std)
             if max_std - min_std != 0:
                 abnormality_df = abnormality_df.withColumn(
                     "controversy",
@@ -336,13 +346,14 @@ class SecondLevelFeaturesProcessor:
         :param item_cat_features_list: категориальные признаки объектов, которые нужно использовать для построения признаков
             популярности у пользователя объектов в зависимости от значения категориального признака
         """
+        log = log.cache()
         if self.use_cooccurrence:
             raise NotImplementedError("co-occurrence will be implemented soon")
 
         if self.use_log_features:
             (
-                self.user_log_features,
-                self.item_log_features,
+                self.user_log_features_cached,
+                self.item_log_features_cached,
             ) = self._calc_log_features(log)
 
         if self.use_conditional_popularity:
@@ -351,7 +362,7 @@ class SecondLevelFeaturesProcessor:
                 user_features is not None
                 and user_cat_features_list is not None
             ):
-                self.item_cond_dist_cat_features = self._add_cond_distr_feat(
+                self.item_cond_dist_cat_feat_c = self._add_cond_distr_feat(
                     user_cat_features_list, log, user_features
                 )
 
@@ -360,44 +371,39 @@ class SecondLevelFeaturesProcessor:
                 item_features is not None
                 and item_cat_features_list is not None
             ):
-                self.user_cond_dist_cat_features = self._add_cond_distr_feat(
+                self.user_cond_dist_cat_feat_c = self._add_cond_distr_feat(
                     item_cat_features_list, log, item_features
                 )
 
         self.fitted = True
+        log.unpersist()
 
     def transform(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        self, log: DataFrame,
     ):
         """
         Обогащение лога сгенерированными признаками.
-        :param log: пары пользователей и объектов, спарк-датафрейм с колонками
+        :param log: пары пользователей и объектов и их признаки из датасета, спарк-датафрейм с колонками
             ``[user_id(x), item_id(x), ...]``, для которого нужно сгенерировать признаки
-        :param user_features: признаки пользователей, лог с обязательным столбцом ``user_id(x)`` и столбцами с признаками
-        :param item_features: признаки объектов, лог с обязательным столбцом ``item_id(x)`` и столбцами с признаками
         :return: датафрейм, содержащий взаимодействия из лога и сгенерированные признаки
         """
         if not self.fitted:
             raise AttributeError("Вызовите fit перед использованием transform")
         joined = log
 
-        joined.show()
-        user_features.show()
-        item_features.show()
         if self.use_log_features:
             joined = (
                 joined.join(
-                    self.user_log_features, on=self.user_id, how="left"
+                    self.user_log_features_cached, on=self.user_id, how="left"
                 )
-                .join(self.item_log_features, on=self.item_id, how="left")
+                .join(
+                    self.item_log_features_cached, on=self.item_id, how="left"
+                )
                 .fillna(
                     {
                         col_name: 0
-                        for col_name in self.user_log_features.columns
-                        + self.item_log_features.columns
+                        for col_name in self.user_log_features_cached.columns
+                        + self.item_log_features_cached.columns
                     }
                 )
             )
@@ -413,31 +419,32 @@ class SecondLevelFeaturesProcessor:
             )
 
         if self.use_conditional_popularity:
-            if self.user_cond_dist_cat_features is not None:
-                for key, value in self.user_cond_dist_cat_features.items():
+            if self.user_cond_dist_cat_feat_c is not None:
+                for (key, value,) in self.user_cond_dist_cat_feat_c.items():
                     joined = join_or_return(
                         joined, value, on=[self.user_id, key], how="left"
                     )
                     joined = joined.fillna({"user_pop_by_" + key: 0})
 
-            if self.item_cond_dist_cat_features is not None:
-                for key, value in self.item_cond_dist_cat_features.items():
+            if self.item_cond_dist_cat_feat_c is not None:
+                for (key, value,) in self.item_cond_dist_cat_feat_c.items():
                     joined = join_or_return(
                         joined, value, on=[self.item_id, key], how="left"
                     )
                     joined = joined.fillna({"item_pop_by_" + key: 0})
-
         return joined
 
     def __del__(self):
-        for log_feature in [self.user_log_features, self.item_log_features]:
-            if log_feature is not None:
-                log_feature.unpersist()
+        for log_feature in [
+            self.user_log_features_cached,
+            self.item_log_features_cached,
+        ]:
+            unpersist_if_exists(log_feature)
 
         for conditional_feature in [
-            self.user_cond_dist_cat_features,
-            self.item_cond_dist_cat_features,
+            self.user_cond_dist_cat_feat_c,
+            self.item_cond_dist_cat_feat_c,
         ]:
             if conditional_feature is not None:
                 for value in conditional_feature.values():
-                    value.unpersist()
+                    unpersist_if_exists(value)

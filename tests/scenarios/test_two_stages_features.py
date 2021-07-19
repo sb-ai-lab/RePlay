@@ -59,14 +59,14 @@ def item_features_second_stage(spark):
 
 
 @pytest.fixture
-def two_stages_fp():
+def second_stage_fp():
     return SecondLevelFeaturesProcessor()
 
 
-def test_log_features_unary_relevance_no_timestamp(
-    spark, two_stages_fp, log_second_stage
+def test_second_level_fp_log_features_unary_relevance_no_timestamp(
+    spark, second_stage_fp, log_second_stage
 ):
-    user_log_features, item_log_features = two_stages_fp._calc_log_features(
+    user_log_features, item_log_features = second_stage_fp._calc_log_features(
         log_second_stage.withColumn("relevance", sf.lit(1)).withColumn(
             "timestamp", sf.to_timestamp(sf.lit(datetime(2019, 1, 1)))
         )
@@ -99,10 +99,10 @@ def test_log_features_unary_relevance_no_timestamp(
     sparkDataFrameEqual(gt_item_features, item_log_features)
 
 
-def test_log_features_unary_relevance_timestamp(
-    spark, two_stages_fp, log_second_stage
+def test_second_level_fp_log_features_unary_relevance_timestamp(
+    spark, second_stage_fp, log_second_stage
 ):
-    user_log_features, item_log_features = two_stages_fp._calc_log_features(
+    user_log_features, item_log_features = second_stage_fp._calc_log_features(
         log_second_stage.withColumn("relevance", sf.lit(1))
     )
 
@@ -129,8 +129,10 @@ def test_log_features_unary_relevance_timestamp(
     )
 
 
-def test_log_features_relevance(spark, two_stages_fp, log_second_stage):
-    user_log_features, item_log_features = two_stages_fp._calc_log_features(
+def test_second_level_fp_log_features_relevance(
+    spark, second_stage_fp, log_second_stage
+):
+    user_log_features, item_log_features = second_stage_fp._calc_log_features(
         log_second_stage
     )
 
@@ -169,7 +171,6 @@ def test_log_features_relevance(spark, two_stages_fp, log_second_stage):
         ],
         schema=["item_idx"] + ["i_" + col for col in relevance_columns],
     )
-    item_log_features.show()
     sparkDataFrameEqual(
         gt_item_rel_features,
         item_log_features.select(
@@ -189,8 +190,6 @@ def test_log_features_relevance(spark, two_stages_fp, log_second_stage):
         ],
         schema=["user_idx"] + abnormality_columns,
     )
-    gt_user_abnorm_features.show()
-    user_log_features.select(*(["user_idx"] + abnormality_columns)).show()
     sparkDataFrameEqual(
         gt_user_abnorm_features,
         user_log_features.select(*(["user_idx"] + abnormality_columns)),
@@ -198,15 +197,14 @@ def test_log_features_relevance(spark, two_stages_fp, log_second_stage):
 
 
 def test_conditional_features(
-    spark, two_stages_fp, log_second_stage, user_features_second_stage
+    spark, second_stage_fp, log_second_stage, user_features_second_stage
 ):
 
-    item_cond_dist_cat_features = two_stages_fp._add_cond_distr_feat(
+    item_cond_dist_cat_features = second_stage_fp._add_cond_distr_feat(
         log=log_second_stage,
         features_df=user_features_second_stage,
         cat_cols=["gender"],
     )
-    item_cond_dist_cat_features["gender"].show()
     gt_item_feat = spark.createDataFrame(
         data=[["i1", "M", 0.5], ["i1", "F", 0.5], ["i2", None, 1.0]],
         schema=["item_idx", "gender", "item_pop_by_gender"],
@@ -219,51 +217,53 @@ def test_conditional_features(
     )
 
 
-def test_fit_transform(
-    two_stages_fp,
+def test_second_level_fp_fit_transform(
+    second_stage_fp,
     log_second_stage,
     user_features_second_stage,
     item_features_second_stage,
 ):
-    two_stages_fp.fit(
+    second_stage_fp.fit(
         log_second_stage,
         user_features_second_stage,
         item_features_second_stage,
         user_cat_features_list=["gender"],
         item_cat_features_list=["class"],
     )
-    assert two_stages_fp.user_log_features is not None
-    assert two_stages_fp.item_cond_dist_cat_features is not None
+    assert second_stage_fp.user_log_features_cached is not None
+    assert second_stage_fp.item_cond_dist_cat_feat_c is not None
     assert (
         "item_pop_by_gender"
-        in two_stages_fp.item_cond_dist_cat_features["gender"].columns
+        in second_stage_fp.item_cond_dist_cat_feat_c["gender"].columns
     )
-    res = two_stages_fp.transform(
-        log_second_stage,
-        user_features_second_stage,
-        item_features_second_stage,
+    res = second_stage_fp.transform(
+        (
+            log_second_stage.join(
+                user_features_second_stage, on="user_idx"
+            ).join(item_features_second_stage, on="item_idx")
+        )
     )
     assert "gender" in res.columns
     assert "item_pop_by_gender" in res.columns
 
 
-def test_fit_transform_one_features_df(
-    two_stages_fp, log_second_stage, user_features_second_stage
+def test_second_level_fp_fit_transform_one_features_df(
+    second_stage_fp, log_second_stage, user_features_second_stage
 ):
-    two_stages_fp.fit(
+    second_stage_fp.fit(
         log_second_stage,
         user_features_second_stage,
         item_features=None,
         user_cat_features_list=["gender"],
     )
-    assert two_stages_fp.item_cond_dist_cat_features is not None
-    assert two_stages_fp.user_cond_dist_cat_features is None
+    assert second_stage_fp.item_cond_dist_cat_feat_c is not None
+    assert second_stage_fp.user_cond_dist_cat_feat_c is None
     assert (
         "item_pop_by_gender"
-        in two_stages_fp.item_cond_dist_cat_features["gender"].columns
+        in second_stage_fp.item_cond_dist_cat_feat_c["gender"].columns
     )
-    res = two_stages_fp.transform(
-        log_second_stage, user_features_second_stage, None
+    res = second_stage_fp.transform(
+        log_second_stage.join(user_features_second_stage, on="user_idx")
     )
     assert "item_pop_by_gender" in res.columns
 

@@ -1,9 +1,10 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 # import math
-from datetime import datetime
 
+import logging
 import pytest
 
+from datetime import datetime
 from pyspark.sql import functions as sf
 
 from lightautoml.automl.presets.tabular_presets import TabularAutoML
@@ -11,18 +12,33 @@ from lightautoml.automl.presets.tabular_presets import TabularAutoML
 from replay.models import ALSWrap, KNN, PopRec, LightFMWrap
 from replay.scenarios.two_stages.feature_processor import (
     SecondLevelFeaturesProcessor,
+    FirstLevelFeaturesProcessor,
 )
 from replay.scenarios.two_stages.two_stages_scenario import TwoStagesScenario
 
-from tests.utils import spark, sparkDataFrameEqual
+from tests.utils import (
+    spark,
+    sparkDataFrameEqual,
+    long_log_with_features,
+    short_log_with_features,
+    user_features,
+    item_features,
+)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def two_stages_kwargs():
     return {
-        "first_level_models": [ALSWrap(rank=4), KNN(num_neighbours=4)],
-        # , LightFMWrap(no_components=4)],
+        "first_level_models": [
+            ALSWrap(rank=4),
+            KNN(num_neighbours=4),
+            LightFMWrap(no_components=4),
+        ],
         "use_first_level_models_feat": True,
+        "second_model_params": {
+            "timeout": 30,
+            "general_params": {"use_algos": ["lgb"]},
+        },
         "num_negatives": 2,
         "negatives_type": "first_level",
         "use_generated_features": True,
@@ -32,71 +48,18 @@ def two_stages_kwargs():
     }
 
 
-@pytest.fixture
-def log(spark):
-    date = datetime(2019, 1, 1)
-    return spark.createDataFrame(
-        data=[
-            ["u1", "i1", date, 1.0],
-            ["u1", "i4", datetime(2019, 1, 5), 3.0],
-            ["u1", "i2", date, 2.0],
-            ["u1", "i5", date, 4.0],
-            ["u2", "i1", date, 1.0],
-            ["u2", "i3", datetime(2018, 1, 1), 2.0],
-            ["u2", "i7", datetime(2019, 1, 1), 4.0],
-            ["u2", "i8", datetime(2020, 1, 1), 4.0],
-            ["u3", "i9", date, 3.0],
-            ["u3", "i2", date, 2.0],
-            ["u3", "i6", datetime(2020, 3, 1), 1.0],
-            ["u3", "i7", date, 5.0],
-        ],
-        schema=["user_id", "item_id", "timestamp", "relevance"],
-    )
-
-
-@pytest.fixture
-def pairs(spark):
-    date = datetime(2021, 1, 1)
-    return spark.createDataFrame(
-        data=[
-            ["u1", "i3", date, 1.0],
-            ["u1", "i7", datetime(2019, 1, 5), 3.0],
-            ["u2", "i2", date, 1.0],
-            ["u2", "i10", datetime(2018, 1, 1), 2.0],
-            ["u3", "i8", date, 3.0],
-            ["u3", "i1", date, 2.0],
-            ["u4", "i7", date, 5.0],
-        ],
-        schema=["user_id", "item_id", "timestamp", "relevance"],
-    )
-
-
-@pytest.fixture
-def user_features(spark):
-    return spark.createDataFrame(
-        [("u1", 20.0, -3.0, "M"), ("u2", 30.0, 4.0, "F")]
-    ).toDF("user_id", "age", "mood", "gender")
-
-
-@pytest.fixture
-def item_features(spark):
-    return spark.createDataFrame(
-        [
-            ("i1", 4.0, "cat"),
-            ("i2", 10.0, "dog"),
-            ("i3", 7.0, "mouse"),
-            ("i4", -1.0, "cat"),
-            ("i5", 11.0, "dog"),
-            ("i6", 0.0, "mouse"),
-        ]
-    ).toDF("item_id", "iq", "class")
-
-
 def test_init(two_stages_kwargs):
 
     two_stages = TwoStagesScenario(**two_stages_kwargs)
     assert isinstance(two_stages.fallback_model, PopRec)
     assert isinstance(two_stages.second_stage_model, TabularAutoML)
+    assert isinstance(
+        two_stages.features_processor, SecondLevelFeaturesProcessor
+    )
+    assert isinstance(
+        two_stages.first_level_item_features_transformer,
+        FirstLevelFeaturesProcessor,
+    )
     assert two_stages.use_first_level_models_feat == [True, True, True]
 
     two_stages_kwargs["use_first_level_models_feat"] = [True]
@@ -111,28 +74,95 @@ def test_init(two_stages_kwargs):
         two_stages = TwoStagesScenario(**two_stages_kwargs)
 
 
-def test_fit(log, pairs, user_features, item_features, two_stages_kwargs):
-    two_stages_kwargs["use_first_level_models_feat"] = [True, False]
+def test_fit(
+    long_log_with_features,
+    short_log_with_features,
+    user_features,
+    item_features,
+    two_stages_kwargs,
+):
+    two_stages_kwargs["use_first_level_models_feat"] = [True, False, True]
     two_stages = TwoStagesScenario(**two_stages_kwargs)
 
-    two_stages.fit(log, user_features, item_features.filter(sf.col("iq") > 4))
-    # features_proc = SecondLevelFeaturesProcessor(
-    #     use_log_features=True, use_conditional_popularity=False
-    # )
+    two_stages.fit(
+        long_log_with_features,
+        user_features,
+        item_features.filter(sf.col("iq") > 4),
+    )
     res = two_stages.add_features_for_second_level(
-        pairs, log, user_features, item_features
+        log_to_add_features=short_log_with_features,
+        log_for_first_level_models=long_log_with_features,
+        user_features=user_features,
+        item_features=item_features,
     )
-    print(res.count())
-    print(two_stages.first_level_item_features_transformer)
+    assert res.count() == short_log_with_features.count()
+    assert "rel_0_ALSWrap" in res.columns
+    assert "m_2_fm_0" in res.columns
+    assert "user_pop_by_class" in res.columns
+    assert "age" in res.columns
     two_stages.first_level_item_features_transformer.transform(
-        item_features
+        item_features.withColumnRenamed("item_id", "item_idx")
     ).show()
-    res.select("user_id", "item_id", "rel_1_KNN", "rel_0_ALSWrap").show()
-    print(
-        "two_stages.first_level_item_indexer_len",
-        two_stages.first_level_item_indexer_len,
+    assert two_stages.first_level_item_indexer_len == 4
+    assert two_stages.first_level_user_indexer_len == 3
+
+
+# def test_predict(
+#     long_log_with_features,
+#     short_log_with_features,
+#     user_features,
+#     item_features,
+#     two_stages_kwargs,
+# ):
+#     two_stages = TwoStagesScenario(**two_stages_kwargs)
+#
+#     two_stages.fit(
+#         long_log_with_features,
+#         user_features,
+#         item_features.filter(sf.col("iq") > 4),
+#     )
+#     print("fitted")
+#     pred = two_stages.predict(
+#         log=long_log_with_features,
+#         k=2,
+#         user_features=user_features,
+#         item_features=item_features,
+#     )
+#     pred.show()
+
+
+def test_optimize(
+    long_log_with_features,
+    short_log_with_features,
+    user_features,
+    item_features,
+    two_stages_kwargs,
+):
+    two_stages = TwoStagesScenario(**two_stages_kwargs)
+    param_grid = [{"rank": [1, 10]}, {}, None, None]
+    # with fallback
+    first_level_params, fallback_params = two_stages.optimize(
+        train=long_log_with_features,
+        test=short_log_with_features,
+        user_features=user_features,
+        item_features=item_features,
+        param_grid=param_grid,
+        k=1,
+        budget=1,
     )
-    print(
-        "two_stages.first_level_user_indexer_len",
-        two_stages.first_level_user_indexer_len,
+    assert len(first_level_params) == 3
+    assert first_level_params[1] is None
+    assert first_level_params[0].keys() == ["rank"]
+    assert fallback_params is None
+
+    # no fallback works
+    two_stages.fallback_model = None
+    two_stages.optimize(
+        train=long_log_with_features,
+        test=short_log_with_features,
+        user_features=user_features,
+        item_features=item_features,
+        param_grid=param_grid,
+        k=1,
+        budget=1,
     )

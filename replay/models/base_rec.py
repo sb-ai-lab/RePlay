@@ -676,12 +676,23 @@ class BaseRecommender(ABC):
 
         return vectors, rank
 
+    # pylint: disable=unused-argument
     def _get_features(
         self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Optional[Tuple[DataFrame, int]]:
-        raise NotImplementedError(
-            "Метод реализован только для моделей ALS и LightFMWrap"
+    ) -> Tuple[Optional[DataFrame], Optional[int]]:
+        """
+        Получение векторов пользователей и объектов, построенных моделью.
+        :param ids: id пользователей/объектов, для которых нужно получить вектора,
+            spark-dataframe с колонкой item_idx/user_idx
+        :param features: spark-dataframe с колонкой item_idx/user_idx
+            и колонками с признаками пользователей/объектов
+        :return: spark-dataframe с bias и векторами пользователей/объектов, размерность вектора
+        """
+
+        self.logger.info(
+            "Метод реализован только для моделей ALS и LightFMWrap. Признаки не будут возвращены"
         )
+        return None, None
 
 
 # pylint: disable=abstract-method
