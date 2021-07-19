@@ -160,9 +160,9 @@ def _fit_predict_compare_features(
         .asDict()
     )
     assert np.isclose(
-        row_dict["if_0"] * row_dict["uf_0"]
-        + row_dict["user_bias"]
-        + row_dict["item_bias"],
+        row_dict["_if_0"] * row_dict["_uf_0"]
+        + row_dict["_user_bias"]
+        + row_dict["_item_bias"],
         pred_for_test,
     )
 

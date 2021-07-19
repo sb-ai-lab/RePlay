@@ -26,7 +26,7 @@ from tests.utils import (
 )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def two_stages_kwargs():
     return {
         "first_level_models": [

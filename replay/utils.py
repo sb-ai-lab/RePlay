@@ -512,7 +512,11 @@ def get_first_level_model_features(
         factors_to_explode.append(("item_factors", "if"))
 
     if model.__str__() == "LightFMWrap":
-        pairs_with_features.fillna({"user_bias": 0, "item_bias": 0})
+        pairs_with_features = (
+            pairs_with_features.fillna({"user_bias": 0, "item_bias": 0})
+            .withColumnRenamed("user_bias", "{}_user_bias".format(prefix))
+            .withColumnRenamed("item_bias", "{}_item_bias".format(prefix))
+        )
 
     if (
         add_factors_mult
