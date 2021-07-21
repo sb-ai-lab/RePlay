@@ -1,10 +1,6 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-# import math
 
-import logging
 import pytest
-
-from datetime import datetime
 from pyspark.sql import functions as sf
 
 from lightautoml.automl.presets.tabular_presets import TabularAutoML
@@ -14,7 +10,8 @@ from replay.scenarios.two_stages.feature_processor import (
     SecondLevelFeaturesProcessor,
     FirstLevelFeaturesProcessor,
 )
-from replay.scenarios.two_stages.two_stages_scenario import TwoStagesScenario
+from replay.scenarios import TwoStagesScenario
+from replay.splitters import UserSplitter
 
 from tests.utils import (
     spark,
@@ -34,12 +31,15 @@ def two_stages_kwargs():
             KNN(num_neighbours=4),
             LightFMWrap(no_components=4),
         ],
+        "train_splitter": UserSplitter(
+            item_test_size=0.3, shuffle=False, seed=42
+        ),
         "use_first_level_models_feat": True,
         "second_model_params": {
             "timeout": 30,
             "general_params": {"use_algos": ["lgb"]},
         },
-        "num_negatives": 2,
+        "num_negatives": 6,
         "negatives_type": "first_level",
         "use_generated_features": True,
         "user_cat_features_list": ["gender"],
@@ -89,46 +89,50 @@ def test_fit(
         user_features,
         item_features.filter(sf.col("iq") > 4),
     )
-    res = two_stages.add_features_for_second_level(
-        log_to_add_features=short_log_with_features,
-        log_for_first_level_models=long_log_with_features,
-        user_features=user_features,
-        item_features=item_features,
+    assert two_stages.first_level_item_indexer_len == 6
+    assert two_stages.first_level_user_indexer_len == 3
+
+    res = two_stages._add_features_for_second_level(
+        log_to_add_features=two_stages._convert_index(short_log_with_features),
+        log_for_first_level_models=two_stages._convert_index(
+            long_log_with_features
+        ),
+        user_features=two_stages._convert_index(user_features),
+        item_features=two_stages._convert_index(item_features),
     )
     assert res.count() == short_log_with_features.count()
     assert "rel_0_ALSWrap" in res.columns
     assert "m_2_fm_0" in res.columns
     assert "user_pop_by_class" in res.columns
     assert "age" in res.columns
+
     two_stages.first_level_item_features_transformer.transform(
         item_features.withColumnRenamed("item_id", "item_idx")
-    ).show()
-    assert two_stages.first_level_item_indexer_len == 4
-    assert two_stages.first_level_user_indexer_len == 3
+    )
 
 
-# def test_predict(
-#     long_log_with_features,
-#     short_log_with_features,
-#     user_features,
-#     item_features,
-#     two_stages_kwargs,
-# ):
-#     two_stages = TwoStagesScenario(**two_stages_kwargs)
-#
-#     two_stages.fit(
-#         long_log_with_features,
-#         user_features,
-#         item_features.filter(sf.col("iq") > 4),
-#     )
-#     print("fitted")
-#     pred = two_stages.predict(
-#         log=long_log_with_features,
-#         k=2,
-#         user_features=user_features,
-#         item_features=item_features,
-#     )
-#     pred.show()
+def test_predict(
+    long_log_with_features, user_features, item_features, two_stages_kwargs,
+):
+    two_stages = TwoStagesScenario(**two_stages_kwargs)
+
+    two_stages.fit(
+        long_log_with_features,
+        user_features,
+        item_features.filter(sf.col("iq") > 4),
+    )
+    pred = two_stages.predict(
+        log=long_log_with_features,
+        k=2,
+        user_features=user_features,
+        item_features=item_features,
+    )
+    assert pred.count() == 6
+    assert sorted(pred.select(sf.collect_set("user_id")).collect()[0][0]) == [
+        "u1",
+        "u2",
+        "u3",
+    ]
 
 
 def test_optimize(
@@ -152,7 +156,7 @@ def test_optimize(
     )
     assert len(first_level_params) == 3
     assert first_level_params[1] is None
-    assert first_level_params[0].keys() == ["rank"]
+    assert list(first_level_params[0].keys()) == ["rank"]
     assert fallback_params is None
 
     # no fallback works
@@ -162,7 +166,7 @@ def test_optimize(
         test=short_log_with_features,
         user_features=user_features,
         item_features=item_features,
-        param_grid=param_grid,
+        param_grid=param_grid[:3],
         k=1,
         budget=1,
     )

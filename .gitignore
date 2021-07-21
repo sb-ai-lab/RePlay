@@ -147,3 +147,4 @@ tmp/
 docs/_build/
 poetry.lock
 *.DS_Store
+*/catboost_info

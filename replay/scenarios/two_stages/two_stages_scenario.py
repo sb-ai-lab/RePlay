@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 from collections.abc import Iterable
 from typing import Dict, Optional, Tuple, List, Union, Any
 
@@ -19,15 +20,123 @@ from replay.scenarios.two_stages.feature_processor import (
 from replay.session_handler import State
 from replay.splitters import Splitter, UserSplitter
 from replay.utils import (
+    array_mult,
     cache_if_exists,
     convert2spark,
     fallback,
     get_log_info,
     get_top_k_recs,
-    get_first_level_model_features,
+    horizontal_explode,
     join_or_return,
+    ugly_join,
     unpersist_if_exists,
 )
+
+
+# pylint: disable=too-many-locals, too-many-arguments
+def get_first_level_model_features(
+    model: DataFrame,
+    pairs: DataFrame,
+    user_features: Optional[DataFrame] = None,
+    item_features: Optional[DataFrame] = None,
+    add_factors_mult: bool = True,
+    prefix: str = "",
+) -> DataFrame:
+    """
+    Добавление векторов пользователей и объектов из модели replay.
+    Если модель может вернуть и вектора пользователей, и вектора объектов,
+    можно дополнительно посчитать покомпонентное произведение. Настраивается параметром add_factors_mult.
+    Если модель не может вернуть вектора для части пользователей/объектов, для них возвращаются нулевые вектора.
+
+    :param model: обученная модель replay, возвращающая вектора пользователей/объектов
+    :param pairs: пары пользователь/объект для которых нужно вернуть вектора
+        spark-датафрейм с колонками `[user_id/user_idx, item_id/item_id]`
+    :param user_features: датафрейм, содержащий признаки пользователей,
+        spark-датафрейм с колонками `[user_id/user_idx, feature_1, ....]`
+    :param item_features: spark-датафрейм, содержащий признаки объектов
+        spark-датафрейм с колонками `[item_id/item_idx, feature_1, ....]`
+    :param add_factors_mult: добавить ли в качестве признаков результат покомпонентного умножения векторов
+    :param prefix: добавляемый в конец названия столбца идентификатор, например, имя модели
+    :return: spark-датафрейм, содержащий компоненты векторов в качестве отдельных колонок
+    """
+    if "user_id" in pairs.columns:
+        func_name = "_get_features_wrap"
+        id_type = "id"
+    else:
+        func_name = "_get_features"
+        id_type = "idx"
+
+    users = pairs.select("user_{}".format(id_type)).distinct()
+    items = pairs.select("item_{}".format(id_type)).distinct()
+    user_factors, user_vector_len = getattr(model, func_name)(
+        users, user_features
+    )
+    item_factors, item_vector_len = getattr(model, func_name)(
+        items, item_features
+    )
+
+    pairs_with_features = join_or_return(
+        pairs, user_factors, how="left", on="user_{}".format(id_type)
+    )
+    pairs_with_features = join_or_return(
+        pairs_with_features,
+        item_factors,
+        how="left",
+        on="item_{}".format(id_type),
+    )
+
+    factors_to_explode = []
+    if user_factors is not None:
+        pairs_with_features = pairs_with_features.withColumn(
+            "user_factors",
+            sf.coalesce(
+                sf.col("user_factors"),
+                sf.array([sf.lit(0.0)] * user_vector_len),
+            ),
+        )
+        factors_to_explode.append(("user_factors", "uf"))
+
+    if item_factors is not None:
+        pairs_with_features = pairs_with_features.withColumn(
+            "item_factors",
+            sf.coalesce(
+                sf.col("item_factors"),
+                sf.array([sf.lit(0.0)] * item_vector_len),
+            ),
+        )
+        factors_to_explode.append(("item_factors", "if"))
+
+    if model.__str__() == "LightFMWrap":
+        pairs_with_features = (
+            pairs_with_features.fillna({"user_bias": 0, "item_bias": 0})
+            .withColumnRenamed("user_bias", "{}_user_bias".format(prefix))
+            .withColumnRenamed("item_bias", "{}_item_bias".format(prefix))
+        )
+
+    if (
+        add_factors_mult
+        and user_factors is not None
+        and item_factors is not None
+    ):
+        pairs_with_features = pairs_with_features.withColumn(
+            "factors_mult",
+            array_mult(sf.col("item_factors"), sf.col("user_factors")),
+        )
+        factors_to_explode.append(("factors_mult", "fm"))
+
+    for col_name, feature_prefix in factors_to_explode:
+        col_set = set(pairs_with_features.columns)
+        col_set.remove(col_name)
+        pairs_with_features = horizontal_explode(
+            data_frame=pairs_with_features,
+            column_to_explode=col_name,
+            other_columns=[sf.col(column) for column in sorted(list(col_set))],
+            prefix="{general_prefix}_{feature_prefix}".format(
+                general_prefix=prefix, feature_prefix=feature_prefix
+            ),
+        )
+
+    return pairs_with_features
 
 
 # pylint: disable=too-many-instance-attributes
@@ -213,7 +322,7 @@ class TwoStagesScenario(HybridRecommender):
         self.seed = seed
 
     # pylint: disable=too-many-locals
-    def add_features_for_second_level(
+    def _add_features_for_second_level(
         self,
         log_to_add_features: DataFrame,
         log_for_first_level_models: DataFrame,
@@ -248,29 +357,6 @@ class TwoStagesScenario(HybridRecommender):
         self.logger.info(
             "Генерация признаков: релевантность и признаки из моделей первого уровня"
         )
-        # first-level pred and features
-
-        convert = False
-        users_type = items_type = None
-        if "user_id" in log_to_add_features.columns:
-            convert = True
-            users_type = log_to_add_features.schema["user_id"].dataType
-            items_type = log_to_add_features.schema["item_id"].dataType
-            (
-                log_to_add_features,
-                log_for_first_level_models,
-                user_features,
-                item_features,
-            ) = [
-                self._convert_index(df)
-                for df in [
-                    log_to_add_features,
-                    log_for_first_level_models,
-                    user_features,
-                    item_features,
-                ]
-            ]
-
         full_second_level_train = log_to_add_features
         first_level_item_features_cached = cache_if_exists(
             self.first_level_item_features_transformer.transform(item_features)
@@ -279,8 +365,7 @@ class TwoStagesScenario(HybridRecommender):
             self.first_level_user_features_transformer.transform(user_features)
         )
 
-        pairs = full_second_level_train.select("user_idx", "item_idx")
-
+        pairs = log_to_add_features.select("user_idx", "item_idx")
         for idx, model in enumerate(self.first_level_models):
             current_pred = self._predict_pairs_with_first_level_model(
                 model=model,
@@ -290,7 +375,9 @@ class TwoStagesScenario(HybridRecommender):
                 item_features=first_level_item_features_cached,
             ).withColumnRenamed("relevance", "rel_{}_{}".format(idx, model))
             full_second_level_train = full_second_level_train.join(
-                current_pred, on=["user_idx", "item_idx"], how="left"
+                sf.broadcast(current_pred),
+                on=["user_idx", "item_idx"],
+                how="left",
             )
 
             if self.use_first_level_models_feat[idx]:
@@ -303,8 +390,11 @@ class TwoStagesScenario(HybridRecommender):
                     item_features=first_level_item_features_cached,
                     prefix="m_{}".format(idx),
                 )
-                full_second_level_train = full_second_level_train.join(
-                    features, on=["user_idx", "item_idx"], how="left"
+                full_second_level_train = ugly_join(
+                    left=full_second_level_train,
+                    right=features,
+                    on_col_name=["user_idx", "item_idx"],
+                    how="left",
                 )
 
         unpersist_if_exists(first_level_user_features_cached)
@@ -313,7 +403,7 @@ class TwoStagesScenario(HybridRecommender):
         full_second_level_train_cached = full_second_level_train.fillna(
             0
         ).cache()
-        full_second_level_train_cached.count()
+
         self.logger.info(
             "Генерация признаков: добавление признаков из датасета"
         )
@@ -344,16 +434,9 @@ class TwoStagesScenario(HybridRecommender):
             )
 
         self.logger.info(
-            "Колонки после добавления признаков для обучения модели второго уровня: %s",
+            "Колонки после добавления признаков для модели второго уровня: %s",
             " ".join(full_second_level_train.columns),
         )
-
-        if convert:
-            full_second_level_train = self._convert_back(
-                full_second_level_train,
-                user_type=users_type,
-                item_type=items_type,
-            )
         full_second_level_train_cached.unpersist()
         return full_second_level_train
 
@@ -390,14 +473,14 @@ class TwoStagesScenario(HybridRecommender):
 
     def _predict_with_first_level_model(
         self,
-        model,
-        log,
-        k,
-        users,
-        items,
-        user_features,
-        item_features,
-        log_to_filter,
+        model: BaseRecommender,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: DataFrame,
+        item_features: DataFrame,
+        log_to_filter: DataFrame,
     ):
         """
         Фильтрация объектов и пользователей зависимости от флагов can_predict_cold_items,
@@ -433,7 +516,7 @@ class TwoStagesScenario(HybridRecommender):
             ]
         )
 
-        negatives = model._predict(
+        pred = model._predict(
             log,
             k=k + max_positives_to_filter,
             users=users,
@@ -447,17 +530,25 @@ class TwoStagesScenario(HybridRecommender):
         # свое k до фильтрации просмотренных,
         # фильтровать top-k, а потом исключать просмотренных,
         # чтобы сделать anti-join не таким объемным
-        negatives = negatives.join(
+        pred = pred.join(
             log_to_filter.select("user_idx", "item_idx"),
             on=["user_idx", "item_idx"],
             how="anti",
         ).drop("user", "item")
 
-        return get_top_k_recs(negatives, k, id_type="idx")
+        return get_top_k_recs(pred, k, id_type="idx")
 
     def _predict_pairs_with_first_level_model(
-        self, model, log, pairs, user_features, item_features
+        self,
+        model: BaseRecommender,
+        log: DataFrame,
+        pairs: DataFrame,
+        user_features: DataFrame,
+        item_features: DataFrame,
     ):
+        """
+        Get relevance for selected user-item pairs.
+        """
         if not model.can_predict_cold_items:
             log, pairs, item_features = [
                 self._filter_or_return(
@@ -483,6 +574,39 @@ class TwoStagesScenario(HybridRecommender):
             user_features=user_features,
             item_features=item_features,
         )
+
+    # pylint: disable=unused-argument
+    def _get_first_level_candidates(
+        self,
+        model: BaseRecommender,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: DataFrame,
+        item_features: DataFrame,
+        log_to_filter: DataFrame,
+    ) -> DataFrame:
+        """
+        Combining the base model predictions with the fallback model
+        predictions.
+        """
+        passed_arguments = locals()
+        passed_arguments.pop("self")
+        candidates = self._predict_with_first_level_model(**passed_arguments)
+
+        if self.fallback_model is not None:
+            fallback_candidates = self._predict_with_first_level_model(
+                **passed_arguments
+            )
+
+            candidates = fallback(
+                base=candidates,
+                fill=fallback_candidates,
+                k=self.num_negatives,
+                id_type="idx",
+            )
+        return candidates
 
     # pylint: disable=too-many-locals,too-many-statements
     def _fit(
@@ -573,7 +697,7 @@ class TwoStagesScenario(HybridRecommender):
             else self.random_model
         )
 
-        negatives = self._predict_with_first_level_model(
+        negatives = self._get_first_level_candidates(
             model=negatives_source,
             log=first_level_train,
             k=self.num_negatives,
@@ -582,26 +706,7 @@ class TwoStagesScenario(HybridRecommender):
             user_features=first_level_user_features,
             item_features=first_level_item_features,
             log_to_filter=log,
-        ).withColumn("relevance", sf.lit(0.0))
-
-        if self.fallback_model is not None:
-            negatives_fallback = self._predict_with_first_level_model(
-                model=self.fallback_model,
-                log=first_level_train,
-                k=self.num_negatives,
-                users=log.select("user_idx").distinct(),
-                items=log.select("item_idx").distinct(),
-                user_features=first_level_user_features,
-                item_features=first_level_item_features,
-                log_to_filter=log,
-            ).withColumn("relevance", sf.lit(0.0))
-
-            negatives = fallback(
-                base=negatives,
-                fill=negatives_fallback,
-                k=self.num_negatives,
-                id_type="idx",
-            )
+        ).withColumn("relevance", sf.lit(0))
 
         unpersist_if_exists(first_level_user_features)
         unpersist_if_exists(first_level_item_features)
@@ -641,7 +746,7 @@ class TwoStagesScenario(HybridRecommender):
         )
 
         self.logger.info("Дополнение train модели второго уровня признаками")
-        full_second_level_train = self.add_features_for_second_level(
+        full_second_level_train = self._add_features_for_second_level(
             log_to_add_features=full_second_level_train,
             log_for_first_level_models=first_level_train,
             user_features=user_features,
@@ -715,10 +820,10 @@ class TwoStagesScenario(HybridRecommender):
             self.first_level_item_features_transformer.transform(item_features)
         )
 
-        candidates = self._predict_with_first_level_model(
+        candidates = self._get_first_level_candidates(
             model=self.first_level_models[0],
             log=log,
-            k=k,
+            k=self.num_negatives,
             users=users,
             items=items,
             user_features=first_level_user_features,
@@ -726,30 +831,11 @@ class TwoStagesScenario(HybridRecommender):
             log_to_filter=log,
         )
 
-        if self.fallback_model is not None:
-            fallback_candidates = self._predict_with_first_level_model(
-                model=self.fallback_model,
-                log=log,
-                k=k,
-                users=users,
-                items=items,
-                user_features=first_level_user_features,
-                item_features=first_level_item_features,
-                log_to_filter=log,
-            )
-
-            candidates = fallback(
-                base=candidates,
-                fill=fallback_candidates,
-                k=self.num_negatives,
-                id_type="idx",
-            )
-
         candidates_cached = candidates.cache()
         unpersist_if_exists(first_level_user_features)
         unpersist_if_exists(first_level_item_features)
         self.logger.info("Дополнение датасета кандидатов признаками")
-        candidates_features = self.add_features_for_second_level(
+        candidates_features = self._add_features_for_second_level(
             log_to_add_features=candidates_cached,
             log_for_first_level_models=log,
             user_features=user_features,
@@ -760,11 +846,9 @@ class TwoStagesScenario(HybridRecommender):
         self.logger.info(
             "Сгенерировано %s кандидатов для %s пользователей",
             candidates_features.count(),
-            candidates_features.select("user_id").distinct().count(),
+            candidates_features.select("user_idx").distinct().count(),
         )
-        self.logger.info("Predict: before convert to pandas",)
         candidates_features_pd = candidates_features.toPandas()
-        self.logger.info("Predict: after convert to pandas",)
         candidates_features.unpersist()
         candidates_ids = candidates_features_pd[
             ["user_idx", "item_idx", "relevance"]
@@ -785,8 +869,9 @@ class TwoStagesScenario(HybridRecommender):
         )
 
         self.logger.info("Выбор top-k")
-        return convert2spark(candidates_ids)
-        # get_top_k_recs(recs=second_level_res, k=k, id_type="idx")
+        return get_top_k_recs(
+            recs=convert2spark(candidates_ids), k=k, id_type="idx"
+        )
 
     def fit_predict(
         self,
@@ -864,7 +949,6 @@ class TwoStagesScenario(HybridRecommender):
             k,
             budget,
         )
-        model.set_params(**params)
         return params
 
     # pylint: disable=too-many-arguments, too-many-locals

@@ -11,6 +11,6 @@ Fallback
 
 Двухуровневый сценарий
 ----------------------
-.. autoclass:: replay.scenarios.two_stages.TwoStagesScenario
+.. autoclass:: replay.scenarios.TwoStagesScenario
    :special-members: __init__
    :members: fit, predict, optimize

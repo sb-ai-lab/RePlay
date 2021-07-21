@@ -1,9 +1,5 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 
-import os
-import re
-from typing import Optional
-
 import numpy as np
 import pandas as pd
 import pyspark.sql.functions as sf
@@ -34,23 +30,3 @@ def test_convert():
     spark_df = utils.convert2spark(dataframe)
     pd.testing.assert_frame_equal(dataframe, spark_df.toPandas())
     assert utils.convert2spark(spark_df) is spark_df
-
-
-def del_files_by_pattern(directory: str, pattern: str) -> None:
-    """
-    Удаляет файлы из директории в соответствии с заданным паттерном имени файла
-    """
-    for filename in os.listdir(directory):
-        if re.match(pattern, filename):
-            os.remove(os.path.join(directory, filename))
-
-
-def find_file_by_pattern(directory: str, pattern: str) -> Optional[str]:
-    """
-    Возвращает путь к первому найденному файлу в директории, соответствующему паттерну,
-    или None, если таких файлов нет
-    """
-    for filename in os.listdir(directory):
-        if re.match(pattern, filename):
-            return os.path.join(directory, filename)
-    return None

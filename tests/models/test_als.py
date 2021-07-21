@@ -1,13 +1,13 @@
 # pylint: disable-all
-from datetime import datetime
-
 import pytest
 import numpy as np
 
 from pyspark.sql import functions as sf
 
 from replay.models import ALSWrap
-from replay.utils import get_first_level_model_features
+from replay.scenarios.two_stages.two_stages_scenario import (
+    get_first_level_model_features,
+)
 from tests.utils import log, spark
 
 

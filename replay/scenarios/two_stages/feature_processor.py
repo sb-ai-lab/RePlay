@@ -6,17 +6,16 @@ from pyspark.sql.types import NumericType
 
 from replay.data_preparator import CatFeaturesTransformer
 from replay.session_handler import State
-from replay.utils import join_or_return, unpersist_if_exists
+from replay.utils import join_or_return, ugly_join, unpersist_if_exists
 
 
 class FirstLevelFeaturesProcessor:
     """Трансформация признаков для моделей первого уровня в двухуровневом сценарии"""
 
-    cat_feat_transformer: Optional[CatFeaturesTransformer] = None
-    cat_cols_list: Optional[List] = None
-    cols_to_del: Optional[List] = None
-    all_columns: Optional[List] = None
-    fitted: bool = False
+    cat_feat_transformer: Optional[CatFeaturesTransformer]
+    cols_to_one_hot: Optional[List]
+    cols_to_del: Optional[List]
+    all_columns: Optional[List]
 
     def __init__(self, threshold: Optional[int] = 100):
         self.threshold = threshold
@@ -34,29 +33,47 @@ class FirstLevelFeaturesProcessor:
             return
 
         self.all_columns = sorted(spark_df.columns)
-        self.cat_cols_list = []
         self.cols_to_del = []
-        for col in spark_df.columns:
-            if col not in ["user_idx", "item_idx", "user_id", "item_id"]:
-                if not isinstance(spark_df.schema[col].dataType, NumericType):
-                    if (
-                        self.threshold is None
-                        or spark_df.select(
-                            sf.countDistinct(sf.col(col))
-                        ).collect()[0][0]
-                        <= self.threshold
-                    ):
-                        self.cat_cols_list.append(col)
-                    else:
-                        State().logger.warning(
-                            "Колонка %s содержит более threshold уникальных "
-                            "категориальных значений и будет удалена",
-                            col,
-                        )
-                        self.cols_to_del.append(col)
+        idx_cols_set = {"user_idx", "item_idx", "user_id", "item_id"}
+
+        spark_df_non_numeric = spark_df.select(
+            *[
+                col
+                for col in spark_df.columns
+                if (not isinstance(spark_df.schema[col].dataType, NumericType))
+                and (col not in idx_cols_set)
+            ]
+        )
+        if self.threshold is None:
+            self.cols_to_one_hot = spark_df_non_numeric.columns
+        else:
+            counts_pd = (
+                spark_df.agg(
+                    *[
+                        sf.approx_count_distinct(sf.col(c)).alias(c)
+                        for c in spark_df_non_numeric.columns
+                    ]
+                )
+                .toPandas()
+                .T
+            )
+            self.cols_to_one_hot = (
+                counts_pd[counts_pd[0] <= self.threshold]
+            ).index.values
+            self.cols_to_del = [
+                col
+                for col in spark_df_non_numeric.columns
+                if col not in set(self.cols_to_one_hot)
+            ]
+            if self.cols_to_del:
+                State().logger.warning(
+                    "Колонки %s содержат более threshold уникальных "
+                    "категориальных значений и будут удалены",
+                    self.cols_to_del,
+                )
 
         self.cat_feat_transformer = CatFeaturesTransformer(
-            cat_cols_list=self.cat_cols_list, threshold=self.threshold
+            cat_cols_list=self.cols_to_one_hot, threshold=None
         )
         self.cat_feat_transformer.fit(spark_df.drop(*self.cols_to_del))
 
@@ -100,12 +117,6 @@ class SecondLevelFeaturesProcessor:
     Подсчет дополнительных признаков для модели второго уровня в двухуровневом сценарии
     """
 
-    user_log_features_cached: Optional[DataFrame] = None
-    item_log_features_cached: Optional[DataFrame] = None
-    user_cond_dist_cat_feat_c: Optional[Dict[str, DataFrame]] = None
-    item_cond_dist_cat_feat_c: Optional[Dict[str, DataFrame]] = None
-    fitted = False
-
     def __init__(
         self,
         use_log_features: bool = True,
@@ -119,6 +130,11 @@ class SecondLevelFeaturesProcessor:
         self.use_cooccurrence = use_cooccurrence
         self.user_id = user_id
         self.item_id = item_id
+        self.fitted: bool = False
+        self.user_log_features_cached: Optional[DataFrame] = None
+        self.item_log_features_cached: Optional[DataFrame] = None
+        self.item_cond_dist_cat_feat_c: Optional[Dict[str, DataFrame]] = None
+        self.user_cond_dist_cat_feat_c: Optional[Dict[str, DataFrame]] = None
 
     @staticmethod
     def _create_cols_list(log: DataFrame, agg_col: str = "user_idx") -> List:
@@ -220,8 +236,12 @@ class SecondLevelFeaturesProcessor:
                 "u_mean_log_items_ratings_count"
             )
         )
-        user_log_features = user_log_features.join(
-            mean_log_rating_of_user_items, on=self.user_id, how="left"
+
+        user_log_features = ugly_join(
+            left=user_log_features,
+            right=mean_log_rating_of_user_items,
+            on_col_name=self.user_id,
+            how="left",
         )
 
         # Среднее лог-число взаимодействий у пользователей, взаимодействовавших с объектом
@@ -237,14 +257,22 @@ class SecondLevelFeaturesProcessor:
                 "i_mean_log_users_ratings_count"
             )
         )
-        item_log_features = item_log_features.join(
-            mean_log_rating_of_item_users, on=self.item_id, how="left"
+
+        item_log_features = ugly_join(
+            left=item_log_features,
+            right=mean_log_rating_of_item_users,
+            on_col_name=self.item_id,
+            how="left",
         ).cache()
+
         if "i_mean" in item_log_features.columns:
             # Abnormality: https://hal.inria.fr/hal-01254172/document
-            abnormality_df = log.join(
-                item_log_features.select(self.item_id, "i_mean", "i_std"),
-                on=self.item_id,
+            abnormality_df = ugly_join(
+                left=log,
+                right=sf.broadcast(
+                    item_log_features.select(self.item_id, "i_mean", "i_std")
+                ),
+                on_col_name=self.item_id,
                 how="left",
             )
             abnormality_df = abnormality_df.withColumn(
@@ -277,7 +305,7 @@ class SecondLevelFeaturesProcessor:
                 *abnormality_aggs
             )
             user_log_features = user_log_features.join(
-                abnormality_res, on=self.user_id, how="left"
+                sf.broadcast(abnormality_res), on=self.user_id, how="left"
             ).cache()
 
         return user_log_features, item_log_features
@@ -314,7 +342,7 @@ class SecondLevelFeaturesProcessor:
                 sf.count("relevance").alias(col_name)
             )
             intermediate_df = intermediate_df.join(
-                count_by_agg_col, on=agg_col, how="left"
+                sf.broadcast(count_by_agg_col), on=agg_col, how="left"
             )
             conditional_dist[cat_col] = intermediate_df.withColumn(
                 col_name, sf.col(col_name) / sf.col(count_by_agg_col_name)
@@ -394,10 +422,14 @@ class SecondLevelFeaturesProcessor:
         if self.use_log_features:
             joined = (
                 joined.join(
-                    self.user_log_features_cached, on=self.user_id, how="left"
+                    sf.broadcast(self.user_log_features_cached),
+                    on=self.user_id,
+                    how="left",
                 )
                 .join(
-                    self.item_log_features_cached, on=self.item_id, how="left"
+                    sf.broadcast(self.item_log_features_cached),
+                    on=self.item_id,
+                    how="left",
                 )
                 .fillna(
                     {
@@ -422,14 +454,20 @@ class SecondLevelFeaturesProcessor:
             if self.user_cond_dist_cat_feat_c is not None:
                 for (key, value,) in self.user_cond_dist_cat_feat_c.items():
                     joined = join_or_return(
-                        joined, value, on=[self.user_id, key], how="left"
+                        joined,
+                        sf.broadcast(value),
+                        on=[self.user_id, key],
+                        how="left",
                     )
                     joined = joined.fillna({"user_pop_by_" + key: 0})
 
             if self.item_cond_dist_cat_feat_c is not None:
                 for (key, value,) in self.item_cond_dist_cat_feat_c.items():
                     joined = join_or_return(
-                        joined, value, on=[self.item_id, key], how="left"
+                        joined,
+                        sf.broadcast(value),
+                        on=[self.item_id, key],
+                        how="left",
                     )
                     joined = joined.fillna({"item_pop_by_" + key: 0})
         return joined
