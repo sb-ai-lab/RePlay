@@ -3,7 +3,7 @@ import urllib.request
 import urllib
 import os
 
-packages = "pypandoc cython optuna poetry"
+packages = "requests pypandoc cython optuna poetry"
 
 
 def fix():
