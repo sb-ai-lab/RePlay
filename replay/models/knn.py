@@ -4,16 +4,15 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
 
-from replay.models.base_rec import Recommender
+from replay.models.base_rec import NeighbourRec
 
 
-class KNN(Recommender):
+class KNN(NeighbourRec):
     """ Item-based KNN на сглаженной косинусной мере схожести. """
 
     all_items: Optional[DataFrame]
     dot_products: Optional[DataFrame]
     item_norms: Optional[DataFrame]
-    similarity: Optional[DataFrame]
     _search_space = {
         "num_neighbours": {"type": "int", "args": [1, 100]},
         "shrink": {"type": "int", "args": [0, 100]},
@@ -136,32 +135,3 @@ class KNN(Recommender):
         )
 
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()
-
-    def _clear_cache(self):
-        if self.similarity:
-            self.similarity.unpersist()
-
-    # pylint: disable=too-many-arguments
-    def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> DataFrame:
-        recs = (
-            log.join(users, how="inner", on="user_idx")
-            .join(
-                self.similarity,
-                how="left",
-                on=sf.col("item_idx") == sf.col("item_id_one"),
-            )
-            .groupby("user_idx", "item_id_two")
-            .agg(sf.sum("similarity").alias("relevance"))
-            .withColumnRenamed("item_id_two", "item_idx")
-        )
-
-        return recs

@@ -9,6 +9,7 @@ from typing import Union, Optional
 
 from replay.constants import AnyDataFrame
 from replay.utils import convert2spark
+from replay.session_handler import State
 
 
 def min_entries(data_frame: AnyDataFrame, num_entries: int) -> DataFrame:
@@ -24,6 +25,7 @@ def min_entries(data_frame: AnyDataFrame, num_entries: int) -> DataFrame:
     1        1
     """
     data_frame = convert2spark(data_frame)
+    input_count = data_frame.count()
     entries_by_user = data_frame.groupBy("user_id").count()  # type: ignore
     remaining_users = entries_by_user.filter(
         entries_by_user["count"] >= num_entries
@@ -31,6 +33,16 @@ def min_entries(data_frame: AnyDataFrame, num_entries: int) -> DataFrame:
     data_frame = data_frame.join(
         remaining_users, on="user_id", how="inner"
     )  # type: ignore
+    output_count = data_frame.count()
+    diff = (input_count - output_count) / input_count
+    if diff > 0.5:
+        logger_level = State().logger.warning
+    else:
+        logger_level = State().logger.info
+    logger_level(
+        "при текущем значении threshold для обучения горячей модели выкидывается %s%% данных",
+        diff,
+    )
     return data_frame
 
 

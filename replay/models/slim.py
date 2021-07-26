@@ -3,20 +3,18 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
-from replay.models.base_rec import Recommender
+from replay.models.base_rec import NeighbourRec
 from replay.session_handler import State
 
 
-class SLIM(Recommender):
+class SLIM(NeighbourRec):
     """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
 
-    similarity: DataFrame
     can_predict_cold_users = True
     _search_space = {
         "beta": {"type": "loguniform", "args": [1e-9, 5]},
@@ -100,42 +98,3 @@ class SLIM(Recommender):
             slim_row, "item_id_one int, item_id_two int, similarity double"
         )
         self.similarity.cache()
-
-    def _clear_cache(self):
-        if self.similarity:
-            self.similarity.unpersist()
-
-    # pylint: disable=too-many-arguments
-    def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> DataFrame:
-        recs = (
-            users.withColumnRenamed("user_idx", "user")
-            .join(
-                log.withColumnRenamed("item_idx", "item"),
-                how="inner",
-                on=sf.col("user") == sf.col("user_idx"),
-            )
-            .join(
-                self.similarity,
-                how="inner",
-                on=sf.col("item") == sf.col("item_id_one"),
-            )
-            .join(
-                items,
-                how="inner",
-                on=sf.col("item_idx") == sf.col("item_id_two"),
-            )
-            .groupby("user_idx", "item_idx")
-            .agg(sf.sum("similarity").alias("relevance"))
-            .select("user_idx", "item_idx", "relevance")
-        )
-
-        return recs

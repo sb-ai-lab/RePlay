@@ -17,3 +17,11 @@ source venv/bin/activate
 ```bash
 pre-commit install
 ```
+
+### Сборка библиотеки
+
+Собранная документация и пакет хранятся в репозитории 
+https://sbtatlas.sigma.sbrf.ru/stash/projects/AILAB/repos/replay-distr
+
+Чтобы обновить артефакты и скопировать их в локальную копию репозитория необходимо 
+запустить `build.sh` с аргументом в виде пути до папки с рерпозиторием.

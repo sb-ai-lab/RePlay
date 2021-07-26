@@ -3,15 +3,16 @@ from typing import Any, List, Optional, Set, Union
 import numpy as np
 from pyspark.ml.linalg import DenseVector, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
-from pyspark.sql.functions import col, element_at, row_number, udf
-from pyspark.sql.types import DoubleType, NumericType
+from pyspark.sql.types import ArrayType, DoubleType, NumericType
 from scipy.sparse import csr_matrix
 
 from replay.constants import NumType, AnyDataFrame
 from replay.session_handler import State
 
+# pylint: disable=invalid-name
 
-def convert2spark(data_frame: AnyDataFrame) -> DataFrame:
+
+def convert2spark(data_frame: Optional[AnyDataFrame]) -> Optional[DataFrame]:
     """
     Обеспечивает конвертацию данных в спарк и обратно.
 
@@ -19,6 +20,8 @@ def convert2spark(data_frame: AnyDataFrame) -> DataFrame:
         либо объект датасета, в котором лежат датафреймы поддерживаемых форматов.
     :return: преобразованные данные, если на вход был подан датафрейм.
     """
+    if data_frame is None:
+        return None
     if isinstance(data_frame, DataFrame):
         return data_frame
     spark = State().session
@@ -52,27 +55,28 @@ def func_get(vector: np.ndarray, i: int) -> float:
     return float(vector[i])
 
 
-def get_top_k_recs(recs: DataFrame, k: int) -> DataFrame:
+def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "id") -> DataFrame:
     """
     Выбирает из рекомендаций топ-k штук на основе `relevance`.
 
     :param recs: рекомендации, спарк-датафрейм с колонками
         `[user_id, item_id, relevance]`
     :param k: число рекомендаций для каждого пользователя
+    :param id_type: использовать id или idx в колонках
     :return: топ-k рекомендации, спарк-датафрейм с колонками
         `[user_id, item_id, relevance]`
     """
-    window = Window.partitionBy(recs["user_id"]).orderBy(
+    window = Window.partitionBy(recs["user_" + id_type]).orderBy(
         recs["relevance"].desc()
     )
     return (
-        recs.withColumn("rank", row_number().over(window))
-        .filter(col("rank") <= k)
+        recs.withColumn("rank", sf.row_number().over(window))
+        .filter(sf.col("rank") <= k)
         .drop("rank")
     )
 
 
-@udf(returnType=DoubleType())  # type: ignore
+@sf.udf(returnType=DoubleType())  # type: ignore
 def vector_dot(one: DenseVector, two: DenseVector) -> float:
     """
     вычисляется скалярное произведение двух колонок-векторов
@@ -111,7 +115,7 @@ def vector_dot(one: DenseVector, two: DenseVector) -> float:
     return float(one.dot(two))
 
 
-@udf(returnType=VectorUDT())  # type: ignore
+@sf.udf(returnType=VectorUDT())  # type: ignore
 def vector_mult(
     one: Union[DenseVector, NumType], two: DenseVector
 ) -> DenseVector:
@@ -150,6 +154,45 @@ def vector_mult(
     :returns: вектор с результатом покоординатного умножения
     """
     return one * two
+
+
+@sf.udf(returnType=ArrayType(DoubleType()))
+def array_mult(first: Column, second: Column):
+    """
+    Покоординатное произведение двух столбцов типа array.
+
+    >>> from replay.session_handler import State
+    >>> spark = State().session
+    >>> input_data = (
+    ...     spark.createDataFrame([([1.0, 2.0], [3.0, 4.0])])
+    ...     .toDF("one", "two")
+    ... )
+    >>> input_data.dtypes
+    [('one', 'array<double>'), ('two', 'array<double>')]
+    >>> input_data.show()
+    +----------+----------+
+    |       one|       two|
+    +----------+----------+
+    |[1.0, 2.0]|[3.0, 4.0]|
+    +----------+----------+
+    <BLANKLINE>
+    >>> output_data = input_data.select(array_mult("one", "two").alias("mult"))
+    >>> output_data.schema
+    StructType(List(StructField(mult,ArrayType(DoubleType,true),true)))
+    >>> output_data.show()
+    +----------+
+    |      mult|
+    +----------+
+    |[3.0, 8.0]|
+    +----------+
+    <BLANKLINE>
+
+    :param first: первый множитель
+    :param second: второй множитель
+    :returns: вектор с результатом покоординатного умножения
+    """
+
+    return [first[i] * second[i] for i in range(len(first))]
 
 
 def get_log_info(log: DataFrame) -> str:
@@ -319,7 +362,7 @@ def horizontal_explode(
     |     6|[3.0, 4.0]|
     +------+----------+
     <BLANKLINE>
-    >>> horizontal_explode(input_data, "array_col", "element", [col("id_col")]).show()
+    >>> horizontal_explode(input_data, "array_col", "element", [sf.col("id_col")]).show()
     +------+---------+---------+
     |id_col|element_0|element_1|
     +------+---------+---------+
@@ -338,13 +381,31 @@ def horizontal_explode(
     return data_frame.select(
         *other_columns,
         *[
-            element_at(column_to_explode, i + 1).alias(f"{prefix}_{i}")
+            sf.element_at(column_to_explode, i + 1).alias(f"{prefix}_{i}")
             for i in range(num_columns)
         ],
     )
 
 
-def fallback(base: DataFrame, fill: DataFrame, k: int) -> DataFrame:
+def join_or_return(first, second, on, how):
+    """
+    Обертка над join для удобного join-а датафреймов, например лога с признаками.
+    Если датафрейм second есть, будет выполнен join, иначе возвращен first.
+
+    :param first: spark-dataframe
+    :param second: spark-dataframe
+    :param on: имя столбца, по которому выполняется join
+    :param how: тип join
+    :return: spark-dataframe
+    """
+    if second is None:
+        return first
+    return first.join(second, on=on, how=how)
+
+
+def fallback(
+    base: DataFrame, fill: DataFrame, k: int, id_type: str = "id"
+) -> DataFrame:
     """Подмешивает к основным рекомендациям запасные
     для пользователей, у которых количество рекомендаций меньше ``k``.
     Скор дополнительной модели может быть уменьшен,
@@ -353,6 +414,7 @@ def fallback(base: DataFrame, fill: DataFrame, k: int) -> DataFrame:
     :param base: основные рекомендации
     :param fill: запасные рекомендации
     :param k: сколько должно быть для каждого пользователя
+    :param id_type: использовать id или idx в колонках
     :return: дополненные рекомендации
     """
     if fill is None:
@@ -366,9 +428,109 @@ def fallback(base: DataFrame, fill: DataFrame, k: int) -> DataFrame:
         fill = fill.withColumn(
             "relevance_fallback", sf.col("relevance_fallback") - diff - margin
         )
-    recs = base.join(fill, on=["user_id", "item_id"], how="full_outer")
+    recs = base.join(
+        fill, on=["user_" + id_type, "item_" + id_type], how="full_outer"
+    )
     recs = recs.withColumn(
         "relevance", sf.coalesce("relevance", "relevance_fallback")
-    ).select("user_id", "item_id", "relevance")
-    recs = get_top_k_recs(recs, k)
+    ).select("user_" + id_type, "item_" + id_type, "relevance")
+    recs = get_top_k_recs(recs, k, id_type)
     return recs
+
+
+# pylint: disable=too-many-locals
+def get_first_level_model_features(
+    model: DataFrame,
+    pairs: DataFrame,
+    user_features: Optional[DataFrame] = None,
+    item_features: Optional[DataFrame] = None,
+    add_factors_mult: bool = True,
+) -> DataFrame:
+    """
+    Добавление векторов пользователей и объектов из модели replay.
+    Если модель может вернуть и вектора пользователей, и вектора объектов,
+    можно дополнительно посчитать покомпонентное произведение. Настраивается параметром add_factors_mult.
+    Если модель не может вернуть вектора для части пользователей/объектов, для них возвращаются нулевые вектора.
+
+    :param model: обученная модель replay, возвращающая вектора пользователей/объектов
+    :param pairs: пары пользователь/объект для которых нужно вернуть вектора
+        spark-датафрейм с колонками `[user_id/user_idx, item_id/item_id]`
+    :param user_features: датафрейм, содержащий признаки пользователей,
+        spark-датафрейм с колонками `[user_id/user_idx, feature_1, ....]`
+    :param item_features: spark-датафрейм, содержащий признаки объектов
+        spark-датафрейм с колонками `[item_id/item_idx, feature_1, ....]`
+    :param add_factors_mult: добавить ли в качестве признаков результат покомпонентного умножения векторов
+    :return: spark-датафрейм, содержащий компоненты векторов в качестве отдельных колонок
+    """
+    if "user_id" in pairs.columns:
+        func_name = "_get_features_wrap"
+        suffix = "id"
+    else:
+        func_name = "_get_features"
+        suffix = "idx"
+
+    users = pairs.select("user_{}".format(suffix)).distinct()
+    items = pairs.select("item_{}".format(suffix)).distinct()
+    user_factors, user_vector_len = getattr(model, func_name)(
+        users, user_features
+    )
+    item_factors, item_vector_len = getattr(model, func_name)(
+        items, item_features
+    )
+
+    pairs_with_features = join_or_return(
+        pairs, user_factors, how="left", on="user_{}".format(suffix)
+    )
+    pairs_with_features = join_or_return(
+        pairs_with_features,
+        item_factors,
+        how="left",
+        on="item_{}".format(suffix),
+    )
+
+    factors_to_explode = []
+    if user_factors is not None:
+        pairs_with_features = pairs_with_features.withColumn(
+            "user_factors",
+            sf.coalesce(
+                sf.col("user_factors"),
+                sf.array([sf.lit(0.0)] * user_vector_len),
+            ),
+        )
+        factors_to_explode.append(("user_factors", "uf"))
+
+    if item_factors is not None:
+        pairs_with_features = pairs_with_features.withColumn(
+            "item_factors",
+            sf.coalesce(
+                sf.col("item_factors"),
+                sf.array([sf.lit(0.0)] * item_vector_len),
+            ),
+        )
+        factors_to_explode.append(("item_factors", "if"))
+
+    if model.__str__() == "LightFMWrap":
+        pairs_with_features.fillna({"user_bias": 0, "item_bias": 0})
+
+    if (
+        add_factors_mult
+        and user_factors is not None
+        and item_factors is not None
+    ):
+        pairs_with_features = pairs_with_features.withColumn(
+            "factors_mult",
+            array_mult(sf.col("item_factors"), sf.col("user_factors")),
+        )
+        factors_to_explode.append(("factors_mult", "fm"))
+
+    for col_name, prefix in factors_to_explode:
+        col_set = set(pairs_with_features.columns)
+        col_set.remove(col_name)
+        pairs_with_features = horizontal_explode(
+            data_frame=pairs_with_features,
+            column_to_explode=col_name,
+            other_columns=[sf.col(column) for column in sorted(list(col_set))],
+            prefix=prefix,
+        )
+
+    return pairs_with_features

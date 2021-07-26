@@ -4,6 +4,7 @@
 
 import logging
 import os
+import sys
 from math import floor
 from typing import Any, Dict, Optional
 
@@ -24,6 +25,9 @@ def get_spark_session(
         если не задано, выделяется половина всей доступной памяти
     :param shuffle_partitions: количество партиций для Spark; если не задано, равно числу доступных цпу
     """
+    os.environ["PYSPARK_PYTHON"] = sys.executable
+    os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
+
     if spark_memory is None:
         spark_memory = floor(psutil.virtual_memory().total / 1024 ** 3 * 0.7)
     if shuffle_partitions is None:
@@ -38,6 +42,7 @@ def get_spark_session(
         )
         .config("spark.sql.shuffle.partitions", str(shuffle_partitions))
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
+        .config("spark.driver.maxResultSize", "4g")
         .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.host", "localhost")
         .config("spark.sql.execution.arrow.pyspark.enabled", "true")

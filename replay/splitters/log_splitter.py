@@ -9,7 +9,7 @@
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
@@ -29,12 +29,12 @@ class DateSplitter(Splitter):
 
     def __init__(
         self,
-        test_start: datetime,
+        test_start: Union[datetime, float],
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
     ):
         """
-        :param test_start: дата в формате ``yyyy-mm-dd``
+        :param test_start: дата в формате ``yyyy-mm-dd`` или доля записей, которые пойдут в тест
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
         :param drop_cold_users: исключать ли из тестовой выборки пользователей,
@@ -46,12 +46,23 @@ class DateSplitter(Splitter):
         self.test_start = test_start
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
+        if isinstance(self.test_start, float):
+            dates = log.select("timestamp").withColumn(
+                "idx", sf.row_number().over(Window.orderBy("timestamp"))
+            )
+            test_start = int(dates.count() * (1 - self.test_start)) + 1
+            test_start = (
+                dates.filter(sf.col("idx") == test_start)
+                .select("timestamp")
+                .collect()[0][0]
+            )
+        else:
+            test_start = self.test_start
         train = log.filter(
-            sf.col("timestamp") < sf.lit(self.test_start).cast(TimestampType())
+            sf.col("timestamp") < sf.lit(test_start).cast(TimestampType())
         )
         test = log.filter(
-            sf.col("timestamp")
-            >= sf.lit(self.test_start).cast(TimestampType())
+            sf.col("timestamp") >= sf.lit(test_start).cast(TimestampType())
         )
         return train, test
 
@@ -80,6 +91,8 @@ class RandomSplitter(Splitter):
         )
         self.seed = seed
         self.test_size = test_size
+        if test_size < 0 or test_size > 1:
+            raise ValueError("test_size должен быть от 0 до 1")
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         train, test = log.randomSplit(
@@ -147,23 +160,18 @@ class NewUsersSplitter(Splitter):
     <BLANKLINE>
     """
 
-    def __init__(
-        self,
-        test_size: float,
-        drop_cold_items: bool = False,
-        drop_cold_users: bool = False,
-    ):
+    def __init__(self, test_size: float, drop_cold_items: bool = False):
         """
         :param test_size: размер тестовой выборки, от 0 до 1
         :param drop_cold_items: исключать ли из тестовой выборки объекты,
            которых нет в обучающей
-        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
-           которых нет в обучающей
         """
         super().__init__(
-            drop_cold_items=drop_cold_items, drop_cold_users=drop_cold_users
+            drop_cold_items=drop_cold_items, drop_cold_users=False
         )
         self.test_size = test_size
+        if test_size < 0 or test_size > 1:
+            raise ValueError("test_size должен быть от 0 до 1")
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         start_date_by_user = log.groupby("user_id").agg(
