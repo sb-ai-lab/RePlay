@@ -117,7 +117,7 @@ class UserPopRec(Recommender):
 
             return pd.DataFrame(
                 {
-                    "user_idx": k * [user_idx],
+                    "user_idx": len(items_idx) * [user_idx],
                     "item_idx": pandas_df["item_idx"].values[items_idx],
                     "relevance": pandas_df["relevance"].values[items_idx],
                 }
