@@ -438,99 +438,51 @@ def fallback(
     return recs
 
 
-# pylint: disable=too-many-locals
-def get_first_level_model_features(
-    model: DataFrame,
-    pairs: DataFrame,
-    user_features: Optional[DataFrame] = None,
-    item_features: Optional[DataFrame] = None,
-    add_factors_mult: bool = True,
+def cache_if_exists(dataframe: Optional[DataFrame]) -> Optional[DataFrame]:
+    """
+    Возвращает кэшированный датафрейм
+    :param dataframe: spark-датафрейм или None
+    :return: кэшированный spark-датафрейм или None
+    """
+    if dataframe is not None:
+        return dataframe.cache()
+    return dataframe
+
+
+def unpersist_if_exists(dataframe: Optional[DataFrame]) -> None:
+    """
+    Применяет unpersist к spark-датафрейму
+    :param dataframe: кэшированный spark-датафрейм или None
+    """
+    if dataframe is not None and dataframe.is_cached:
+        dataframe.unpersist()
+
+
+def ugly_join(
+    left: DataFrame,
+    right: DataFrame,
+    on_col_name: Union[str, List],
+    how: str = "inner",
+    suffix="join",
 ) -> DataFrame:
     """
-    Добавление векторов пользователей и объектов из модели replay.
-    Если модель может вернуть и вектора пользователей, и вектора объектов,
-    можно дополнительно посчитать покомпонентное произведение. Настраивается параметром add_factors_mult.
-    Если модель не может вернуть вектора для части пользователей/объектов, для них возвращаются нулевые вектора.
-
-    :param model: обученная модель replay, возвращающая вектора пользователей/объектов
-    :param pairs: пары пользователь/объект для которых нужно вернуть вектора
-        spark-датафрейм с колонками `[user_id/user_idx, item_id/item_id]`
-    :param user_features: датафрейм, содержащий признаки пользователей,
-        spark-датафрейм с колонками `[user_id/user_idx, feature_1, ....]`
-    :param item_features: spark-датафрейм, содержащий признаки объектов
-        spark-датафрейм с колонками `[item_id/item_idx, feature_1, ....]`
-    :param add_factors_mult: добавить ли в качестве признаков результат покомпонентного умножения векторов
-    :return: spark-датафрейм, содержащий компоненты векторов в качестве отдельных колонок
+    Ugly workaround for joining DataFrames derived form the same DataFrame
+    https://issues.apache.org/jira/browse/SPARK-14948
+    :param left: left-side dataframe
+    :param right: right-side dataframe
+    :param on_col_name: column name to join on
+    :param how: join type
+    :param suffix: suffix added to `on_col_name` value to name temporary column
+    :return: join result
     """
-    if "user_id" in pairs.columns:
-        func_name = "_get_features_wrap"
-        suffix = "id"
-    else:
-        func_name = "_get_features"
-        suffix = "idx"
+    if isinstance(on_col_name, str):
+        on_col_name = [on_col_name]
 
-    users = pairs.select("user_{}".format(suffix)).distinct()
-    items = pairs.select("item_{}".format(suffix)).distinct()
-    user_factors, user_vector_len = getattr(model, func_name)(
-        users, user_features
+    on_condition = sf.lit(True)
+    for name in on_col_name:
+        right = right.withColumnRenamed(name, "{}_{}".format(name, suffix))
+        on_condition &= sf.col(name) == sf.col("{}_{}".format(name, suffix))
+
+    return (left.join(right, on=on_condition, how=how)).drop(
+        *["{}_{}".format(name, suffix) for name in on_col_name]
     )
-    item_factors, item_vector_len = getattr(model, func_name)(
-        items, item_features
-    )
-
-    pairs_with_features = join_or_return(
-        pairs, user_factors, how="left", on="user_{}".format(suffix)
-    )
-    pairs_with_features = join_or_return(
-        pairs_with_features,
-        item_factors,
-        how="left",
-        on="item_{}".format(suffix),
-    )
-
-    factors_to_explode = []
-    if user_factors is not None:
-        pairs_with_features = pairs_with_features.withColumn(
-            "user_factors",
-            sf.coalesce(
-                sf.col("user_factors"),
-                sf.array([sf.lit(0.0)] * user_vector_len),
-            ),
-        )
-        factors_to_explode.append(("user_factors", "uf"))
-
-    if item_factors is not None:
-        pairs_with_features = pairs_with_features.withColumn(
-            "item_factors",
-            sf.coalesce(
-                sf.col("item_factors"),
-                sf.array([sf.lit(0.0)] * item_vector_len),
-            ),
-        )
-        factors_to_explode.append(("item_factors", "if"))
-
-    if model.__str__() == "LightFMWrap":
-        pairs_with_features.fillna({"user_bias": 0, "item_bias": 0})
-
-    if (
-        add_factors_mult
-        and user_factors is not None
-        and item_factors is not None
-    ):
-        pairs_with_features = pairs_with_features.withColumn(
-            "factors_mult",
-            array_mult(sf.col("item_factors"), sf.col("user_factors")),
-        )
-        factors_to_explode.append(("factors_mult", "fm"))
-
-    for col_name, prefix in factors_to_explode:
-        col_set = set(pairs_with_features.columns)
-        col_set.remove(col_name)
-        pairs_with_features = horizontal_explode(
-            data_frame=pairs_with_features,
-            column_to_explode=col_name,
-            other_columns=[sf.col(column) for column in sorted(list(col_set))],
-            prefix=prefix,
-        )
-
-    return pairs_with_features

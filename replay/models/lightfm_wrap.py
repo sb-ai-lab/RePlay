@@ -276,7 +276,7 @@ class LightFMWrap(HybridRecommender):
 
     def _get_features(
         self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Optional[Tuple[DataFrame, int]]:
+    ) -> Tuple[Optional[DataFrame], Optional[int]]:
         """
         Получение векторов пользователей и объектов из модели LightFM.
         У LightFM есть методы get_item_representations/get_user_representations,
@@ -289,7 +289,7 @@ class LightFMWrap(HybridRecommender):
             spark-dataframe с колонкой item_idx/user_idx
         :param features: spark-dataframe с колонкой item_idx/user_idx
             и колонками с признаками пользователей/объектов
-        :return: spark-dataframe с bias и векторами пользователей/объектов
+        :return: spark-dataframe с bias и векторами пользователей/объектов, размерность вектора
         """
         entity = "item" if "item_idx" in ids.columns else "user"
         ids_list = ids.toPandas()["{}_idx".format(entity)]

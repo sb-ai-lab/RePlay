@@ -92,7 +92,7 @@ class ALSWrap(Recommender):
 
     def _get_features(
         self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Tuple[Optional[DataFrame], int]:
+    ) -> Tuple[Optional[DataFrame], Optional[int]]:
         entity = "user" if "user_idx" in ids.columns else "item"
         als_factors = getattr(self.model, "{}Factors".format(entity))
         als_factors = als_factors.withColumnRenamed(

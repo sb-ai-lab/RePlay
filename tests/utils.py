@@ -1,7 +1,9 @@
 # pylint: skip-file
+import os
+import re
 
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -146,3 +148,23 @@ def sparkDataFrameEqual(df1: DataFrame, df2: DataFrame):
     return pd.testing.assert_frame_equal(
         unify_dataframe(df1), unify_dataframe(df2), check_like=True
     )
+
+
+def del_files_by_pattern(directory: str, pattern: str) -> None:
+    """
+    Удаляет файлы из директории в соответствии с заданным паттерном имени файла
+    """
+    for filename in os.listdir(directory):
+        if re.match(pattern, filename):
+            os.remove(os.path.join(directory, filename))
+
+
+def find_file_by_pattern(directory: str, pattern: str) -> Optional[str]:
+    """
+    Возвращает путь к первому найденному файлу в директории, соответствующему паттерну,
+    или None, если таких файлов нет
+    """
+    for filename in os.listdir(directory):
+        if re.match(pattern, filename):
+            return os.path.join(directory, filename)
+    return None
