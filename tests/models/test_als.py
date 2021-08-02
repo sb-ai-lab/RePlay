@@ -1,13 +1,13 @@
 # pylint: disable-all
-from datetime import datetime
-
 import pytest
 import numpy as np
 
 from pyspark.sql import functions as sf
 
 from replay.models import ALSWrap
-from replay.utils import get_first_level_model_features
+from replay.scenarios.two_stages.two_stages_scenario import (
+    get_first_level_model_features,
+)
 from tests.utils import log, spark
 
 
@@ -46,15 +46,15 @@ def test_enrich_with_features(log, model):
         (sf.col("user_id") == "user2") & (sf.col("item_id") == "item4")
     )
     row_dict = cold_user_and_item.collect()[0].asDict()
-    assert row_dict["if_0"] == row_dict["uf_0"] == row_dict["fm_1"] == 0.0
+    assert row_dict["_if_0"] == row_dict["_uf_0"] == row_dict["_fm_1"] == 0.0
 
     warm_user_and_item = res.filter(
         (sf.col("user_id") == "user1") & (sf.col("item_id") == "item1")
     )
     row_dict = warm_user_and_item.collect()[0].asDict()
     np.allclose(
-        [row_dict["fm_1"], row_dict["if_1"] * row_dict["uf_1"]],
-        [4.093189725967505, row_dict["fm_1"]],
+        [row_dict["_fm_1"], row_dict["_if_1"] * row_dict["_uf_1"]],
+        [4.093189725967505, row_dict["_fm_1"]],
     )
 
     cold_user_warm_item = res.filter(
@@ -62,6 +62,6 @@ def test_enrich_with_features(log, model):
     )
     row_dict = cold_user_warm_item.collect()[0].asDict()
     np.allclose(
-        [row_dict["if_1"], row_dict["if_1"] * row_dict["uf_1"]],
+        [row_dict["_if_1"], row_dict["_if_1"] * row_dict["_uf_1"]],
         [-2.938199281692505, 0],
     )

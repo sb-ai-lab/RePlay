@@ -7,7 +7,9 @@ from pyspark.sql import functions as sf
 
 from replay.constants import LOG_SCHEMA
 from replay.models import LightFMWrap
-from replay.utils import get_first_level_model_features
+from replay.scenarios.two_stages.two_stages_scenario import (
+    get_first_level_model_features,
+)
 from tests.utils import spark
 
 
@@ -160,9 +162,9 @@ def _fit_predict_compare_features(
         .asDict()
     )
     assert np.isclose(
-        row_dict["if_0"] * row_dict["uf_0"]
-        + row_dict["user_bias"]
-        + row_dict["item_bias"],
+        row_dict["_if_0"] * row_dict["_uf_0"]
+        + row_dict["_user_bias"]
+        + row_dict["_item_bias"],
         pred_for_test,
     )
 

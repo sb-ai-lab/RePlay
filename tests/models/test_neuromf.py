@@ -8,8 +8,7 @@ import numpy as np
 from replay.constants import LOG_SCHEMA
 from replay.models import NeuroMF
 from replay.models.neuromf import NMF
-from tests.test_utils import del_files_by_pattern, find_file_by_pattern
-from tests.utils import spark
+from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
 
 
 @pytest.fixture(scope="session", autouse=True)
