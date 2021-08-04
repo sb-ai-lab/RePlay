@@ -16,6 +16,7 @@ class SLIM(NeighbourRec):
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
 
     can_predict_cold_users = True
+    can_predict_item_to_item: bool = True
     _search_space = {
         "beta": {"type": "loguniform", "args": [1e-9, 5]},
         "lambda_": {"type": "loguniform", "args": [1e-9, 2]},

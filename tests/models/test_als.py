@@ -65,3 +65,39 @@ def test_enrich_with_features(log, model):
         [row_dict["_if_1"], row_dict["_if_1"] * row_dict["_uf_1"]],
         [-2.938199281692505, 0],
     )
+
+
+def test_get_nearest_items(log, model):
+    model.fit(log.filter(sf.col("item_id") != "item4"))
+    # cosine
+    res = model.get_nearest_items(
+        item_ids=["item1", "item2"], k=2, metric="cosine_similarity"
+    )
+    assert res.count() == 4
+    assert set(res.toPandas().to_dict()["item_id"].values()) == {
+        "item1",
+        "item2",
+    }
+
+    # squared
+    res = model.get_nearest_items(
+        item_ids=["item1", "item2"], k=1, metric="squared_distance"
+    )
+    assert res.count() == 2
+
+    # filter neighbours
+    res = model.get_nearest_items(
+        item_ids=["item1", "item2"],
+        k=4,
+        metric="squared_distance",
+        item_ids_to_consider=["item1", "item4"],
+    )
+    assert res.count() == 1
+    assert (
+        len(
+            set(res.toPandas().to_dict()["item_id"].values()).difference(
+                {"item1", "item2"}
+            )
+        )
+        == 0
+    )

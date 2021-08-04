@@ -39,6 +39,7 @@ class BaseRecommender(ABC):
     _logger: Optional[logging.Logger] = None
     can_predict_cold_users: bool = False
     can_predict_cold_items: bool = False
+    can_predict_item_to_item: bool = False
     _search_space: Optional[
         Dict[str, Union[str, Sequence[Union[str, int, float]]]]
     ] = None
@@ -118,7 +119,22 @@ class BaseRecommender(ABC):
         return self.study.best_params
 
     @staticmethod
-    def _train_test_features(train, test, features, column):
+    def _train_test_features(
+        train: DataFrame,
+        test: DataFrame,
+        features: Optional[AnyDataFrame],
+        column: Union[str, Column],
+    ) -> Tuple[Optional[DataFrame], Optional[DataFrame]]:
+        """
+        split dataframe with features into two dataframes representing
+        features for train and tests subset entities, defined by `column`
+
+        :param train: spark dataframe with the train subset
+        :param test: spark dataframe with the train subset
+        :param features: spark dataframe with users'/items' features
+        :param column: column name to use as a key for join (e.g., user_id or item_id)
+        :return: features for train and test subsets
+        """
         if features is not None:
             features = convert2spark(features)
             features_train = features.join(
@@ -693,6 +709,106 @@ class BaseRecommender(ABC):
             "Метод реализован только для моделей ALS и LightFMWrap. Признаки не будут возвращены"
         )
         return None, None
+
+    def get_nearest_items(
+        self,
+        item_ids: Union[DataFrame, Iterable],
+        k: int,
+        metric: str = "squared_distance",
+        item_ids_to_consider: Optional[Union[DataFrame, Iterable]] = None,
+    ) -> Optional[DataFrame]:
+        """
+        Get k most similar items be the `metric` for each of the `item_ids`.
+
+        :param item_ids: spark dataframe or list of item ids to find neighbors
+        :param k: number of neighbors
+        :param metric: 'squared_distance' or 'cosine_similarity'
+        :param item_ids_to_consider: spark dataframe or list of items
+            to consider as similar, e.g. popular/new items. If None,
+            all items presented during model training are used.
+        :return: dataframe with the most similar items an distance,
+            where bigger value means greater similarity.
+            spark-dataframe with columns ``[item_id, neighbour_item_id, similarity]``
+        """
+        if self.can_predict_item_to_item:
+            return self._get_nearest_items_wrap(
+                item_ids=item_ids,
+                k=k,
+                metric=metric,
+                item_ids_to_consider=item_ids_to_consider,
+            )
+
+        raise NotImplementedError(
+            "Use models with attribute 'can_predict_item_to_item' to get nearest items"
+        )
+
+    def _get_nearest_items_wrap(
+        self,
+        item_ids: Union[DataFrame, Iterable],
+        k: int,
+        metric: str = "squared_distance",
+        item_ids_to_consider: Optional[Union[DataFrame, Iterable]] = None,
+    ) -> Optional[DataFrame]:
+        """
+        Convert indexes for ``get_nearest_items`` method
+        """
+        item_ids = self._get_ids(item_ids, "item_id")
+        if item_ids_to_consider is not None:
+            item_ids_to_consider = self._get_ids(
+                item_ids_to_consider, "item_id"
+            )
+
+        items_type = item_ids.schema["item_id"].dataType
+
+        item_ids, item_ids_to_consider = [
+            self._convert_index(df) for df in [item_ids, item_ids_to_consider]
+        ]
+
+        nearest_items = self._get_nearest_items(
+            item_ids=item_ids,
+            k=k,
+            metric=metric,
+            item_ids_to_consider=item_ids_to_consider,
+        )
+
+        nearest_items = self._convert_back(
+            nearest_items.withColumnRenamed("item_id_two", "item_idx"),
+            None,
+            items_type,
+        ).withColumnRenamed("item_id", "neighbour_item_id")
+
+        nearest_items = self._convert_back(
+            nearest_items.withColumnRenamed("item_id_one", "item_idx"),
+            None,
+            items_type,
+        )
+        return nearest_items.select(
+            "item_id", "neighbour_item_id", "similarity"
+        )
+
+    def _get_nearest_items(
+        self,
+        item_ids: DataFrame,
+        k: int,
+        metric: str = "squared_distance",
+        item_ids_to_consider: Optional[DataFrame] = None,
+    ) -> Optional[DataFrame]:
+        """
+        Get ``k`` most similar items be the ``metric`` for each of the ``item_ids``.
+
+        :param item_ids: ids to find neighbours, spark dataframe with column ``item_idx``
+        :param k: number of neighbours
+        :param metric: 'squared_distance' or 'cosine_similarity'
+        :param item_ids_to_consider: items among which we are looking for similar,
+            e.g. popular/new items. If None, all items presented during model training are used.
+        :return: dataframe with neighbours,
+            spark-dataframe with columns ``[item_id_one, item_id_two, similarity]``
+        """
+        raise NotImplementedError(
+            "item-to-item prediction is not implemented for {}".format(
+                self.__str__()
+            )
+        )
 
 
 # pylint: disable=abstract-method

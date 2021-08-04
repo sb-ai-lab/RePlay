@@ -1,11 +1,18 @@
 from typing import Optional, Tuple
 
+import pyspark.sql.functions as sf
+
 from pyspark.ml.recommendation import ALS
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import col, lit
 from pyspark.sql.types import DoubleType
 
 from replay.models.base_rec import Recommender
+from replay.utils import (
+    get_top_k,
+    list_to_vector_udf,
+    vector_squared_distance,
+    cosine_similarity,
+)
 
 
 class ALSWrap(Recommender):
@@ -13,6 +20,7 @@ class ALSWrap(Recommender):
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
 
+    can_predict_item_to_item: bool = True
     _seed: Optional[int] = None
     _search_space = {
         "rank": {"type": "loguniform_int", "args": [8, 256]},
@@ -69,10 +77,10 @@ class ALSWrap(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        test_data = users.crossJoin(items).withColumn("relevance", lit(1))
+        test_data = users.crossJoin(items).withColumn("relevance", sf.lit(1))
         recs = (
             self.model.transform(test_data)
-            .withColumn("relevance", col("prediction").cast(DoubleType()))
+            .withColumn("relevance", sf.col("prediction").cast(DoubleType()))
             .drop("prediction")
         )
         return recs
@@ -86,7 +94,7 @@ class ALSWrap(Recommender):
     ) -> DataFrame:
         return (
             self.model.transform(pairs)
-            .withColumn("relevance", col("prediction").cast(DoubleType()))
+            .withColumn("relevance", sf.col("prediction").cast(DoubleType()))
             .drop("prediction")
         )
 
@@ -101,4 +109,68 @@ class ALSWrap(Recommender):
         return (
             als_factors.join(ids, how="right", on="{}_idx".format(entity)),
             self.model.rank,
+        )
+
+    def _get_nearest_items(
+        self,
+        item_ids: DataFrame,
+        k: int,
+        metric: str = "squared_distance",
+        item_ids_to_consider: Optional[DataFrame] = None,
+    ) -> DataFrame:
+
+        factor = 1
+        dist_function = cosine_similarity
+        if metric == "squared_distance":
+            dist_function = vector_squared_distance
+            factor = -1
+        elif metric != "cosine_similarity":
+            raise NotImplementedError(
+                "{} metric is not implemented".format(metric)
+            )
+
+        als_factors = self.model.itemFactors.select(
+            sf.col("id").alias("item_id_one"),
+            list_to_vector_udf(sf.col("features")).alias("factors_one"),
+        )
+
+        left_part = als_factors.join(
+            item_ids.select(sf.col("item_idx").alias("item_id_one")),
+            on="item_id_one",
+        )
+
+        right_part = als_factors.withColumnRenamed(
+            "factors_one", "factors_two"
+        ).withColumnRenamed("item_id_one", "item_id_two")
+
+        if item_ids_to_consider is not None:
+            right_part = right_part.join(
+                item_ids_to_consider.withColumnRenamed(
+                    "item_idx", "item_id_two"
+                ),
+                on="item_id_two",
+            )
+
+        joined_factors = left_part.join(
+            right_part, on=sf.col("item_id_one") != sf.col("item_id_two")
+        )
+
+        joined_factors = joined_factors.withColumn(
+            "similarity",
+            factor
+            * dist_function(sf.col("factors_one"), sf.col("factors_two")),
+        )
+
+        similarity_matrix = joined_factors.select(
+            "item_id_one", "item_id_two", "similarity"
+        )
+
+        return get_top_k(
+            dataframe=similarity_matrix,
+            partition_by_col=sf.col("item_id_one"),
+            order_by_col=[
+                sf.col("similarity").desc(),
+                sf.col("item_id_two").desc(),
+            ],
+            k=k,
         )
