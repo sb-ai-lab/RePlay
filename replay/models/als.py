@@ -8,7 +8,6 @@ from pyspark.sql.types import DoubleType
 
 from replay.models.base_rec import Recommender
 from replay.utils import (
-    get_top_k,
     list_to_vector_udf,
     vector_squared_distance,
     cosine_similarity,
@@ -165,12 +164,4 @@ class ALSWrap(Recommender):
             "item_id_one", "item_id_two", "similarity"
         )
 
-        return get_top_k(
-            dataframe=similarity_matrix,
-            partition_by_col=sf.col("item_id_one"),
-            order_by_col=[
-                sf.col("similarity").desc(),
-                sf.col("item_id_two").desc(),
-            ],
-            k=k,
-        )
+        return similarity_matrix

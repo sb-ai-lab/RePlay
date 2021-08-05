@@ -67,37 +67,11 @@ def test_enrich_with_features(log, model):
     )
 
 
-def test_get_nearest_items(log, model):
+def test_als_get_nearest_items_raises(log, model):
     model.fit(log.filter(sf.col("item_id") != "item4"))
-    # cosine
-    res = model.get_nearest_items(
-        item_ids=["item1", "item2"], k=2, metric="cosine_similarity"
-    )
-    assert res.count() == 4
-    assert set(res.toPandas().to_dict()["item_id"].values()) == {
-        "item1",
-        "item2",
-    }
-
-    # squared
-    res = model.get_nearest_items(
-        item_ids=["item1", "item2"], k=1, metric="squared_distance"
-    )
-    assert res.count() == 2
-
-    # filter neighbours
-    res = model.get_nearest_items(
-        item_ids=["item1", "item2"],
-        k=4,
-        metric="squared_distance",
-        item_ids_to_consider=["item1", "item4"],
-    )
-    assert res.count() == 1
-    assert (
-        len(
-            set(res.toPandas().to_dict()["item_id"].values()).difference(
-                {"item1", "item2"}
-            )
+    with pytest.raises(
+        NotImplementedError, match=r"unknown_metric metric is not implemented"
+    ):
+        model.get_nearest_items(
+            item_ids=["item1", "item2"], k=2, metric="unknown_metric"
         )
-        == 0
-    )

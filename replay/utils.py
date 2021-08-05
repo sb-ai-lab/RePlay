@@ -138,18 +138,18 @@ def vector_dot(one: DenseVector, two: DenseVector) -> float:
     >>> spark = State().session
     >>> input_data = (
     ...     spark.createDataFrame([(Vectors.dense([1.0, 2.0]), Vectors.dense([3.0, 4.0]))])
-    ...     .toDF("first", "second")
+    ...     .toDF("one", "two")
     ... )
     >>> input_data.dtypes
-    [('first', 'vector'), ('second', 'vector')]
+    [('one', 'vector'), ('two', 'vector')]
     >>> input_data.show()
     +---------+---------+
-    |      first|      second|
+    |      one|      two|
     +---------+---------+
     |[1.0,2.0]|[3.0,4.0]|
     +---------+---------+
     <BLANKLINE>
-    >>> output_data = input_data.select(vector_dot("first", "second").alias("dot"))
+    >>> output_data = input_data.select(vector_dot("one", "two").alias("dot"))
     >>> output_data.schema
     StructType(List(StructField(dot,DoubleType,true)))
     >>> output_data.show()
@@ -179,18 +179,18 @@ def vector_mult(
     >>> spark = State().session
     >>> input_data = (
     ...     spark.createDataFrame([(Vectors.dense([1.0, 2.0]), Vectors.dense([3.0, 4.0]))])
-    ...     .toDF("first", "second")
+    ...     .toDF("one", "two")
     ... )
     >>> input_data.dtypes
-    [('first', 'vector'), ('second', 'vector')]
+    [('one', 'vector'), ('two', 'vector')]
     >>> input_data.show()
     +---------+---------+
-    |      first|      second|
+    |      one|      two|
     +---------+---------+
     |[1.0,2.0]|[3.0,4.0]|
     +---------+---------+
     <BLANKLINE>
-    >>> output_data = input_data.select(vector_mult("first", "second").alias("mult"))
+    >>> output_data = input_data.select(vector_mult("one", "two").alias("mult"))
     >>> output_data.schema
     StructType(List(StructField(mult,VectorUDT,true)))
     >>> output_data.show()
@@ -217,18 +217,18 @@ def array_mult(first: st.ArrayType, second: st.ArrayType):
     >>> spark = State().session
     >>> input_data = (
     ...     spark.createDataFrame([([1.0, 2.0], [3.0, 4.0])])
-    ...     .toDF("first", "second")
+    ...     .toDF("one", "two")
     ... )
     >>> input_data.dtypes
-    [('first', 'array<double>'), ('second', 'array<double>')]
+    [('one', 'array<double>'), ('two', 'array<double>')]
     >>> input_data.show()
     +----------+----------+
-    |       first|       second|
+    |       one|       two|
     +----------+----------+
     |[1.0, 2.0]|[3.0, 4.0]|
     +----------+----------+
     <BLANKLINE>
-    >>> output_data = input_data.select(array_mult("first", "second").alias("mult"))
+    >>> output_data = input_data.select(array_mult("one", "two").alias("mult"))
     >>> output_data.schema
     StructType(List(StructField(mult,ArrayType(DoubleType,true),true)))
     >>> output_data.show()
@@ -299,6 +299,7 @@ def get_stats(
     |      1|     2.0|      3|      1|        3|         2|
     |      2|     2.0|      2|      2|        1|         2|
     +-------+--------+-------+-------+---------+----------+
+    <BLANKLINE>
     >>> get_stats(test_df, group_by='item_id', target_column='rel').show()
     +-------+--------+-------+-------+---------+----------+
     |item_id|mean_rel|max_rel|min_rel|count_rel|median_rel|
@@ -307,6 +308,7 @@ def get_stats(
     |      3|     2.5|      3|      2|        2|         2|
     |      1|     2.0|      2|      2|        1|         2|
     +-------+--------+-------+-------+---------+----------+
+    <BLANKLINE>
 
     :param log: spark DataFrame с колонками ``user_id``, ``item_id`` и ``relevance``
     :param group_by: колонка для группировки, ``user_id`` или ``item_id``

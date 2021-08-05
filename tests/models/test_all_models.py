@@ -107,7 +107,7 @@ def test_predict_pairs_warm_only(log, log_to_pred, model):
 # для всех neighbour-based моделей
 @pytest.mark.parametrize(
     "model",
-    [ADMMSLIM(seed=SEED), KNN(), SLIM(seed=SEED), Word2VecRec(seed=SEED),],
+    [ADMMSLIM(seed=SEED), KNN(), SLIM(seed=SEED), Word2VecRec(seed=SEED)],
     ids=["admm_slim", "knn", "slim", "word2vec",],
 )
 def test_predict_pairs_raises(log, model):
@@ -123,3 +123,63 @@ def test_predict_pairs_raises_pairs_format(log):
     ):
         model.fit(log)
         model.predict_pairs(log, log)
+
+
+# for Neighbour recommenders
+@pytest.mark.parametrize(
+    "model",
+    [ALSWrap(seed=SEED), ADMMSLIM(seed=SEED), KNN(), SLIM(seed=SEED)],
+    ids=["als", "admm_slim", "knn", "slim"],
+)
+def test_get_nearest_items(log, model):
+    model.fit(log.filter(sf.col("item_id") != "item4"))
+    # cosine
+    res = model.get_nearest_items(
+        item_ids=["item1", "item2"], k=2, metric="cosine_similarity"
+    )
+
+    assert res.count() == 4
+    assert set(res.toPandas().to_dict()["item_id"].values()) == {
+        "item1",
+        "item2",
+    }
+
+    # squared
+    res = model.get_nearest_items(
+        item_ids=["item1", "item2"], k=1, metric="squared_distance"
+    )
+    assert res.count() == 2
+
+    # filter neighbours
+    res = model.get_nearest_items(
+        item_ids=["item1", "item2"],
+        k=4,
+        metric="squared_distance",
+        item_ids_to_consider=["item1", "item4"],
+    )
+    assert res.count() == 1
+    assert (
+        len(
+            set(res.toPandas().to_dict()["item_id"].values()).difference(
+                {"item1", "item2"}
+            )
+        )
+        == 0
+    )
+
+
+def test_nearest_items_raises(log):
+    model = PopRec()
+    model.fit(log.filter(sf.col("item_id") != "item4"))
+    with pytest.raises(
+        ValueError, match=r"Distance metric is required to get nearest items.*"
+    ):
+        model.get_nearest_items(item_ids=["item1", "item2"], k=2, metric=None)
+
+    with pytest.raises(
+        ValueError,
+        match=r"Use models with attribute 'can_predict_item_to_item' set to True.*",
+    ):
+        model.get_nearest_items(
+            item_ids=["item1", "item2"], k=2, metric="squared_distance"
+        )
