@@ -52,9 +52,9 @@ def test_transform_log_empty_dataframe_exception(data_preparator, spark):
 def test_transform_log_required_columns_exception(
     data_preparator, column_names
 ):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="WTFDsdfsdfds"):
         data_preparator._read_data(
-            path="", format_type="", columns_names=column_names
+            path="/test_path", format_type="json", columns_names=column_names
         )
 
 

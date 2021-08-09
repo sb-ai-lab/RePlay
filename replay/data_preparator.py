@@ -276,7 +276,7 @@ class DataPreparator:
         format_type: Optional[str] = None,
         date_format: Optional[str] = None,
         features_columns: Optional[Union[str, Iterable[str]]] = None,
-        **kwargs,
+        reader_kwargs: Optional[Dict] = None,
     ) -> DataFrame:
         """
         Преобразовывает лог, либо признаки пользователей или объектов
@@ -306,14 +306,16 @@ class DataPreparator:
         :param features_columns: имя столбца либо список имен столбцов с признаками
          для таблиц признаков пользователей/объектов.
          если не задан, в качестве признаков используются все столбцы датафрейма.
-        :param kwargs: дополнительные аргументы, которые передаются в функцию
-            ``spark.read.csv(path, **kwargs)``
+        :param reader_kwargs: дополнительные аргументы, которые передаются в функцию
+            ``spark.read.<format>(path, **reader_kwargs)``
         :return: спарк-датафрейм со столбцами, определенными в ``columns_names`` и features_columns
         """
         if data is not None:
             dataframe = convert2spark(data)
         elif path and format_type:
-            dataframe = self._read_data(path, format_type, **kwargs)
+            if reader_kwargs is None:
+                reader_kwargs = dict()
+            dataframe = self._read_data(path, format_type, **reader_kwargs)
         else:
             raise ValueError(
                 "Один из параметров data, path должен быть отличным от None"
