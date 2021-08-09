@@ -29,3 +29,13 @@ def test_works(model):
     model.predict(user_features, k=1)
     res = model.optimize(train, test, user_features, k=1, budget=1)
     assert type(res["n"]) == int
+
+
+def test_base_predict_pairs(model):
+    model.fit(train, user_features=user_features)
+    # calls predict_pairs from BaseRecommender
+    res = model.predict_pairs(
+        train.iloc[0:1, :], log=train, user_features=user_features
+    )
+    assert res.count() == 1
+    assert res.select("item_id").collect()[0][0] == 1

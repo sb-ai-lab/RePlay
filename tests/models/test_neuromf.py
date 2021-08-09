@@ -8,8 +8,7 @@ import numpy as np
 from replay.constants import LOG_SCHEMA
 from replay.models import NeuroMF
 from replay.models.neuromf import NMF
-from tests.test_utils import del_files_by_pattern, find_file_by_pattern
-from tests.utils import spark
+from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -83,7 +82,7 @@ def test_fit(log, model):
 def test_predict(log, model):
     model.fit(log)
     pred = model.predict(log=log, k=1)
-    np.allclose(
+    assert np.allclose(
         pred.toPandas()[["user_id", "item_id"]]
         .sort_values("user_id")
         .astype(int)

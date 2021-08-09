@@ -3,8 +3,8 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+import torch
 
-# pylint: disable=wrong-import-order
 from ignite.contrib.handlers import LRScheduler
 from ignite.engine import Engine, Events
 from ignite.handlers import (
@@ -13,12 +13,8 @@ from ignite.handlers import (
     global_step_from_engine,
 )
 from ignite.metrics import Loss, RunningAverage
-from pyspark.ml import Pipeline
-from pyspark.ml.feature import MinMaxScaler, VectorAssembler
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-from pyspark.sql import types as st
-import torch
 from torch import nn
 from torch.optim.optimizer import Optimizer  # pylint: disable=E0611
 from torch.optim.lr_scheduler import ReduceLROnPlateau, _LRScheduler
@@ -63,8 +59,40 @@ class TorchRecommender(Recommender):
             .groupby("user_idx")
             .applyInPandas(grouped_map, IDX_REC_SCHEMA)
         )
+        return recs
 
-        recs = self.min_max_scale_column(recs, "relevance")
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+        items_count = self.items_count
+        model = self.model.cpu()
+        agg_fn = self._predict_by_user_pairs
+        users = pairs.select("user_idx").distinct()
+
+        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+            return agg_fn(pandas_df, model, items_count)[
+                ["user_idx", "item_idx", "relevance"]
+            ]
+
+        self.logger.debug("Оценка релевантности для пар")
+        user_history = (
+            users.join(log, how="inner", on="user_idx")
+            .groupBy("user_idx")
+            .agg(sf.collect_list("item_idx").alias("item_idx_history"))
+        )
+        user_pairs = pairs.groupBy("user_idx").agg(
+            sf.collect_list("item_idx").alias("item_idx_to_pred")
+        )
+        full_df = user_pairs.join(user_history, on="user_idx", how="left")
+
+        recs = full_df.groupby("user_idx").applyInPandas(
+            grouped_map, IDX_REC_SCHEMA
+        )
+
         return recs
 
     @staticmethod
@@ -77,7 +105,7 @@ class TorchRecommender(Recommender):
         item_count: int,
     ) -> pd.DataFrame:
         """
-        Расчёт значения метрики для каждого пользователя
+        Получение рекомендаций для каждого пользователя
 
         :param pandas_df: DataFrame, содержащий индексы просмотренных объектов
             по каждому пользователю -- pandas-датафрейм вида
@@ -91,32 +119,21 @@ class TorchRecommender(Recommender):
         """
 
     @staticmethod
-    def min_max_scale_column(dataframe: DataFrame, column: str) -> DataFrame:
+    @abstractmethod
+    def _predict_by_user_pairs(
+        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
+    ) -> pd.DataFrame:
         """
-        Отнормировать колонку датафрейма.
-        Применяет классическую форму нормализации с минимумом и максимумом:
-        new_value_i = (value_i - min) / (max - min).
+        Получение релевантности для выбранных объектов для каждого пользователя
 
-        :param dataframe: спарк-датафрейм
-        :param column: имя колонки, которую надо нормализовать
-        :return: исходный датафрейм с измененной колонкой
+        :param pandas_df: pandas-датафрейм, содержащий индексы просмотренных объектов
+            по каждому пользователю и индексы объектов, для которых нужно получить предсказание
+            ``[user_idx, item_idx_history, item_idx_to_pred]``
+        :param model: обученная модель
+        :param item_count: общее количество объектов в рекомендателе
+        :return: DataFrame c рассчитанными релевантностями --
+            pandas-датафрейм вида ``[user_idx , item_idx , relevance]``
         """
-        unlist = sf.udf(lambda x: float(list(x)[0]), st.DoubleType())
-        assembler = VectorAssembler(
-            inputCols=[column], outputCol=f"{column}_Vect"
-        )
-        scaler = MinMaxScaler(
-            inputCol=f"{column}_Vect", outputCol=f"{column}_Scaled"
-        )
-        pipeline = Pipeline(stages=[assembler, scaler])
-        dataframe = (
-            pipeline.fit(dataframe)
-            .transform(dataframe)
-            .withColumn(column, unlist(f"{column}_Scaled"))
-            .drop(f"{column}_Vect", f"{column}_Scaled")
-        )
-
-        return dataframe
 
     def load_model(self, path: str) -> None:
         """

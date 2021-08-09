@@ -3,6 +3,7 @@ from datetime import datetime
 
 import pytest
 import numpy as np
+from pyspark.sql import functions as sf
 
 from replay.constants import LOG_SCHEMA
 from replay.models import ADMMSLIM
