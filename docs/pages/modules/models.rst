@@ -3,118 +3,75 @@
 
 .. automodule:: replay.models
 
-**Базовые алгоритмы**
+RePlay Recommenders
+___________________
 
 .. csv-table::
-   :header: "Алгоритм", "Реализация", "Описание"
+   :header: "Algorithm", "Implementation", "Description"
    :widths: 10, 10, 10
 
     "Popular Recommender", "PySpark", "Рекомендует популярные объекты (встречавшиеся в истории взаимодействия чаще остальных)"
     "Popular By Users", "PySpark", "Рекомендует объекты, которые пользователь ранее выбирал чаще всего"
-    "Wilson Recommender", "Python CPU", "Рекомендует объекты с лучшими оценками. Оценка объекта определяется как нижняя граница доверительного интервала Уилсона для доли положительных взаимодействий"
     "Random Recommender", "PySpark", "Рекомендует случайные объекты или сэмплирует с вероятностью, пропорциональной популярности объекта"
     "K-Nearest Neighbours", "PySpark", "Рекомендует объекты, похожие на те, с которыми взаимодействовал пользователь"
-    "Classifier Recommender", "PySpark", "Алгоритм бинарной классификации для релевантности объекта для пользователя по их признакам"
     "Alternating Least Squares", "PySpark", "Алгоритм матричной факторизации `Collaborative Filtering for Implicit Feedback Datasets <https://ieeexplore.ieee.org/document/4781121>`_"
-    "Neural Matrix Factorization", "Python CPU/GPU", "Алгоритм нейросетевой матричной факторизации на базе `Neural Collaborative Filtering <https://arxiv.org/pdf/1708.05031.pdf>`_"
     "SLIM", "PySpark", "Алгоритм, обучающий матрицу близости объектов для восстановления матрицы взаимодействия `SLIM: Sparse Linear Methods for Top-N Recommender Systems <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"
-    "ADMM SLIM", "Python CPU", "Улучшение стандартного алгоритма SLIM, `ADMM SLIM: Sparse Recommendations for Many Users <http://www.cs.columbia.edu/~jebara/papers/wsdm20_ADMM.pdf>`_"
+    "Classifier Recommender", "PySpark", "Алгоритм бинарной классификации для релевантности объекта для пользователя по их признакам"
+    "Stack Recommender", "PySpark", "Recommendations for cold users using clustering by users' features"
+    "Neural Matrix Factorization", "Python CPU/GPU", "Алгоритм нейросетевой матричной факторизации на базе `Neural Collaborative Filtering <https://arxiv.org/pdf/1708.05031.pdf>`_"
     "MultVAE", "Python CPU/GPU", "Вариационный автоэнкодер, восстанавливающий вектор взаимодействий для пользователя `Variational Autoencoders for Collaborative Filtering <https://arxiv.org/pdf/1802.05814.pdf>`_"
     "Word2Vec Recommender", "Python CPU/GPU", "Рекомендатель на основе word2vec, в котором объекты сопоставляются словам, а пользователи - предложениям"
-    "Обертка LightFM", "Python CPU", "Обертка для обучения `моделей LightFM <https://making.lyst.com/lightfm/docs/home.html>`_"
+    "ADMM SLIM", "Python CPU", "Улучшение стандартного алгоритма SLIM, `ADMM SLIM: Sparse Recommendations for Many Users <http://www.cs.columbia.edu/~jebara/papers/wsdm20_ADMM.pdf>`_"
+    "Wilson Recommender", "Python CPU", "Рекомендует объекты с лучшими оценками. Оценка объекта определяется как нижняя граница доверительного интервала Уилсона для доли положительных взаимодействий"
     "Обертка Implicit", "Python CPU", "Обертка для обучения `моделей Implicit <https://implicit.readthedocs.io/en/latest/>`_"
-
-Для всех базовых алгоритмов выдача рекоментаций (inference) реализована с использованием PySpark.
-
-**Многоуровневые алгоритмы**
-
-.. csv-table::
-   :header: "Алгоритм", "Реализация", "Описание"
-   :widths: 10, 10, 10
-
-   "Stack Recommender", "`*`", "Модель стекинга, перевзвешивающая предсказания моделей первого уровня"
-   "Двухуровневый классификатор", "`*`", "Классификатор, использующий для обучения эмбеддинги пользователей и объектов, полученные базовым алгоритмом (например, матричной факторизацией), и признаки пользователей и объектов, переданные пользователем"
+    "Обертка LightFM", "Python CPU", "Обертка для обучения `моделей LightFM <https://making.lyst.com/lightfm/docs/home.html>`_"
+    "Stack Recommender", "`*`", "Модель стекинга, перевзвешивающая предсказания моделей первого уровня"
 
 `*` - зависит от алгоритмов, используемых в качестве базовых.
 
 Больше информации об алгоритмах и их применимости для различных данных :doc:`здесь </pages/useful_data/algorithm_selection>`.
 
+Recommender interface
+____________________________
+
 .. autoclass:: replay.models.Recommender
     :members:
-
-Интеграция с `optuna`
-----------------------
-Нативные модели можно оптимизировать с помощью optuna встроенным методом
 
 .. autoclass:: replay.models.base_rec.BaseRecommender
     :members: optimize
 
-.. _pop-rec:
+Distributed models
+__________________
+Models with both training and inference implemented in pyspark.
 
 Popular Recommender
---------------------
-
+```````````````````
 .. autoclass:: replay.models.PopRec
 
 User Popular Recommender
--------------------------
-
+````````````````````````
 .. autoclass:: replay.models.UserPopRec
 
-Wilson Recommender
--------------------
-
-Доверительный интервал для биномиального распределения можно высчитать по следующей формуле:
-
-.. math::
-    WilsonScore = \frac{\widehat{p}+\frac{z_{ \frac{\alpha}{2}}^{2}}{2n}\pm z_
-    {\frac{\alpha}{2}}\sqrt{\frac{\widehat{p}(1-\widehat{p})+\frac{z_
-    {\frac{\alpha}{2}}^{2}}{4n}}{n}} }{1+\frac{z_{ \frac{\alpha}{2}}^{2}}{n}}
-
-
-Где :math:`\hat{p}` -- наблюдаемая доля положительных оценок (1 по отношению к 0).
-
-:math:`z_{\alpha}` 1-альфа квантиль нормального распределения.
-
-.. autoclass:: replay.models.Wilson
-
 Random Recommender
-------------------
-
+``````````````````
 .. autoclass:: replay.models.RandomRec
    :special-members: __init__
 
-.. _knn-model:
 
 K Nearest Neighbours
-----------------------
-
+````````````````````
 .. autoclass:: replay.models.KNN
-    :special-members: __init__
-
-Classifier Recommender
-----------------------
-
-..  autoclass:: replay.models.ClassifierRec
     :special-members: __init__
 
 .. _als-rec:
 
 Alternating Least Squares
----------------------------
-
+`````````````````````````
 .. autoclass:: replay.models.ALSWrap
     :special-members: __init__
 
-Neural Matrix Factorization
------------------------------
-
-.. autoclass:: replay.models.NeuroMF
-    :special-members: __init__
-
 SLIM
---------
-
+````
 SLIM Recommender основан на обучении матрицы близости объектов
 :math:`W`.
 
@@ -145,28 +102,34 @@ SLIM Recommender основан на обучении матрицы близо�
 .. autoclass:: replay.models.SLIM
     :special-members: __init__
 
-ADMM SLIM
-----------
-
-.. autoclass:: replay.models.ADMMSLIM
+Classifier Recommender
+``````````````````````
+..  autoclass:: replay.models.ClassifierRec
     :special-members: __init__
 
-LightFM
------------
 
-.. autoclass:: replay.models.LightFMWrap
+Cluster Recommender
+```````````````````
+.. autoclass:: replay.models.ClusterRec
+   :members:
+
+Stack
+`````
+.. autoclass:: replay.models.Stack
     :special-members: __init__
 
-implicit
----------
 
-.. autoclass:: replay.models.ImplicitWrap
+Neural models with distributed inference
+________________________________________
+Models implemented in pytroch with distributed inference in pyspark.
+
+Neural Matrix Factorization
+```````````````````````````
+.. autoclass:: replay.models.NeuroMF
     :special-members: __init__
-
 
 Mult-VAE
---------
-
+````````
 Вариационный автокодировщик. Общая схема его работы
 представлена на рисунке.
 
@@ -284,18 +247,42 @@ DAE (шумоподавляющий автокодировщик)
     :special-members: __init__
 
 Word2Vec Recommender
---------------------
-
+````````````````````
 .. autoclass:: replay.models.Word2VecRec
     :special-members: __init__
 
-Stack
--------
+Wrappers and other models with distributed inference
+____________________________________________________
+Wrappers for popular recommendation libraries and algorithms
+implemented in python with distributed inference in pytorch.
 
-.. autoclass:: replay.models.Stack
+Wilson Recommender
+``````````````````
+Доверительный интервал для биномиального распределения можно высчитать по следующей формуле:
+
+.. math::
+    WilsonScore = \frac{\widehat{p}+\frac{z_{ \frac{\alpha}{2}}^{2}}{2n}\pm z_
+    {\frac{\alpha}{2}}\sqrt{\frac{\widehat{p}(1-\widehat{p})+\frac{z_
+    {\frac{\alpha}{2}}^{2}}{4n}}{n}} }{1+\frac{z_{ \frac{\alpha}{2}}^{2}}{n}}
+
+
+Где :math:`\hat{p}` -- наблюдаемая доля положительных оценок (1 по отношению к 0).
+
+:math:`z_{\alpha}` 1-альфа квантиль нормального распределения.
+
+.. autoclass:: replay.models.Wilson
+
+ADMM SLIM
+`````````
+.. autoclass:: replay.models.ADMMSLIM
     :special-members: __init__
 
-Кластерная модель для холодных пользователей
------------------------------------------------
-.. autoclass:: replay.models.ClusterRec
-   :members:
+LightFM
+```````
+.. autoclass:: replay.models.LightFMWrap
+    :special-members: __init__
+
+implicit
+````````
+.. autoclass:: replay.models.ImplicitWrap
+    :special-members: __init__

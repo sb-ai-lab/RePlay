@@ -1,8 +1,9 @@
 """
-Данный модуль содержит обертки для известных моделей, вроде Lightfm_Wrap,
-и реализует некоторые классические алгоритмы.
-
-Модели используют в реализации либо Spark, либо pytorch.
+The module contains recommender system algorithms including:
+- distributed models built in pyspark;
+- neural networks build in pytorch with distributed inference in pyspark;
+- wrappers for commonly used recommender systems libraries
+and models with non-distributed training and distributed inference in pyspark.
 """
 
 from replay.models.admm_slim import ADMMSLIM
