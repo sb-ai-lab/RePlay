@@ -73,5 +73,5 @@ def test_als_get_nearest_items_raises(log, model):
         NotImplementedError, match=r"unknown_metric metric is not implemented"
     ):
         model.get_nearest_items(
-            item_ids=["item1", "item2"], k=2, metric="unknown_metric"
+            items=["item1", "item2"], k=2, metric="unknown_metric"
         )

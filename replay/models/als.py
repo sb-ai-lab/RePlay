@@ -112,10 +112,9 @@ class ALSWrap(Recommender):
 
     def _get_nearest_items(
         self,
-        item_ids: DataFrame,
-        k: int,
+        items: DataFrame,
         metric: str = "squared_distance",
-        item_ids_to_consider: Optional[DataFrame] = None,
+        items_to_consider: Optional[DataFrame] = None,
     ) -> DataFrame:
 
         factor = 1
@@ -134,7 +133,7 @@ class ALSWrap(Recommender):
         )
 
         left_part = als_factors.join(
-            item_ids.select(sf.col("item_idx").alias("item_id_one")),
+            items.select(sf.col("item_idx").alias("item_id_one")),
             on="item_id_one",
         )
 
@@ -142,11 +141,9 @@ class ALSWrap(Recommender):
             "factors_one", "factors_two"
         ).withColumnRenamed("item_id_one", "item_id_two")
 
-        if item_ids_to_consider is not None:
+        if items_to_consider is not None:
             right_part = right_part.join(
-                item_ids_to_consider.withColumnRenamed(
-                    "item_idx", "item_id_two"
-                ),
+                items_to_consider.withColumnRenamed("item_idx", "item_id_two"),
                 on="item_id_two",
             )
 

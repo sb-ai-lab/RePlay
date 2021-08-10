@@ -125,7 +125,7 @@ def test_predict_pairs_raises_pairs_format(log):
         model.predict_pairs(log, log)
 
 
-# for Neighbour recommenders
+# for Neighbour recommenders and ALS
 @pytest.mark.parametrize(
     "model",
     [ALSWrap(seed=SEED), ADMMSLIM(seed=SEED), KNN(), SLIM(seed=SEED)],
@@ -135,7 +135,7 @@ def test_get_nearest_items(log, model):
     model.fit(log.filter(sf.col("item_id") != "item4"))
     # cosine
     res = model.get_nearest_items(
-        item_ids=["item1", "item2"], k=2, metric="cosine_similarity"
+        items=["item1", "item2"], k=2, metric="cosine_similarity"
     )
 
     assert res.count() == 4
@@ -146,16 +146,16 @@ def test_get_nearest_items(log, model):
 
     # squared
     res = model.get_nearest_items(
-        item_ids=["item1", "item2"], k=1, metric="squared_distance"
+        items=["item1", "item2"], k=1, metric="squared_distance"
     )
     assert res.count() == 2
 
     # filter neighbours
     res = model.get_nearest_items(
-        item_ids=["item1", "item2"],
+        items=["item1", "item2"],
         k=4,
         metric="squared_distance",
-        item_ids_to_consider=["item1", "item4"],
+        items_to_consider=["item1", "item4"],
     )
     assert res.count() == 1
     assert (
@@ -174,12 +174,12 @@ def test_nearest_items_raises(log):
     with pytest.raises(
         ValueError, match=r"Distance metric is required to get nearest items.*"
     ):
-        model.get_nearest_items(item_ids=["item1", "item2"], k=2, metric=None)
+        model.get_nearest_items(items=["item1", "item2"], k=2, metric=None)
 
     with pytest.raises(
         ValueError,
         match=r"Use models with attribute 'can_predict_item_to_item' set to True.*",
     ):
         model.get_nearest_items(
-            item_ids=["item1", "item2"], k=2, metric="squared_distance"
+            items=["item1", "item2"], k=2, metric="squared_distance"
         )
