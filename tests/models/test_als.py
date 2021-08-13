@@ -65,3 +65,13 @@ def test_enrich_with_features(log, model):
         [row_dict["_if_1"], row_dict["_if_1"] * row_dict["_uf_1"]],
         [-2.938199281692505, 0],
     )
+
+
+def test_als_get_nearest_items_raises(log, model):
+    model.fit(log.filter(sf.col("item_id") != "item4"))
+    with pytest.raises(
+        NotImplementedError, match=r"unknown_metric metric is not implemented"
+    ):
+        model.get_nearest_items(
+            items=["item1", "item2"], k=2, metric="unknown_metric"
+        )
