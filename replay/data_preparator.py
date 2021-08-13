@@ -9,11 +9,10 @@
 `CatFeaturesTransformer`` позволяет удобным образом трансформировать
 категориальные признаки с помощью one-hot encoding.
 """
-import logging
 import string
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-from pyspark.sql import Column, DataFrame
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.types import (
     DoubleType,
@@ -22,7 +21,7 @@ from pyspark.sql.types import (
 )
 
 from replay.constants import AnyDataFrame
-from replay.utils import convert2spark
+from replay.utils import convert2spark, process_timestamp_column
 from replay.session_handler import State
 
 
@@ -165,7 +164,7 @@ class DataPreparator:
         dataframe_columns = set(dataframe.columns)
         if not columns_to_check.issubset(dataframe_columns):
             raise ValueError(
-                "В columns_names в значениях есть колонки, "
+                "В feature_columns или columns_names указаны колонки, "
                 "которых нет в датафрейме: "
                 f"{columns_to_check.difference(dataframe_columns)}"
             )
@@ -174,62 +173,6 @@ class DataPreparator:
         for column in columns_names.values():
             if dataframe.where(sf.col(column).isNull()).count() > 0:
                 raise ValueError(f"В колонке '{column}' есть значения NULL")
-
-    @staticmethod
-    def _process_timestamp_column(
-        dataframe: DataFrame,
-        column_name: str,
-        column: Column,
-        date_format: Optional[str],
-        default_value: str,
-    ):
-        not_ts_types = ["timestamp", "string", None]
-        if dict(dataframe.dtypes).get("timestamp", None) not in not_ts_types:
-            # если в колонке лежат чиселки,
-            # то это либо порядок записей, либо unix time
-
-            # попробуем преобразовать unix time
-            tmp_column = column_name + "tmp"
-            dataframe = dataframe.withColumn(
-                tmp_column, sf.to_timestamp(sf.from_unixtime(column))
-            )
-
-            # если не unix time, то в колонке будут все null
-            is_null_column = dataframe.select(
-                (sf.min(tmp_column).eqNullSafe(sf.max(tmp_column))).alias(
-                    tmp_column
-                )
-            ).collect()[0]
-            if is_null_column[tmp_column]:
-                logger = logging.getLogger("replay")
-                logger.warning(
-                    "Колонка со временем не содержит unix time; "
-                    "чиселки в этой колонке будут добавлены к "
-                    "дефолтной дате"
-                )
-
-                dataframe = (
-                    dataframe.withColumn(
-                        "tmp", sf.to_timestamp(sf.lit(default_value))
-                    )
-                    .withColumn(
-                        column_name,
-                        sf.to_timestamp(
-                            sf.expr(f"date_add(tmp, {column_name})")
-                        ),
-                    )
-                    .drop("tmp", tmp_column)
-                )
-            else:
-                dataframe = dataframe.drop(column_name).withColumnRenamed(
-                    tmp_column, column_name
-                )
-        else:
-            dataframe = dataframe.withColumn(
-                column_name,
-                sf.to_timestamp(column, format=date_format),  # type: ignore
-            )
-        return dataframe
 
     @staticmethod
     def _rename_columns(
@@ -254,16 +197,16 @@ class DataPreparator:
             (default_value, default_type),
         ) in default_schema.items():
             if column_name not in dataframe.columns:
-                column = sf.lit(default_value)
-            else:
-                column = sf.col(column_name)
+                dataframe = dataframe.withColumn(
+                    column_name, sf.lit(default_value)
+                )
             if column_name == "timestamp":
-                dataframe = DataPreparator._process_timestamp_column(
-                    dataframe, column_name, column, date_format, default_value
+                dataframe = process_timestamp_column(
+                    dataframe, column_name, date_format
                 )
             else:
                 dataframe = dataframe.withColumn(
-                    column_name, column.cast(default_type)
+                    column_name, sf.col(column_name).cast(default_type)
                 )
         return dataframe
 
@@ -276,7 +219,7 @@ class DataPreparator:
         format_type: Optional[str] = None,
         date_format: Optional[str] = None,
         features_columns: Optional[Union[str, Iterable[str]]] = None,
-        **kwargs,
+        reader_kwargs: Optional[Dict] = None,
     ) -> DataFrame:
         """
         Преобразовывает лог, либо признаки пользователей или объектов
@@ -306,14 +249,16 @@ class DataPreparator:
         :param features_columns: имя столбца либо список имен столбцов с признаками
          для таблиц признаков пользователей/объектов.
          если не задан, в качестве признаков используются все столбцы датафрейма.
-        :param kwargs: дополнительные аргументы, которые передаются в функцию
-            ``spark.read.csv(path, **kwargs)``
+        :param reader_kwargs: дополнительные аргументы, которые передаются в функцию
+            ``spark.read.<format>(path, **reader_kwargs)``
         :return: спарк-датафрейм со столбцами, определенными в ``columns_names`` и features_columns
         """
         if data is not None:
             dataframe = convert2spark(data)
         elif path and format_type:
-            dataframe = self._read_data(path, format_type, **kwargs)
+            if reader_kwargs is None:
+                reader_kwargs = dict()
+            dataframe = self._read_data(path, format_type, **reader_kwargs)
         else:
             raise ValueError(
                 "Один из параметров data, path должен быть отличным от None"

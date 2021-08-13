@@ -1,5 +1,6 @@
-# pylint: disable-all
+# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, too-many-arguments
 from datetime import datetime
+from copy import deepcopy
 from unittest.mock import Mock
 
 import pytest
@@ -22,33 +23,15 @@ def data_preparator():
     return DataPreparator()
 
 
-def test_read_data_wrong_columns_exception(data_preparator):
-    with pytest.raises(ValueError):
-        data_preparator._read_data(path="", format_type="blabla")
+column_names = [
+    {"blabla": ""},
+    {"timestamp": "", "blabla": ""},
+    {"relevance": "", "blabla": ""},
+    {"timestamp": "", "blabla": ""},
+    {"timestamp": "", "relevance": "", "blabla": ""},
+]
 
-
-def test_transform_log_empty_dataframe_exception(data_preparator, spark):
-    log = spark.createDataFrame(data=[], schema=StructType([]))
-    data_preparator._read_data = Mock(return_value=log)
-    with pytest.raises(ValueError):
-        data_preparator.transform(
-            path="",
-            format_type="",
-            columns_names={"user_id": "", "item_id": ""},
-        )
-
-
-@pytest.mark.parametrize("column_names", [{"user_id": ""}, {"item_id": ""}])
-def test_transform_log_required_columns_exception(
-    data_preparator, column_names
-):
-    with pytest.raises(ValueError):
-        data_preparator._read_data(
-            path="", format_type="", columns_names=column_names
-        )
-
-
-test_data = [
+logs_with_nones = [
     # log_data, log_schema, columns_names
     (
         [["user1", "item1"], ["user1", "item2"], ["user2", None]],
@@ -65,11 +48,6 @@ test_data = [
         {"user_id": "user", "item_id": "item", "timestamp": "ts"},
     ),
     (
-        [["1", "1"], ["1", "2"], ["2", "3"]],
-        ["user", "item"],
-        {"user_id": "user", "item_id": "item"},
-    ),
-    (
         [["1", "1", 1.0], ["1", "2", 1.0], ["2", "3", None]],
         ["user", "item", "r"],
         {"user_id": "user", "item_id": "item", "relevance": "r"},
@@ -77,40 +55,160 @@ test_data = [
 ]
 
 
-@pytest.mark.parametrize("log_data,log_schema,columns_names", test_data)
+# checks in _read_data
+def test_read_data_invalid_format(data_preparator):
+    with pytest.raises(ValueError, match=r"Invalid value of format_type.*"):
+        data_preparator._read_data(path="/test_path", format_type="blabla")
+
+
+# checks in _check_columns
+@pytest.mark.parametrize("columns_names", column_names)
+def test_transform_log_redundant_columns_exception(
+    data_preparator, columns_names
+):
+    data_preparator._read_data = Mock(return_value=long_log_with_features)
+    # adding mandatory log columns
+    columns_names_local = deepcopy(columns_names)
+    columns_names_local.update({"user_id": "", "item_id": ""})
+    with pytest.raises(
+        ValueError, match=r"В 'columns_names' есть лишние колонки:.*"
+    ):
+        data_preparator.transform(
+            path="/test_path",
+            format_type="table",
+            columns_names=columns_names_local,
+        )
+
+
+# checks in _check_dataframe
+def test_transform_log_empty_dataframe_exception(data_preparator, spark):
+    log = spark.createDataFrame(data=[], schema=StructType([]))
+    data_preparator._read_data = Mock(return_value=log)
+    with pytest.raises(ValueError, match=r"Датафрейм пустой.*"):
+        data_preparator.transform(
+            path="/test_path",
+            format_type="json",
+            columns_names={"user_id": "", "item_id": ""},
+        )
+
+
+@pytest.mark.parametrize(
+    "col_kwargs",
+    [
+        {"columns_names": {"user_id": "absent_id"}},
+        {
+            "columns_names": {"user_id": "user_id"},
+            "features_columns": ["absent_col"],
+        },
+    ],
+)
+def test_absent_columns(data_preparator, long_log_with_features, col_kwargs):
+    data_preparator._read_data = Mock(return_value=long_log_with_features)
+    with pytest.raises(
+        ValueError,
+        match=r"В feature_columns или columns_names указаны колонки, "
+        r"которых нет в датафрейме: .*",
+    ):
+        data_preparator.transform(
+            path="/test_path", format_type="table", **col_kwargs
+        )
+
+
+@pytest.mark.parametrize(
+    "log_data, log_schema, columns_names", logs_with_nones
+)
 def test_transform_log_null_column_exception(
     spark, data_preparator, log_data, log_schema, columns_names
 ):
     print(columns_names)
     log = spark.createDataFrame(data=log_data, schema=log_schema)
     data_preparator._read_data = Mock(return_value=log)
-    with pytest.raises(ValueError):
+
+    with pytest.raises(ValueError, match=r".* есть значения NULL"):
         data_preparator.transform(
-            path="", format_type="", columns_names=columns_names
+            path="/test_path",
+            format_type="parquet",
+            columns_names=columns_names,
         )
 
 
-column_names = [
-    {"blabla": ""},
-    {"timestamp": "", "blabla": ""},
-    {"relevance": "", "blabla": ""},
-    {"timestamp": "", "blabla": ""},
-    {"timestamp": "", "relevance": "", "blabla": ""},
-]
+# checks in transform
+def test_read_data_empty_pass(data_preparator):
+    with pytest.raises(
+        ValueError,
+        match=r"Один из параметров data, path должен быть отличным от None.*",
+    ):
+        data_preparator.transform(
+            columns_names={"user_id": ""}, path=None, data=None
+        )
 
 
 @pytest.mark.parametrize("columns_names", column_names)
-def test_transform_log_redundant_columns_exception(
-    data_preparator, columns_names
-):
-    # добавим обязательные колонки
-    columns_names.update({"user_id": "", "item_id": ""})
-    with pytest.raises(ValueError):
+def test_transform_log_no_cols(spark, data_preparator, columns_names):
+    log = spark.createDataFrame(
+        data=[
+            ["user1", "item1", "2019-01-01", 0],
+            ["user1", "item2", "2019-01-01", 1],
+        ],
+        schema=["user_id", "item_id", "timestamp", "relevance"],
+    )
+    data_preparator._read_data = Mock(return_value=log)
+    columns_names_local = deepcopy(columns_names)
+    columns_names_local.update({"user_id": "user_id"})
+    with pytest.raises(
+        ValueError,
+        match=r"Для датафрейма с признаками пользователей . объектов "
+        "укажите в columns_names только соответствие для текущего ключа.*",
+    ):
         data_preparator.transform(
-            path="", format_type="", columns_names=columns_names
+            path="/test_path",
+            format_type="table",
+            columns_names=columns_names_local,
         )
 
 
+# checks in feature_columns
+def test_transform_log_required_columns_exception(
+    data_preparator, long_log_with_features
+):
+    data_preparator._read_data = Mock(return_value=long_log_with_features)
+    with pytest.raises(
+        ValueError, match="В columns_names нет ни 'user_id', ни 'item_id'"
+    ):
+        data_preparator.transform(
+            path="/test_path",
+            format_type="json",
+            columns_names={"timestamp": "timestamp"},
+        )
+
+
+def test_transform_no_feature_columns(data_preparator, long_log_with_features):
+    data_preparator._read_data = Mock(
+        return_value=long_log_with_features.select("item_id")
+    )
+    with pytest.raises(ValueError, match="В датафрейме нет колонок с фичами"):
+        data_preparator.transform(
+            path="/test_path",
+            format_type="json",
+            columns_names={"item_id": "item_id"},
+        )
+
+
+# checks in base_columns
+def test_features_columns(data_preparator, long_log_with_features):
+    data_preparator._read_data = Mock(return_value=long_log_with_features)
+    with pytest.raises(
+        ValueError, match="В данной таблице features не используются"
+    ):
+        data_preparator.transform(
+            path="/test_path",
+            format_type="json",
+            columns_names={"item_id": "item_id", "user_id": "user_id"},
+            features_columns=["timestamp"],
+        )
+
+
+# test transform
 big_test = [
     # log_data, log_schema, true_log_data, columns_names
     (
@@ -169,13 +267,20 @@ big_test = [
 
 
 @pytest.mark.parametrize(
-    "log_data,log_schema,true_log_data,columns_names", big_test
+    "log_data,log_schema,true_log_data,columns_names",
+    big_test,
+    ids=[
+        "no ts and rel",
+        "str ts, no rel",
+        "no string conversion",
+        "all cols given",
+    ],
 )
 def test_transform_log(
     spark, data_preparator, log_data, log_schema, true_log_data, columns_names
 ):
     log = spark.createDataFrame(data=log_data, schema=log_schema)
-    # явно преобразовываем все к стрингам
+    # convert all data to StringType
     for column in log.columns:
         log = log.withColumn(column, sf.col(column).cast(StringType()))
 
@@ -186,21 +291,7 @@ def test_transform_log(
 
 
 timestamp_data = [
-    # log_data, log_schema, true_log_data, columns_names
-    (
-        [
-            ["user1", "item1", 32],
-            ["user1", "item2", 12],
-            ["user2", "item1", 0],
-        ],
-        ["user", "item", "ts"],
-        [
-            ["user1", "item1", datetime.fromtimestamp(32), 1.0],
-            ["user1", "item2", datetime.fromtimestamp(12), 1.0],
-            ["user2", "item1", datetime.fromtimestamp(0), 1.0],
-        ],
-        {"user_id": "user", "item_id": "item", "timestamp": "ts"},
-    ),
+    # log_data, log_schema, true_log_data, columns_names, date_format
     (
         [
             ["user1", "item1", 3],
@@ -214,187 +305,50 @@ timestamp_data = [
             ["user2", "item1", datetime.fromtimestamp(365), 1.0],
         ],
         {"user_id": "user", "item_id": "item", "timestamp": "ts"},
+        None,
     ),
-]
-
-
-@pytest.mark.parametrize(
-    "log_data, log_schema, true_log_data, columns_names", timestamp_data
-)
-def test_transform_log_timestamp_column(
-    data_preparator, spark, log_data, log_schema, true_log_data, columns_names
-):
-    log = spark.createDataFrame(data=log_data, schema=log_schema)
-
-    true_log = spark.createDataFrame(data=true_log_data, schema=LOG_SCHEMA)
-
-    test_log = data_preparator.transform(data=log, columns_names=columns_names)
-    sparkDataFrameEqual(true_log, test_log)
-
-
-format_data = [
-    # log_data, log_schema, true_log_data, columns_names
     (
         [
-            ["u1", "f1", "2019-01-01 10:00:00"],
-            ["u1", "f2", "1995-11-01 00:00:00"],
-            ["u2", "f1", "2000-03-30 00:00:00"],
+            ["user1", "item1", "2019$01$01"],
+            ["user1", "item2", "1995$11$01 00:00:00"],
+            ["user2", "item1", "2000$03$30 13:00:00"],
         ],
         ["user", "item", "string_time"],
         [
-            ["u1", "f1", datetime(2019, 1, 1, 10), 1.0],
-            ["u1", "f2", datetime(1995, 11, 1), 1.0],
-            ["u2", "f1", datetime(2000, 3, 30), 1.0],
+            ["user1", "item1", datetime(2019, 1, 1,), 1.0],
+            ["user1", "item2", datetime(1995, 11, 1), 1.0],
+            ["user2", "item1", datetime(2000, 3, 30, 13), 1.0],
         ],
         {"user_id": "user", "item_id": "item", "timestamp": "string_time"},
+        "yyyy$MM$dd[ HH:mm:ss]",
     ),
 ]
 
 
 @pytest.mark.parametrize(
-    "log_data, log_schema, true_log_data, columns_names", format_data
+    "log_data, log_schema, true_log_data, columns_names, date_format",
+    timestamp_data,
 )
-def test_transform_log_timestamp_format(
-    data_preparator, spark, log_data, log_schema, true_log_data, columns_names
+def test_transform_log_timestamp_column(
+    data_preparator,
+    spark,
+    log_data,
+    log_schema,
+    true_log_data,
+    columns_names,
+    date_format,
 ):
     log = spark.createDataFrame(data=log_data, schema=log_schema)
-    log.show()
-    print(LOG_SCHEMA)
     true_log = spark.createDataFrame(data=true_log_data, schema=LOG_SCHEMA)
-
     test_log = data_preparator.transform(
-        data=log,
-        columns_names=columns_names,
-        date_format="yyyy-MM-dd HH:mm:ss",
+        data=log, columns_names=columns_names, date_format=date_format
     )
-    test_log.show()
     sparkDataFrameEqual(true_log, test_log)
 
 
-def test_transform_features_empty_dataframe_exception(spark, data_preparator):
-    features = spark.createDataFrame(data=[], schema=StructType([]))
-    data_preparator._read_data = Mock(return_value=features)
-    with pytest.raises(ValueError):
-        data_preparator.transform(
-            path="", format_type="", columns_names={"user_id": ""}
-        )
-
-
-@pytest.mark.parametrize(
-    "columns_names", [{"timestamp": ""}, {"": ""}, {"blabla": ""}]
-)
-def test_transform_features_required_columns_exception(
-    data_preparator, columns_names
-):
-    with pytest.raises(ValueError):
-        data_preparator.transform(
-            path="", format_type="", columns_names=columns_names
-        )
-
-
-null_column_data = [
-    # feature_data, feature_schema, columns_names
-    (
-        [["user1", 1], ["user1", 1], ["user2", None]],
-        ["user", "feature"],
-        {"user_id": "user", "feature": "feature"},
-    ),
-    (
-        [["1", "2019-01-01"], ["2", None], ["3", "2019-01-01"]],
-        ["item", "ts"],
-        {"item_id": "item", "timestamp": "ts"},
-    ),
-    (
-        [["1", 1, None], ["1", 2, "2019-01-01"], ["2", 3, "2019-01-01"]],
-        ["user", "feature", "timestamp"],
-        {"user_id": "user", "feature": "feature", "timestamp": "timestamp"},
-    ),
-    (
-        [
-            ["1", 1, 100, "2019-01-01"],
-            ["1", 2, 100, "2019-01-01"],
-            ["2", 3, None, "2019-01-01"],
-        ],
-        ["user", "f1", "f2", "timestamp"],
-        {
-            "user_id": "user",
-            "feature": ["f1", "f2"],
-            "timestamp": "timestamp",
-        },
-    ),
-]
-
-
-@pytest.mark.parametrize(
-    "feature_data, feature_schema, columns_names", null_column_data
-)
-def test_transform_features_null_column_exception(
-    data_preparator, spark, feature_data, feature_schema, columns_names
-):
-    features = spark.createDataFrame(data=feature_data, schema=feature_schema)
-    data_preparator._read_data = Mock(return_value=features)
-
-    with pytest.raises(ValueError):
-        data_preparator.transform(
-            path="", format_type="", columns_names=columns_names
-        )
-
-
-extra_columns = [
-    # columns_names
-    ({"item_id": "", "blabla": ""},),
-    ({"item_id": "", "timestamp": "", "blabla": ""},),
-    ({"user_id": "", "blabla": ""},),
-    ({"user_id": "", "timestamp": "", "blabla": ""},),
-]
-
-
-@pytest.mark.parametrize("columns_names", extra_columns)
-def test_transform_features_redundant_columns_exception(
-    data_preparator, columns_names
-):
-    with pytest.raises(ValueError):
-        data_preparator.transform(
-            path="", format_type="", columns_names=columns_names
-        )
-
-
-no_features_data = [
-    # columns_names, features_schema
-    ({"item_id": "item"}, ["item"]),
-    ({"user_id": "user"}, ["user"]),
-    ({"item_id": "item", "timestamp": "ts"}, ["item", "ts"]),
-    ({"user_id": "user", "timestamp": "ts"}, ["user", "ts"]),
-]
-
-
-@pytest.mark.parametrize("columns_names, features_schema", no_features_data)
-def test_transform_features_no_feature_columns_exception(
-    spark, data_preparator, columns_names, features_schema
-):
-    feature_data = [
-        ["id1", "2019-01-01"],
-        ["id1", "2019-01-01"],
-        ["id2", "2019-01-01"],
-    ]
-    features = spark.createDataFrame(data=feature_data, schema=features_schema)
-    features = features.select(features_schema)
-    # явно преобразовываем все к стрингам
-    for column in features.columns:
-        features = features.withColumn(
-            column, sf.col(column).cast(StringType())
-        )
-
-    data_preparator._read_data = Mock(return_value=features)
-
-    with pytest.raises(ValueError):
-        data_preparator.transform(
-            path="", format_type="", columns_names=columns_names
-        )
-
-
-transform_data = [
-    # feature_data, feature_schema, true_feature_data, columns_names, features_columns
+transform_features_data = [
+    # feature_data, feature_schema, true_feature_data,
+    # columns_names, features_columns
     (
         [["user1", "feature1"], ["user1", "feature2"], ["user2", "feature1"]],
         ["user", "f0"],
@@ -421,8 +375,9 @@ transform_data = [
 
 
 @pytest.mark.parametrize(
-    "feature_data, feature_schema, true_feature_data, columns_names, features_columns",
-    transform_data,
+    "feature_data, feature_schema, true_feature_data, "
+    "columns_names, features_columns",
+    transform_features_data,
 )
 def test_transform_features(
     spark,
@@ -458,6 +413,7 @@ def test_transform_features(
     sparkDataFrameEqual(true_features, test_features)
 
 
+# categorical features transformer tests
 def get_transformed_features(transformer, train, test):
     transformer.fit(train)
     return transformer.transform(test)

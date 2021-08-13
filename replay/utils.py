@@ -128,7 +128,7 @@ def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "id") -> DataFrame:
     )
 
 
-@sf.udf(returnType=st.DoubleType())  # type: ignore
+@sf.udf(returnType=st.DoubleType())
 def vector_dot(one: DenseVector, two: DenseVector) -> float:
     """
     вычисляется скалярное произведение двух колонок-векторов
@@ -542,6 +542,98 @@ def ugly_join(
     return (left.join(right, on=on_condition, how=how)).drop(
         *["{}_{}".format(name, suffix) for name in on_col_name]
     )
+
+
+def add_to_date(
+    dataframe: DataFrame,
+    column_name: str,
+    base_date: str,
+    base_date_format: Optional[str] = None,
+) -> DataFrame:
+    """
+    Treats column ``column_name`` as a number of days after the ``base_date``.
+    Converts ``column_name`` to TimestampType with
+    ``base_date`` + values of the ``column_name``.
+
+    >>> from replay.session_handler import State
+    >>> from pyspark.sql.types import IntegerType
+    >>> spark = State().session
+    >>> input_data = (
+    ...     spark.createDataFrame([5, 6], IntegerType())
+    ...     .toDF("days")
+    ... )
+    >>> input_data.show()
+    +----+
+    |days|
+    +----+
+    |   5|
+    |   6|
+    +----+
+    <BLANKLINE>
+    >>> add_to_date(input_data, 'days', '2021/09/01', 'yyyy/MM/dd').show()
+    +-------------------+
+    |               days|
+    +-------------------+
+    |2021-09-06 00:00:00|
+    |2021-09-07 00:00:00|
+    +-------------------+
+    <BLANKLINE>
+
+    :param dataframe: spark dataframe
+    :param column_name: name of a column with numbers
+        to add to the ``base_date``
+    :param base_date: str with the date to add to
+    :param base_date_format: base date pattern to parse
+    :return: dataframe with new ``column_name`` converted to TimestampType
+    """
+    dataframe = (
+        dataframe.withColumn(
+            "tmp", sf.to_timestamp(sf.lit(base_date), format=base_date_format)
+        )
+        .withColumn(
+            column_name,
+            sf.to_timestamp(sf.expr(f"date_add(tmp, {column_name})")),
+        )
+        .drop("tmp")
+    )
+    return dataframe
+
+
+def process_timestamp_column(
+    dataframe: DataFrame, column_name: str, date_format: Optional[str] = None,
+) -> DataFrame:
+    """
+    Convert ``column_name`` column of numeric/string/timestamp type
+    to TimestampType.
+    Return original ``dataframe`` if the column has TimestampType.
+    Treats numbers as unix timestamp, treats strings as
+    a string representation of dates in ``date_format``.
+    Date format is inferred by pyspark if not defined by ``date_format``.
+
+    :param dataframe: spark dataframe
+    :param column_name: name of ``dataframe`` column to convert
+    :param date_format: datetime pattern passed to
+        ``to_timestamp`` pyspark sql function
+    :return: dataframe with updated column ``column_name``
+    """
+    if column_name not in dataframe.columns:
+        raise ValueError(f"Column {column_name} not found")
+
+    # no conversion needed
+    if isinstance(dataframe.schema[column_name].dataType, st.TimestampType):
+        return dataframe
+
+    # unix timestamp
+    if isinstance(dataframe.schema[column_name].dataType, st.NumericType):
+        return dataframe.withColumn(
+            column_name, sf.to_timestamp(sf.from_unixtime(sf.col(column_name)))
+        )
+
+    # datetime in string format
+    dataframe = dataframe.withColumn(
+        column_name, sf.to_timestamp(sf.col(column_name), format=date_format),
+    )
+    return dataframe
 
 
 @sf.udf(returnType=VectorUDT())
