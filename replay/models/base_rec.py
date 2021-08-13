@@ -25,7 +25,7 @@ from replay.constants import AnyDataFrame
 from replay.metrics import Metric, NDCG
 from replay.optuna_objective import SplitData, MainObjective
 from replay.session_handler import State
-from replay.utils import get_top_k_recs, convert2spark
+from replay.utils import convert2spark, get_top_k, get_top_k_recs
 
 
 class BaseRecommender(ABC):
@@ -39,6 +39,7 @@ class BaseRecommender(ABC):
     _logger: Optional[logging.Logger] = None
     can_predict_cold_users: bool = False
     can_predict_cold_items: bool = False
+    can_predict_item_to_item: bool = False
     _search_space: Optional[
         Dict[str, Union[str, Sequence[Union[str, int, float]]]]
     ] = None
@@ -118,7 +119,22 @@ class BaseRecommender(ABC):
         return self.study.best_params
 
     @staticmethod
-    def _train_test_features(train, test, features, column):
+    def _train_test_features(
+        train: DataFrame,
+        test: DataFrame,
+        features: Optional[AnyDataFrame],
+        column: Union[str, Column],
+    ) -> Tuple[Optional[DataFrame], Optional[DataFrame]]:
+        """
+        split dataframe with features into two dataframes representing
+        features for train and tests subset entities, defined by `column`
+
+        :param train: spark dataframe with the train subset
+        :param test: spark dataframe with the train subset
+        :param features: spark dataframe with users'/items' features
+        :param column: column name to use as a key for join (e.g., user_id or item_id)
+        :return: features for train and test subsets
+        """
         if features is not None:
             features = convert2spark(features)
             features_train = features.join(
@@ -694,6 +710,116 @@ class BaseRecommender(ABC):
         )
         return None, None
 
+    def get_nearest_items(
+        self,
+        items: Union[DataFrame, Iterable],
+        k: int,
+        metric: Optional[str] = "squared_distance",
+        items_to_consider: Optional[Union[DataFrame, Iterable]] = None,
+    ) -> Optional[DataFrame]:
+        """
+        Get k most similar items be the `metric` for each of the `items`.
+
+        :param items: spark dataframe or list of item ids to find neighbors
+        :param k: number of neighbors
+        :param metric: 'squared_distance' or 'cosine_similarity'
+        :param items_to_consider: spark dataframe or list of items
+            to consider as similar, e.g. popular/new items. If None,
+            all items presented during model training are used.
+        :return: dataframe with the most similar items an distance,
+            where bigger value means greater similarity.
+            spark-dataframe with columns ``[item_id, neighbour_item_id, similarity]``
+        """
+        if metric is None:
+            raise ValueError(
+                "Distance metric is required to get nearest items with {} model".format(
+                    self.__str__()
+                )
+            )
+
+        if self.can_predict_item_to_item:
+            return self._get_nearest_items_wrap(
+                items=items,
+                k=k,
+                metric=metric,
+                items_to_consider=items_to_consider,
+            )
+
+        raise ValueError(
+            "Use models with attribute 'can_predict_item_to_item' set to True to get nearest items"
+        )
+
+    def _get_nearest_items_wrap(
+        self,
+        items: Union[DataFrame, Iterable],
+        k: int,
+        metric: Optional[str] = "squared_distance",
+        items_to_consider: Optional[Union[DataFrame, Iterable]] = None,
+    ) -> Optional[DataFrame]:
+        """
+        Convert indexes for ``get_nearest_items`` method
+        """
+        items = self._get_ids(items, "item_id")
+        if items_to_consider is not None:
+            items_to_consider = self._get_ids(items_to_consider, "item_id")
+
+        items_type = items.schema["item_id"].dataType
+
+        items, items_to_consider = [
+            self._convert_index(df) for df in [items, items_to_consider]
+        ]
+
+        nearest_items_to_filter = self._get_nearest_items(
+            items=items, metric=metric, items_to_consider=items_to_consider,
+        )
+
+        nearest_items = get_top_k(
+            dataframe=nearest_items_to_filter,
+            partition_by_col=sf.col("item_id_one"),
+            order_by_col=[
+                sf.col("similarity").desc(),
+                sf.col("item_id_two").desc(),
+            ],
+            k=k,
+        )
+
+        nearest_items = self._convert_back(
+            nearest_items.withColumnRenamed("item_id_two", "item_idx"),
+            None,
+            items_type,
+        ).withColumnRenamed("item_id", "neighbour_item_id")
+
+        nearest_items = self._convert_back(
+            nearest_items.withColumnRenamed("item_id_one", "item_idx"),
+            None,
+            items_type,
+        )
+        return nearest_items.select(
+            "item_id", "neighbour_item_id", "similarity"
+        )
+
+    def _get_nearest_items(
+        self,
+        items: DataFrame,
+        metric: Optional[str] = None,
+        items_to_consider: Optional[DataFrame] = None,
+    ) -> Optional[DataFrame]:
+        """
+        Get ``k`` most similar items be the ``metric`` for each of the ``items``.
+
+        :param items: ids to find neighbours, spark dataframe with column ``item_idx``
+        :param metric: 'squared_distance' or 'cosine_similarity'
+        :param items_to_consider: items among which we are looking for similar,
+            e.g. popular/new items. If None, all items presented during model training are used.
+        :return: dataframe with neighbours,
+            spark-dataframe with columns ``[item_id_one, item_id_two, similarity]``
+        """
+        raise NotImplementedError(
+            "item-to-item prediction is not implemented for {}".format(
+                self.__str__()
+            )
+        )
+
 
 # pylint: disable=abstract-method
 class HybridRecommender(BaseRecommender, ABC):
@@ -1091,6 +1217,7 @@ class NeighbourRec(Recommender, ABC):
     """ Базовый класс для алгоритмов, использующих join матрицы сходства объектов с логом на inference"""
 
     similarity: Optional[DataFrame]
+    can_predict_item_to_item: bool = True
 
     def _clear_cache(self):
         if hasattr(self, "similarity"):
@@ -1171,3 +1298,54 @@ class NeighbourRec(Recommender, ABC):
             & (sf.col("item_id_two") == sf.col("item_idx_filter")),
             users=pairs.select("user_idx").distinct(),
         )
+
+    def get_nearest_items(
+        self,
+        items: Union[DataFrame, Iterable],
+        k: int,
+        metric: Optional[str] = None,
+        items_to_consider: Optional[Union[DataFrame, Iterable]] = None,
+    ) -> Optional[DataFrame]:
+        """
+        Get k most similar items be the `metric` for each of the `items`.
+
+        :param items: spark dataframe or list of item ids to find neighbors
+        :param k: number of neighbors
+        :param metric: metric is not used to find neighbours in NeighbourRec,
+            the parameter is ignored
+        :param items_to_consider: spark dataframe or list of items
+            to consider as similar, e.g. popular/new items. If None,
+            all items presented during model training are used.
+        :return: dataframe with the most similar items an distance,
+            where bigger value means greater similarity.
+            spark-dataframe with columns ``[item_id, neighbour_item_id, similarity]``
+        """
+        if metric is not None:
+            self.logger.debug(
+                "Metric is not used to determine nearest items in %s model",
+                self.__str__(),
+            )
+
+        return self._get_nearest_items_wrap(
+            items=items, k=k, metric=None, items_to_consider=items_to_consider,
+        )
+
+    def _get_nearest_items(
+        self,
+        items: DataFrame,
+        metric: Optional[str] = None,
+        items_to_consider: Optional[DataFrame] = None,
+    ) -> DataFrame:
+
+        similarity_filtered = self.similarity.join(
+            items.withColumnRenamed("item_idx", "item_id_one"),
+            on="item_id_one",
+        )
+
+        if items_to_consider is not None:
+            similarity_filtered = similarity_filtered.join(
+                items_to_consider.withColumnRenamed("item_idx", "item_id_two"),
+                on="item_id_two",
+            )
+
+        return similarity_filtered

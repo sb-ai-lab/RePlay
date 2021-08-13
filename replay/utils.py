@@ -1,9 +1,10 @@
 from typing import Any, List, Optional, Set, Union
 
 import numpy as np
-from pyspark.ml.linalg import DenseVector, VectorUDT
+import pyspark.sql.types as st
+
+from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
-from pyspark.sql.types import ArrayType, DoubleType, NumericType
 from scipy.sparse import csr_matrix
 
 from replay.constants import NumType, AnyDataFrame
@@ -55,6 +56,59 @@ def func_get(vector: np.ndarray, i: int) -> float:
     return float(vector[i])
 
 
+def get_top_k(
+    dataframe: DataFrame,
+    partition_by_col: Column,
+    order_by_col: List[Column],
+    k: int,
+) -> DataFrame:
+    """
+    Return top ``k`` rows for each entity in ``partition_by_col`` ordered by
+    ``order_by_col``.
+
+    >>> from replay.session_handler import State
+    >>> spark = State().session
+    >>> log = spark.createDataFrame([(1, 2, 1.), (1, 3, 1.), (1, 4, 0.5), (2, 1, 1.)]).toDF("user_id", "item_id", "relevance")
+    >>> log.show()
+    +-------+-------+---------+
+    |user_id|item_id|relevance|
+    +-------+-------+---------+
+    |      1|      2|      1.0|
+    |      1|      3|      1.0|
+    |      1|      4|      0.5|
+    |      2|      1|      1.0|
+    +-------+-------+---------+
+    <BLANKLINE>
+    >>> get_top_k(dataframe=log,
+    ...    partition_by_col=sf.col('user_id'),
+    ...    order_by_col=[sf.col('relevance').desc(), sf.col('item_id').desc()],
+    ...    k=1).orderBy('user_id').show()
+    +-------+-------+---------+
+    |user_id|item_id|relevance|
+    +-------+-------+---------+
+    |      1|      3|      1.0|
+    |      2|      1|      1.0|
+    +-------+-------+---------+
+    <BLANKLINE>
+
+    :param dataframe: spark dataframe to filter
+    :param partition_by_col: spark column to partition by
+    :param order_by_col: list of spark columns to orted by
+    :param k: number of first rows for each entity in ``partition_by_col`` to return
+    :return: filtered spark dataframe
+    """
+    return (
+        dataframe.withColumn(
+            "temp_rank",
+            sf.row_number().over(
+                Window.partitionBy(partition_by_col).orderBy(*order_by_col)
+            ),
+        )
+        .filter(sf.col("temp_rank") <= k)
+        .drop("temp_rank")
+    )
+
+
 def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "id") -> DataFrame:
     """
     Выбирает из рекомендаций топ-k штук на основе `relevance`.
@@ -66,17 +120,15 @@ def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "id") -> DataFrame:
     :return: топ-k рекомендации, спарк-датафрейм с колонками
         `[user_id, item_id, relevance]`
     """
-    window = Window.partitionBy(recs["user_" + id_type]).orderBy(
-        recs["relevance"].desc()
-    )
-    return (
-        recs.withColumn("rank", sf.row_number().over(window))
-        .filter(sf.col("rank") <= k)
-        .drop("rank")
+    return get_top_k(
+        dataframe=recs,
+        partition_by_col=sf.col("user_{}".format(id_type)),
+        order_by_col=[sf.col("relevance").desc()],
+        k=k,
     )
 
 
-@sf.udf(returnType=DoubleType())  # type: ignore
+@sf.udf(returnType=st.DoubleType())  # type: ignore
 def vector_dot(one: DenseVector, two: DenseVector) -> float:
     """
     вычисляется скалярное произведение двух колонок-векторов
@@ -156,8 +208,8 @@ def vector_mult(
     return one * two
 
 
-@sf.udf(returnType=ArrayType(DoubleType()))
-def array_mult(first: Column, second: Column):
+@sf.udf(returnType=st.ArrayType(st.DoubleType()))
+def array_mult(first: st.ArrayType, second: st.ArrayType):
     """
     Покоординатное произведение двух столбцов типа array.
 
@@ -247,6 +299,7 @@ def get_stats(
     |      1|     2.0|      3|      1|        3|         2|
     |      2|     2.0|      2|      2|        1|         2|
     +-------+--------+-------+-------+---------+----------+
+    <BLANKLINE>
     >>> get_stats(test_df, group_by='item_id', target_column='rel').show()
     +-------+--------+-------+-------+---------+----------+
     |item_id|mean_rel|max_rel|min_rel|count_rel|median_rel|
@@ -255,6 +308,7 @@ def get_stats(
     |      3|     2.5|      3|      2|        2|         2|
     |      1|     2.0|      2|      2|        1|         2|
     +-------+--------+-------+-------+---------+----------+
+    <BLANKLINE>
 
     :param log: spark DataFrame с колонками ``user_id``, ``item_id`` и ``relevance``
     :param group_by: колонка для группировки, ``user_id`` или ``item_id``
@@ -286,7 +340,9 @@ def check_numeric(feature_table: DataFrame) -> None:
     :param feature_table: spark DataFrame, типы столбцов которого нужно проверить
     """
     for column in feature_table.columns:
-        if not isinstance(feature_table.schema[column].dataType, NumericType):
+        if not isinstance(
+            feature_table.schema[column].dataType, st.NumericType
+        ):
             raise ValueError(
                 "Столбец {} имеет неверный тип {}, столбец должен иметь числовой тип.".format(
                     column, feature_table.schema[column].dataType
@@ -486,3 +542,36 @@ def ugly_join(
     return (left.join(right, on=on_condition, how=how)).drop(
         *["{}_{}".format(name, suffix) for name in on_col_name]
     )
+
+
+@sf.udf(returnType=VectorUDT())
+def list_to_vector_udf(array: st.ArrayType) -> DenseVector:
+    """
+    convert spark array to vector
+
+    :param array: spark Array to convert
+    :return:  spark DenseVector
+    """
+    return Vectors.dense(array)
+
+
+@sf.udf(returnType=st.FloatType())
+def vector_squared_distance(first: DenseVector, second: DenseVector) -> float:
+    """
+    :param first: first vector
+    :param second: second vector
+    :returns: squared distance value
+    """
+    return float(first.squared_distance(second))
+
+
+@sf.udf(returnType=st.FloatType())
+def cosine_similarity(first: DenseVector, second: DenseVector) -> float:
+    """
+    :param first: first vector
+    :param second: second vector
+    :returns: cosine similarity value
+    """
+    num = first.dot(second)
+    denom = first.dot(first) ** 0.5 * second.dot(second) ** 0.5
+    return float(num / denom)
