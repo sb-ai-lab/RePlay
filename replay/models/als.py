@@ -152,13 +152,13 @@ class ALSWrap(Recommender):
         )
 
         joined_factors = joined_factors.withColumn(
-            "similarity",
+            metric,
             factor
             * dist_function(sf.col("factors_one"), sf.col("factors_two")),
         )
 
         similarity_matrix = joined_factors.select(
-            "item_id_one", "item_id_two", "similarity"
+            "item_id_one", "item_id_two", metric
         )
 
         return similarity_matrix

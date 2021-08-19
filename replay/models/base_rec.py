@@ -773,11 +773,12 @@ class BaseRecommender(ABC):
             items=items, metric=metric, items_to_consider=items_to_consider,
         )
 
+        rel_col_name = metric if metric is not None else "similarity"
         nearest_items = get_top_k(
             dataframe=nearest_items_to_filter,
             partition_by_col=sf.col("item_id_one"),
             order_by_col=[
-                sf.col("similarity").desc(),
+                sf.col(rel_col_name).desc(),
                 sf.col("item_id_two").desc(),
             ],
             k=k,
@@ -794,9 +795,7 @@ class BaseRecommender(ABC):
             None,
             items_type,
         )
-        return nearest_items.select(
-            "item_id", "neighbour_item_id", "similarity"
-        )
+        return nearest_items
 
     def _get_nearest_items(
         self,
@@ -1348,4 +1347,6 @@ class NeighbourRec(Recommender, ABC):
                 on="item_id_two",
             )
 
-        return similarity_filtered
+        return similarity_filtered.select(
+            "item_id_one", "item_id_two", "similarity"
+        )
