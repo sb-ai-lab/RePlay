@@ -152,9 +152,9 @@ class AssociationRulesItemRec(Recommender):
             ),
         )
 
-        # self.pairs_metrics = self.pairs_metrics.select(
-        #     "antecedent", "consequent", "confidence", "lift", "confidence_gain"
-        # ).cache()
+        self.pairs_metrics = self.pairs_metrics.select(
+            "antecedent", "consequent", "confidence", "lift", "confidence_gain"
+        ).cache()
 
     # pylint: disable=too-many-arguments
     def _predict(

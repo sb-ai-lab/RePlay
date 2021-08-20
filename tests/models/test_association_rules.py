@@ -1,77 +1,101 @@
-# pylint: disable-all
+# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
-import numpy as np
 
 from pyspark.sql import functions as sf
 
-from replay.models import ALSWrap
-from replay.scenarios.two_stages.two_stages_scenario import (
-    get_first_level_model_features,
-)
-from tests.utils import log, spark
+from replay.models import AssociationRulesItemRec
+from tests.utils import log, spark, sparkDataFrameEqual
 
 
 @pytest.fixture
 def model():
-    model = ALSWrap(2, implicit_prefs=False)
-    model._seed = 42
+    model = AssociationRulesItemRec(min_item_count=1, min_pair_count=1)
     return model
 
 
-def test_works(log, model):
-    try:
-        pred = model.fit_predict(log, k=1)
-        assert pred.count() == 4
-    except:  # noqa
-        pytest.fail()
-
-
-def test_diff_feedback_type(log, model):
-    pred_exp = model.fit_predict(log, k=1)
-    model.implicit_prefs = True
-    pred_imp = model.fit_predict(log, k=1)
-    assert not np.allclose(
-        pred_exp.toPandas().sort_values("user_id")["relevance"].values,
-        pred_imp.toPandas().sort_values("user_id")["relevance"].values,
-    )
-
-
-def test_enrich_with_features(log, model):
-    model.fit(log.filter(sf.col("user_id").isin(["user1", "user3"])))
-    res = get_first_level_model_features(
-        model, log.filter(sf.col("user_id").isin(["user1", "user2"]))
-    )
-
-    cold_user_and_item = res.filter(
-        (sf.col("user_id") == "user2") & (sf.col("item_id") == "item4")
-    )
-    row_dict = cold_user_and_item.collect()[0].asDict()
-    assert row_dict["_if_0"] == row_dict["_uf_0"] == row_dict["_fm_1"] == 0.0
-
-    warm_user_and_item = res.filter(
-        (sf.col("user_id") == "user1") & (sf.col("item_id") == "item1")
-    )
-    row_dict = warm_user_and_item.collect()[0].asDict()
-    np.allclose(
-        [row_dict["_fm_1"], row_dict["_if_1"] * row_dict["_uf_1"]],
-        [4.093189725967505, row_dict["_fm_1"]],
-    )
-
-    cold_user_warm_item = res.filter(
-        (sf.col("user_id") == "user2") & (sf.col("item_id") == "item1")
-    )
-    row_dict = cold_user_warm_item.collect()[0].asDict()
-    np.allclose(
-        [row_dict["_if_1"], row_dict["_if_1"] * row_dict["_uf_1"]],
-        [-2.938199281692505, 0],
-    )
-
-
-def test_als_get_nearest_items_raises(log, model):
-    model.fit(log.filter(sf.col("item_id") != "item4"))
+def test_predict_raises(log, model):
+    model.fit(log)
     with pytest.raises(
-        NotImplementedError, match=r"unknown_metric metric is not implemented"
+        NotImplementedError,
+        match=r"item-to-user predict is not implemented for AssociationRulesItemRec,.*",
     ):
-        model.get_nearest_items(
-            items=["item1", "item2"], k=2, metric="unknown_metric"
+        model.predict(log, 1)
+
+
+def test_works(log, model):
+    model.fit(log)
+    assert hasattr(model, "frequent_items")
+    assert hasattr(model, "pairs_metrics")
+    assert (
+        model.frequent_items.count()
+        == log.select("item_id").distinct().count()
+    )
+    sparkDataFrameEqual(
+        model.frequent_items,
+        model._convert_index(
+            (
+                log.select("user_id", "item_id")
+                .distinct()
+                .groupBy("item_id")
+                .agg(sf.count("item_id").alias("item_count"))
+            )
+        ),
+    )
+
+
+def test_calculation(model, log):
+    model.fit(log)
+
+    # convert ids back
+    pairs_metrics = (
+        model.inv_item_indexer.transform(
+            model.pairs_metrics.withColumnRenamed("antecedent", "item_idx")
         )
+        .drop("item_idx")
+        .withColumnRenamed("item_id", "antecedent")
+    )
+
+    pairs_metrics = (
+        model.inv_item_indexer.transform(
+            pairs_metrics.withColumnRenamed("consequent", "item_idx")
+        )
+        .drop("item_idx")
+        .withColumnRenamed("item_id", "consequent")
+    )
+
+    # recalculate for item_3 as antecedent and item_2 as consequent
+    test_row = pairs_metrics.filter(
+        (sf.col("antecedent") == "item3") & (sf.col("consequent") == "item2")
+    ).toPandas()
+
+    # calculation
+    num_of_sessions = log.select("user_id").distinct().count()
+    count_3, count_2, count_3_2 = 2, 3, 2
+    confidence_3_2 = count_3_2 / count_3
+    confidence_not_3_2 = (count_2 - count_3_2) / (num_of_sessions - count_3)
+
+    assert test_row["confidence"][0] == confidence_3_2
+    assert test_row["lift"][0] == confidence_3_2 / (count_2 / num_of_sessions)
+    assert (
+        test_row["confidence_gain"][0] == confidence_3_2 / confidence_not_3_2
+    )
+
+
+def test_get_nearest_items(log, model):
+    model.fit(log)
+    res = model.get_nearest_items(
+        items=["item3"],
+        k=10,
+        metric="confidence_gain",
+        items_to_consider=["item2", "item4"],
+    )
+
+    assert res.count() == 1
+    assert res.select("neighbour_item_id").collect()[0][0] == "item2"
+    assert res.select("confidence_gain").collect()[0][0] == 2.0
+    assert res.select("lift").collect()[0][0] == 4 / 3
+
+    res = model.get_nearest_items(items=["item3"], k=10, metric="lift",)
+    assert res.count() == 2
+
+    model._clear_cache()
