@@ -2,9 +2,12 @@ from typing import Optional
 
 import numpy as np
 import pyspark.sql.functions as sf
-from pyspark.sql import DataFrame
 
-from replay.models import Recommender
+from pyspark.sql import DataFrame
+from pyspark.sql.window import Window
+
+from replay.models.base_rec import Recommender
+from replay.utils import unpersist_if_exists
 
 
 class AssociationRulesItemRec(Recommender):
@@ -21,16 +24,25 @@ class AssociationRulesItemRec(Recommender):
     pairs_metrics: DataFrame
 
     def __init__(
-        self, session_col_name: Optional[str] = None, min_item_count: int = 1,
+        self,
+        session_col_name: Optional[str] = None,
+        min_item_count: int = 5,
+        min_pair_count: int = 5,
+        num_neighbours: Optional[int] = 1000,
     ) -> None:
         """
         :param session_col_name: name of column to group sessions.
             Items are combined by the ``user_id`` column if ``session_col_name`` is not defined.
+        :param min_item_count items with fewer number of sessions will be filtered out
+        :param min_item_count pairs with fewer number of sessions will be filtered out
+        :param num_neighbours maximal number of neighbours to save for each item
         """
         self.session_col_name = (
             session_col_name if session_col_name is not None else "user_idx"
         )
         self.min_item_count = min_item_count
+        self.min_pair_count = min_pair_count
+        self.num_neighbours = num_neighbours
 
     def _fit(
         self,
@@ -44,6 +56,7 @@ class AssociationRulesItemRec(Recommender):
         2) Calculate items support, pairs confidence, lift and confidence_gain defined as
             confidence(a, b)/confidence(!a, b).
         """
+        log = log.select(self.session_col_name, "item_idx").distinct()
 
         self.num_sessions = (
             log.select(self.session_col_name).distinct().count()
@@ -53,10 +66,10 @@ class AssociationRulesItemRec(Recommender):
             log.groupBy("item_idx")
             .agg(sf.count("item_idx").alias("item_count"))
             .filter(sf.col("item_count") >= self.min_item_count)
-        )
+        ).cache()
 
         frequent_items_log = log.join(
-            self.frequent_items.select("item_idx"), on="item_idx"
+            sf.broadcast(self.frequent_items.select("item_idx")), on="item_idx"
         )
 
         frequent_item_pairs = (
@@ -76,6 +89,10 @@ class AssociationRulesItemRec(Recommender):
         pairs_count = frequent_item_pairs.groupBy(
             "antecedent", "consequent"
         ).agg(sf.count("consequent").alias("pair_count"))
+
+        pairs_count = pairs_count.filter(
+            sf.col("pair_count") >= self.min_pair_count
+        )
 
         pairs_metrics = pairs_count.unionByName(
             pairs_count.select(
@@ -109,6 +126,20 @@ class AssociationRulesItemRec(Recommender):
             / sf.col("consequent_count"),
         )
 
+        if self.num_neighbours is not None:
+            pairs_metrics = (
+                pairs_metrics.withColumn(
+                    "similarity_order",
+                    sf.row_number().over(
+                        Window.partitionBy("antecedent").orderBy(
+                            sf.col("lift").desc(), sf.col("consequent").desc(),
+                        )
+                    ),
+                )
+                .filter(sf.col("similarity_order") <= self.num_neighbours)
+                .drop("similarity_order")
+            )
+
         self.pairs_metrics = pairs_metrics.withColumn(
             "confidence_gain",
             sf.when(
@@ -121,9 +152,9 @@ class AssociationRulesItemRec(Recommender):
             ),
         )
 
-        self.pairs_metrics = self.pairs_metrics.select(
-            "antecedent", "consequent", "confidence", "lift", "confidence_gain"
-        ).cache()
+        # self.pairs_metrics = self.pairs_metrics.select(
+        #     "antecedent", "consequent", "confidence", "lift", "confidence_gain"
+        # ).cache()
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -161,17 +192,27 @@ class AssociationRulesItemRec(Recommender):
         pairs_to_consider = self.pairs_metrics
         if items_to_consider is not None:
             pairs_to_consider = self.pairs_metrics.join(
-                items_to_consider.withColumnRenamed("item_idx", "consequent"),
+                sf.broadcast(
+                    items_to_consider.withColumnRenamed(
+                        "item_idx", "consequent"
+                    )
+                ),
                 on="consequent",
             )
 
-        return items.withColumnRenamed("item_idx", "item_id_one").join(
-            pairs_to_consider.withColumnRenamed(
-                "antecedent", "item_id_one"
-            ).withColumnRenamed("consequent", "item_id_two"),
-            on="item_id_one",
+        return (
+            pairs_to_consider.withColumnRenamed("antecedent", "item_id_one")
+            .withColumnRenamed("consequent", "item_id_two")
+            .join(
+                sf.broadcast(
+                    items.withColumnRenamed("item_idx", "item_id_one")
+                ),
+                on="item_id_one",
+            )
         )
 
     def _clear_cache(self):
         if hasattr(self, "pairs_metrics"):
-            self.pairs_metrics.unpersist()
+            unpersist_if_exists(self.pairs_metrics)
+        if hasattr(self, "frequent_items"):
+            unpersist_if_exists(self.frequent_items)
