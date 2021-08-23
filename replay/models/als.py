@@ -114,7 +114,7 @@ class ALSWrap(Recommender):
         self,
         items: DataFrame,
         metric: str = "squared_distance",
-        items_to_consider: Optional[DataFrame] = None,
+        candidates: Optional[DataFrame] = None,
     ) -> DataFrame:
 
         factor = 1
@@ -141,9 +141,9 @@ class ALSWrap(Recommender):
             "factors_one", "factors_two"
         ).withColumnRenamed("item_id_one", "item_id_two")
 
-        if items_to_consider is not None:
+        if candidates is not None:
             right_part = right_part.join(
-                items_to_consider.withColumnRenamed("item_idx", "item_id_two"),
+                candidates.withColumnRenamed("item_idx", "item_id_two"),
                 on="item_id_two",
             )
 

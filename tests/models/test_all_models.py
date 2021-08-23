@@ -155,7 +155,7 @@ def test_get_nearest_items(log, model):
         items=["item1", "item2"],
         k=4,
         metric="squared_distance",
-        items_to_consider=["item1", "item4"],
+        candidates=["item1", "item4"],
     )
     assert res.count() == 1
     assert (

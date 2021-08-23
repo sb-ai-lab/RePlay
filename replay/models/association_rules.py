@@ -21,24 +21,24 @@ class AssociationRulesItemRec(Recommender):
 
     frequent_items: DataFrame
     num_sessions: int
-    pairs_metrics: DataFrame
+    pair_metrics: DataFrame
 
     def __init__(
         self,
-        session_col_name: Optional[str] = None,
+        session_col: Optional[str] = None,
         min_item_count: int = 5,
         min_pair_count: int = 5,
         num_neighbours: Optional[int] = 1000,
     ) -> None:
         """
-        :param session_col_name: name of column to group sessions.
-            Items are combined by the ``user_id`` column if ``session_col_name`` is not defined.
-        :param min_item_count items with fewer number of sessions will be filtered out
-        :param min_item_count pairs with fewer number of sessions will be filtered out
+        :param session_col: name of column to group sessions.
+            Items are combined by the ``user_id`` column if ``session_col`` is not defined.
+        :param min_item_count items with fewer sessions will be filtered out
+        :param min_pair_count pairs with fewer sessions will be filtered out
         :param num_neighbours maximal number of neighbours to save for each item
         """
-        self.session_col_name = (
-            session_col_name if session_col_name is not None else "user_idx"
+        self.session_col = (
+            session_col if session_col is not None else "user_idx"
         )
         self.min_item_count = min_item_count
         self.min_pair_count = min_pair_count
@@ -52,15 +52,13 @@ class AssociationRulesItemRec(Recommender):
     ) -> None:
 
         """
-        1) Filter log to leave items present in log more then ``min_item_count`` threshold.
+        1) Filter log items by ``min_item_count`` threshold
         2) Calculate items support, pairs confidence, lift and confidence_gain defined as
             confidence(a, b)/confidence(!a, b).
         """
-        log = log.select(self.session_col_name, "item_idx").distinct()
+        log = log.select(self.session_col, "item_idx").distinct()
 
-        self.num_sessions = (
-            log.select(self.session_col_name).distinct().count()
-        )
+        self.num_sessions = log.select(self.session_col).distinct().count()
 
         self.frequent_items = (
             log.groupBy("item_idx")
@@ -76,15 +74,15 @@ class AssociationRulesItemRec(Recommender):
             frequent_items_log.withColumnRenamed("item_idx", "antecedent")
             .join(
                 frequent_items_log.withColumnRenamed(
-                    self.session_col_name, self.session_col_name + "_cons"
+                    self.session_col, self.session_col + "_cons"
                 ).withColumnRenamed("item_idx", "consequent"),
                 on=[
-                    sf.col(self.session_col_name)
-                    == sf.col(self.session_col_name + "_cons"),
+                    sf.col(self.session_col)
+                    == sf.col(self.session_col + "_cons"),
                     sf.col("antecedent") < sf.col("consequent"),
                 ],
             )
-            .drop(self.session_col_name + "_cons")
+            .drop(self.session_col + "_cons")
         )
         pairs_count = frequent_item_pairs.groupBy(
             "antecedent", "consequent"
@@ -140,7 +138,7 @@ class AssociationRulesItemRec(Recommender):
                 .drop("similarity_order")
             )
 
-        self.pairs_metrics = pairs_metrics.withColumn(
+        self.pair_metrics = pairs_metrics.withColumn(
             "confidence_gain",
             sf.when(
                 sf.col("consequent_count") - sf.col("pair_count") == 0,
@@ -152,7 +150,7 @@ class AssociationRulesItemRec(Recommender):
             ),
         )
 
-        self.pairs_metrics = self.pairs_metrics.select(
+        self.pair_metrics = self.pair_metrics.select(
             "antecedent", "consequent", "confidence", "lift", "confidence_gain"
         ).cache()
 
@@ -181,7 +179,7 @@ class AssociationRulesItemRec(Recommender):
         """
         res = (
             self.inv_item_indexer.transform(
-                self.pairs_metrics.withColumnRenamed("antecedent", "item_idx")
+                self.pair_metrics.withColumnRenamed("antecedent", "item_idx")
             )
             .drop("item_idx")
             .withColumnRenamed("item_id", "antecedent")
@@ -200,24 +198,22 @@ class AssociationRulesItemRec(Recommender):
         self,
         items: DataFrame,
         metric: Optional[str] = None,
-        items_to_consider: Optional[DataFrame] = None,
+        candidates: Optional[DataFrame] = None,
     ) -> Optional[DataFrame]:
         """
         For each item return top-k items with the highest values
-        of chosen metric (`lift` of `confidence_gain`) from ``items_to_consider``
+        of chosen metric (`lift` of `confidence_gain`) from ``candidates``
         :param items: items to find associated
         :param metric: `lift` of 'confidence_gain'
-        :param items_to_consider: items to consider as candidates
+        :param candidates: items to consider as candidates
         :return: associated items
         """
 
-        pairs_to_consider = self.pairs_metrics
-        if items_to_consider is not None:
-            pairs_to_consider = self.pairs_metrics.join(
+        pairs_to_consider = self.pair_metrics
+        if candidates is not None:
+            pairs_to_consider = self.pair_metrics.join(
                 sf.broadcast(
-                    items_to_consider.withColumnRenamed(
-                        "item_idx", "consequent"
-                    )
+                    candidates.withColumnRenamed("item_idx", "consequent")
                 ),
                 on="consequent",
             )
@@ -234,7 +230,7 @@ class AssociationRulesItemRec(Recommender):
         )
 
     def _clear_cache(self):
-        if hasattr(self, "pairs_metrics"):
-            unpersist_if_exists(self.pairs_metrics)
+        if hasattr(self, "pair_metrics"):
+            unpersist_if_exists(self.pair_metrics)
         if hasattr(self, "frequent_items"):
             unpersist_if_exists(self.frequent_items)

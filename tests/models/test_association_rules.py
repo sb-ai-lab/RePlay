@@ -25,21 +25,10 @@ def test_predict_raises(log, model):
 def test_works(log, model):
     model.fit(log)
     assert hasattr(model, "frequent_items")
-    assert hasattr(model, "pairs_metrics")
+    assert hasattr(model, "pair_metrics")
     assert (
         model.frequent_items.count()
         == log.select("item_id").distinct().count()
-    )
-    sparkDataFrameEqual(
-        model.frequent_items,
-        model._convert_index(
-            (
-                log.select("user_id", "item_id")
-                .distinct()
-                .groupBy("item_id")
-                .agg(sf.count("item_id").alias("item_count"))
-            )
-        ),
     )
 
 
@@ -73,7 +62,7 @@ def test_get_nearest_items(log, model):
         items=["item3"],
         k=10,
         metric="confidence_gain",
-        items_to_consider=["item2", "item4"],
+        candidates=["item2", "item4"],
     )
 
     assert res.count() == 1
