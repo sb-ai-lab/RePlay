@@ -143,7 +143,7 @@ def test_optimize(
     two_stages_kwargs,
 ):
     two_stages = TwoStagesScenario(**two_stages_kwargs)
-    param_grid = [{"rank": [1, 10]}, {}, None, None]
+    param_grid = [{"rank": [1, 10]}, {}, {"no_components": [1, 10]}, None]
     # with fallback
     first_level_params, fallback_params = two_stages.optimize(
         train=long_log_with_features,
