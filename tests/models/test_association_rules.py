@@ -47,21 +47,7 @@ def test_calculation(model, log):
     model.fit(log)
 
     # convert ids back
-    pairs_metrics = (
-        model.inv_item_indexer.transform(
-            model.pairs_metrics.withColumnRenamed("antecedent", "item_idx")
-        )
-        .drop("item_idx")
-        .withColumnRenamed("item_id", "antecedent")
-    )
-
-    pairs_metrics = (
-        model.inv_item_indexer.transform(
-            pairs_metrics.withColumnRenamed("consequent", "item_idx")
-        )
-        .drop("item_idx")
-        .withColumnRenamed("item_id", "consequent")
-    )
+    pairs_metrics = model.get_pair_metrics()
 
     # recalculate for item_3 as antecedent and item_2 as consequent
     test_row = pairs_metrics.filter(

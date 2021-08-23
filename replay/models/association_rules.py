@@ -174,6 +174,28 @@ class AssociationRulesItemRec(Recommender):
             )
         )
 
+    def get_pair_metrics(self):
+        """
+        Return matrix with calculated confidence, lift and confidence gain.
+        :return: association rules measures calculated during ``fit`` stage
+        """
+        res = (
+            self.inv_item_indexer.transform(
+                self.pairs_metrics.withColumnRenamed("antecedent", "item_idx")
+            )
+            .drop("item_idx")
+            .withColumnRenamed("item_id", "antecedent")
+        )
+
+        res = (
+            self.inv_item_indexer.transform(
+                res.withColumnRenamed("consequent", "item_idx")
+            )
+            .drop("item_idx")
+            .withColumnRenamed("item_id", "consequent")
+        )
+        return res
+
     def _get_nearest_items(
         self,
         items: DataFrame,
