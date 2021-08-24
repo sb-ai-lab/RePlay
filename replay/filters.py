@@ -102,35 +102,35 @@ def filter_user_interactions(
 
     Первое взаимодействие из лога:
 
-    >>> filter_user_interactions(log_sp, 1, True).show()
+    >>> filter_user_interactions(log_sp, 1, True).orderBy('user_id').show()
     +-------+-------+---+-------------------+
     |user_id|item_id|rel|          timestamp|
     +-------+-------+---+-------------------+
-    |     u3|     i1|1.0|2020-01-01 00:04:15|
     |     u1|     i1|1.0|2020-01-01 23:59:59|
     |     u2|     i2|0.5|2020-02-01 00:00:00|
+    |     u3|     i1|1.0|2020-01-01 00:04:15|
     +-------+-------+---+-------------------+
     <BLANKLINE>
 
     Последнее взаимодействие из лога:
 
-    >>> filter_user_interactions(log_sp, 1, False, item_col=None).show()
+    >>> filter_user_interactions(log_sp, 1, False, item_col=None).orderBy('user_id').show()
     +-------+-------+---+-------------------+
     |user_id|item_id|rel|          timestamp|
     +-------+-------+---+-------------------+
-    |     u3|     i3|1.0|2020-01-05 23:59:59|
     |     u1|     i1|1.0|2020-01-01 23:59:59|
     |     u2|     i2|0.5|2020-02-01 00:00:00|
+    |     u3|     i3|1.0|2020-01-05 23:59:59|
     +-------+-------+---+-------------------+
     <BLANKLINE>
 
-    >>> filter_user_interactions(log_sp, 1, False).show()
+    >>> filter_user_interactions(log_sp, 1, False).orderBy('user_id').show()
     +-------+-------+---+-------------------+
     |user_id|item_id|rel|          timestamp|
     +-------+-------+---+-------------------+
-    |     u3|     i3|1.0|2020-01-05 23:59:59|
     |     u1|     i1|1.0|2020-01-01 23:59:59|
     |     u2|     i3|3.0|2020-02-01 00:00:00|
+    |     u3|     i3|1.0|2020-01-05 23:59:59|
     +-------+-------+---+-------------------+
     <BLANKLINE>
 
@@ -182,7 +182,7 @@ def filter_by_user_duration(
     ...             )
     >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
     >>> log_sp = convert2spark(log_pd)
-    >>> log_sp.show()
+    >>> log_sp.orderBy('user_id', 'item_id').show()
     +-------+-------+---+-------------------+
     |user_id|item_id|rel|          timestamp|
     +-------+-------+---+-------------------+
@@ -197,28 +197,28 @@ def filter_by_user_duration(
 
     Взаимодействия за первый день истории пользователя:
 
-    >>> filter_by_user_duration(log_sp, 1, True).show()
+    >>> filter_by_user_duration(log_sp, 1, True).orderBy('user_id', 'item_id').show()
     +-------+-------+---+-------------------+
     |user_id|item_id|rel|          timestamp|
     +-------+-------+---+-------------------+
-    |     u3|     i1|1.0|2020-01-01 00:04:15|
-    |     u3|     i2|0.0|2020-01-02 00:04:14|
     |     u1|     i1|1.0|2020-01-01 23:59:59|
     |     u2|     i2|0.5|2020-02-01 00:00:00|
     |     u2|     i3|3.0|2020-02-01 00:00:00|
+    |     u3|     i1|1.0|2020-01-01 00:04:15|
+    |     u3|     i2|0.0|2020-01-02 00:04:14|
     +-------+-------+---+-------------------+
     <BLANKLINE>
 
     Взаимодействия за последний день истории пользователя:
 
-    >>> filter_by_user_duration(log_sp, 1, False).show()
+    >>> filter_by_user_duration(log_sp, 1, False).orderBy('user_id', 'item_id').show()
     +-------+-------+---+-------------------+
     |user_id|item_id|rel|          timestamp|
     +-------+-------+---+-------------------+
-    |     u3|     i3|1.0|2020-01-05 23:59:59|
     |     u1|     i1|1.0|2020-01-01 23:59:59|
     |     u2|     i2|0.5|2020-02-01 00:00:00|
     |     u2|     i3|3.0|2020-02-01 00:00:00|
+    |     u3|     i3|1.0|2020-01-05 23:59:59|
     +-------+-------+---+-------------------+
     <BLANKLINE>
 

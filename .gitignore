@@ -109,6 +109,7 @@ celerybeat-schedule
 # Environments
 .env
 .venv
+.e*/
 env/
 venv/
 ENV/
@@ -145,6 +146,5 @@ pyvenv.cfg
 *~
 tmp/
 docs/_build/
-poetry.lock
 *.DS_Store
 */catboost_info

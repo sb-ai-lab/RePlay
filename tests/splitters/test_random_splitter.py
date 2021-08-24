@@ -18,7 +18,7 @@ def log():
     )
 
 
-test_sizes = [0.0, 1.0, 0.5, 0.22, 0.42, 0.95]
+test_sizes = [0.0, 1.0, 0.5, 0.42, 0.95]
 
 
 @pytest.mark.parametrize("test_size", test_sizes)
