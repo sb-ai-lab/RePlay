@@ -1,5 +1,5 @@
 """
-Этот модуль позволяет безболезненно создавать и получать спарк сессии.
+Painless creation and retrieval of Spark sessions
 """
 
 import logging
@@ -18,12 +18,11 @@ def get_spark_session(
     shuffle_partitions: Optional[int] = None,
 ) -> SparkSession:
     """
-    инициализирует и возвращает SparkSession с "годными" параметрами по
-    умолчанию (для пользователей, которые не хотят сами настраивать Spark)
+    Get default SparkSession
 
-    :param spark_memory: количество гигабайт оперативной памяти, которую нужно выделить под Spark;
-        если не задано, выделяется половина всей доступной памяти
-    :param shuffle_partitions: количество партиций для Spark; если не задано, равно числу доступных цпу
+    :param spark_memory: GB of memory allocated for Spark;
+        half of RAM by default.
+    :param shuffle_partitions: number of partitions for Spark; number of CPU by default
     """
     os.environ["PYSPARK_PYTHON"] = sys.executable
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
@@ -54,7 +53,7 @@ def get_spark_session(
 
 
 def logger_with_settings() -> logging.Logger:
-    """ Настройка логгеров и изменение их уровня """
+    """Set up default logging"""
     spark_logger = logging.getLogger("py4j")
     spark_logger.setLevel(logging.WARN)
     ignite_engine_logger = logging.getLogger("ignite.engine.engine.Engine")
@@ -74,7 +73,7 @@ def logger_with_settings() -> logging.Logger:
 # pylint: disable=too-few-public-methods
 class Borg:
     """
-    Обеспечивает доступ к расшаренному состоянию
+    This class allows to share objects between instances.
     """
 
     _shared_state: Dict[str, Any] = {}
@@ -86,11 +85,9 @@ class Borg:
 # pylint: disable=too-few-public-methods
 class State(Borg):
     """
-    В этот класс можно положить свою спарк сессию, чтобы она была доступна модулям библиотеки.
-    Каждый модуль, которому нужна спарк сессия, будет искать её здесь и создаст дефолтную сессию,
-    если ни одной не было создано до сих пор.
+    All modules look for Spark session via this class. You can put your own session here.
 
-    Здесь же хранится ``default device`` для ``pytorch`` (CPU или CUDA, если доступна).
+    Other parameters are stored here too: ``default device`` for ``pytorch`` (CPU/CUDA)
     """
 
     def __init__(

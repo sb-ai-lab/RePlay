@@ -6,22 +6,20 @@ from replay.metrics.base_metric import Metric
 # pylint: disable=too-few-public-methods
 class NDCG(Metric):
     """
-    Normalized Discounted Cumulative Gain учитывает порядок в списке рекомендаций --
-    чем ближе к началу списка полезные рекомендации, тем больше значение метрики.
+    Normalized Discounted Cumulative Gain is a metric
+    that takes into account positions of relevant items.
 
-    Реализован бинарный вариант релевантности -- был объект или нет,
-    не произвольная шкала полезности вроде оценок.
-
-    Метрика определяется следующим образом:
+    This is the binary version, it takes into account
+    whether the item was consumed or not, relevance value is ignored.
 
     .. math::
         DCG@K(i) = \sum_{j=1}^{K}\\frac{\mathbb{1}_{r_{ij}}}{\log_2 (j+1)}
 
 
-    :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
+    :math:`\\mathbb{1}_{r_{ij}}` -- indicator function showing that user :math:`i` interacted with item :math:`j`
 
-    Для перехода от :math:`DCG` к :math:`nDCG` необходимо подсчитать максимальное значение метрики
-    для пользователя :math:`i` и  длины рекомендаций :math:`K`
+    To get from :math:`DCG` to :math:`nDCG` we calculate the biggest possible value of `DCG`
+    for user :math:`i` and recommendation length :math:`K`.
 
     .. math::
         IDCG@K(i) = max(DCG@K(i)) = \sum_{j=1}^{K}\\frac{\mathbb{1}_{j\le|Rel_i|}}{\log_2 (j+1)}
@@ -29,9 +27,9 @@ class NDCG(Metric):
     .. math::
         nDCG@K(i) = \\frac {DCG@K(i)}{IDCG@K(i)}
 
-    :math:`|Rel_i|` -- количество элементов, с которыми пользователь :math:`i` взаимодействовал
+    :math:`|Rel_i|` -- number of relevant items for user :math:`i`
 
-    Для расчета итоговой метрики усредняем по всем пользователям
+    Metric is averaged by users.
 
     .. math::
         nDCG@K = \\frac {\sum_{i=1}^{N}nDCG@K(i)}{N}

@@ -15,7 +15,7 @@ from replay.utils import (
 
 
 class ALSWrap(Recommender):
-    """ Обёртка для матричной факторизации `ALS на Spark
+    """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
 
@@ -32,10 +32,8 @@ class ALSWrap(Recommender):
         seed: Optional[int] = None,
     ):
         """
-        Инициализирует параметры модели и сохраняет спарк-сессию.
-
-        :param rank: матрицей какого ранга приближаем исходную
-        :param implicit_prefs: используем ли модель для implicit feedback
+        :param rank: hidden dimension for the approximate matrix
+        :param implicit_prefs: flag to use implicit feedback
         :param seed: random seed
         """
         self.rank = rank

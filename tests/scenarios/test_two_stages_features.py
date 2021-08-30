@@ -288,7 +288,6 @@ def test_first_level_features_processor(item_features):
 
 
 def test_first_level_features_processor_threshold(item_features):
-    # в категориальных колонках больше значений, чем threshold
     processor = FirstLevelFeaturesProcessor(threshold=1)
     processor.fit(item_features.filter(sf.col("class") != "dog"))
     transformed = processor.transform(item_features)
@@ -297,7 +296,6 @@ def test_first_level_features_processor_threshold(item_features):
 
 
 def test_first_level_features_processor_empty(item_features):
-    # обработка None и случаев, когда все колонки отфильтровались
     processor = FirstLevelFeaturesProcessor(threshold=1)
     processor.fit(None)
     assert processor.transform(item_features) is None

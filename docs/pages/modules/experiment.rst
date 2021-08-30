@@ -1,4 +1,4 @@
-Сравнение результатов
+Compare Results
 ======================
 
 .. autoclass:: replay.experiment.Experiment

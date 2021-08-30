@@ -4,8 +4,8 @@ from replay.metrics.base_metric import Metric
 # pylint: disable=too-few-public-methods
 class HitRate(Metric):
     """
-    Доля пользователей, для которой хотя бы одна рекомендация из
-    первых ``K`` была успешна.
+    Percentage of users that have at least one
+        correctly recommended item among top-k.
 
     .. math::
         HitRate@K(i) = \max_{j \in [1..K]}\mathbb{1}_{r_{ij}}
@@ -13,7 +13,7 @@ class HitRate(Metric):
     .. math::
         HitRate@K = \\frac {\sum_{i=1}^{N}HitRate@K(i)}{N}
 
-    :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
+    :math:`\\mathbb{1}_{r_{ij}}` -- indicator function stating that user :math:`i` interacted with item :math:`j`
 
     """
 

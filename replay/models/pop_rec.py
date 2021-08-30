@@ -11,19 +11,16 @@ from replay.constants import IDX_REC_SCHEMA
 
 class PopRec(Recommender):
     """
-    Базовый рекомендатель на основе популярности.
+    Recommend objects using their popularity.
 
-    Популярность объекта определяется как вероятность того,
-    что случайно выбранный пользователь взаимодействовал с объектом:
+    Popularity of an item is a probability that random user rated this item.
 
     .. math::
         Popularity(i) = \\dfrac{N_i}{N}
 
-    :math:`N_i` - количество пользователей, у которых было взаимодействие с
-    объектом :math:`i`
+    :math:`N_i` - number of users who rated item :math:`i`
 
-    :math:`N` - общее количество пользователей,
-    независимо от взаимодействия с объектом.
+    :math:`N` - total number of users
 
     >>> import pandas as pd
     >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 2, 3, 4], "item_id": [1, 2, 2, 3, 3, 3]})
@@ -90,7 +87,6 @@ class PopRec(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        # удаляем ненужные items
         items_pd = (
             items.join(
                 self.item_popularity.withColumnRenamed("item_idx", "item"),
@@ -124,7 +120,8 @@ class PopRec(Recommender):
         )
         recs = (
             recs.selectExpr(
-                "user_idx", f"LEAST(cnt + {k}, {model_len}) AS cnt",
+                "user_idx",
+                f"LEAST(cnt + {k}, {model_len}) AS cnt",
             )
             .groupby("user_idx")
             .applyInPandas(grouped_map, IDX_REC_SCHEMA)

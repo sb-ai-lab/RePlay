@@ -1,49 +1,48 @@
-## Выбор алгоритма
+## How to choose a recommender
 
-#### Особенности входных данных
-- _Тип входных данных._ В качестве входных данных модели используют историю взаимодействия пользователей и объектов (коллаборативная информация) и информацию о признаках пользователей, объектов и контектста.
-По типу используемых данных алгоритмы в RePlay делятся на:
-    - Collaborative, коллаборативные. Используют историю взаимодействия пользователей и объектов для построения рекомендаций на основании сходства пользователей и объектов. 
-    - Content-based. Используют признаковые описания пользователей и объектов для построения рекомендаций.
-    - Hybrid, гибридные. Могут использовать коллаборативную информацию, признаки пользователя, объекта и контекста. К гибридным системам также относят ансамбли моделей.
-- _Тип взаимодействия._
- История взаимодействия может отражать явные предпочтения пользователя, например, оценки (_explicit feedback_), 
- или неявные предпочтения, например, факт просмотра, количество прослушиваний (_implicit feedback_). \
- Некоторые алгоритмы RePlay игнорируют значения релевантности, переданные пользователем, и используют пары пользователь-объект из лога как одинаково релевантные взаимодействия (_unary ratings_).
-- _Постоянство пользователей._
- Некоторые алгоритмы требуют переобучения модели, чтобы рекомендовать пользователям, отсутствующим в обучающей выборке (столбец "Рекомендует для новых пользователей"). 
-- _Постоянство объектов._
- Большинство алгоритмов требуют переобучения модели, чтобы рекомендовать объекты, отсутствующие в обучающей выборке (столбец "Рекомендует новые объекты").
+#### Input Data
+- _What is the input?_ 
+RePlay models differ by types of data they can process:
+    - Collaborative use only user-item interaction logs.
+    - Content-based use only user or item features.
+    - Hybrid can use both log and features.
+- _Are interactions explicit?_
+ Our information can be either _explicit_, such as ratings, or _implicit_ such as view, number of play counts. 
+\
+Some models transfrom any type of data to implicit (_unary ratings_).
+- _Will there be new users?_
+ Some models need to be completely retrained to give predictions for new users while others don't. 
+- _Will there be new items?_
+ The same goes for new items.
 
-| Алгоритм       | Тип данных          | Тип взаимодействия | Рекомендует для новых пользователей | Рекомендует новые объекты |
+| Algorithm      | Data         | Interactions | Cold Users | Cold Items |
 | ---------------|--------------|-------|-------|-------|
-|Popular Recommender        |Collaborative    | приводятся к unary ratings             | + | - |
+|Popular Recommender        |Collaborative    | converted to unary ratings             | + | - |
 |Popular By Users           |Collaborative    | implicit feedback                      | - | - |
 |Wilson Recommender         |Collaborative    | binary ratings                         | + | - |
-|Random Recommender         |Collaborative    | приводятся к unary ratings             | + | + |
-|K-Nearest Neighbours       |Collaborative    | приводятся к unary ratings             | + | - |
-|Classifier Recommender     |Content-based    | binary ratings                         | + | + |
+|Random Recommender         |Collaborative    | converted to unary ratings             | + | + |
+|K-Nearest Neighbours       |Collaborative    | converted to unary ratings             | + | - |
+|Classifier Recommender      |Content-based    | binary ratings                         | + | + |
 |Alternating Least Squares  |Collaborative    | implicit feedback                      | - | - |
-|Neural Matrix Factorization|Collaborative    | приводятся к unary ratings             | - | - |
+|Neural Matrix Factorization|Collaborative    | converted to unary ratings             | - | - |
 |SLIM                       |Collaborative    | unary ratings, explicit feedback       | + | - |
 |ADMM SLIM                  |Collaborative    | unary ratings, explicit feedback       | + | - |
-|Mult-VAE                   |Collaborative    | приводятся к unary ratings             | + | - |
-|Word2Vec Recommender       |Collaborative    | приводятся к unary ratings             | + | - |
-|Обертка LightFM            |Hybrid           | [в зависимости от типа loss](https://making.lyst.com/lightfm/docs/lightfm.html#lightfm)       | + | + |
-|Обертка Implicit           |Collaborative    | [в зависимости от выбранной модели](https://implicit.readthedocs.io/en/latest/index.html)    | - | - |
+|Mult-VAE                   |Collaborative    | converted to unary ratings             | + | - |
+|Word2Vec Recommender       |Collaborative    | converted to unary ratings             | + | - |
+|LightFM Wrap               |Hybrid           | [depends on loss](https://making.lyst.com/lightfm/docs/lightfm.html#lightfm)       | + | + |
+|Implicit Wrap              |Collaborative    | [depends on model](https://implicit.readthedocs.io/en/latest/index.html)    | - | - |
 |Stack Recommender          |Hybrid           | `*`  | `*` | `*` |
-|Двухуровневый классификатор|Hybrid           | приводятся к unary ratings для модели второго уровня    | `*` | `*` |
+|Two Stages Scenario        |Hybrid           | converted to unary ratings for second level    | `*` | `*` |
 
-`*` - зависит от алгоритмов, используемых в качестве базовых. 
+`*` - depends on base models. 
 
-#### Требования к рекомендациям
-* _Персонализированность рекомендаций._ Персонализированные рекомендации строятся с учетом информации о пользователе.  
-* _Рекомендации для холодных пользователей_ (пользователи, которые не взаимодействовали с объектами).
-* _Рекомендации для холодных объектов_ (объекты, для которых отсутствует история взаимодействия с пользователями).
-* _Рекомендации новых для пользователя объектов._
- Способность алгоритма рекомендовать объекты, отсутствовавшие в истории взаимодействия пользователя.
+#### Model requirements
+* _Should recommendations be personalized?_ 
+* _Should cold users get recommendations?_ (users without interactions).
+* _Should model recommend cold items?_ (With no interactions).
+* _Should model be able to recommend unseen items?_
 
-| Алгоритм       | Персонализированные | Холодные пользователи | Холодные объекты |  Новые объекты для пользователя |
+| Algorithm      | Personalized | Cold Users | Cold Items |  Recommends Unseen Items |
 | ---------------|--------------|-------|-------|-------|
 |Popular Recommender          | - | + | - | + |
 |Popular By Users             | + | - | - | - |
@@ -57,11 +56,11 @@
 |ADMM SLIM                    | + | - | - | + |
 |Mult-VAE                     | + | - | - | + |
 |Word2Vec Recommender         | + | - | - | + |
-|Обертка LightFM              | + | + | + | + |
-|Обертка Implicit             | + | - | - | + |
+|LightFM  Wrap                | + | + | + | + |
+|Implicit Wrap                | + | - | - | + |
 |Stack Recommender            | + | `*` | `*` | `*` |
-|Двухуровневый классификатор  | + | `*` | `*` | `*` |
+|Two Stages Scenario          | + | `*` | `*` | `*` |
 
-`*` - зависит от алгоритмов, используемых в качестве базовых.
+`*` - depends on base models. 
 
-Больше информации об алгоритмах - в [документации](../modules/models).
+More info on [models](../modules/models).

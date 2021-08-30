@@ -10,7 +10,7 @@ from replay.metrics.base_metric import RecOnlyMetric, sorter
 # pylint: disable=too-few-public-methods
 class Unexpectedness(RecOnlyMetric):
     """
-    Доля объектов в рекомендациях, которая не содержится в рекомендациях некоторого базового алгоритма.
+    Fraction of recommended items that are not present in some baseline recommendations.
 
     >>> import pandas as pd
     >>> from replay.session_handler import get_spark_session, State
@@ -28,7 +28,7 @@ class Unexpectedness(RecOnlyMetric):
         self, pred: AnyDataFrame
     ):  # pylint: disable=super-init-not-called
         """
-        :param pred: предсказания модели, относительно которых необходимо посчитать метрику.
+        :param pred: model predictions
         """
         self.pred = convert2spark(pred)
 

@@ -1,4 +1,4 @@
-"""Построение распределений"""
+"""Distribution calculations"""
 
 import pandas as pd
 import seaborn as sns
@@ -12,12 +12,12 @@ def plot_user_dist(
     user_dist: pd.DataFrame, window: int = 1, title: str = ""
 ):  # pragma: no cover
     """
-    Отрисовывает распределение значение метрики от количества оценок у пользователя
+    Plot mean metric value by the number of user ratings
 
-    :param user_dist: результат применения метода ``user_distribution`` у метрики
-    :param window: какое количество ближайших значений усреднить
-    :param title: название графика
-    :return: график
+    :param user_dist: output of ``user_distribution`` method for a metric
+    :param window: the number of closest values to average for smoothing
+    :param title: plot title
+    :return: plot object
     """
     user_dist["smoothed"] = (
         user_dist["value"].rolling(window, center=True).mean()
@@ -36,12 +36,12 @@ def plot_item_dist(
     item_dist: pd.DataFrame, palette: str = "magma", col: str = "rec_count"
 ):  # pragma: no cover
     """
-    Отрисовывает результат применения ``item_distribution``
+    Show the results of  ``item_distribution`` method
 
     :param item_dist: ``pd.DataFrame``
-    :param palette: цветовая схема
-    :param col: по какой колонке строить
-    :return: график
+    :param palette: colour scheme for seaborn
+    :param col: column to use for a plot
+    :return: plot
     """
     limits = list(range(len(item_dist), 0, -len(item_dist) // 10))[::-1]
     values = [(item_dist.iloc[:limit][col]).sum() for limit in limits]
@@ -63,12 +63,12 @@ def item_distribution(
     log: AnyDataFrame, recommendations: AnyDataFrame, k: int
 ) -> pd.DataFrame:
     """
-    Посчитать количество вхождений объектов в логах и рекомендациях.
+    Calculate item distribution in ``log`` and ``recommendations``.
 
-    :param log: исторические данные для расчета популярности
-    :param recommendations: список рекомендаций для пользователей
-    :param k: сколько рекомендаций брать
-    :return: датафрейм с количеством вхождений
+    :param log: historical DataFrame used to calculate popularity
+    :param recommendations: model recommendations
+    :param k: length of a recommendation list
+    :return: DataFrame with results
     """
     log = convert2spark(log)
     res = (

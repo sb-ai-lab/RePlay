@@ -1,5 +1,5 @@
 """
-Класс, реализующий стекинг моделей.
+Stack models
 """
 # pylint: disable=invalid-name
 
@@ -22,8 +22,7 @@ from replay.splitters import k_folds
 
 
 class Stack(Recommender):
-    """Стек базовых моделей возвращает свои скоры, которые взвешиваются,
-    чтобы получить новое ранжирование."""
+    """Use base models predictions to get final recommendations"""
 
     def __init__(
         self,
@@ -33,11 +32,10 @@ class Stack(Recommender):
         seed: Optional[int] = None,
     ):
         """
-        :param models: список инициализированных моделей
-        :param n_folds: количество фолдов для обучения верхней модели,
-            параметры смешения будут определены по среднему качеству на фолдах.
-        :param budget: количество попыток найти вариант смешения моделей
-        :param seed: сид для разбиения фолдов для подбора параметров верхней модели
+        :param models: list of initialized models
+        :param n_folds: number of folds used to train stack
+        :param budget: number of tries to find best way to stack models
+        :param seed: random seed
         """
         self.models = models
         State()
@@ -182,7 +180,7 @@ class Stack(Recommender):
 
 
 def rerank(df: DataFrame, **kwargs) -> DataFrame:
-    """Добавляет колонку relevance линейной комбинацией колонок с весами из kwargs"""
+    """add relevance columns as a linear combination of kwargs"""
     res = df.withColumn(
         "relevance",
         reduce(add, [sf.col(col) * weight for col, weight in kwargs.items()]),

@@ -26,7 +26,7 @@ from replay.constants import IDX_REC_SCHEMA
 
 
 class TorchRecommender(Recommender):
-    """ Базовый класс-рекомендатель для нейросетевой модели. """
+    """Base class for neural recommenders"""
 
     model: Any
     device: torch.device
@@ -55,7 +55,10 @@ class TorchRecommender(Recommender):
         self.logger.debug("Предсказание модели")
         recs = (
             users.join(log, how="left", on="user_idx")
-            .selectExpr("user_idx AS user_idx", "item_idx AS item_idx",)
+            .selectExpr(
+                "user_idx AS user_idx",
+                "item_idx AS item_idx",
+            )
             .groupby("user_idx")
             .applyInPandas(grouped_map, IDX_REC_SCHEMA)
         )
@@ -105,44 +108,41 @@ class TorchRecommender(Recommender):
         item_count: int,
     ) -> pd.DataFrame:
         """
-        Получение рекомендаций для каждого пользователя
+        Calculate predictions.
 
-        :param pandas_df: DataFrame, содержащий индексы просмотренных объектов
-            по каждому пользователю -- pandas-датафрейм вида
-            ``[user_idx, item_idx]``
-        :param model: обученная модель
-        :param items_np: список допустимых для рекомендаций объектов
-        :param k: количество рекомендаций
-        :param item_count: общее количество объектов в рекомендателе
-        :return: DataFrame c рассчитанными релевантностями --
-            pandas-датафрейм вида ``[user_idx , item_idx , relevance]``
+        :param pandas_df: DataFrame with user-item interactions ``[user_idx, item_idx]``
+        :param model: trained model
+        :param items_np: items available for recommendations
+        :param k: length of recommendation list
+        :param item_count: total number of items
+        :return: DataFrame ``[user_idx , item_idx , relevance]``
         """
 
     @staticmethod
     @abstractmethod
     def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
+        pandas_df: pd.DataFrame,
+        model: nn.Module,
+        item_count: int,
     ) -> pd.DataFrame:
         """
-        Получение релевантности для выбранных объектов для каждого пользователя
+        Get relevance for provided pairs
 
-        :param pandas_df: pandas-датафрейм, содержащий индексы просмотренных объектов
-            по каждому пользователю и индексы объектов, для которых нужно получить предсказание
+        :param pandas_df: DataFrame with rated items and items that need prediction
             ``[user_idx, item_idx_history, item_idx_to_pred]``
-        :param model: обученная модель
-        :param item_count: общее количество объектов в рекомендателе
-        :return: DataFrame c рассчитанными релевантностями --
-            pandas-датафрейм вида ``[user_idx , item_idx , relevance]``
+        :param model: trained model
+        :param item_count: total number of items
+        :return: DataFrame ``[user_idx , item_idx , relevance]``
         """
 
     def load_model(self, path: str) -> None:
         """
-        Загрузка весов модели из файла
+        Load model from file
 
-        :param path: путь к файлу, откуда загружать
+        :param path: path to model
         :return:
         """
-        self.logger.debug("-- Загрузка модели из файла")
+        self.logger.debug("-- Loading model from file")
         self.model.load_state_dict(torch.load(path))
 
     # pylint: disable=too-many-arguments
@@ -155,13 +155,13 @@ class TorchRecommender(Recommender):
         checkpoint_number: Optional[int] = None,
     ) -> Tuple[Engine, Engine]:
         """
-        Метод, возвращающий trainer, evaluator для обучения нейронной сети.
+        Creates a trainer and en evaluator needed to train model
 
-        :param opt: Оптимайзер
-        :param valid_data_loader: Загрузчик данных для валидации
-        :param scheduler: Расписания для уменьшения шага обучения
-        :param early_stopping_patience: количество эпох для ранней остановки
-        :param early_stopping_patience: количество лучших чекпойнтов
+        :param opt: optimizer
+        :param valid_data_loader: data loader for validation
+        :param scheduler: scheduler used to decrease learning rate
+        :param early_stopping_patience: number of epochs used for early stopping
+        :param checkpoint_number: number of best checkpoints
         :return: trainer, evaluator
         """
         self.model.to(self.device)  # pylint: disable=E1101
@@ -289,13 +289,11 @@ class TorchRecommender(Recommender):
         self, batch, model
     ) -> Tuple[torch.Tensor, torch.Tensor, Union[None, Dict[str, Any]]]:
         """
-        Метод, возвращающий результат применения модели к батчу.
-        Должен быть имплементирован наследниками.
+        Apply model to a single batch.
 
-        :param batch: батч с данными
-        :param model: нейросетевая модель
-        :return: y_pred, y_true, а также словарь дополнительных параметров,
-        необходимых для расчета функции потерь
+        :param batch: data batch
+        :param model: model object
+        :return: y_pred, y_true, and a dictionary used to calculate loss.
         """
 
     @abstractmethod
@@ -303,11 +301,10 @@ class TorchRecommender(Recommender):
         self, y_pred: torch.Tensor, y_true: torch.Tensor, *args, **kwargs
     ) -> torch.Tensor:
         """
-        Метод, возвращающий значение функции потерь.
-        Должен быть имплементирован наследниками.
+        Returns loss value
 
-        :param y_pred: Результат, который вернула нейросеть
-        :param y_true: Ожидаемый результат
-        :param *args: Прочие аргументы необходимые для расчета loss
-        :return: Тензор размера 1 на 1
+        :param y_pred: output from model
+        :param y_true: actual test data
+        :param *args: other arguments used to calculate loss
+        :return: 1x1 tensor
         """

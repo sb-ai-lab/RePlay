@@ -11,12 +11,10 @@ from replay.models.pop_rec import PopRec
 
 class Wilson(PopRec):
     """
-    Подсчитывает для каждого айтема нижнюю границу
-    доверительного интервала истинной доли положительных оценок.
+    Calculates lower confidence bound for the confidence interval
+    of true fraction of positive ratings.
 
-    При этом данные ``relevance`` должны быть приведены к виду 0 и 1.
-
-    Для каждого пользователя отфильтровываются просмотренные айтемы.
+    ``relevance`` must be converted to binary 0-1 form.
 
     >>> import pandas as pd
     >>> data_frame = pd.DataFrame({"user_id": [1, 2], "item_id": [1, 2], "relevance": [1, 1]})

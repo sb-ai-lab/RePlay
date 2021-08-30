@@ -1,7 +1,6 @@
 """
-Реализация рекомендательной модели MultVAE
+MultVAE implementation
 (Variational Autoencoders for Collaborative Filtering)
-и используемой в ней нейросетевой модели вариационного автокодировщика (VAE)
 """
 from typing import Optional, Tuple
 
@@ -22,7 +21,7 @@ from replay.session_handler import State
 
 
 class VAE(nn.Module):
-    """Простой вариационный автокодировщик"""
+    """Base variational autoencoder"""
 
     # pylint: disable=too-many-arguments,too-many-instance-attributes
     def __init__(
@@ -33,12 +32,10 @@ class VAE(nn.Module):
         dropout: float = 0.3,
     ):
         """
-        Инициализация модели.
-
-        :param item_count: количество объектов
-        :param latent_dim: размерность скрытого представления
-        :param hidden_dim: размерность скрытого слоя энкодера и декодера
-        :param dropout: коэффициент дропаута
+        :param item_count: number of items
+        :param latent_dim: latent dimension size
+        :param hidden_dim: hidden dimension size for encoder and decoder
+        :param dropout: dropout coefficient
         """
         super().__init__()
 
@@ -72,7 +69,7 @@ class VAE(nn.Module):
             self.weight_init(layer)
 
     def encode(self, batch: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Энкодер"""
+        """Encode"""
         hidden = F.normalize(batch, p=2, dim=1)
         hidden = self.dropout(hidden)
 
@@ -88,8 +85,7 @@ class VAE(nn.Module):
     def reparameterize(
         self, mu_latent: torch.Tensor, logvar_latent: torch.Tensor
     ) -> torch.Tensor:
-        """Репараметризационный трюк, необходимый для обратного прохождения
-        сигнала по семплированным данным"""
+        """Reparametrization trick"""
 
         if self.training:
             std = torch.exp(0.5 * logvar_latent)
@@ -98,7 +94,7 @@ class VAE(nn.Module):
         return mu_latent
 
     def decode(self, z_latent: torch.Tensor) -> torch.Tensor:
-        """Декодер"""
+        """Decode"""
         hidden = z_latent
         for layer in self.decoder[:-1]:
             hidden = layer(hidden)
@@ -110,11 +106,8 @@ class VAE(nn.Module):
         self, batch: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
-        Один проход нейросети.
-
-        :param batch: батч пользователей
-        :return: батч реконструированных пользователей, а также матожидание и
-        логарифм отклонения латентного распределения
+        :param batch: user batch
+        :return: output, expectation and logarithm of variation
         """
         mu_latent, logvar_latent = self.encode(batch)
         z_latent = self.reparameterize(mu_latent, logvar_latent)
@@ -123,9 +116,9 @@ class VAE(nn.Module):
     @staticmethod
     def weight_init(layer: nn.Module):
         """
-        Инициализация весов линейного слоя методом Хавьера
+        Xavier initialization
 
-        :param layer: слой нейронной сети
+        :param layer: layer of a model
         """
         if isinstance(layer, nn.Linear):
             nn.init.xavier_normal_(layer.weight.data)
@@ -170,16 +163,14 @@ class MultVAE(TorchRecommender):
         gamma: float = 0.99,
     ):
         """
-        Инициализирует параметры модели и сохраняет спарк-сессию.
-
-        :param learning_rate: шаг обучения
-        :param epochs: количество эпох, в течение которых учимся
-        :param latent_dim: размерность скрытого представления пользователя
-        :param hidden_dim: размерность скрытого слоя для декодера и энкодера
-        :param dropout: коэффициент дропаута
-        :param anneal: коэффициент отжига от 0 до 1
-        :param l2_reg: коэффициент l2 регуляризации
-        :param gamma: коэффициент уменьшения learning_rate после каждой эпохи
+        :param learning_rate: learning rate
+        :param epochs: number of epochs to train model
+        :param latent_dim: latent dimension size for user vectors
+        :param hidden_dim: hidden dimension size for encoder and decoder
+        :param dropout: dropout coefficient
+        :param anneal: anneal coefficient [0,1]
+        :param l2_reg: l2 regularization term
+        :param gamma: reduce learning rate by this coefficient per epoch
         """
         self.device = State().device
         self.learning_rate = learning_rate
@@ -194,7 +185,7 @@ class MultVAE(TorchRecommender):
     def _get_data_loader(
         self, data: pd.DataFrame, shuffle: bool = True
     ) -> Tuple[csr_matrix, DataLoader, np.ndarray]:
-        """Функция получения загрузчика данных, а также матрицы с данными"""
+        """get data loader and matrix with data"""
         users_count = data["user_idx"].value_counts().count()
         user_idx = data["user_idx"].astype("category").cat  # type: ignore
         user_batch = csr_matrix(
@@ -220,7 +211,7 @@ class MultVAE(TorchRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self.logger.debug("Составление батча:")
+        self.logger.debug("Creating batch:")
         data = log.select("user_idx", "item_idx").toPandas()
         splitter = GroupShuffleSplit(
             n_splits=1, test_size=self.valid_split_size, random_state=self.seed
@@ -237,7 +228,7 @@ class MultVAE(TorchRecommender):
             valid_data, False
         )
 
-        self.logger.debug("Обучение модели")
+        self.logger.debug("Training VAE")
         self.model = VAE(
             item_count=self.items_count,
             latent_dim=self.latent_dim,
@@ -340,7 +331,9 @@ class MultVAE(TorchRecommender):
 
     @staticmethod
     def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
+        pandas_df: pd.DataFrame,
+        model: nn.Module,
+        item_count: int,
     ) -> pd.DataFrame:
 
         items_np_history = np.array(

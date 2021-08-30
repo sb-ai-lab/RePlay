@@ -107,5 +107,7 @@ def test_save_load(log, model, spark):
     new_model.load_model(path)
     for i, parameter in enumerate(new_model.model.parameters()):
         assert np.allclose(
-            parameter.detach().cpu().numpy(), old_params[i], atol=1.0e-3,
+            parameter.detach().cpu().numpy(),
+            old_params[i],
+            atol=1.0e-3,
         )

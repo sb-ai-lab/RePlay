@@ -1,5 +1,5 @@
 """
-Базовые классы для метрик качества (Metric) и метрик разнообразия (RecOnlyMetric)
+Base classes for quality and diversity metrics.
 """
 import operator
 from abc import ABC, abstractmethod
@@ -17,14 +17,13 @@ from replay.utils import convert2spark
 
 # pylint: disable=no-member
 def sorter(items, index=1):
-    """Сортирует списки и выбирает уникальные объекты
+    """Sorts a list of tuples and chooses unique objects.
 
-    :param items: списки для сортировки вида ``(relevance, item_id,
-    *args)``. Сортировка идет по первому элементу, отбор уникальных по
-    второму.
-    :param index: индекс элементов в списках, которые необходмо отобрать
-    в результат функции
-    :return: список уникальных отсортированных объектов
+    :param items: tuples ``(relevance, item_id, *args)``.
+        Sorting is made using relevance values and unique items
+        are selected using element at ``index``'s position.
+    :param index: index of the element in tuple to be returned
+    :return: unique sorted elements
     """
     res = sorted(items, key=operator.itemgetter(0), reverse=True)
     set_res = set()
@@ -40,15 +39,13 @@ def get_enriched_recommendations(
     recommendations: AnyDataFrame, ground_truth: AnyDataFrame
 ) -> DataFrame:
     """
-    Обогащение рекомендаций дополнительной информацией.
-    По умолчанию к рекомендациям добавляется столбец,
-    содержащий множество элементов,
-    с которыми взаимодействовал пользователь
+    Adds additional info to recommendations.
+    By default adds column containing number of elements user interacted with.
 
-    :param recommendations: рекомендации
-    :param ground_truth: лог тестовых действий
-    :return: рекомендации обогащенные дополнительной информацией
-        спарк-датафрейм вида ``[user_id, item_id, relevance, *columns]``
+    :param recommendations: recommendation list
+    :param ground_truth: test data
+    :return: recommendations with additional columns,
+        spark DataFrame ``[user_id, item_id, relevance, *columns]``
     """
     recommendations = convert2spark(recommendations)
     ground_truth = convert2spark(ground_truth)
@@ -78,10 +75,9 @@ def get_enriched_recommendations(
 
 
 class Metric(ABC):
-    """ Базовый класс метрик. """
+    """Base metric class"""
 
     def __str__(self):
-        """ Строковое представление метрики. """
         return type(self).__name__
 
     def __call__(
@@ -91,16 +87,12 @@ class Metric(ABC):
         k: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
         """
-        :param recommendations: выдача рекомендательной системы,
-            спарк-датафрейм вида ``[user_id, item_id, relevance]``
-
-        :param ground_truth: реальный лог действий пользователей,
-            спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
-
-        :param k: список индексов, показывающий какое максимальное количество
-            объектов брать из топа рекомендованных для оценки
-
-        :return: значение метрики
+        :param recommendations: model predictions in a
+            DataFrame ``[user_id, item_id, relevance]``
+        :param ground_truth: test data
+            ``[user_id, item_id, timestamp, relevance]``
+        :param k: depth cut-off. Truncates recommendation lists to top-k items.
+        :return: metric value
         """
         recs = get_enriched_recommendations(recommendations, ground_truth)
         return self._mean(recs, k)
@@ -129,7 +121,7 @@ class Metric(ABC):
             for row in total_metric
         }
 
-        return self.unpack_if_int(res, k)
+        return self._unpack_if_int(res, k)
 
     def _median(self, recs: DataFrame, k: IntOrList):
         distribution = self._get_metric_distribution(recs, k)
@@ -144,11 +136,10 @@ class Metric(ABC):
             .collect()
         )
         res = {row["k"]: row["total_metric"] for row in total_metric}
-        return self.unpack_if_int(res, k)
+        return self._unpack_if_int(res, k)
 
-    # pylint: disable=missing-docstring
     @staticmethod
-    def unpack_if_int(res: Dict, k: IntOrList) -> Union[Dict, float]:
+    def _unpack_if_int(res: Dict, k: IntOrList) -> Union[Dict, float]:
         if isinstance(k, int):
             return res[k]
         return res
@@ -162,17 +153,17 @@ class Metric(ABC):
             .collect()
         )
         res = {row["k"]: row["total_metric"] for row in total_metric}
-        return self.unpack_if_int(res, k)
+        return self._unpack_if_int(res, k)
 
     def _get_metric_distribution(
-        self, recs: DataFrame, k: IntOrList,
+        self,
+        recs: DataFrame,
+        k: IntOrList,
     ) -> DataFrame:
         """
-        Распределение метрики
-
-        :param recs: рекомендации
-        :param k: набор чисел или одно число, по которому рассчитывается метрика
-        :return: распределение значения метрики для разных k по пользователям
+        :param recs: recommendations
+        :param k: one or more depth cut-offs
+        :return: metric distribution for different cut-offs and users
         """
 
         if isinstance(k, int):
@@ -194,14 +185,13 @@ class Metric(ABC):
     @classmethod
     def _get_metric_value_by_user_all_k(cls, k_set, user_id, *args):
         """
-        Расчёт значения метрики для каждого пользователя для нескольких k
+        Calculate metric using multiple depth cut-offs.
 
-        :param k_set: набор чисел, для которых рассчитывается метрика,
-        :param user_id: идентификатор пользователя,
-        :param *args: дополнительные параметры, необходимые для расчета
-            метрики. Перечень параметров совпадает со списком столбцов
-            датафрейма, который возвращает метод '''self._get_enriched_recommendations'''
-        :return: значение метрики для данного пользователя
+        :param k_set: depth cut-offs
+        :param user_id: user identificator
+        :param *args: extra parameters, returned by
+            '''self._get_enriched_recommendations''' method
+        :return: metric values for all users at each cut-off
         """
         result = []
         for k in k_set:
@@ -219,13 +209,12 @@ class Metric(ABC):
     @abstractmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         """
-        Расчёт значения метрики для каждого пользователя
+        Metric calculation for one user.
 
-        :param k: число, для которого рассчитывается метрика,
-        :param pred: список объектов, рекомендованных пользователю
-        :param ground_truth: список объектов, с которыми действительно
-            взаимодействовал пользователь в тесте
-        :return: значение метрики для данного пользователя
+        :param k: depth cut-off
+        :param pred: recommendations
+        :param ground_truth: test data
+        :return: metric value for current user
         """
 
     def user_distribution(
@@ -236,13 +225,13 @@ class Metric(ABC):
         k: IntOrList,
     ) -> pd.DataFrame:
         """
-        Получить среднее значение метрики для пользователей с данным количеством оценок.
+        Get mean value of metric for all users with the same number of ratings.
 
-        :param log: датафрейм с логом оценок для подсчета количества оценок у пользователей
-        :param recommendations: датафрейм с рекомендациями
-        :param ground_truth: тестовые данные
-        :param k: сколько брать объектов из рекомендаций
-        :return: pandas-датафрейм
+        :param log: history DataFrame to calculate number of ratings per user
+        :param recommendations: prediction DataFrame
+        :param ground_truth: test data
+        :param k: depth cut-off
+        :return: pandas DataFrame
         """
         log = convert2spark(log)
         count = log.groupBy("user_id").count()
@@ -266,9 +255,7 @@ class Metric(ABC):
 
 # pylint: disable=too-few-public-methods
 class RecOnlyMetric(Metric):
-    """Базовый класс для метрик,
-    которые измеряют качество рекомендаций,
-    не сравнивая их с holdout значениями"""
+    """Base class for metrics that do not need holdout data"""
 
     @abstractmethod
     def __init__(self, log: AnyDataFrame, *args, **kwargs):
@@ -285,13 +272,10 @@ class RecOnlyMetric(Metric):
         self, recommendations: AnyDataFrame, k: IntOrList
     ) -> Union[Dict[int, NumType], NumType]:
         """
-        :param recommendations: выдача рекомендательной системы,
-            спарк-датафрейм вида ``[user_id, item_id, relevance]``
-
-        :param k: список индексов, показывающий какое максимальное количество
-        объектов брать из топа рекомендованных для оценки
-
-        :return: значение метрики
+        :param recommendations: predictions of a model,
+            DataFrame  ``[user_id, item_id, relevance]``
+        :param k: depth cut-off
+        :return: metric value
         """
         recs = self._get_enriched_recommendations(recommendations, None)
         return self._mean(recs, k)
@@ -300,12 +284,10 @@ class RecOnlyMetric(Metric):
     @abstractmethod
     def _get_metric_value_by_user(k, *args) -> float:
         """
-        Расчёт значения метрики для каждого пользователя
+        Metric calculation for one user.
 
-        :param k: число, для которого рассчитывается метрика,
-        :param *args: дополнительные параметры, необходимые для расчета
-            метрики. Перечень параметров совпадает со списком столбцов
-            датафрейма, который возвращает метод '''self._get_enriched_recommendations'''
-
-        :return: значение метрики для данного пользователя
+        :param k: depth cut-off
+        :param *args: extra parameters, returned by
+            '''self._get_enriched_recommendations''' method
+        :return: metric value for current user
         """

@@ -1,7 +1,6 @@
 .. _data-preparator:
 
-Подготовка данных
+Data Preparator
 =================
 .. automodule:: replay.data_preparator
    :members: DataPreparator
-   :special-members: __init__

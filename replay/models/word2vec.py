@@ -12,8 +12,7 @@ from replay.utils import vector_dot, vector_mult
 
 class Word2VecRec(Recommender):
     """
-        Рекомендатель на основе word2vec, в котором items сопоставляются
-        словам, а пользователи предложениям.
+    Trains word2vec model where items ar treated as words and users as sentences.
     """
 
     idf: DataFrame
@@ -32,12 +31,9 @@ class Word2VecRec(Recommender):
         seed: Optional[int] = None,
     ):
         """
-        Инициализирует параметры модели .
-
-        :param rank: размерность вектора эмбеддингов
-        :param window_size: размер окна
-        :param use_idf: использовать ли взвешенное суммирование векторов с
-            помощью idf
+        :param rank: embedding size
+        :param window_size: window size
+        :param use_idf: flag to use inverse document frequency
         :param seed: random seed
         """
 
@@ -97,18 +93,15 @@ class Word2VecRec(Recommender):
             self.vectors.unpersist()
 
     def _get_user_vectors(
-        self, users: DataFrame, log: DataFrame,
+        self,
+        users: DataFrame,
+        log: DataFrame,
     ) -> DataFrame:
         """
-        Возвращает вектора пользователей, посчитанные на основе истории взаимодействий из log.
-
-        :param users: id выбранные пользователей
-            спарк-датафрейм с колонкой ``[user_idx]``
-        :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками
+        :param users: user ids, dataframe ``[user_idx]``
+        :param log: interaction dataframe
             ``[user_idx, item_idx, timestamp, relevance]``
-        :return: вектора пользователей,
-            спарк-датафрейм с колонками
+        :return: user embeddings dataframe
             ``[user_idx, user_vector]``
         """
         return (
@@ -129,11 +122,13 @@ class Word2VecRec(Recommender):
         )
 
     def _predict_pairs_inner(
-        self, pairs: DataFrame, log: DataFrame,
+        self,
+        pairs: DataFrame,
+        log: DataFrame,
     ) -> DataFrame:
         if log is None:
             raise ValueError(
-                "Для predict {} необходим log.".format(self.__str__())
+                "{} predict requires log.".format(self.__str__())
             )
 
         user_vectors = self._get_user_vectors(

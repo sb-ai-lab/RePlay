@@ -43,21 +43,17 @@ def get_first_level_model_features(
     prefix: str = "",
 ) -> DataFrame:
     """
-    Добавление векторов пользователей и объектов из модели replay.
-    Если модель может вернуть и вектора пользователей, и вектора объектов,
-    можно дополнительно посчитать покомпонентное произведение. Настраивается параметром add_factors_mult.
-    Если модель не может вернуть вектора для части пользователей/объектов, для них возвращаются нулевые вектора.
+    Get user and item embeddings from replay model.
+    Can also compute elementwise multiplication between them with ``add_factors_mult`` parameter.
+    Zero verctors are returned if a model does not have embeddings for specific users/items.
 
-    :param model: обученная модель replay, возвращающая вектора пользователей/объектов
-    :param pairs: пары пользователь/объект для которых нужно вернуть вектора
-        spark-датафрейм с колонками `[user_id/user_idx, item_id/item_id]`
-    :param user_features: датафрейм, содержащий признаки пользователей,
-        spark-датафрейм с колонками `[user_id/user_idx, feature_1, ....]`
-    :param item_features: spark-датафрейм, содержащий признаки объектов
-        spark-датафрейм с колонками `[item_id/item_idx, feature_1, ....]`
-    :param add_factors_mult: добавить ли в качестве признаков результат покомпонентного умножения векторов
-    :param prefix: добавляемый в конец названия столбца идентификатор, например, имя модели
-    :return: spark-датафрейм, содержащий компоненты векторов в качестве отдельных колонок
+    :param model: trained model
+    :param pairs: user-item pairs to get vectors for `[user_id/user_idx, item_id/item_id]`
+    :param user_features: user features `[user_id/user_idx, feature_1, ....]`
+    :param item_features: item features `[item_id/item_idx, feature_1, ....]`
+    :param add_factors_mult: flag to add elementwise multiplication
+    :param prefix: name to add to the columns
+    :return: DataFrame
     """
     if "user_id" in pairs.columns:
         func_name = "_get_features_wrap"
@@ -142,37 +138,31 @@ def get_first_level_model_features(
 # pylint: disable=too-many-instance-attributes
 class TwoStagesScenario(HybridRecommender):
     """
-    Двухуровневый сценарий состоит из следующих этапов:
-
     *train*:
 
-    1) получить ``log`` взаимодействия и разбить его на first_level_train и second_level_train
-       с помощью переданного splitter-а или дефолтного splitter, разбивающего лог для каждого пользователя 50/50
-    2) на ``first_stage_train`` обучить ``first_stage_models`` - модели первого уровня, которые могут предсказывать
-       релевантность и генерировать дополнительные признаки пользователей и объектов (эмбеддинги)
-    3) сгенерировать негативные примеры для обучения модели второго уровня:
+    1) take input ``log`` and split it into first_level_train and second_level_train
+       default splitter splits each user's data 50/50
+    2) train ``first_stage_models`` on ``first_stage_train``
+    3) create negative examples to train second stage model using one of:
 
-       - как предсказания основной модели первого уровня, не релевантные для пользователя
-       - случайным образом
+       - wrong recommendations from first stage
+       - random examples
 
-       количество негативных примеров на 1 пользователя определяется параметром ``num_negatives``
-    4) дополнить датасет признаками:
+        use ``num_negatives`` to specify number of negatives per user
+    4) augments dataset with features:
 
-       - получить предсказания моделей 1 уровня для позитивных взаимодействий из second_level_train и сгенерированных
-         негативных примеров
-       - дополнить полученный датасет признаками пользователей и объектов,
-       - сгенерировать признаки взаимодействия для пар пользователь-айтем и статистические признаки
+       - get 1 level recommendations for positive examples from second_level_train and for generated negative examples
+       - add user and item features
+       - generate statistical and pair features
 
-    5) обучить ``TabularAutoML`` из библиотеки LightAutoML на полученном датасете с признаками
+    5) train ``TabularAutoML`` from LightAutoML
 
     *inference*:
 
-    1) получить ``log`` взаимодействия
-    2) сгенерировать объекты-кандидаты с помощью модели первого уровня для оценки моделью второго уровня
-       количество кандидатов по дефолту равно числу негативных примеров при обучении и определяется параметром
-       ``num_candidates``
-    3) дополнить полученный датасет признаками аналогично дополнению в train
-    4) получить top-k взаимодействий для каждого пользователя
+    1) take ``log``
+    2) generate candidates, their number can be specified with ``num_candidates``
+    3) add features as in train
+    4) get recommendations
 
     """
 
@@ -201,49 +191,25 @@ class TwoStagesScenario(HybridRecommender):
         seed: int = 123,
     ) -> None:
         """
-        Сборка двухуровневой рекомендательной архитектуры из блоков
+        :param train_splitter: splitter to get ``first_level_train`` and ``second_level_train``.
+            Default is random 50% split.
+        :param first_level_models: model or a list of models
+        :param fallback_model: model used to fill missing recommendations at first level models
+        :param use_first_level_models_feat: flag or a list of flags to use features created by first level models
+        :param second_model_params: TabularAutoML parameters
+        :param second_model_config_path: path to config file for TabularAutoML
+        :param num_negatives: number of negative examples used during train
+        :param negatives_type: negative examples creation strategy,``random`` or most relevant examples from ``first-level``
+        :param use_generated_features: flag to use generated features to train second level
+        :param user_cat_features_list: list of user categorical features
+        :param item_cat_features_list: list of item categorical features
+        :param custom_features_processor: you can pass custom feature processor
+        :param seed: random seed
 
-        :param train_splitter: splitter для разбиения лога на ``first_level_train`` и ``second_level_train``.
-            По умолчанию для каждого пользователя 50% объектов из лога, выбранные случайно (не по времени),
-            используются для обучения модели первого уровня (first_level_train),
-            а остальное - для обучения модели второго уровня (second_level_train).
-        :param first_level_models: Модель или список инициализированных моделей RePlay, использующихся
-            на первом этапе обучения. Для генерации кандидатов для переранжирования моделью второго уровня
-            используется первая модель из списка. По умолчанию используется модель :ref:`ALS<als-rec>`.
-        :param fallback_model: Модель для дополнения списка рекомендаций, полученных моделью первого уровня,
-            в случае, если моделью первого уровня получены рекомендации не для всех пользователей или
-            получено недостаточное число объектов
-        :param use_first_level_models_feat: Флаг или список флагов, определяющих использование признаков,
-            полученных моделью первого уровня (например, вектора пользователей и объектов из ALS,
-            эмбеддинги пользователей из multVAE), для обучения модели второго уровня.
-            Если bool, флаг применяется ко всем моделям, в случае передачи списка
-            для каждой модели должно быть указано свое значение флага.
-        :param second_model_params: Параметры TabularAutoML в виде многоуровневого dict
-        :param second_model_config_path: Путь к конфиг-файлу для настройки TabularAutoML
-        :param num_negatives: сколько объектов класса 0 будем генерировать для обучения
-        :param negatives_type: каким образом генерировать негативные примеры для обучения модели второго уровня,
-            случайно ``random`` или как наиболее релевантные предсказанные моделью первого уровня ``first-level``
-        :param use_generated_features: нужно ли использовать автоматически сгенерированные
-            по логу признаки для обучения модели второго уровня
-        :param user_cat_features_list: категориальные признаки пользователей,
-            которые нужно использовать для построения признаков
-            популярности объекта у пользователей в зависимости от значения категориального признака
-            (например, популярность фильма у пользователей данной возрастной группы)
-        :param item_cat_features_list: категориальные признаки объектов,
-            которые нужно использовать для построения признаков
-            популярности у пользователя объектов в зависимости от значения категориального признака
-        :param custom_features_processor: в двухуровневый сценарий можно передать свой объект,
-            наследующийся от SecondLevelFeaturesProcessor для
-            генерации признаков для выбранных пар пользователь-объект во время обучения и inference
-            на базе лога и признаков пользователей и объектов.
-            Пример реализации - TwoLevelFeaturesProcessor.
-        :param seed: random seed для обеспечения воспроизводимости результатов.
         """
-        # разбиение данных
         self.train_splitter = train_splitter
         self.cached_list = []
 
-        # модели первого уровня
         self.first_level_models = (
             first_level_models
             if isinstance(first_level_models, Iterable)
@@ -271,10 +237,10 @@ class TwoStagesScenario(HybridRecommender):
                 use_first_level_models_feat
             ):
                 raise ValueError(
-                    "Для каждой модели из first_level_models укажите,"
-                    "нужно ли использовать фичи, полученные моделью. Длина списков не совпадает."
-                    "Количество моделей (first_level_models) равно {}, "
-                    "количество флагов использования признаков (use_first_level_models_feat) равно {}".format(
+                    "For each model from first_level_models specify "
+                    "flag to use first level features."
+                    "Length of first_level_models is {}, "
+                    "Length of use_first_level_models_feat is {}".format(
                         len(first_level_models),
                         len(use_first_level_models_feat),
                     )
@@ -282,7 +248,6 @@ class TwoStagesScenario(HybridRecommender):
 
             self.use_first_level_models_feat = use_first_level_models_feat
 
-        # модель второго уровня
         if (
             second_model_config_path is not None
             or second_model_params is not None
@@ -296,21 +261,19 @@ class TwoStagesScenario(HybridRecommender):
                 **second_model_params
             )
         else:
-            # CHECK! спросить про параметры у Антона или Саши
+            # CHECK! ask about parameters
             self.second_stage_model = TabularAutoML(
                 task=Task("binary"),
                 reader_params={"cv": 5, "random_state": seed},
             )
 
-        # генерация отрицательных примеров
         self.num_negatives = num_negatives
         if negatives_type not in ["random", "first_level"]:
             raise ValueError(
-                "Некорректное значение {} для negatives_type. Используйте 'random' или 'first_level'"
+                "Invalud negatives_type value: {}. Use 'random' or 'first_level'"
             )
         self.negatives_type = negatives_type
 
-        # добавление признаков
         self.use_generated_features = use_generated_features
         self.user_cat_features_list = user_cat_features_list
         self.item_cat_features_list = item_cat_features_list
@@ -330,33 +293,19 @@ class TwoStagesScenario(HybridRecommender):
         item_features: DataFrame,
     ) -> DataFrame:
         """
-        Дополнение признаками для передачи в модель второго уровня.
-        Датафрейм дополняется признаками:
-            - релевантность из моделей первого уровня
-            - признаки пользователей и объектов из моделей первого уровня
-            - признаки датасета
-            - признаки, сгенерированные FeatureProcessor на основе лога
-                и выбранных категориальных признаков
+        Added features are:
+            - relevance from first level models
+            - user and item features from first level models
+            - dataset features
+            - FeatureProcessor features
 
-        :param log_to_add_features: лог взаимодействий пользователей и объектов,
-            для которого нужно получить признаки
-            спарк-датафрейм с колонками
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param log_for_first_level_models: лог взаимодействий пользователей и объектов,
-            использующийся в predict моделей первого уровня
-            спарк-датафрейм с колонками
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонкой
-            ``[user_idx]`` и колонками с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонкой
-            ``[item_idx]`` и колонками с признаками
-        :return: лог, обогащенный признаками
+        :param log_to_add_features: input DataFrame``[user_idx, item_idx, timestamp, relevance]``
+        :param log_for_first_level_models: DataFrame``[user_idx, item_idx, timestamp, relevance]``
+        :param user_features: user features``[user_idx]`` + feature columns
+        :param item_features: item features``[item_idx]`` + feature columns
+        :return: DataFrame
         """
-        self.logger.info(
-            "Генерация признаков: релевантность и признаки из моделей первого уровня"
-        )
+        self.logger.info("Generating features")
         full_second_level_train = log_to_add_features
         first_level_item_features_cached = cache_if_exists(
             self.first_level_item_features_transformer.transform(item_features)
@@ -404,9 +353,7 @@ class TwoStagesScenario(HybridRecommender):
             0
         ).cache()
 
-        self.logger.info(
-            "Генерация признаков: добавление признаков из датасета"
-        )
+        self.logger.info("Adding features from the dataset")
         full_second_level_train = join_or_return(
             full_second_level_train_cached,
             user_features,
@@ -414,7 +361,10 @@ class TwoStagesScenario(HybridRecommender):
             how="left",
         )
         full_second_level_train = join_or_return(
-            full_second_level_train, item_features, on="item_idx", how="left",
+            full_second_level_train,
+            item_features,
+            on="item_idx",
+            how="left",
         )
 
         if self.use_generated_features:
@@ -426,22 +376,20 @@ class TwoStagesScenario(HybridRecommender):
                     user_cat_features_list=self.user_cat_features_list,
                     item_cat_features_list=self.item_cat_features_list,
                 )
-            self.logger.info(
-                "Генерация признаков: добавление сгенерированных признаков"
-            )
+            self.logger.info("Adding generated features")
             full_second_level_train = self.features_processor.transform(
                 log=full_second_level_train
             )
 
         self.logger.info(
-            "Колонки после добавления признаков для модели второго уровня: %s",
+            "Columns at second level: %s",
             " ".join(full_second_level_train.columns),
         )
         full_second_level_train_cached.unpersist()
         return full_second_level_train
 
     def _split_data(self, log: DataFrame) -> Tuple[DataFrame, DataFrame]:
-        """Печать статистик разбиения лога"""
+        """Write statistics"""
         first_level_train, second_level_train = self.train_splitter.split(log)
         State().logger.debug("Log info: %s", get_log_info(log))
         State().logger.debug(
@@ -459,7 +407,6 @@ class TwoStagesScenario(HybridRecommender):
         item_features: Optional[AnyDataFrame] = None,
         force_reindex: bool = True,
     ) -> None:
-        # разбиение данных
         log, user_features, item_features = [
             convert2spark(df) for df in [log, user_features, item_features]
         ]
@@ -483,8 +430,7 @@ class TwoStagesScenario(HybridRecommender):
         log_to_filter: DataFrame,
     ):
         """
-        Фильтрация объектов и пользователей зависимости от флагов can_predict_cold_items,
-        can_predict_cold_users, predict моделью и фильтрация top-k наиболее релевантных результатов.
+        Filter users and items using can_predict_cold_items and can_predict_cold_users, and predict
         """
         if not model.can_predict_cold_items:
             log, items, item_features = [
@@ -615,30 +561,14 @@ class TwoStagesScenario(HybridRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        """
-        Обучает модель на логе и признаках пользователей и объектов.
-
-        :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонками
-            ``[user_idx, timestamp]`` и колонки с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонками
-            ``[item_id, timestamp]`` и колонки с признаками
-        :param force_reindex: обязательно создавать
-            индексы, даже если они были созданы ранее
-        """
 
         self.cached_list = []
 
-        self.logger.info("Разбиение данных")
+        self.logger.info("Data split")
         first_level_train, second_level_train = self._split_data(log)
-        self.logger.info("Индексирование пользователей и объектов")
+        self.logger.info("Create indexers")
         self._create_indexers(first_level_train, None, None)
 
-        # индексы для фильтрации при передачи в модели первого уровня
         self.first_level_item_indexer_len = len(self.item_indexer.labels)
         self.first_level_user_indexer_len = len(self.user_indexer.labels)
 
@@ -648,7 +578,6 @@ class TwoStagesScenario(HybridRecommender):
             model.inv_user_indexer = self.inv_user_indexer.copy()
             model.inv_item_indexer = self.inv_item_indexer.copy()
 
-        # конвертация с обновлением индексеров
         log, first_level_train, second_level_train = [
             self._convert_index(df).cache()
             for df in [log, first_level_train, second_level_train]
@@ -688,9 +617,7 @@ class TwoStagesScenario(HybridRecommender):
                 ),
             )
 
-        self.logger.info(
-            "Генерация негативных примеров для обучения модели второго уровня"
-        )
+        self.logger.info("Generate negative examples")
         negatives_source = (
             self.first_level_models[0]
             if self.negatives_type == "first_level"
@@ -711,9 +638,7 @@ class TwoStagesScenario(HybridRecommender):
         unpersist_if_exists(first_level_user_features)
         unpersist_if_exists(first_level_item_features)
 
-        self.logger.info(
-            "Формирование датасета для обучения модели второго уровня"
-        )
+        self.logger.info("Crate train dataset for second level")
         full_second_level_train = (
             second_level_train.select("user_idx", "item_idx", "relevance")
             .withColumn("relevance", sf.lit(1))
@@ -756,7 +681,7 @@ class TwoStagesScenario(HybridRecommender):
         full_second_level_train = full_second_level_train.drop(
             "user_idx", "item_idx"
         )
-        self.logger.info("Конвертация в pandas")
+        self.logger.info("Converting to pandas")
         full_second_level_train.cache()
         full_second_level_train_pd = full_second_level_train.toPandas()
         full_second_level_train.unpersist()
@@ -769,7 +694,7 @@ class TwoStagesScenario(HybridRecommender):
 
         # TO DO: узнать у коллег, как достать какие-нибудь
         # понятные важности признаков (не от одной модели)
-        self.logger.info("Завершено обучение модели второго уровня")
+        self.logger.info("Second level is trained")
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -782,36 +707,8 @@ class TwoStagesScenario(HybridRecommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        """
-        Выдача рекомендаций для пользователей.
 
-        :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param k: количество рекомендаций для каждого пользователя;
-            должно быть не больше, чем количество объектов в ``items``
-        :param users: список пользователей, для которых необходимо получить
-            рекомендации, спарк-датафрейм с колонкой ``[user_idx]`` или ``array-like``;
-            если ``None``, выбираются все пользователи из лога;
-            если в этом списке есть пользователи, про которых модель ничего
-            не знает, то вызывается ошибка
-        :param items: список объектов, которые необходимо рекомендовать;
-            спарк-датафрейм с колонкой ``[item_idx]`` или ``array-like``;
-            если ``None``, выбираются все объекты из лога;
-            если в этом списке есть объекты, про которых модель ничего
-            не знает, то в ``relevance`` в рекомендациях к ним будет стоять ``0``
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонкой
-            ``[user_idx]`` и колонками с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонкой
-            ``[item_idx]`` и колонками с признаками
-        :param filter_seen_items: если True, из рекомендаций каждому
-            пользователю удаляются виденные им объекты на основе лога
-        :return: рекомендации, спарк-датафрейм с колонками
-            ``[user_idx, item_idx, relevance]``
-        """
-        State().logger.debug(msg="Генерация кандидатов для переранжирования")
+        State().logger.debug(msg="Generating candidates to rerank")
 
         first_level_user_features = cache_if_exists(
             self.first_level_user_features_transformer.transform(user_features)
@@ -834,7 +731,7 @@ class TwoStagesScenario(HybridRecommender):
         candidates_cached = candidates.cache()
         unpersist_if_exists(first_level_user_features)
         unpersist_if_exists(first_level_item_features)
-        self.logger.info("Дополнение датасета кандидатов признаками")
+        self.logger.info("Adding features")
         candidates_features = self._add_features_for_second_level(
             log_to_add_features=candidates_cached,
             log_for_first_level_models=log,
@@ -844,7 +741,7 @@ class TwoStagesScenario(HybridRecommender):
         candidates_features.cache()
         candidates_cached.unpersist()
         self.logger.info(
-            "Сгенерировано %s кандидатов для %s пользователей",
+            "Generated %s candidates for %s users",
             candidates_features.count(),
             candidates_features.select("user_idx").distinct().count(),
         )
@@ -857,7 +754,7 @@ class TwoStagesScenario(HybridRecommender):
             columns=["user_idx", "item_idx"], inplace=True
         )
 
-        self.logger.info("Начато переранжирование моделью второго уровня")
+        self.logger.info("Starting reranking")
         candidates_pred = self.second_stage_model.predict(
             candidates_features_pd
         )
@@ -868,7 +765,7 @@ class TwoStagesScenario(HybridRecommender):
             candidates.select("user_idx").distinct().count(),
         )
 
-        self.logger.info("Выбор top-k")
+        self.logger.info("top-k")
         return get_top_k_recs(
             recs=convert2spark(candidates_ids), k=k, id_type="idx"
         )
@@ -885,33 +782,15 @@ class TwoStagesScenario(HybridRecommender):
         force_reindex: bool = True,
     ) -> DataFrame:
         """
-        Обучает модель и выдает рекомендации.
-
-        :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками
-            ``[user_id, item_id, timestamp, relevance]``
-        :param k: количество рекомендаций для каждого пользователя;
-            должно быть не больше, чем количество объектов в ``items``
-        :param users: список пользователей, для которых необходимо получить
-            рекомендации; если ``None``, выбираются все пользователи из лога;
-            если в этом списке есть пользователи, про которых модель ничего
-            не знает, то поднимается исключение
-        :param items: список объектов, которые необходимо рекомендовать;
-            если ``None``, выбираются все объекты из лога;
-            если в этом списке есть объекты, про которых модель ничего
-            не знает, то в рекомендациях к ним будет стоять ``0``
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонкой
-            ``[user_id]`` и колонками с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонкой
-            ``[item_id]`` и колонками с признаками
-        :param filter_seen_items: если ``True``, из рекомендаций каждому
-            пользователю удаляются виденные им объекты на основе лога
-        :param force_reindex: обязательно создавать
-            индексы, даже если они были созданы ранее
-        :return: рекомендации, спарк-датафрейм с колонками
-            ``[user_id, item_id, relevance]``
+        :param log: input DataFrame ``[user_id, item_id, timestamp, relevance]``
+        :param k: length of a recommendation list, must be smaller than the number of ``items``
+        :param users: users to get recommendations for
+        :param items: items to get recommendations for
+        :param user_features: user features``[user_id]`` + feature columns
+        :param item_features: item features``[item_id]`` + feature columns
+        :param filter_seen_items: flag to removed seen items from recommendations
+        :param force_reindex: create indexers even if they were created
+        :return: DataFrame ``[user_id, item_id, relevance]``
         """
         self.fit(log, user_features, item_features, force_reindex)
         return self.predict(
@@ -936,9 +815,6 @@ class TwoStagesScenario(HybridRecommender):
         k: int = 10,
         budget: int = 10,
     ):
-        """
-        Поиск оптимальных параметров для одной модели
-        """
         params = model.optimize(
             train,
             test,
@@ -964,43 +840,26 @@ class TwoStagesScenario(HybridRecommender):
         budget: int = 10,
     ) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """
-        Подбирает лучшие гиперпараметры  моделей первого уровня с помощью optuna.
+        Optimize first level models with optuna.
 
-        :param train: лог взаимодействий пользователей и объектов для обучения,
-            спарк-датафрейм с колонками
-            ``[user_id, item_id, timestamp, relevance]``
-        :param test: лог взаимодействий пользователей и объектов для проверки качества,
-            спарк-датафрейм с колонками
-            ``[user_id, item_id, timestamp, relevance]``
-            :param user_features: признаки пользователей,
-            спарк-датафрейм с колонками
-            ``[user_id , timestamp]`` и колонки с признаками
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонкой
-            ``[user_id]`` и колонками с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонкой
-            ``[item_id]`` и колонками с признаками
-        :param param_grid: лист, содержащий сетки параметров для каждой из моделей первого уровня
-            и fallback-модели (если есть).
-            Для использования дефолтной сетки передайте None в соответствующем элементе листа.
-            Чтобы не искать параметры для какой-то из моделей,
-            передайте пустой словарь в соответствующем элементе листа.
-            Сетка для модели задается словарем, где ключ ---
-            название параметра, значение --- границы возможных значений.
-            ``{param: [low, high]}``.
-        :param criterion: метрика, которая будет оптимизироваться
-        :param k: количество рекомендаций для каждого пользователя
-        :param budget: количество попыток поиска лучших гиперпараметров для каждой из моделей
-        :return: лист словарей оптимальных параметров для моделей первого уровня и словарь для fallback-модели.
-            В случае, если параметры для какой-то из моделей не подбирались, для нее возвращается None.
+        :param train: train DataFrame ``[user_id, item_id, timestamp, relevance]``
+        :param test: test DataFrame ``[user_id, item_id, timestamp, relevance]``
+        :param user_features: user features ``[user_id , timestamp]`` + feature columns
+        :param item_features: item features``[item_id]`` + feature columns
+        :param param_grid: list with param grids for first level models and a fallback model.
+            Empty dict skips optimization for that model.
+            Param grid is a dict ``{param: [low, high]}``.
+        :param criterion: metric to optimize
+        :param k: length of a recommendation list
+        :param budget: number of points to train each model
+        :return: list of dicts of parameters
         """
         number_of_models = len(self.first_level_models)
         if self.fallback_model is not None:
             number_of_models += 1
         if number_of_models != len(param_grid):
             raise ValueError(
-                "Передайте сетку параметров или None для каждой из моделей первого уровня и fallback-модели"
+                "Provide search grid or None for every first level model"
             )
 
         first_level_user_features_tr = FirstLevelFeaturesProcessor()
@@ -1021,7 +880,7 @@ class TwoStagesScenario(HybridRecommender):
                 isinstance(param_grid[i], dict) and param_grid[i]
             ):
                 self.logger.info(
-                    "Оптимизируем модель первого уровня номер %s, %s",
+                    "Optimizing first level model number %s, %s",
                     i,
                     model.__str__(),
                 )
@@ -1046,7 +905,7 @@ class TwoStagesScenario(HybridRecommender):
         ):
             return params_found, None
 
-        self.logger.info("Оптимизируем fallback-модель")
+        self.logger.info("Optimizing fallback-model")
         fallback_params = self._optimize_one_model(
             model=self.fallback_model,
             train=train,

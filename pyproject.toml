@@ -1,22 +1,23 @@
 [tool.poetry]
 name = "replay"
 version = "0.4.0"
-description = "Библиотека рекомендательных систем"
-authors = ["Шминке Борис <Shminke.B.A@sberbank.ru>",
-           "Васильев Алексей <AVaVasilyev@sberbank.ru>",
-           "Тамм Ян-Мартин <YYTamm@sberbank.ru>",
-           "Сидоренко Александр",
-           "Айсина Роза"]
+description = "RecSys Library"
+authors = ["Boris Shminke <Shminke.B.A@sberbank.ru>",
+           "Alexey Vasilev <AVaVasilyev@sberbank.ru>",
+           "Yan-Martin Tamm <YYTamm@sberbank.ru>",
+           "Anna Volodkevich",
+           "Alexander Sidorenko",
+           "Roza Aysina"]
 readme = "README.md"
-homepage = "https://sbtatlas.sigma.sbrf.ru/stash/scm/ailab/sponge-bob-magic"
-repository = "https://sbtatlas.sigma.sbrf.ru/stash/scm/ailab/sponge-bob-magic"
+homepage = "https://github.com/sberbank-ai-lab/RePlay"
+repository = "https://github.com/sberbank-ai-lab/RePlay"
 classifiers = [
     "Programming Language :: Python :: 3.7",
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
-    "Natural Language :: Russian",
+    "Natural Language :: English",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Typing :: Typed"
 ]

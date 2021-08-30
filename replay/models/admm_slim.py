@@ -70,10 +70,9 @@ class ADMMSLIM(NeighbourRec):
     """`ADMM SLIM: Sparse Recommendations for Many Users
     <http://www.cs.columbia.edu/~jebara/papers/wsdm20_ADMM.pdf>`_
 
-    Улучшение стандартного алгоритма SLIM, направленное на устранение
-    некоторых недостатков классического алгоритма. Качество рекомендаций
-    повышается за счет решения задачи с помощью чередующегося метода
-    множителей Лагранжа."""
+    This is a modification for the basic SLIM model.
+    Recommendations are improved with Alternating Direction Method of Multipliers.
+    """
 
     can_predict_cold_users = True
     rho: float
@@ -97,12 +96,12 @@ class ADMMSLIM(NeighbourRec):
         seed: Optional[int] = None,
     ):
         """
-        :param lambda_1: параметр l1 регуляризации
-        :param lambda_2: параметр l2 регуляризации
+        :param lambda_1: l1 regularization term
+        :param lambda_2: l2 regularization term
         :param seed: random seed
         """
         if lambda_1 < 0 or lambda_2 <= 0:
-            raise ValueError("Неверно указаны параметры регуляризации")
+            raise ValueError("Invalid regularization parameters")
         self.lambda_1 = lambda_1
         self.lambda_2 = lambda_2
         self.rho = lambda_2
@@ -115,7 +114,7 @@ class ADMMSLIM(NeighbourRec):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self.logger.debug("Построение модели ADMM SLIM")
+        self.logger.debug("Fitting ADMM SLIM")
         pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
         interactions_matrix = csr_matrix(
             (
@@ -124,13 +123,13 @@ class ADMMSLIM(NeighbourRec):
             ),
             shape=(self.users_count, self.items_count),
         )
-        self.logger.debug("Матрица Грама")
+        self.logger.debug("Gram matrix")
         xtx = (interactions_matrix.T @ interactions_matrix).toarray()
-        self.logger.debug("Поиск обратной матрицы")
+        self.logger.debug("Inverse matrix")
         inv_matrix = np.linalg.inv(
             xtx + (self.lambda_2 + self.rho) * np.eye(self.items_count)
         )
-        self.logger.debug("Основной  расчет")
+        self.logger.debug("Main calculations")
         p_x = inv_matrix @ xtx
         mat_b, mat_c, mat_gamma = self._init_matrix(self.items_count)
         r_primal = np.linalg.norm(mat_b - mat_c)
@@ -165,7 +164,7 @@ class ADMMSLIM(NeighbourRec):
                 self.multiplicator,
             )
             result_message = (
-                f"Итерация: {iteration}. primal gap: "
+                f"Iteration: {iteration}. primal gap: "
                 f"{r_primal - eps_primal:.5}; dual gap: "
                 f" {r_dual - eps_dual:.5}; rho: {self.rho}"
             )
@@ -185,7 +184,7 @@ class ADMMSLIM(NeighbourRec):
     def _init_matrix(
         self, size: int
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Начальная инициализация матриц"""
+        """Matrix initialization"""
         if self.seed is not None:
             np.random.seed(self.seed)
         mat_b = np.random.rand(size, size)  # type: ignore

@@ -9,17 +9,17 @@ from replay.constants import IDX_REC_SCHEMA
 
 
 class ImplicitWrap(Recommender):
-    """Обертка для пакета `implicit
+    """Wrapper for `implicit
     <https://github.com/benfred/implicit>`_
 
-    Пример:
+    Example:
 
     >>> import implicit
     >>> model = implicit.als.AlternatingLeastSquares(factors=5)
     >>> als = ImplicitWrap(model)
 
-    Теперь модель можно использовать как любую другую в библиотеке.
-    Обертка обеспеивает конвертацию датафреймов в матрицы и единый интерфейс.
+    This way you can use implicit models as any other in replay
+    with conversions made under the hood.
 
     >>> import pandas as pd
     >>> df = pd.DataFrame({"user_id": [1, 1, 2, 2], "item_id": [1, 2, 2, 3], "relevance": [1, 1, 1, 1]})
@@ -29,7 +29,7 @@ class ImplicitWrap(Recommender):
     """
 
     def __init__(self, model):
-        """На вход принимается инициализированная модель implicit."""
+        """Provide initialized ``implicit`` model."""
         self.model = model
 
     def _fit(

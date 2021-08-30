@@ -11,9 +11,9 @@ from tests.utils import spark
 
 @pytest.fixture
 def log(spark):
-    return spark.createDataFrame([("1", "1", 1.0), ("1", "2", 0.0)],).toDF(
-        "user_id", "item_id", "relevance"
-    )
+    return spark.createDataFrame(
+        [("1", "1", 1.0), ("1", "2", 0.0)],
+    ).toDF("user_id", "item_id", "relevance")
 
 
 @pytest.fixture

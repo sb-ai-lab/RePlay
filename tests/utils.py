@@ -152,7 +152,7 @@ def sparkDataFrameEqual(df1: DataFrame, df2: DataFrame):
 
 def del_files_by_pattern(directory: str, pattern: str) -> None:
     """
-    Удаляет файлы из директории в соответствии с заданным паттерном имени файла
+    Deletes files by pattern
     """
     for filename in os.listdir(directory):
         if re.match(pattern, filename):
@@ -161,8 +161,7 @@ def del_files_by_pattern(directory: str, pattern: str) -> None:
 
 def find_file_by_pattern(directory: str, pattern: str) -> Optional[str]:
     """
-    Возвращает путь к первому найденному файлу в директории, соответствующему паттерну,
-    или None, если таких файлов нет
+    Returns path to first found file, if exists
     """
     for filename in os.listdir(directory):
         if re.match(pattern, filename):

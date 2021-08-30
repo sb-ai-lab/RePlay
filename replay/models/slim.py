@@ -28,12 +28,12 @@ class SLIM(NeighbourRec):
         seed: Optional[int] = None,
     ):
         """
-        :param beta: параметр l2 регуляризации
-        :param lambda_: параметр l1 регуляризации
+        :param beta: l2 regularization
+        :param lambda_: l1 regularization
         :param seed: random seed
         """
         if beta < 0 or lambda_ <= 0:
-            raise ValueError("Неверно указаны параметры для регуляризации")
+            raise ValueError("Invalid regularization parameters")
         self.beta = beta
         self.lambda_ = lambda_
         self.seed = seed
@@ -71,8 +71,7 @@ class SLIM(NeighbourRec):
 
         def slim_row(pandas_df: pd.DataFrame) -> pd.DataFrame:
             """
-            Построчное обучение матрицы близости объектов
-            стохастическим градиентным спуском
+            fit similarity matrix with SGD
             :param pandas_df: pd.Dataframe
             :return: pd.Dataframe
             """

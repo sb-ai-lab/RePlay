@@ -1,4 +1,4 @@
-Фильтры
+Filters
 ======================
 
 .. automodule:: replay.filters

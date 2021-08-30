@@ -8,7 +8,7 @@ from replay.models.base_rec import NeighbourRec
 
 
 class KNN(NeighbourRec):
-    """ Item-based KNN на сглаженной косинусной мере схожести. """
+    """Item-based KNN with modified cosine similarity measure."""
 
     all_items: Optional[DataFrame]
     dot_products: Optional[DataFrame]
@@ -20,8 +20,8 @@ class KNN(NeighbourRec):
 
     def __init__(self, num_neighbours: int = 10, shrink: float = 0.0):
         """
-        :param num_neighbours:  ограничение на количество рассматриваемых соседей
-        :param shrink: добавляется в знаменатель при подсчете сходства объектов
+        :param num_neighbours:  number of neighbours
+        :param shrink: term added to the denominator when calculating similarity
         """
         self.shrink: float = shrink
         self.num_neighbours: int = num_neighbours
@@ -30,17 +30,12 @@ class KNN(NeighbourRec):
         self, items: DataFrame, dot_products: DataFrame, item_norms: DataFrame
     ) -> DataFrame:
         """
-        Получает верхнюю треугольную матрицу модифицированной косинусной меры
-        схожести.
+        Get upper triangular matrix for similarity
 
-        :param items: объекты, между которыми нужно посчитать схожесть,
-            спарк-датафрейм с колонкой `[item_id]`
-        :param dot_products: скалярные произведения между объектами,
-            спарк-датафрейм вида `[item_id_one, item_id_two, dot_product]`
-        :param item_norms: евклидовы нормы объектов,
-            спарк-датафрейм вида `[item_id, norm]`
-        :return: матрица схожести,
-            спарк-датафрейм вида `[item_id_one, item_id_two, similarity]`
+        :param items: items to calculate similarities among, dataframe `[item_id]`
+        :param dot_products: dot products between items, `[item_id_one, item_id_two, dot_product]`
+        :param item_norms: euclidean norms for items `[item_id, norm]`
+        :return: similarity matrix `[item_id_one, item_id_two, similarity]`
         """
         return (
             items.withColumnRenamed("item_idx", "item_id_one")
@@ -74,13 +69,12 @@ class KNN(NeighbourRec):
 
     def _get_k_most_similar(self, similarity_matrix: DataFrame) -> DataFrame:
         """
-        Преобразовывает матрицу схожести:
-        1) делает её симметричной;
-        2) отбирает только топ-k ближайших соседей.
+        Transforms similarity:
+        1) makes it symmetrical
+        2) leaves only top-k neighbours
 
-        :param similarity_matrix: матрица схожести,
-            спарк-датафрейм вида `[item_id_one, item_id_two, similarity]`
-        :return: преобразованная матрица схожести такого же вида
+        :param similarity_matrix: dataframe `[item_id_one, item_id_two, similarity]`
+        :return: transformed similarity
         """
         return (
             similarity_matrix.union(

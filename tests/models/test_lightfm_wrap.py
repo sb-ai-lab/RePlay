@@ -85,7 +85,6 @@ def test_predict_no_user_features(log, user_features, item_features, model):
     ]
 
 
-# predict для пар с фичами
 def test_predict_pairs(log, user_features, item_features, model):
     try:
         model.fit(
@@ -93,7 +92,6 @@ def test_predict_pairs(log, user_features, item_features, model):
             user_features.filter(sf.col("user_id") != "u1"),
             item_features,
         )
-        # предсказываем для холодного пользователя
         pred = model.predict_pairs(
             log.filter(sf.col("user_id") == "u1").select("user_id", "item_id"),
             user_features=user_features,
@@ -101,7 +99,6 @@ def test_predict_pairs(log, user_features, item_features, model):
         )
         assert pred.count() == 2
         assert pred.select("user_id").distinct().collect()[0][0] == "u1"
-        # предсказываем для теплого пользователя
         pred = model.predict_pairs(
             log.filter(sf.col("user_id") == "u2").select("user_id", "item_id"),
             user_features=user_features,
@@ -114,9 +111,7 @@ def test_predict_pairs(log, user_features, item_features, model):
 
 
 def test_raises_fit(log, user_features, item_features, model):
-    with pytest.raises(
-        ValueError, match=r"В [\w]{4}_features отсутствуют признаки"
-    ):
+    with pytest.raises(ValueError):
         model.fit(
             log.filter(sf.col("user_id") != "u1"),
             user_features.filter(sf.col("user_id") != "u2"),
@@ -125,7 +120,7 @@ def test_raises_fit(log, user_features, item_features, model):
 
 
 def test_raises_predict(log, user_features, item_features, model):
-    with pytest.raises(ValueError, match="При обучении использовались .*"):
+    with pytest.raises(ValueError):
         model.fit(log, None, item_features)
         pred = model.predict_pairs(
             log.select("user_id", "item_id"),
@@ -178,7 +173,6 @@ def test_enrich_with_features(log, user_features, item_features, model):
         _fit_predict_compare_features(
             model, log, user_f, user_f, item_f, test_pair
         )
-        # холодный пользователь
         if item_f is not None:
             _fit_predict_compare_features(
                 model,
