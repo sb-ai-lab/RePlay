@@ -1,5 +1,5 @@
 """
-Список констант
+Constants are stored here
 """
 from typing import Iterable, Union
 

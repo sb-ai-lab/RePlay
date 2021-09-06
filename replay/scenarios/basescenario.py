@@ -13,7 +13,7 @@ from replay.utils import convert2spark
 
 
 class BaseScenario(BaseRecommender):
-    """Базовый класс сценариев для предсказания всем пользователям"""
+    """Base scenario class"""
 
     can_predict_cold_users: bool = False
 
@@ -30,19 +30,10 @@ class BaseScenario(BaseRecommender):
         force_reindex: bool = True,
     ) -> None:
         """
-        Обучает модель на логе и признаках пользователей и объектов.
-
-        :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками
-            ``[user_id, item_id, timestamp, relevance]``
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонками
-            ``[user_id, timestamp]`` и колонки с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонками
-            ``[item_id, timestamp]`` и колонки с признаками
-        :param force_reindex: обязательно создавать
-            индексы, даже если они были созданы ранее
+        :param log: input DataFrame ``[user_id, item_id, timestamp, relevance]``
+        :param user_features: user features ``[user_id, timestamp]`` + feature columns
+        :param item_features: item features ``[item_id, timestamp]`` + feature columns
+        :param force_reindex: create indexers even if they exist
         :return:
         """
         hot_data = min_entries(log, self.threshold)
@@ -64,32 +55,24 @@ class BaseScenario(BaseRecommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         """
-        Выдача рекомендаций для пользователей.
+        Get recommendations
 
-        :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками
+        :param log: historical log of interactions
             ``[user_id, item_id, timestamp, relevance]``
-        :param k: количество рекомендаций для каждого пользователя;
-            должно быть не больше, чем количество объектов в ``items``
-        :param users: список пользователей, для которых необходимо получить
-            рекомендации, спарк-датафрейм с колонкой ``[user_id]`` или ``array-like``;
-            если ``None``, выбираются все пользователи из лога;
-            если в этом списке есть пользователи, про которых модель ничего
-            не знает, то вызывается ошибка
-        :param items: список объектов, которые необходимо рекомендовать;
-            спарк-датафрейм с колонкой ``[item_id]`` или ``array-like``;
-            если ``None``, выбираются все объекты из лога;
-            если в этом списке есть объекты, про которых модель ничего
-            не знает, то в ``relevance`` в рекомендациях к ним будет стоять ``0``
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонками
-            ``[user_id , timestamp]`` и колонки с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонками
-            ``[item_id , timestamp]`` и колонки с признаками
-        :param filter_seen_items: если True, из рекомендаций каждому
-            пользователю удаляются виденные им объекты на основе лога
-        :return: рекомендации, спарк-датафрейм с колонками
+        :param k: length of recommendation lists, should be less that the total number of ``items``
+        :param users: users to create recommendations for
+            dataframe containing ``[user_id]`` or ``array-like``;
+            if ``None``, recommend to all users from ``log``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_id]`` or ``array-like``;
+            if ``None``, take all items from ``log``.
+            If it contains new items, ``relevance`` for them will be``0``.
+        :param user_features: user features
+            ``[user_id , timestamp]`` + feature columns
+        :param item_features: item features
+            ``[item_id , timestamp]`` + feature columns
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :return: recommendation dataframe
             ``[user_id, item_id, relevance]``
         """
         log = convert2spark(log)
@@ -138,32 +121,24 @@ class BaseScenario(BaseRecommender):
         force_reindex: bool = True,
     ) -> DataFrame:
         """
-        Обучает модель и выдает рекомендации.
+        Train and get recommendations
 
-        :param log: лог взаимодействий пользователей и объектов,
-            спарк-датафрейм с колонками
+        :param log: historical log of interactions
             ``[user_id, item_id, timestamp, relevance]``
-        :param k: количество рекомендаций для каждого пользователя;
-            должно быть не больше, чем количество объектов в ``items``
-        :param users: список пользователей, для которых необходимо получить
-            рекомендации; если ``None``, выбираются все пользователи из лога;
-            если в этом списке есть пользователи, про которых модель ничего
-            не знает, то поднимается исключение
-        :param items: список объектов, которые необходимо рекомендовать;
-            если ``None``, выбираются все объекты из лога;
-            если в этом списке есть объекты, про которых модель ничего
-            не знает, то в рекомендациях к ним будет стоять ``0``
-        :param user_features: признаки пользователей,
-            спарк-датафрейм с колонками
-            ``[user_id , timestamp]`` и колонки с признаками
-        :param item_features: признаки объектов,
-            спарк-датафрейм с колонками
-            ``[item_id , timestamp]`` и колонки с признаками
-        :param filter_seen_items: если ``True``, из рекомендаций каждому
-            пользователю удаляются виденные им объекты на основе лога
-        :param force_reindex: обязательно создавать
-            индексы, даже если они были созданы ранее
-        :return: рекомендации, спарк-датафрейм с колонками
+        :param k: length of recommendation lists, should be less that the total number of ``items``
+        :param users: users to create recommendations for
+            dataframe containing ``[user_id]`` or ``array-like``;
+            if ``None``, recommend to all users from ``log``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_id]`` or ``array-like``;
+            if ``None``, take all items from ``log``.
+            If it contains new items, ``relevance`` for them will be``0``.
+        :param user_features: user features
+            ``[user_id , timestamp]`` + feature columns
+        :param item_features: item features
+            ``[item_id , timestamp]`` + feature columns
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :return: recommendation dataframe
             ``[user_id, item_id, relevance]``
         """
         self.fit(log, user_features, item_features, force_reindex)
@@ -190,21 +165,19 @@ class BaseScenario(BaseRecommender):
         budget: int = 10,
     ) -> Tuple[Dict[str, Any]]:
         """
-        Подбирает лучшие гиперпараметры с помощью optuna для обеих моделей
-        и инициализирует эти значения.
+        Searches best parameters with optuna.
 
-        :param train: датафрейм для обучения
-        :param test: датафрейм для проверки качества
-        :param user_features: датафрейм с признаками пользователей
-        :param item_features: датафрейм с признаками объектов
-        :param param_grid: словарь с ключами main, cold, и значеними в виде сеток параметров.
-            Сетка задается словарем, где ключ ---
-            название параметра, значение --- границы возможных значений.
-            ``{param: [low, high]}``.
-        :param criterion: метрика, которая будет оптимизироваться
-        :param k: количество рекомендаций для каждого пользователя
-        :param budget: количество попыток при поиске лучших гиперпараметров
-        :return: словари оптимальных параметров
+        :param train: train data
+        :param test: test data
+        :param user_features: user features
+        :param item_features: item features
+        :param param_grid: a dictionary with search grid, where
+            key is the parameter name and value is
+            the range of possible values``{param: [low, high]}``.
+        :param criterion: metric to use for optimization
+        :param k: recommendation list length
+        :param budget: number of points to try
+        :return: dictionary with best parameters
         """
         if param_grid is None:
             param_grid = {"main": None, "cold": None}

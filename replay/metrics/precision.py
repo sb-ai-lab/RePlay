@@ -4,7 +4,7 @@ from replay.metrics.base_metric import Metric
 # pylint: disable=too-few-public-methods
 class Precision(Metric):
     """
-    Средняя доля успешных рекомендаций среди первых ``K`` элементов выдачи.
+    Mean percentage of relevant items among top ``K`` recommendations.
 
     .. math::
         Precision@K(i) = \\frac {\sum_{j=1}^{K}\mathbb{1}_{r_{ij}}}{K}
@@ -12,8 +12,7 @@ class Precision(Metric):
     .. math::
         Precision@K = \\frac {\sum_{i=1}^{N}Precision@K(i)}{N}
 
-    :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
-"""
+    :math:`\\mathbb{1}_{r_{ij}}` -- indicator function showing that user :math:`i` interacted with item :math:`j`"""
 
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:

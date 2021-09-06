@@ -11,22 +11,15 @@ from replay.constants import IDX_REC_SCHEMA
 
 class RandomRec(Recommender):
     """
-    Рандомизированный рекомендатель на основе популярности.
-
-    Вероятность того, что заданный объект :math:`i` будет порекомендован этой моделью любому пользователю
-    не зависит от пользователя. В зависисимости от выбранного распределения
-    вероятность выбора элемента будет либо одинаковой для всех элементов,
-    либо определяться как аддитивное сглаживание оценки вероятности того,
-    что случайно выбранный пользователь взаимодействовал с объектом:
+    Recommend random items, either weighted by item popularity or uniform.
 
     .. math::
         P\\left(i\\right)\\propto N_i + \\alpha
 
-    :math:`N_i` --- количество пользователей, у которых было взаимодействие с объектом :math:`i`
+    :math:`N_i` --- number of users who rated item :math:`i`
 
-    :math:`\\alpha` --- параметр сглаживания (гипер-параметр модели). По умолчанию :math:`\\alpha = 0`.
-    Чем больше :math:`\\alpha`, тем чаще будут рекомендоваться менее популярные объекты.
-    Требуется, чтобы всегда было :math:`\\alpha > -1`.
+    :math:`\\alpha` --- bigger :math:`\\alpha` values increase amount of rare items in recommendations.
+        Must be bigger than -1. Default value is :math:`\\alpha = 0`.
 
     >>> from replay.session_handler import get_spark_session, State
     >>> spark = get_spark_session(1, 1)
@@ -54,12 +47,12 @@ class RandomRec(Recommender):
     >>> random_pop = RandomRec(distribution="popular_based", alpha=-1)
     Traceback (most recent call last):
      ...
-    ValueError: alpha должно быть строго больше -1
+    ValueError: alpha must be bigger than -1
 
     >>> random_pop = RandomRec(distribution="abracadabra")
     Traceback (most recent call last):
      ...
-    ValueError: distribution должно быть popular_based или uniform
+    ValueError: distribution can be either popular_based or uniform
 
     >>> random_pop = RandomRec(distribution="popular_based", alpha=1.0, seed=777)
     >>> random_pop.fit(log)
@@ -140,20 +133,19 @@ class RandomRec(Recommender):
         add_cold: Optional[bool] = True,
     ):
         """
-        :param distribution: вероятностное распределение выбора элементов.
-            "uniform" - равномерное, все элементы выбираются с равной вероятностью
-            "popular_based" - аддитивное сглаживание оценки вероятности того,
-            что случайно выбранный пользователь взаимодействовал с объектом
-        :param alpha: параметр аддитивного сглаживания. Чем он больше, тем чаще рекомендуются непопулярные объекты.
-        :param seed: инициализация генератора псевдослучайности
-        :param add_cold: может добавлять холодные объекты с минимальной вероятностью в выдачу
+        :param distribution: recommendation strategy:
+            "uniform" - all items are sampled uniformly
+            "popular_based" - recommend popular items more
+        :param alpha: bigger values adjust model towards less popular items
+        :param seed: random seed
+        :param add_cold: flag to add cold items with minimal probability
         """
         if distribution not in ("popular_based", "uniform"):
             raise ValueError(
-                "distribution должно быть popular_based " "или uniform"
+                "distribution can be either popular_based or uniform"
             )
         if alpha <= -1.0 and distribution == "popular_based":
-            raise ValueError("alpha должно быть строго больше -1")
+            raise ValueError("alpha must be bigger than -1")
         self.distribution = distribution
         self.alpha = alpha
         self.seed = seed
@@ -239,7 +231,10 @@ class RandomRec(Recommender):
             .select("user_idx", "item_idx")
             .groupby("user_idx")
             .agg(sf.countDistinct("item_idx").alias("cnt"))
-            .selectExpr("user_idx", f"LEAST(cnt + {k}, {model_len}) AS cnt",)
+            .selectExpr(
+                "user_idx",
+                f"LEAST(cnt + {k}, {model_len}) AS cnt",
+            )
             .groupby("user_idx")
             .applyInPandas(grouped_map, IDX_REC_SCHEMA)
         )

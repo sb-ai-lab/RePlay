@@ -143,16 +143,16 @@ def test_save_load(log, model, spark):
     new_model.load_model(path)
     for i, parameter in enumerate(new_model.model.parameters()):
         assert np.allclose(
-            parameter.detach().cpu().numpy(), old_params[i], atol=1.0e-3,
+            parameter.detach().cpu().numpy(),
+            old_params[i],
+            atol=1.0e-3,
         )
 
 
 def test_embeddings_size():
     model = NeuroMF()
-    # параметры по умолчанию
     assert model.embedding_gmf_dim == 128 and model.embedding_mlp_dim == 128
 
-    # одна базовая модель, определенная пользователем
     model = NeuroMF(embedding_gmf_dim=16)
     assert model.embedding_gmf_dim == 16 and model.embedding_mlp_dim is None
 

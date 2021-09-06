@@ -12,16 +12,16 @@ SplitterReturnType = Tuple[DataFrame, DataFrame]
 
 # pylint: disable=too-few-public-methods
 class Splitter(ABC):
-    """ Базовый класс для разбиения выборки на обучающую и тестовую. """
+    """Base class"""
 
     def __init__(
-        self, drop_cold_items: bool, drop_cold_users: bool,
+        self,
+        drop_cold_items: bool,
+        drop_cold_users: bool,
     ):
         """
-        :param drop_cold_items: исключать ли из тестовой выборки объекты,
-           которых нет в обучающей
-        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
-           которых нет в обучающей
+        :param drop_cold_items: flag to remove items that are not in train data
+        :param drop_cold_users: flag to remove users that are not in train data
         """
         self.drop_cold_users = drop_cold_users
         self.drop_cold_items = drop_cold_items
@@ -29,11 +29,10 @@ class Splitter(ABC):
     @staticmethod
     def _filter_zero_relevance(dataframe: DataFrame) -> DataFrame:
         """
-        Удаляет записи с нулевой релевантностью (нужно для тестовой выборки).
+        Removes records with zero relevance
 
-        :param dataframe: входной набор данных стандартного формата
-        :returns: набор данных той же структуры, но без записей с нулевой
-        релевантностью
+        :param dataframe: input DataFrame
+        :returns: filtered DataFrame
         """
         return dataframe.filter("relevance > 0.0")
 
@@ -45,14 +44,13 @@ class Splitter(ABC):
         drop_cold_users: bool,
     ) -> DataFrame:
         """
-        Удаляет из тестовой выборки холодных users и холодные items.
+        Removes cold users and items from the test data
 
-        :param train: обучающая выборка, спарк-датафрейм с колонками
-            `[timestamp, user_id, item_id, relevance]`
-        :param test: тестовая выборка как train
-        :param drop_cold_items: если True, удаляет холодные items
-        :param drop_cold_users: если True, удаляет холодные users
-        :return: тестовая выборка без холодных users / items
+        :param train: train DataFrame `[timestamp, user_id, item_id, relevance]`
+        :param test: DataFrame like train
+        :param drop_cold_items: flag to remove cold items
+        :param drop_cold_users: flag to remove cold users
+        :return: filtered DataFrame
         """
         if drop_cold_items:
             train_tmp = train.select(
@@ -74,26 +72,18 @@ class Splitter(ABC):
     @abstractmethod
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         """
-        Внутренний метод, который должны имплементировать классы-наследники.
+        This method implements split strategy
 
-        Разбивает лог действий пользователей на обучающую и тестовую выборки.
-
-        :param log: лог взаимодействия, спарк-датафрейм с колонками
-            `[timestamp, user_id, item_id, relevance]`
-        :returns: спарк-датафреймы структуры, аналогичной входной,
-            `train, test`, где `train` - обучающая выборка,
-            `test` - тестовая выборка
+        :param log: input DataFrame `[timestamp, user_id, item_id, relevance]`
+        :returns: `train` and `test DataFrames
         """
 
     def split(self, log: AnyDataFrame) -> SplitterReturnType:
         """
-        Разбивает лог действий пользователей на обучающую и тестовую выборки.
+        Splits input DataFrame into train and test
 
-        :param log: лог взаимодействия, спарк-датафрейм с колонками
-           ``[timestamp, user_id, item_id, relevance]``
-        :returns: спарк-датафреймы структуры, аналогичной входной,
-            ``train, test``, где ``train`` - обучающая выборка,
-            ``test`` - тестовая выборка
+        :param log: input DataFrame ``[timestamp, user_id, item_id, relevance]``
+        :returns: `train` and `test` DataFrame
         """
         train, test = self._core_split(convert2spark(log))  # type: ignore
         test = self._drop_cold_items_and_users(

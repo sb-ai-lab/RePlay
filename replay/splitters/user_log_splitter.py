@@ -1,6 +1,5 @@
 """
-Реализация сплиттера и k-fold разбиения лога с применением правил
-разбиения к истории каждого из пользователей
+This splitter split data for each user separately
 """
 from typing import Optional, Union
 
@@ -15,13 +14,10 @@ from replay.utils import convert2spark
 # pylint: disable=too-few-public-methods
 class UserSplitter(Splitter):
     """
-    Данный сплиттер применяет логику разбиения не на весь лог сразу,
-    а для оценок каждого пользователя по отдельности.
+    Split data inside each user's history separately.
 
-    Например, можно отложить для теста последние/случайные k оценок для каждого пользователя.
-    Также с помощью параметра ``item_test_size`` можно задать долю оценок, которые необходимо отложить.
+    Example:
 
-    Примеры:
     >>> from replay.session_handler import get_spark_session, State
     >>> spark = get_spark_session(1, 1)
     >>> state = State(spark)
@@ -41,23 +37,21 @@ class UserSplitter(Splitter):
     4        2        2          5          2
     5        2        3          6          1
 
-    По умолчанию в тест откладывается 1 предмет для каждого пользователя
-    и реализуется сценарий деления по времени,
-    то есть для теста остаются самые последние предметы.
+    By default, test is one last item for each user
 
     >>> UserSplitter(seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
     0        1        3          3          3
     1        2        1          4          3
 
-    Взять случайные предметы, можно с помощью параметра ``shuffle``:
+    Random records can be retrieved with ``shuffle``:
 
     >>> UserSplitter(shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
     0        1        2          2          2
     1        2        3          6          1
 
-    Можно указать колчество айтемов, которые необходимо отложить для каждого пользователя:
+    You can specify the number of items for each user:
 
     >>> UserSplitter(item_test_size=3, shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
@@ -68,7 +62,7 @@ class UserSplitter(Splitter):
     4        2        2          5          2
     5        2        1          4          3
 
-    Либо долю:
+    Or a fraction:
 
     >>> UserSplitter(item_test_size=0.67, shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
        user_id  item_id  relevance  timestamp
@@ -77,7 +71,7 @@ class UserSplitter(Splitter):
     2        2        3          6          1
     3        2        2          5          2
 
-    Параметр `user_test_size` позволяет отобрать для теста заданное количество пользователей
+    `user_test_size` allows to put exact number of users into test set
 
     >>> UserSplitter(user_test_size=1, item_test_size=2, seed=42).split(data_frame)[-1].toPandas().user_id.nunique()
     1
@@ -98,20 +92,14 @@ class UserSplitter(Splitter):
         seed: Optional[int] = None,
     ):
         """
-        :param item_test_size: размер тестовой выборки; если от 0 до 1, то в
-            тест попадает данная доля объектов у каждого пользователя: если целое
-            число большее 1, то в тест попадает заданное число объектов у
-            каждого пользователя
-        :param user_test_size: аналогично ``item_test_size``, но не сколько
-            объектов от каждого пользователя включать в тест, а сколько самих
-            пользователей (доля либо количество); если ``None``, то берутся все
-            пользователи
-        :param shuffle: если ``True``, то берутся случайные оценки, иначе последние из колонки ``timestamp``.
-        :param drop_cold_items: исключать ли из тестовой выборки объекты,
-           которых нет в обучающей
-        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
-           которых нет в обучающей
-        :param seed: сид для разбиения
+        :param item_test_size: fraction or a number of items per user
+        :param user_test_size: similar to ``item_test_size``,
+            but corresponds to the number of users.
+            ``None`` is all available users.
+        :param shuffle: take random items and not last based on ``timestamp``.
+        :param drop_cold_items: flag to drop cold items from test
+        :param drop_cold_users: flag to drop cold users from test
+        :param seed: random seed
         """
         super().__init__(
             drop_cold_items=drop_cold_items, drop_cold_users=drop_cold_users
@@ -121,12 +109,13 @@ class UserSplitter(Splitter):
         self.shuffle = shuffle
         self.seed = seed
 
-    def _get_test_users(self, log: DataFrame,) -> DataFrame:
+    def _get_test_users(
+        self,
+        log: DataFrame,
+    ) -> DataFrame:
         """
-        отобрать тестовых пользователей
-
-        :param log: стандартный лог взаимодействий
-        :return: Spark DataFrame с одной колонкой `user_id`
+        :param log: input DataFrame
+        :return: Spark DataFrame with single column `user_id`
         """
         all_users = log.select("user_id").distinct()
         user_count = all_users.count()
@@ -145,8 +134,7 @@ class UserSplitter(Splitter):
             if value_error:
                 raise ValueError(
                     f"""
-                Недопустимое значение параметра
-                user_test_size: {self.user_test_size}
+                Invalid value for user_test_size: {self.user_test_size}
                 """
                 )
             test_users = (
@@ -163,15 +151,10 @@ class UserSplitter(Splitter):
 
     def _split_proportion(self, log: DataFrame) -> SplitterReturnType:
         """
-        Разбивает лог действий пользователей на обучающую и тестовую
-        выборки так, чтобы в тестовой выборке была фиксированная доля
-        объектов для каждого пользователя. Способ разбиения определяется
-        классом-наследником.
+        Proportionate split
 
-        :param log: лог взаимодействия, спарк-датафрейм с колонками
-            `[timestamp, user_id, item_id, relevance]`
-        :return: спарк-датафреймы структуры, аналогичной входной
-            `train, test`
+        :param log: input DataFrame `[timestamp, user_id, item_id, relevance]`
+        :return: train and test DataFrames
         """
 
         counts = log.groupBy("user_id").count()
@@ -205,15 +188,10 @@ class UserSplitter(Splitter):
 
     def _split_quantity(self, log: DataFrame) -> SplitterReturnType:
         """
-        Разбивает лог действий пользователей на обучающую и тестовую
-        выборки так, чтобы в тестовой выборке было фиксированное количество
-        объектов для каждого пользователя. Способ разбиения определяется
-        классом-наследником.
+        Split by quantity
 
-        :param log: лог взаимодействия, спарк-датафрейм с колонками
-            `[timestamp, user_id, item_id, relevance]`
-        :return: спарк-датафреймы структуры, аналогичной входной
-            `train, test`
+        :param log: input DataFrame `[timestamp, user_id, item_id, relevance]`
+        :return: train and test DataFrames
         """
 
         test_users = self._get_test_users(log).withColumn(
@@ -248,21 +226,19 @@ class UserSplitter(Splitter):
             train, test = self._split_quantity(log)
         else:
             raise ValueError(
-                "Значение `test_size` должно быть в диапазоне [0, 1) или "
-                "быть целым числом больше 1; "
-                f"сейчас test_size={self.item_test_size}"
+                "`test_size` value must be [0, 1) or "
+                "a positive integer; "
+                f"test_size={self.item_test_size}"
             )
 
         return train, test
 
     def _add_random_partition(self, dataframe: DataFrame) -> DataFrame:
         """
-        Добавляет в датафрейм колонку случайных чисел `rand` и колонку
-        порядкового номера пользователя `row_num` на основе этого случайного
-        порядка. Пользователи должны лежать в колонке `user_id`.
+        Adds `rand` column and a user index column `row_num` based on `rand`.
 
-        :param dataframe: спарк-датафрейм с обязательной колонкой `user_id`
-        :returns: датафрейм с добавленными колонками
+        :param dataframe: input DataFrame with `user_id` column
+        :returns: processed DataFrame
         """
         dataframe = dataframe.withColumn("rand", sf.rand(self.seed))
         dataframe = dataframe.withColumn(
@@ -276,13 +252,10 @@ class UserSplitter(Splitter):
     @staticmethod
     def _add_time_partition(dataframe: DataFrame) -> DataFrame:
         """
-        Добавляет в лог столбец порядкового номера пользователя `row_num`
-        на основе порядка времени в колонке `timestamp`. Пользователи
-        должны лежать в колонке `user_id`.
+        Adds user index `row_num` based on `timestamp`.
 
-        :param dataframe: спарк-датафрейм с обязательными колонками
-            `[timestamp, user_id]`
-        :returns: датафрейм с добавленной колонкой
+        :param dataframe: input DataFrame with `[timestamp, user_id]`
+        :returns: processed DataFrame
         """
         res = dataframe.withColumn(
             "row_num",
@@ -302,14 +275,13 @@ def k_folds(
     splitter: Optional[str] = "user",
 ) -> SplitterReturnType:
     """
-    Делит лог внутри каждого пользователя на фолды случайным образом.
+    Splits log inside each user into folds at random
 
-    :param log: датафрейм для деления
-    :param n_folds: количество фолдов
-    :param seed: сид разбиения
-    :param splitter: стратегия разбиения на фолды.
-        Сейчас доступен только вариант user, который разбивает лог каждого пользователя независимо, случайным образом
-    :return: трейн и тест по фолдам, спарк-датафреймы
+    :param log: input DataFrame
+    :param n_folds: number of folds
+    :param seed: random seed
+    :param splitter: splitting strategy. Only user variant is available atm.
+    :return: yields train and test DataFrames by folds
     """
     if splitter not in {"user"}:
         raise ValueError(

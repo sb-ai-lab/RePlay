@@ -101,8 +101,7 @@ def test_random_split(big_log, item_test_size):
     assert test.intersect(train).count() == 0
 
     if isinstance(item_test_size, int):
-        #  это грубая проверка; чтобы она была верна, необходимо
-        # чтобы item_test_size был больше длины лога каждого пользователя
+        #  it's a rough check. for it to be true, item_test_size must be bigger than log length for every user
         num_users = big_log.select("user_id").distinct().count()
         assert num_users * item_test_size == test.count()
         assert big_log.count() - num_users * item_test_size == train.count()
@@ -143,7 +142,9 @@ def log2(spark):
 
 def test_split_quantity(log2):
     splitter = UserSplitter(
-        drop_cold_items=False, drop_cold_users=False, item_test_size=2,
+        drop_cold_items=False,
+        drop_cold_users=False,
+        item_test_size=2,
     )
     train, test = splitter.split(log2)
     num_items = test.toPandas().user_id.value_counts()
@@ -153,7 +154,9 @@ def test_split_quantity(log2):
 
 def test_split_proportion(log2):
     splitter = UserSplitter(
-        drop_cold_items=False, drop_cold_users=False, item_test_size=0.4,
+        drop_cold_items=False,
+        drop_cold_users=False,
+        item_test_size=0.4,
     )
     train, test = splitter.split(log2)
     num_items = test.toPandas().user_id.value_counts()

@@ -15,11 +15,10 @@ from replay.session_handler import State
 
 def convert2spark(data_frame: Optional[AnyDataFrame]) -> Optional[DataFrame]:
     """
-    Обеспечивает конвертацию данных в спарк и обратно.
+    Converts Pandas DataFrame to Spark DataFrame
 
-    :param data_frame: данные в формате датафрейма pandas или spark,
-        либо объект датасета, в котором лежат датафреймы поддерживаемых форматов.
-    :return: преобразованные данные, если на вход был подан датафрейм.
+    :param data_frame: pandas DataFrame
+    :return: converted data
     """
     if data_frame is None:
         return None
@@ -33,11 +32,11 @@ def get_distinct_values_in_column(
     dataframe: DataFrame, column: str
 ) -> Set[Any]:
     """
-    Возвращает уникальные значения в колонке спарк-датафрейма в виде set.
+    Get unique values from a column as a set.
 
-    :param dataframe: spark-датафрейм
-    :param column: имя колонки
-    :return: уникальные значения в колонке
+    :param dataframe: spark DataFrame
+    :param column: column name
+    :return: set of unique values
     """
     return {
         row[column] for row in (dataframe.select(column).distinct().collect())
@@ -46,12 +45,11 @@ def get_distinct_values_in_column(
 
 def func_get(vector: np.ndarray, i: int) -> float:
     """
-    вспомогательная функция для создания Spark UDF для получения элемента
-    массива по индексу
+    helper function for Spark UDF to get element by index
 
-    :param vector: массив (vector в типах Scala или numpy array в PySpark)
-    :param i: индекс, по которому нужно извлечь значение из массива
-    :returns: значение ячейки массива (вещественное число)
+    :param vector: Scala vector or numpy array
+    :param i: index in a vector
+    :returns: element value
     """
     return float(vector[i])
 
@@ -111,14 +109,13 @@ def get_top_k(
 
 def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "id") -> DataFrame:
     """
-    Выбирает из рекомендаций топ-k штук на основе `relevance`.
+    Get top k recommendations by `relevance`.
 
-    :param recs: рекомендации, спарк-датафрейм с колонками
+    :param recs: recommendations DataFrame
         `[user_id, item_id, relevance]`
-    :param k: число рекомендаций для каждого пользователя
-    :param id_type: использовать id или idx в колонках
-    :return: топ-k рекомендации, спарк-датафрейм с колонками
-        `[user_id, item_id, relevance]`
+    :param k: length of a recommendation list
+    :param id_type: id or idx
+    :return: top k recommendations `[user_id, item_id, relevance]`
     """
     return get_top_k(
         dataframe=recs,
@@ -131,7 +128,7 @@ def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "id") -> DataFrame:
 @sf.udf(returnType=st.DoubleType())
 def vector_dot(one: DenseVector, two: DenseVector) -> float:
     """
-    вычисляется скалярное произведение двух колонок-векторов
+    dot product of two column vectors
 
     >>> from replay.session_handler import State
     >>> from pyspark.ml.linalg import Vectors
@@ -160,9 +157,9 @@ def vector_dot(one: DenseVector, two: DenseVector) -> float:
     +----+
     <BLANKLINE>
 
-    :param one: правый множитель-вектор
-    :param two: левый множитель-вектор
-    :returns: вектор с одним значением --- скалярным произведением
+    :param one: vector one
+    :param two: vector two
+    :returns: dot product
     """
     return float(one.dot(two))
 
@@ -172,7 +169,7 @@ def vector_mult(
     one: Union[DenseVector, NumType], two: DenseVector
 ) -> DenseVector:
     """
-    вычисляется покоординатное произведение двух колонок-векторов
+    elementwise vector multiplication
 
     >>> from replay.session_handler import State
     >>> from pyspark.ml.linalg import Vectors
@@ -201,9 +198,9 @@ def vector_mult(
     +---------+
     <BLANKLINE>
 
-    :param one: правый множитель-вектор
-    :param two: левый множитель-вектор
-    :returns: вектор с результатом покоординатного умножения
+    :param one: vector one
+    :param two: vector two
+    :returns: result
     """
     return one * two
 
@@ -211,7 +208,7 @@ def vector_mult(
 @sf.udf(returnType=st.ArrayType(st.DoubleType()))
 def array_mult(first: st.ArrayType, second: st.ArrayType):
     """
-    Покоординатное произведение двух столбцов типа array.
+    elementwise array multiplication
 
     >>> from replay.session_handler import State
     >>> spark = State().session
@@ -239,9 +236,9 @@ def array_mult(first: st.ArrayType, second: st.ArrayType):
     +----------+
     <BLANKLINE>
 
-    :param first: первый множитель
-    :param second: второй множитель
-    :returns: вектор с результатом покоординатного умножения
+    :param first: first array
+    :param second: second array
+    :returns: result
     """
 
     return [first[i] * second[i] for i in range(len(first))]
@@ -249,7 +246,7 @@ def array_mult(first: st.ArrayType, second: st.ArrayType):
 
 def get_log_info(log: DataFrame) -> str:
     """
-    простейшая статистика по логу предпочтений пользователей
+    Basic log statistics
 
     >>> from replay.session_handler import State
     >>> spark = State().session
@@ -266,8 +263,8 @@ def get_log_info(log: DataFrame) -> str:
     >>> get_log_info(log)
     'total lines: 3, total users: 3, total items: 2'
 
-    :param log: таблица с колонками ``user_id`` и ``item_id``
-    :returns: строку со статистикой
+    :param log: interaction log containing ``user_id`` and ``item_id``
+    :returns: statistics string
     """
     cnt = log.count()
     user_cnt = log.select("user_id").distinct().count()
@@ -285,7 +282,7 @@ def get_stats(
     log: DataFrame, group_by: str = "user_id", target_column: str = "relevance"
 ) -> DataFrame:
     """
-    Подсчет статистик (минимальная, максимальная, средняя, медианая оценки, число оценок) по логу взаимодействия.
+    Calculate log statistics: min, max, mean, median ratings, number of ratings.
     >>> from replay.session_handler import get_spark_session, State
     >>> spark = get_spark_session(1, 1)
     >>> test_df = (spark.
@@ -310,10 +307,10 @@ def get_stats(
     +-------+--------+-------+-------+---------+----------+
     <BLANKLINE>
 
-    :param log: spark DataFrame с колонками ``user_id``, ``item_id`` и ``relevance``
-    :param group_by: колонка для группировки, ``user_id`` или ``item_id``
-    :param target_column: колонка с оценками взаимодействия, ``relevance``
-    :return: spark DataFrame со статистиками взаимодействия по пользователям|объектам
+    :param log: spark DataFrame with ``user_id``, ``item_id`` and ``relevance`` columns
+    :param group_by: column to group data by, ``user_id`` или ``item_id``
+    :param target_column: column with interaction ratings
+    :return: spark DataFrame with statistics
     """
     agg_functions = {
         "mean": sf.avg,
@@ -336,15 +333,15 @@ def get_stats(
 
 def check_numeric(feature_table: DataFrame) -> None:
     """
-    Проверяет, что столбцы spark DataFrame feature_table принадлежат к типу NumericType
-    :param feature_table: spark DataFrame, типы столбцов которого нужно проверить
+    Check if spark DataFrame columns are of NumericType
+    :param feature_table: spark DataFrame
     """
     for column in feature_table.columns:
         if not isinstance(
             feature_table.schema[column].dataType, st.NumericType
         ):
             raise ValueError(
-                "Столбец {} имеет неверный тип {}, столбец должен иметь числовой тип.".format(
+                "Column {} has type {}, that is not numeric.".format(
                     column, feature_table.schema[column].dataType
                 )
             )
@@ -356,7 +353,7 @@ def to_csr(
     item_count: Optional[int] = None,
 ) -> csr_matrix:
     """
-    Конвертирует лог в csr матрицу user-item.
+    Convert DataFrame to csr matrix
 
     >>> import pandas as pd
     >>> from replay.utils import convert2spark
@@ -367,12 +364,10 @@ def to_csr(
     array([[1, 0, 0],
            [0, 0, 2]])
 
-    :param log: spark DataFrame с колонками ``user_id``, ``item_id`` и
-    ``relevance``
-    :param user_count: количество строк в результирующей матрице (если пусто,
-    то вычисляется по логу)
-    :param item_count: количество столбцов в результирующей матрице (если
-    пусто, то вычисляется по логу)
+    :param log: interaction log with ``user_idx``, ``item_idx`` and
+    ``relevance`` columns
+    :param user_count: number of rows in resulting matrix
+    :param item_count: number of columns in resulting matrix
     """
     pandas_df = log.select("user_idx", "item_idx", "relevance").toPandas()
     row_count = int(
@@ -401,8 +396,8 @@ def horizontal_explode(
     other_columns: List[Column],
 ) -> DataFrame:
     """
-    аналог функции ``explode``, только одну колонку с массивом значений разбивает на несколько.
-    В каждой строке разбиваемой колонки должно быть одинаковое количество значений
+    Transform a column with an array of values into separate columns.
+    Each array must contain the same amount of values.
 
     >>> from replay.session_handler import State
     >>> spark = State().session
@@ -427,11 +422,11 @@ def horizontal_explode(
     +------+---------+---------+
     <BLANKLINE>
 
-    :param data_frame: spark DataFrame, в котором нужно разбить колонку
-    :param column_to_explode: колонка типа ``array``, которую нужно разбить
-    :param prefix: на выходе будут колонки с именами ``prefix_0, prefix_1`` и т. д.
-    :param other_columns: список колонок, которые нужно сохранить в выходном DataFrame помимо разбиваемой
-    :returns: DataFrame с колонками, порождёнными элементами ``column_to_explode``
+    :param data_frame: input DataFrame
+    :param column_to_explode: column with type ``array``
+    :param prefix: prefix used for new columns, suffix is an integer
+    :param other_columns: columns to select beside newly created
+    :returns: DataFrame with elements from ``column_to_explode``
     """
     num_columns = len(data_frame.select(column_to_explode).head()[0])
     return data_frame.select(
@@ -445,14 +440,13 @@ def horizontal_explode(
 
 def join_or_return(first, second, on, how):
     """
-    Обертка над join для удобного join-а датафреймов, например лога с признаками.
-    Если датафрейм second есть, будет выполнен join, иначе возвращен first.
+    Safe wrapper for join of two DataFrames if ``second`` parameter is None it returns ``first``.
 
-    :param first: spark-dataframe
-    :param second: spark-dataframe
-    :param on: имя столбца, по которому выполняется join
-    :param how: тип join
-    :return: spark-dataframe
+    :param first: Spark DataFrame
+    :param second: Spark DataFrame
+    :param on: name of the join column
+    :param how: type of join
+    :return: Spark DataFrame
     """
     if second is None:
         return first
@@ -462,16 +456,15 @@ def join_or_return(first, second, on, how):
 def fallback(
     base: DataFrame, fill: DataFrame, k: int, id_type: str = "id"
 ) -> DataFrame:
-    """Подмешивает к основным рекомендациям запасные
-    для пользователей, у которых количество рекомендаций меньше ``k``.
-    Скор дополнительной модели может быть уменьшен,
-    чтобы первыми были основные рекомендации.
+    """
+    Fill missing recommendations for users that have less than ``k`` recomended items.
+    Score values for the fallback model may be decreased to preserve sorting.
 
-    :param base: основные рекомендации
-    :param fill: запасные рекомендации
-    :param k: сколько должно быть для каждого пользователя
-    :param id_type: использовать id или idx в колонках
-    :return: дополненные рекомендации
+    :param base: base recommendations that need to be completed
+    :param fill: extra recommendations
+    :param k: desired recommendation list lengths for each user
+    :param id_type: id or idx
+    :return: augmented recommendations
     """
     if fill is None:
         return base
@@ -496,9 +489,9 @@ def fallback(
 
 def cache_if_exists(dataframe: Optional[DataFrame]) -> Optional[DataFrame]:
     """
-    Возвращает кэшированный датафрейм
-    :param dataframe: spark-датафрейм или None
-    :return: кэшированный spark-датафрейм или None
+    Cache a DataFrame
+    :param dataframe: Spark DataFrame or None
+    :return: DataFrame or None
     """
     if dataframe is not None:
         return dataframe.cache()
@@ -507,8 +500,7 @@ def cache_if_exists(dataframe: Optional[DataFrame]) -> Optional[DataFrame]:
 
 def unpersist_if_exists(dataframe: Optional[DataFrame]) -> None:
     """
-    Применяет unpersist к spark-датафрейму
-    :param dataframe: кэшированный spark-датафрейм или None
+    :param dataframe: DataFrame or None
     """
     if dataframe is not None and dataframe.is_cached:
         dataframe.unpersist()
@@ -551,6 +543,10 @@ def add_to_date(
     base_date_format: Optional[str] = None,
 ) -> DataFrame:
     """
+    Get user or item features from replay model.
+    If a model can return both user and item embeddings,
+    elementwise multiplication can be performed too.
+    If a model can't return embedding for specific user/item, zero vector is returned.
     Treats column ``column_name`` as a number of days after the ``base_date``.
     Converts ``column_name`` to TimestampType with
     ``base_date`` + values of the ``column_name``.
@@ -600,7 +596,9 @@ def add_to_date(
 
 
 def process_timestamp_column(
-    dataframe: DataFrame, column_name: str, date_format: Optional[str] = None,
+    dataframe: DataFrame,
+    column_name: str,
+    date_format: Optional[str] = None,
 ) -> DataFrame:
     """
     Convert ``column_name`` column of numeric/string/timestamp type
@@ -631,7 +629,8 @@ def process_timestamp_column(
 
     # datetime in string format
     dataframe = dataframe.withColumn(
-        column_name, sf.to_timestamp(sf.col(column_name), format=date_format),
+        column_name,
+        sf.to_timestamp(sf.col(column_name), format=date_format),
     )
     return dataframe
 

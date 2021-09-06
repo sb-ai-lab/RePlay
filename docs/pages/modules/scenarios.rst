@@ -1,4 +1,4 @@
-Сценарии
+Scenarios
 ==========
 .. automodule:: replay.scenarios
 
@@ -9,7 +9,7 @@ Fallback
    :special-members: __init__
    :members: optimize
 
-Двухуровневый сценарий
+Two Stage Scenario
 ----------------------
 .. autoclass:: replay.scenarios.TwoStagesScenario
    :special-members: __init__

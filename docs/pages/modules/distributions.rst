@@ -1,30 +1,26 @@
-Построение распределений
+Distributions
 =========================
 
-Распределение рекомендаций по популярности
+Item Distribution
 -------------------------------------------
 
-Подсчитывает популярность айтемов и считает распределение айтемов в рекомендациях
-относительно 10 бинов популярности.
+Calculates item popularity in recommendations using 10 popularity bins.
 
 .. autofunction:: replay.distributions.item_distribution
 
-Результат можно визуализировать следующим графиком.
-Для примера изображено распределение айтемов в логе MovieLens.
+You can plot the result. Here is the example for MovieLens log.
 
 .. image:: /images/item_pop.jpg
 
 .. autofunction:: replay.distributions.plot_item_dist
 
 
-Распределение значений метрики от количества оценок у пользователя
+User Distribution
 -------------------------------------------------------------------
-
-У метрик есть метод, позволяющий получить значение метрики от количества оценок.
 
 .. automethod:: replay.metrics.base_metric.Metric.user_distribution
 
-Имея предсказания модели, можно получить график подобного вида
+If you plot this, you can get something like
 
 .. image:: /images/user_dist.jpg
 

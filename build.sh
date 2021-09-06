@@ -1,4 +1,4 @@
-# Собирает документацию и пакет и кладет их в указанную папку
+# Builds docs and distribution whl
 
 if [ -z "$1" ]
   then

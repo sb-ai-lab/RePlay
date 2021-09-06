@@ -4,14 +4,15 @@ from replay.metrics.base_metric import Metric
 # pylint: disable=too-few-public-methods
 class MAP(Metric):
     """
-    Mean Average Precision -- усреднение ``Precision`` по целым числам от 1 до ``K``, усреднённое по пользователям.
+    Mean Average Precision -- average the ``Precision`` at relevant positions for each user,
+        and then calculate the mean across all users.
 
     .. math::
         &AP@K(i) = \\frac 1K \sum_{j=1}^{K}\mathbb{1}_{r_{ij}}Precision@j(i)
 
         &MAP@K = \\frac {\sum_{i=1}^{N}AP@K(i)}{N}
 
-    :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
+    :math:`\\mathbb{1}_{r_{ij}}` -- indicator function showing if user :math:`i` interacted with item :math:`j`
     """
 
     @staticmethod

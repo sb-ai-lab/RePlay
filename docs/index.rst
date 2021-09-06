@@ -1,8 +1,6 @@
 Welcome to RePlay's documentation!
 ============================================
 
-replay позволяет быстро сравнить свою модель с бейзлайнами на публичных датасетах,
-а так же получить рекомендации для данных по имеющимся моделям.
 
 .. toctree::
    :maxdepth: 4
@@ -10,7 +8,6 @@ replay позволяет быстро сравнить свою модель с
 
    pages/installation
    pages/spark
-   pages/usage
    pages/modules
 
 

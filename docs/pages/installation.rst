@@ -1,30 +1,26 @@
-Установка
+Installation
 ============
 
-Рекомендуется использовать Unix машину с ``python >= 3.6``
+It is recommended to use Unix machine with ``python >= 3.6``
 
-Базовая
+Basic
 --------
 
-На данный момент негде разместить собранный пакет,
-поэтому следует склонировать репозиторий и из папки с кодом выполнить
-
 .. code-block:: bash
 
-    pip install poetry
-    poetry install --no-dev
-    pip install -e .
+    pip install replay
 
-Для разработки
+
+Development
 ---------------
 
-Из папки с кодом:
+You can also clone repository
 
 .. code-block:: bash
 
-    pip install poetry
+    pip install -U pip wheel
+    pip install -U requests pypandoc cython optuna poetry
     poetry install
-    pip install -e .
 
-Зависимости указаны в файле ``pyproject.toml`` и будут разрешены автоматически.
-Добавлять новые пакеты следует командой ``poetry add package``, чтобы они прописались в файл конфигурации.
+Poetry resolves dependencies from ``pyproject.toml`` and fixes versions into ``poetry.lock`` file.
+New packages can be added into configuration file with ``poetry add package``.

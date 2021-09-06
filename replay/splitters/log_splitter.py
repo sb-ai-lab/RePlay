@@ -1,11 +1,10 @@
 """
-Реализация сплиттеров, которые делят лог взаимодействия несколькими способами:
+These kind of splitters process log as a whole:
 
-- по времени
-- по размеру теста случайно
-- так, чтобы в тестовую выборку попали только холодные пользователи
+- by time
+- at random by test size
+- select cold users for test
 
-Каждый может по запросу удалять холодных пользователей и объекты.
 """
 
 from datetime import datetime
@@ -24,7 +23,7 @@ from replay.splitters.base_splitter import (
 # pylint: disable=too-few-public-methods
 class DateSplitter(Splitter):
     """
-    Делит лог по дате, начиная с которой все записи будут отнесены к тесту.
+    Split into train and test by date.
     """
 
     def __init__(
@@ -34,11 +33,10 @@ class DateSplitter(Splitter):
         drop_cold_users: bool = False,
     ):
         """
-        :param test_start: дата в формате ``yyyy-mm-dd`` или доля записей, которые пойдут в тест
-        :param drop_cold_items: исключать ли из тестовой выборки объекты,
-           которых нет в обучающей
-        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
-           которых нет в обучающей
+        :param test_start: date ``yyyy-mm-dd`` or a
+            fraction for test size to determine data automatically
+        :param drop_cold_items: flag to drop cold items from test
+        :param drop_cold_users: flag to drop cold users from test
         """
         super().__init__(
             drop_cold_items=drop_cold_items, drop_cold_users=drop_cold_users
@@ -69,7 +67,7 @@ class DateSplitter(Splitter):
 
 # pylint: disable=too-few-public-methods
 class RandomSplitter(Splitter):
-    """ Случайным образом распределяет записи на трейн и тест по переданному значению размера теста. """
+    """Assign records into train and test at random."""
 
     def __init__(
         self,
@@ -79,12 +77,10 @@ class RandomSplitter(Splitter):
         seed: Optional[int] = None,
     ):
         """
-        :param test_size: размер тестовой выборки, от 0 до 1
-        :param drop_cold_items: исключать ли из тестовой выборки объекты,
-           которых нет в обучающей
-        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
-           которых нет в обучающей
-        :param seed: сид для разбиения
+        :param test_size: test size 0 to 1
+        :param drop_cold_items: flag to drop cold items from test
+        :param drop_cold_users: flag to drop cold users from test
+        :param seed: random seed
         """
         super().__init__(
             drop_cold_items=drop_cold_items, drop_cold_users=drop_cold_users
@@ -92,7 +88,7 @@ class RandomSplitter(Splitter):
         self.seed = seed
         self.test_size = test_size
         if test_size < 0 or test_size > 1:
-            raise ValueError("test_size должен быть от 0 до 1")
+            raise ValueError("test_size must be 0 to 1")
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         train, test = log.randomSplit(
@@ -104,14 +100,9 @@ class RandomSplitter(Splitter):
 # pylint: disable=too-few-public-methods
 class NewUsersSplitter(Splitter):
     """
-    Позволяет оценить работу модели на пользователях, впервые начавших взаимодействовать с объектами
-    после окончания периода, использовавшегося для обучения.
-    Разбивает лог по timestamp таким образом, чтобы в test оказалась определеннная в test_size доля пользователей,
-    позднее всего появившихся в логе. Назовем пользователей, которые появились в логе до даты разбиения, существующими,
-    а пользователей, появившихся в эту дату и позднее - новыми. После разбиения в train будет находиться история
-    взаимодействия существующих пользователей до даты разбиения, а в test - история новых пользователей.
-    Пользователи из test отсутствуют в train. Это разбиение позволит оценить качество модели
-    для холодных пользователей или пользователей, накопивших историю взаимодействия уже после обучения модели.
+    Only new users will be assigned to test set.
+    Splits log by timestamp so that test has `test_size` fraction of most recent users.
+
 
     >>> from replay.splitters import NewUsersSplitter
     >>> import pandas as pd
@@ -146,9 +137,8 @@ class NewUsersSplitter(Splitter):
     +-------+-------+---------+---------+
     <BLANKLINE>
 
-    Сплиттер оставляет в train только историю существующих пользователей до даты разбиения, и поэтому,
-    если новых пользователей мало или они появились давно и/или одновременно,
-    размер train может существенно сократиться даже при небольшом test_size:
+    Train DataFrame can be drastically reduced even with moderate
+    `test_size` if the amount of new users is small.
 
     >>> train, test = NewUsersSplitter(test_size=0.3).split(data_frame)
     >>> train.show()
@@ -162,16 +152,15 @@ class NewUsersSplitter(Splitter):
 
     def __init__(self, test_size: float, drop_cold_items: bool = False):
         """
-        :param test_size: размер тестовой выборки, от 0 до 1
-        :param drop_cold_items: исключать ли из тестовой выборки объекты,
-           которых нет в обучающей
+        :param test_size: test size 0 to 1
+        :param drop_cold_items: flag to drop cold items from test
         """
         super().__init__(
             drop_cold_items=drop_cold_items, drop_cold_users=False
         )
         self.test_size = test_size
         if test_size < 0 or test_size > 1:
-            raise ValueError("test_size должен быть от 0 до 1")
+            raise ValueError("test_size must be 0 to 1")
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         start_date_by_user = log.groupby("user_id").agg(
@@ -205,7 +194,7 @@ class NewUsersSplitter(Splitter):
 # pylint: disable=too-few-public-methods
 class ColdUserRandomSplitter(Splitter):
     """
-    В тестовую выборку попадают все действия случайно отобранных пользователей в заданном количестве.
+    Test set consists of all actions of randomly chosen users.
     """
 
     # для использования в тестах
@@ -218,11 +207,9 @@ class ColdUserRandomSplitter(Splitter):
         drop_cold_users: bool = False,
     ):
         """
-        :param test_size: желаемая доля всех пользователей, которые должны оказаться в тестовой выборке
-        :param drop_cold_items: исключать ли из тестовой выборки объекты,
-           которых нет в обучающей
-        :param drop_cold_users: исключать ли из тестовой выборки пользователей,
-           которых нет в обучающей
+        :param test_size: fraction of users to be in test
+        :param drop_cold_items: flag to drop cold items from test
+        :param drop_cold_users: flag to drop cold users from test
         """
         super().__init__(
             drop_cold_items=drop_cold_items, drop_cold_users=drop_cold_users
@@ -232,7 +219,8 @@ class ColdUserRandomSplitter(Splitter):
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         users = log.select("user_id").distinct()
         train_users, test_users = users.randomSplit(
-            [1 - self.test_size, self.test_size], seed=self.seed,
+            [1 - self.test_size, self.test_size],
+            seed=self.seed,
         )
         train = log.join(train_users, on="user_id", how="inner")
         test = log.join(test_users, on="user_id", how="inner")

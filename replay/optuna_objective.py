@@ -1,5 +1,5 @@
 """
-Класс для вычисления значения оптимизируемой функции при подборе гиперпараметров модели
+This class calculates loss function for optimization process
 """
 import collections
 import logging
@@ -20,14 +20,12 @@ SplitData = collections.namedtuple(
 # pylint: disable=too-few-public-methods
 class ObjectiveWrapper:
     """
-    Данный класс реализован в соответствии с
-    `инструкцией <https://optuna.readthedocs.io/en/stable/faq.html#how-to-define-objective-functions-that-have-own-arguments>`_
-    по интеграции произвольной библиотеки машинного обучения с ``optuna``.
-    По факту представляет собой обёртку вокруг некоторой целевой функции (процедуры обучения модели),
-    параметры которой (гиперпараметры модели) ``optuna`` подбирает.
+    This class is implemented according to
+    `instruction <https://optuna.readthedocs.io/en/stable/faq.html#how-to-define-objective-functions-that-have-own-arguments>`_
+    on integration with ``optuna``.
 
-    Вызов подсчета критерия происходит через ``__call__``,
-    а все остальные аргументы передаются через ``__init__``.
+    Criterion is calculated with ``__call__``,
+    other arguments are passed into ``__init__``.
     """
 
     # pylint: disable=too-many-arguments,too-many-instance-attributes
@@ -40,11 +38,10 @@ class ObjectiveWrapper:
 
     def __call__(self, trial: Trial) -> float:
         """
-        Эта функция вызывается при вычислении критерия в переборе параметров с помощью ``optuna``.
-        Сигнатура функции совпадает с той, что описана в документации ``optuna``.
+        Calculate criterion for ``optuna``.
 
-        :param trial: текущее испытание
-        :return: значение критерия, который оптимизируется
+        :param trial: current trial
+        :return: criterion value
         """
         return self.objective_calculator(trial=trial, **self.kwargs)
 
@@ -56,17 +53,14 @@ def suggest_param_value(
     default_params_data: Dict[str, Dict[str, Union[str, List[Any]]]],
 ) -> Union[str, float, int]:
     """
-    Функция принимает границы поиска значения гиперпараметра, заданные пользователем, и
-    список гиперпараметров модели, их типов и границ модели. Вызывает метод trial-а,
-    соответствующий типу параметра и возвращает сэмплированное значение.
+    This function calls trial method dependent on hyper parameter type provided.
 
-    :param trial: optuna trial, текущий запуск поиска гиперпараметров
-    :param param_name: имя гиперпараметра
-    :param param_bounds: нижняя и верхняя граница поиска, список значений для категориального
-    или пустой список, если нужно использовать границы поиска, определенные в модели
-    :param default_params_data: список гиперпараметров, их типы и дефолтные границы/значения,
-    определенные для модели
-    :return: значение гиперпараметра
+    :param trial: optuna trial
+    :param param_name: parameter name
+    :param param_bounds: lower and upper search bounds or list of categorical values.
+        If list is empty, default values are used.
+    :param default_params_data: hyper parameters and their default bounds
+    :return: hyper parameter value
     """
     to_optuna_types_dict = {
         "uniform": trial.suggest_uniform,
@@ -77,7 +71,7 @@ def suggest_param_value(
 
     if param_name not in default_params_data:
         raise ValueError(
-            "Гиперпараметр {} не определен для выбранной модели".format(
+            "Hyper parameter {} is not defined for this model".format(
                 param_name
             )
         )
@@ -93,8 +87,7 @@ def suggest_param_value(
     if len(param_args) != 2:
         raise ValueError(
             """
-        Гиперпараметр {} является числовым. Передайте верхнюю
-        и нижнюю границы поиска в формате [lower, upper]""".format(
+        Hyper parameter {} is numerical but no bounds ([lower, upper]) were provided""".format(
                 param_name
             )
         )
@@ -113,14 +106,14 @@ def scenario_objective_calculator(
     k: int,
 ) -> float:
     """
-    Функция для вычисления значения критерия при выбранных гиперпараметрах.
-    :param trial: optuna trial, текущий запуск поиска гиперпараметров
-    :param search_space: пространство поиска гиперпараметров, определенное пользователем
-    :param split_data: данные для обучения
-    :param recommender: модель replay
-    :param criterion: критерий оптимизации (метрика)
-    :param k: число рекомендаций
-    :return: значение оптимизируемого критерия
+    Calculate criterion value for given parameters
+    :param trial: optuna trial
+    :param search_space: hyper parameter search space
+    :param split_data: data to train and test model
+    :param recommender: recommender model
+    :param criterion: optimization metric
+    :param k: length of a recommendation list
+    :return: criterion value
     """
     logger = logging.getLogger("replay")
 
@@ -135,7 +128,7 @@ def scenario_objective_calculator(
         )
 
     recommender.set_params(**params_for_trial)
-    logger.debug("Фит модели в оптимизации")
+    logger.debug("Fitting model inside optimization")
     # pylint: disable=protected-access
     recommender._fit_wrap(
         split_data.train,
@@ -143,7 +136,7 @@ def scenario_objective_calculator(
         split_data.item_features_train,
         False,
     )
-    logger.debug("Предикт модели в оптимизации")
+    logger.debug("Predicting inside optimization")
     recs = recommender._predict_wrap(
         log=split_data.train,
         k=k,
@@ -152,7 +145,7 @@ def scenario_objective_calculator(
         user_features=split_data.user_features_test,
         item_features=split_data.item_features_test,
     )
-    logger.debug("Подсчет метрики в оптимизации")
+    logger.debug("Calculating criterion")
     criterion_value = criterion(recs, split_data.test, k)
     logger.debug("%s=%.6f", criterion, criterion_value)
     return criterion_value

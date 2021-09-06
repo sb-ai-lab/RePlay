@@ -12,8 +12,7 @@ from replay.session_handler import State
 
 class ClusterRec(UserRecommender):
     """
-    Модель для рекомендаций холодным пользователям популярных объектов из их кластера.
-    Кластеры выделяются из пользователей с историей по их признакам с помощью k means.
+    Generate recommendations for cold users using k-means clusters
     """
 
     can_predict_cold_users = True
@@ -23,9 +22,9 @@ class ClusterRec(UserRecommender):
 
     def __init__(self, n: int = 10):
         """
-        :param n: количество кластеров
+        :param n: number of clusters
         """
-        State()  # инициализируем сессию, если не создана
+        State()  # initialize session if it doesnt exist
         self.n = n
 
     def _fit(

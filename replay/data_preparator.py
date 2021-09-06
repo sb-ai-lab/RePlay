@@ -1,13 +1,8 @@
 """
-Содержит классы  ``DataPreparator`` и ``CatFeaturesTransformer``.
-``DataPreparator`` используется для приведения лога и признаков в формат библиотеки.
-Для получения рекомендаций данные необходимо предварительно обработать.
-Они должны соответствовать определенной структуре. Перед тем как обучить модель
-необходимо воспользоваться классом ``DataPreparator``. Данные пользователя могут храниться в файле
-либо содержаться внутри объекта ``pandas.DataFrame`` или ``spark.DataFrame``.
+Contains classes ``DataPreparator`` and ``CatFeaturesTransformer``.
+``DataPreparator`` is used to transform DataFrames to a library format.
 
-`CatFeaturesTransformer`` позволяет удобным образом трансформировать
-категориальные признаки с помощью one-hot encoding.
+`CatFeaturesTransformer`` transforms cateforical features with one-hot encoding.
 """
 import string
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
@@ -27,16 +22,12 @@ from replay.session_handler import State
 
 # pylint: disable=too-few-public-methods
 class DataPreparator:
-    """ Класс для преобразования различных типов данных.
-    Для преобразования данных необходимо иницализировать объект класс
-    ``DataPreparator`` и вызвать метод ``transform``. В случае, если в нем указан мапинг
-    столбцов  "user_id" и "item_id", то считается, что пользователь передал таблицу с логом,
-    если же в мапинге указан только один из столбцов "user_id"/"item_id", то передана
-    таблица с признаками пользователей/объектов соответственно.
+    """Transforms data to a library format. If both user id and item id are provided, DataFrame
+    is trated as a log, otherwise as a feature DataFrame.
 
-    Примеры использования:
+    Examples:
 
-    Загрузка таблицы с логом (слобцы "user_id" и "item_id" обязательны).
+    Loading log DataFrame
 
     >>> import pandas as pd
     >>> from replay.data_preparator import DataPreparator
@@ -62,7 +53,7 @@ class DataPreparator:
     <BLANKLINE>
 
 
-    Загрузка таблицы с признакми пользователя (обязателен один из столбцов "user_id" и "item_id").
+    Loading user features
 
     >>> import pandas as pd
     >>> from replay.data_preparator import DataPreparator
@@ -87,8 +78,7 @@ class DataPreparator:
     +-------+--------+
     <BLANKLINE>
 
-    Загрузка таблицы с признаками пользователя без явной передачи списка признаков.
-    В случае если параметр features_columns не задан, признаками считаются все остальные столбцы.
+    If feature_columns is not set, all extra columns are trated as feature columns
 
     >>> import pandas as pd
     >>> from replay.data_preparator import DataPreparator
@@ -137,7 +127,7 @@ class DataPreparator:
     ):
         if not required_columns.issubset(given_columns):
             raise ValueError(
-                "В датафрейме нет обязательных колонок: "
+                "Required columns are missing: "
                 f"{required_columns.difference(given_columns)}"
             )
 
@@ -146,7 +136,7 @@ class DataPreparator:
         )
         if excess_columns:
             raise ValueError(
-                "В 'columns_names' есть лишние колонки: " f"{excess_columns}"
+                "'columns_names' has excess columns: " f"{excess_columns}"
             )
 
     @staticmethod
@@ -155,24 +145,20 @@ class DataPreparator:
         columns_names: Dict[str, str],
         feature_columns: List[str],
     ):
-        # чекаем, что датафрейм не пустой
         if not dataframe.head(1):
-            raise ValueError("Датафрейм пустой")
+            raise ValueError("DataFrame is empty")
 
-        # чекаем, что данные юзером колонки реально есть в датафрейме
         columns_to_check = {*columns_names.values(), *feature_columns}
         dataframe_columns = set(dataframe.columns)
         if not columns_to_check.issubset(dataframe_columns):
             raise ValueError(
-                "В feature_columns или columns_names указаны колонки, "
-                "которых нет в датафрейме: "
+                "feature_columns or columns_names has columns that are not present in DataFrame "
                 f"{columns_to_check.difference(dataframe_columns)}"
             )
 
-        # чекаем на нуллы только столбцы из columns_names
         for column in columns_names.values():
             if dataframe.where(sf.col(column).isNull()).count() > 0:
-                raise ValueError(f"В колонке '{column}' есть значения NULL")
+                raise ValueError(f"Column '{column}' has NULL values")
 
     @staticmethod
     def _rename_columns(
@@ -182,7 +168,6 @@ class DataPreparator:
         default_schema: Dict[str, Tuple[Any, Any]],
         date_format: Optional[str] = None,
     ):
-        # переименовываем колонки
         dataframe = dataframe.select(
             [
                 sf.col(column).alias(new_name)
@@ -190,8 +175,7 @@ class DataPreparator:
             ]
             + [sf.col(column) for column in features_columns]
         )
-        # добавляем необязательные дефолтные колонки, если они есть,
-        # и задаем тип для тех колонок, что есть
+
         for (
             column_name,
             (default_value, default_type),
@@ -222,36 +206,29 @@ class DataPreparator:
         reader_kwargs: Optional[Dict] = None,
     ) -> DataFrame:
         """
-        Преобразовывает лог, либо признаки пользователей или объектов
-        в спарк-датафрейм вида
-        ``[user_id, *features]`` или ``[item_id, *features]``
-        или ``[user_id, user_id, timestamp, relevance]``.
-        На вход необходимо передать либо файл формата ``format_type``
-        по пути ``path``, либо ``pandas.DataFrame`` или ``spark.DataFrame``.
-        :param columns_names: словарь "стандартное имя столбца: имя столбца в dataframe" для лога обязательно задать
-        соответствие для столбцов ``user_id`` и ``item_id``, опционально можно указать соответствия для столбцов
-        ``timestamp`` (время взаимодействия) и ``relevance`` (релевантность, оценка взаимодействия). Если
-        соответствие для данных столбцов не указаны, они будут созданы автоматически с дефолтными значениями.
+        Transforms log, user or item features into a Spark DataFrame
+        ``[user_id, user_id, timestamp, relevance]``,
+        ``[user_id, *features]``, or  ``[item_id, *features]``.
+        Input is either file of ``format_type``
+        at ``path``, or ``pandas.DataFrame`` or ``spark.DataFrame``.
+        :param columns_names: dictionary mapping "default column name:
+        column name in input DataFrame"
+        ``user_id`` and ``item_id`` mappings are required,
+        ``timestamp`` and``relevance`` are optional.
 
-            для таблиц признаков пользователей и объектов необходимо задать соответствие для ``user_id``
-             или ``item_id``.
+            Mapping specifies the meaning of the DataFrame:
+            - Both ``[user_id, item_id]`` are present, then it's log
+            - Only ``[user_id]`` is present, then it's user features
+            - Only ``[item_id]`` is present, then it's item features
 
-            В зависимости от маппинга определяется какого типа таблица передана.
-            - Если присутствуют оба столбца ``[user_id, item_id]``, то передана таблица с логом
-            - Если присутствует только ``[user_id]``, то передана таблица с признаками пользователей
-            - Если присутствует только ``[item_id]``, то передана таблица с признаками объектов
-
-        :param data: dataframe с логом
-        :param path: путь к файлу с данными
-        :param format_type: тип файла, принимает значения из списка
-            ``[csv , parquet , json , table]``
-        :param date_format: формат даты для корректной обработки столбца ``timestamp``
-        :param features_columns: имя столбца либо список имен столбцов с признаками
-         для таблиц признаков пользователей/объектов.
-         если не задан, в качестве признаков используются все столбцы датафрейма.
-        :param reader_kwargs: дополнительные аргументы, которые передаются в функцию
+        :param data: DataFrame to process
+        :param path: path to data
+        :param format_type: file type, one of ``[csv , parquet , json , table]``
+        :param date_format: format for the ``timestamp``
+        :param features_columns: names of the feature columns
+        :param reader_kwargs: extra arguments passed to
             ``spark.read.<format>(path, **reader_kwargs)``
-        :return: спарк-датафрейм со столбцами, определенными в ``columns_names`` и features_columns
+        :return: processed DataFrame
         """
         if data is not None:
             dataframe = convert2spark(data)
@@ -260,9 +237,7 @@ class DataPreparator:
                 reader_kwargs = dict()
             dataframe = self._read_data(path, format_type, **reader_kwargs)
         else:
-            raise ValueError(
-                "Один из параметров data, path должен быть отличным от None"
-            )
+            raise ValueError("Either data or path parameters must not be None")
 
         optional_columns = dict()
 
@@ -275,8 +250,7 @@ class DataPreparator:
         else:
             if len(columns_names) > 1:
                 raise ValueError(
-                    "Для датафрейма с признаками пользователей / объектов укажите в columns_names только"
-                    " соответствие для текущего ключа (user_id или item_id)"
+                    "Feature DataFrame mappings must contain mapping only for one id, user or item."
                 )
             (features_columns, required_columns,) = self.feature_columns(
                 columns_names, dataframe, features_columns  # type: ignore
@@ -305,15 +279,16 @@ class DataPreparator:
         dataframe: DataFrame,
         features_columns: Union[str, Iterable[str], None],
     ) -> Tuple[List[str], Dict]:
-        """Возвращает колонки для таблицы с фичами"""
+        """Get feature columns"""
         if "user_id" in columns_names:
             required_columns = {"user_id": (None, StringType())}
         elif "item_id" in columns_names:
             required_columns = {"item_id": (None, StringType())}
         else:
-            raise ValueError("В columns_names нет ни 'user_id', ни 'item_id'")
-        # если фичей нет в данных пользователем колонках, вставляем все оставшиеся
-        # нужно, чтобы проверить, что там нет нуллов
+            raise ValueError(
+                "columns_names have neither 'user_id', nor 'item_id'"
+            )
+
         if features_columns is None:
             given_columns = set(columns_names.values())
             dataframe_columns = set(dataframe.columns)
@@ -321,7 +296,7 @@ class DataPreparator:
                 list(dataframe_columns.difference(given_columns))
             )
             if not features_columns:
-                raise ValueError("В датафрейме нет колонок с фичами")
+                raise ValueError("Feature columns missing")
 
         else:
             if isinstance(features_columns, str):
@@ -334,7 +309,7 @@ class DataPreparator:
     def base_columns(
         features_columns: Union[str, Iterable[str], None]
     ) -> Tuple[List, Dict, Dict]:
-        """Возвращает колонки для лога"""
+        """Get base columns"""
         required_columns = {
             "user_id": (None, StringType()),
             "item_id": (None, StringType()),
@@ -346,16 +321,13 @@ class DataPreparator:
         if features_columns is None:
             features_columns = []
         else:
-            raise ValueError("В данной таблице features не используются")
+            raise ValueError("features are not used")
         return features_columns, optional_columns, required_columns
 
 
 class CatFeaturesTransformer:
-    """Преобразование категориальных признаков с использованием one-hot encoding.
-        К списку колонок для преобразования (cat_cols_list), будет применен one-hot encoding,
-        исходные колонки будут удалены.
-        В случае, если задан threshold, будут сохранены наиболее популярные k=threshold значений,
-        остальные заменены на значение other."""
+    """Transform categorical features in ``cat_cols_list``
+    with one-hot encoding and delete other columns."""
 
     def __init__(
         self,
@@ -364,10 +336,8 @@ class CatFeaturesTransformer:
         alias: str = "ohe",
     ):
         """
-        :param cat_cols_list: список категориальных колонок для преобразования
-        :param threshold: TO DO: количество наиболее частых уникальных значений,
-            к которым будет применен one-hot encoding. Остальные значения будут игнорироваться
-        :param alias: префикс перед именем колонок, к которым применен one-hot encoding
+        :param cat_cols_list: list of categorical columns
+        :param alias: prefix for one-hot encoding columns
         """
         self.cat_cols_list = cat_cols_list
         self.expressions_list = []
@@ -380,8 +350,8 @@ class CatFeaturesTransformer:
 
     def fit(self, spark_df: Optional[DataFrame]) -> None:
         """
-        Сохранение списка категорий для каждой из колонок.
-        :param spark_df: spark-датафрейм, содержащий признаки пользователей / объектов
+        Save categories for each column
+        :param spark_df: Spark DataFrame with features
         """
         if spark_df is None:
             return
@@ -413,10 +383,10 @@ class CatFeaturesTransformer:
 
     def transform(self, spark_df: Optional[DataFrame]):
         """
-        Преобразование категориальных колонок датафрейма.
-        Новые значения категориальных переменных будут проигнорированы при преобразовании.
-        :param spark_df: spark-датафрейм, содержащий категориальные и числовые признаки пользователей / объектов
-        :return: spark-датафрейм после преобразования категориальных признаков
+        Transform categorical columns.
+        If there are any new categories that were not present at fit stage, they will be ignored.
+        :param spark_df: feature DataFrame
+        :return: transformed DataFrame
         """
         if spark_df is None:
             return None

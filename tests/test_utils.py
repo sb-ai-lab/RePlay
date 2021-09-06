@@ -14,11 +14,15 @@ from tests.utils import spark, sparkDataFrameEqual
 
 different_timestamp_formats_data = [
     (
-        [[1.0, 1], [-105.5, 300003], [0.0, 0],],
         [
-            [datetime(1970, 1, 1, 3, 0, 1), datetime(1970, 1, 1, 3, 0, 1)],
-            [datetime(1970, 1, 1, 2, 58, 15), datetime(1970, 1, 4, 14, 20, 3)],
-            [datetime(1970, 1, 1, 3, 0, 0), datetime(1970, 1, 1, 3, 0, 0)],
+            [1.0, 1],
+            [300003.0, 300003],
+            [0.0, 0],
+        ],
+        [
+            [datetime(1970, 1, 1, 0, 0, 1), datetime(1970, 1, 1, 0, 0, 1)],
+            [datetime(1970, 1, 4, 11, 20, 3), datetime(1970, 1, 4, 11, 20, 3)],
+            [datetime(1970, 1, 1, 0, 0, 0), datetime(1970, 1, 1, 0, 0, 0)],
         ],
         ["float_", "int_"],
     ),
@@ -58,6 +62,7 @@ different_timestamp_formats_data = [
     "log_data, ground_truth_data, schema", different_timestamp_formats_data
 )
 def test_process_timestamp(log_data, ground_truth_data, schema, spark):
+    spark.conf.set("spark.sql.session.timeZone", "UTC")
     log = spark.createDataFrame(data=log_data, schema=schema)
     ground_truth = spark.createDataFrame(data=ground_truth_data, schema=schema)
     for col in log.columns:
@@ -69,6 +74,7 @@ def test_process_timestamp(log_data, ground_truth_data, schema, spark):
         log = utils.process_timestamp_column(log, col, **kwargs)
         assert isinstance(log.schema[col].dataType, TimestampType)
     sparkDataFrameEqual(log, ground_truth)
+    spark.conf.unset("spark.sql.session.timeZone")
 
 
 def test_func_get():

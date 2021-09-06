@@ -1,5 +1,5 @@
 """
-Содержит функции, позволяющие отобрать данные по некоторому критерию.
+Select or remove data by some criteria
 """
 from datetime import datetime, timedelta
 from pyspark.sql import DataFrame, Window, functions as sf
@@ -14,8 +14,7 @@ from replay.session_handler import State
 
 def min_entries(data_frame: AnyDataFrame, num_entries: int) -> DataFrame:
     """
-    Удаляет из датафрейма записи всех пользователей,
-    имеющих менее ``num_entries`` оценок.
+    Remove users with less than ``num_entries`` ratings.
 
     >>> import pandas as pd
     >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2]})
@@ -40,7 +39,7 @@ def min_entries(data_frame: AnyDataFrame, num_entries: int) -> DataFrame:
     else:
         logger_level = State().logger.info
     logger_level(
-        "при текущем значении threshold для обучения горячей модели выкидывается %s%% данных",
+        "current threshold removes %s%% of data",
         diff,
     )
     return data_frame
@@ -50,7 +49,7 @@ def min_rating(
     data_frame: AnyDataFrame, value: float, column="relevance"
 ) -> DataFrame:
     """
-    Удаляет из датафрейма записи с оценкой меньше ``value`` в колонке ``column``.
+    Remove records with records less than ``value`` in ``column``.
 
     >>> import pandas as pd
     >>> data_frame = pd.DataFrame({"relevance": [1, 5, 3, 4]})
@@ -74,7 +73,7 @@ def filter_user_interactions(
     item_col: Optional[str] = "item_id",
 ) -> DataFrame:
     """
-     Для каждого пользователя возвращает первые/последние `n` взаимодействий из лога.
+     Get first/last ``num_interactions`` interactions for each user.
 
     >>> import pandas as pd
     >>> from replay.utils import convert2spark
@@ -100,49 +99,48 @@ def filter_user_interactions(
     +-------+-------+---+-------------------+
     <BLANKLINE>
 
-    Первое взаимодействие из лога:
+    Only first interaction:
 
-    >>> filter_user_interactions(log_sp, 1, True).show()
+    >>> filter_user_interactions(log_sp, 1, True).orderBy('user_id').show()
     +-------+-------+---+-------------------+
     |user_id|item_id|rel|          timestamp|
     +-------+-------+---+-------------------+
+    |     u1|     i1|1.0|2020-01-01 23:59:59|
+    |     u2|     i2|0.5|2020-02-01 00:00:00|
     |     u3|     i1|1.0|2020-01-01 00:04:15|
-    |     u1|     i1|1.0|2020-01-01 23:59:59|
-    |     u2|     i2|0.5|2020-02-01 00:00:00|
     +-------+-------+---+-------------------+
     <BLANKLINE>
 
-    Последнее взаимодействие из лога:
+    Only last interaction:
 
-    >>> filter_user_interactions(log_sp, 1, False, item_col=None).show()
+    >>> filter_user_interactions(log_sp, 1, False, item_col=None).orderBy('user_id').show()
     +-------+-------+---+-------------------+
     |user_id|item_id|rel|          timestamp|
     +-------+-------+---+-------------------+
-    |     u3|     i3|1.0|2020-01-05 23:59:59|
     |     u1|     i1|1.0|2020-01-01 23:59:59|
     |     u2|     i2|0.5|2020-02-01 00:00:00|
+    |     u3|     i3|1.0|2020-01-05 23:59:59|
     +-------+-------+---+-------------------+
     <BLANKLINE>
 
-    >>> filter_user_interactions(log_sp, 1, False).show()
+    >>> filter_user_interactions(log_sp, 1, False).orderBy('user_id').show()
     +-------+-------+---+-------------------+
     |user_id|item_id|rel|          timestamp|
     +-------+-------+---+-------------------+
-    |     u3|     i3|1.0|2020-01-05 23:59:59|
     |     u1|     i1|1.0|2020-01-01 23:59:59|
     |     u2|     i3|3.0|2020-02-01 00:00:00|
+    |     u3|     i3|1.0|2020-01-05 23:59:59|
     +-------+-------+---+-------------------+
     <BLANKLINE>
 
-    :param log: лог взаимодействия пользователей с объектами, спарк-датафрейм
-    :param num_interactions: число взаимодействий, которое будет выбрано для каждого пользователя
-    :param first: выбор первых/последних взаимодействий. Выбираются взаимодействия от начала истории, если True,
-        последние, если False
-    :param date_col: имя столбца с датой взаимодействия
-    :param user_col: имя столбца с id пользователей
-    :param item_col: имя столбца с id объекта для дополнительной сортировки взаимодействий, произошедших одновременно.
-        Если None, не участвует в сортировке.
-    :return: спарк-датафрейм, содержащий выбранные взаимодействия
+    :param log: historical interactions DataFrame
+    :param num_interactions: number of interactions to leave per user
+    :param first: take either first ``num_interactions`` or last.
+    :param date_col: date column
+    :param user_col: user column
+    :param item_col: item column to help sort simultaneous interactions.
+        If None, it is ignored.
+    :return: filtered DataFrame
     """
     sorting_order = [col(date_col)]
     if item_col is not None:
@@ -168,8 +166,7 @@ def filter_by_user_duration(
     user_col: str = "user_id",
 ) -> DataFrame:
     """
-    Для каждого пользователя возвращает историю взаимодействия за первые/последние days
-    с момента первого/последнего взаимодействия пользователя.
+    Get first/last ``days`` of user interactions.
 
     >>> import pandas as pd
     >>> from replay.utils import convert2spark
@@ -182,7 +179,7 @@ def filter_by_user_duration(
     ...             )
     >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
     >>> log_sp = convert2spark(log_pd)
-    >>> log_sp.show()
+    >>> log_sp.orderBy('user_id', 'item_id').show()
     +-------+-------+---+-------------------+
     |user_id|item_id|rel|          timestamp|
     +-------+-------+---+-------------------+
@@ -195,40 +192,38 @@ def filter_by_user_duration(
     +-------+-------+---+-------------------+
     <BLANKLINE>
 
-    Взаимодействия за первый день истории пользователя:
+    Get first day:
 
-    >>> filter_by_user_duration(log_sp, 1, True).show()
+    >>> filter_by_user_duration(log_sp, 1, True).orderBy('user_id', 'item_id').show()
     +-------+-------+---+-------------------+
     |user_id|item_id|rel|          timestamp|
     +-------+-------+---+-------------------+
+    |     u1|     i1|1.0|2020-01-01 23:59:59|
+    |     u2|     i2|0.5|2020-02-01 00:00:00|
+    |     u2|     i3|3.0|2020-02-01 00:00:00|
     |     u3|     i1|1.0|2020-01-01 00:04:15|
     |     u3|     i2|0.0|2020-01-02 00:04:14|
-    |     u1|     i1|1.0|2020-01-01 23:59:59|
-    |     u2|     i2|0.5|2020-02-01 00:00:00|
-    |     u2|     i3|3.0|2020-02-01 00:00:00|
     +-------+-------+---+-------------------+
     <BLANKLINE>
 
-    Взаимодействия за последний день истории пользователя:
+    Get last day:
 
-    >>> filter_by_user_duration(log_sp, 1, False).show()
+    >>> filter_by_user_duration(log_sp, 1, False).orderBy('user_id', 'item_id').show()
     +-------+-------+---+-------------------+
     |user_id|item_id|rel|          timestamp|
     +-------+-------+---+-------------------+
-    |     u3|     i3|1.0|2020-01-05 23:59:59|
     |     u1|     i1|1.0|2020-01-01 23:59:59|
     |     u2|     i2|0.5|2020-02-01 00:00:00|
     |     u2|     i3|3.0|2020-02-01 00:00:00|
+    |     u3|     i3|1.0|2020-01-05 23:59:59|
     +-------+-------+---+-------------------+
     <BLANKLINE>
 
-    :param log: лог взаимодействия пользователей с объектами, спарк-датафрейм
-    :param days: длительность лога взаимодействия для каждого пользователя после фильтрации
-    :param first: выбор первых/последних взаимодействий. Выбираются взаимодействия от начала истории, если True,
-        последние, если False
-    :param date_col: имя столбца с датой взаимодействия
-    :param user_col: имя столбца с id пользователей
-    :return: спарк-датафрейм, содержащий выбранные взаимодействия
+    :param log: historical DataFrame
+    :param days: how many days to return per user
+    :param first: take either first ``days`` or last
+    :param date_col: date column
+    :param user_col: user column
     """
 
     window = Window.partitionBy(user_col)
@@ -259,8 +254,7 @@ def filter_between_dates(
     date_column: str = "timestamp",
 ) -> DataFrame:
     """
-    Возвращает лог за период в интервале [start_date, end_date). Если start_date или end_date не указаны,
-    возвращается лог от начала/до конца соотвественно.
+    Select a part of data between ``[start_date, end_date)``.
 
     >>> import pandas as pd
     >>> from replay.utils import convert2spark
@@ -295,13 +289,10 @@ def filter_between_dates(
     +-------+-------+---+-------------------+
     <BLANKLINE>
 
-    :param log: лог взаимодействия пользователей с объектами, спарк-датафрейм
-    :param start_date: дата в datetime или строка в формате "yyyy-MM-dd HH:mm:ss".
-        Начиная с этой даты данные будут включены в отфильтрованный лог
-    :param end_date: дата в datetime или строка в формате "yyyy-MM-dd HH:mm:ss".
-        Данные до этой даты будут включены в отфильтрованный лог
-    :param date_column: имя столбца с датой взаимодействия
-    :return: спарк-датафрейм, содержащий выбранные взаимодействия
+    :param log: historical DataFrame
+    :param start_date: datetime or str with format "yyyy-MM-dd HH:mm:ss".
+    :param end_date: datetime or str with format "yyyy-MM-dd HH:mm:ss".
+    :param date_column: date column
     """
     if start_date is None:
         start_date = log.agg(sf.min(date_column)).first()[0]
@@ -323,8 +314,7 @@ def filter_by_duration(
     date_column: str = "timestamp",
 ) -> DataFrame:
     """
-    Возвращает лог взаимодействия за выбранное число дней от начала/конца лога
-    в зависимости от значения параметра first.
+    Select first/last days from ``log``.
 
     >>> import pandas as pd
     >>> from replay.utils import convert2spark
@@ -369,12 +359,10 @@ def filter_by_duration(
     +-------+-------+---+-------------------+
     <BLANKLINE>
 
-    :param log: лог взаимодействия пользователей с объектами, спарк-датафрейм
-    :param duration_days: число дней, которые нужно включить в отфильтрованный лог
-    :param first: выбор первых/последних взаимодействий. Выбираются взаимодействия от начала истории,
-        если True, последние, если False
-    :param date_column: имя столбца с датой взаимодействия
-    :return: спарк-датафрейм, содержащий выбранные взаимодействия
+    :param log: historical DataFrame
+    :param duration_days: length of selected data in days
+    :param first: take either first ``duration_days`` or last
+    :param date_column: date column
     """
     if first:
         start_date = log.agg(sf.min(date_column)).first()[0]

@@ -1,6 +1,4 @@
 """
-Реализация рекомендательной модели Neural Matrix Factorization (NeuMF)
-и ее компонент:
 Generalized Matrix Factorization (GMF),
 Multi-Layer Perceptron (MLP),
 Neural Matrix Factorization (MLP + GMF).
@@ -26,9 +24,9 @@ EMBED_DIM = 128
 
 def xavier_init_(layer: nn.Module):
     """
-    Инициализация весов линейного слоя методом Хавьера
+    Xavier initialization
 
-    :param layer: слой нейронной сети
+    :param layer: net layer
     """
     if isinstance(layer, (nn.Embedding, nn.Linear)):
         nn.init.xavier_normal_(layer.weight.data)
@@ -38,17 +36,13 @@ def xavier_init_(layer: nn.Module):
 
 
 class GMF(nn.Module):
-    """Generalized Matrix Factorization (GMF) модель - нейросетевая
-    реализация матричной факторизации"""
+    """Generalized Matrix Factorization"""
 
     def __init__(self, user_count: int, item_count: int, embedding_dim: int):
         """
-        Инициализация модели. Создает эмбеддинги пользователей и объектов.
-
-        :param user_count: количество пользователей
-        :param item_count: количество объектов
-        :param embedding_dim: размерность представления пользователей и
-            объектов
+        :param user_count: number of users
+        :param item_count: number of items
+        :param embedding_dim: embedding size
         """
         super().__init__()
         self.user_embedding = nn.Embedding(
@@ -72,12 +66,9 @@ class GMF(nn.Module):
     # pylint: disable=arguments-differ
     def forward(self, user: Tensor, item: Tensor) -> Tensor:  # type: ignore
         """
-        Один проход нейросети.
-
-        :param user: батч ID пользователей
-        :param item: батч ID объектов
-        :return: батч весов предсказанных взаимодействий пользователей и
-            объектов
+        :param user: user id batch
+        :param item: item id batch
+        :return: model output
         """
         user_emb = self.user_embedding(user) + self.user_biases(user)
         item_emb = self.item_embedding(item) + self.item_biases(item)
@@ -87,7 +78,7 @@ class GMF(nn.Module):
 
 
 class MLP(nn.Module):
-    """Multi-Layer Perceptron (MLP) модель"""
+    """Multi-Layer Perceptron"""
 
     def __init__(
         self,
@@ -97,13 +88,10 @@ class MLP(nn.Module):
         hidden_dims: Optional[List[int]] = None,
     ):
         """
-        Инициализация модели.
-
-        :param user_count: количество пользователей
-        :param item_count: количество объектов
-        :param embedding_dim: размерность представления пользователей и
-            объектов
-        :param hidden_dims: последовательность размеров скрытых слоев
+        :param user_count: number of users
+        :param item_count: number of items
+        :param embedding_dim: embedding size
+        :param hidden_dims: list of hidden dimension sizes
         """
         super().__init__()
         self.user_embedding = nn.Embedding(
@@ -145,12 +133,9 @@ class MLP(nn.Module):
     # pylint: disable=arguments-differ
     def forward(self, user: Tensor, item: Tensor) -> Tensor:  # type: ignore
         """
-        Один проход нейросети.
-
-        :param user: батч ID пользователей
-        :param item: батч ID объектов
-        :return: батч весов предсказанных взаимодействий пользователей и
-            объектов
+        :param user: user id batch
+        :param item: item id batch
+        :return: output
         """
         user_emb = self.user_embedding(user) + self.user_biases(user)
         item_emb = self.item_embedding(item) + self.item_biases(item)
@@ -162,7 +147,7 @@ class MLP(nn.Module):
 
 
 class NMF(nn.Module):
-    """NMF модель (MLP + GMF)"""
+    """NMF = MLP + GMF"""
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -174,16 +159,11 @@ class NMF(nn.Module):
         hidden_mlp_dims: Optional[List[int]] = None,
     ):
         """
-        Инициализация модели. Создает эмбеддинги пользователей и объектов.
-
-        :param user_count: количество пользователей
-        :param item_count: количество объектов
-        :param embedding_gmf_dim: размерность представления пользователей и
-            объектов в модели gmf
-        :param embedding_mlp_dim: размерность представления пользователей и
-            объектов в модели mlp
-        :param hidden_mlp_dims: последовательность размеров скрытых слоев в
-            модели mlp
+        :param user_count: number of users
+        :param item_count: number of items
+        :param embedding_gmf_dim: embedding size for gmf
+        :param embedding_mlp_dim: embedding size for mlp
+        :param hidden_mlp_dims: list of hidden dimension sizes for mlp
         """
         self.gmf: Optional[GMF] = None
         self.mlp: Optional[MLP] = None
@@ -210,12 +190,9 @@ class NMF(nn.Module):
     # pylint: disable=arguments-differ
     def forward(self, user: Tensor, item: Tensor) -> Tensor:  # type: ignore
         """
-        Один проход нейросети.
-
-        :param user: батч ID пользователей
-        :param item: батч ID объектов
-        :return: батч весов предсказанных взаимодействий пользователей и
-            объектов или батч промежуточных эмбеддингов
+        :param user: user id batch
+        :param item: item id batch
+        :return: output
         """
         batch_size = len(user)
         if self.gmf:
@@ -238,11 +215,9 @@ class NMF(nn.Module):
 # pylint: disable=too-many-instance-attributes
 class NeuroMF(TorchRecommender):
     """
-    Эта модель является вариацией на модель из статьи Neural Matrix Factorization
-    (NeuMF, NCF).
+    Neural Matrix Factorization model (NeuMF, NCF).
 
-    Модель позволяет использовать архитектуры MLP и GMF как отдельно,
-    так и совместно.
+    In this implementation MLP and GMF modules are optional.
     """
 
     num_workers: int = 0
@@ -275,23 +250,18 @@ class NeuroMF(TorchRecommender):
         count_negative_sample: int = 1,
     ):
         """
-        Инициализирует параметры модели.
-        Чтобы использовать только одну из архитектур (MLP или GMF), необходимо установить
-        для нее размерность эмбеддинга (embedding_mlp_dim или embedding_gmf_dim),
-        а для второй оставить значение None. При инициализации без указания размерностей
-        эмбеддингов создается модель MLP + GMF с размерностью эмбеддингов 128.
+        MLP or GMF model can be ignored if
+        its embedding size (embedding_mlp_dim or embedding_gmf_dim) is set to ``None``.
+        Default variant is MLP + GMF with embedding size 128.
 
-        :param learning_rate: шаг обучения
-        :param epochs: количество эпох, в течение которых учимся
-        :param embedding_gmf_dim: размерность представления пользователей и
-            объектов в модели gmf
-        :param embedding_mlp_dim: размерность представления пользователей и
-            объектов в модели mlp
-        :param hidden_mlp_dims: последовательность размеров скрытых слоев в
-            модели mlp
-        :param l2_reg: коэффициент l2 регуляризации
-        :param gamma: коэффициент уменьшения learning_rate после каждой эпохи
-        :param count_negative_sample: количество отрицательных примеров
+        :param learning_rate: learning rate
+        :param epochs: number of epochs to train model
+        :param embedding_gmf_dim: embedding size for gmf
+        :param embedding_mlp_dim: embedding size for mlp
+        :param hidden_mlp_dims: list of hidden dimension sized for mlp
+        :param l2_reg: l2 regularization term
+        :param gamma: decrease learning rate by this coefficient per epoch
+        :param count_negative_sample: number of negative samples to use
         """
         if not embedding_gmf_dim and not embedding_mlp_dim:
             embedding_gmf_dim, embedding_mlp_dim = EMBED_DIM, EMBED_DIM
@@ -300,8 +270,7 @@ class NeuroMF(TorchRecommender):
             embedding_mlp_dim is None or embedding_mlp_dim < 0
         ):
             raise ValueError(
-                "Параметры embedding_gmf_dim, embedding_mlp_dim"
-                " должны быть положительными"
+                "embedding_gmf_dim and embedding_mlp_dim must be positive"
             )
 
         self.device = State().device
@@ -353,7 +322,7 @@ class NeuroMF(TorchRecommender):
             hidden_mlp_dims=self.hidden_mlp_dims,
         ).to(self.device)
 
-        self.logger.debug("Составление батча")
+        self.logger.debug("Create batch")
         tensor_data = log.select("user_idx", "item_idx").toPandas()
         train_tensor_data, valid_tensor_data = train_test_split(
             tensor_data,
@@ -363,7 +332,7 @@ class NeuroMF(TorchRecommender):
         train_data_loader = self._data_loader(train_tensor_data)
         val_data_loader = self._data_loader(valid_tensor_data)
 
-        self.logger.debug("Обучение модели")
+        self.logger.debug("Train NeuroMF")
         optimizer = torch.optim.Adam(
             self.model.parameters(),
             lr=self.learning_rate,
@@ -413,7 +382,10 @@ class NeuroMF(TorchRecommender):
             user_batch = LongTensor([user_idx] * len(items_np))
             item_batch = LongTensor(items_np)
             user_recs = torch.reshape(
-                model(user_batch, item_batch).detach(), [-1,]
+                model(user_batch, item_batch).detach(),
+                [
+                    -1,
+                ],
             )
             if cnt is not None:
                 best_item_idx = (

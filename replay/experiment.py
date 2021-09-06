@@ -14,13 +14,12 @@ from replay.metrics.base_metric import (
 # pylint: disable=too-few-public-methods
 class Experiment:
     """
-    Обеспечивает подсчет и хранение значений метрик.
+    This class calculates and stores metric values.
+    Initialize it with test data and a dictionary mapping metrics to their depth cut-offs.
 
-    Инициализируется тестом, на котором нужно считать метрики и словарём метрики-значения k.
+    Results are available with ``pandas_df`` attribute.
 
-    Результаты доступны в атрибуте ``pandas_df`` в виде pandas.DataFrame.
-
-    Пример:
+    Example:
 
     >>> import pandas as pd
     >>> from replay.metrics import Coverage, NDCG, Precision, Surprisal
@@ -64,17 +63,12 @@ class Experiment:
         calc_conf_interval: Optional[float] = None,
     ):
         """
-        :param test: Данные для теста в формате ``pandas`` или ``pyspark`` DataFrame
-        :param metrics: Словарь метрик, которые необходимо считать.
-            Ключ -- метрика, значение -- ``int`` или список интов, обозначающих ``k``,
-            для которых необходимо посчитать метрику.
-        :param calc_median: Параметр указывает на необходимость расчёта
-            медианы по всем метрикам
-        :param calc_conf_interval: Квантиль доверительного интервала,
-            который необходимо рассчитать по всем метрикам. В результирующую
-            таблицу будет добавлена половина величины соответствующего
-            доверительного интервала. В случае пустого значения
-            параметра доверительные интервалы считаться не будут.
+        :param test: test DataFrame
+        :param metrics: Dictionary of metrics to calculate.
+            Key -- metric, value -- ``int`` or a list of ints.
+        :param calc_median: flag to calculate median value across users
+        :param calc_conf_interval: quantile value for the calculation of the confidence interval.
+            Resulting value is the half of confidence interval.
         """
         self.test = convert2spark(test)
         self.results = pd.DataFrame()
@@ -84,10 +78,10 @@ class Experiment:
 
     def add_result(self, name: str, pred: Any) -> None:
         """
-        Подсчитать метрики для переданного списка рекомендаций
+        Calculate metrics for predictions
 
-        :param name: имя модели/эксперимента для сохранения результатов
-        :param pred: список рекомендаций для подсчета метрик
+        :param name: name of the run to store in the resulting DataFrame
+        :param pred: model recommendations
         """
         recs = get_enriched_recommendations(pred, self.test).cache()
         for metric, k_list in sorted(
@@ -149,15 +143,14 @@ class Experiment:
         conf_interval: Optional[NumType],
     ):
         """
-        Добавить одну метрику для модели/эксперимента для конкретного k
+        Add metric for a specific k
 
-        :param name: имя модели/эксперимента для сохранения результатов
-        :param metric: метрика, которую необходимо сохранить
-        :param k: число, показывающее какое максимальное количество объектов
-            брать из топа
-        :param value: значение метрики
-        :param median: значение медианы
-        :param conf_interval: значение половины ширины доверительного интервала
+        :param name: name to save results
+        :param metric: metric object
+        :param k: length of the recommendation list
+        :param value: metric value
+        :param median: median value
+        :param conf_interval: confidence interval value
         """
         self.results.at[name, f"{metric}@{k}"] = value  # type: ignore
         if median is not None:
@@ -172,10 +165,10 @@ class Experiment:
     # pylint: disable=not-an-iterable
     def compare(self, name: str) -> pd.DataFrame:
         """
-        Показать процентный прирост относительно записи ``name``.
+        Show results as a percentage difference to record ``name``.
 
-        :param name: имя модели/эксперимента, которая считается бейзлайном
-        :return: таблица с приростом в процентах
+        :param name: name of the baseline record
+        :return: results table in a percentage format
         """
         if name not in self.results.index:
             raise ValueError(f"No results for model {name}")

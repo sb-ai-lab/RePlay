@@ -4,7 +4,7 @@ from replay.metrics.base_metric import Metric
 # pylint: disable=too-few-public-methods
 class Recall(Metric):
     """
-    Какая доля объектов, с которыми взаимодействовал пользователь в тестовых данных, была показана ему в списке рекомендаций длины ``K``?
+    Mean percentage of relevant items, that was shown among top ``K`` recommendations.
 
     .. math::
         Recall@K(i) = \\frac {\sum_{j=1}^{K}\mathbb{1}_{r_{ij}}}{|Rel_i|}
@@ -12,9 +12,9 @@ class Recall(Metric):
     .. math::
         Recall@K = \\frac {\sum_{i=1}^{N}Recall@K(i)}{N}
 
-    :math:`\\mathbb{1}_{r_{ij}}` -- индикатор взаимодействия пользователя :math:`i` с рекомендацией :math:`j`
+    :math:`\\mathbb{1}_{r_{ij}}` -- indicator function showing that user :math:`i` interacted with item :math:`j`
 
-    :math:`|Rel_i|` -- количество элементов, с которыми взаимодействовал пользователь :math:`i`
+    :math:`|Rel_i|` -- the number of relevant items for user :math:`i`
     """
 
     @staticmethod

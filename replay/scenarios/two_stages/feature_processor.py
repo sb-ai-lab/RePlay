@@ -10,7 +10,7 @@ from replay.utils import join_or_return, ugly_join, unpersist_if_exists
 
 
 class FirstLevelFeaturesProcessor:
-    """Трансформация признаков для моделей первого уровня в двухуровневом сценарии"""
+    """Transform features for first level"""
 
     cat_feat_transformer: Optional[CatFeaturesTransformer]
     cols_to_one_hot: Optional[List]
@@ -23,10 +23,10 @@ class FirstLevelFeaturesProcessor:
 
     def fit(self, spark_df: Optional[DataFrame]) -> None:
         """
-        Определение списка категориальных колонок для one-hot encoding.
-        Нечисловые колонки с большим числом уникальных значений, чем threshold, будут удалены.
-        Сохранение списка категорий для каждой из колонок.
-        :param spark_df: spark-датафрейм, содержащий признаки пользователей / объектов
+        Determine categorical columns for one-hot encoding.
+        Non categorical columns with more values than threshold will be deleted.
+        Saves categories for each column.
+        :param spark_df: input DataFrame
         """
         self.cat_feat_transformer = None
         if spark_df is None:
@@ -67,8 +67,8 @@ class FirstLevelFeaturesProcessor:
             ]
             if self.cols_to_del:
                 State().logger.warning(
-                    "Колонки %s содержат более threshold уникальных "
-                    "категориальных значений и будут удалены",
+                    "%s columns contain more that threshold unique "
+                    "values and will be deleted",
                     self.cols_to_del,
                 )
 
@@ -79,21 +79,20 @@ class FirstLevelFeaturesProcessor:
 
     def transform(self, spark_df: Optional[DataFrame]) -> Optional[DataFrame]:
         """
-        Трансформация нечисловых признаков.
-        Нечисловые колонки с большим числом уникальных значений, чем threshold,
-        будут удалены иначе - преобразованы с использованием one-hot encoding.
-        :param spark_df: spark-датафрейм, содержащий признаки пользователей / объектов
-        :return: spark-датафрейм, содержащий числовые признаки пользователей / объектов
+        Transform categorical features.
+        Use one hot encoding for columns with the amount of unique values smaller than threshold and delete other columns.
+        :param spark_df: input DataFrame
+        :return: processed DataFrame
         """
         if spark_df is None or self.cat_feat_transformer is None:
             return None
 
         if sorted(spark_df.columns) != self.all_columns:
             raise ValueError(
-                "Колонки датафрейма, переданного в fit, не совпадают с колонками, "
-                "датафрейма, переданного в transform. "
-                "Колонки в fit: %s,"
-                "колонки в transform: %s"
+                "Columns from fit do not match "
+                "columns in transform. "
+                "Fit columns: %s,"
+                "Transform columns: %s"
                 % (self.all_columns, sorted(spark_df.columns)),
             )
 
@@ -103,9 +102,8 @@ class FirstLevelFeaturesProcessor:
 
     def fit_transform(self, spark_df: DataFrame) -> DataFrame:
         """
-        Последовательное обучение и применение FirstLevelFeaturesProcessor.
-        :param spark_df: исходный spark-датафрейм для one-hot encoding
-        :return: результирующий spark-датафрейм
+        :param spark_df: input DataFrame
+        :return: output DataFrame
         """
         self.fit(spark_df)
         return self.transform(spark_df)
@@ -114,7 +112,7 @@ class FirstLevelFeaturesProcessor:
 # pylint: disable=too-many-instance-attributes, too-many-arguments
 class SecondLevelFeaturesProcessor:
     """
-    Подсчет дополнительных признаков для модели второго уровня в двухуровневом сценарии
+    Calculate extra features for two stages scenario
     """
 
     def __init__(
@@ -139,51 +137,42 @@ class SecondLevelFeaturesProcessor:
     @staticmethod
     def _create_cols_list(log: DataFrame, agg_col: str = "user_idx") -> List:
         """
-        Создание списка статистических признаков в зависимости от типа значений relevance
-        (только единицы или различные значения) и наличия времени оценки (timestamp).
-        :param log: лог взаимодействий пользователей и объектов, спарк-датафрейм с колонками
-                ``[user_id(x), item_id(x), timestamp, relevance]``
-        :param agg_col: столбец, по которому будут строиться статистические признаки,
-            user_id(x) или item_id(x)
-        :return: список столбцов для передачи в pyspark agg
+        Create features based on relevance type
+        (binary or not) and whether timestamp is present.
+        :param log: input DataFrame ``[user_id(x), item_id(x), timestamp, relevance]``
+        :param agg_col: column to create features for, user_id(x) or item_id(x)
+        :return: list of columns to pass into pyspark agg
         """
         prefix = agg_col[:1]
 
         aggregates = [
-            # Логарифм числа взаимодействий
             sf.log(sf.count(sf.col("relevance"))).alias(
                 "{}_log_ratings_count".format(prefix)
             )
         ]
 
-        # В случае присутствия различных timestamp
         if (
             log.select(sf.countDistinct(sf.col("timestamp"))).collect()[0][0]
             > 1
         ):
             aggregates.extend(
                 [
-                    # Количество различных дат взаимодействия
                     sf.log(sf.countDistinct(sf.col("timestamp"))).alias(
                         "{}_log_rating_dates_count".format(prefix)
                     ),
-                    # Минимальная дата взаимодействия
                     sf.min(sf.col("timestamp")).alias(
                         "{}_min_rating_date".format(prefix)
                     ),
-                    # Максимальная дата взаимодействия
                     sf.max(sf.col("timestamp")).alias(
                         "{}_max_rating_date".format(prefix)
                     ),
                 ]
             )
 
-        # Для взаимодействий, характеризующихся различными значениями релевантности
         if (
             log.select(sf.countDistinct(sf.col("relevance"))).collect()[0][0]
             > 1
         ):
-            # mean и std релевантности
             aggregates.extend(
                 [
                     (
@@ -200,7 +189,6 @@ class SecondLevelFeaturesProcessor:
                     ),
                 ]
             )
-            # медиана и 5-, 95-й перцентили релевантности
             for percentile in [0.05, 0.5, 0.95]:
                 aggregates.append(
                     sf.expr(
@@ -223,7 +211,6 @@ class SecondLevelFeaturesProcessor:
         item_aggs = self._create_cols_list(log, agg_col=self.item_id)
         item_log_features = log.groupBy(self.item_id).agg(*item_aggs)
 
-        # Среднее лог-число взаимодействий у объектов, с которыми взаимодействовал пользователь
         mean_log_rating_of_user_items = log.join(
             item_log_features.select(self.item_id, "i_log_ratings_count"),
             on=self.item_id,
@@ -244,7 +231,6 @@ class SecondLevelFeaturesProcessor:
             how="left",
         )
 
-        # Среднее лог-число взаимодействий у пользователей, взаимодействовавших с объектом
         mean_log_rating_of_item_users = log.join(
             user_log_features.select(self.user_id, "u_log_ratings_count"),
             on=self.user_id,
@@ -314,16 +300,14 @@ class SecondLevelFeaturesProcessor:
         self, cat_cols: List[str], log: DataFrame, features_df: DataFrame
     ) -> Dict[str, DataFrame]:
         """
-        Подсчет популярности объектов в зависимости от значения категориальных признаков пользователей
-        или, наоборот, популярности у пользователя объектов с теми или иными значениями категориальных признаков.
-        Например, популярность фильма у пользователей данной возрастной группы. Если переданы признаки пользователей,
-        результат будет содержать признаки объектов и наоборот.
-        :param cat_cols: список категориальных признаков для подсчета популярности
-        :param log: лог взаимодействий пользователей и объектов, спарк-датафрейм с колонками
-            ``[user_id(x), item_id(x), timestamp, relevance]``
-        :param features_df: спарк-датафрейм с признаками пользователей или объектов
-        :return: словарь "имя категориального признака - датафрейм с вычисленными значениями популярности
-            по id и значениям категориального признака"
+        Calculate item popularity based on user or item categorical features.
+        For example movie popularity among users of the same age.
+        If user features are provided, result will contain item features and vice versa.
+
+        :param cat_cols: list of categorical columns
+        :param log: input DataFrame ``[user_id(x), item_id(x), timestamp, relevance]``
+        :param features_df: DataFrame with user or item features
+        :return: dictionary "categorical feature name - DataFrame with popularity by id and category values"
         """
         if self.item_id in features_df.columns:
             join_col, agg_col = self.item_id, self.user_id
@@ -360,19 +344,14 @@ class SecondLevelFeaturesProcessor:
         item_cat_features_list: Optional[List] = None,
     ) -> None:
         """
-        Подсчет признаков пользователей и объектов, основанные на логе.
-        Подсчет популярности в зависимости от значения категориальных признаков.
-        Признаки выбираются таким образом, чтобы корректно рассчитываться и для implicit,
-        и для explicit feedback.
-        :param log: лог взаимодействий пользователей и объектов, спарк-датафрейм с колонками
-            ``[user_id(x), item_id(x), timestamp, relevance]``
-        :param user_features: признаки пользователей, лог с обязательным столбцом ``user_id(x)`` и столбцами с признаками
-        :param item_features: признаки объектов, лог с обязательным столбцом ``item_id(x)`` и столбцами с признаками
-        :param user_cat_features_list: категориальные признаки пользователей, которые нужно использовать для построения
-            признаков популярности объекта у пользователей в зависимости от значения категориального признака
-            (например, популярность фильма у пользователей данной возрастной группы)
-        :param item_cat_features_list: категориальные признаки объектов, которые нужно использовать для построения признаков
-            популярности у пользователя объектов в зависимости от значения категориального признака
+        Calculate features for users and items, and popularity based on categorical features.
+
+        :param log: input DataFrame ``[user_id(x), item_id(x), timestamp, relevance]``
+        :param user_features: DataFrame with ``user_id(x)`` and feature columns
+        :param item_features: DataFrame with ``item_id(x)`` and feature columns
+        :param user_cat_features_list: list of user categorical features used to calculate item popularity features,
+            such as movie popularity among certain age group
+        :param item_cat_features_list: list of item categorical features
         """
         log = log.cache()
         if self.use_cooccurrence:
@@ -385,7 +364,6 @@ class SecondLevelFeaturesProcessor:
             ) = self._calc_log_features(log)
 
         if self.use_conditional_popularity:
-            # Популярность объектов для различных категорий пользователей
             if (
                 user_features is not None
                 and user_cat_features_list is not None
@@ -394,7 +372,6 @@ class SecondLevelFeaturesProcessor:
                     user_cat_features_list, log, user_features
                 )
 
-            # Популярность у пользователей различных категорий объектов
             if (
                 item_features is not None
                 and item_cat_features_list is not None
@@ -407,16 +384,16 @@ class SecondLevelFeaturesProcessor:
         log.unpersist()
 
     def transform(
-        self, log: DataFrame,
+        self,
+        log: DataFrame,
     ):
         """
-        Обогащение лога сгенерированными признаками.
-        :param log: пары пользователей и объектов и их признаки из датасета, спарк-датафрейм с колонками
-            ``[user_id(x), item_id(x), ...]``, для которого нужно сгенерировать признаки
-        :return: датафрейм, содержащий взаимодействия из лога и сгенерированные признаки
+        Add features
+        :param log: input DataFrame ``[user_id(x), item_id(x), ...]``
+        :return: augmented DataFrame
         """
         if not self.fitted:
-            raise AttributeError("Вызовите fit перед использованием transform")
+            raise AttributeError("Call fit before running transform")
         joined = log
 
         if self.use_log_features:
@@ -452,7 +429,10 @@ class SecondLevelFeaturesProcessor:
 
         if self.use_conditional_popularity:
             if self.user_cond_dist_cat_feat_c is not None:
-                for (key, value,) in self.user_cond_dist_cat_feat_c.items():
+                for (
+                    key,
+                    value,
+                ) in self.user_cond_dist_cat_feat_c.items():
                     joined = join_or_return(
                         joined,
                         sf.broadcast(value),
@@ -462,7 +442,10 @@ class SecondLevelFeaturesProcessor:
                     joined = joined.fillna({"user_pop_by_" + key: 0})
 
             if self.item_cond_dist_cat_feat_c is not None:
-                for (key, value,) in self.item_cond_dist_cat_feat_c.items():
+                for (
+                    key,
+                    value,
+                ) in self.item_cond_dist_cat_feat_c.items():
                     joined = join_or_return(
                         joined,
                         sf.broadcast(value),

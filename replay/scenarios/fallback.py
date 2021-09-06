@@ -12,8 +12,8 @@ from replay.utils import fallback
 
 
 class Fallback(BaseScenario):
-    """Дополняет основную модель рекомендациями с помощью fallback модели.
-    Ведет себя точно также, как обычный рекомендатель и имеет такой же интерфейс."""
+    """Fill missing recommendations using fallback model.
+    Behaves like a recommender and have the same interface."""
 
     can_predict_cold_users: bool = True
 
@@ -24,12 +24,13 @@ class Fallback(BaseScenario):
         cold_model: BaseRecommender = PopRec(),
         threshold: int = 5,
     ):
-        """Для каждого пользователя будем брать рекомендации от `main_model`, а если не хватает,
-        то дополним рекомендациями от `fallback_model` снизу. `relevance` побочной модели при этом
-        будет изменен, чтобы не оказаться выше, чем у основной модели.
+        """Create recommendations with `main_model`, and fill missing with `fallback_model`.
+        `relevance` of fallback_model will be decrease to keep main recommendations on top.
 
-        :param main_model: основная инициализированная модель
-        :param fallback_model: дополнительная инициализированная модель
+        :param main_model: initialized model
+        :param fallback_model: initialized model
+        :param cold_model: model used for cold users
+        :param threshold: number of interactions by which users are divided into cold and hot
         """
         super().__init__(cold_model, threshold)
         self.main_model = main_model
@@ -52,21 +53,20 @@ class Fallback(BaseScenario):
         budget: int = 10,
     ) -> Tuple[Dict[str, Any]]:
         """
-        Подбирает лучшие гиперпараметры с помощью optuna для обоих моделей
-        и инициализирует эти значения.
+        Searches best parameters with optuna.
 
-        :param train: датафрейм для обучения
-        :param test: датафрейм для проверки качества
-        :param user_features: датафрейм с признаками пользователей
-        :param item_features: датафрейм с признаками объектов
-        :param param_grid: словарь с ключами main, fallback, и значеними в виде сеток параметров.
-            Сетка задается словарем, где ключ ---
-            название параметра, значение --- границы возможных значений.
+        :param train: train data
+        :param test: test data
+        :param user_features: user features
+        :param item_features: item features
+        :param param_grid: a dictionary with keys main and
+            fallback containing dictionaries with search grid, where
+            key is the parameter name and value is the range of possible values
             ``{param: [low, high]}``.
-        :param criterion: метрика, которая будет оптимизироваться
-        :param k: количество рекомендаций для каждого пользователя
-        :param budget: количество попыток при поиске лучших гиперпараметров
-        :return: словари оптимальных параметров
+        :param criterion: metric to use for optimization
+        :param k: recommendation list length
+        :param budget: number of points to try
+        :return: tuple of dictionaries with best parameters
         """
         if param_grid is None:
             param_grid = {"main": None, "fallback": None}

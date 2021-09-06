@@ -12,18 +12,17 @@ from replay.models.base_rec import Recommender
 
 class UserPopRec(Recommender):
     """
-    Рекомендует пользователям объекты из их личного топа по количеству взаимодействий. Новые объекты не рекомендуются.
-    На вход передается количество взаимодействий пользователя с объектом.
+    Recommends old objects from each user's personal top.
+    Input is the number of interactions between users and items.
 
-    Популярность объекта :math:`i` для пользователя :math:`u` определяется
-    как доля действий с объектом :math:`i` среди всех действий пользователя :math:`u`:
+    Popularity for item :math:`i` and user :math:`u` is defined as the
+    fraction of actions with item :math:`i` among all interactions of user :math:`u`:
 
     .. math::
         Popularity(i_u) = \\dfrac{N_iu}{N_u}
 
-    :math:`N_iu` - количество взаимодействий пользователя :math:`u` с
-    объектом :math:`i`.
-    :math:`N_u` - общее количество взаимодействий пользователя :math:`u`.
+    :math:`N_iu` - number of interactions of user :math:`u` with item :math:`i`.
+    :math:`N_u` - total number of interactions of user :math:`u`.
 
     >>> import pandas as pd
     >>> data_frame = pd.DataFrame({"user_id": [1, 1, 3], "item_id": [1, 2, 3], "relevance": [2, 1, 1]})
@@ -87,12 +86,9 @@ class UserPopRec(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        # удаляем ненужные items
         if filter_seen_items:
             self.logger.warning(
-                "Для рекомендателя UserPopRec параметр "
-                "filter_seen_items должен иметь значение False"
-                " иначе результат будет пустым."
+                "recommendations will be empty because UserPopRec can't predict new items"
             )
 
         item_popularity_by_user = items.join(

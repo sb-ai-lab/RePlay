@@ -13,30 +13,28 @@ from replay.metrics.base_metric import RecOnlyMetric, sorter
 # pylint: disable=too-few-public-methods
 class Surprisal(RecOnlyMetric):
     """
-    Показывает насколько редкие предметы выдаются в рекомендациях.
-    В качестве оценки редкости используется собственная информация объекта,
-    превращающая популярность объекта в его неожиданность.
+    Measures how many surprising rare items are present in recommendations.
 
     .. math::
         \\textit{Self-Information}(j)= -\log_2 \\frac {u_j}{N}
 
-    :math:`u_j` -- количество пользователей, которые взаимодействовали с объектом :math:`j`.
-    Для холодных объектов количество взаимодействий считается равным 1,
-    то есть их появление в рекомендациях будет считаться крайне неожиданным.
+    :math:`u_j` -- number of users that interacted with item :math:`j`.
+    Cold items are treated as if they were rated by 1 user.
+    That is, if they appear in recommendations it will be completely unexpected.
 
-    Чтобы метрику было проще интерпретировать, это значение нормируется.
+    Metric is normalized.
 
-    Таким образом редкость объекта :math:`j` определяется как
+    Surprisal for item :math:`j` is
 
     .. math::
         Surprisal(j)= \\frac {\\textit{Self-Information}(j)}{log_2 N}
 
-    Для списка рекомендаций длины :math:`K` значение метрики определяется как среднее значение редкости.
+    Recommendation list surprisal is the average surprisal of items in it.
 
     .. math::
         Surprisal@K(i) = \\frac {\sum_{j=1}^{K}Surprisal(j)} {K}
 
-    Итоговое значение усредняется по пользователям
+    Final metric is averaged by users.
 
     .. math::
         Surprisal@K = \\frac {\sum_{i=1}^{N}Surprisal@K(i)}{N}
@@ -46,9 +44,9 @@ class Surprisal(RecOnlyMetric):
         self, log: AnyDataFrame
     ):  # pylint: disable=super-init-not-called
         """
-        Чтобы посчитать метрику, необходимо предрассчитать собственную информацию каждого объекта.
+        Here we calculate self-information for each item
 
-        :param log: датафрейм с логом действий пользователей
+        :param log: historical data
         """
         self.log = convert2spark(log)
         n_users = self.log.select("user_id").distinct().count()  # type: ignore
@@ -69,7 +67,8 @@ class Surprisal(RecOnlyMetric):
     ) -> DataFrame:
         recommendations = convert2spark(recommendations)
         sort_udf = sf.udf(
-            partial(sorter, index=2), returnType=st.ArrayType(st.DoubleType()),
+            partial(sorter, index=2),
+            returnType=st.ArrayType(st.DoubleType()),
         )
         return (
             recommendations.join(self.item_weights, on="item_id", how="left")

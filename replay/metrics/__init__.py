@@ -1,30 +1,31 @@
 """
-Для расчета большинства метрик требуется таблица с рекомендациями и
-таблица с реальными значениями -- списком объектов,
-с которыми взаимодействовал пользователь.
+Most metrics require dataframe with recommendations
+and dataframe with ground truth values —
+which objects each user interacted with.
 
 - recommendations (Union[pandas.DataFrame, spark.DataFrame]):
-    выдача рекомендательной системы, спарк-датафрейм вида ``[user_id, item_id, relevance]``
+    predictions of a recommender system,
+    DataFrame with columns ``[user_id, item_id, relevance]``
 - ground_truth (Union[pandas.DataFrame, spark.DataFrame]):
-    реальный лог действий пользователей, спарк-датафрейм вида ``[user_id, item_id, timestamp, relevance]``
+    test data, DataFrame with columns
+    ``[user_id, item_id, timestamp, relevance]``
 
-Все метрики рассчитываются для первых ``K`` объектов в рекомендации.
-Поддерживается возможность расчета метрик сразу по нескольким ``K``,
-в таком случае будет возвращен словарь с результатами, а не число.
+Every metric is calculated using top ``K`` items for each user.
+It is also possible to calculate metrics
+using multiple values for ``K`` simultaneously.
+In this case the result will be a dictionary and not a number.
 
 - k (Union[Iterable[int], int]):
-    список индексов, показывающий сколько объектов брать из топа рекомендованных
+    a single number or a list, specifying the
+    truncation length for recommendation list for each user
 
-По умолчанию возвращается среднее значение по пользователям,
-но можно воспользоваться методом ``metric.median``.
+By default metrics are averaged by users,
+but you can alternatively use method ``metric.median``.
+Also you can get the lower bound
+of ``conf_interval`` for a given ``alpha``.
 
-Кроме того, можно получить нижнюю границу доверительного интервала для заданного ``alpha``
-с помощью метода ``conf_interval``.
-
-Метрики разнообразия оценивают рекомендации, не сравнивая их с ``ground_truth``.
-Такие метрики инициализируются дополнительными параметрами, а при вызове передается только список рекомендаций
-и значение k.
-
+Diversity metrics require extra parameters on initialization stage,
+but do not use ``ground_truth`` parameter.
 """
 from replay.metrics.base_metric import Metric
 from replay.metrics.coverage import Coverage

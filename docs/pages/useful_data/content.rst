@@ -1,6 +1,6 @@
-Полезная информация
+Useful info
 ====================
 .. toctree::
    :maxdepth: 2
 
-   Выбор алгоритма рекомендательной системы <algorithm_selection.md>
+   How to choose a recommendation model <algorithm_selection.md>

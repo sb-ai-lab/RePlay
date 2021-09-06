@@ -1,11 +1,11 @@
 .. _splitters:
 
-Сплиттеры
+Splitters
 ==========
 
 .. automodule:: replay.splitters
 
-Все модули возвращают сплиты по методу ``split``.
+Splits are returned with ``split`` method.
 
 .. autofunction:: replay.splitters.base_splitter.Splitter.split
 
@@ -18,8 +18,6 @@ UserSplitter
 
 k_folds
 ---------
-
-Для разделения внутри пользователя также доступно разделение по фолдам.
 
 .. autofunction:: replay.splitters.user_log_splitter.k_folds
 
