@@ -82,8 +82,6 @@ virtualenv = "20.0.9"
 # stubs
 data-science-types = "0.2.16"
 pyspark-stubs = "3.0.0"
-# poetry fix
-SQLAlchemy = ">=1.4,<1.4.23"
 
 [tool.black]
 line-length = 79
