@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "replay"
-version = "0.4.0"
+name = "replay-rec"
+version = "0.5.1"
 description = "RecSys Library"
 authors = ["Boris Shminke <Shminke.B.A@sberbank.ru>",
            "Alexey Vasilev <AVaVasilyev@sberbank.ru>",
@@ -20,6 +20,9 @@ classifiers = [
     "Natural Language :: English",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Typing :: Typed"
+]
+packages = [
+    { include = "replay" }
 ]
 
 [tool.poetry.dependencies]

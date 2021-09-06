@@ -14,20 +14,17 @@ You can
 - Create a two-level model
 
 
+## Docs
+
+[Documentation](https://sberbank-ai-lab.github.io/RePlay/)
+
 
 ### Installation
 
 Use Linux machine with Python 3.6+ and Java 8+. 
 
 ```bash
-pip install replay
+pip install replay-rec
 ```
 
 It is preferable to use a virtual environment for your installation.
-
-
-To test  your installation you can run tests from `replay folder`:
-
-```bash
-pytest ./tests
-```
