@@ -201,8 +201,8 @@ class AssociationRulesItemRec(Recommender):
         candidates: Optional[DataFrame] = None,
     ) -> Optional[DataFrame]:
         """
-        For each item return top-k items with the highest values
-        of chosen metric (`lift` of `confidence_gain`) from ``candidates``
+        Return metric for all available associated items filtered by `candidates`.
+
         :param items: items to find associated
         :param metric: `lift` of 'confidence_gain'
         :param candidates: items to consider as candidates

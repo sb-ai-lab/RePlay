@@ -704,7 +704,7 @@ class BaseRecommender(ABC):
         candidates: Optional[Union[DataFrame, Iterable]] = None,
     ) -> Optional[DataFrame]:
         """
-        Convert indexes for ``get_nearest_items`` method
+        Convert indexes and leave top-k nearest items for each item in `items`.
         """
         items = self._get_ids(items, "item_id")
         if candidates is not None:
@@ -751,7 +751,7 @@ class BaseRecommender(ABC):
         candidates: Optional[DataFrame] = None,
     ) -> Optional[DataFrame]:
         """
-        Get ``k`` most similar items be the ``metric`` for each of the ``items``.
+        Return metric for all available close items filtered by `candidates`.
 
         :param items: ids to find neighbours, spark dataframe with column ``item_idx``
         :param metric: 'squared_distance' or 'cosine_similarity'
