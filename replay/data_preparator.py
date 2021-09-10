@@ -152,7 +152,7 @@ class DataPreparator:
         dataframe_columns = set(dataframe.columns)
         if not columns_to_check.issubset(dataframe_columns):
             raise ValueError(
-                "columns_names has columns that are not present in DataFrame "
+                "feature_columns or columns_names has columns that are not present in DataFrame "
                 f"{columns_to_check.difference(dataframe_columns)}"
             )
 

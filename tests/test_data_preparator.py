@@ -105,7 +105,7 @@ def test_transform_log_empty_dataframe_exception(data_preparator, spark):
 def test_absent_columns(data_preparator, long_log_with_features, col_kwargs):
     data_preparator._read_data = Mock(return_value=long_log_with_features)
     with pytest.raises(
-        ValueError
+        ValueError, match="feature_columns or columns_names has columns.*"
     ):
         data_preparator.transform(
             path="/test_path", format_type="table", **col_kwargs
@@ -133,8 +133,7 @@ def test_transform_log_null_column_exception(
 # checks in transform
 def test_read_data_empty_pass(data_preparator):
     with pytest.raises(
-        ValueError,
-        match=r"Either data or path parameters must not be None.*",
+        ValueError, match=r"Either data or path parameters must not be None.*",
     ):
         data_preparator.transform(
             columns_names={"user_id": ""}, path=None, data=None
@@ -153,7 +152,10 @@ def test_transform_log_no_cols(spark, data_preparator, columns_names):
     data_preparator._read_data = Mock(return_value=log)
     columns_names_local = deepcopy(columns_names)
     columns_names_local.update({"user_id": "user_id"})
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="Feature DataFrame mappings must contain mapping only for one id.*",
+    ):
         data_preparator.transform(
             path="/test_path",
             format_type="table",
@@ -180,7 +182,7 @@ def test_transform_no_feature_columns(data_preparator, long_log_with_features):
     data_preparator._read_data = Mock(
         return_value=long_log_with_features.select("item_id")
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Feature columns missing"):
         data_preparator.transform(
             path="/test_path",
             format_type="json",
@@ -191,7 +193,7 @@ def test_transform_no_feature_columns(data_preparator, long_log_with_features):
 # checks in base_columns
 def test_features_columns(data_preparator, long_log_with_features):
     data_preparator._read_data = Mock(return_value=long_log_with_features)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="features are not used"):
         data_preparator.transform(
             path="/test_path",
             format_type="json",
@@ -307,16 +309,7 @@ timestamp_data = [
         ],
         ["user", "item", "string_time"],
         [
-            [
-                "user1",
-                "item1",
-                datetime(
-                    2019,
-                    1,
-                    1,
-                ),
-                1.0,
-            ],
+            ["user1", "item1", datetime(2019, 1, 1,), 1.0,],
             ["user1", "item2", datetime(1995, 11, 1), 1.0],
             ["user2", "item1", datetime(2000, 3, 30, 13), 1.0],
         ],
@@ -441,8 +434,7 @@ def test_cat_features_transformer(item_features):
 
 
 def test_cat_features_transformer_date(
-    long_log_with_features,
-    short_log_with_features,
+    long_log_with_features, short_log_with_features,
 ):
     transformed = get_transformed_features(
         transformer=CatFeaturesTransformer(["timestamp"]),
@@ -456,8 +448,7 @@ def test_cat_features_transformer_date(
 
 
 def test_cat_features_transformer_empty_list(
-    long_log_with_features,
-    short_log_with_features,
+    long_log_with_features, short_log_with_features,
 ):
     transformed = get_transformed_features(
         transformer=CatFeaturesTransformer([]),

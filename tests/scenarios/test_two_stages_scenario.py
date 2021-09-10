@@ -64,13 +64,13 @@ def test_init(two_stages_kwargs):
 
     two_stages_kwargs["use_first_level_models_feat"] = [True]
     with pytest.raises(
-        ValueError
+        ValueError, match="For each model from first_level_models specify.*"
     ):
         two_stages = TwoStagesScenario(**two_stages_kwargs)
 
     two_stages_kwargs["use_first_level_models_feat"] = True
     two_stages_kwargs["negatives_type"] = "abs"
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Invalid negatives_type value.*"):
         two_stages = TwoStagesScenario(**two_stages_kwargs)
 
 
@@ -112,10 +112,7 @@ def test_fit(
 
 
 def test_predict(
-    long_log_with_features,
-    user_features,
-    item_features,
-    two_stages_kwargs,
+    long_log_with_features, user_features, item_features, two_stages_kwargs,
 ):
     two_stages = TwoStagesScenario(**two_stages_kwargs)
 
@@ -146,7 +143,7 @@ def test_optimize(
     two_stages_kwargs,
 ):
     two_stages = TwoStagesScenario(**two_stages_kwargs)
-    param_grid = [{"rank": [1, 10]}, {}, None, None]
+    param_grid = [{"rank": [1, 10]}, {}, {"no_components": [1, 10]}, None]
     # with fallback
     first_level_params, fallback_params = two_stages.optimize(
         train=long_log_with_features,

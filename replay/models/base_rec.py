@@ -424,8 +424,7 @@ class BaseRecommender(ABC):
 
     @staticmethod
     def _get_ids(
-        log: Union[Iterable, AnyDataFrame],
-        column: str,
+        log: Union[Iterable, AnyDataFrame], column: str,
     ) -> DataFrame:
         """
         Get unique values from ``array`` and put them into dataframe with column ``column``.
@@ -666,7 +665,7 @@ class BaseRecommender(ABC):
         items: Union[DataFrame, Iterable],
         k: int,
         metric: Optional[str] = "squared_distance",
-        items_to_consider: Optional[Union[DataFrame, Iterable]] = None,
+        candidates: Optional[Union[DataFrame, Iterable]] = None,
     ) -> Optional[DataFrame]:
         """
         Get k most similar items be the `metric` for each of the `items`.
@@ -674,7 +673,7 @@ class BaseRecommender(ABC):
         :param items: spark dataframe or list of item ids to find neighbors
         :param k: number of neighbors
         :param metric: 'squared_distance' or 'cosine_similarity'
-        :param items_to_consider: spark dataframe or list of items
+        :param candidates: spark dataframe or list of items
             to consider as similar, e.g. popular/new items. If None,
             all items presented during model training are used.
         :return: dataframe with the most similar items an distance,
@@ -690,10 +689,7 @@ class BaseRecommender(ABC):
 
         if self.can_predict_item_to_item:
             return self._get_nearest_items_wrap(
-                items=items,
-                k=k,
-                metric=metric,
-                items_to_consider=items_to_consider,
+                items=items, k=k, metric=metric, candidates=candidates,
             )
 
         raise ValueError(
@@ -705,32 +701,31 @@ class BaseRecommender(ABC):
         items: Union[DataFrame, Iterable],
         k: int,
         metric: Optional[str] = "squared_distance",
-        items_to_consider: Optional[Union[DataFrame, Iterable]] = None,
+        candidates: Optional[Union[DataFrame, Iterable]] = None,
     ) -> Optional[DataFrame]:
         """
-        Convert indexes for ``get_nearest_items`` method
+        Convert indexes and leave top-k nearest items for each item in `items`.
         """
         items = self._get_ids(items, "item_id")
-        if items_to_consider is not None:
-            items_to_consider = self._get_ids(items_to_consider, "item_id")
+        if candidates is not None:
+            candidates = self._get_ids(candidates, "item_id")
 
         items_type = items.schema["item_id"].dataType
 
-        items, items_to_consider = [
-            self._convert_index(df) for df in [items, items_to_consider]
+        items, candidates = [
+            self._convert_index(df) for df in [items, candidates]
         ]
 
         nearest_items_to_filter = self._get_nearest_items(
-            items=items,
-            metric=metric,
-            items_to_consider=items_to_consider,
+            items=items, metric=metric, candidates=candidates,
         )
 
+        rel_col_name = metric if metric is not None else "similarity"
         nearest_items = get_top_k(
             dataframe=nearest_items_to_filter,
             partition_by_col=sf.col("item_id_one"),
             order_by_col=[
-                sf.col("similarity").desc(),
+                sf.col(rel_col_name).desc(),
                 sf.col("item_id_two").desc(),
             ],
             k=k,
@@ -747,22 +742,20 @@ class BaseRecommender(ABC):
             None,
             items_type,
         )
-        return nearest_items.select(
-            "item_id", "neighbour_item_id", "similarity"
-        )
+        return nearest_items
 
     def _get_nearest_items(
         self,
         items: DataFrame,
         metric: Optional[str] = None,
-        items_to_consider: Optional[DataFrame] = None,
+        candidates: Optional[DataFrame] = None,
     ) -> Optional[DataFrame]:
         """
-        Get ``k`` most similar items be the ``metric`` for each of the ``items``.
+        Return metric for all available close items filtered by `candidates`.
 
         :param items: ids to find neighbours, spark dataframe with column ``item_idx``
         :param metric: 'squared_distance' or 'cosine_similarity'
-        :param items_to_consider: items among which we are looking for similar,
+        :param candidates: items among which we are looking for similar,
             e.g. popular/new items. If None, all items presented during model training are used.
         :return: dataframe with neighbours,
             spark-dataframe with columns ``[item_id_one, item_id_two, similarity]``
@@ -875,6 +868,7 @@ class HybridRecommender(BaseRecommender, ABC):
         :param item_features: item features
             ``[item_id , timestamp]`` + feature columns
         :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param force_reindex: replace existing user and item indexers
         :return: recommendation dataframe
             ``[user_id, item_id, relevance]``
         """
@@ -930,7 +924,7 @@ class HybridRecommender(BaseRecommender, ABC):
 
 # pylint: disable=abstract-method
 class Recommender(BaseRecommender, ABC):
-    """Usual recommened class for models without features."""
+    """Usual recommender class for models without features."""
 
     def fit(self, log: AnyDataFrame, force_reindex: bool = True) -> None:
         """
@@ -1024,6 +1018,7 @@ class Recommender(BaseRecommender, ABC):
             if ``None``, take all items from ``log``.
             If it contains new items, ``relevance`` for them will be ``0``.
         :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param force_reindex: replace existing user and item indexers
         :return: recommendation dataframe
             ``[user_id, item_id, relevance]``
         """
@@ -1066,8 +1061,6 @@ class UserRecommender(BaseRecommender, ABC):
             ``[user_id, item_id, timestamp, relevance]``
         :param user_features: user features
             ``[user_id, timestamp]`` + feature columns
-        :param item_features: item features
-            ``[item_id, timestamp]`` + feature columns
         :param force_reindex: create indexers again, even if they were created previously
         :return:
         """
@@ -1177,11 +1170,7 @@ class NeighbourRec(Recommender, ABC):
                 how="inner",
                 on=sf.col("item_idx") == sf.col("item_id_one"),
             )
-            .join(
-                filter_df,
-                how="inner",
-                on=condition,
-            )
+            .join(filter_df, how="inner", on=condition,)
             .groupby("user_idx", "item_id_two")
             .agg(sf.sum("similarity").alias("relevance"))
             .withColumnRenamed("item_id_two", "item_idx")
@@ -1230,7 +1219,7 @@ class NeighbourRec(Recommender, ABC):
         items: Union[DataFrame, Iterable],
         k: int,
         metric: Optional[str] = None,
-        items_to_consider: Optional[Union[DataFrame, Iterable]] = None,
+        candidates: Optional[Union[DataFrame, Iterable]] = None,
     ) -> Optional[DataFrame]:
         """
         Get k most similar items be the `metric` for each of the `items`.
@@ -1239,7 +1228,7 @@ class NeighbourRec(Recommender, ABC):
         :param k: number of neighbors
         :param metric: metric is not used to find neighbours in NeighbourRec,
             the parameter is ignored
-        :param items_to_consider: spark dataframe or list of items
+        :param candidates: spark dataframe or list of items
             to consider as similar, e.g. popular/new items. If None,
             all items presented during model training are used.
         :return: dataframe with the most similar items an distance,
@@ -1253,17 +1242,14 @@ class NeighbourRec(Recommender, ABC):
             )
 
         return self._get_nearest_items_wrap(
-            items=items,
-            k=k,
-            metric=None,
-            items_to_consider=items_to_consider,
+            items=items, k=k, metric=None, candidates=candidates,
         )
 
     def _get_nearest_items(
         self,
         items: DataFrame,
         metric: Optional[str] = None,
-        items_to_consider: Optional[DataFrame] = None,
+        candidates: Optional[DataFrame] = None,
     ) -> DataFrame:
 
         similarity_filtered = self.similarity.join(
@@ -1271,10 +1257,12 @@ class NeighbourRec(Recommender, ABC):
             on="item_id_one",
         )
 
-        if items_to_consider is not None:
+        if candidates is not None:
             similarity_filtered = similarity_filtered.join(
-                items_to_consider.withColumnRenamed("item_idx", "item_id_two"),
+                candidates.withColumnRenamed("item_idx", "item_id_two"),
                 on="item_id_two",
             )
 
-        return similarity_filtered
+        return similarity_filtered.select(
+            "item_id_one", "item_id_two", "similarity"
+        )

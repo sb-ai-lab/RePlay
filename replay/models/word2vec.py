@@ -93,9 +93,7 @@ class Word2VecRec(Recommender):
             self.vectors.unpersist()
 
     def _get_user_vectors(
-        self,
-        users: DataFrame,
-        log: DataFrame,
+        self, users: DataFrame, log: DataFrame,
     ) -> DataFrame:
         """
         :param users: user ids, dataframe ``[user_idx]``
@@ -122,13 +120,13 @@ class Word2VecRec(Recommender):
         )
 
     def _predict_pairs_inner(
-        self,
-        pairs: DataFrame,
-        log: DataFrame,
+        self, pairs: DataFrame, log: DataFrame,
     ) -> DataFrame:
         if log is None:
             raise ValueError(
-                "{} predict requires log.".format(self.__str__())
+                "log is not provided, {} predict requires log.".format(
+                    self.__str__()
+                )
             )
 
         user_vectors = self._get_user_vectors(

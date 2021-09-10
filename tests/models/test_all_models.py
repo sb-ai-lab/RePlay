@@ -104,26 +104,17 @@ def test_predict_pairs_warm_only(log, log_to_pred, model):
 @pytest.mark.parametrize(
     "model",
     [ADMMSLIM(seed=SEED), KNN(), SLIM(seed=SEED), Word2VecRec(seed=SEED)],
-    ids=[
-        "admm_slim",
-        "knn",
-        "slim",
-        "word2vec",
-    ],
+    ids=["admm_slim", "knn", "slim", "word2vec",],
 )
 def test_predict_pairs_raises(log, model):
-    with pytest.raises(
-        ValueError
-    ):
+    with pytest.raises(ValueError, match="log is not provided,.*"):
         model.fit(log)
         model.predict_pairs(log.select("user_id", "item_id"))
 
 
 def test_predict_pairs_raises_pairs_format(log):
     model = ALSWrap(seed=SEED)
-    with pytest.raises(
-        ValueError
-    ):
+    with pytest.raises(ValueError, match="pairs must be a dataframe with .*"):
         model.fit(log)
         model.predict_pairs(log, log)
 
@@ -158,7 +149,7 @@ def test_get_nearest_items(log, model):
         items=["item1", "item2"],
         k=4,
         metric="squared_distance",
-        items_to_consider=["item1", "item4"],
+        candidates=["item1", "item4"],
     )
     assert res.count() == 1
     assert (

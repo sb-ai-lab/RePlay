@@ -151,7 +151,8 @@ class TwoStagesScenario(HybridRecommender):
         use ``num_negatives`` to specify number of negatives per user
     4) augments dataset with features:
 
-       - get 1 level recommendations for positive examples from second_level_train and for generated negative examples
+       - get 1 level recommendations for positive examples
+         from second_level_train and for generated negative examples
        - add user and item features
        - generate statistical and pair features
 
@@ -195,11 +196,13 @@ class TwoStagesScenario(HybridRecommender):
             Default is random 50% split.
         :param first_level_models: model or a list of models
         :param fallback_model: model used to fill missing recommendations at first level models
-        :param use_first_level_models_feat: flag or a list of flags to use features created by first level models
+        :param use_first_level_models_feat: flag or a list of flags to use
+            features created by first level models
         :param second_model_params: TabularAutoML parameters
         :param second_model_config_path: path to config file for TabularAutoML
         :param num_negatives: number of negative examples used during train
-        :param negatives_type: negative examples creation strategy,``random`` or most relevant examples from ``first-level``
+        :param negatives_type: negative examples creation strategy,``random``
+            or most relevant examples from ``first-level``
         :param use_generated_features: flag to use generated features to train second level
         :param user_cat_features_list: list of user categorical features
         :param item_cat_features_list: list of item categorical features
@@ -270,7 +273,7 @@ class TwoStagesScenario(HybridRecommender):
         self.num_negatives = num_negatives
         if negatives_type not in ["random", "first_level"]:
             raise ValueError(
-                "Invalud negatives_type value: {}. Use 'random' or 'first_level'"
+                "Invalid negatives_type value: {}. Use 'random' or 'first_level'"
             )
         self.negatives_type = negatives_type
 
@@ -361,10 +364,7 @@ class TwoStagesScenario(HybridRecommender):
             how="left",
         )
         full_second_level_train = join_or_return(
-            full_second_level_train,
-            item_features,
-            on="item_idx",
-            how="left",
+            full_second_level_train, item_features, on="item_idx", how="left",
         )
 
         if self.use_generated_features:

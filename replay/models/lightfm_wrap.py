@@ -128,9 +128,7 @@ class LightFMWrap(HybridRecommender):
         if getattr(self, scaler_name) is None:
             if not features_np.size:
                 raise ValueError(
-                    "В {0}_features отсутствуют признаки для {0}s из лога".format(
-                        entity
-                    )
+                    "features for {0}s from log are absent".format(entity)
                 )
             setattr(self, scaler_name, MinMaxScaler().fit(features_np))
 
@@ -281,10 +279,7 @@ class LightFMWrap(HybridRecommender):
             matrix_width = getattr(self, "num_of_warm_{}s".format(entity))
             warm_ids = ids_list[ids_list < matrix_width]
             sparse_features = csr_matrix(
-                (
-                    [1] * warm_ids.shape[0],
-                    (warm_ids, warm_ids),
-                ),
+                ([1] * warm_ids.shape[0], (warm_ids, warm_ids),),
                 shape=(ids_list.max() + 1, matrix_width),
             )
         else:
