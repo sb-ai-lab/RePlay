@@ -1,11 +1,12 @@
 [tool.poetry]
 name = "replay-rec"
-version = "0.5.1"
+version = "0.6.1"
 description = "RecSys Library"
-authors = ["Boris Shminke <Shminke.B.A@sberbank.ru>",
+authors = ["AI Lab, Sber"
            "Alexey Vasilev <AVaVasilyev@sberbank.ru>",
            "Yan-Martin Tamm <YYTamm@sberbank.ru>",
-           "Anna Volodkevich",
+           "Anna Volodkevich <AAVolodkevich@sberbank.ru>",
+           "Boris Shminke",
            "Alexander Sidorenko",
            "Roza Aysina"]
 readme = "README.md"
@@ -34,63 +35,48 @@ numpy = "*"
 optuna = "*"
 pandas = "*"
 psutil = "*"
-pyspark = "*"
+pyspark = "^3.0.0"
 scipy = "*"
 scikit-learn = "*"
 statsmodels = "*"
 torch = "*"
 numba = "*"
-llvmlite = "*"
+llvmlite = "0.33"
 seaborn = "*"
 nevergrad = "*"
 ghp-import = "^2.0.1"
 
 [tool.poetry.dev-dependencies]
-# fixing versions of package dependencies (non-dev)
-lightfm = "1.15"
-pandas = "1.0.5"
-pyspark = "3.0.0"
-pyarrow = "0.17.1"
-torch = "1.5.1"
-pytorch-ignite = "0.3.0"
-statsmodels = "0.11.1"
-implicit = "0.4.4"
-psutil = "5.7.0"
-numba = "0.50.1"
-llvmlite = "0.33"
-scikit-learn = "0.23.1"
 # dev only
 # visualization
-jupyter = "1.0.0"
-jupyterlab = "2.1.5"
-matplotlib = "3.2.2"
+jupyter = "*"
+jupyterlab = "*"
+matplotlib = "*"
 # testing
-pytest = "5.4.3"
-pytest-cov = "2.9.0"
-parameterized = "0.7.4"
+pytest = "*"
+pytest-cov = "*"
+parameterized = "*"
 # style
-flake8 = "3.8.3"
-black = "19.10b0"
-pre-commit = "2.6.0"
-#mypy = "0.782"
-pylint = "2.5.3"
+flake8 = "*"
+black = "*"
+pre-commit = "*"
+pylint = "*"
 # docs
-Sphinx = "3.1.2"
-sphinx-rtd-theme = "0.5.0"
-sphinx-autodoc-typehints = "1.11.0"
+Sphinx = "*"
+sphinx-rtd-theme = "*"
+sphinx-autodoc-typehints = "*"
 recommonmark = "*"
 sphinx-markdown-tables = "*"
 ghp-import = "*"
 # emacs dependencies
-rope = "0.17.0"
-virtualenv = "20.0.9"
+rope = "*"
+virtualenv = "*"
 # stubs
-data-science-types = "0.2.16"
-pyspark-stubs = "3.0.0"
+data-science-types = "*"
+pyspark-stubs = "*"
 
 [tool.black]
 line-length = 79
 
 [build-system]
-requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
