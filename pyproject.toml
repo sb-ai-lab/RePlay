@@ -44,10 +44,12 @@ scikit-learn = "*"
 statsmodels = "*"
 torch = "*"
 numba = "*"
-llvmlite = "0.32.1"
+llvmlite = "0.33"
 seaborn = "*"
 nevergrad = "*"
 ghp-import = "^2.0.1"
+pyarrow = "*"
+implicit = "*"
 
 [tool.poetry.dev-dependencies]
 # dev only
@@ -56,9 +58,9 @@ jupyter = "*"
 jupyterlab = "*"
 matplotlib = "*"
 # testing
-pytest = "*"
-pytest-cov = "*"
-parameterized = "*"
+pytest = "5.4.3"
+pytest-cov = "2.9.0"
+parameterized = "0.7.4"
 # style
 flake8 = "*"
 black = "*"
