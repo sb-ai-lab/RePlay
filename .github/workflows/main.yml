@@ -23,6 +23,7 @@ jobs:
           python -m venv venv
           . ./venv/bin/activate
           pip install --upgrade pip wheel
+          pip install --upgrade poetry
           poetry update
           poetry install
       - name: Build docs
