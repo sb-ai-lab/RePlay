@@ -23,7 +23,7 @@ jobs:
           python -m venv venv
           . ./venv/bin/activate
           pip install --upgrade pip wheel
-          pip install --upgrade requests pypandoc cython optuna poetry
+          poetry update
           poetry install
       - name: Build docs
         run: |
