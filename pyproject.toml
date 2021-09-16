@@ -27,7 +27,6 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7.1"
 pytorch-ignite = "*"
 lightfm = "*"
 lightautoml = "*"
