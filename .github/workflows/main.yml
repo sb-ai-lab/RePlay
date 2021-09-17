@@ -24,12 +24,12 @@ jobs:
           . ./venv/bin/activate
           pip install --upgrade pip wheel
           pip install --upgrade requests pypandoc cython optuna poetry
+          poetry lock
           poetry install
       - name: Build docs
         run: |
           . ./venv/bin/activate
           cd docs
-          mkdir -p _static
           make clean html
       - name: pycodestyle
         run: |

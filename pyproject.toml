@@ -43,6 +43,7 @@ numba = "*"
 llvmlite = "*"
 seaborn = "*"
 nevergrad = "*"
+ghp-import = "^2.0.1"
 
 [tool.poetry.dev-dependencies]
 # fixing versions of package dependencies (non-dev)
@@ -79,6 +80,7 @@ sphinx-rtd-theme = "0.5.0"
 sphinx-autodoc-typehints = "1.11.0"
 recommonmark = "*"
 sphinx-markdown-tables = "*"
+ghp-import = "*"
 # emacs dependencies
 rope = "0.17.0"
 virtualenv = "20.0.9"
