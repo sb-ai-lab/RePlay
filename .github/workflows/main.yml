@@ -30,7 +30,6 @@ jobs:
         run: |
           . ./venv/bin/activate
           cd docs
-          mkdir -p _static
           make clean html
       - name: pycodestyle
         run: |

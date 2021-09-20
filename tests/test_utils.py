@@ -14,11 +14,7 @@ from tests.utils import spark, sparkDataFrameEqual
 
 different_timestamp_formats_data = [
     (
-        [
-            [1.0, 1],
-            [300003.0, 300003],
-            [0.0, 0],
-        ],
+        [[1.0, 1], [300003.0, 300003], [0.0, 0],],
         [
             [datetime(1970, 1, 1, 0, 0, 1), datetime(1970, 1, 1, 0, 0, 1)],
             [datetime(1970, 1, 4, 11, 20, 3), datetime(1970, 1, 4, 11, 20, 3)],

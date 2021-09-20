@@ -50,6 +50,7 @@ nevergrad = "*"
 pyarrow = "*"
 implicit = "*"
 
+
 [tool.poetry.dev-dependencies]
 # dev only
 # visualization
@@ -71,6 +72,7 @@ sphinx-rtd-theme = "*"
 sphinx-autodoc-typehints = "*"
 recommonmark = "*"
 sphinx-markdown-tables = "*"
+ghp-import = "*"
 # emacs dependencies
 rope = "*"
 virtualenv = "*"
