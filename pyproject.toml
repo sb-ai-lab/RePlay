@@ -47,7 +47,9 @@ numba = "*"
 llvmlite = "0.32.1"
 seaborn = "*"
 nevergrad = "*"
-ghp-import = "^2.0.1"
+pyarrow = "*"
+implicit = "*"
+
 
 [tool.poetry.dev-dependencies]
 # dev only
