@@ -27,6 +27,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
+python = "^3.6.1"
 pytorch-ignite = "*"
 lightfm = "*"
 lightautoml = "*"
@@ -43,7 +44,7 @@ scikit-learn = "*"
 statsmodels = "*"
 torch = "*"
 numba = "*"
-llvmlite = "*"
+llvmlite = "0.32.1"
 seaborn = "*"
 nevergrad = "*"
 ghp-import = "^2.0.1"
