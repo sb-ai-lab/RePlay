@@ -232,7 +232,7 @@ def filter_by_user_duration(
             log.withColumn("min_date", sf.min(col(date_col)).over(window))
             .filter(
                 col(date_col)
-                < col("min_date") + sf.expr("INTERVAL {} days".format(days))
+                < col("min_date") + sf.expr(f"INTERVAL {days} days")
             )
             .drop("min_date")
         )
@@ -241,7 +241,7 @@ def filter_by_user_duration(
         log.withColumn("max_date", sf.max(col(date_col)).over(window))
         .filter(
             col(date_col)
-            > col("max_date") - sf.expr("INTERVAL {} days".format(days))
+            > col("max_date") - sf.expr(f"INTERVAL {days} days")
         )
         .drop("max_date")
     )
@@ -367,12 +367,12 @@ def filter_by_duration(
     if first:
         start_date = log.agg(sf.min(date_column)).first()[0]
         end_date = sf.lit(start_date).cast(TimestampType()) + sf.expr(
-            "INTERVAL {} days".format(duration_days)
+            f"INTERVAL {duration_days} days"
         )
         return log.filter(col(date_column) < end_date)
 
     end_date = log.agg(sf.max(date_column)).first()[0]
     start_date = sf.lit(end_date).cast(TimestampType()) - sf.expr(
-        "INTERVAL {} days".format(duration_days)
+        f"INTERVAL {duration_days} days"
     )
     return log.filter(col(date_column) > start_date)

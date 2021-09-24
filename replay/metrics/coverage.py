@@ -46,7 +46,7 @@ class Coverage(RecOnlyMetric):
 
     def _conf_interval(
         self,
-        recommendations: AnyDataFrame,
+        recs: AnyDataFrame,
         k: IntOrList,
         alpha: float = 0.95,
     ) -> Union[Dict[int, float], float]:
@@ -56,18 +56,18 @@ class Coverage(RecOnlyMetric):
 
     def _median(
         self,
-        recommendations: AnyDataFrame,
+        recs: AnyDataFrame,
         k: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
-        return self._mean(recommendations, k)
+        return self._mean(recs, k)
 
     def _mean(
         self,
-        recommendations: DataFrame,
+        recs: DataFrame,
         k: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
         unknown_item_count = (
-            recommendations.select("item_id")  # type: ignore
+            recs.select("item_id")  # type: ignore
             .distinct()
             .exceptAll(self.items)
             .count()
@@ -79,7 +79,7 @@ class Coverage(RecOnlyMetric):
             )
 
         best_positions = (
-            recommendations.withColumn(
+            recs.withColumn(
                 "row_num",
                 sf.row_number().over(
                     Window.partitionBy("user_id").orderBy(sf.desc("relevance"))

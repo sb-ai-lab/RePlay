@@ -274,7 +274,9 @@ class MultVAE(TorchRecommender):
         user_batch = torch.FloatTensor(full_batch[batch[0]].toarray()).to(
             self.device
         )
-        pred_user_batch, latent_mu, latent_logvar = self.model(user_batch)
+        pred_user_batch, latent_mu, latent_logvar = self.model.forward(
+            user_batch
+        )
         return (
             pred_user_batch,
             user_batch,

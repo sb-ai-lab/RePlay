@@ -437,7 +437,7 @@ class BaseRecommender(ABC):
                 data=pd.DataFrame(pd.unique(list(log)), columns=[column])
             )
         else:
-            raise ValueError("Wrong type %s" % type(log))
+            raise ValueError(f"Wrong type {type(log)}")
         return unique
 
     # pylint: disable=too-many-arguments
@@ -490,8 +490,9 @@ class BaseRecommender(ABC):
         """
         try:
             return len(self.user_indexer.labels)
-        except AttributeError:
-            raise AttributeError("Must run fit before calling this method")
+        except AttributeError as error:
+            raise AttributeError("Must run fit before calling this method") \
+                from error
 
     @property
     def items_count(self) -> int:
@@ -500,8 +501,9 @@ class BaseRecommender(ABC):
         """
         try:
             return len(self.item_indexer.labels)
-        except AttributeError:
-            raise AttributeError("Must run fit before calling this method")
+        except AttributeError as error:
+            raise AttributeError("Must run fit before calling this method") \
+                from error
 
     def _fit_predict(
         self,
@@ -682,9 +684,8 @@ class BaseRecommender(ABC):
         """
         if metric is None:
             raise ValueError(
-                "Distance metric is required to get nearest items with {} model".format(
-                    self.__str__()
-                )
+                f"Distance metric is required to get nearest items with "
+                f"{self.__str__()} model"
             )
 
         if self.can_predict_item_to_item:
@@ -761,9 +762,7 @@ class BaseRecommender(ABC):
             spark-dataframe with columns ``[item_id_one, item_id_two, similarity]``
         """
         raise NotImplementedError(
-            "item-to-item prediction is not implemented for {}".format(
-                self.__str__()
-            )
+            f"item-to-item prediction is not implemented for {self.__str__()}"
         )
 
 

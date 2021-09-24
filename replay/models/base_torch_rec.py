@@ -196,22 +196,18 @@ class TorchRecommender(Recommender):
         # pylint: disable=unused-variable
         @torch_trainer.on(Events.EPOCH_COMPLETED)
         def log_training_loss(trainer):
-            self.logger.debug(
-                "Epoch[{}] current loss: {:.5f}".format(
-                    trainer.state.epoch, trainer.state.metrics["loss"]
-                )
-            )
+            debug_message = f"""Epoch[{trainer.state.epoch}] current loss:
+{trainer.state.metrics["loss"]:.5f}"""
+            self.logger.debug(debug_message)
 
         # pylint: disable=unused-variable
         @torch_trainer.on(Events.EPOCH_COMPLETED)
         def log_validation_results(trainer):
             torch_evaluator.run(valid_data_loader)
             metrics = torch_evaluator.state.metrics
-            self.logger.debug(
-                "Epoch[{}] validation average loss: {:.5f}".format(
-                    trainer.state.epoch, metrics["loss"]
-                )
-            )
+            debug_message = f"""Epoch[{trainer.state.epoch}] validation
+average loss: {metrics["loss"]:.5f}"""
+            self.logger.debug(debug_message)
 
         def score_function(engine):
             return -engine.state.metrics["loss"]
