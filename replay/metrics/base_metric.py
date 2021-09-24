@@ -175,9 +175,8 @@ class Metric(ABC):
             # pylint: disable=protected-access
             lambda x: cur_class._get_metric_value_by_user_all_k(k_set, *x)
         ).toDF(
-            "user_id {}, cum_agg double, k long".format(
-                recs.schema["user_id"].dataType.typeName()
-            )
+            f"""user_id {recs.schema["user_id"].dataType.typeName()},
+cum_agg double, k long"""
         )
 
         return distribution

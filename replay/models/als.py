@@ -99,12 +99,12 @@ class ALSWrap(Recommender):
         self, ids: DataFrame, features: Optional[DataFrame]
     ) -> Tuple[Optional[DataFrame], Optional[int]]:
         entity = "user" if "user_idx" in ids.columns else "item"
-        als_factors = getattr(self.model, "{}Factors".format(entity))
+        als_factors = getattr(self.model, f"{entity}Factors")
         als_factors = als_factors.withColumnRenamed(
-            "id", "{}_idx".format(entity)
-        ).withColumnRenamed("features", "{}_factors".format(entity))
+            "id", f"{entity}_idx"
+        ).withColumnRenamed("features", f"{entity}_factors")
         return (
-            als_factors.join(ids, how="right", on="{}_idx".format(entity)),
+            als_factors.join(ids, how="right", on=f"{entity}_idx"),
             self.model.rank,
         )
 
@@ -122,7 +122,7 @@ class ALSWrap(Recommender):
             factor = -1
         elif metric != "cosine_similarity":
             raise NotImplementedError(
-                "{} metric is not implemented".format(metric)
+                f"{metric} metric is not implemented"
             )
 
         als_factors = self.model.itemFactors.select(
