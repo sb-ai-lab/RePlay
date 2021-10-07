@@ -312,7 +312,8 @@ class BaseRecommender(ABC):
 
         num_items = items.count()
         if num_items < k:
-            raise ValueError(f"k = {k} > number of items = {num_items}")
+            message = f"k = {k} > number of items = {num_items}"
+            self.logger.debug(message)
 
         recs = self._predict(
             log,
@@ -1133,6 +1134,7 @@ class NeighbourRec(Recommender, ABC):
 
     similarity: Optional[DataFrame]
     can_predict_item_to_item: bool = True
+    can_predict_cold_users: bool = True
 
     def _clear_cache(self):
         if hasattr(self, "similarity"):

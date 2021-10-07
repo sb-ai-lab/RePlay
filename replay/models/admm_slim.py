@@ -74,7 +74,6 @@ class ADMMSLIM(NeighbourRec):
     Recommendations are improved with Alternating Direction Method of Multipliers.
     """
 
-    can_predict_cold_users = True
     rho: float
     threshold: float = 5
     multiplicator: float = 2

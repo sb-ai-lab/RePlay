@@ -27,25 +27,17 @@ class KNN(NeighbourRec):
         self.num_neighbours: int = num_neighbours
 
     def _get_similarity_matrix(
-        self, items: DataFrame, dot_products: DataFrame, item_norms: DataFrame
+        self, dot_products: DataFrame, item_norms: DataFrame
     ) -> DataFrame:
         """
-        Get upper triangular matrix for similarity
+        Get similarity matrix
 
-        :param items: items to calculate similarities among, dataframe `[item_id]`
         :param dot_products: dot products between items, `[item_id_one, item_id_two, dot_product]`
         :param item_norms: euclidean norms for items `[item_id, norm]`
         :return: similarity matrix `[item_id_one, item_id_two, similarity]`
         """
         return (
-            items.withColumnRenamed("item_idx", "item_id_one")
-            .join(
-                items.withColumnRenamed("item_idx", "item_id_two"),
-                how="inner",
-                on=sf.col("item_id_one") > sf.col("item_id_two"),
-            )
-            .join(dot_products, how="inner", on=["item_id_one", "item_id_two"])
-            .join(
+            dot_products.join(
                 item_norms.withColumnRenamed(
                     "item_idx", "item_id1"
                 ).withColumnRenamed("norm", "norm1"),
@@ -69,22 +61,13 @@ class KNN(NeighbourRec):
 
     def _get_k_most_similar(self, similarity_matrix: DataFrame) -> DataFrame:
         """
-        Transforms similarity:
-        1) makes it symmetrical
-        2) leaves only top-k neighbours
+        Leaves only top-k neighbours for each item
 
         :param similarity_matrix: dataframe `[item_id_one, item_id_two, similarity]`
-        :return: transformed similarity
+        :return: cropped similarity matrix
         """
         return (
-            similarity_matrix.union(
-                similarity_matrix.select(
-                    sf.col("item_id_two").alias("item_id_one"),
-                    sf.col("item_id_one").alias("item_id_two"),
-                    sf.col("similarity"),
-                )
-            )
-            .withColumn(
+            similarity_matrix.withColumn(
                 "similarity_order",
                 sf.row_number().over(
                     Window.partitionBy("item_id_one").orderBy(
@@ -113,6 +96,7 @@ class KNN(NeighbourRec):
                 how="inner",
                 on="user_idx",
             )
+            .filter(sf.col("item_id_one") != sf.col("item_id_two"))
             .groupby("item_id_one", "item_id_two")
             .agg(sf.count("user_idx").alias("dot_product"))
         )
@@ -122,10 +106,9 @@ class KNN(NeighbourRec):
             .agg(sf.count("user_idx").alias("square_norm"))
             .select(sf.col("item_idx"), sf.sqrt("square_norm").alias("norm"))
         )
-        all_items = log.select("item_idx").distinct()
 
         similarity_matrix = self._get_similarity_matrix(
-            all_items, dot_products, item_norms
+            dot_products, item_norms
         )
 
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()
