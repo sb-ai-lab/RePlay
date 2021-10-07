@@ -15,7 +15,6 @@ class SLIM(NeighbourRec):
     """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
 
-    can_predict_cold_users = True
     _search_space = {
         "beta": {"type": "loguniform", "args": [1e-9, 5]},
         "lambda_": {"type": "loguniform", "args": [1e-9, 2]},
