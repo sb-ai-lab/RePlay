@@ -85,9 +85,9 @@ def test_predict(log, model):
     assert np.allclose(
         pred.toPandas()[["user_id", "item_id"]]
         .sort_values("user_id")
-        .astype(int)
-        .values,
-        [[0, 3], [1, 3], [3, 0]],
+        .values
+        .astype(int),
+        [[0, 3], [1, 2], [3, 2]],
         atol=1.0e-3,
     )
 
@@ -126,7 +126,7 @@ def test_check_simple_mlp_only(log):
 
 def test_save_load(log, model, spark):
     spark_local_dir = spark.conf.get("spark.local.dir")
-    pattern = "best_neuromf_1_loss=-\\d\\.\\d+.pth"
+    pattern = "best_neuromf_1_loss=-\\d\\.\\d+.pt.?"
     del_files_by_pattern(spark_local_dir, pattern)
 
     model.fit(log=log)
@@ -134,6 +134,7 @@ def test_save_load(log, model, spark):
         param.detach().cpu().numpy() for param in model.model.parameters()
     ]
     path = find_file_by_pattern(spark_local_dir, pattern)
+    print(path)
     assert path is not None
 
     new_model = NeuroMF(embedding_mlp_dim=1)
