@@ -145,6 +145,8 @@ def unify_dataframe(data_frame: DataFrame):
 
 
 def sparkDataFrameEqual(df1: DataFrame, df2: DataFrame):
+    print(unify_dataframe(df1))
+    print(unify_dataframe(df2))
     return pd.testing.assert_frame_equal(
         unify_dataframe(df1), unify_dataframe(df2), check_like=True
     )

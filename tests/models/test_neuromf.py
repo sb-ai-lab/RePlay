@@ -134,7 +134,6 @@ def test_save_load(log, model, spark):
         param.detach().cpu().numpy() for param in model.model.parameters()
     ]
     path = find_file_by_pattern(spark_local_dir, pattern)
-    print(path)
     assert path is not None
 
     new_model = NeuroMF(embedding_mlp_dim=1)
