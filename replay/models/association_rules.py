@@ -166,10 +166,8 @@ class AssociationRulesItemRec(Recommender):
         filter_seen_items: bool = True,
     ) -> None:
         raise NotImplementedError(
-            "item-to-user predict is not implemented for {}, "
-            "use get_nearest_items method to get item-to-item recommendations".format(
-                self.__str__()
-            )
+            f"item-to-user predict is not implemented for {self.__str__()}, "
+            f"use get_nearest_items method to get item-to-item recommendations"
         )
 
     def get_pair_metrics(self):

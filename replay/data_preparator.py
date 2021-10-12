@@ -234,12 +234,12 @@ class DataPreparator:
             dataframe = convert2spark(data)
         elif path and format_type:
             if reader_kwargs is None:
-                reader_kwargs = dict()
+                reader_kwargs = {}
             dataframe = self._read_data(path, format_type, **reader_kwargs)
         else:
             raise ValueError("Either data or path parameters must not be None")
 
-        optional_columns = dict()
+        optional_columns = {}
 
         if "user_id" in columns_names and "item_id" in columns_names:
             (
@@ -366,16 +366,11 @@ class CatFeaturesTransformer:
             sf.when(sf.col(col_name) == cur_name, 1)
             .otherwise(0)
             .alias(
-                "{alias}_{col_name}_{value_name}".format(
-                    alias=self.alias,
-                    col_name=col_name,
-                    # faster way to replace punctuation
-                    value_name=str(cur_name).translate(
+                f"""{self.alias}_{col_name}_{str(cur_name).translate(
                         str.maketrans(
                             "", "", string.punctuation + string.whitespace
                         )
-                    )[:30],
-                )
+                    )[:30]}"""
             )
             for col_name, col_values in cat_feat_values_dict.items()
             for cur_name in col_values

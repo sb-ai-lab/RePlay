@@ -285,7 +285,7 @@ def k_folds(
     """
     if splitter not in {"user"}:
         raise ValueError(
-            "Недопустимое значение параметра splitter: %s" % splitter
+            f"Недопустимое значение параметра splitter: {splitter}"
         )
     if splitter == "user":
         dataframe = convert2spark(log).withColumn("rand", sf.rand(seed))

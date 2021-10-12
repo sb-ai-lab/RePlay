@@ -74,14 +74,14 @@ class LightFMWrap(HybridRecommender):
         check_numeric(feature_table)
         log_ids_list = log_ids_list.distinct()
         entity = "item" if "item_idx" in feature_table.columns else "user"
-        idx_col_name = "{}_idx".format(entity)
+        idx_col_name = f"{entity}_idx"
 
         # filter features by log
         feature_table = feature_table.join(
             log_ids_list, on=idx_col_name, how="inner"
         )
 
-        num_entities_in_fit = getattr(self, "num_of_warm_{}s".format(entity))
+        num_entities_in_fit = getattr(self, f"num_of_warm_{entity}s")
         matrix_height = max(
             num_entities_in_fit,
             log_ids_list.select(sf.max(idx_col_name)).collect()[0][0] + 1,
@@ -124,11 +124,11 @@ class LightFMWrap(HybridRecommender):
             shape=(matrix_height, num_entities_in_fit),
         )
 
-        scaler_name = "{}_feat_scaler".format(entity)
+        scaler_name = f"{entity}_feat_scaler"
         if getattr(self, scaler_name) is None:
             if not features_np.size:
                 raise ValueError(
-                    "features for {0}s from log are absent".format(entity)
+                    f"features for {entity}s from log are absent"
                 )
             setattr(self, scaler_name, MinMaxScaler().fit(features_np))
 
@@ -272,11 +272,11 @@ class LightFMWrap(HybridRecommender):
         :return: spark-dataframe с bias и векторами пользователей/объектов, размерность вектора
         """
         entity = "item" if "item_idx" in ids.columns else "user"
-        ids_list = ids.toPandas()["{}_idx".format(entity)]
+        ids_list = ids.toPandas()[f"{entity}_idx"]
 
         # models without features use sparse matrix
         if features is None:
-            matrix_width = getattr(self, "num_of_warm_{}s".format(entity))
+            matrix_width = getattr(self, f"num_of_warm_{entity}s")
             warm_ids = ids_list[ids_list < matrix_width]
             sparse_features = csr_matrix(
                 ([1] * warm_ids.shape[0], (warm_ids, warm_ids),),
@@ -286,7 +286,7 @@ class LightFMWrap(HybridRecommender):
             sparse_features = self._feature_table_to_csr(ids, features)
 
         biases, vectors = getattr(
-            self.model, "get_{}_representations".format(entity)
+            self.model, f"get_{entity}_representations"
         )(sparse_features)
 
         embed_list = list(
@@ -299,9 +299,9 @@ class LightFMWrap(HybridRecommender):
         lightfm_factors = State().session.createDataFrame(
             embed_list,
             schema=[
-                "{}_idx".format(entity),
-                "{}_bias".format(entity),
-                "{}_factors".format(entity),
+                f"{entity}_idx",
+                f"{entity}_bias",
+                f"{entity}_factors",
             ],
         )
         return lightfm_factors, self.model.no_components

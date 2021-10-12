@@ -71,9 +71,7 @@ def suggest_param_value(
 
     if param_name not in default_params_data:
         raise ValueError(
-            "Hyper parameter {} is not defined for this model".format(
-                param_name
-            )
+            f"Hyper parameter {param_name} is not defined for this model"
         )
     param_type = default_params_data[param_name]["type"]
     param_args = (
@@ -86,10 +84,9 @@ def suggest_param_value(
 
     if len(param_args) != 2:
         raise ValueError(
-            """
-        Hyper parameter {} is numerical but no bounds ([lower, upper]) were provided""".format(
-                param_name
-            )
+            f"""
+Hyper parameter {param_name} is numerical but no bounds
+([lower, upper]) were provided"""
         )
     lower, upper = param_args
 
@@ -117,7 +114,7 @@ def scenario_objective_calculator(
     """
     logger = logging.getLogger("replay")
 
-    params_for_trial = dict()
+    params_for_trial = {}
     for param_name, param_data in search_space.items():
         params_for_trial[param_name] = suggest_param_value(
             # pylint: disable=protected-access

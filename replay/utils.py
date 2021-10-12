@@ -119,7 +119,7 @@ def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "id") -> DataFrame:
     """
     return get_top_k(
         dataframe=recs,
-        partition_by_col=sf.col("user_{}".format(id_type)),
+        partition_by_col=sf.col(f"user_{id_type}"),
         order_by_col=[sf.col("relevance").desc()],
         k=k,
     )
@@ -323,7 +323,7 @@ def get_stats(
         for name, func in agg_functions.items()
     ]
     agg_functions_list.append(
-        sf.expr("percentile_approx({}, 0.5)".format(target_column)).alias(
+        sf.expr(f"percentile_approx({target_column}, 0.5)").alias(
             "median_" + target_column
         )
     )
@@ -341,9 +341,8 @@ def check_numeric(feature_table: DataFrame) -> None:
             feature_table.schema[column].dataType, st.NumericType
         ):
             raise ValueError(
-                "Column {} has type {}, that is not numeric.".format(
-                    column, feature_table.schema[column].dataType
-                )
+                f"""Column {column} has type {feature_table.schema[
+            column].dataType}, that is not numeric."""
             )
 
 
@@ -528,11 +527,11 @@ def ugly_join(
 
     on_condition = sf.lit(True)
     for name in on_col_name:
-        right = right.withColumnRenamed(name, "{}_{}".format(name, suffix))
-        on_condition &= sf.col(name) == sf.col("{}_{}".format(name, suffix))
+        right = right.withColumnRenamed(name, f"{name}_{suffix}")
+        on_condition &= sf.col(name) == sf.col(f"{name}_{suffix}")
 
     return (left.join(right, on=on_condition, how=how)).drop(
-        *["{}_{}".format(name, suffix) for name in on_col_name]
+        *[f"{name}_{suffix}" for name in on_col_name]
     )
 
 
