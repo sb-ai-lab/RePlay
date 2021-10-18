@@ -1,12 +1,9 @@
 from typing import Optional
 
-import numpy as np
-import pandas as pd
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 
 from replay.models.base_rec import Recommender
-from replay.constants import IDX_REC_SCHEMA
 
 
 class PopRec(Recommender):
@@ -87,45 +84,39 @@ class PopRec(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        items_pd = (
-            items.join(
-                self.item_popularity.withColumnRenamed("item_idx", "item"),
-                on=sf.col("item_idx") == sf.col("item"),
-                how="inner",
-            )
-            .drop("item")
-            .toPandas()
+        selected_item_popularity = self.item_popularity.join(
+            items,
+            on="item_idx",
+            how="inner",
+        ).withColumn(
+            "rank",
+            sf.row_number().over(Window.orderBy(sf.col("relevance").desc())),
         )
 
-        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
-            user_idx = pandas_df["user_idx"][0]
-            cnt = pandas_df["cnt"][0]
+        if not filter_seen_items:
+            return users.crossJoin(
+                selected_item_popularity.filter(sf.col("rank") <= k)
+            ).drop("rank")
 
-            items_idx = np.argsort(items_pd["relevance"].values)[-cnt:]
-
-            return pd.DataFrame(
-                {
-                    "user_idx": cnt * [user_idx],
-                    "item_idx": items_pd["item_idx"].values[items_idx],
-                    "relevance": items_pd["relevance"].values[items_idx],
-                }
-            )
-
-        model_len = len(items_pd)
-        recs = (
-            users.join(log, how="left", on="user_idx")
-            .select("user_idx", "item_idx")
-            .groupby("user_idx")
-            .agg(sf.countDistinct("item_idx").alias("cnt"))
+        log_by_user = (
+            log.join(users, on="user_idx")
+            .groupBy("user_idx")
+            .agg(sf.countDistinct("item_idx").alias("items_count"))
         )
-        recs = (
-            recs.selectExpr(
-                "user_idx",
-                f"LEAST(cnt + {k}, {model_len}) AS cnt",
-            )
-            .groupby("user_idx")
-            .applyInPandas(grouped_map, IDX_REC_SCHEMA)
+        max_history_len = log_by_user.select(sf.max("items_count")).collect()[
+            0
+        ][0]
+        cropped_item_popularity = selected_item_popularity.filter(
+            sf.col("rank") <= max_history_len + k
         )
+
+        log_by_user_with_new_users = log_by_user.join(
+            users, on="user_idx", how="right"
+        ).fillna(0)
+        recs = log_by_user_with_new_users.join(
+            cropped_item_popularity,
+            on=sf.col("rank") <= sf.col("items_count") + sf.lit(k),
+        ).drop("rank", "items_count")
 
         return recs
 
