@@ -69,7 +69,7 @@ pylint = "*"
 Sphinx = "*"
 sphinx-rtd-theme = "*"
 sphinx-autodoc-typehints = "*"
-docutils == 0.16
+docutils = "=0.16"
 recommonmark = "*"
 sphinx-markdown-tables = "*"
 ghp-import = "*"
