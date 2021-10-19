@@ -9,6 +9,7 @@ Welcome to RePlay's documentation!
    pages/installation
    pages/spark
    pages/modules
+   pages/useful
 
 
 

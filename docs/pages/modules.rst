@@ -13,5 +13,4 @@ Modules
    modules/splitters
    modules/data_preparator
    modules/distributions
-   useful_data/content
 
