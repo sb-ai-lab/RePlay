@@ -6,32 +6,43 @@ from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 from pyspark.ml.stat import Summarizer
 
-from replay.models.base_rec import Recommender
+from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.utils import vector_dot, vector_mult
 
 
-class Word2VecRec(Recommender):
+# pylint: disable=too-many-instance-attributes
+class Word2VecRec(Recommender, ItemVectorModel):
     """
     Trains word2vec model where items ar treated as words and users as sentences.
     """
 
     idf: DataFrame
     vectors: DataFrame
+
+    can_predict_cold_users = True
     _search_space = {
         "rank": {"type": "int", "args": [50, 300]},
         "window_size": {"type": "int", "args": [1, 100]},
         "use_idf": {"type": "categorical", "args": [True, False]},
     }
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         rank: int = 100,
+        min_count: int = 5,
+        step_size: int = 0.025,
+        max_iter: int = 1,
         window_size: int = 1,
         use_idf: bool = False,
         seed: Optional[int] = None,
     ):
         """
         :param rank: embedding size
+        :param min_count: the minimum number of times a token must
+            appear to be included in the word2vec model's vocabulary
+        :param step_size: step size to be used for each iteration of optimization
+        :param max_iter: max number of iterations
         :param window_size: window size
         :param use_idf: flag to use inverse document frequency
         :param seed: random seed
@@ -40,6 +51,9 @@ class Word2VecRec(Recommender):
         self.rank = rank
         self.window_size = window_size
         self.use_idf = use_idf
+        self.min_count = min_count
+        self.step_size = step_size
+        self.max_iter = max_iter
         self._seed = seed
 
     def _fit(
@@ -49,8 +63,7 @@ class Word2VecRec(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         self.idf = (
-            log.orderBy("timestamp")
-            .groupBy("item_idx")
+            log.groupBy("item_idx")
             .agg(sf.countDistinct("user_idx").alias("count"))
             .select(
                 "item_idx",
@@ -62,19 +75,31 @@ class Word2VecRec(Recommender):
             )
         )
         self.idf.cache()
+
         log_by_users = (
-            log.orderBy("timestamp")
-            .groupBy("user_idx")
+            log.groupBy("user_idx")
             .agg(
-                sf.collect_list("item_idx")
-                .cast(st.ArrayType(st.StringType()))
-                .alias("items")
+                sf.collect_list(sf.struct("timestamp", "item_idx")).alias(
+                    "ts_item_idx"
+                )
             )
+            .withColumn("ts_item_idx", sf.array_sort("ts_item_idx"))
+            .withColumn(
+                "items",
+                sf.col("ts_item_idx.item_idx").cast(
+                    st.ArrayType(st.StringType())
+                ),
+            )
+            .drop("ts_item_idx")
         )
-        self.logger.debug("Обучение модели")
+
+        self.logger.debug("Model training")
+
         word_2_vec = Word2Vec(
             vectorSize=self.rank,
-            minCount=0,
+            minCount=self.min_count,
+            stepSize=self.step_size,
+            maxIter=self.max_iter,
             inputCol="items",
             outputCol="w2v_vector",
             windowSize=self.window_size,
@@ -93,7 +118,9 @@ class Word2VecRec(Recommender):
             self.vectors.unpersist()
 
     def _get_user_vectors(
-        self, users: DataFrame, log: DataFrame,
+        self,
+        users: DataFrame,
+        log: DataFrame,
     ) -> DataFrame:
         """
         :param users: user ids, dataframe ``[user_idx]``
@@ -103,7 +130,7 @@ class Word2VecRec(Recommender):
             ``[user_idx, user_vector]``
         """
         return (
-            users.join(log, how="inner", on="user_idx")
+            log.join(users, how="inner", on="user_idx")
             .join(self.idf, how="inner", on="item_idx")
             .join(
                 self.vectors,
@@ -120,7 +147,9 @@ class Word2VecRec(Recommender):
         )
 
     def _predict_pairs_inner(
-        self, pairs: DataFrame, log: DataFrame,
+        self,
+        pairs: DataFrame,
+        log: DataFrame,
     ) -> DataFrame:
         if log is None:
             raise ValueError(
@@ -165,3 +194,8 @@ class Word2VecRec(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
         return self._predict_pairs_inner(pairs, log)
+
+    def _get_item_vectors(self):
+        return self.vectors.withColumnRenamed(
+            "vector", "item_vector"
+        ).withColumnRenamed("item", "item_idx")

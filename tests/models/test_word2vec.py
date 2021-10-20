@@ -30,7 +30,7 @@ def log(spark):
 
 @pytest.fixture
 def model():
-    return Word2VecRec(rank=1, window_size=1, use_idf=True, seed=42)
+    return Word2VecRec(rank=1, window_size=1, use_idf=True, seed=42, min_count=0)
 
 
 def test_fit(log, model):
@@ -43,9 +43,10 @@ def test_fit(log, model):
         .toPandas()
         .to_numpy()
     )
+    print(vectors)
     assert np.allclose(
         vectors,
-        [[0, 5.45887464e-04], [2, 1.54838404e-01], [1, 2.13055389e-01]],
+        [[0, 5.42505352e-04], [2, 1.54838427e-01], [1, 2.13058745e-01]],
     )
 
 

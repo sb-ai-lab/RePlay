@@ -24,7 +24,14 @@ from replay.constants import AnyDataFrame
 from replay.metrics import Metric, NDCG
 from replay.optuna_objective import SplitData, MainObjective
 from replay.session_handler import State
-from replay.utils import convert2spark, get_top_k, get_top_k_recs
+from replay.utils import (
+    convert2spark,
+    cosine_similarity,
+    get_top_k,
+    get_top_k_recs,
+    vector_euclidean_distance_similarity,
+    vector_dot,
+)
 
 
 class BaseRecommender(ABC):
@@ -425,7 +432,8 @@ class BaseRecommender(ABC):
 
     @staticmethod
     def _get_ids(
-        log: Union[Iterable, AnyDataFrame], column: str,
+        log: Union[Iterable, AnyDataFrame],
+        column: str,
     ) -> DataFrame:
         """
         Get unique values from ``array`` and put them into dataframe with column ``column``.
@@ -492,8 +500,9 @@ class BaseRecommender(ABC):
         try:
             return len(self.user_indexer.labels)
         except AttributeError as error:
-            raise AttributeError("Must run fit before calling this method") \
-                from error
+            raise AttributeError(
+                "Must run fit before calling this method"
+            ) from error
 
     @property
     def items_count(self) -> int:
@@ -503,8 +512,9 @@ class BaseRecommender(ABC):
         try:
             return len(self.item_indexer.labels)
         except AttributeError as error:
-            raise AttributeError("Must run fit before calling this method") \
-                from error
+            raise AttributeError(
+                "Must run fit before calling this method"
+            ) from error
 
     def _fit_predict(
         self,
@@ -667,7 +677,7 @@ class BaseRecommender(ABC):
         self,
         items: Union[DataFrame, Iterable],
         k: int,
-        metric: Optional[str] = "squared_distance",
+        metric: Optional[str] = "cosine_similarity",
         candidates: Optional[Union[DataFrame, Iterable]] = None,
     ) -> Optional[DataFrame]:
         """
@@ -675,7 +685,7 @@ class BaseRecommender(ABC):
 
         :param items: spark dataframe or list of item ids to find neighbors
         :param k: number of neighbors
-        :param metric: 'squared_distance' or 'cosine_similarity'
+        :param metric: 'euclidean_distance_sim', 'cosine_similarity', 'dot_product'
         :param candidates: spark dataframe or list of items
             to consider as similar, e.g. popular/new items. If None,
             all items presented during model training are used.
@@ -691,7 +701,10 @@ class BaseRecommender(ABC):
 
         if self.can_predict_item_to_item:
             return self._get_nearest_items_wrap(
-                items=items, k=k, metric=metric, candidates=candidates,
+                items=items,
+                k=k,
+                metric=metric,
+                candidates=candidates,
             )
 
         raise ValueError(
@@ -702,7 +715,7 @@ class BaseRecommender(ABC):
         self,
         items: Union[DataFrame, Iterable],
         k: int,
-        metric: Optional[str] = "squared_distance",
+        metric: Optional[str] = "cosine_similarity",
         candidates: Optional[Union[DataFrame, Iterable]] = None,
     ) -> Optional[DataFrame]:
         """
@@ -719,7 +732,9 @@ class BaseRecommender(ABC):
         ]
 
         nearest_items_to_filter = self._get_nearest_items(
-            items=items, metric=metric, candidates=candidates,
+            items=items,
+            metric=metric,
+            candidates=candidates,
         )
 
         rel_col_name = metric if metric is not None else "similarity"
@@ -752,19 +767,87 @@ class BaseRecommender(ABC):
         metric: Optional[str] = None,
         candidates: Optional[DataFrame] = None,
     ) -> Optional[DataFrame]:
+        raise NotImplementedError(
+            f"item-to-item prediction is not implemented for {self.__str__()}"
+        )
+
+
+class ItemVectorModel(BaseRecommender, ABC):
+    """Parent for models generating items' vector representations"""
+
+    can_predict_item_to_item: bool = True
+
+    @abstractmethod
+    def _get_item_vectors(self) -> DataFrame:
         """
-        Return metric for all available close items filtered by `candidates`.
+        Return dataframe with items' vectors as a
+            spark dataframe with columns ``[item_idx, item_vector]``
+        """
+
+    def _get_nearest_items(
+        self,
+        items: DataFrame,
+        metric: str = "cosine_similarity",
+        candidates: Optional[DataFrame] = None,
+    ) -> DataFrame:
+        """
+        Return distance metric value for all available close items filtered by `candidates`.
 
         :param items: ids to find neighbours, spark dataframe with column ``item_idx``
-        :param metric: 'squared_distance' or 'cosine_similarity'
+        :param metric: 'euclidean_distance_sim' calculated as 1/(1 + euclidean_distance),
+            'cosine_similarity', 'dot_product'
         :param candidates: items among which we are looking for similar,
             e.g. popular/new items. If None, all items presented during model training are used.
         :return: dataframe with neighbours,
             spark-dataframe with columns ``[item_id_one, item_id_two, similarity]``
         """
-        raise NotImplementedError(
-            f"item-to-item prediction is not implemented for {self.__str__()}"
+        dist_function = cosine_similarity
+        if metric == "euclidean_distance_sim":
+            dist_function = vector_euclidean_distance_similarity
+        elif metric == "dot_product":
+            dist_function = vector_dot
+        elif metric != "cosine_similarity":
+            raise NotImplementedError(
+                f"{metric} metric is not implemented, valid metrics are "
+                "'euclidean_distance_sim', 'cosine_similarity', 'dot_product'"
+            )
+
+        items_vectors = self._get_item_vectors()
+        left_part = (
+            items_vectors.withColumnRenamed("item_idx", "item_id_one")
+            .withColumnRenamed("item_vector", "item_vector_one")
+            .join(
+                items.select(sf.col("item_idx").alias("item_id_one")),
+                on="item_id_one",
+            )
         )
+
+        right_part = items_vectors.withColumnRenamed(
+            "item_idx", "item_id_two"
+        ).withColumnRenamed("item_vector", "item_vector_two")
+
+        if candidates is not None:
+            right_part = right_part.join(
+                candidates.withColumnRenamed("item_idx", "item_id_two"),
+                on="item_id_two",
+            )
+
+        joined_factors = left_part.join(
+            right_part, on=sf.col("item_id_one") != sf.col("item_id_two")
+        )
+
+        joined_factors = joined_factors.withColumn(
+            metric,
+            dist_function(
+                sf.col("item_vector_one"), sf.col("item_vector_two")
+            ),
+        )
+
+        similarity_matrix = joined_factors.select(
+            "item_id_one", "item_id_two", metric
+        )
+
+        return similarity_matrix
 
 
 # pylint: disable=abstract-method
@@ -1171,7 +1254,11 @@ class NeighbourRec(Recommender, ABC):
                 how="inner",
                 on=sf.col("item_idx") == sf.col("item_id_one"),
             )
-            .join(filter_df, how="inner", on=condition,)
+            .join(
+                filter_df,
+                how="inner",
+                on=condition,
+            )
             .groupby("user_idx", "item_id_two")
             .agg(sf.sum("similarity").alias("relevance"))
             .withColumnRenamed("item_id_two", "item_idx")
@@ -1243,7 +1330,10 @@ class NeighbourRec(Recommender, ABC):
             )
 
         return self._get_nearest_items_wrap(
-            items=items, k=k, metric=None, candidates=candidates,
+            items=items,
+            k=k,
+            metric=None,
+            candidates=candidates,
         )
 
     def _get_nearest_items(

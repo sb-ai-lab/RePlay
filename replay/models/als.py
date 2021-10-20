@@ -6,20 +6,15 @@ from pyspark.ml.recommendation import ALS
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
-from replay.models.base_rec import Recommender
-from replay.utils import (
-    list_to_vector_udf,
-    vector_squared_distance,
-    cosine_similarity,
-)
+from replay.models.base_rec import Recommender, ItemVectorModel
+from replay.utils import list_to_vector_udf
 
 
-class ALSWrap(Recommender):
+class ALSWrap(Recommender, ItemVectorModel):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
 
-    can_predict_item_to_item: bool = True
     _seed: Optional[int] = None
     _search_space = {
         "rank": {"type": "loguniform_int", "args": [8, 256]},
@@ -108,55 +103,8 @@ class ALSWrap(Recommender):
             self.model.rank,
         )
 
-    def _get_nearest_items(
-        self,
-        items: DataFrame,
-        metric: str = "squared_distance",
-        candidates: Optional[DataFrame] = None,
-    ) -> DataFrame:
-
-        factor = 1
-        dist_function = cosine_similarity
-        if metric == "squared_distance":
-            dist_function = vector_squared_distance
-            factor = -1
-        elif metric != "cosine_similarity":
-            raise NotImplementedError(
-                f"{metric} metric is not implemented"
-            )
-
-        als_factors = self.model.itemFactors.select(
-            sf.col("id").alias("item_id_one"),
-            list_to_vector_udf(sf.col("features")).alias("factors_one"),
+    def _get_item_vectors(self):
+        return self.model.itemFactors.select(
+            sf.col("id").alias("item_idx"),
+            list_to_vector_udf(sf.col("features")).alias("item_vector"),
         )
-
-        left_part = als_factors.join(
-            items.select(sf.col("item_idx").alias("item_id_one")),
-            on="item_id_one",
-        )
-
-        right_part = als_factors.withColumnRenamed(
-            "factors_one", "factors_two"
-        ).withColumnRenamed("item_id_one", "item_id_two")
-
-        if candidates is not None:
-            right_part = right_part.join(
-                candidates.withColumnRenamed("item_idx", "item_id_two"),
-                on="item_id_two",
-            )
-
-        joined_factors = left_part.join(
-            right_part, on=sf.col("item_id_one") != sf.col("item_id_two")
-        )
-
-        joined_factors = joined_factors.withColumn(
-            metric,
-            factor
-            * dist_function(sf.col("factors_one"), sf.col("factors_two")),
-        )
-
-        similarity_matrix = joined_factors.select(
-            "item_id_one", "item_id_two", metric
-        )
-
-        return similarity_matrix

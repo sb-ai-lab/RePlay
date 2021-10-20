@@ -50,7 +50,7 @@ def log_to_pred(spark):
         MultVAE(),
         NeuroMF(),
         SLIM(seed=SEED),
-        Word2VecRec(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
         PopRec(),
     ],
     ids=[
@@ -103,8 +103,18 @@ def test_predict_pairs_warm_only(log, log_to_pred, model):
 
 @pytest.mark.parametrize(
     "model",
-    [ADMMSLIM(seed=SEED), KNN(), SLIM(seed=SEED), Word2VecRec(seed=SEED)],
-    ids=["admm_slim", "knn", "slim", "word2vec",],
+    [
+        ADMMSLIM(seed=SEED),
+        KNN(),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+    ],
+    ids=[
+        "admm_slim",
+        "knn",
+        "slim",
+        "word2vec",
+    ],
 )
 def test_predict_pairs_raises(log, model):
     with pytest.raises(ValueError, match="log is not provided,.*"):
@@ -119,18 +129,31 @@ def test_predict_pairs_raises_pairs_format(log):
         model.predict_pairs(log, log)
 
 
-# for Neighbour recommenders and ALS
+# for NeighbourRec and ItemVectorModel
 @pytest.mark.parametrize(
-    "model",
-    [ALSWrap(seed=SEED), ADMMSLIM(seed=SEED), KNN(), SLIM(seed=SEED)],
-    ids=["als", "admm_slim", "knn", "slim"],
+    "model, metric",
+    [
+        (ALSWrap(seed=SEED), "euclidean_distance_sim"),
+        (ALSWrap(seed=SEED), "dot_product"),
+        (ALSWrap(seed=SEED), "cosine_similarity"),
+        (Word2VecRec(seed=SEED, min_count=0), "cosine_similarity"),
+        (ADMMSLIM(seed=SEED), None),
+        (KNN(), None),
+        (SLIM(seed=SEED), None),
+    ],
+    ids=[
+        "als_euclidean",
+        "als_dot",
+        "als_cosine",
+        "w2v_cosine",
+        "admm_slim",
+        "knn",
+        "slim",
+    ],
 )
-def test_get_nearest_items(log, model):
+def test_get_nearest_items(log, model, metric):
     model.fit(log.filter(sf.col("item_id") != "item4"))
-    # cosine
-    res = model.get_nearest_items(
-        items=["item1", "item2"], k=2, metric="cosine_similarity"
-    )
+    res = model.get_nearest_items(items=["item1", "item2"], k=2, metric=metric)
 
     assert res.count() == 4
     assert set(res.toPandas().to_dict()["item_id"].values()) == {
@@ -138,17 +161,14 @@ def test_get_nearest_items(log, model):
         "item2",
     }
 
-    # squared
-    res = model.get_nearest_items(
-        items=["item1", "item2"], k=1, metric="squared_distance"
-    )
+    res = model.get_nearest_items(items=["item1", "item2"], k=1, metric=metric)
     assert res.count() == 2
 
     # filter neighbours
     res = model.get_nearest_items(
         items=["item1", "item2"],
         k=4,
-        metric="squared_distance",
+        metric=metric,
         candidates=["item1", "item4"],
     )
     assert res.count() == 1
@@ -175,5 +195,13 @@ def test_nearest_items_raises(log):
         match=r"Use models with attribute 'can_predict_item_to_item' set to True.*",
     ):
         model.get_nearest_items(
-            items=["item1", "item2"], k=2, metric="squared_distance"
+            items=["item1", "item2"], k=2, metric="cosine_similarity"
         )
+
+        with pytest.raises(
+            ValueError,
+            match=r"Use models with attribute 'can_predict_item_to_item' set to True.*",
+        ):
+            model.get_nearest_items(
+                items=["item1", "item2"], k=2, metric="cosine_similarity"
+            )

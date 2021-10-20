@@ -656,6 +656,18 @@ def vector_squared_distance(first: DenseVector, second: DenseVector) -> float:
 
 
 @sf.udf(returnType=st.FloatType())
+def vector_euclidean_distance_similarity(
+    first: DenseVector, second: DenseVector
+) -> float:
+    """
+    :param first: first vector
+    :param second: second vector
+    :returns: 1/(1 + euclidean distance value)
+    """
+    return 1 / (1 + float(first.squared_distance(second)) ** 0.5)
+
+
+@sf.udf(returnType=st.FloatType())
 def cosine_similarity(first: DenseVector, second: DenseVector) -> float:
     """
     :param first: first vector
