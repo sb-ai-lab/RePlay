@@ -1,4 +1,3 @@
-# pylint: disable=invalid-name, too-many-arguments, attribute-defined-outside-init
 from typing import Optional
 
 from pandas import DataFrame
@@ -7,7 +6,6 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import functions as sf
 
 from replay.models.base_rec import UserRecommender
-from replay.session_handler import State
 
 
 class ClusterRec(UserRecommender):
@@ -19,13 +17,13 @@ class ClusterRec(UserRecommender):
     _search_space = {
         "n": {"type": "int", "args": [2, 20]},
     }
+    item_rel_in_cluster: DataFrame
 
-    def __init__(self, n: int = 10):
+    def __init__(self, num_clusters: int = 10):
         """
-        :param n: number of clusters
+        :param num_clusters: number of clusters
         """
-        State()  # initialize session if it doesnt exist
-        self.n = n
+        self.num_clusters = num_clusters
 
     def _fit(
         self,
@@ -34,34 +32,42 @@ class ClusterRec(UserRecommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
 
-        kmeans = KMeans().setK(self.n).setFeaturesCol("features")
-        df = self._transform_features(user_features)
-        self.model = kmeans.fit(df)
-        df = (
-            self.model.transform(df)
+        kmeans = KMeans().setK(self.num_clusters).setFeaturesCol("features")
+        user_features_vector = self._transform_features(user_features)
+        self.model = kmeans.fit(user_features_vector)
+        users_clusters = (
+            self.model.transform(user_features_vector)
             .select("user_idx", "prediction")
             .withColumnRenamed("prediction", "cluster")
         )
 
-        log = log.join(df, on="user_idx", how="left")
-        log = log.groupBy(["cluster", "item_idx"]).agg(
-            sf.count("item_idx").alias("count")
+        log = log.join(users_clusters, on="user_idx", how="left")
+        self.item_rel_in_cluster = log.groupBy(["cluster", "item_idx"]).agg(
+            sf.count("item_idx").alias("item_count")
         )
-        max_count_per_cluster = log.groupby("cluster").agg(
-            sf.max("count").alias("max")
+
+        max_count_per_cluster = self.item_rel_in_cluster.groupby(
+            "cluster"
+        ).agg(sf.max("item_count").alias("max_count_in_cluster"))
+        self.item_rel_in_cluster = self.item_rel_in_cluster.join(
+            max_count_per_cluster, on="cluster"
         )
-        log = log.join(max_count_per_cluster, on="cluster", how="left")
-        log = log.withColumn(
-            "relevance", sf.col("count") / sf.col("max")
-        ).drop("count", "max")
-        self.recs = log
+        self.item_rel_in_cluster = self.item_rel_in_cluster.withColumn(
+            "relevance", sf.col("item_count") / sf.col("max_count_in_cluster")
+        ).drop("item_count", "max_count_in_cluster")
+        self.item_rel_in_cluster.cache()
+
+    def _clear_cache(self):
+        if hasattr(self, "item_rel_in_cluster"):
+            self.item_rel_in_cluster.unpersist()
 
     @staticmethod
-    def _transform_features(df):
-        feature_columns = df.drop("user_idx").columns
+    def _transform_features(user_features):
+        feature_columns = user_features.drop("user_idx").columns
         vec = VectorAssembler(inputCols=feature_columns, outputCol="features")
-        return vec.transform(df).select("user_idx", "features")
+        return vec.transform(user_features).select("user_idx", "features")
 
+    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: DataFrame,
@@ -73,11 +79,12 @@ class ClusterRec(UserRecommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
 
-        df = self._transform_features(user_features)
-        df = (
-            self.model.transform(df)
+        user_features_vector = self._transform_features(user_features)
+        user_clusters = (
+            self.model.transform(user_features_vector)
             .select("user_idx", "prediction")
             .withColumnRenamed("prediction", "cluster")
         )
-        pred = df.join(self.recs, on="cluster").drop("cluster")
+        filtered_items = self.item_rel_in_cluster.join(items, on="item_idx")
+        pred = user_clusters.join(filtered_items, on="cluster").drop("cluster")
         return pred
