@@ -16,8 +16,6 @@ ___________________
     "K-Nearest Neighbours", "PySpark"
     "Alternating Least Squares", "PySpark"
     "SLIM", "PySpark"
-    "Classifier Recommender", "PySpark"
-    "Stack Recommender", "PySpark"
     "Neural Matrix Factorization", "Python CPU/GPU"
     "MultVAE", "Python CPU/GPU"
     "Word2Vec Recommender", "Python CPU/GPU"
@@ -25,7 +23,6 @@ ___________________
     "Wilson Recommender", "Python CPU"
     "Обертка Implicit", "Python CPU"
     "Обертка LightFM", "Python CPU"
-    "Stack Recommender", "Depends on base models"
 
 
 To get more info on how to choose base model, please see this  :doc:`page </pages/useful_data/algorithm_selection>`.
@@ -98,21 +95,11 @@ and :math:`w_{ij}\ge 0`
 .. autoclass:: replay.models.SLIM
     :special-members: __init__
 
-Classifier Recommender
-``````````````````````
-..  autoclass:: replay.models.ClassifierRec
-    :special-members: __init__
-
 
 Cluster Recommender
 ```````````````````
 .. autoclass:: replay.models.ClusterRec
    :members:
-
-Stack
-`````
-.. autoclass:: replay.models.Stack
-    :special-members: __init__
 
 
 Neural models with distributed inference
