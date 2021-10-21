@@ -10,7 +10,7 @@ authors = ["AI Lab, Sber",
            "Alexander Sidorenko",
            "Roza Aysina"]
 readme = "README.md"
-homepage = "https://github.com/sberbank-ai-lab/RePlay"
+homepage = "https://sberbank-ai-lab.github.io/RePlay/"
 repository = "https://github.com/sberbank-ai-lab/RePlay"
 classifiers = [
     "Programming Language :: Python :: 3.7",
