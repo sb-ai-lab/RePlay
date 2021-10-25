@@ -1,11 +1,9 @@
 from typing import Optional
 
-import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-from statsmodels.stats.proportion import proportion_confint
+from scipy.stats import norm
 
-from replay.utils import convert2spark
 from replay.models.pop_rec import PopRec
 
 
@@ -26,6 +24,12 @@ class Wilson(PopRec):
 
     """
 
+    def __init__(self, alpha=0.05):
+        """
+        :param alpha: significance level, default 0.05
+        """
+        self.alpha = alpha
+
     def _fit(
         self,
         log: DataFrame,
@@ -37,19 +41,26 @@ class Wilson(PopRec):
         )
         if vals.count() > 0:
             raise ValueError("Relevance values in log must be 0 or 1")
-        data_frame = (
-            log.groupby("item_idx")
-            .agg(
-                sf.sum("relevance").alias("pos"),
-                sf.count("relevance").alias("total"),
-            )
-            .toPandas()
+
+        items_counts = log.groupby("item_idx").agg(
+            sf.sum("relevance").alias("pos"),
+            sf.count("relevance").alias("total"),
         )
-        pos = np.array(data_frame["pos"].values)
-        total = np.array(data_frame["total"].values)
-        data_frame["relevance"] = proportion_confint(
-            pos, total, method="wilson"
-        )[0]
-        data_frame = data_frame.drop(["pos", "total"], axis=1)
-        self.item_popularity = convert2spark(data_frame)
+        # https://en.wikipedia.org/w/index.php?title=Binomial_proportion_confidence_interval
+        crit = norm.isf(self.alpha / 2.0)
+        items_counts = items_counts.withColumn(
+            "relevance",
+            (sf.col("pos") + sf.lit(0.5 * crit ** 2))
+            / (sf.col("total") + sf.lit(crit ** 2))
+            - sf.lit(crit)
+            / (sf.col("total") + sf.lit(crit ** 2))
+            * sf.sqrt(
+                (sf.col("total") - sf.col("pos"))
+                * sf.col("pos")
+                / sf.col("total")
+                + crit ** 2 / 4
+            ),
+        )
+
+        self.item_popularity = items_counts.drop("pos", "total")
         self.item_popularity.cache()
