@@ -21,7 +21,7 @@ def get_spark_session(
     Get default SparkSession
 
     :param spark_memory: GB of memory allocated for Spark;
-        half of RAM by default.
+        70% of RAM by default.
     :param shuffle_partitions: number of partitions for Spark; triple CPU count by default
     """
     os.environ["PYSPARK_PYTHON"] = sys.executable
