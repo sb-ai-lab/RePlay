@@ -8,7 +8,7 @@ Basic
 
 .. code-block:: bash
 
-    pip install replay
+    pip install replay-rec
 
 
 Development
