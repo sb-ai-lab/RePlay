@@ -68,9 +68,9 @@ class SLIM(NeighbourRec):
             positive=True,
         )
 
-        def slim_row(pandas_df: pd.DataFrame) -> pd.DataFrame:
+        def slim_column(pandas_df: pd.DataFrame) -> pd.DataFrame:
             """
-            fit similarity matrix with SGD
+            fit similarity matrix with ElasticNet
             :param pandas_df: pd.Dataframe
             :return: pd.Dataframe
             """
@@ -86,13 +86,13 @@ class SLIM(NeighbourRec):
             good_idx = np.argwhere(regression.coef_ > 0).reshape(-1)
             good_values = regression.coef_[good_idx]
             similarity_row = {
-                "item_id_one": idx,
-                "item_id_two": good_idx,
+                "item_id_one": good_idx,
+                "item_id_two": idx,
                 "similarity": good_values,
             }
             return pd.DataFrame(data=similarity_row)
 
         self.similarity = similarity.groupby("item_id_one").applyInPandas(
-            slim_row, "item_id_one int, item_id_two int, similarity double"
+            slim_column, "item_id_one int, item_id_two int, similarity double"
         )
         self.similarity.cache()
