@@ -172,6 +172,7 @@ class MultVAE(TorchRecommender):
         :param l2_reg: l2 regularization term
         :param gamma: reduce learning rate by this coefficient per epoch
         """
+        super().__init__()
         self.device = State().device
         self.learning_rate = learning_rate
         self.epochs = epochs

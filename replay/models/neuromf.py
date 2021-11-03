@@ -263,6 +263,7 @@ class NeuroMF(TorchRecommender):
         :param gamma: decrease learning rate by this coefficient per epoch
         :param count_negative_sample: number of negative samples to use
         """
+        super().__init__()
         if not embedding_gmf_dim and not embedding_mlp_dim:
             embedding_gmf_dim, embedding_mlp_dim = EMBED_DIM, EMBED_DIM
 

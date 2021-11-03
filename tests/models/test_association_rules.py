@@ -22,14 +22,19 @@ def test_predict_raises(log, model):
         model.predict(log, 1)
 
 
+def test_invalid_metric_raises(log, model):
+    model.fit(log)
+    with pytest.raises(
+        ValueError,
+        match=r"Select one of the valid distance metrics: \['lift', 'confidence_gain'\]",
+    ):
+        model.get_nearest_items(log.select("item_id"), k=1, metric="invalid")
+
+
 def test_works(log, model):
     model.fit(log)
-    assert hasattr(model, "frequent_items")
     assert hasattr(model, "pair_metrics")
-    assert (
-        model.frequent_items.count()
-        == log.select("item_id").distinct().count()
-    )
+    model.pair_metrics.count()
 
 
 def test_calculation(model, log):
@@ -70,7 +75,11 @@ def test_get_nearest_items(log, model):
     assert res.select("confidence_gain").collect()[0][0] == 2.0
     assert res.select("lift").collect()[0][0] == 4 / 3
 
-    res = model.get_nearest_items(items=["item3"], k=10, metric="lift",)
+    res = model.get_nearest_items(
+        items=["item3"],
+        k=10,
+        metric="lift",
+    )
     assert res.count() == 2
 
     model._clear_cache()

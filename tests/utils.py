@@ -150,6 +150,15 @@ def sparkDataFrameEqual(df1: DataFrame, df2: DataFrame):
     )
 
 
+def sparkDataFrameNotEqual(df1: DataFrame, df2: DataFrame):
+    try:
+        sparkDataFrameEqual(df1, df2)
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError("spark dataframes are equal")
+
+
 def del_files_by_pattern(directory: str, pattern: str) -> None:
     """
     Deletes files by pattern

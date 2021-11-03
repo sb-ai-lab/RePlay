@@ -31,6 +31,11 @@ class TorchRecommender(Recommender):
     model: Any
     device: torch.device
 
+    def __init__(self):
+        self.logger.info(
+            "The model is neural network with non-distributed training"
+        )
+
     # pylint: disable=too-many-arguments
     def _predict(
         self,

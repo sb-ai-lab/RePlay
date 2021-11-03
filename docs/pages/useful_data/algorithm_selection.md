@@ -15,11 +15,12 @@ RePlay models differ by types of data they can process:
 
  Our information can be either _explicit_ e.g. ratings, or _implicit_ e.g. view, number of play counts. 
 \
-Some models transfrom any type of data to implicit (_unary ratings_).
+Some models transform any type of data to implicit (_unary ratings_).
 
 - _Will there be new users?_
 
-Some models need to be completely retrained to give predictions for new users with few interactions while others don't. 
+Some models need to be completely retrained to give predictions for new users (not present in train data, 
+but have interactions history) while others don't. 
 
 - _Will there be new items?_
 
@@ -38,6 +39,8 @@ The same goes for new items.
 |ADMM SLIM                  |Collaborative    | unary ratings, explicit feedback       | + | - |
 |Mult-VAE                   |Collaborative    | converted to unary ratings             | + | - |
 |Word2Vec Recommender       |Collaborative    | converted to unary ratings             | + | - |
+|Association Rules          |Collaborative    | converted to unary ratings             | + | - |
+|Cluster Recommender        |Hybrid           | converted to unary ratings             | + | - |
 |LightFM Wrap               |Hybrid           | [depends on loss](https://making.lyst.com/lightfm/docs/lightfm.html#lightfm)       | + | + |
 |Implicit Wrap              |Collaborative    | [depends on model](https://implicit.readthedocs.io/en/latest/index.html)    | - | - |
 |Two Stages Scenario        |Hybrid           | converted to unary ratings for second level    | `*` | `*` |
@@ -64,6 +67,8 @@ The same goes for new items.
 |ADMM SLIM                    | + | - | - | + |
 |Mult-VAE                     | + | - | - | + |
 |Word2Vec Recommender         | + | - | - | + |
+|Association Rules            | + | - | - | + |
+|Cluster Recommender          | + | + | - | + |
 |LightFM  Wrap                | + | + | + | + |
 |Implicit Wrap                | + | - | - | + |
 |Two Stages Scenario          | + | `*` | `*` | `*` |

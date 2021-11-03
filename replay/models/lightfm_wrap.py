@@ -28,6 +28,10 @@ class LightFMWrap(HybridRecommender):
         },
         "no_components": {"type": "loguniform_int", "args": [8, 512]},
     }
+    user_feat_scaler: Optional[MinMaxScaler] = None
+    item_feat_scaler: Optional[MinMaxScaler] = None
+    num_of_warm_users: int
+    num_of_warm_items: int
 
     def __init__(
         self,
@@ -41,11 +45,7 @@ class LightFMWrap(HybridRecommender):
         self.random_state = random_state
         cpu_count = os.cpu_count()
         self.num_threads = cpu_count if cpu_count is not None else 1
-        self.user_feat_scaler = None
-        self.item_feat_scaler = None
         # number of columns in identity matrix used for building feature matrix
-        self.num_of_warm_items = 0
-        self.num_of_warm_users = 0
 
     def _feature_table_to_csr(
         self,
@@ -104,7 +104,7 @@ class LightFMWrap(HybridRecommender):
                             )
                         )
                     )
-                )
+                ),
             )
             .toPandas()
             .to_numpy()
@@ -127,9 +127,7 @@ class LightFMWrap(HybridRecommender):
         scaler_name = f"{entity}_feat_scaler"
         if getattr(self, scaler_name) is None:
             if not features_np.size:
-                raise ValueError(
-                    f"features for {entity}s from log are absent"
-                )
+                raise ValueError(f"features for {entity}s from log are absent")
             setattr(self, scaler_name, MinMaxScaler().fit(features_np))
 
         if features_np.size:
@@ -206,7 +204,6 @@ class LightFMWrap(HybridRecommender):
         item_features: Optional[DataFrame] = None,
     ):
         def predict_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
-
             pandas_df["relevance"] = model.predict(
                 user_ids=pandas_df["user_idx"].to_numpy(),
                 item_ids=pandas_df["item_idx"].to_numpy(),
@@ -279,15 +276,18 @@ class LightFMWrap(HybridRecommender):
             matrix_width = getattr(self, f"num_of_warm_{entity}s")
             warm_ids = ids_list[ids_list < matrix_width]
             sparse_features = csr_matrix(
-                ([1] * warm_ids.shape[0], (warm_ids, warm_ids),),
+                (
+                    [1] * warm_ids.shape[0],
+                    (warm_ids, warm_ids),
+                ),
                 shape=(ids_list.max() + 1, matrix_width),
             )
         else:
             sparse_features = self._feature_table_to_csr(ids, features)
 
-        biases, vectors = getattr(
-            self.model, f"get_{entity}_representations"
-        )(sparse_features)
+        biases, vectors = getattr(self.model, f"get_{entity}_representations")(
+            sparse_features
+        )
 
         embed_list = list(
             zip(

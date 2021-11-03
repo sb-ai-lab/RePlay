@@ -12,15 +12,17 @@ ___________________
 
     "Popular Recommender", "PySpark"
     "Popular By Users", "PySpark"
+    "Wilson Recommender", "PySpark"
     "Random Recommender", "PySpark"
     "K-Nearest Neighbours", "PySpark"
     "Alternating Least Squares", "PySpark"
     "SLIM", "PySpark"
+    "Word2Vec Recommender", "PySpark"
+    "Association Rules Item-to-Item Recommender", "PySpark"
+    "Cluster Recommender", "PySpark"
     "Neural Matrix Factorization", "Python CPU/GPU"
     "MultVAE", "Python CPU/GPU"
-    "Word2Vec Recommender", "Python CPU/GPU"
     "ADMM SLIM", "Python CPU"
-    "Wilson Recommender", "Python CPU"
     "Обертка Implicit", "Python CPU"
     "Обертка LightFM", "Python CPU"
 
@@ -47,6 +49,23 @@ Popular Recommender
 User Popular Recommender
 ````````````````````````
 .. autoclass:: replay.models.UserPopRec
+
+Wilson Recommender
+``````````````````
+Confidence interval for binomial distribution can be calculated as:
+
+.. math::
+    WilsonScore = \frac{\widehat{p}+\frac{z_{ \frac{\alpha}{2}}^{2}}{2n}\pm z_
+    {\frac{\alpha}{2}}\sqrt{\frac{\widehat{p}(1-\widehat{p})+\frac{z_
+    {\frac{\alpha}{2}}^{2}}{4n}}{n}} }{1+\frac{z_{ \frac{\alpha}{2}}^{2}}{n}}
+
+
+Where :math:`\hat{p}` -- is an observed fraction of positive ratings.
+
+:math:`z_{\alpha}` 1-alpha quantile of normal distribution.
+
+.. autoclass:: replay.models.Wilson
+
 
 Random Recommender
 ``````````````````
@@ -96,15 +115,28 @@ and :math:`w_{ij}\ge 0`
     :special-members: __init__
 
 
+Word2Vec Recommender
+````````````````````
+.. autoclass:: replay.models.Word2VecRec
+    :special-members: __init__
+
+
+Association Rules Item-to-Item Recommender
+``````````````````````````````````````````
+.. autoclass:: replay.models.AssociationRulesItemRec
+    :special-members: __init__
+    :members: get_nearest_items
+
+
 Cluster Recommender
 ```````````````````
 .. autoclass:: replay.models.ClusterRec
-   :members:
+    :special-members: __init__
 
 
 Neural models with distributed inference
 ________________________________________
-Models implemented in pytroch with distributed inference in pyspark.
+Models implemented in pytorch with distributed inference in pyspark.
 
 Neural Matrix Factorization
 ```````````````````````````
@@ -215,31 +247,11 @@ Denoising AutoEncoder.
 .. autoclass:: replay.models.MultVAE
     :special-members: __init__
 
-Word2Vec Recommender
-````````````````````
-.. autoclass:: replay.models.Word2VecRec
-    :special-members: __init__
 
 Wrappers and other models with distributed inference
 ____________________________________________________
 Wrappers for popular recommendation libraries and algorithms
-implemented in python with distributed inference in pytorch.
-
-Wilson Recommender
-``````````````````
-Confidence interval for binomial distribution can be calculated as:
-
-.. math::
-    WilsonScore = \frac{\widehat{p}+\frac{z_{ \frac{\alpha}{2}}^{2}}{2n}\pm z_
-    {\frac{\alpha}{2}}\sqrt{\frac{\widehat{p}(1-\widehat{p})+\frac{z_
-    {\frac{\alpha}{2}}^{2}}{4n}}{n}} }{1+\frac{z_{ \frac{\alpha}{2}}^{2}}{n}}
-
-
-Where :math:`\hat{p}` -- is an observed fraction of positive ratings.
-
-:math:`z_{\alpha}` 1-alpha quantile of normal distribution.
-
-.. autoclass:: replay.models.Wilson
+implemented in python with distributed inference in pyspark.
 
 ADMM SLIM
 `````````
