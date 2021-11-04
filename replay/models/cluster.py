@@ -15,7 +15,7 @@ class ClusterRec(UserRecommender):
 
     can_predict_cold_users = True
     _search_space = {
-        "n": {"type": "int", "args": [2, 20]},
+        "num_clusters": {"type": "int", "args": [2, 20]},
     }
     item_rel_in_cluster: DataFrame
 
@@ -31,7 +31,6 @@ class ClusterRec(UserRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-
         kmeans = KMeans().setK(self.num_clusters).setFeaturesCol("features")
         user_features_vector = self._transform_features(user_features)
         self.model = kmeans.fit(user_features_vector)

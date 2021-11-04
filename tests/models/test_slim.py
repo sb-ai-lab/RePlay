@@ -1,30 +1,10 @@
-# pylint: disable-all
-from datetime import datetime
+# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 
 import pytest
 import numpy as np
-from pyspark.sql import functions as sf
 
-from replay.constants import LOG_SCHEMA
 from replay.models import SLIM
-from tests.utils import spark, sparkDataFrameEqual
-
-
-@pytest.fixture
-def log(spark):
-    date = datetime(2019, 1, 1)
-    return spark.createDataFrame(
-        data=[
-            ["u1", "i1", date, 1.0],
-            ["u2", "i1", date, 1.0],
-            ["u3", "i3", date, 2.0],
-            ["u2", "i3", date, 2.0],
-            ["u3", "i4", date, 2.0],
-            ["u1", "i4", date, 2.0],
-            ["u4", "i1", date, 2.0],
-        ],
-        schema=LOG_SCHEMA,
-    )
+from tests.utils import log, spark
 
 
 @pytest.fixture
@@ -35,14 +15,18 @@ def model():
 def test_fit(log, model):
     model.fit(log)
     assert np.allclose(
-        model.similarity.toPandas().sort_values("item_id_one").to_numpy(),
+        model.similarity.toPandas()
+        .sort_values(["item_id_one", "item_id_two"])
+        .to_numpy(),
         [
-            (0, 1, 0.163338303565979),
-            (0, 2, 0.1633233278989792),
-            (1, 0, 0.17635512351989746),
-            (1, 2, 0.45091119408607483),
-            (2, 0, 0.17635512351989746),
-            (2, 1, 0.45091116428375244),
+            (0, 1, 0.60048005),
+            (0, 2, 0.12882786),
+            (0, 3, 0.12860215),
+            (1, 0, 1.06810235),
+            (1, 2, 0.23784898),
+            (2, 0, 0.25165837),
+            (2, 1, 0.26372437),
+            (3, 0, 1.32888889),
         ],
     )
 
@@ -51,13 +35,10 @@ def test_predict(log, model):
     model.fit(log)
     recs = model.predict(log, k=1)
     assert np.allclose(
-        recs.toPandas().sort_values("user_id", ascending=False).relevance,
-        [
-            0.163338303565979,
-            0.3527102470397949,
-            0.614234521985054,
-            0.6142494678497314,
-        ],
+        recs.toPandas()
+        .sort_values(["user_id", "item_id"], ascending=False)
+        .relevance,
+        [0.4955047, 0.12860215, 0.60048005, 0.12860215],
     )
 
 

@@ -28,7 +28,7 @@ def test_works(model):
     model.fit(train, user_features)
     model.predict(user_features, k=1)
     res = model.optimize(train, test, user_features, k=1, budget=1)
-    assert type(res["n"]) == int
+    assert type(res["num_clusters"]) == int
 
 
 def test_base_predict_pairs(model):

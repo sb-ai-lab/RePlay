@@ -18,7 +18,7 @@ import pandas as pd
 from optuna import create_study
 from optuna.samplers import TPESampler
 from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 from pyspark.sql.column import Column
 
@@ -334,6 +334,33 @@ class BaseRecommender(ABC):
             filter_seen_items,
         )
         if filter_seen_items and log:
+            num_of_seen = (
+                log.groupBy("user_idx")
+                .agg(sf.count("item_idx").alias("seen_count"))
+                .cache()
+            )
+
+            max_seen = num_of_seen.select(sf.max("seen_count")).collect()[0][0]
+
+            recs = recs.withColumn(
+                "temp_rank",
+                sf.row_number().over(
+                    Window.partitionBy("user_idx").orderBy(
+                        sf.col("relevance").desc()
+                    )
+                ),
+            ).filter(sf.col("temp_rank") <= sf.lit(max_seen + k))
+
+            recs = (
+                recs.join(sf.broadcast(num_of_seen), on="user_idx", how="left")
+                .fillna(0)
+                .filter(
+                    sf.col("temp_rank") <= sf.col("seen_count") + sf.lit(k)
+                )
+                .drop("temp_rank", "seen_count")
+            )
+            num_of_seen.unpersist()
+
             recs = recs.join(
                 log.withColumnRenamed("item_idx", "item")
                 .withColumnRenamed("user_idx", "user")
@@ -346,8 +373,7 @@ class BaseRecommender(ABC):
         recs = self._convert_back(recs, users_type, items_type).select(
             "user_id", "item_id", "relevance"
         )
-        recs = get_top_k_recs(recs, k)
-        return recs
+        return get_top_k_recs(recs, k=k)
 
     def _convert_index(
         self, data_frame: Optional[DataFrame]
