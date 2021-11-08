@@ -30,6 +30,14 @@ class Wilson(PopRec):
         """
         self.alpha = alpha
 
+    @property
+    def _init_args(self):
+        return {"alpha": self.alpha}
+
+    @property
+    def _dataframes(self):
+        return {"item_popularity": self.item_popularity}
+
     def _fit(
         self,
         log: DataFrame,

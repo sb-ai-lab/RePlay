@@ -126,6 +126,16 @@ class BaseRecommender(ABC):
         self.study.optimize(objective, budget)
         return self.study.best_params
 
+    @property
+    def _dataframes(self):
+        return {}
+
+    def _save_model(self, path: str):
+        pass
+
+    def _load_model(self, path: str):
+        pass
+
     @staticmethod
     def _train_test_features(
         train: DataFrame,
@@ -460,8 +470,7 @@ class BaseRecommender(ABC):
 
     @staticmethod
     def _get_ids(
-        log: Union[Iterable, AnyDataFrame],
-        column: str,
+        log: Union[Iterable, AnyDataFrame], column: str,
     ) -> DataFrame:
         """
         Get unique values from ``array`` and put them into dataframe with column ``column``.
@@ -729,10 +738,7 @@ class BaseRecommender(ABC):
 
         if self.can_predict_item_to_item:
             return self._get_nearest_items_wrap(
-                items=items,
-                k=k,
-                metric=metric,
-                candidates=candidates,
+                items=items, k=k, metric=metric, candidates=candidates,
             )
 
         raise ValueError(
@@ -760,9 +766,7 @@ class BaseRecommender(ABC):
         ]
 
         nearest_items_to_filter = self._get_nearest_items(
-            items=items,
-            metric=metric,
-            candidates=candidates,
+            items=items, metric=metric, candidates=candidates,
         )
 
         rel_col_name = metric if metric is not None else "similarity"
@@ -1246,6 +1250,10 @@ class NeighbourRec(Recommender, ABC):
     can_predict_item_to_item: bool = True
     can_predict_cold_users: bool = True
 
+    @property
+    def _dataframes(self):
+        return {"similarity": self.similarity}
+
     def _clear_cache(self):
         if hasattr(self, "similarity"):
             self.similarity.unpersist()
@@ -1282,11 +1290,7 @@ class NeighbourRec(Recommender, ABC):
                 how="inner",
                 on=sf.col("item_idx") == sf.col("item_id_one"),
             )
-            .join(
-                filter_df,
-                how="inner",
-                on=condition,
-            )
+            .join(filter_df, how="inner", on=condition,)
             .groupby("user_idx", "item_id_two")
             .agg(sf.sum("similarity").alias("relevance"))
             .withColumnRenamed("item_id_two", "item_idx")
@@ -1358,10 +1362,7 @@ class NeighbourRec(Recommender, ABC):
             )
 
         return self._get_nearest_items_wrap(
-            items=items,
-            k=k,
-            metric=None,
-            candidates=candidates,
+            items=items, k=k, metric=None, candidates=candidates,
         )
 
     def _get_nearest_items(

@@ -42,6 +42,15 @@ class AssociationRulesItemRec(Recommender):
         self.min_pair_count = min_pair_count
         self.num_neighbours = num_neighbours
 
+    @property
+    def _init_args(self):
+        return {
+            "session_col": self.session_col,
+            "min_item_count": self.min_item_count,
+            "min_pair_count": self.min_pair_count,
+            "num_neighbours": self.num_neighbours,
+        }
+
     def _fit(
         self,
         log: DataFrame,
@@ -116,8 +125,7 @@ class AssociationRulesItemRec(Recommender):
                     "similarity_order",
                     sf.row_number().over(
                         Window.partitionBy("antecedent").orderBy(
-                            sf.col("lift").desc(),
-                            sf.col("consequent").desc(),
+                            sf.col("lift").desc(), sf.col("consequent").desc(),
                         )
                     ),
                 )
@@ -212,10 +220,7 @@ class AssociationRulesItemRec(Recommender):
             )
 
         return self._get_nearest_items_wrap(
-            items=items,
-            k=k,
-            metric=metric,
-            candidates=candidates,
+            items=items, k=k, metric=metric, candidates=candidates,
         )
 
     def _get_nearest_items(
@@ -256,3 +261,7 @@ class AssociationRulesItemRec(Recommender):
     def _clear_cache(self):
         if hasattr(self, "pair_metrics"):
             unpersist_if_exists(self.pair_metrics)
+
+    @property
+    def _dataframes(self):
+        return {"pair_metrics": self.pair_metrics}

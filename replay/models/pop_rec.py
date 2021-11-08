@@ -51,6 +51,14 @@ class PopRec(Recommender):
     item_popularity: DataFrame
     can_predict_cold_users = True
 
+    @property
+    def _init_args(self):
+        return {}
+
+    @property
+    def _dataframes(self):
+        return {"item_popularity": self.item_popularity}
+
     def _fit(
         self,
         log: DataFrame,
@@ -85,9 +93,7 @@ class PopRec(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         selected_item_popularity = self.item_popularity.join(
-            items,
-            on="item_idx",
-            how="inner",
+            items, on="item_idx", how="inner",
         ).withColumn(
             "rank",
             sf.row_number().over(Window.orderBy(sf.col("relevance").desc())),

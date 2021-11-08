@@ -60,10 +60,7 @@ class TorchRecommender(Recommender):
         self.logger.debug("Предсказание модели")
         recs = (
             users.join(log, how="left", on="user_idx")
-            .selectExpr(
-                "user_idx AS user_idx",
-                "item_idx AS item_idx",
-            )
+            .selectExpr("user_idx AS user_idx", "item_idx AS item_idx",)
             .groupby("user_idx")
             .applyInPandas(grouped_map, IDX_REC_SCHEMA)
         )
@@ -126,9 +123,7 @@ class TorchRecommender(Recommender):
     @staticmethod
     @abstractmethod
     def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame,
-        model: nn.Module,
-        item_count: int,
+        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
     ) -> pd.DataFrame:
         """
         Get relevance for provided pairs
@@ -309,3 +304,6 @@ average loss: {metrics["loss"]:.5f}"""
         :param *args: other arguments used to calculate loss
         :return: 1x1 tensor
         """
+
+    def _save_model(self, path: str):
+        torch.save(self.model.state_dict(), path)

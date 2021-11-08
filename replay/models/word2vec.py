@@ -56,6 +56,18 @@ class Word2VecRec(Recommender, ItemVectorModel):
         self.max_iter = max_iter
         self._seed = seed
 
+    @property
+    def _init_args(self):
+        return {
+            "rank": self.rank,
+            "window_size": self.window_size,
+            "use_idf": self.use_idf,
+            "min_count": self.min_count,
+            "step_size": self.step_size,
+            "max_iter": self.max_iter,
+            "seed": self._seed,
+        }
+
     def _fit(
         self,
         log: DataFrame,
@@ -117,10 +129,12 @@ class Word2VecRec(Recommender, ItemVectorModel):
             self.idf.unpersist()
             self.vectors.unpersist()
 
+    @property
+    def _dataframes(self):
+        return {"idf": self.idf, "vectors": self.vectors}
+
     def _get_user_vectors(
-        self,
-        users: DataFrame,
-        log: DataFrame,
+        self, users: DataFrame, log: DataFrame,
     ) -> DataFrame:
         """
         :param users: user ids, dataframe ``[user_idx]``
@@ -147,9 +161,7 @@ class Word2VecRec(Recommender, ItemVectorModel):
         )
 
     def _predict_pairs_inner(
-        self,
-        pairs: DataFrame,
-        log: DataFrame,
+        self, pairs: DataFrame, log: DataFrame,
     ) -> DataFrame:
         if log is None:
             raise ValueError(

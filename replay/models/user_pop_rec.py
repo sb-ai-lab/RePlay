@@ -41,6 +41,14 @@ class UserPopRec(Recommender):
 
     user_item_popularity: DataFrame
 
+    @property
+    def _init_args(self):
+        return {}
+
+    @property
+    def _dataframes(self):
+        return {"user_item_popularity": self.user_item_popularity}
+
     def _fit(
         self,
         log: DataFrame,

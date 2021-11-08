@@ -106,6 +106,14 @@ class ADMMSLIM(NeighbourRec):
         self.rho = lambda_2
         self.seed = seed
 
+    @property
+    def _init_args(self):
+        return {
+            "lambda_1": self.lambda_1,
+            "lambda_2": self.lambda_2,
+            "seed": self.seed,
+        }
+
     # pylint: disable=too-many-locals
     def _fit(
         self,

@@ -1,7 +1,7 @@
 from typing import Optional
 
 from pandas import DataFrame
-from pyspark.ml.clustering import KMeans
+from pyspark.ml.clustering import KMeans, KMeansModel
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import functions as sf
 
@@ -24,6 +24,16 @@ class ClusterRec(UserRecommender):
         :param num_clusters: number of clusters
         """
         self.num_clusters = num_clusters
+
+    @property
+    def _init_args(self):
+        return {"num_clusters": self.num_clusters}
+
+    def _save_model(self, path: str):
+        self.model.write().overwrite().save(path)
+
+    def _load_model(self, path: str):
+        self.model = KMeansModel.load(path)
 
     def _fit(
         self,
@@ -59,6 +69,10 @@ class ClusterRec(UserRecommender):
     def _clear_cache(self):
         if hasattr(self, "item_rel_in_cluster"):
             self.item_rel_in_cluster.unpersist()
+
+    @property
+    def _dataframes(self):
+        return {"item_rel_in_cluster": self.item_rel_in_cluster}
 
     @staticmethod
     def _transform_features(user_features):

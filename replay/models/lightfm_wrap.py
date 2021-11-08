@@ -1,6 +1,8 @@
 import os
+from os.path import join
 from typing import Optional, Tuple
 
+import joblib
 import numpy as np
 import pandas as pd
 import pyspark.sql.functions as sf
@@ -38,7 +40,7 @@ class LightFMWrap(HybridRecommender):
         no_components: int = 128,
         loss: str = "warp",
         random_state: Optional[int] = None,
-    ):
+    ):  # pylint: disable=too-many-arguments
         np.random.seed(42)
         self.no_components = no_components
         self.loss = loss
@@ -46,6 +48,27 @@ class LightFMWrap(HybridRecommender):
         cpu_count = os.cpu_count()
         self.num_threads = cpu_count if cpu_count is not None else 1
         # number of columns in identity matrix used for building feature matrix
+
+    @property
+    def _init_args(self):
+        return {
+            "no_components": self.no_components,
+            "loss": self.loss,
+            "random_state": self.random_state,
+            "num_of_warm_items": self.num_of_warm_items,
+            "num_of_warm_users": self.num_of_warm_users,
+        }
+
+    def _save_model(self, path: str):
+        os.makedirs(path)
+        joblib.dump(self.model, join(path, "model"))
+        joblib.dump(self.user_feat_scaler, join(path, "user_feat_scaler"))
+        joblib.dump(self.item_feat_scaler, join(path, "item_feat_scaler"))
+
+    def _load_model(self, path: str):
+        self.model = joblib.load(join(path, "model"))
+        self.user_feat_scaler = joblib.load(join(path, "user_feat_scaler"))
+        self.item_feat_scaler = joblib.load(join(path, "item_feat_scaler"))
 
     def _feature_table_to_csr(
         self,
@@ -276,10 +299,7 @@ class LightFMWrap(HybridRecommender):
             matrix_width = getattr(self, f"num_of_warm_{entity}s")
             warm_ids = ids_list[ids_list < matrix_width]
             sparse_features = csr_matrix(
-                (
-                    [1] * warm_ids.shape[0],
-                    (warm_ids, warm_ids),
-                ),
+                ([1] * warm_ids.shape[0], (warm_ids, warm_ids),),
                 shape=(ids_list.max() + 1, matrix_width),
             )
         else:
@@ -298,10 +318,6 @@ class LightFMWrap(HybridRecommender):
         )
         lightfm_factors = State().session.createDataFrame(
             embed_list,
-            schema=[
-                f"{entity}_idx",
-                f"{entity}_bias",
-                f"{entity}_factors",
-            ],
+            schema=[f"{entity}_idx", f"{entity}_bias", f"{entity}_factors",],
         )
         return lightfm_factors, self.model.no_components

@@ -26,6 +26,10 @@ class KNN(NeighbourRec):
         self.shrink: float = shrink
         self.num_neighbours: int = num_neighbours
 
+    @property
+    def _init_args(self):
+        return {"shrink": self.shrink, "num_neighbours": self.num_neighbours}
+
     def _get_similarity_matrix(
         self, dot_products: DataFrame, item_norms: DataFrame
     ) -> DataFrame:

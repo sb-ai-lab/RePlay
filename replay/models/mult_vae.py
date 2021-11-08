@@ -183,6 +183,19 @@ class MultVAE(TorchRecommender):
         self.l2_reg = l2_reg
         self.gamma = gamma
 
+    @property
+    def _init_args(self):
+        return {
+            "learning_rate": self.learning_rate,
+            "epochs": self.epochs,
+            "latent_dim": self.latent_dim,
+            "hidden_dim": self.hidden_dim,
+            "dropout": self.dropout,
+            "anneal": self.anneal,
+            "l2_reg": self.l2_reg,
+            "gamma": self.gamma,
+        }
+
     def _get_data_loader(
         self, data: pd.DataFrame, shuffle: bool = True
     ) -> Tuple[csr_matrix, DataLoader, np.ndarray]:
@@ -334,9 +347,7 @@ class MultVAE(TorchRecommender):
 
     @staticmethod
     def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame,
-        model: nn.Module,
-        item_count: int,
+        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
     ) -> pd.DataFrame:
 
         items_np_history = np.array(
@@ -355,3 +366,13 @@ class MultVAE(TorchRecommender):
             item_count=item_count,
             cnt=None,
         )
+
+    def _load_model(self, path: str):
+        self.model = VAE(
+            item_count=self.items_count,
+            latent_dim=self.latent_dim,
+            hidden_dim=self.hidden_dim,
+            dropout=self.dropout,
+        ).to(self.device)
+        self.model.load_state_dict(torch.load(path))
+        self.model.eval()

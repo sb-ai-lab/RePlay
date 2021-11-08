@@ -1,5 +1,6 @@
 from typing import Optional
 
+import joblib
 import pandas as pd
 from pyspark.sql import DataFrame
 
@@ -34,6 +35,16 @@ class ImplicitWrap(Recommender):
         self.logger.info(
             "The model is a wrapper of a non-distributed model which may affect performance"
         )
+
+    @property
+    def _init_args(self):
+        return {"model": None}
+
+    def _save_model(self, path: str):
+        joblib.dump(self.model, path)
+
+    def _load_model(self, path: str):
+        self.model = joblib.load(path)
 
     def _fit(
         self,

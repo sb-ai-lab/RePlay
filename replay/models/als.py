@@ -2,7 +2,7 @@ from typing import Optional, Tuple
 
 import pyspark.sql.functions as sf
 
-from pyspark.ml.recommendation import ALS
+from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
@@ -34,6 +34,22 @@ class ALSWrap(Recommender, ItemVectorModel):
         self.rank = rank
         self.implicit_prefs = implicit_prefs
         self._seed = seed
+
+    @property
+    def _init_args(self):
+        return {
+            "rank": self.rank,
+            "implicit_prefs": self.implicit_prefs,
+            "seed": self._seed,
+        }
+
+    def _save_model(self, path: str):
+        self.model.write().overwrite().save(path)
+
+    def _load_model(self, path: str):
+        self.model = ALSModel.load(path)
+        self.model.itemFactors.cache()
+        self.model.userFactors.cache()
 
     def _fit(
         self,

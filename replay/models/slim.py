@@ -37,6 +37,10 @@ class SLIM(NeighbourRec):
         self.lambda_ = lambda_
         self.seed = seed
 
+    @property
+    def _init_args(self):
+        return {"beta": self.beta, "lambda_": self.lambda_, "seed": self.seed}
+
     def _fit(
         self,
         log: DataFrame,

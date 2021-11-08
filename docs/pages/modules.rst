@@ -6,6 +6,7 @@ Modules
    :caption: Contents:
 
    modules/models
+   modules/saver
    modules/metrics
    modules/experiment
    modules/scenarios
