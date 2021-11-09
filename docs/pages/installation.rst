@@ -17,6 +17,7 @@ Development
 You can also clone repository and install with poetry
 
 .. code-block:: bash
+
     git clone git@github.com:sberbank-ai-lab/RePlay.git
     cd RePlay
     pip install -U pip wheel
