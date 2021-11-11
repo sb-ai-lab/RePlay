@@ -175,7 +175,7 @@ class ADMMSLIM(NeighbourRec):
                 f"{r_primal - eps_primal:.5}; dual gap: "
                 f" {r_dual - eps_dual:.5}; rho: {self.rho}"
             )
-            self.logger.info(result_message)
+            self.logger.debug(result_message)
 
         mat_c_sparse = coo_matrix(mat_c)
         mat_c_pd = pd.DataFrame(

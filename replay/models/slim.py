@@ -16,8 +16,8 @@ class SLIM(NeighbourRec):
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
 
     _search_space = {
-        "beta": {"type": "loguniform", "args": [1e-9, 5]},
-        "lambda_": {"type": "loguniform", "args": [1e-9, 2]},
+        "beta": {"type": "loguniform", "args": [1e-6, 5]},
+        "lambda_": {"type": "loguniform", "args": [1e-6, 2]},
     }
 
     def __init__(

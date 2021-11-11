@@ -93,10 +93,7 @@ Hyper parameter {param_name} is numerical but no bounds
     return to_optuna_types_dict[param_type](param_name, low=lower, high=upper)
 
 
-# pylint: disable=too-many-arguments
-def scenario_objective_calculator(
-    trial: Trial,
-    search_space: Dict[str, List[Optional[Any]]],
+def eval_quality(
     split_data: SplitData,
     recommender,
     criterion: Metric,
@@ -104,8 +101,6 @@ def scenario_objective_calculator(
 ) -> float:
     """
     Calculate criterion value for given parameters
-    :param trial: optuna trial
-    :param search_space: hyper parameter search space
     :param split_data: data to train and test model
     :param recommender: recommender model
     :param criterion: optimization metric
@@ -113,18 +108,6 @@ def scenario_objective_calculator(
     :return: criterion value
     """
     logger = logging.getLogger("replay")
-
-    params_for_trial = {}
-    for param_name, param_data in search_space.items():
-        params_for_trial[param_name] = suggest_param_value(
-            # pylint: disable=protected-access
-            trial,
-            param_name,
-            param_data,
-            recommender._search_space,
-        )
-
-    recommender.set_params(**params_for_trial)
     logger.debug("Fitting model inside optimization")
     # pylint: disable=protected-access
     recommender._fit_wrap(
@@ -146,6 +129,39 @@ def scenario_objective_calculator(
     criterion_value = criterion(recs, split_data.test, k)
     logger.debug("%s=%.6f", criterion, criterion_value)
     return criterion_value
+
+
+# pylint: disable=too-many-arguments
+def scenario_objective_calculator(
+    trial: Trial,
+    search_space: Dict[str, List[Optional[Any]]],
+    split_data: SplitData,
+    recommender,
+    criterion: Metric,
+    k: int,
+) -> float:
+    """
+    Sample parameters and calculate criterion value
+    :param trial: optuna trial
+    :param search_space: hyper parameter search space
+    :param split_data: data to train and test model
+    :param recommender: recommender model
+    :param criterion: optimization metric
+    :param k: length of a recommendation list
+    :return: criterion value
+    """
+    params_for_trial = {}
+    for param_name, param_data in search_space.items():
+        params_for_trial[param_name] = suggest_param_value(
+            # pylint: disable=protected-access
+            trial,
+            param_name,
+            param_data,
+            recommender._search_space,
+        )
+
+    recommender.set_params(**params_for_trial)
+    return eval_quality(split_data, recommender, criterion, k)
 
 
 MainObjective = partial(
