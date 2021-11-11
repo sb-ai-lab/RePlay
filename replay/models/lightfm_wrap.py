@@ -141,7 +141,7 @@ class LightFMWrap(HybridRecommender):
 
         entity_id_features = csr_matrix(
             (
-                [1] * entities_seen_in_fit.shape[0],
+                [1.0] * entities_seen_in_fit.shape[0],
                 (entities_seen_in_fit, entities_seen_in_fit),
             ),
             shape=(matrix_height, num_entities_in_fit),
@@ -173,15 +173,10 @@ class LightFMWrap(HybridRecommender):
             sparse_features = csr_matrix((matrix_height, number_of_features))
 
         concat_features = hstack([entity_id_features, sparse_features])
-        concat_features_sum = diags(
-            np.where(
-                concat_features.sum(axis=1).A.ravel() == 0,
-                0,
-                1 / concat_features.sum(axis=1).A.ravel(),
-            ),
-            format="csr",
-        )
-        return concat_features_sum @ concat_features
+        concat_features_sum = concat_features.sum(axis=1).A.ravel()
+        mask = concat_features_sum != 0.0
+        concat_features_sum[mask] = 1.0 / concat_features_sum[mask]
+        return diags(concat_features_sum, format="csr") @ concat_features
 
     def _fit(
         self,

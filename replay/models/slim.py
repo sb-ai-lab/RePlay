@@ -22,8 +22,8 @@ class SLIM(NeighbourRec):
 
     def __init__(
         self,
-        beta: float = 4.0,
-        lambda_: float = 0.02,
+        beta: float = 0.01,
+        lambda_: float = 0.01,
         seed: Optional[int] = None,
     ):
         """

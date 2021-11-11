@@ -185,7 +185,10 @@ class ADMMSLIM(NeighbourRec):
                 "similarity": mat_c_sparse.data,
             }
         )
-        self.similarity = State().session.createDataFrame(mat_c_pd)
+        self.similarity = State().session.createDataFrame(
+            mat_c_pd,
+            schema="item_id_one int, item_id_two int, similarity double",
+        )
         self.similarity.cache()
 
     def _init_matrix(
