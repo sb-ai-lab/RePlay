@@ -42,6 +42,31 @@ def test_split(log, split_date):
     assert test_min_date >= split_date
 
 
+def test_string(log, split_date):
+    splitter = DateSplitter(
+        split_date, drop_cold_items=False, drop_cold_users=False
+    )
+    train_by_date, test_by_date = splitter.split(log)
+
+    str_date = split_date.strftime("%Y-%m-%d")
+    splitter = DateSplitter(
+        str_date, drop_cold_items=False, drop_cold_users=False
+    )
+    train_by_str, test_by_str = splitter.split(log)
+
+    int_date = int(split_date.timestamp())
+    splitter = DateSplitter(
+        int_date, drop_cold_items=False, drop_cold_users=False
+    )
+    train_by_int, test_by_int = splitter.split(log)
+
+    assert train_by_date.count() == train_by_str.count()
+    assert test_by_date.count() == test_by_str.count()
+
+    assert train_by_date.count() == train_by_int.count()
+    assert test_by_date.count() == test_by_int.count()
+
+
 def test_proportion(log):
     test_size = 0.15
     splitter = DateSplitter(test_size)

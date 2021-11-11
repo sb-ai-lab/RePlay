@@ -12,7 +12,6 @@ from typing import Optional, Union
 
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
-from pyspark.sql.types import TimestampType
 
 from replay.splitters.base_splitter import (
     Splitter,
@@ -28,12 +27,12 @@ class DateSplitter(Splitter):
 
     def __init__(
         self,
-        test_start: Union[datetime, float],
+        test_start: Union[datetime, float, str, int],
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
     ):
         """
-        :param test_start: date ``yyyy-mm-dd`` or a
+        :param test_start: string``yyyy-mm-dd``, int unix timestamp, datetime or a
             fraction for test size to determine data automatically
         :param drop_cold_items: flag to drop cold items from test
         :param drop_cold_users: flag to drop cold users from test
@@ -55,13 +54,10 @@ class DateSplitter(Splitter):
                 .collect()[0][0]
             )
         else:
-            test_start = self.test_start
-        train = log.filter(
-            sf.col("timestamp") < sf.lit(test_start).cast(TimestampType())
-        )
-        test = log.filter(
-            sf.col("timestamp") >= sf.lit(test_start).cast(TimestampType())
-        )
+            dtype = dict(log.dtypes)["timestamp"]
+            test_start = sf.lit(self.test_start).cast("timestamp").cast(dtype)
+        train = log.filter(sf.col("timestamp") < test_start)
+        test = log.filter(sf.col("timestamp") >= test_start)
         return train, test
 
 
@@ -219,8 +215,7 @@ class ColdUserRandomSplitter(Splitter):
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         users = log.select("user_id").distinct()
         train_users, test_users = users.randomSplit(
-            [1 - self.test_size, self.test_size],
-            seed=self.seed,
+            [1 - self.test_size, self.test_size], seed=self.seed,
         )
         train = log.join(train_users, on="user_id", how="inner")
         test = log.join(test_users, on="user_id", how="inner")

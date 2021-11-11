@@ -109,10 +109,7 @@ class UserSplitter(Splitter):
         self.shuffle = shuffle
         self.seed = seed
 
-    def _get_test_users(
-        self,
-        log: DataFrame,
-    ) -> DataFrame:
+    def _get_test_users(self, log: DataFrame,) -> DataFrame:
         """
         :param log: input DataFrame
         :return: Spark DataFrame with single column `user_id`
@@ -284,9 +281,7 @@ def k_folds(
     :return: yields train and test DataFrames by folds
     """
     if splitter not in {"user"}:
-        raise ValueError(
-            f"Недопустимое значение параметра splitter: {splitter}"
-        )
+        raise ValueError(f"Wrong splitter parameter: {splitter}")
     if splitter == "user":
         dataframe = convert2spark(log).withColumn("rand", sf.rand(seed))
         dataframe = dataframe.withColumn(
