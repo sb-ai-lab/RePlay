@@ -21,5 +21,5 @@ help:
 
 gh-deploy:
 	@make html
-	@ghp-import _build/html -p -o -n -r github
+	@ghp-import _build/html -p -o -n
 
