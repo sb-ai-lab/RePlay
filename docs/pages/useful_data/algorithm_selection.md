@@ -1,6 +1,6 @@
-## How to choose a recommender
+# How to choose a recommender
 
-#### Input Data
+## Input Data
 
 - _What is the input?_ 
 
@@ -47,7 +47,7 @@ The same goes for new items.
 
 `*` - depends on base models. 
 
-#### Model requirements
+## Model requirements
 
 * _Should recommendations be personalized?_ 
 * _Should cold users get recommendations?_ (without any interactions).
@@ -76,3 +76,13 @@ The same goes for new items.
 `*` - depends on base models. 
 
 More info on [models](../modules/models).
+
+## Model Comparison
+All metrics are calculated at $k=10$
+### MovieLens 1m
+```{eval-rst}
+.. csv-table:: 
+   :file: res_1m.csv
+   :header-rows: 1
+   :stub-columns: 1
+```

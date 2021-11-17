@@ -21,7 +21,7 @@ You can
 
 ### Installation
 
-Use Linux machine with Python 3.6+ and Java 8+. 
+Use Linux machine with Python 3.7+ and Java 8+. 
 
 ```bash
 pip install replay-rec

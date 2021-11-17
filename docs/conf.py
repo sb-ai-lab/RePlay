@@ -32,8 +32,7 @@ author = "Sberbank AI Laboratory"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx_autodoc_typehints",
-    "recommonmark",
-    "sphinx_markdown_tables",
+    "myst_parser",
 ]
 source_suffix = [".rst", ".md"]
 

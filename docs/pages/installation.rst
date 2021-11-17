@@ -1,7 +1,7 @@
 Installation
 ============
 
-It is recommended to use Unix machine with ``python >= 3.6``
+It is recommended to use Unix machine with ``python >= 3.7``
 
 Basic
 --------
