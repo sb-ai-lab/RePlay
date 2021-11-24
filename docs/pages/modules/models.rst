@@ -37,6 +37,7 @@ ____________________________
 
 .. autoclass:: replay.models.base_rec.BaseRecommender
     :members: optimize
+    :noindex: optimize
 
 Distributed models
 __________________

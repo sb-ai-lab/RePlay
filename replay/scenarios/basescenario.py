@@ -159,10 +159,11 @@ class BaseScenario(BaseRecommender):
         test: AnyDataFrame,
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
-        param_grid: Optional[Dict[str, Dict[str, List[Any]]]] = None,
+        param_borders: Optional[Dict[str, Dict[str, List[Any]]]] = None,
         criterion: Metric = NDCG(),
         k: int = 10,
         budget: int = 10,
+        new_study: bool = True,
     ) -> Tuple[Dict[str, Any]]:
         """
         Searches best parameters with optuna.
@@ -171,26 +172,28 @@ class BaseScenario(BaseRecommender):
         :param test: test data
         :param user_features: user features
         :param item_features: item features
-        :param param_grid: a dictionary with search grid, where
+        :param param_borders: a dictionary with search grid, where
             key is the parameter name and value is
             the range of possible values``{param: [low, high]}``.
         :param criterion: metric to use for optimization
         :param k: recommendation list length
         :param budget: number of points to try
+        :param new_study: keep searching with previous study or start a new study
         :return: dictionary with best parameters
         """
-        if param_grid is None:
-            param_grid = {"main": None, "cold": None}
+        if param_borders is None:
+            param_borders = {"main": None, "cold": None}
         self.logger.info("Optimizing main model...")
         params = self._optimize(
             train,
             test,
             user_features,
             item_features,
-            param_grid["main"],
+            param_borders["main"],
             criterion,
             k,
             budget,
+            new_study,
         )
         if not isinstance(params, tuple):
             self.set_params(**params)
@@ -201,10 +204,11 @@ class BaseScenario(BaseRecommender):
                 test,
                 user_features,
                 item_features,
-                param_grid["cold"],
+                param_borders["cold"],
                 criterion,
                 k,
                 budget,
+                new_study,
             )
             if not isinstance(cold_params, tuple):
                 self.cold_model.set_params(**cold_params)
@@ -219,9 +223,10 @@ class BaseScenario(BaseRecommender):
         test: AnyDataFrame,
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
-        param_grid: Optional[Dict[str, Dict[str, List[Any]]]] = None,
+        param_borders: Optional[Dict[str, Dict[str, List[Any]]]] = None,
         criterion: Metric = NDCG(),
         k: int = 10,
         budget: int = 10,
+        new_study: bool = True,
     ):
         pass

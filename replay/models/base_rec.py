@@ -12,6 +12,7 @@ Base abstract classes:
 import collections
 import logging
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from typing import Any, Dict, Iterable, List, Optional, Union, Sequence, Tuple
 
 import pandas as pd
@@ -54,17 +55,18 @@ class BaseRecommender(ABC):
     _objective = MainObjective
     study = None
 
-    # pylint: disable=too-many-arguments, too-many-locals
+    # pylint: disable=too-many-arguments, too-many-locals, no-member
     def optimize(
         self,
         train: AnyDataFrame,
         test: AnyDataFrame,
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
-        param_grid: Optional[Dict[str, List[Any]]] = None,
+        param_borders: Optional[Dict[str, List[Any]]] = None,
         criterion: Metric = NDCG(),
         k: int = 10,
         budget: int = 10,
+        new_study: bool = True,
     ) -> Optional[Dict[str, Any]]:
         """
         Searches best parameters with optuna.
@@ -73,12 +75,14 @@ class BaseRecommender(ABC):
         :param test: test data
         :param user_features: user features
         :param item_features: item features
-        :param param_grid: a dictionary with search grid, where
+        :param param_borders: a dictionary with search borders, where
             key is the parameter name and value is the range of possible values
-            ``{param: [low, high]}``.
+            ``{param: [low, high]}``. In case of categorical parameters it is
+            all possible values: ``{cat_param: [cat_1, cat_2, cat_3]}``.
         :param criterion: metric to use for optimization
         :param k: recommendation list length
         :param budget: number of points to try
+        :param new_study: keep searching with previous study or start a new study
         :return: dictionary with best parameters
         """
         if self._search_space is None:
@@ -86,54 +90,44 @@ class BaseRecommender(ABC):
                 "%s has no hyper parameters to optimize", str(self)
             )
             return None
-        train = convert2spark(train)
-        test = convert2spark(test)
 
-        user_features_train, user_features_test = self._train_test_features(
-            train, test, user_features, "user_id"
-        )
-        item_features_train, item_features_test = self._train_test_features(
-            train, test, item_features, "item_id"
-        )
-
-        users = test.select("user_id").distinct()
-        items = test.select("item_id").distinct()
-        split_data = SplitData(
-            train,
-            test,
-            users,
-            items,
-            user_features_train,
-            user_features_test,
-            item_features_train,
-            item_features_test,
-        )
-        if param_grid is None:
-            params = self._search_space.keys()
-            vals = [None] * len(params)
-            param_grid = dict(zip(params, vals))
-        if self.study is None:
+        if self.study is None or new_study:
             self.study = create_study(
                 direction="maximize", sampler=TPESampler()
             )
+
+        search_space = self._prepare_param_borders(param_borders)
+        if (
+            self._init_params_in_search_space(search_space)
+            and not self._params_tried()
+        ):
+            self.study.enqueue_trial(self._init_args)
+
+        split_data = self._prepare_split_data(
+            train, test, user_features, item_features
+        )
         objective = self._objective(
-            search_space=param_grid,
+            search_space=search_space,
             split_data=split_data,
             recommender=self,
             criterion=criterion,
             k=k,
         )
 
-        # check if initial models' parameters are inside the search space
-        initial_params = {key: getattr(self, key) for key in param_grid.keys()}
+        self.study.optimize(objective, budget)
+        best_params = self.study.best_params
+        self.set_params(**best_params)
+        return best_params
+
+    def _init_params_in_search_space(self, search_space):
+        """Check if model params are inside search space"""
+        params = self._init_args  # pylint: disable=no-member
         outside_search_space = {}
-        for param, value in initial_params.items():
-            param_type = self._search_space[param]["type"]
-            borders = (
-                self._search_space[param]["args"]
-                if param_grid[param] is None
-                else param_grid[param]
-            )
+        for param, value in params.items():
+            if param not in search_space:
+                continue
+            borders = search_space[param]["args"]
+            param_type = search_space[param]["type"]
 
             extra_category = (
                 param_type == "categorical" and value not in borders
@@ -151,14 +145,106 @@ class BaseRecommender(ABC):
             self.logger.debug(
                 "Model is initialized with parameters outside the search space: %s."
                 "Initial parameters will not be evaluated during optimization."
-                "Change search spare with 'param_grid' argument if necessary",
+                "Change search spare with 'param_borders' argument if necessary",
                 outside_search_space,
             )
+            return False
         else:
-            self.study.enqueue_trial(initial_params)
+            return True
 
-        self.study.optimize(objective, budget)
-        return self.study.best_params
+    def _prepare_param_borders(
+        self, param_borders: Optional[Dict[str, List[Any]]] = None
+    ) -> Dict[str, Dict[str, List[Any]]]:
+        """
+        Checks if param borders are valid and convert them to a search_space format
+
+        :param param_borders: a dictionary with search grid, where
+            key is the parameter name and value is the range of possible values
+            ``{param: [low, high]}``.
+        :return:
+        """
+        search_space = deepcopy(self._search_space)
+        if param_borders is None:
+            return search_space
+
+        for param, borders in param_borders.items():
+            self._check_borders(param, borders)
+            search_space[param]["args"] = borders
+
+        # Optuna trials should contain all searchable parameters
+        # to be able to correctly return best params
+        # If used didn't specify some params to be tested optuna still needs to suggest them
+        # This part makes sure this suggestion will be constant
+        args = self._init_args
+        missing_borders = {
+            param: args[param]
+            for param in search_space
+            if param not in param_borders
+        }
+        for param, value in missing_borders.items():
+            if search_space[param]["type"] == "categorical":
+                search_space[param]["args"] = [value]
+            else:
+                search_space[param]["args"] = [value, value]
+
+        return search_space
+
+    def _check_borders(self, param, borders):
+        """Raise value error if param borders are not valid"""
+        if param not in self._search_space:
+            raise ValueError(
+                f"Hyper parameter {param} is not defined for {str(self)}"
+            )
+        if not isinstance(borders, list):
+            raise ValueError(f"Parameter {param} borders are not a list")
+        if (
+            self._search_space[param]["type"] != "categorical"
+            and len(borders) != 2
+        ):
+            raise ValueError(
+                f"""
+                Hyper parameter {param} is numerical
+                 but bounds are not in ([lower, upper]) format
+                """
+            )
+
+    def _prepare_split_data(
+        self,
+        train: AnyDataFrame,
+        test: AnyDataFrame,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
+    ) -> SplitData:
+        """
+        This method converts data to spark and packs it into a named tuple to pass into optuna.
+
+        :param train: train data
+        :param test: test data
+        :param user_features: user features
+        :param item_features: item features
+        :return: packed PySpark DataFrames
+        """
+        train = convert2spark(train)
+        test = convert2spark(test)
+        user_features_train, user_features_test = self._train_test_features(
+            train, test, user_features, "user_id"
+        )
+        item_features_train, item_features_test = self._train_test_features(
+            train, test, item_features, "item_id"
+        )
+        users = test.select("user_id").distinct()
+        items = test.select("item_id").distinct()
+        split_data = SplitData(
+            train,
+            test,
+            users,
+            items,
+            user_features_train,
+            user_features_test,
+            item_features_train,
+            item_features_test,
+        )
+        return split_data
 
     @property
     def _dataframes(self):
@@ -504,8 +590,7 @@ class BaseRecommender(ABC):
 
     @staticmethod
     def _get_ids(
-        log: Union[Iterable, AnyDataFrame],
-        column: str,
+        log: Union[Iterable, AnyDataFrame], column: str,
     ) -> DataFrame:
         """
         Get unique values from ``array`` and put them into dataframe with column ``column``.
@@ -773,10 +858,7 @@ class BaseRecommender(ABC):
 
         if self.can_predict_item_to_item:
             return self._get_nearest_items_wrap(
-                items=items,
-                k=k,
-                metric=metric,
-                candidates=candidates,
+                items=items, k=k, metric=metric, candidates=candidates,
             )
 
         raise ValueError(
@@ -804,9 +886,7 @@ class BaseRecommender(ABC):
         ]
 
         nearest_items_to_filter = self._get_nearest_items(
-            items=items,
-            metric=metric,
-            candidates=candidates,
+            items=items, metric=metric, candidates=candidates,
         )
 
         rel_col_name = metric if metric is not None else "similarity"
@@ -842,6 +922,22 @@ class BaseRecommender(ABC):
         raise NotImplementedError(
             f"item-to-item prediction is not implemented for {self.__str__()}"
         )
+
+    def _params_tried(self):
+        """check if current parameters were already evaluated"""
+        if self.study is None:
+            return False
+
+        params = {
+            name: value
+            for name, value in self._init_args.items()
+            if name in self._search_space
+        }
+        for trial in self.study.trials:
+            if params == trial.params:
+                return True
+
+        return False
 
 
 class ItemVectorModel(BaseRecommender):
@@ -1330,11 +1426,7 @@ class NeighbourRec(Recommender, ABC):
                 how="inner",
                 on=sf.col("item_idx") == sf.col("item_id_one"),
             )
-            .join(
-                filter_df,
-                how="inner",
-                on=condition,
-            )
+            .join(filter_df, how="inner", on=condition,)
             .groupby("user_idx", "item_id_two")
             .agg(sf.sum("similarity").alias("relevance"))
             .withColumnRenamed("item_id_two", "item_idx")
@@ -1406,10 +1498,7 @@ class NeighbourRec(Recommender, ABC):
             )
 
         return self._get_nearest_items_wrap(
-            items=items,
-            k=k,
-            metric=None,
-            candidates=candidates,
+            items=items, k=k, metric=None, candidates=candidates,
         )
 
     def _get_nearest_items(

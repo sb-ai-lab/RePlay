@@ -1,54 +1,67 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
 
-from replay.models import ALSWrap, RandomRec
+from replay.models import ALSWrap, SLIM
 from tests.utils import log, spark
 
 
+@pytest.fixture
+def model():
+    return ALSWrap()
+
+
 @pytest.mark.parametrize(
-    "model,search_space,res_params",
+    "borders",
     [
-        (ALSWrap(rank=2), {"rank": [1, 10]}, {"rank": 2}),
-        (RandomRec(), None, {"distribution": "uniform", "alpha": 0.0}),
+        {"wrong_name": None},
+        {"rank": None},
+        {"rank": 2},
+        {"rank": [1]},
+        {"rank": [1, 2, 3]},
     ],
     ids=[
-        "int",
-        "cat_and_float",
+        "wrong name",
+        "None border",
+        "int border",
+        "border's too short",
+        "border's too long",
     ],
 )
-def test_param_types(log, model, search_space, res_params):
-    res = model.optimize(log, log, k=2, budget=1, param_grid=search_space)
-    for param, value in res_params.items():
-        assert getattr(model, param) == value == res[param]
+def test_bad_borders(model, borders):
+    with pytest.raises(ValueError):
+        model._prepare_param_borders(borders)
+
+
+@pytest.mark.parametrize("borders", [None, {"rank": [5, 9]}])
+def test_correct_borders(model, borders):
+    res = model._prepare_param_borders(borders)
+    assert res.keys() == model._search_space.keys()
+    assert "rank" in res
+    assert isinstance(res["rank"], dict)
+    assert res["rank"].keys() == model._search_space["rank"].keys()
+
+
+@pytest.mark.parametrize("borders", [{"beta": [1, 2]}, {"lambda_": [1, 2]}])
+def test_partial_borders(borders):
+    model = SLIM()
+    res = model._prepare_param_borders(borders)
+    assert len(res) == len(model._search_space)
 
 
 @pytest.mark.parametrize(
-    "model_params,search_space",
-    [({"rank": 2}, None), ({}, {"rank": [2, 5]})],
-    ids=[
-        "less_default_space",
-        "greater_defined_space",
-    ],
+    "borders,answer", [(None, True), ({"rank": [-10, -1]}, False)]
 )
-def test_init_params_outside(log, model_params, search_space):
-    model = ALSWrap(**model_params)
-    init_rank = model.rank
-    res = model.optimize(log, log, k=2, param_grid=search_space, budget=1)
-    assert res["rank"] == model.rank
-    assert res["rank"] != init_rank
+def test_param_in_borders(model, borders, answer):
+    search_space = model._prepare_param_borders(borders)
+    assert model._init_params_in_search_space(search_space) == answer
 
 
-@pytest.mark.parametrize(
-    "model_params,search_space",
-    [({"rank": 20}, None), ({"rank": 3}, {"rank": [2, 5]})],
-    ids=[
-        "default_space",
-        "defined_space",
-    ],
-)
-def test_init_params_inside(log, model_params, search_space):
-    model = ALSWrap(**model_params)
-    init_rank = model.rank
-    res = model.optimize(log, log, k=2, param_grid=search_space, budget=1)
-    assert res["rank"] == model.rank
-    assert res["rank"] == init_rank
+def test_it_works(model, log):
+    assert model._params_tried() is False
+    res = model.optimize(log, log, k=2, budget=1)
+    assert isinstance(res["rank"], int)
+    assert model._params_tried() is True
+    model.optimize(log, log, k=2, budget=1)
+    assert len(model.study.trials) == 1
+    model.optimize(log, log, k=2, budget=1, new_study=False)
+    assert len(model.study.trials) == 2

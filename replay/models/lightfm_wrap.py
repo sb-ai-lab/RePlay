@@ -48,6 +48,8 @@ class LightFMWrap(HybridRecommender):
         cpu_count = os.cpu_count()
         self.num_threads = cpu_count if cpu_count is not None else 1
         # number of columns in identity matrix used for building feature matrix
+        self.num_of_warm_items = None
+        self.num_of_warm_users = None
 
     @property
     def _init_args(self):

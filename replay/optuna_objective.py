@@ -46,58 +46,38 @@ class ObjectiveWrapper:
         return self.objective_calculator(trial=trial, **self.kwargs)
 
 
-def suggest_param_value(
-    trial: Trial,
-    param_name: str,
-    param_bounds: List[Optional[Any]],
-    default_params_data: Dict[str, Dict[str, Union[str, List[Any]]]],
-) -> Union[str, float, int]:
+def suggest_params(
+    trial: Trial, search_space: Dict[str, Dict[str, Union[str, List[Any]]]],
+) -> Dict[str, Any]:
     """
-    This function calls trial method dependent on hyper parameter type provided.
+    This function suggests params to try.
 
     :param trial: optuna trial
-    :param param_name: parameter name
-    :param param_bounds: lower and upper search bounds or list of categorical values.
-        If list is empty, default values are used.
-    :param default_params_data: hyper parameters and their default bounds
-    :return: hyper parameter value
+    :param search_space: hyper parameters and their bounds
+    :return: dict with parameter values
     """
-    to_optuna_types_dict = {
+    suggest_dict = {
         "uniform": trial.suggest_uniform,
         "int": trial.suggest_int,
         "loguniform": trial.suggest_loguniform,
         "loguniform_int": partial(trial.suggest_int, log=True),
     }
 
-    if param_name not in default_params_data:
-        raise ValueError(
-            f"Hyper parameter {param_name} is not defined for this model"
-        )
-    param_type = default_params_data[param_name]["type"]
-    param_args = (
-        param_bounds
-        if param_bounds
-        else default_params_data[param_name]["args"]
-    )
-    if param_type == "categorical":
-        return trial.suggest_categorical(param_name, param_args)
-
-    if len(param_args) != 2:
-        raise ValueError(
-            f"""
-Hyper parameter {param_name} is numerical but no bounds
-([lower, upper]) were provided"""
-        )
-    lower, upper = param_args
-
-    return to_optuna_types_dict[param_type](param_name, low=lower, high=upper)
+    res = {}
+    for param in search_space:
+        border = search_space[param]["args"]
+        param_type = search_space[param]["type"]
+        if param_type == "categorical":
+            res[param] = trial.suggest_categorical(param, border)
+        else:
+            low, high = border
+            suggest_fn = suggest_dict[param_type]
+            res[param] = suggest_fn(param, low=low, high=high)
+    return res
 
 
 def eval_quality(
-    split_data: SplitData,
-    recommender,
-    criterion: Metric,
-    k: int,
+    split_data: SplitData, recommender, criterion: Metric, k: int,
 ) -> float:
     """
     Calculate criterion value for given parameters
@@ -150,16 +130,7 @@ def scenario_objective_calculator(
     :param k: length of a recommendation list
     :return: criterion value
     """
-    params_for_trial = {}
-    for param_name, param_data in search_space.items():
-        params_for_trial[param_name] = suggest_param_value(
-            # pylint: disable=protected-access
-            trial,
-            param_name,
-            param_data,
-            recommender._search_space,
-        )
-
+    params_for_trial = suggest_params(trial, search_space)
     recommender.set_params(**params_for_trial)
     return eval_quality(split_data, recommender, criterion, k)
 
