@@ -54,7 +54,7 @@ class RandomRec(Recommender):
     >>> random_pop = RandomRec(distribution="abracadabra")
     Traceback (most recent call last):
      ...
-    ValueError: distribution can be either popular_based or uniform
+    ValueError: distribution can be one of [popular_based, relevance, uniform]
 
     >>> random_pop = RandomRec(distribution="popular_based", alpha=1.0, seed=777)
     >>> random_pop.fit(log)
@@ -107,7 +107,7 @@ class RandomRec(Recommender):
     _search_space = {
         "distribution": {
             "type": "categorical",
-            "args": ["popular_based", "uniform"],
+            "args": ["popular_based", "relevance", "uniform"],
         },
         "alpha": {"type": "uniform", "args": [-0.5, 100]},
     }
@@ -130,9 +130,9 @@ class RandomRec(Recommender):
         :param seed: random seed
         :param add_cold: flag to add cold items with minimal probability
         """
-        if distribution not in ("popular_based", "uniform"):
+        if distribution not in ("popular_based", "relevance", "uniform"):
             raise ValueError(
-                "distribution can be either popular_based or uniform"
+                "distribution can be one of [popular_based, relevance, uniform]"
             )
         if alpha <= -1.0 and distribution == "popular_based":
             raise ValueError("alpha must be bigger than -1")
@@ -178,7 +178,22 @@ class RandomRec(Recommender):
                     ),
                 )
             )
-
+        elif self.distribution == "relevance":
+            total_relevance = (
+                log.agg(sf.sum("relevance").alias("relevance"))
+                .first()
+                .asDict()["relevance"]
+            )
+            self.item_popularity = (
+                log.groupBy("item_idx")
+                .agg(sf.sum("relevance").alias("probability"))
+                .select(
+                    "item_idx",
+                    (sf.col("probability") / sf.lit(total_relevance)).alias(
+                        "probability"
+                    ),
+                )
+            )
         else:
             self.item_popularity = (
                 log.select("item_idx")

@@ -20,18 +20,17 @@ class PopRec(Recommender):
     :math:`N` - total number of users
 
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 2, 3, 4], "item_id": [1, 2, 2, 3, 3, 3]})
+    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 2, 3, 4], "item_id": [1, 2, 2, 3, 3, 3], "relevance": [0.5, 1, 0.1, 0.8, 0.7, 1]})
     >>> data_frame
-       user_id  item_id
-    0        1        1
-    1        1        2
-    2        2        2
-    3        2        3
-    4        3        3
-    5        4        3
+       user_id  item_id  relevance
+    0        1        1        0.5
+    1        1        2        1.0
+    2        2        2        0.1
+    3        2        3        0.8
+    4        3        3        0.7
+    5        4        3        1.0
 
-    >>> from replay.utils import convert2spark
-    >>> res = PopRec().fit_predict(convert2spark(data_frame), 1)
+    >>> res = PopRec().fit_predict(data_frame, 1)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
        user_id  item_id  relevance
     0        1        3       0.75
@@ -39,21 +38,36 @@ class PopRec(Recommender):
     2        3        2       0.50
     3        4        2       0.50
 
-    >>> res = PopRec().fit_predict(convert2spark(data_frame), 1, filter_seen_items=False)
+    >>> res = PopRec().fit_predict(data_frame, 1, filter_seen_items=False)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
        user_id  item_id  relevance
     0        1        3       0.75
     1        2        3       0.75
     2        3        3       0.75
     3        4        3       0.75
+
+    >>> res = PopRec(use_relevance=True).fit_predict(data_frame, 1)
+    >>> res.toPandas().sort_values("user_id", ignore_index=True)
+       user_id  item_id  relevance
+    0        1        3      0.625
+    1        2        1      0.125
+    2        3        2      0.275
+    3        4        2      0.275
+
     """
 
     item_popularity: DataFrame
     can_predict_cold_users = True
 
+    def __init__(self, use_relevance: bool = False):
+        """
+        :param use_relevance: flag to use relevance values as is or to treat them as 1
+        """
+        self.use_relevance = use_relevance
+
     @property
     def _init_args(self):
-        return {}
+        return {"use_relevance": self.use_relevance}
 
     @property
     def _dataframes(self):
@@ -65,16 +79,25 @@ class PopRec(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self.item_popularity = (
-            log.groupBy("item_idx")
-            .agg(sf.countDistinct("user_idx").alias("user_count"))
-            .select(
-                "item_idx",
-                (sf.col("user_count") / sf.lit(self.users_count)).alias(
-                    "relevance"
-                ),
+        if self.use_relevance:
+            self.item_popularity = (
+                log.groupBy("item_idx")
+                .agg(sf.sum("relevance").alias("relevance"))
+                .withColumn(
+                    "relevance", sf.col("relevance") / sf.lit(self.users_count)
+                )
             )
-        )
+        else:
+            self.item_popularity = (
+                log.groupBy("item_idx")
+                .agg(sf.countDistinct("user_idx").alias("user_count"))
+                .select(
+                    "item_idx",
+                    (sf.col("user_count") / sf.lit(self.users_count)).alias(
+                        "relevance"
+                    ),
+                )
+            )
         self.item_popularity.cache()
 
     def _clear_cache(self):

@@ -28,6 +28,7 @@ class Wilson(PopRec):
         """
         :param alpha: significance level, default 0.05
         """
+        # pylint: disable=super-init-not-called
         self.alpha = alpha
 
     @property

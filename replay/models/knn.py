@@ -18,50 +18,78 @@ class KNN(NeighbourRec):
         "shrink": {"type": "int", "args": [0, 100]},
     }
 
-    def __init__(self, num_neighbours: int = 10, shrink: float = 0.0):
+    def __init__(
+        self,
+        num_neighbours: int = 10,
+        use_relevance: bool = False,
+        shrink: float = 0.0,
+    ):
         """
-        :param num_neighbours:  number of neighbours
+        :param num_neighbours: number of neighbours
+        :param use_relevance: flag to use relevance values as is or to treat them as 1
         :param shrink: term added to the denominator when calculating similarity
         """
-        self.shrink: float = shrink
-        self.num_neighbours: int = num_neighbours
+        self.shrink = shrink
+        self.use_relevance = use_relevance
+        self.num_neighbours = num_neighbours
 
     @property
     def _init_args(self):
-        return {"shrink": self.shrink, "num_neighbours": self.num_neighbours}
+        return {
+            "shrink": self.shrink,
+            "use_relevance": self.use_relevance,
+            "num_neighbours": self.num_neighbours,
+        }
 
-    def _get_similarity_matrix(
-        self, dot_products: DataFrame, item_norms: DataFrame
-    ) -> DataFrame:
+    def _get_similarity(self, log: DataFrame) -> DataFrame:
         """
-        Get similarity matrix
+        Calculate item similarities
 
-        :param dot_products: dot products between items, `[item_id_one, item_id_two, dot_product]`
-        :param item_norms: euclidean norms for items `[item_id, norm]`
+        :param log: DataFrame with interactions, `[user_idx, item_idx, relevance]`
         :return: similarity matrix `[item_id_one, item_id_two, similarity]`
         """
-        return (
-            dot_products.join(
-                item_norms.withColumnRenamed(
-                    "item_idx", "item_id1"
-                ).withColumnRenamed("norm", "norm1"),
-                how="inner",
-                on=sf.col("item_id1") == sf.col("item_id_one"),
-            )
-            .join(
-                item_norms.withColumnRenamed(
-                    "item_idx", "item_id2"
-                ).withColumnRenamed("norm", "norm2"),
-                how="inner",
-                on=sf.col("item_id2") == sf.col("item_id_two"),
-            )
-            .withColumn(
-                "similarity",
-                sf.col("dot_product")
-                / (sf.col("norm1") * sf.col("norm2") + self.shrink),
-            )
-            .select("item_id_one", "item_id_two", "similarity")
+        left = log.withColumnRenamed(
+            "item_idx", "item_id_one"
+        ).withColumnRenamed("relevance", "rel_one")
+        right = log.withColumnRenamed(
+            "item_idx", "item_id_two"
+        ).withColumnRenamed("relevance", "rel_two")
+
+        dot_products = (
+            left.join(right, how="inner", on="user_idx")
+            .filter(sf.col("item_id_one") != sf.col("item_id_two"))
+            .withColumn("relevance", sf.col("rel_one") * sf.col("rel_two"))
+            .groupBy("item_id_one", "item_id_two")
+            .agg(sf.sum("relevance").alias("dot_product"))
         )
+
+        item_norms = (
+            log.withColumn("relevance", sf.col("relevance") ** 2)
+            .groupBy("item_idx")
+            .agg(sf.sum("relevance").alias("square_norm"))
+            .select(sf.col("item_idx"), sf.sqrt("square_norm").alias("norm"))
+        )
+
+        norm1 = item_norms.withColumnRenamed(
+            "item_idx", "item_id1"
+        ).withColumnRenamed("norm", "norm1")
+        norm2 = item_norms.withColumnRenamed(
+            "item_idx", "item_id2"
+        ).withColumnRenamed("norm", "norm2")
+
+        dot_products = dot_products.join(
+            norm1, how="inner", on=sf.col("item_id1") == sf.col("item_id_one")
+        )
+        dot_products = dot_products.join(
+            norm2, how="inner", on=sf.col("item_id2") == sf.col("item_id_two")
+        )
+
+        dot_products = dot_products.withColumn(
+            "similarity",
+            sf.col("dot_product")
+            / (sf.col("norm1") * sf.col("norm2") + self.shrink),
+        ).select("item_id_one", "item_id_two", "similarity")
+        return dot_products
 
     def _get_k_most_similar(self, similarity_matrix: DataFrame) -> DataFrame:
         """
@@ -90,29 +118,9 @@ class KNN(NeighbourRec):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        dot_products = (
-            log.select("user_idx", "item_idx")
-            .withColumnRenamed("item_idx", "item_id_one")
-            .join(
-                log.select("user_idx", "item_idx").withColumnRenamed(
-                    "item_idx", "item_id_two"
-                ),
-                how="inner",
-                on="user_idx",
-            )
-            .filter(sf.col("item_id_one") != sf.col("item_id_two"))
-            .groupby("item_id_one", "item_id_two")
-            .agg(sf.count("user_idx").alias("dot_product"))
-        )
-        item_norms = (
-            log.select("user_idx", "item_idx")
-            .groupby("item_idx")
-            .agg(sf.count("user_idx").alias("square_norm"))
-            .select(sf.col("item_idx"), sf.sqrt("square_norm").alias("norm"))
-        )
+        df = log.select("user_idx", "item_idx", "relevance")
+        if not self.use_relevance:
+            df = df.withColumn("relevance", sf.lit(1))
 
-        similarity_matrix = self._get_similarity_matrix(
-            dot_products, item_norms
-        )
-
+        similarity_matrix = self._get_similarity(df)
         self.similarity = self._get_k_most_similar(similarity_matrix).cache()
