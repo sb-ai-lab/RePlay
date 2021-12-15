@@ -50,10 +50,7 @@ def recs2(spark):
 
 @pytest.fixture
 def empty_recs(spark):
-    return spark.createDataFrame(
-        data=[],
-        schema=REC_SCHEMA,
-    )
+    return spark.createDataFrame(data=[], schema=REC_SCHEMA,)
 
 
 @pytest.fixture
@@ -108,8 +105,7 @@ def test_pred_is_bigger(quality_metrics, one_user, two_users):
 
 def test_hit_rate_at_k(recs, true):
     assertDictAlmostEqual(
-        HitRate()(recs, true, [3, 1]),
-        {3: 2 / 3, 1: 1 / 3},
+        HitRate()(recs, true, [3, 1]), {3: 2 / 3, 1: 1 / 3},
     )
 
 
@@ -120,23 +116,11 @@ def test_user_dist(log, recs, true):
 
 def test_item_dist(log, recs):
     assert_allclose(
-        item_distribution(log, recs, 1)["rec_count"].to_list(),
-        [0, 0, 1, 2],
+        item_distribution(log, recs, 1)["rec_count"].to_list(), [0, 0, 1, 2],
     )
 
 
 def test_ndcg_at_k(recs, true):
-    pred = [300, 200, 100]
-    k_set = [1, 2, 3]
-    user_id = 1
-    ground_truth = [200, 400]
-    ndcg_value = 1 / np.log2(3) / (1 / np.log2(2) + 1 / np.log2(3))
-    assert (
-        NDCG()._get_metric_value_by_user_all_k(
-            k_set, user_id, pred, ground_truth
-        )
-        == [(1, 0, 1), (1, ndcg_value, 2), (1, ndcg_value, 3)],
-    )
     assertDictAlmostEqual(
         NDCG()(recs, true, [1, 3]),
         {
@@ -155,22 +139,19 @@ def test_ndcg_at_k(recs, true):
 
 def test_precision_at_k(recs, true):
     assertDictAlmostEqual(
-        Precision()(recs, true, [1, 2, 3]),
-        {3: 1 / 3, 1: 1 / 3, 2: 1 / 2},
+        Precision()(recs, true, [1, 2, 3]), {3: 1 / 3, 1: 1 / 3, 2: 1 / 2},
     )
 
 
 def test_map_at_k(recs, true):
     assertDictAlmostEqual(
-        MAP()(recs, true, [1, 3]),
-        {3: 11 / 36, 1: 1 / 3},
+        MAP()(recs, true, [1, 3]), {3: 11 / 36, 1: 1 / 3},
     )
 
 
 def test_recall_at_k(recs, true):
     assertDictAlmostEqual(
-        Recall()(recs, true, [1, 3]),
-        {3: (1 / 2 + 2 / 3) / 3, 1: 1 / 9},
+        Recall()(recs, true, [1, 3]), {3: (1 / 2 + 2 / 3) / 3, 1: 1 / 9},
     )
 
 
@@ -178,8 +159,7 @@ def test_surprisal_at_k(true, recs, recs2):
     assertDictAlmostEqual(Surprisal(true)(recs2, [1, 2]), {1: 1.0, 2: 1.0})
 
     assert_allclose(
-        Surprisal(true)(recs, 3),
-        5 * (1 - 1 / np.log2(3)) / 9 + 4 / 9,
+        Surprisal(true)(recs, 3), 5 * (1 - 1 / np.log2(3)) / 9 + 4 / 9,
     )
 
 
@@ -195,8 +175,7 @@ def test_coverage(true, recs, empty_recs):
         {1: 0.3333333333333333, 3: 0.8333333333333334, 5: 0.8333333333333334},
     )
     assertDictAlmostEqual(
-        coverage(empty_recs, [1, 3, 5]),
-        {1: 0.0, 3: 0.0, 5: 0.0},
+        coverage(empty_recs, [1, 3, 5]), {1: 0.0, 3: 0.0, 5: 0.0},
     )
 
 

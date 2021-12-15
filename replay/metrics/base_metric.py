@@ -39,13 +39,12 @@ def get_enriched_recommendations(
     recommendations: AnyDataFrame, ground_truth: AnyDataFrame
 ) -> DataFrame:
     """
-    Adds additional info to recommendations.
-    By default adds column containing number of elements user interacted with.
+    Merge recommendations and ground truth into a single DataFrame
+    and aggregate items into lists so that each user has only one record.
 
     :param recommendations: recommendation list
     :param ground_truth: test data
-    :return: recommendations with additional columns,
-        spark DataFrame ``[user_id, item_id, relevance, *columns]``
+    :return:  ``[user_id, pred, ground_truth]``
     """
     recommendations = convert2spark(recommendations)
     ground_truth = convert2spark(ground_truth)
@@ -74,6 +73,24 @@ def get_enriched_recommendations(
     )
 
 
+def process_k(func):
+    """Decorator that converts k to list and unpacks result"""
+
+    def wrap(self, recs: DataFrame, k: IntOrList, *args):
+        if isinstance(k, int):
+            k_list = [k]
+        else:
+            k_list = k
+
+        res = func(self, recs, k_list, *args)
+
+        if isinstance(k, int):
+            return res[k]
+        return res
+
+    return wrap
+
+
 class Metric(ABC):
     """Base metric class"""
 
@@ -97,112 +114,67 @@ class Metric(ABC):
         recs = get_enriched_recommendations(recommendations, ground_truth)
         return self._mean(recs, k)
 
-    def _conf_interval(self, recs: DataFrame, k: IntOrList, alpha: float):
-        distribution = self._get_metric_distribution(recs, k)
-        total_metric = (
-            distribution.groupby("k")
-            .agg(
-                sf.stddev("cum_agg").alias("std"),
-                sf.count("cum_agg").alias("count"),
-            )
-            .select(
-                sf.when(sf.isnan(sf.col("std")), sf.lit(0.0))
-                .otherwise(sf.col("std"))
-                .cast("float")
-                .alias("std"),
-                "count",
-                "k",
-            )
-            .collect()
-        )
+    @process_k
+    def _conf_interval(self, recs: DataFrame, k_list: list, alpha: float):
+        res = {}
         quantile = norm.ppf((1 + alpha) / 2)
-        res = {
-            row["k"]: quantile * row["std"] / (row["count"] ** 0.5)
-            for row in total_metric
-        }
-
-        return self._unpack_if_int(res, k)
-
-    def _median(self, recs: DataFrame, k: IntOrList):
-        distribution = self._get_metric_distribution(recs, k)
-        total_metric = (
-            distribution.groupby("k")
-            .agg(
-                sf.expr("percentile_approx(cum_agg, 0.5)").alias(
-                    "total_metric"
+        for k in k_list:
+            distribution = self._get_metric_distribution(recs, k)
+            value = (
+                distribution.agg(
+                    sf.stddev("value").alias("std"),
+                    sf.count("value").alias("count"),
                 )
+                .select(
+                    sf.when(sf.isnan(sf.col("std")), sf.lit(0.0))
+                    .otherwise(sf.col("std"))
+                    .cast("float")
+                    .alias("std"),
+                    "count",
+                )
+                .first()
             )
-            .select("total_metric", "k")
-            .collect()
-        )
-        res = {row["k"]: row["total_metric"] for row in total_metric}
-        return self._unpack_if_int(res, k)
-
-    @staticmethod
-    def _unpack_if_int(res: Dict, k: IntOrList) -> Union[Dict, float]:
-        if isinstance(k, int):
-            return res[k]
+            res[k] = quantile * value["std"] / (value["count"] ** 0.5)
         return res
 
-    def _mean(self, recs: DataFrame, k: IntOrList):
-        distribution = self._get_metric_distribution(recs, k)
-        total_metric = (
-            distribution.groupby("k")
-            .agg(sf.avg("cum_agg").alias("total_metric"))
-            .select("total_metric", "k")
-            .collect()
-        )
-        res = {row["k"]: row["total_metric"] for row in total_metric}
-        return self._unpack_if_int(res, k)
+    @process_k
+    def _median(self, recs: DataFrame, k_list: list):
+        res = {}
+        for k in k_list:
+            distribution = self._get_metric_distribution(recs, k)
+            value = distribution.agg(
+                sf.expr("percentile_approx(value, 0.5)").alias("value")
+            ).first()["value"]
+            res[k] = value
+        return res
 
-    def _get_metric_distribution(
-        self,
-        recs: DataFrame,
-        k: IntOrList,
-    ) -> DataFrame:
+    @process_k
+    def _mean(self, recs: DataFrame, k_list: list):
+        res = {}
+        for k in k_list:
+            distribution = self._get_metric_distribution(recs, k)
+            value = distribution.agg(sf.avg("value").alias("value")).first()[
+                "value"
+            ]
+            res[k] = value
+        return res
+
+    def _get_metric_distribution(self, recs: DataFrame, k: int) -> DataFrame:
         """
         :param recs: recommendations
-        :param k: one or more depth cut-offs
+        :param k: depth cut-off
         :return: metric distribution for different cut-offs and users
         """
-
-        if isinstance(k, int):
-            k_set = {k}
-        else:
-            k_set = set(k)
         cur_class = self.__class__
         distribution = recs.rdd.flatMap(
             # pylint: disable=protected-access
-            lambda x: cur_class._get_metric_value_by_user_all_k(k_set, *x)
+            lambda x: [
+                (x[0], float(cur_class._get_metric_value_by_user(k, *x[1:])))
+            ]
         ).toDF(
-            f"""user_id {recs.schema["user_id"].dataType.typeName()},
-cum_agg double, k long"""
+            f"user_id {recs.schema['user_id'].dataType.typeName()}, value double"
         )
-
         return distribution
-
-    @classmethod
-    def _get_metric_value_by_user_all_k(cls, k_set, user_id, *args):
-        """
-        Calculate metric using multiple depth cut-offs.
-
-        :param k_set: depth cut-offs
-        :param user_id: user identificator
-        :param *args: extra parameters, returned by
-            '''self._get_enriched_recommendations''' method
-        :return: metric values for all users at each cut-off
-        """
-        result = []
-        for k in k_set:
-            result.append(
-                (
-                    user_id,
-                    # pylint: disable=no-value-for-parameter
-                    float(cls._get_metric_value_by_user(k, *args)),
-                    k,
-                )
-            )
-        return result
 
     @staticmethod
     @abstractmethod
@@ -240,15 +212,22 @@ cum_agg double, k long"""
             )
         else:
             recs = get_enriched_recommendations(recommendations, ground_truth)
-        dist = self._get_metric_distribution(recs, k)
-        res = count.join(dist, on="user_id")
-        res = (
-            res.groupBy("k", "count")
-            .agg(sf.avg("cum_agg").alias("value"))
-            .orderBy(["k", "count"])
-            .select("k", "count", "value")
-            .toPandas()
-        )
+        if isinstance(k, int):
+            k_list = [k]
+        else:
+            k_list = k
+        res = pd.DataFrame()
+        for cut_off in k_list:
+            dist = self._get_metric_distribution(recs, cut_off)
+            val = count.join(dist, on="user_id")
+            val = (
+                val.groupBy("count")
+                .agg(sf.avg("value").alias("value"))
+                .orderBy(["count"])
+                .select("count", "value")
+                .toPandas()
+            )
+            res = res.append(val, ignore_index=True)
         return res
 
 

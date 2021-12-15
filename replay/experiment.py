@@ -87,17 +87,15 @@ class Experiment:
         for metric, k_list in sorted(
             self.metrics.items(), key=lambda x: str(x[0])
         ):
+            enriched = None
             if isinstance(metric, RecOnlyMetric):
                 enriched = metric._get_enriched_recommendations(
                     pred, self.test
                 )
-                values, median, conf_interval = self._calculate(
-                    metric, enriched, k_list
-                )
-            else:
-                values, median, conf_interval = self._calculate(
-                    metric, recs, k_list
-                )
+
+            values, median, conf_interval = self._calculate(
+                metric, enriched or recs, k_list
+            )
 
             if isinstance(k_list, int):
                 self._add_metric(  # type: ignore
