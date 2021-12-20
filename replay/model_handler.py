@@ -4,6 +4,7 @@ import json
 import shutil
 from inspect import getfullargspec
 
+import joblib
 from pyspark.ml.feature import StringIndexerModel, IndexToString
 from os.path import exists, join
 
@@ -40,6 +41,8 @@ def save(model: BaseRecommender, path: str):
     os.makedirs(df_path)
     for name, df in dataframes.items():
         df.write.parquet(join(df_path, name))
+
+    joblib.dump(model.study, join(path, "study"))
 
 
 def load(path: str):
@@ -82,4 +85,5 @@ def load(path: str):
         setattr(model, name, df)
 
     model._load_model(join(path, "model"))
+    model.study = joblib.load(join(path, "study"))
     return model

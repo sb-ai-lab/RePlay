@@ -122,3 +122,13 @@ def test_wilson(long_log_with_features, tmp_path):
     m = load(path)
     new_pred = m.predict(df, 5)
     sparkDataFrameEqual(base_pred, new_pred)
+
+
+def test_study(df, tmp_path):
+    path = (tmp_path / "study").resolve()
+    model = PopRec()
+    model.study = 80083
+    model.fit(df)
+    save(model, path)
+    m = load(path)
+    assert m.study == model.study
