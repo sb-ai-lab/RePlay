@@ -116,38 +116,32 @@ class PopRec(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         selected_item_popularity = self.item_popularity.join(
-            items, on="item_idx", how="inner",
+            items,
+            on="item_idx",
+            how="inner",
         ).withColumn(
             "rank",
             sf.row_number().over(Window.orderBy(sf.col("relevance").desc())),
         )
 
-        if not filter_seen_items:
-            return users.crossJoin(
-                selected_item_popularity.filter(sf.col("rank") <= k)
-            ).drop("rank")
+        max_hist_len = 0
+        if filter_seen_items:
+            max_hist_len = (
+                (
+                    log.join(users, on="user_idx")
+                    .groupBy("user_idx")
+                    .agg(sf.countDistinct("item_idx").alias("items_count"))
+                )
+                .select(sf.max("items_count"))
+                .collect()[0][0]
+            )
+            # all users have empty history
+            if max_hist_len is None:
+                max_hist_len = 0
 
-        log_by_user = (
-            log.join(users, on="user_idx")
-            .groupBy("user_idx")
-            .agg(sf.countDistinct("item_idx").alias("items_count"))
-        )
-        max_history_len = log_by_user.select(sf.max("items_count")).collect()[
-            0
-        ][0]
-        cropped_item_popularity = selected_item_popularity.filter(
-            sf.col("rank") <= max_history_len + k
-        )
-
-        log_by_user_with_new_users = log_by_user.join(
-            users, on="user_idx", how="right"
-        ).fillna(0)
-        recs = log_by_user_with_new_users.join(
-            cropped_item_popularity,
-            on=sf.col("rank") <= sf.col("items_count") + sf.lit(k),
-        ).drop("rank", "items_count")
-
-        return recs
+        return users.crossJoin(
+            selected_item_popularity.filter(sf.col("rank") <= k + max_hist_len)
+        ).drop("rank")
 
     def _predict_pairs(
         self,

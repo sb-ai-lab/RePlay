@@ -205,3 +205,21 @@ def test_nearest_items_raises(log):
             model.get_nearest_items(
                 items=["item1", "item2"], k=2, metric="cosine_similarity"
             )
+
+
+def test_filter_seen(log):
+    model = PopRec()
+    # filter seen works with empty log to filter (cold_user)
+    model.fit(log.filter(sf.col("user_id") != "user1"))
+    pred = model.predict(log=log, users=["user5"], k=5)
+    assert pred.count() == 4
+
+    # filter seen works with log not presented during training (for user1)
+    pred = model.predict(log=log, users=["user1"], k=5)
+    assert pred.count() == 1
+
+    # filter seen turns off
+    pred = model.predict(
+        log=log, users=["user1"], k=5, filter_seen_items=False
+    )
+    assert pred.count() == 4

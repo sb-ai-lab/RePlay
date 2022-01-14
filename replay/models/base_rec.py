@@ -397,6 +397,60 @@ class BaseRecommender(ABC):
         :return:
         """
 
+    @staticmethod
+    def _filter_seen(
+        recs: DataFrame, log: DataFrame, k: int, users: DataFrame
+    ):
+        """
+        Filter seen items (presented in log) out of the users' recommendations.
+        For each user return from `k` to `k + number of seen by user` recommendations.
+        """
+
+        users_log = log.join(users, on="user_idx").cache()
+        num_seen = (
+            users_log.groupBy("user_idx").agg(
+                sf.count("item_idx").alias("seen_count")
+            )
+        ).cache()
+
+        # count maximal number of items seen by users
+        max_seen = 0
+        if num_seen.count() > 0:
+            max_seen = num_seen.select(sf.max("seen_count")).collect()[0][0]
+
+        # crop recommendations to first k + max_seen items for each user
+        recs = recs.withColumn(
+            "temp_rank",
+            sf.row_number().over(
+                Window.partitionBy("user_idx").orderBy(
+                    sf.col("relevance").desc()
+                )
+            ),
+        ).filter(sf.col("temp_rank") <= sf.lit(max_seen + k))
+
+        # leave k + number of items seen by user recommendations in recs
+        recs = (
+            recs.join(num_seen, on="user_idx", how="left")
+            .fillna(0)
+            .filter(sf.col("temp_rank") <= sf.col("seen_count") + sf.lit(k))
+            .drop("temp_rank", "seen_count")
+        )
+
+        # filter recommendations presented in interactions log
+        recs = recs.join(
+            users_log.withColumnRenamed("item_idx", "item")
+            .withColumnRenamed("user_idx", "user")
+            .select("user", "item"),
+            on=(sf.col("user_idx") == sf.col("user"))
+            & (sf.col("item_idx") == sf.col("item")),
+            how="anti",
+        ).drop("user", "item")
+
+        users_log.unpersist()
+        num_seen.unpersist()
+
+        return recs
+
     # pylint: disable=too-many-arguments
     def _predict_wrap(
         self,
@@ -464,46 +518,12 @@ class BaseRecommender(ABC):
             filter_seen_items,
         )
         if filter_seen_items and log:
-            num_of_seen = (
-                log.groupBy("user_idx")
-                .agg(sf.count("item_idx").alias("seen_count"))
-                .cache()
-            )
+            recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
 
-            max_seen = num_of_seen.select(sf.max("seen_count")).collect()[0][0]
-
-            recs = recs.withColumn(
-                "temp_rank",
-                sf.row_number().over(
-                    Window.partitionBy("user_idx").orderBy(
-                        sf.col("relevance").desc()
-                    )
-                ),
-            ).filter(sf.col("temp_rank") <= sf.lit(max_seen + k))
-
-            recs = (
-                recs.join(sf.broadcast(num_of_seen), on="user_idx", how="left")
-                .fillna(0)
-                .filter(
-                    sf.col("temp_rank") <= sf.col("seen_count") + sf.lit(k)
-                )
-                .drop("temp_rank", "seen_count")
-            )
-            num_of_seen.unpersist()
-
-            recs = recs.join(
-                log.withColumnRenamed("item_idx", "item")
-                .withColumnRenamed("user_idx", "user")
-                .select("user", "item"),
-                on=(sf.col("user_idx") == sf.col("user"))
-                & (sf.col("item_idx") == sf.col("item")),
-                how="anti",
-            ).drop("user", "item")
-
-        recs = self._convert_back(recs, users_type, items_type).select(
+        recs = get_top_k_recs(recs, k=k, id_type="idx")
+        return self._convert_back(recs, users_type, items_type).select(
             "user_id", "item_id", "relevance"
         )
-        return get_top_k_recs(recs, k=k)
 
     def _convert_index(
         self, data_frame: Optional[DataFrame]
@@ -590,7 +610,8 @@ class BaseRecommender(ABC):
 
     @staticmethod
     def _get_ids(
-        log: Union[Iterable, AnyDataFrame], column: str,
+        log: Union[Iterable, AnyDataFrame],
+        column: str,
     ) -> DataFrame:
         """
         Get unique values from ``array`` and put them into dataframe with column ``column``.
@@ -858,7 +879,10 @@ class BaseRecommender(ABC):
 
         if self.can_predict_item_to_item:
             return self._get_nearest_items_wrap(
-                items=items, k=k, metric=metric, candidates=candidates,
+                items=items,
+                k=k,
+                metric=metric,
+                candidates=candidates,
             )
 
         raise ValueError(
@@ -886,7 +910,9 @@ class BaseRecommender(ABC):
         ]
 
         nearest_items_to_filter = self._get_nearest_items(
-            items=items, metric=metric, candidates=candidates,
+            items=items,
+            metric=metric,
+            candidates=candidates,
         )
 
         rel_col_name = metric if metric is not None else "similarity"
@@ -1426,7 +1452,11 @@ class NeighbourRec(Recommender, ABC):
                 how="inner",
                 on=sf.col("item_idx") == sf.col("item_id_one"),
             )
-            .join(filter_df, how="inner", on=condition,)
+            .join(
+                filter_df,
+                how="inner",
+                on=condition,
+            )
             .groupby("user_idx", "item_id_two")
             .agg(sf.sum("similarity").alias("relevance"))
             .withColumnRenamed("item_id_two", "item_idx")
@@ -1498,7 +1528,10 @@ class NeighbourRec(Recommender, ABC):
             )
 
         return self._get_nearest_items_wrap(
-            items=items, k=k, metric=None, candidates=candidates,
+            items=items,
+            k=k,
+            metric=None,
+            candidates=candidates,
         )
 
     def _get_nearest_items(
