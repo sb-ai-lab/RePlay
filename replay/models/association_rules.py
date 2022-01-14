@@ -15,18 +15,26 @@ class AssociationRulesItemRec(Recommender):
     Item-to-item recommender based on association rules.
     Calculate pairs confidence, lift and confidence_gain defined as
     confidence(a, b)/confidence(!a, b) to get top-k associated items.
+
+    Classical model uses items co-occurrence in sessions for
+    confidence, lift and confidence_gain calculation
+    but relevance could also be passed to the model, е.g.
+    if you want to apply time smoothing and treat old sessions as less important.
+    In this case all items in sessions should have the same relevance.
     """
 
     can_predict_item_to_item = True
     item_to_item_metrics: List[str] = ["lift", "confidence_gain"]
     pair_metrics: DataFrame
 
+    # pylint: disable=too-many-arguments,
     def __init__(
         self,
         session_col: Optional[str] = None,
         min_item_count: int = 5,
         min_pair_count: int = 5,
         num_neighbours: Optional[int] = 1000,
+        use_relevance: bool = False,
     ) -> None:
         """
         :param session_col: name of column to group sessions.
@@ -34,6 +42,9 @@ class AssociationRulesItemRec(Recommender):
         :param min_item_count: items with fewer sessions will be filtered out
         :param min_pair_count: pairs with fewer sessions will be filtered out
         :param num_neighbours: maximal number of neighbours to save for each item
+        :param use_relevance: flag to use relevance values instead of co-occurrence count
+            If true, pair relevance in session is minimal relevance of item in pair.
+            Item relevance is sum of relevance in all sessions.
         """
         self.session_col = (
             session_col if session_col is not None else "user_idx"
@@ -41,6 +52,7 @@ class AssociationRulesItemRec(Recommender):
         self.min_item_count = min_item_count
         self.min_pair_count = min_pair_count
         self.num_neighbours = num_neighbours
+        self.use_relevance = use_relevance
 
     @property
     def _init_args(self):
@@ -49,6 +61,7 @@ class AssociationRulesItemRec(Recommender):
             "min_item_count": self.min_item_count,
             "min_pair_count": self.min_pair_count,
             "num_neighbours": self.num_neighbours,
+            "use_relevance": self.use_relevance,
         }
 
     def _fit(
@@ -62,61 +75,90 @@ class AssociationRulesItemRec(Recommender):
         2) Calculate items support, pairs confidence, lift and confidence_gain defined as
             confidence(a, b)/confidence(!a, b).
         """
-        log = log.select(self.session_col, "item_idx").distinct()
+        rel_col = sf.col("relevance") if self.use_relevance else sf.lit(1)
+        log = log.select(
+            self.session_col, "item_idx", rel_col.alias("relevance")
+        ).distinct()
         num_sessions = log.select(self.session_col).distinct().count()
 
-        frequent_items = (
+        frequent_items_cached = (
             log.groupBy("item_idx")
-            .agg(sf.count("item_idx").alias("item_count"))
+            .agg(
+                sf.count("item_idx").alias("item_count"),
+                sf.sum("relevance").alias("item_relevance"),
+            )
             .filter(sf.col("item_count") >= self.min_item_count)
+            .drop("item_count")
         ).cache()
 
         frequent_items_log = log.join(
-            frequent_items.select("item_idx"), on="item_idx"
+            frequent_items_cached.select("item_idx"), on="item_idx"
         )
 
         frequent_item_pairs = (
             frequent_items_log.withColumnRenamed("item_idx", "antecedent")
+            .withColumnRenamed("relevance", "antecedent_rel")
             .join(
                 frequent_items_log.withColumnRenamed(
                     self.session_col, self.session_col + "_cons"
-                ).withColumnRenamed("item_idx", "consequent"),
+                )
+                .withColumnRenamed("item_idx", "consequent")
+                .withColumnRenamed("relevance", "consequent_rel"),
                 on=[
                     sf.col(self.session_col)
                     == sf.col(self.session_col + "_cons"),
                     sf.col("antecedent") < sf.col("consequent"),
                 ],
             )
-            .drop(self.session_col + "_cons")
+            # taking minimal relevance of item for pair
+            .withColumn(
+                "relevance",
+                sf.least(sf.col("consequent_rel"), sf.col("antecedent_rel")),
+            )
+            .drop(
+                self.session_col + "_cons", "consequent_rel", "antecedent_rel"
+            )
         )
+
         pairs_count = (
             frequent_item_pairs.groupBy("antecedent", "consequent")
-            .agg(sf.count("consequent").alias("pair_count"))
+            .agg(
+                sf.count("consequent").alias("pair_count"),
+                sf.sum("relevance").alias("pair_relevance"),
+            )
             .filter(sf.col("pair_count") >= self.min_pair_count)
-        )
+        ).drop("pair_count")
 
         pairs_metrics = pairs_count.unionByName(
             pairs_count.select(
                 sf.col("consequent").alias("antecedent"),
                 sf.col("antecedent").alias("consequent"),
-                sf.col("pair_count"),
+                sf.col("pair_relevance"),
             )
         )
+
         pairs_metrics = pairs_metrics.join(
-            frequent_items.withColumnRenamed("item_count", "antecedent_count"),
+            frequent_items_cached.withColumnRenamed(
+                "item_relevance", "antecedent_relevance"
+            ),
             on=[sf.col("antecedent") == sf.col("item_idx")],
         ).drop("item_idx")
 
         pairs_metrics = pairs_metrics.join(
-            frequent_items.withColumnRenamed("item_count", "consequent_count"),
+            frequent_items_cached.withColumnRenamed(
+                "item_relevance", "consequent_relevance"
+            ),
             on=[sf.col("consequent") == sf.col("item_idx")],
         ).drop("item_idx")
 
         pairs_metrics = pairs_metrics.withColumn(
-            "confidence", sf.col("pair_count") / sf.col("antecedent_count")
+            "confidence",
+            sf.col("pair_relevance") / sf.col("antecedent_relevance"),
         ).withColumn(
             "lift",
-            num_sessions * sf.col("confidence") / sf.col("consequent_count"),
+            num_sessions
+            * sf.col("confidence")
+            / sf.col("consequent_relevance"),
         )
 
         if self.num_neighbours is not None:
@@ -125,7 +167,8 @@ class AssociationRulesItemRec(Recommender):
                     "similarity_order",
                     sf.row_number().over(
                         Window.partitionBy("antecedent").orderBy(
-                            sf.col("lift").desc(), sf.col("consequent").desc(),
+                            sf.col("lift").desc(),
+                            sf.col("consequent").desc(),
                         )
                     ),
                 )
@@ -137,12 +180,16 @@ class AssociationRulesItemRec(Recommender):
             pairs_metrics.withColumn(
                 "confidence_gain",
                 sf.when(
-                    sf.col("consequent_count") - sf.col("pair_count") == 0,
+                    sf.col("consequent_relevance") - sf.col("pair_relevance")
+                    == 0,
                     sf.lit(np.inf),
                 ).otherwise(
                     sf.col("confidence")
-                    * (num_sessions - sf.col("antecedent_count"))
-                    / (sf.col("consequent_count") - sf.col("pair_count"))
+                    * (num_sessions - sf.col("antecedent_relevance"))
+                    / (
+                        sf.col("consequent_relevance")
+                        - sf.col("pair_relevance")
+                    )
                 ),
             )
             .select(
@@ -154,6 +201,7 @@ class AssociationRulesItemRec(Recommender):
             )
             .cache()
         )
+        frequent_items_cached.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -220,7 +268,10 @@ class AssociationRulesItemRec(Recommender):
             )
 
         return self._get_nearest_items_wrap(
-            items=items, k=k, metric=metric, candidates=candidates,
+            items=items,
+            k=k,
+            metric=metric,
+            candidates=candidates,
         )
 
     def _get_nearest_items(

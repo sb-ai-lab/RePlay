@@ -8,13 +8,13 @@ from tests.utils import log, spark, sparkDataFrameEqual
 
 
 @pytest.fixture
-def model():
+def model(log):
     model = AssociationRulesItemRec(min_item_count=1, min_pair_count=1)
+    model.fit(log)
     return model
 
 
 def test_predict_raises(log, model):
-    model.fit(log)
     with pytest.raises(
         NotImplementedError,
         match=r"item-to-user predict is not implemented for AssociationRulesItemRec,.*",
@@ -23,7 +23,6 @@ def test_predict_raises(log, model):
 
 
 def test_invalid_metric_raises(log, model):
-    model.fit(log)
     with pytest.raises(
         ValueError,
         match=r"Select one of the valid distance metrics: \['lift', 'confidence_gain'\]",
@@ -31,38 +30,61 @@ def test_invalid_metric_raises(log, model):
         model.get_nearest_items(log.select("item_id"), k=1, metric="invalid")
 
 
-def test_works(log, model):
-    model.fit(log)
+def test_works(model):
     assert hasattr(model, "pair_metrics")
     model.pair_metrics.count()
 
 
+def check_formulas(count_ant, count_cons, pair_count, num_sessions, test_row):
+    confidence_ant_con = pair_count / count_ant
+    confidence_not_ant_con = (count_cons - pair_count) / (
+        num_sessions - count_ant
+    )
+    assert test_row["confidence"][0] == confidence_ant_con
+    assert test_row["lift"][0] == confidence_ant_con / (
+        count_cons / num_sessions
+    )
+    assert (
+        test_row["confidence_gain"][0]
+        == confidence_ant_con / confidence_not_ant_con
+    )
+
+
 def test_calculation(model, log):
-    model.fit(log)
-
-    # convert ids back
     pairs_metrics = model.get_pair_metrics()
-
     # recalculate for item_3 as antecedent and item_2 as consequent
     test_row = pairs_metrics.filter(
         (sf.col("antecedent") == "item3") & (sf.col("consequent") == "item2")
     ).toPandas()
-
-    # calculation
-    num_of_sessions = log.select("user_id").distinct().count()
-    count_3, count_2, count_3_2 = 2, 3, 2
-    confidence_3_2 = count_3_2 / count_3
-    confidence_not_3_2 = (count_2 - count_3_2) / (num_of_sessions - count_3)
-
-    assert test_row["confidence"][0] == confidence_3_2
-    assert test_row["lift"][0] == confidence_3_2 / (count_2 / num_of_sessions)
-    assert (
-        test_row["confidence_gain"][0] == confidence_3_2 / confidence_not_3_2
+    check_formulas(
+        count_ant=2,
+        count_cons=3,
+        pair_count=2,
+        num_sessions=log.select("user_id").distinct().count(),
+        test_row=test_row,
     )
 
 
-def test_get_nearest_items(log, model):
+def test_calculation_with_weights(model, log):
+    model = AssociationRulesItemRec(
+        min_item_count=1, min_pair_count=1, use_relevance=True
+    )
     model.fit(log)
+    pairs_metrics = model.get_pair_metrics()
+    # recalculate for item_3 as antecedent and item_2 as consequent using relevance values as weight
+    test_row = pairs_metrics.filter(
+        (sf.col("antecedent") == "item3") & (sf.col("consequent") == "item2")
+    ).toPandas()
+    check_formulas(
+        count_ant=6,
+        count_cons=12,
+        pair_count=5,
+        num_sessions=log.select("user_id").distinct().count(),
+        test_row=test_row,
+    )
+
+
+def test_get_nearest_items(model):
     res = model.get_nearest_items(
         items=["item3"],
         k=10,
