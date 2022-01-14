@@ -29,29 +29,36 @@ class FirstLevelFeaturesProcessor:
         :param spark_df: input DataFrame
         """
         self.cat_feat_transformer = None
+        self.cols_to_del = []
+        self.fitted = True
+
         if spark_df is None:
+            self.all_columns = None
             return
 
         self.all_columns = sorted(spark_df.columns)
-        self.cols_to_del = []
         idx_cols_set = {"user_idx", "item_idx", "user_id", "item_id"}
 
-        spark_df_non_numeric = spark_df.select(
-            *[
-                col
-                for col in spark_df.columns
-                if (not isinstance(spark_df.schema[col].dataType, NumericType))
-                and (col not in idx_cols_set)
-            ]
-        )
+        spark_df_non_numeric_cols = [
+            col
+            for col in spark_df.columns
+            if (not isinstance(spark_df.schema[col].dataType, NumericType))
+            and (col not in idx_cols_set)
+        ]
+
+        # numeric only
+        if len(spark_df_non_numeric_cols) == 0:
+            self.cols_to_one_hot = []
+            return
+
         if self.threshold is None:
-            self.cols_to_one_hot = spark_df_non_numeric.columns
+            self.cols_to_one_hot = spark_df_non_numeric_cols
         else:
             counts_pd = (
                 spark_df.agg(
                     *[
                         sf.approx_count_distinct(sf.col(c)).alias(c)
-                        for c in spark_df_non_numeric.columns
+                        for c in spark_df_non_numeric_cols
                     ]
                 )
                 .toPandas()
@@ -60,11 +67,13 @@ class FirstLevelFeaturesProcessor:
             self.cols_to_one_hot = (
                 counts_pd[counts_pd[0] <= self.threshold]
             ).index.values
+
             self.cols_to_del = [
                 col
-                for col in spark_df_non_numeric.columns
+                for col in spark_df_non_numeric_cols
                 if col not in set(self.cols_to_one_hot)
             ]
+
             if self.cols_to_del:
                 State().logger.warning(
                     "%s columns contain more that threshold unique "
@@ -72,28 +81,35 @@ class FirstLevelFeaturesProcessor:
                     self.cols_to_del,
                 )
 
-        self.cat_feat_transformer = CatFeaturesTransformer(
-            cat_cols_list=self.cols_to_one_hot, threshold=None
-        )
-        self.cat_feat_transformer.fit(spark_df.drop(*self.cols_to_del))
+        if len(self.cols_to_one_hot) > 0:
+            self.cat_feat_transformer = CatFeaturesTransformer(
+                cat_cols_list=self.cols_to_one_hot, threshold=None
+            )
+            self.cat_feat_transformer.fit(spark_df.drop(*self.cols_to_del))
 
     def transform(self, spark_df: Optional[DataFrame]) -> Optional[DataFrame]:
         """
         Transform categorical features.
-        Use one hot encoding for columns with the amount of unique values smaller than threshold and delete other columns.
+        Use one hot encoding for columns with the amount of unique values smaller
+        than threshold and delete other columns.
         :param spark_df: input DataFrame
         :return: processed DataFrame
         """
-        if spark_df is None or self.cat_feat_transformer is None:
+        if not self.fitted:
+            raise AttributeError("Call fit before running transform")
+
+        if spark_df is None or self.all_columns is None:
             return None
+
+        if self.cat_feat_transformer is None:
+            return spark_df.drop(*self.cols_to_del)
 
         if sorted(spark_df.columns) != self.all_columns:
             raise ValueError(
-                "Columns from fit do not match "
-                "columns in transform. "
-                "Fit columns: %s,"
-                "Transform columns: %s"
-                % (self.all_columns, sorted(spark_df.columns)),
+                f"Columns from fit do not match "
+                f"columns in transform. "
+                f"Fit columns: {self.all_columns},"
+                f"Transform columns: {spark_df.columns}"
             )
 
         return self.cat_feat_transformer.transform(
@@ -147,7 +163,7 @@ class SecondLevelFeaturesProcessor:
 
         aggregates = [
             sf.log(sf.count(sf.col("relevance"))).alias(
-                "{}_log_ratings_count".format(prefix)
+                f"{prefix}_log_ratings_count"
             )
         ]
 
@@ -158,13 +174,13 @@ class SecondLevelFeaturesProcessor:
             aggregates.extend(
                 [
                     sf.log(sf.countDistinct(sf.col("timestamp"))).alias(
-                        "{}_log_rating_dates_count".format(prefix)
+                        f"{prefix}_log_rating_dates_count"
                     ),
                     sf.min(sf.col("timestamp")).alias(
-                        "{}_min_rating_date".format(prefix)
+                        f"{prefix}_min_rating_date"
                     ),
                     sf.max(sf.col("timestamp")).alias(
-                        "{}_max_rating_date".format(prefix)
+                        f"{prefix}_max_rating_date"
                     ),
                 ]
             )
@@ -182,22 +198,16 @@ class SecondLevelFeaturesProcessor:
                             0,
                         )
                         .otherwise(sf.stddev(sf.col("relevance")))
-                        .alias("{}_std".format(prefix))
+                        .alias(f"{prefix}_std")
                     ),
-                    sf.mean(sf.col("relevance")).alias(
-                        "{}_mean".format(prefix)
-                    ),
+                    sf.mean(sf.col("relevance")).alias(f"{prefix}_mean"),
                 ]
             )
             for percentile in [0.05, 0.5, 0.95]:
                 aggregates.append(
                     sf.expr(
-                        "percentile_approx({}, {})".format(
-                            "relevance", percentile
-                        )
-                    ).alias(
-                        "{}_quantile_{}".format(prefix, str(percentile)[2:])
-                    )
+                        f"percentile_approx(relevance, {percentile})"
+                    ).alias(f"{prefix}_quantile_{str(percentile)[2:]}")
                 )
 
         return aggregates
@@ -307,21 +317,22 @@ class SecondLevelFeaturesProcessor:
         :param cat_cols: list of categorical columns
         :param log: input DataFrame ``[user_id(x), item_id(x), timestamp, relevance]``
         :param features_df: DataFrame with user or item features
-        :return: dictionary "categorical feature name - DataFrame with popularity by id and category values"
+        :return: dictionary "categorical feature name" -
+            "DataFrame with popularity by id and category values"
         """
         if self.item_id in features_df.columns:
             join_col, agg_col = self.item_id, self.user_id
         else:
             join_col, agg_col = self.user_id, self.item_id
 
-        conditional_dist = dict()
+        conditional_dist = {}
         log_with_features = log.join(features_df, on=join_col, how="left")
-        count_by_agg_col_name = "count_by_{}".format(agg_col)
+        count_by_agg_col_name = f"count_by_{agg_col}"
         count_by_agg_col = log_with_features.groupBy(agg_col).agg(
             sf.count("relevance").alias(count_by_agg_col_name)
         )
         for cat_col in cat_cols:
-            col_name = "{}_pop_by_{}".format(agg_col[:4], cat_col)
+            col_name = f"{agg_col[:4]}_pop_by_{cat_col}"
             intermediate_df = log_with_features.groupBy(agg_col, cat_col).agg(
                 sf.count("relevance").alias(col_name)
             )
@@ -349,7 +360,8 @@ class SecondLevelFeaturesProcessor:
         :param log: input DataFrame ``[user_id(x), item_id(x), timestamp, relevance]``
         :param user_features: DataFrame with ``user_id(x)`` and feature columns
         :param item_features: DataFrame with ``item_id(x)`` and feature columns
-        :param user_cat_features_list: list of user categorical features used to calculate item popularity features,
+        :param user_cat_features_list: list of user categorical features
+            used to calculate item popularity features,
             such as movie popularity among certain age group
         :param item_cat_features_list: list of item categorical features
         """

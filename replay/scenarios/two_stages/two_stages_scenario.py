@@ -45,7 +45,7 @@ def get_first_level_model_features(
     """
     Get user and item embeddings from replay model.
     Can also compute elementwise multiplication between them with ``add_factors_mult`` parameter.
-    Zero verctors are returned if a model does not have embeddings for specific users/items.
+    Zero vectors are returned if a model does not have embeddings for specific users/items.
 
     :param model: trained model
     :param pairs: user-item pairs to get vectors for `[user_id/user_idx, item_id/item_id]`
@@ -62,8 +62,8 @@ def get_first_level_model_features(
         func_name = "_get_features"
         id_type = "idx"
 
-    users = pairs.select("user_{}".format(id_type)).distinct()
-    items = pairs.select("item_{}".format(id_type)).distinct()
+    users = pairs.select(f"user_{id_type}").distinct()
+    items = pairs.select(f"item_{id_type}").distinct()
     user_factors, user_vector_len = getattr(model, func_name)(
         users, user_features
     )
@@ -72,13 +72,13 @@ def get_first_level_model_features(
     )
 
     pairs_with_features = join_or_return(
-        pairs, user_factors, how="left", on="user_{}".format(id_type)
+        pairs, user_factors, how="left", on=f"user_{id_type}"
     )
     pairs_with_features = join_or_return(
         pairs_with_features,
         item_factors,
         how="left",
-        on="item_{}".format(id_type),
+        on=f"item_{id_type}",
     )
 
     factors_to_explode = []
@@ -105,8 +105,8 @@ def get_first_level_model_features(
     if model.__str__() == "LightFMWrap":
         pairs_with_features = (
             pairs_with_features.fillna({"user_bias": 0, "item_bias": 0})
-            .withColumnRenamed("user_bias", "{}_user_bias".format(prefix))
-            .withColumnRenamed("item_bias", "{}_item_bias".format(prefix))
+            .withColumnRenamed("user_bias", f"{prefix}_user_bias")
+            .withColumnRenamed("item_bias", f"{prefix}_item_bias")
         )
 
     if (
@@ -127,9 +127,7 @@ def get_first_level_model_features(
             data_frame=pairs_with_features,
             column_to_explode=col_name,
             other_columns=[sf.col(column) for column in sorted(list(col_set))],
-            prefix="{general_prefix}_{feature_prefix}".format(
-                general_prefix=prefix, feature_prefix=feature_prefix
-            ),
+            prefix=f"{prefix}_{feature_prefix}",
         )
 
     return pairs_with_features
@@ -240,13 +238,10 @@ class TwoStagesScenario(HybridRecommender):
                 use_first_level_models_feat
             ):
                 raise ValueError(
-                    "For each model from first_level_models specify "
-                    "flag to use first level features."
-                    "Length of first_level_models is {}, "
-                    "Length of use_first_level_models_feat is {}".format(
-                        len(first_level_models),
-                        len(use_first_level_models_feat),
-                    )
+                    f"For each model from first_level_models specify "
+                    f"flag to use first level features."
+                    f"Length of first_level_models is {len(first_level_models)}, "
+                    f"Length of use_first_level_models_feat is {len(use_first_level_models_feat)}"
                 )
 
             self.use_first_level_models_feat = use_first_level_models_feat
@@ -256,15 +251,14 @@ class TwoStagesScenario(HybridRecommender):
             or second_model_params is not None
         ):
             second_model_params = (
-                dict() if second_model_params is None else second_model_params
+                {} if second_model_params is None else second_model_params
             )
             self.second_stage_model = TabularAutoML(
                 config_path=second_model_config_path,
                 task=Task("binary"),
-                **second_model_params
+                **second_model_params,
             )
         else:
-            # CHECK! ask about parameters
             self.second_stage_model = TabularAutoML(
                 task=Task("binary"),
                 reader_params={"cv": 5, "random_state": seed},
@@ -325,7 +319,7 @@ class TwoStagesScenario(HybridRecommender):
                 pairs=pairs,
                 user_features=first_level_user_features_cached,
                 item_features=first_level_item_features_cached,
-            ).withColumnRenamed("relevance", "rel_{}_{}".format(idx, model))
+            ).withColumnRenamed("relevance", f"rel_{idx}_{model}")
             full_second_level_train = full_second_level_train.join(
                 sf.broadcast(current_pred),
                 on=["user_idx", "item_idx"],
@@ -340,7 +334,7 @@ class TwoStagesScenario(HybridRecommender):
                     ),
                     user_features=first_level_user_features_cached,
                     item_features=first_level_item_features_cached,
-                    prefix="m_{}".format(idx),
+                    prefix=f"m_{idx}",
                 )
                 full_second_level_train = ugly_join(
                     left=full_second_level_train,
@@ -364,7 +358,10 @@ class TwoStagesScenario(HybridRecommender):
             how="left",
         )
         full_second_level_train = join_or_return(
-            full_second_level_train, item_features, on="item_idx", how="left",
+            full_second_level_train,
+            item_features,
+            on="item_idx",
+            how="left",
         )
 
         if self.use_generated_features:
@@ -472,10 +469,6 @@ class TwoStagesScenario(HybridRecommender):
             filter_seen_items=False,
         )
 
-        # TO DO: это неоптимально, можно попробовать для каждого пользователя определять
-        # свое k до фильтрации просмотренных,
-        # фильтровать top-k, а потом исключать просмотренных,
-        # чтобы сделать anti-join не таким объемным
         pred = pred.join(
             log_to_filter.select("user_idx", "item_idx"),
             on=["user_idx", "item_idx"],
@@ -654,10 +647,12 @@ class TwoStagesScenario(HybridRecommender):
             .toPandas()
         )
 
-        self.logger.info("В train для модели второго уровня:")
+        self.logger.info(
+            "The numbers of positive and negative interactions in second-level train are:"
+        )
         for row_num in range(2):
             self.logger.info(
-                "\t%s объектов класса %s",
+                "\t%s interactions of class %s",
                 dataset_class_sizes.loc[row_num, "count_for_class"],
                 dataset_class_sizes.loc[row_num, "relevance"],
             )
@@ -670,7 +665,7 @@ class TwoStagesScenario(HybridRecommender):
             item_cat_features_list=self.item_cat_features_list,
         )
 
-        self.logger.info("Дополнение train модели второго уровня признаками")
+        self.logger.info("Enriching second-level train with features")
         full_second_level_train = self._add_features_for_second_level(
             log_to_add_features=full_second_level_train,
             log_for_first_level_models=first_level_train,
@@ -689,11 +684,10 @@ class TwoStagesScenario(HybridRecommender):
             unpersist_if_exists(dataframe)
 
         self.second_stage_model.fit_predict(
-            full_second_level_train_pd, roles={"target": "relevance"}
+            full_second_level_train_pd,
+            roles={"target": "relevance"},
+            verbose=1,
         )
-
-        # TO DO: узнать у коллег, как достать какие-нибудь
-        # понятные важности признаков (не от одной модели)
         self.logger.info("Second level is trained")
 
     # pylint: disable=too-many-arguments

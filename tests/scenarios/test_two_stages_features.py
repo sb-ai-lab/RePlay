@@ -295,11 +295,28 @@ def test_first_level_features_processor_threshold(item_features):
     assert sorted(transformed.columns) == ["iq", "item_id"]
 
 
+def test_first_level_features_processor_only_numeric(item_features):
+    processor = FirstLevelFeaturesProcessor(threshold=1)
+    processor.fit(item_features.select("item_id", "iq"))
+    transformed = processor.transform(item_features.select("item_id", "iq"))
+    sparkDataFrameEqual(item_features.select("item_id", "iq"), transformed)
+
+
+def test_first_level_features_processor_numeric_and_greater_threshold(
+    item_features,
+):
+    processor = FirstLevelFeaturesProcessor(threshold=0)
+    processor.fit(item_features)
+    transformed = processor.transform(item_features)
+    sparkDataFrameEqual(item_features.select("item_id", "iq"), transformed)
+
+
 def test_first_level_features_processor_empty(item_features):
     processor = FirstLevelFeaturesProcessor(threshold=1)
     processor.fit(None)
     assert processor.transform(item_features) is None
 
     processor.fit(item_features.select("item_id", "class"))
+    assert processor.cat_feat_transformer is None
     transformed = processor.transform(item_features.select("item_id", "class"))
     assert transformed.columns == ["item_id"]
