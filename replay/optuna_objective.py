@@ -7,6 +7,7 @@ from functools import partial
 from typing import Any, Dict, List, Optional, Callable, Union
 
 from optuna import Trial
+from pyspark.sql import functions as sf
 
 from replay.metrics.base_metric import Metric
 
@@ -138,3 +139,81 @@ def scenario_objective_calculator(
 MainObjective = partial(
     ObjectiveWrapper, objective_calculator=scenario_objective_calculator
 )
+
+
+# pylint: disable=too-few-public-methods
+class KNNObjective:
+    """
+    This class is implemented according to
+    `instruction <https://optuna.readthedocs.io/en/stable/faq.html#how-to-define-objective-functions-that-have-own-arguments>`_
+    on integration with ``optuna``.
+
+    Criterion is calculated with ``__call__``,
+    other arguments are passed into ``__init__``.
+    """
+
+    # pylint: disable=too-many-arguments,too-many-instance-attributes
+
+    def __init__(self, **kwargs: Any):
+        self.kwargs = kwargs
+        max_neighbours = self.kwargs["search_space"]["num_neighbours"]["args"][
+            1
+        ]
+        model = self.kwargs["recommender"]
+        split_data = self.kwargs["split_data"]
+        train, _, _ = model._fit_index(split_data.train, force_reindex=False)
+        model.num_neighbours = max_neighbours
+
+        df = train.select("user_idx", "item_idx", "relevance")
+        if not model.use_relevance:
+            df = df.withColumn("relevance", sf.lit(1))
+
+        self.dot_products = model._get_products(df).cache()
+
+    def objective_calculator(
+        self,
+        trial: Trial,
+        search_space: Dict[str, List[Optional[Any]]],
+        split_data: SplitData,
+        recommender,
+        criterion: Metric,
+        k: int,
+    ) -> float:
+        """
+        Sample parameters and calculate criterion value
+        :param trial: optuna trial
+        :param search_space: hyper parameter search space
+        :param split_data: data to train and test model
+        :param recommender: recommender model
+        :param criterion: optimization metric
+        :param k: length of a recommendation list
+        :return: criterion value
+        """
+        params_for_trial = suggest_params(trial, search_space)
+        recommender.set_params(**params_for_trial)
+        similarity = recommender._shrink(self.dot_products, recommender.shrink)
+        recommender.similarity = recommender._get_k_most_similar(
+            similarity
+        ).cache()
+        recs = recommender._predict_wrap(
+            log=split_data.train,
+            k=k,
+            users=split_data.users,
+            items=split_data.items,
+            user_features=split_data.user_features_test,
+            item_features=split_data.item_features_test,
+        )
+        logger = logging.getLogger("replay")
+        logger.debug("Calculating criterion")
+        criterion_value = criterion(recs, split_data.test, k)
+        logger.debug("%s=%.6f", criterion, criterion_value)
+        return criterion_value
+
+    def __call__(self, trial: Trial) -> float:
+        """
+        Calculate criterion for ``optuna``.
+
+        :param trial: current trial
+        :return: criterion value
+        """
+        return self.objective_calculator(trial=trial, **self.kwargs)

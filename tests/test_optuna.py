@@ -1,7 +1,7 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
 
-from replay.models import ALSWrap, SLIM
+from replay.models import ALSWrap, SLIM, KNN
 from tests.utils import log, spark
 
 
@@ -65,3 +65,9 @@ def test_it_works(model, log):
     assert len(model.study.trials) == 1
     model.optimize(log, log, k=2, budget=1, new_study=False)
     assert len(model.study.trials) == 2
+
+
+def test_knn(log):
+    model = KNN()
+    res = model.optimize(log, log, k=2, budget=1)
+    assert isinstance(res["num_neighbours"], int)

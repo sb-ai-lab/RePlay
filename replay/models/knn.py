@@ -5,6 +5,7 @@ from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
 
 from replay.models.base_rec import NeighbourRec
+from replay.optuna_objective import KNNObjective
 
 
 class KNN(NeighbourRec):
@@ -13,6 +14,7 @@ class KNN(NeighbourRec):
     all_items: Optional[DataFrame]
     dot_products: Optional[DataFrame]
     item_norms: Optional[DataFrame]
+    _objective = KNNObjective
     _search_space = {
         "num_neighbours": {"type": "int", "args": [1, 100]},
         "shrink": {"type": "int", "args": [0, 100]},
@@ -41,12 +43,32 @@ class KNN(NeighbourRec):
             "num_neighbours": self.num_neighbours,
         }
 
+    @staticmethod
+    def _shrink(dot_products: DataFrame, shrink: float) -> DataFrame:
+        return dot_products.withColumn(
+            "similarity",
+            sf.col("dot_product")
+            / (sf.col("norm1") * sf.col("norm2") + shrink),
+        ).select("item_id_one", "item_id_two", "similarity")
+
     def _get_similarity(self, log: DataFrame) -> DataFrame:
         """
         Calculate item similarities
 
         :param log: DataFrame with interactions, `[user_idx, item_idx, relevance]`
         :return: similarity matrix `[item_id_one, item_id_two, similarity]`
+        """
+        dot_products = self._get_products(log)
+        similarity = self._shrink(dot_products, self.shrink)
+        return similarity
+
+    @staticmethod
+    def _get_products(log: DataFrame) -> DataFrame:
+        """
+        Calculate item dot products
+
+        :param log: DataFrame with interactions, `[user_idx, item_idx, relevance]`
+        :return: similarity matrix `[item_id_one, item_id_two, norm1, norm2]`
         """
         left = log.withColumnRenamed(
             "item_idx", "item_id_one"
@@ -84,11 +106,6 @@ class KNN(NeighbourRec):
             norm2, how="inner", on=sf.col("item_id2") == sf.col("item_id_two")
         )
 
-        dot_products = dot_products.withColumn(
-            "similarity",
-            sf.col("dot_product")
-            / (sf.col("norm1") * sf.col("norm2") + self.shrink),
-        ).select("item_id_one", "item_id_two", "similarity")
         return dot_products
 
     def _get_k_most_similar(self, similarity_matrix: DataFrame) -> DataFrame:

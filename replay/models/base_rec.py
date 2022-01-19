@@ -300,6 +300,41 @@ class BaseRecommender(ABC):
     def __str__(self):
         return type(self).__name__
 
+    def _fit_index(
+        self,
+        log: AnyDataFrame,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
+        force_reindex: bool = True,
+    ) -> tuple:
+        """
+        Convert arbitrary id to numerical idx.
+
+        :param log: historical log of interactions
+            ``[user_id, item_id, timestamp, relevance]``
+        :param user_features: user features
+            ``[user_id, timestamp]`` + feature columns
+        :param item_features: item features
+            ``[item_id, timestamp]`` + feature columns
+        :param force_reindex: create indexers again, even if they were created previously
+        :return: indexed DataFrames
+        """
+        self.logger.debug("Starting fit %s", type(self).__name__)
+        log, user_features, item_features = [
+            convert2spark(df) for df in [log, user_features, item_features]
+        ]
+
+        if "user_indexer" not in self.__dict__ or force_reindex:
+            self.logger.debug("Creating indexers")
+            self._create_indexers(log, user_features, item_features)
+        self.logger.debug("Main fit stage")
+
+        log, user_features, item_features = [
+            self._convert_index(df)
+            for df in [log, user_features, item_features]
+        ]
+        return log, user_features, item_features
+
     def _fit_wrap(
         self,
         log: AnyDataFrame,
@@ -317,23 +352,11 @@ class BaseRecommender(ABC):
         :param item_features: item features
             ``[item_id, timestamp]`` + feature columns
         :param force_reindex: create indexers again, even if they were created previously
-        :return:
+        :return: indexed DataFrames
         """
-        self.logger.debug("Starting fit %s", type(self).__name__)
-        log, user_features, item_features = [
-            convert2spark(df) for df in [log, user_features, item_features]
-        ]
-
-        if "user_indexer" not in self.__dict__ or force_reindex:
-            self.logger.debug("Creating indexers")
-            self._create_indexers(log, user_features, item_features)
-        self.logger.debug("Main fit stage")
-
-        log, user_features, item_features = [
-            self._convert_index(df)
-            for df in [log, user_features, item_features]
-        ]
-        self._fit(log, user_features, item_features)
+        self._fit(
+            *self._fit_index(log, user_features, item_features, force_reindex)
+        )
 
     def _create_indexers(
         self,
