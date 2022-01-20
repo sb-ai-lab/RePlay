@@ -47,20 +47,25 @@ class TorchRecommender(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        items_pd = items.toPandas()["item_idx"].values
+        items_consider_in_pred = items.toPandas()["item_idx"].values
         items_count = self.items_count
         model = self.model.cpu()
         agg_fn = self._predict_by_user
 
         def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
-            return agg_fn(pandas_df, model, items_pd, k, items_count)[
-                ["user_idx", "item_idx", "relevance"]
-            ]
+            return agg_fn(
+                pandas_df, model, items_consider_in_pred, k, items_count
+            )[["user_idx", "item_idx", "relevance"]]
 
-        self.logger.debug("Предсказание модели")
+        self.logger.debug("Predict started")
+        # do not apply map on cold users for MultVAE predict
+        join_type = "inner" if self.__str__() == "MultVAE" else "left"
         recs = (
-            users.join(log, how="left", on="user_idx")
-            .selectExpr("user_idx AS user_idx", "item_idx AS item_idx",)
+            users.join(log, how=join_type, on="user_idx")
+            .selectExpr(
+                "user_idx AS user_idx",
+                "item_idx AS item_idx",
+            )
             .groupby("user_idx")
             .applyInPandas(grouped_map, IDX_REC_SCHEMA)
         )
@@ -83,7 +88,7 @@ class TorchRecommender(Recommender):
                 ["user_idx", "item_idx", "relevance"]
             ]
 
-        self.logger.debug("Оценка релевантности для пар")
+        self.logger.debug("Calculate relevance for user-item pairs")
         user_history = (
             users.join(log, how="inner", on="user_idx")
             .groupBy("user_idx")
@@ -92,7 +97,7 @@ class TorchRecommender(Recommender):
         user_pairs = pairs.groupBy("user_idx").agg(
             sf.collect_list("item_idx").alias("item_idx_to_pred")
         )
-        full_df = user_pairs.join(user_history, on="user_idx", how="left")
+        full_df = user_pairs.join(user_history, on="user_idx", how="inner")
 
         recs = full_df.groupby("user_idx").applyInPandas(
             grouped_map, IDX_REC_SCHEMA
@@ -123,7 +128,9 @@ class TorchRecommender(Recommender):
     @staticmethod
     @abstractmethod
     def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
+        pandas_df: pd.DataFrame,
+        model: nn.Module,
+        item_count: int,
     ) -> pd.DataFrame:
         """
         Get relevance for provided pairs

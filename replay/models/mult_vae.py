@@ -347,21 +347,14 @@ class MultVAE(TorchRecommender):
 
     @staticmethod
     def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
+        pandas_df: pd.DataFrame,
+        model: nn.Module,
+        item_count: int,
     ) -> pd.DataFrame:
-
-        items_np_history = np.array(
-            (
-                pandas_df["item_idx_history"][0]
-                if pandas_df["item_idx_history"][0] is not None
-                else []
-            )
-        )
-
         return MultVAE._predict_pairs_inner(
             model=model,
             user_idx=pandas_df["user_idx"][0],
-            items_np_history=items_np_history,
+            items_np_history=np.array(pandas_df["item_idx_history"][0]),
             items_np_to_pred=np.array(pandas_df["item_idx_to_pred"][0]),
             item_count=item_count,
             cnt=None,
