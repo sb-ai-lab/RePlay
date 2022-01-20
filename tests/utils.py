@@ -71,7 +71,7 @@ def long_log_with_features(spark):
             ["u1", "i4", datetime(2019, 1, 5), 3.0],
             ["u1", "i2", date, 2.0],
             ["u1", "i5", date, 4.0],
-            ["u2", "i1", date, 1.0],
+            ["u2", "i1", datetime(2020, 1, 5), 4.0],
             ["u2", "i3", datetime(2018, 1, 1), 2.0],
             ["u2", "i7", datetime(2019, 1, 1), 4.0],
             ["u2", "i8", datetime(2020, 1, 1), 4.0],

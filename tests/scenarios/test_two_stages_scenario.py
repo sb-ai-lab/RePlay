@@ -11,7 +11,7 @@ from replay.scenarios.two_stages.feature_processor import (
     FirstLevelFeaturesProcessor,
 )
 from replay.scenarios import TwoStagesScenario
-from replay.splitters import UserSplitter
+from replay.splitters import DateSplitter
 
 from tests.utils import (
     spark,
@@ -31,9 +31,7 @@ def two_stages_kwargs():
             KNN(num_neighbours=4),
             LightFMWrap(no_components=4),
         ],
-        "train_splitter": UserSplitter(
-            item_test_size=0.3, shuffle=False, seed=42
-        ),
+        "train_splitter": DateSplitter(test_start=0.1),
         "use_first_level_models_feat": True,
         "second_model_params": {
             "timeout": 30,
@@ -89,7 +87,7 @@ def test_fit(
         user_features,
         item_features.filter(sf.col("iq") > 4),
     )
-    assert two_stages.first_level_item_indexer_len == 6
+    assert two_stages.first_level_item_indexer_len == 8
     assert two_stages.first_level_user_indexer_len == 3
 
     res = two_stages._add_features_for_second_level(
@@ -112,7 +110,10 @@ def test_fit(
 
 
 def test_predict(
-    long_log_with_features, user_features, item_features, two_stages_kwargs,
+    long_log_with_features,
+    user_features,
+    item_features,
+    two_stages_kwargs,
 ):
     two_stages = TwoStagesScenario(**two_stages_kwargs)
 
