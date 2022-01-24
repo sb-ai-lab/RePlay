@@ -1,5 +1,7 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 from datetime import datetime
+from datetime import timezone
+from functools import partial
 
 import numpy as np
 import pandas as pd
@@ -11,6 +13,8 @@ import pytest
 import replay.session_handler
 from replay import utils
 from tests.utils import spark, sparkDataFrameEqual
+
+datetime = partial(datetime, tzinfo=timezone.utc)
 
 different_timestamp_formats_data = [
     (
