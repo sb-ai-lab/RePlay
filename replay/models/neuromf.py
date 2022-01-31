@@ -206,7 +206,7 @@ class NMF(nn.Module):
             mlp_vector = torch.zeros(batch_size, 0).to(user.device)
 
         merged_vector = torch.cat([gmf_vector, mlp_vector], dim=1)
-        merged_vector = self.last_layer(merged_vector).squeeze()
+        merged_vector = self.last_layer(merged_vector).squeeze(dim=1)
         merged_vector = torch.sigmoid(merged_vector)
 
         return merged_vector
@@ -396,7 +396,10 @@ class NeuroMF(TorchRecommender):
             user_batch = LongTensor([user_idx] * len(items_np))
             item_batch = LongTensor(items_np)
             user_recs = torch.reshape(
-                model(user_batch, item_batch).detach(), [-1,],
+                model(user_batch, item_batch).detach(),
+                [
+                    -1,
+                ],
             )
             if cnt is not None:
                 best_item_idx = (

@@ -92,7 +92,9 @@ class ClusterRec(UserRecommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
 
-        user_features_vector = self._transform_features(user_features)
+        user_features_vector = self._transform_features(
+            user_features.join(users, on="user_idx")
+        )
         user_clusters = (
             self.model.transform(user_features_vector)
             .select("user_idx", "prediction")

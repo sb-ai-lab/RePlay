@@ -104,7 +104,11 @@ def short_log_with_features(spark):
 @pytest.fixture
 def user_features(spark):
     return spark.createDataFrame(
-        [("u1", 20.0, -3.0, "M"), ("u2", 30.0, 4.0, "F")]
+        [
+            ("u1", 20.0, -3.0, "M"),
+            ("u2", 30.0, 4.0, "F"),
+            ("u3", 75.0, -1.0, "M"),
+        ]
     ).toDF("user_id", "age", "mood", "gender")
 
 

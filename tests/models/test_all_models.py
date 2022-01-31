@@ -10,16 +10,25 @@ from replay.constants import LOG_SCHEMA
 from replay.models import (
     ALSWrap,
     ADMMSLIM,
+    ClusterRec,
     KNN,
     LightFMWrap,
     NeuroMF,
     PopRec,
+    RandomRec,
     SLIM,
     MultVAE,
     Word2VecRec,
 )
+from replay.models.base_rec import HybridRecommender, UserRecommender
 
-from tests.utils import spark, log, sparkDataFrameEqual
+from tests.utils import (
+    spark,
+    log,
+    long_log_with_features,
+    user_features,
+    sparkDataFrameEqual,
+)
 
 SEED = 123
 
@@ -223,3 +232,111 @@ def test_filter_seen(log):
         log=log, users=["user1"], k=5, filter_seen_items=False
     )
     assert pred.count() == 4
+
+
+def fit_predict_selected(model, train_log, inf_log, user_features, users):
+    kwargs = {}
+    if isinstance(model, (HybridRecommender, UserRecommender)):
+        kwargs = {"user_features": user_features}
+    model.fit(train_log, **kwargs)
+    return model.predict(log=inf_log, users=users, k=1, **kwargs)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ADMMSLIM(seed=SEED),
+        ClusterRec(num_clusters=2),
+        KNN(),
+        LightFMWrap(random_state=SEED, no_components=4),
+        MultVAE(),
+        SLIM(seed=SEED),
+        PopRec(),
+        RandomRec(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+    ],
+    ids=[
+        "admm_slim",
+        "cluster",
+        "knn",
+        "lightfm",
+        "multvae",
+        "slim",
+        "pop_rec",
+        "random_rec",
+        "word2vec",
+    ],
+)
+def test_predict_new_users(model, long_log_with_features, user_features):
+    pred = fit_predict_selected(
+        model,
+        train_log=long_log_with_features.filter(sf.col("user_id") != "u1"),
+        inf_log=long_log_with_features,
+        user_features=user_features.drop("gender"),
+        users=["u1"],
+    )
+    assert pred.count() == 1
+    assert pred.collect()[0][0] == "u1"
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ClusterRec(num_clusters=2),
+        LightFMWrap(random_state=SEED, no_components=4),
+        PopRec(),
+        RandomRec(seed=SEED),
+    ],
+    ids=[
+        "cluster",
+        "lightfm",
+        "pop_rec",
+        "random_rec",
+    ],
+)
+def test_predict_cold_users(model, long_log_with_features, user_features):
+    pred = fit_predict_selected(
+        model,
+        train_log=long_log_with_features.filter(sf.col("user_id") != "u1"),
+        inf_log=long_log_with_features.filter(sf.col("user_id") != "u1"),
+        user_features=user_features.drop("gender"),
+        users=["u1"],
+    )
+    assert pred.count() == 1
+    assert pred.collect()[0][0] == "u1"
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ALSWrap(rank=2, seed=SEED),
+        KNN(),
+        LightFMWrap(),
+        MultVAE(),
+        NeuroMF(),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+    ],
+    ids=[
+        "als",
+        "knn",
+        "lightfm_no_feat",
+        "multvae",
+        "neuromf",
+        "slim",
+        "word2vec",
+    ],
+)
+def test_predict_cold_and_new_filter_out(model, long_log_with_features):
+    pred = fit_predict_selected(
+        model,
+        train_log=long_log_with_features.filter(sf.col("user_id") != "u1"),
+        inf_log=long_log_with_features,
+        user_features=None,
+        users=["u1", "cold_user"],
+    )
+    # assert new/cold users are filtered out in `predict`
+    if isinstance(model, LightFMWrap) or not model.can_predict_cold_users:
+        assert pred.count() == 0
+    else:
+        assert 1 <= pred.count() <= 2
