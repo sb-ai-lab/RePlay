@@ -11,6 +11,31 @@ Basic
     pip install replay-rec
 
 
+Troubleshooting
+------------------
+
+**General**
+
+If you have an installation trouble, update the core packages:
+
+.. code-block:: bash
+
+    pip install --upgrade pip wheel
+
+
+**Implicit**
+
+RePlay depends on `implicit <https://github.com/benfred/implicit>`_, which requires C++ compiler
+and may require installation of additional packages to build *implicit* from source on Unix machines.
+
+If you are facing an error during *implicit* installation, try the following:
+
+.. code-block:: bash
+
+    sudo apt-get install python3-dev
+    sudo apt-get install build-essential
+
+
 Development
 ---------------
 

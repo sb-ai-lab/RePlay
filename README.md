@@ -21,10 +21,12 @@ You can
 
 ### Installation
 
-Use Linux machine with Python 3.7+ and Java 8+. 
+Use Linux machine with Python 3.7+, Java 8+ and C++ compiler. 
 
 ```bash
 pip install replay-rec
 ```
 
 It is preferable to use a virtual environment for your installation.
+
+If you encounter an error during RePlay installation, check the [troubleshooting](https://sberbank-ai-lab.github.io/RePlay/pages/installation.html#troubleshooting) guide.
