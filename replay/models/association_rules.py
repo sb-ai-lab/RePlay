@@ -18,7 +18,7 @@ class AssociationRulesItemRec(Recommender):
 
     Classical model uses items co-occurrence in sessions for
     confidence, lift and confidence_gain calculation
-    but relevance could also be passed to the model, е.g.
+    but relevance could also be passed to the model, e.g.
     if you want to apply time smoothing and treat old sessions as less important.
     In this case all items in sessions should have the same relevance.
     """

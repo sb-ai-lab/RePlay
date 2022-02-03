@@ -3,14 +3,13 @@
 import pytest
 from pyspark.sql import functions as sf
 
-from lightautoml.automl.presets.tabular_presets import TabularAutoML
-
 from replay.models import ALSWrap, KNN, PopRec, LightFMWrap
+from replay.scenarios import TwoStagesScenario
 from replay.scenarios.two_stages.feature_processor import (
     SecondLevelFeaturesProcessor,
     FirstLevelFeaturesProcessor,
 )
-from replay.scenarios import TwoStagesScenario
+from replay.scenarios.two_stages.reranker import LamaWrap
 from replay.splitters import DateSplitter
 
 from tests.utils import (
@@ -50,7 +49,7 @@ def test_init(two_stages_kwargs):
 
     two_stages = TwoStagesScenario(**two_stages_kwargs)
     assert isinstance(two_stages.fallback_model, PopRec)
-    assert isinstance(two_stages.second_stage_model, TabularAutoML)
+    assert isinstance(two_stages.second_stage_model, LamaWrap)
     assert isinstance(
         two_stages.features_processor, SecondLevelFeaturesProcessor
     )

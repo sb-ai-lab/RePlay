@@ -32,7 +32,7 @@ def _main_iteration(
     vec_gamma = np.diag(mat_b) / np.diag(inv_matrix)
     mat_b -= inv_matrix * vec_gamma
 
-    # calculate mat_с
+    # calculate mat_c
     prev_mat_c = mat_c
     mat_c = mat_b + mat_gamma / rho
     coef = lambda_1 / rho

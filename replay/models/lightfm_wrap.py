@@ -286,7 +286,7 @@ class LightFMWrap(HybridRecommender):
 
         :param ids: id item_idx/user_idx to get features for
         :param features: features for item_idx/user_idx
-        :return: spark-dataframe с bias и векторами пользователей/объектов, размерность вектора
+        :return: spark-dataframe with biases and vectors for users/items and vector size
         """
         entity = "item" if "item_idx" in ids.columns else "user"
         ids_list = ids.toPandas()[f"{entity}_idx"]
@@ -296,7 +296,10 @@ class LightFMWrap(HybridRecommender):
             matrix_width = getattr(self, f"num_of_warm_{entity}s")
             warm_ids = ids_list[ids_list < matrix_width]
             sparse_features = csr_matrix(
-                ([1] * warm_ids.shape[0], (warm_ids, warm_ids),),
+                (
+                    [1] * warm_ids.shape[0],
+                    (warm_ids, warm_ids),
+                ),
                 shape=(ids_list.max() + 1, matrix_width),
             )
         else:
@@ -315,6 +318,10 @@ class LightFMWrap(HybridRecommender):
         )
         lightfm_factors = State().session.createDataFrame(
             embed_list,
-            schema=[f"{entity}_idx", f"{entity}_bias", f"{entity}_factors",],
+            schema=[
+                f"{entity}_idx",
+                f"{entity}_bias",
+                f"{entity}_factors",
+            ],
         )
         return lightfm_factors, self.model.no_components

@@ -5,13 +5,11 @@ from typing import Dict, Optional, Tuple, List, Union, Any
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 
-from lightautoml.automl.presets.tabular_presets import TabularAutoML
-from lightautoml.tasks import Task
-
 from replay.constants import AnyDataFrame
 from replay.metrics import Metric, Precision
 from replay.models import ALSWrap, RandomRec, PopRec
 from replay.models.base_rec import BaseRecommender, HybridRecommender
+from replay.scenarios.two_stages.reranker import LamaWrap
 from replay.scenarios.two_stages.feature_processor import (
     SecondLevelFeaturesProcessor,
     FirstLevelFeaturesProcessor,
@@ -246,23 +244,9 @@ class TwoStagesScenario(HybridRecommender):
 
             self.use_first_level_models_feat = use_first_level_models_feat
 
-        if (
-            second_model_config_path is not None
-            or second_model_params is not None
-        ):
-            second_model_params = (
-                {} if second_model_params is None else second_model_params
-            )
-            self.second_stage_model = TabularAutoML(
-                config_path=second_model_config_path,
-                task=Task("binary"),
-                **second_model_params,
-            )
-        else:
-            self.second_stage_model = TabularAutoML(
-                task=Task("binary"),
-                reader_params={"cv": 5, "random_state": seed},
-            )
+        self.second_stage_model = LamaWrap(
+            params=second_model_params, config_path=second_model_config_path
+        )
 
         self.num_negatives = num_negatives
         if negatives_type not in ["random", "first_level"]:
@@ -643,10 +627,12 @@ class TwoStagesScenario(HybridRecommender):
 
         second_level_train = (
             first_level_candidates.join(
-                second_level_positive.withColumn("relevance", sf.lit(1.0)),
+                second_level_positive.select(
+                    "user_idx", "item_idx"
+                ).withColumn("target", sf.lit(1.0)),
                 on=["user_idx", "item_idx"],
                 how="left",
-            ).fillna(0.0, subset="relevance")
+            ).fillna(0.0, subset="target")
         ).cache()
 
         self.cached_list.append(second_level_train)
@@ -654,8 +640,8 @@ class TwoStagesScenario(HybridRecommender):
         self.logger.info(
             "Distribution of classes in second-level train dataset:/n %s",
             (
-                second_level_train.groupBy("relevance")
-                .agg(sf.count(sf.col("relevance")).alias("count_for_class"))
+                second_level_train.groupBy("target")
+                .agg(sf.count(sf.col("target")).alias("count_for_class"))
                 .take(2)
             ),
         )
@@ -669,26 +655,17 @@ class TwoStagesScenario(HybridRecommender):
         )
 
         self.logger.info("Adding features to second-level train dataset")
-        second_level_train = self._add_features_for_second_level(
+        second_level_train_to_convert = self._add_features_for_second_level(
             log_to_add_features=second_level_train,
             log_for_first_level_models=first_level_train,
             user_features=user_features,
             item_features=item_features,
-        )
+        ).cache()
 
-        second_level_train = second_level_train.drop("user_idx", "item_idx")
-        self.logger.info("Converting to pandas")
-        second_level_train.cache()
-        full_second_level_train_pd = second_level_train.toPandas()
-        second_level_train.unpersist()
+        self.cached_list.append(second_level_train_to_convert)
+        self.second_stage_model.fit(second_level_train_to_convert)
         for dataframe in self.cached_list:
             unpersist_if_exists(dataframe)
-
-        self.second_stage_model.fit_predict(
-            full_second_level_train_pd,
-            roles={"target": "relevance"},
-            verbose=1,
-        )
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -720,7 +697,7 @@ class TwoStagesScenario(HybridRecommender):
             user_features=first_level_user_features,
             item_features=first_level_item_features,
             log_to_filter=log,
-        )
+        ).select("user_idx", "item_idx")
 
         candidates_cached = candidates.cache()
         unpersist_if_exists(first_level_user_features)
@@ -739,30 +716,7 @@ class TwoStagesScenario(HybridRecommender):
             candidates_features.count(),
             candidates_features.select("user_idx").distinct().count(),
         )
-        candidates_features_pd = candidates_features.toPandas()
-        candidates_features.unpersist()
-        candidates_ids = candidates_features_pd[
-            ["user_idx", "item_idx", "relevance"]
-        ]
-        candidates_features_pd.drop(
-            columns=["user_idx", "item_idx"], inplace=True
-        )
-
-        self.logger.info("Starting reranking")
-        candidates_pred = self.second_stage_model.predict(
-            candidates_features_pd
-        )
-        candidates_ids.loc[:, "relevance"] = candidates_pred.data[:, 0]
-        self.logger.info(
-            "%s candidates rated for %s users",
-            candidates_ids.shape[0],
-            candidates.select("user_idx").distinct().count(),
-        )
-
-        self.logger.info("top-k")
-        return get_top_k_recs(
-            recs=convert2spark(candidates_ids), k=k, id_type="idx"
-        )
+        return self.second_stage_model.predict(data=candidates_features, k=k)
 
     def fit_predict(
         self,

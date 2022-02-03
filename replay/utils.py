@@ -308,7 +308,7 @@ def get_stats(
     <BLANKLINE>
 
     :param log: spark DataFrame with ``user_id``, ``item_id`` and ``relevance`` columns
-    :param group_by: column to group data by, ``user_id`` или ``item_id``
+    :param group_by: column to group data by, ``user_id`` or ``item_id``
     :param target_column: column with interaction ratings
     :return: spark DataFrame with statistics
     """
