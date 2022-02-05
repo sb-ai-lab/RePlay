@@ -8,8 +8,10 @@ from implicit.als import AlternatingLeastSquares
 from pyspark.sql import functions as sf
 
 import replay
-from replay.model_handler import save, load
+from replay.data_preparator import Indexer
+from replay.model_handler import save, load, save_indexer, load_indexer
 from replay.models import *
+from replay.utils import convert2spark
 from tests.utils import sparkDataFrameEqual, long_log_with_features, spark
 
 
@@ -132,3 +134,13 @@ def test_study(df, tmp_path):
     save(model, path)
     m = load(path)
     assert m.study == model.study
+
+
+def test_indexer(df, tmp_path):
+    path = (tmp_path / "indexer").resolve()
+    indexer = Indexer("user_id", "item_id")
+    df = convert2spark(df)
+    indexer.fit(df, df)
+    save_indexer(indexer, path)
+    i = load_indexer(path)
+    assert i.user_indexer.inputCol == indexer.user_indexer.inputCol

@@ -35,6 +35,13 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
         self.user_col = user_col
         self.item_col = item_col
 
+    @property
+    def _init_args(self):
+        return {
+            "user_col": self.user_col,
+            "item_col": self.item_col,
+        }
+
     def fit(self, users: DataFrame, items: DataFrame,) -> None:
         """
         Creates indexers to map raw id to numerical idx so that spark can handle them.
