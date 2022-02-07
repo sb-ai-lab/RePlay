@@ -55,6 +55,17 @@ def test_indexer(indexer, long_log_with_features):
     sparkDataFrameEqual(log, long_log_with_features)
 
 
+def test_indexer_without_renaming():
+    indexer = Indexer("user_idx", "item_idx")
+    df = pd.DataFrame({"user_idx": [3], "item_idx": [5]})
+    df = convert2spark(df)
+    indexer.fit(df, df)
+    res = indexer.transform(df)
+    cols = res.columns
+    assert "user_idx" in cols and "item_idx" in cols
+    assert res.toPandas().iloc[0].user_idx == 0
+
+
 # categorical features transformer tests
 def get_transformed_features(transformer, train, test):
     transformer.fit(train)
