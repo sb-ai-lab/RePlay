@@ -28,7 +28,7 @@ class Coverage(RecOnlyMetric):
                     It is important for ``log`` to contain all available items.
         """
         self.items = (
-            convert2spark(log).select("item_id").distinct()  # type: ignore
+            convert2spark(log).select("item_idx").distinct()  # type: ignore
         )
         self.item_count = self.items.count()
         self.logger = logging.getLogger("replay")
@@ -61,7 +61,7 @@ class Coverage(RecOnlyMetric):
         self, recs: DataFrame, k_list: list,
     ) -> Union[Dict[int, NumType], NumType]:
         unknown_item_count = (
-            recs.select("item_id")  # type: ignore
+            recs.select("item_idx")  # type: ignore
             .distinct()
             .exceptAll(self.items)
             .count()
@@ -76,11 +76,13 @@ class Coverage(RecOnlyMetric):
             recs.withColumn(
                 "row_num",
                 sf.row_number().over(
-                    Window.partitionBy("user_id").orderBy(sf.desc("relevance"))
+                    Window.partitionBy("user_idx").orderBy(
+                        sf.desc("relevance")
+                    )
                 ),
             )
-            .select("item_id", "row_num")
-            .groupBy("item_id")
+            .select("item_idx", "row_num")
+            .groupBy("item_idx")
             .agg(sf.min("row_num").alias("best_position"))
             .cache()
         )

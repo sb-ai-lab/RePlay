@@ -49,14 +49,14 @@ class KNN(NeighbourRec):
             "similarity",
             sf.col("dot_product")
             / (sf.col("norm1") * sf.col("norm2") + shrink),
-        ).select("item_id_one", "item_id_two", "similarity")
+        ).select("item_idx_one", "item_idx_two", "similarity")
 
     def _get_similarity(self, log: DataFrame) -> DataFrame:
         """
         Calculate item similarities
 
         :param log: DataFrame with interactions, `[user_idx, item_idx, relevance]`
-        :return: similarity matrix `[item_id_one, item_id_two, similarity]`
+        :return: similarity matrix `[item_idx_one, item_idx_two, similarity]`
         """
         dot_products = self._get_products(log)
         similarity = self._shrink(dot_products, self.shrink)
@@ -68,20 +68,20 @@ class KNN(NeighbourRec):
         Calculate item dot products
 
         :param log: DataFrame with interactions, `[user_idx, item_idx, relevance]`
-        :return: similarity matrix `[item_id_one, item_id_two, norm1, norm2]`
+        :return: similarity matrix `[item_idx_one, item_idx_two, norm1, norm2]`
         """
         left = log.withColumnRenamed(
-            "item_idx", "item_id_one"
+            "item_idx", "item_idx_one"
         ).withColumnRenamed("relevance", "rel_one")
         right = log.withColumnRenamed(
-            "item_idx", "item_id_two"
+            "item_idx", "item_idx_two"
         ).withColumnRenamed("relevance", "rel_two")
 
         dot_products = (
             left.join(right, how="inner", on="user_idx")
-            .filter(sf.col("item_id_one") != sf.col("item_id_two"))
+            .filter(sf.col("item_idx_one") != sf.col("item_idx_two"))
             .withColumn("relevance", sf.col("rel_one") * sf.col("rel_two"))
-            .groupBy("item_id_one", "item_id_two")
+            .groupBy("item_idx_one", "item_idx_two")
             .agg(sf.sum("relevance").alias("dot_product"))
         )
 
@@ -100,10 +100,10 @@ class KNN(NeighbourRec):
         ).withColumnRenamed("norm", "norm2")
 
         dot_products = dot_products.join(
-            norm1, how="inner", on=sf.col("item_id1") == sf.col("item_id_one")
+            norm1, how="inner", on=sf.col("item_id1") == sf.col("item_idx_one")
         )
         dot_products = dot_products.join(
-            norm2, how="inner", on=sf.col("item_id2") == sf.col("item_id_two")
+            norm2, how="inner", on=sf.col("item_id2") == sf.col("item_idx_two")
         )
 
         return dot_products
@@ -112,16 +112,16 @@ class KNN(NeighbourRec):
         """
         Leaves only top-k neighbours for each item
 
-        :param similarity_matrix: dataframe `[item_id_one, item_id_two, similarity]`
+        :param similarity_matrix: dataframe `[item_idx_one, item_idx_two, similarity]`
         :return: cropped similarity matrix
         """
         return (
             similarity_matrix.withColumn(
                 "similarity_order",
                 sf.row_number().over(
-                    Window.partitionBy("item_id_one").orderBy(
+                    Window.partitionBy("item_idx_one").orderBy(
                         sf.col("similarity").desc(),
-                        sf.col("item_id_two").desc(),
+                        sf.col("item_idx_two").desc(),
                     )
                 ),
             )

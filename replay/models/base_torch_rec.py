@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader
 
 from replay.models.base_rec import Recommender
 from replay.session_handler import State
-from replay.constants import IDX_REC_SCHEMA
+from replay.constants import REC_SCHEMA
 
 
 class TorchRecommender(Recommender):
@@ -48,7 +48,7 @@ class TorchRecommender(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         items_consider_in_pred = items.toPandas()["item_idx"].values
-        items_count = self.items_count
+        items_count = self.max_item
         model = self.model.cpu()
         agg_fn = self._predict_by_user
 
@@ -62,12 +62,9 @@ class TorchRecommender(Recommender):
         join_type = "inner" if self.__str__() == "MultVAE" else "left"
         recs = (
             users.join(log, how=join_type, on="user_idx")
-            .selectExpr(
-                "user_idx AS user_idx",
-                "item_idx AS item_idx",
-            )
+            .select("user_idx", "item_idx")
             .groupby("user_idx")
-            .applyInPandas(grouped_map, IDX_REC_SCHEMA)
+            .applyInPandas(grouped_map, REC_SCHEMA)
         )
         return recs
 
@@ -78,7 +75,7 @@ class TorchRecommender(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-        items_count = self.items_count
+        items_count = self.max_item
         model = self.model.cpu()
         agg_fn = self._predict_by_user_pairs
         users = pairs.select("user_idx").distinct()
@@ -100,7 +97,7 @@ class TorchRecommender(Recommender):
         full_df = user_pairs.join(user_history, on="user_idx", how="inner")
 
         recs = full_df.groupby("user_idx").applyInPandas(
-            grouped_map, IDX_REC_SCHEMA
+            grouped_map, REC_SCHEMA
         )
 
         return recs
@@ -128,9 +125,7 @@ class TorchRecommender(Recommender):
     @staticmethod
     @abstractmethod
     def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame,
-        model: nn.Module,
-        item_count: int,
+        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
     ) -> pd.DataFrame:
         """
         Get relevance for provided pairs

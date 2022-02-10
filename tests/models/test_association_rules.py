@@ -27,7 +27,7 @@ def test_invalid_metric_raises(log, model):
         ValueError,
         match=r"Select one of the valid distance metrics: \['lift', 'confidence_gain'\]",
     ):
-        model.get_nearest_items(log.select("item_id"), k=1, metric="invalid")
+        model.get_nearest_items(log.select("item_idx"), k=1, metric="invalid")
 
 
 def test_works(model):
@@ -51,16 +51,16 @@ def check_formulas(count_ant, count_cons, pair_count, num_sessions, test_row):
 
 
 def test_calculation(model, log):
-    pairs_metrics = model.get_pair_metrics()
+    pairs_metrics = model.get_pair_metrics
     # recalculate for item_3 as antecedent and item_2 as consequent
     test_row = pairs_metrics.filter(
-        (sf.col("antecedent") == "item3") & (sf.col("consequent") == "item2")
+        (sf.col("antecedent") == 2) & (sf.col("consequent") == 1)
     ).toPandas()
     check_formulas(
         count_ant=2,
         count_cons=3,
         pair_count=2,
-        num_sessions=log.select("user_id").distinct().count(),
+        num_sessions=log.select("user_idx").distinct().count(),
         test_row=test_row,
     )
 
@@ -70,38 +70,31 @@ def test_calculation_with_weights(model, log):
         min_item_count=1, min_pair_count=1, use_relevance=True
     )
     model.fit(log)
-    pairs_metrics = model.get_pair_metrics()
+    pairs_metrics = model.get_pair_metrics
     # recalculate for item_3 as antecedent and item_2 as consequent using relevance values as weight
     test_row = pairs_metrics.filter(
-        (sf.col("antecedent") == "item3") & (sf.col("consequent") == "item2")
+        (sf.col("antecedent") == 2) & (sf.col("consequent") == 1)
     ).toPandas()
     check_formulas(
         count_ant=6,
         count_cons=12,
         pair_count=5,
-        num_sessions=log.select("user_id").distinct().count(),
+        num_sessions=log.select("user_idx").distinct().count(),
         test_row=test_row,
     )
 
 
 def test_get_nearest_items(model):
     res = model.get_nearest_items(
-        items=["item3"],
-        k=10,
-        metric="confidence_gain",
-        candidates=["item2", "item4"],
+        items=[2], k=10, metric="confidence_gain", candidates=[1, 3],
     )
 
     assert res.count() == 1
-    assert res.select("neighbour_item_id").collect()[0][0] == "item2"
+    assert res.select("neighbour_item_idx").collect()[0][0] == 1
     assert res.select("confidence_gain").collect()[0][0] == 2.0
     assert res.select("lift").collect()[0][0] == 4 / 3
 
-    res = model.get_nearest_items(
-        items=["item3"],
-        k=10,
-        metric="lift",
-    )
+    res = model.get_nearest_items(items=[2], k=10, metric="lift",)
     assert res.count() == 2
 
     model._clear_cache()

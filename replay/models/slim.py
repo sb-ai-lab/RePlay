@@ -51,12 +51,12 @@ class SLIM(NeighbourRec):
 
         interactions_matrix = csc_matrix(
             (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
-            shape=(self.users_count, self.items_count),
+            shape=(self.max_user, self.max_item),
         )
         similarity = (
             State()
             .session.createDataFrame(pandas_log.item_idx, st.IntegerType())
-            .withColumnRenamed("value", "item_id_one")
+            .withColumnRenamed("value", "item_idx_one")
         )
 
         alpha = self.beta + self.lambda_
@@ -78,7 +78,7 @@ class SLIM(NeighbourRec):
             :param pandas_df: pd.Dataframe
             :return: pd.Dataframe
             """
-            idx = int(pandas_df["item_id_one"][0])
+            idx = int(pandas_df["item_idx_one"][0])
             column = interactions_matrix[:, idx]
             column_arr = column.toarray().ravel()
             interactions_matrix[
@@ -90,13 +90,14 @@ class SLIM(NeighbourRec):
             good_idx = np.argwhere(regression.coef_ > 0).reshape(-1)
             good_values = regression.coef_[good_idx]
             similarity_row = {
-                "item_id_one": good_idx,
-                "item_id_two": idx,
+                "item_idx_one": good_idx,
+                "item_idx_two": idx,
                 "similarity": good_values,
             }
             return pd.DataFrame(data=similarity_row)
 
-        self.similarity = similarity.groupby("item_id_one").applyInPandas(
-            slim_column, "item_id_one int, item_id_two int, similarity double"
+        self.similarity = similarity.groupby("item_idx_one").applyInPandas(
+            slim_column,
+            "item_idx_one int, item_idx_two int, similarity double",
         )
         self.similarity.cache()

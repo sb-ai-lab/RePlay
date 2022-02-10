@@ -12,7 +12,7 @@ from pyspark.sql import DataFrame
 from scipy.sparse import csr_matrix, hstack, diags
 from sklearn.preprocessing import MinMaxScaler
 
-from replay.constants import IDX_REC_SCHEMA
+from replay.constants import REC_SCHEMA
 from replay.models.base_rec import HybridRecommender
 from replay.utils import to_csr, check_numeric
 from replay.session_handler import State
@@ -32,8 +32,6 @@ class LightFMWrap(HybridRecommender):
     }
     user_feat_scaler: Optional[MinMaxScaler] = None
     item_feat_scaler: Optional[MinMaxScaler] = None
-    num_of_warm_users: int
-    num_of_warm_items: int
 
     def __init__(
         self,
@@ -47,9 +45,6 @@ class LightFMWrap(HybridRecommender):
         self.random_state = random_state
         cpu_count = os.cpu_count()
         self.num_threads = cpu_count if cpu_count is not None else 1
-        # number of columns in identity matrix used for building feature matrix
-        self.num_of_warm_items = None
-        self.num_of_warm_users = None
 
     @property
     def _init_args(self):
@@ -57,8 +52,6 @@ class LightFMWrap(HybridRecommender):
             "no_components": self.no_components,
             "loss": self.loss,
             "random_state": self.random_state,
-            "num_of_warm_items": self.num_of_warm_items,
-            "num_of_warm_users": self.num_of_warm_users,
         }
 
     def _save_model(self, path: str):
@@ -106,7 +99,7 @@ class LightFMWrap(HybridRecommender):
             log_ids_list, on=idx_col_name, how="inner"
         )
 
-        num_entities_in_fit = getattr(self, f"num_of_warm_{entity}s")
+        num_entities_in_fit = getattr(self, f"max_{entity}")
         matrix_height = max(
             num_entities_in_fit,
             log_ids_list.select(sf.max(idx_col_name)).collect()[0][0] + 1,
@@ -189,10 +182,7 @@ class LightFMWrap(HybridRecommender):
         self.user_feat_scaler = None
         self.item_feat_scaler = None
 
-        self.num_of_warm_items = len(self.item_indexer.labels)
-        self.num_of_warm_users = len(self.user_indexer.labels)
-
-        interactions_matrix = to_csr(log, self.users_count, self.items_count)
+        interactions_matrix = to_csr(log, self.max_user, self.max_item)
         csr_item_features = self._feature_table_to_csr(
             log.select("item_idx").distinct(), item_features
         )
@@ -247,7 +237,7 @@ class LightFMWrap(HybridRecommender):
         )
 
         return pairs.groupby("user_idx").applyInPandas(
-            predict_by_user, IDX_REC_SCHEMA
+            predict_by_user, REC_SCHEMA
         )
 
     # pylint: disable=too-many-arguments
@@ -293,13 +283,10 @@ class LightFMWrap(HybridRecommender):
 
         # models without features use sparse matrix
         if features is None:
-            matrix_width = getattr(self, f"num_of_warm_{entity}s")
+            matrix_width = getattr(self, f"fit_{entity}s").count()
             warm_ids = ids_list[ids_list < matrix_width]
             sparse_features = csr_matrix(
-                (
-                    [1] * warm_ids.shape[0],
-                    (warm_ids, warm_ids),
-                ),
+                ([1] * warm_ids.shape[0], (warm_ids, warm_ids),),
                 shape=(ids_list.max() + 1, matrix_width),
             )
         else:
@@ -318,10 +305,6 @@ class LightFMWrap(HybridRecommender):
         )
         lightfm_factors = State().session.createDataFrame(
             embed_list,
-            schema=[
-                f"{entity}_idx",
-                f"{entity}_bias",
-                f"{entity}_factors",
-            ],
+            schema=[f"{entity}_idx", f"{entity}_bias", f"{entity}_factors",],
         )
         return lightfm_factors, self.model.no_components

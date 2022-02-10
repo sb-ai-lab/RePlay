@@ -86,16 +86,14 @@ def test_fit(
         user_features,
         item_features.filter(sf.col("iq") > 4),
     )
-    assert two_stages.first_level_item_indexer_len == 8
-    assert two_stages.first_level_user_indexer_len == 3
+    assert two_stages.first_level_item_len == 8
+    assert two_stages.first_level_user_len == 3
 
     res = two_stages._add_features_for_second_level(
-        log_to_add_features=two_stages._convert_index(short_log_with_features),
-        log_for_first_level_models=two_stages._convert_index(
-            long_log_with_features
-        ),
-        user_features=two_stages._convert_index(user_features),
-        item_features=two_stages._convert_index(item_features),
+        log_to_add_features=short_log_with_features,
+        log_for_first_level_models=long_log_with_features,
+        user_features=user_features,
+        item_features=item_features,
     )
     assert res.count() == short_log_with_features.count()
     assert "rel_0_ALSWrap" in res.columns
@@ -103,16 +101,11 @@ def test_fit(
     assert "user_pop_by_class" in res.columns
     assert "age" in res.columns
 
-    two_stages.first_level_item_features_transformer.transform(
-        item_features.withColumnRenamed("item_id", "item_idx")
-    )
+    two_stages.first_level_item_features_transformer.transform(item_features)
 
 
 def test_predict(
-    long_log_with_features,
-    user_features,
-    item_features,
-    two_stages_kwargs,
+    long_log_with_features, user_features, item_features, two_stages_kwargs,
 ):
     two_stages = TwoStagesScenario(**two_stages_kwargs)
 
@@ -128,10 +121,10 @@ def test_predict(
         item_features=item_features,
     )
     assert pred.count() == 6
-    assert sorted(pred.select(sf.collect_set("user_id")).collect()[0][0]) == [
-        "u1",
-        "u2",
-        "u3",
+    assert sorted(pred.select(sf.collect_set("user_idx")).collect()[0][0]) == [
+        0,
+        1,
+        2,
     ]
 
 

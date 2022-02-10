@@ -20,7 +20,6 @@ from replay.splitters import Splitter, UserSplitter
 from replay.utils import (
     array_mult,
     cache_if_exists,
-    convert2spark,
     fallback,
     get_log_info,
     get_top_k_recs,
@@ -53,30 +52,20 @@ def get_first_level_model_features(
     :param prefix: name to add to the columns
     :return: DataFrame
     """
-    if "user_id" in pairs.columns:
-        func_name = "_get_features_wrap"
-        id_type = "id"
-    else:
-        func_name = "_get_features"
-        id_type = "idx"
-
-    users = pairs.select(f"user_{id_type}").distinct()
-    items = pairs.select(f"item_{id_type}").distinct()
-    user_factors, user_vector_len = getattr(model, func_name)(
+    users = pairs.select("user_idx").distinct()
+    items = pairs.select("item_idx").distinct()
+    user_factors, user_vector_len = model._get_features_wrap(
         users, user_features
     )
-    item_factors, item_vector_len = getattr(model, func_name)(
+    item_factors, item_vector_len = model._get_features_wrap(
         items, item_features
     )
 
     pairs_with_features = join_or_return(
-        pairs, user_factors, how="left", on=f"user_{id_type}"
+        pairs, user_factors, how="left", on="user_idx"
     )
     pairs_with_features = join_or_return(
-        pairs_with_features,
-        item_factors,
-        how="left",
-        on=f"item_{id_type}",
+        pairs_with_features, item_factors, how="left", on="item_idx",
     )
 
     factors_to_explode = []
@@ -215,8 +204,8 @@ class TwoStagesScenario(HybridRecommender):
             else [first_level_models]
         )
 
-        self.first_level_item_indexer_len = 0
-        self.first_level_user_indexer_len = 0
+        self.first_level_item_len = 0
+        self.first_level_user_len = 0
 
         self.random_model = RandomRec(seed=seed)
         self.fallback_model = fallback_model
@@ -342,10 +331,7 @@ class TwoStagesScenario(HybridRecommender):
             how="left",
         )
         full_second_level_train = join_or_return(
-            full_second_level_train,
-            item_features,
-            on="item_idx",
-            how="left",
+            full_second_level_train, item_features, on="item_idx", how="left",
         )
 
         if self.use_generated_features:
@@ -386,11 +372,7 @@ class TwoStagesScenario(HybridRecommender):
         log: AnyDataFrame,
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
-        force_reindex: bool = True,
     ) -> None:
-        log, user_features, item_features = [
-            convert2spark(df) for df in [log, user_features, item_features]
-        ]
         self._fit(log, user_features, item_features)
 
     @staticmethod
@@ -417,8 +399,7 @@ class TwoStagesScenario(HybridRecommender):
             log, items, item_features = [
                 self._filter_or_return(
                     dataframe=df,
-                    condition=sf.col("item_idx")
-                    < self.first_level_item_indexer_len,
+                    condition=sf.col("item_idx") < self.first_level_item_len,
                 )
                 for df in [log, items, item_features]
             ]
@@ -426,16 +407,13 @@ class TwoStagesScenario(HybridRecommender):
             log, users, user_features = [
                 self._filter_or_return(
                     dataframe=df,
-                    condition=sf.col("user_idx")
-                    < self.first_level_user_indexer_len,
+                    condition=sf.col("user_idx") < self.first_level_user_len,
                 )
                 for df in [log, users, user_features]
             ]
 
         log_to_filter_cached = ugly_join(
-            left=log_to_filter,
-            right=users,
-            on_col_name="user_idx",
+            left=log_to_filter, right=users, on_col_name="user_idx",
         ).cache()
         max_positives_to_filter = 0
 
@@ -465,7 +443,7 @@ class TwoStagesScenario(HybridRecommender):
 
         log_to_filter_cached.unpersist()
 
-        return get_top_k_recs(pred, k, id_type="idx")
+        return get_top_k_recs(pred, k)
 
     def _predict_pairs_with_first_level_model(
         self,
@@ -482,8 +460,7 @@ class TwoStagesScenario(HybridRecommender):
             log, pairs, item_features = [
                 self._filter_or_return(
                     dataframe=df,
-                    condition=sf.col("item_idx")
-                    < self.first_level_item_indexer_len,
+                    condition=sf.col("item_idx") < self.first_level_item_len,
                 )
                 for df in [log, pairs, item_features]
             ]
@@ -491,8 +468,7 @@ class TwoStagesScenario(HybridRecommender):
             log, pairs, user_features = [
                 self._filter_or_return(
                     dataframe=df,
-                    condition=sf.col("user_idx")
-                    < self.first_level_user_indexer_len,
+                    condition=sf.col("user_idx") < self.first_level_user_len,
                 )
                 for df in [log, pairs, user_features]
             ]
@@ -534,7 +510,6 @@ class TwoStagesScenario(HybridRecommender):
                 base=candidates,
                 fill=fallback_candidates,
                 k=self.num_negatives,
-                id_type="idx",
             )
         return candidates
 
@@ -550,31 +525,29 @@ class TwoStagesScenario(HybridRecommender):
 
         self.logger.info("Data split")
         first_level_train, second_level_positive = self._split_data(log)
-        self.logger.info("Create indexers")
-        self._create_indexers(first_level_train, None, None)
+        # second_level_positive = second_level_positive
+        # .join(first_level_train.select("user_idx"), on="user_idx", how="left")
 
-        self.first_level_item_indexer_len = len(self.item_indexer.labels)
-        self.first_level_user_indexer_len = len(self.user_indexer.labels)
+        self.first_level_item_len = (
+            first_level_train.select("item_idx").distinct().count()
+        )
+        self.first_level_user_len = (
+            first_level_train.select("user_idx").distinct().count()
+        )
 
-        for model in self.first_level_models + [self.fallback_model]:
-            model.user_indexer = self.user_indexer.copy()
-            model.item_indexer = self.item_indexer.copy()
-            model.inv_user_indexer = self.inv_user_indexer.copy()
-            model.inv_item_indexer = self.inv_item_indexer.copy()
-
-        log, first_level_train, second_level_positive = [
-            self._convert_index(df).cache()
-            for df in [log, first_level_train, second_level_positive]
-        ]
+        log.cache()
+        first_level_train.cache()
+        second_level_positive.cache()
         self.cached_list.extend(
             [log, first_level_train, second_level_positive]
         )
+
         if user_features is not None:
-            user_features = self._convert_index(user_features).cache()
+            user_features.cache()
             self.cached_list.append(user_features)
 
         if item_features is not None:
-            item_features = self._convert_index(item_features).cache()
+            item_features.cache()
             self.cached_list.append(item_features)
 
         self.first_level_item_features_transformer.fit(item_features)
@@ -592,13 +565,13 @@ class TwoStagesScenario(HybridRecommender):
             self.random_model,
             self.fallback_model,
         ]:
-            base_model._fit(
+            base_model._fit_wrap(
                 log=first_level_train,
                 user_features=first_level_user_features.filter(
-                    sf.col("user_idx") < self.first_level_user_indexer_len
+                    sf.col("user_idx") < self.first_level_user_len
                 ),
                 item_features=first_level_item_features.filter(
-                    sf.col("item_idx") < self.first_level_item_indexer_len
+                    sf.col("item_idx") < self.first_level_item_len
                 ),
             )
 
@@ -727,7 +700,6 @@ class TwoStagesScenario(HybridRecommender):
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
         filter_seen_items: bool = True,
-        force_reindex: bool = True,
     ) -> DataFrame:
         """
         :param log: input DataFrame ``[user_id, item_id, timestamp, relevance]``
@@ -737,10 +709,9 @@ class TwoStagesScenario(HybridRecommender):
         :param user_features: user features``[user_id]`` + feature columns
         :param item_features: item features``[item_id]`` + feature columns
         :param filter_seen_items: flag to removed seen items from recommendations
-        :param force_reindex: create indexers even if they were created
         :return: DataFrame ``[user_id, item_id, relevance]``
         """
-        self.fit(log, user_features, item_features, force_reindex)
+        self.fit(log, user_features, item_features)
         return self.predict(
             log,
             k,

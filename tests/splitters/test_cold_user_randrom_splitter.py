@@ -13,8 +13,8 @@ def log():
 
     return pd.DataFrame(
         {
-            "user_id": list(range(5000)),
-            "item_id": list(range(5000)),
+            "user_idx": list(range(5000)),
+            "item_idx": list(range(5000)),
             "relevance": [1] * 5000,
         }
     )
@@ -25,8 +25,8 @@ def test(log):
     cold_user_splitter = ColdUserRandomSplitter(ratio)
     cold_user_splitter.seed = 27
     train, test = cold_user_splitter.split(log)
-    test_users = test.toPandas().user_id.unique()
-    train_users = train.toPandas().user_id.unique()
+    test_users = test.toPandas().user_idx.unique()
+    train_users = train.toPandas().user_idx.unique()
     assert not np.isin(test_users, train_users).any()
     real_ratio = len(test_users) / len(log)
     assert np.isclose(

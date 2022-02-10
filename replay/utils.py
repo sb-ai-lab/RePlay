@@ -107,7 +107,7 @@ def get_top_k(
     )
 
 
-def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "id") -> DataFrame:
+def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "idx") -> DataFrame:
     """
     Get top k recommendations by `relevance`.
 
@@ -250,25 +250,25 @@ def get_log_info(log: DataFrame) -> str:
 
     >>> from replay.session_handler import State
     >>> spark = State().session
-    >>> log = spark.createDataFrame([(1, 2), (3, 4), (5, 2)]).toDF("user_id", "item_id")
+    >>> log = spark.createDataFrame([(1, 2), (3, 4), (5, 2)]).toDF("user_idx", "item_idx")
     >>> log.show()
-    +-------+-------+
-    |user_id|item_id|
-    +-------+-------+
-    |      1|      2|
-    |      3|      4|
-    |      5|      2|
-    +-------+-------+
+    +--------+--------+
+    |user_idx|item_idx|
+    +--------+--------+
+    |       1|       2|
+    |       3|       4|
+    |       5|       2|
+    +--------+--------+
     <BLANKLINE>
     >>> get_log_info(log)
     'total lines: 3, total users: 3, total items: 2'
 
-    :param log: interaction log containing ``user_id`` and ``item_id``
+    :param log: interaction log containing ``user_idx`` and ``item_idx``
     :returns: statistics string
     """
     cnt = log.count()
-    user_cnt = log.select("user_id").distinct().count()
-    item_cnt = log.select("item_id").distinct().count()
+    user_cnt = log.select("user_idx").distinct().count()
+    item_cnt = log.select("item_idx").distinct().count()
     return ", ".join(
         [
             f"total lines: {cnt}",
@@ -453,7 +453,7 @@ def join_or_return(first, second, on, how):
 
 
 def fallback(
-    base: DataFrame, fill: DataFrame, k: int, id_type: str = "id"
+    base: DataFrame, fill: DataFrame, k: int, id_type: str = "idx"
 ) -> DataFrame:
     """
     Fill missing recommendations for users that have less than ``k`` recomended items.
@@ -595,9 +595,7 @@ def add_to_date(
 
 
 def process_timestamp_column(
-    dataframe: DataFrame,
-    column_name: str,
-    date_format: Optional[str] = None,
+    dataframe: DataFrame, column_name: str, date_format: Optional[str] = None,
 ) -> DataFrame:
     """
     Convert ``column_name`` column of numeric/string/timestamp type
@@ -628,8 +626,7 @@ def process_timestamp_column(
 
     # datetime in string format
     dataframe = dataframe.withColumn(
-        column_name,
-        sf.to_timestamp(sf.col(column_name), format=date_format),
+        column_name, sf.to_timestamp(sf.col(column_name), format=date_format),
     )
     return dataframe
 

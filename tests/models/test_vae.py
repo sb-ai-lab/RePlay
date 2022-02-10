@@ -33,7 +33,7 @@ def model(log):
         "hidden_dim": 1,
     }
     model = MultVAE(**params)
-    model.fit(log.filter(sf.col("user_id") != "user1"))
+    model.fit(log.filter(sf.col("user_idx") != 0))
     return model
 
 
@@ -54,24 +54,26 @@ def test_fit(model):
 
 
 def test_predict(log, model):
-    recs = model.predict(log, users=["user1", "user2", "cold_user"], k=1)
+    recs = model.predict(log, users=[0, 1, 7], k=1)
     # new users with history
-    assert recs.filter(sf.col("user_id") == "user1").count() == 1
+    assert recs.filter(sf.col("user_idx") == 0).count() == 1
     # cold user
-    assert recs.filter(sf.col("user_id") == "cold_user").count() == 0
+    assert recs.filter(sf.col("user_idx") == 7).count() == 0
     assert recs.count() == 2
 
 
 def test_predict_pairs(log, log2, model):
     recs = model.predict_pairs(
-        pairs=log2.select("user_id", "item_id"), log=log
+        pairs=log2.select("user_idx", "item_idx"), log=log
     )
     assert (
         recs.count()
         == (
             log2.join(
-                log.select("user_id").distinct(), on="user_id", how="inner"
-            ).join(log.select("item_id").distinct(), on="item_id", how="inner")
+                log.select("user_idx").distinct(), on="user_idx", how="inner"
+            ).join(
+                log.select("item_idx").distinct(), on="item_idx", how="inner"
+            )
         ).count()
     )
 
@@ -95,7 +97,5 @@ def test_save_load(log, model, spark):
     new_model.load_model(path)
     for i, parameter in enumerate(new_model.model.parameters()):
         assert np.allclose(
-            parameter.detach().cpu().numpy(),
-            old_params[i],
-            atol=1.0e-3,
+            parameter.detach().cpu().numpy(), old_params[i], atol=1.0e-3,
         )

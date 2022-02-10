@@ -5,8 +5,9 @@ import shutil
 from inspect import getfullargspec
 
 import joblib
-from pyspark.ml.feature import StringIndexerModel, IndexToString
 from os.path import exists, join
+
+from pyspark.ml.feature import StringIndexerModel, IndexToString
 
 from replay.data_preparator import Indexer
 from replay.models import *
@@ -32,16 +33,13 @@ def save(model: BaseRecommender, path: str):
     with open(join(path, "init_args.json"), "w") as json_file:
         json.dump(init_args, json_file)
 
-    model.user_indexer.save(join(path, "user_indexer"))
-    model.item_indexer.save(join(path, "item_indexer"))
-    model.inv_user_indexer.save(join(path, "inv_user_indexer"))
-    model.inv_item_indexer.save(join(path, "inv_item_indexer"))
-
     dataframes = model._dataframes
     df_path = join(path, "dataframes")
     os.makedirs(df_path)
     for name, df in dataframes.items():
         df.write.parquet(join(df_path, name))
+    model.fit_users.write.parquet(join(df_path, "fit_users"))
+    model.fit_items.write.parquet(join(df_path, "fit_items"))
 
     joblib.dump(model.study, join(path, "study"))
 
@@ -120,11 +118,6 @@ def load(path: str):
     model = model_class(**init_args)
     for arg in extra_args:
         model.arg = extra_args[arg]
-
-    model.user_indexer = StringIndexerModel.load(join(path, "user_indexer"))
-    model.item_indexer = StringIndexerModel.load(join(path, "item_indexer"))
-    model.inv_user_indexer = IndexToString.load(join(path, "inv_user_indexer"))
-    model.inv_item_indexer = IndexToString.load(join(path, "inv_item_indexer"))
 
     df_path = join(path, "dataframes")
     dataframes = os.listdir(df_path)

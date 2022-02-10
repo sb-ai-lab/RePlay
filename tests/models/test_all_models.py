@@ -37,13 +37,11 @@ SEED = 123
 def log_to_pred(spark):
     return spark.createDataFrame(
         data=[
-            ["user1", "item4", datetime(2019, 9, 12), 3.0],
-            ["user1", "item5", datetime(2019, 9, 13), 2.0],
-            ["user2", "item2", datetime(2019, 9, 17), 1.0],
-            ["user2", "item6", datetime(2019, 9, 14), 4.0],
-            ["user3", "item4", datetime(2019, 9, 15), 3.0],
-            ["user5", "item2", datetime(2019, 9, 15), 3.0],
-            ["user5", "item3", datetime(2019, 9, 15), 3.0],
+            [0, 2, datetime(2019, 9, 12), 3.0],
+            [0, 4, datetime(2019, 9, 13), 2.0],
+            [1, 5, datetime(2019, 9, 14), 4.0],
+            [4, 0, datetime(2019, 9, 15), 3.0],
+            [4, 1, datetime(2019, 9, 15), 3.0],
         ],
         schema=LOG_SCHEMA,
     )
@@ -79,29 +77,29 @@ def test_predict_pairs_warm_only(log, log_to_pred, model):
     recs = model.predict(
         log.unionByName(log_to_pred),
         k=3,
-        users=log_to_pred.select("user_id").distinct(),
-        items=log_to_pred.select("item_id").distinct(),
+        users=log_to_pred.select("user_idx").distinct(),
+        items=log_to_pred.select("item_idx").distinct(),
         filter_seen_items=False,
     )
 
     pairs_pred = model.predict_pairs(
-        pairs=log_to_pred.select("user_id", "item_id"),
+        pairs=log_to_pred.select("user_idx", "item_idx"),
         log=log.unionByName(log_to_pred),
     )
 
-    condition = ~sf.col("item_id").isin(["item5", "item6"])
+    condition = ~sf.col("item_idx").isin([4, 5])
     if not model.can_predict_cold_users:
-        condition = condition & (sf.col("user_id") != "user5")
+        condition = condition & (sf.col("user_idx") != 4)
 
     sparkDataFrameEqual(
-        pairs_pred.select("user_id", "item_id"),
-        log_to_pred.filter(condition).select("user_id", "item_id"),
+        pairs_pred.select("user_idx", "item_idx"),
+        log_to_pred.filter(condition).select("user_idx", "item_idx"),
     )
 
     recs_joined = (
         pairs_pred.withColumnRenamed("relevance", "pairs_relevance")
-        .join(recs, on=["user_id", "item_id"], how="left")
-        .sort("user_id", "item_id")
+        .join(recs, on=["user_idx", "item_idx"], how="left")
+        .sort("user_idx", "item_idx")
     )
 
     assert np.allclose(
@@ -118,17 +116,12 @@ def test_predict_pairs_warm_only(log, log_to_pred, model):
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
     ],
-    ids=[
-        "admm_slim",
-        "knn",
-        "slim",
-        "word2vec",
-    ],
+    ids=["admm_slim", "knn", "slim", "word2vec",],
 )
 def test_predict_pairs_raises(log, model):
     with pytest.raises(ValueError, match="log is not provided,.*"):
         model.fit(log)
-        model.predict_pairs(log.select("user_id", "item_id"))
+        model.predict_pairs(log.select("user_idx", "item_idx"))
 
 
 def test_predict_pairs_raises_pairs_format(log):
@@ -161,30 +154,27 @@ def test_predict_pairs_raises_pairs_format(log):
     ],
 )
 def test_get_nearest_items(log, model, metric):
-    model.fit(log.filter(sf.col("item_id") != "item4"))
-    res = model.get_nearest_items(items=["item1", "item2"], k=2, metric=metric)
+    model.fit(log.filter(sf.col("item_idx") != 3))
+    res = model.get_nearest_items(items=[0, 1], k=2, metric=metric)
 
     assert res.count() == 4
-    assert set(res.toPandas().to_dict()["item_id"].values()) == {
-        "item1",
-        "item2",
+    assert set(res.toPandas().to_dict()["item_idx"].values()) == {
+        0,
+        1,
     }
 
-    res = model.get_nearest_items(items=["item1", "item2"], k=1, metric=metric)
+    res = model.get_nearest_items(items=[0, 1], k=1, metric=metric)
     assert res.count() == 2
 
     # filter neighbours
     res = model.get_nearest_items(
-        items=["item1", "item2"],
-        k=4,
-        metric=metric,
-        candidates=["item1", "item4"],
+        items=[0, 1], k=4, metric=metric, candidates=[0, 3],
     )
     assert res.count() == 1
     assert (
         len(
-            set(res.toPandas().to_dict()["item_id"].values()).difference(
-                {"item1", "item2"}
+            set(res.toPandas().to_dict()["item_idx"].values()).difference(
+                {0, 1}
             )
         )
         == 0
@@ -193,44 +183,40 @@ def test_get_nearest_items(log, model, metric):
 
 def test_nearest_items_raises(log):
     model = PopRec()
-    model.fit(log.filter(sf.col("item_id") != "item4"))
+    model.fit(log.filter(sf.col("item_idx") != 3))
     with pytest.raises(
         ValueError, match=r"Distance metric is required to get nearest items.*"
     ):
-        model.get_nearest_items(items=["item1", "item2"], k=2, metric=None)
+        model.get_nearest_items(items=[0, 1], k=2, metric=None)
 
     with pytest.raises(
         ValueError,
         match=r"Use models with attribute 'can_predict_item_to_item' set to True.*",
     ):
-        model.get_nearest_items(
-            items=["item1", "item2"], k=2, metric="cosine_similarity"
-        )
+        model.get_nearest_items(items=[0, 1], k=2, metric="cosine_similarity")
 
         with pytest.raises(
             ValueError,
             match=r"Use models with attribute 'can_predict_item_to_item' set to True.*",
         ):
             model.get_nearest_items(
-                items=["item1", "item2"], k=2, metric="cosine_similarity"
+                items=[0, 1], k=2, metric="cosine_similarity"
             )
 
 
 def test_filter_seen(log):
     model = PopRec()
     # filter seen works with empty log to filter (cold_user)
-    model.fit(log.filter(sf.col("user_id") != "user1"))
-    pred = model.predict(log=log, users=["user5"], k=5)
-    assert pred.count() == 4
+    model.fit(log.filter(sf.col("user_idx") != 0))
+    pred = model.predict(log=log, users=[3], k=5)
+    assert pred.count() == 2
 
     # filter seen works with log not presented during training (for user1)
-    pred = model.predict(log=log, users=["user1"], k=5)
+    pred = model.predict(log=log, users=[0], k=5)
     assert pred.count() == 1
 
     # filter seen turns off
-    pred = model.predict(
-        log=log, users=["user1"], k=5, filter_seen_items=False
-    )
+    pred = model.predict(log=log, users=[0], k=5, filter_seen_items=False)
     assert pred.count() == 4
 
 
@@ -270,13 +256,13 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
 def test_predict_new_users(model, long_log_with_features, user_features):
     pred = fit_predict_selected(
         model,
-        train_log=long_log_with_features.filter(sf.col("user_id") != "u1"),
+        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
         inf_log=long_log_with_features,
         user_features=user_features.drop("gender"),
-        users=["u1"],
+        users=[0],
     )
     assert pred.count() == 1
-    assert pred.collect()[0][0] == "u1"
+    assert pred.collect()[0][0] == 0
 
 
 @pytest.mark.parametrize(
@@ -287,23 +273,18 @@ def test_predict_new_users(model, long_log_with_features, user_features):
         PopRec(),
         RandomRec(seed=SEED),
     ],
-    ids=[
-        "cluster",
-        "lightfm",
-        "pop_rec",
-        "random_rec",
-    ],
+    ids=["cluster", "lightfm", "pop_rec", "random_rec",],
 )
 def test_predict_cold_users(model, long_log_with_features, user_features):
     pred = fit_predict_selected(
         model,
-        train_log=long_log_with_features.filter(sf.col("user_id") != "u1"),
-        inf_log=long_log_with_features.filter(sf.col("user_id") != "u1"),
+        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+        inf_log=long_log_with_features.filter(sf.col("user_idx") != 0),
         user_features=user_features.drop("gender"),
-        users=["u1"],
+        users=[0],
     )
     assert pred.count() == 1
-    assert pred.collect()[0][0] == "u1"
+    assert pred.collect()[0][0] == 0
 
 
 @pytest.mark.parametrize(
@@ -330,10 +311,10 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
 def test_predict_cold_and_new_filter_out(model, long_log_with_features):
     pred = fit_predict_selected(
         model,
-        train_log=long_log_with_features.filter(sf.col("user_id") != "u1"),
+        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
         inf_log=long_log_with_features,
         user_features=None,
-        users=["u1", "cold_user"],
+        users=[0, 3],
     )
     # assert new/cold users are filtered out in `predict`
     if isinstance(model, LightFMWrap) or not model.can_predict_cold_users:

@@ -8,7 +8,6 @@ from pyspark.sql import DataFrame
 from pyspark.sql.types import (
     DoubleType,
     IntegerType,
-    StringType,
     StructField,
     StructType,
     TimestampType,
@@ -16,8 +15,8 @@ from pyspark.sql.types import (
 
 LOG_SCHEMA = StructType(
     [
-        StructField("user_id", StringType()),
-        StructField("item_id", StringType()),
+        StructField("user_idx", IntegerType()),
+        StructField("item_idx", IntegerType()),
         StructField("timestamp", TimestampType()),
         StructField("relevance", DoubleType()),
     ]
@@ -25,31 +24,16 @@ LOG_SCHEMA = StructType(
 
 REC_SCHEMA = StructType(
     [
-        StructField("user_id", StringType()),
-        StructField("item_id", StringType()),
+        StructField("user_idx", IntegerType()),
+        StructField("item_idx", IntegerType()),
         StructField("relevance", DoubleType()),
     ]
 )
 
 BASE_SCHEMA = StructType(
     [
-        StructField("user_id", StringType()),
-        StructField("item_id", StringType()),
-    ]
-)
-
-IDX_SCHEMA = StructType(
-    [
         StructField("user_idx", IntegerType()),
         StructField("item_idx", IntegerType()),
-    ]
-)
-
-IDX_REC_SCHEMA = StructType(
-    [
-        StructField("user_idx", IntegerType()),
-        StructField("item_idx", IntegerType()),
-        StructField("relevance", DoubleType()),
     ]
 )
 

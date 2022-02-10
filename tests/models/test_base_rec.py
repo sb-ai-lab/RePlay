@@ -45,16 +45,16 @@ def test_extract_if_needed(spark, model, array):
 
 def test_users_count(model, log):
     with pytest.raises(AttributeError):
-        model.users_count
+        model.max_user
     model.fit(log)
-    assert model.users_count == 4
+    assert model.max_user == 4
 
 
 def test_items_count(model, log):
     with pytest.raises(AttributeError):
-        model.items_count
+        model.max_item
     model.fit(log)
-    assert model.items_count == 4
+    assert model.max_item == 4
 
 
 def test_str(model):

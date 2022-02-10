@@ -16,7 +16,7 @@ def test_fit(log, model):
     model.fit(log)
     assert np.allclose(
         model.similarity.toPandas()
-        .sort_values(["item_id_one", "item_id_two"])
+        .sort_values(["item_idx_one", "item_idx_two"])
         .to_numpy(),
         [
             (0, 1, 0.60048005),
@@ -36,7 +36,7 @@ def test_predict(log, model):
     recs = model.predict(log, k=1)
     assert np.allclose(
         recs.toPandas()
-        .sort_values(["user_id", "item_id"], ascending=False)
+        .sort_values(["user_idx", "item_idx"], ascending=False)
         .relevance,
         [0.4955047, 0.12860215, 0.60048005, 0.12860215],
     )

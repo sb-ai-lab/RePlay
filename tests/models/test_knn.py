@@ -13,10 +13,10 @@ def log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
         data=[
-            ["u1", "i1", date, 1.0],
-            ["u2", "i2", date, 1.0],
-            ["u3", "i1", date, 1.0],
-            ["u3", "i2", date, 1.0],
+            [0, 0, date, 1.0],
+            [1, 1, date, 1.0],
+            [2, 0, date, 1.0],
+            [2, 1, date, 1.0],
         ],
         schema=LOG_SCHEMA,
     )
@@ -30,6 +30,6 @@ def model():
 
 def test_works(log, model):
     model.fit(log)
-    recs = model.predict(log, k=1, users=["u1", "u2"]).toPandas()
-    assert recs.loc[recs["user_id"] == "u1", "item_id"].iloc[0] == "i2"
-    assert recs.loc[recs["user_id"] == "u2", "item_id"].iloc[0] == "i1"
+    recs = model.predict(log, k=1, users=[0, 1]).toPandas()
+    assert recs.loc[recs["user_idx"] == 0, "item_idx"].iloc[0] == 1
+    assert recs.loc[recs["user_idx"] == 1, "item_idx"].iloc[0] == 0

@@ -37,7 +37,7 @@ class FirstLevelFeaturesProcessor:
             return
 
         self.all_columns = sorted(spark_df.columns)
-        idx_cols_set = {"user_idx", "item_idx", "user_id", "item_id"}
+        idx_cols_set = {"user_idx", "item_idx"}
 
         spark_df_non_numeric_cols = [
             col

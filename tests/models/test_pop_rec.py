@@ -14,13 +14,13 @@ def log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
         data=[
-            ["u1", "i1", date, 1.0],
-            ["u2", "i1", date, 1.0],
-            ["u3", "i3", date, 2.0],
-            ["u3", "i3", date, 2.0],
-            ["u2", "i3", date, 2.0],
-            ["u3", "i4", date, 2.0],
-            ["u1", "i4", date, 2.0],
+            [0, 0, date, 1.0],
+            [1, 0, date, 1.0],
+            [2, 1, date, 2.0],
+            [2, 1, date, 2.0],
+            [1, 1, date, 2.0],
+            [2, 2, date, 2.0],
+            [0, 2, date, 2.0],
         ],
         schema=LOG_SCHEMA,
     )
@@ -35,10 +35,10 @@ def model():
 def test_works(log, model):
     try:
         pred = model.fit_predict(log, k=1)
-        assert list(pred.toPandas().sort_values("user_id")["item_id"]) == [
-            "i3",
-            "i4",
-            "i1",
+        assert list(pred.toPandas().sort_values("user_idx")["item_idx"]) == [
+            1,
+            2,
+            0,
         ]
     except:  # noqa
         pytest.fail()

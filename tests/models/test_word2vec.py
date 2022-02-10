@@ -16,13 +16,13 @@ def log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
         data=[
-            ["u1", "i1", date, 1.0],
-            ["u2", "i1", date, 1.0],
-            ["u3", "i3", date, 2.0],
-            ["u3", "i3", date, 2.0],
-            ["u2", "i3", date, 2.0],
-            ["u3", "i4", date, 2.0],
-            ["u1", "i4", date, 2.0],
+            [0, 0, date, 1.0],
+            [1, 0, date, 1.0],
+            [2, 1, date, 2.0],
+            [2, 1, date, 2.0],
+            [1, 1, date, 2.0],
+            [2, 3, date, 2.0],
+            [0, 3, date, 2.0],
         ],
         schema=LOG_SCHEMA,
     )
@@ -30,7 +30,9 @@ def log(spark):
 
 @pytest.fixture
 def model():
-    return Word2VecRec(rank=1, window_size=1, use_idf=True, seed=42, min_count=0)
+    return Word2VecRec(
+        rank=1, window_size=1, use_idf=True, seed=42, min_count=0
+    )
 
 
 def test_fit(log, model):
@@ -46,14 +48,15 @@ def test_fit(log, model):
     print(vectors)
     assert np.allclose(
         vectors,
-        [[0, 5.42505352e-04], [2, 1.54838427e-01], [1, 2.13058745e-01]],
+        [[1, 5.33072205e-04], [0, 1.54904364e-01], [3, 2.13002899e-01]],
     )
 
 
 def test_predict(log, model):
     model.fit(log)
     recs = model.predict(log, k=1)
+    recs.show()
     assert np.allclose(
-        recs.toPandas().sort_values("user_id").relevance,
-        [1.000322493440465, 0.9613139892286415, 0.9783670469059589],
+        recs.toPandas().sort_values("user_idx").relevance,
+        [1.0003180271011836, 0.9653348251181987, 0.972993367280087],
     )

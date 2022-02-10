@@ -13,16 +13,16 @@ from tests.utils import spark
 def log(spark):
     return spark.createDataFrame(
         data=[
-            ["user1", "item4", datetime(2019, 9, 12), 1.0],
-            ["user2", "item5", datetime(2019, 9, 13), 2.0],
-            ["user3", "item7", datetime(2019, 9, 17), 1.0],
-            ["user4", "item6", datetime(2019, 9, 17), 1.0],
-            ["user5", "item6", datetime(2019, 9, 17), 1.0],
-            ["user1", "item6", datetime(2019, 9, 12), 1.0],
-            ["user2", "item7", datetime(2019, 9, 13), 2.0],
-            ["user3", "item8", datetime(2019, 9, 17), 1.0],
-            ["user4", "item9", datetime(2019, 9, 17), 1.0],
-            ["user5", "item1", datetime(2019, 9, 17), 1.0],
+            [0, 3, datetime(2019, 9, 12), 1.0],
+            [1, 4, datetime(2019, 9, 13), 2.0],
+            [2, 6, datetime(2019, 9, 17), 1.0],
+            [3, 5, datetime(2019, 9, 17), 1.0],
+            [4, 5, datetime(2019, 9, 17), 1.0],
+            [0, 5, datetime(2019, 9, 12), 1.0],
+            [1, 6, datetime(2019, 9, 13), 2.0],
+            [2, 7, datetime(2019, 9, 17), 1.0],
+            [3, 8, datetime(2019, 9, 17), 1.0],
+            [4, 0, datetime(2019, 9, 17), 1.0],
         ],
         schema=LOG_SCHEMA,
     )
@@ -38,9 +38,7 @@ def test_get_test_users(log, fraction):
     )
     test_users = splitter._get_test_users(log)
     assert test_users.count() == 3
-    assert np.isin(
-        ["user1", "user3", "user4"], test_users.toPandas().user_id
-    ).all()
+    assert np.isin([0, 2, 3], test_users.toPandas().user_idx).all()
 
 
 @pytest.mark.parametrize("fraction", [5, 1.0])
@@ -59,27 +57,27 @@ def test_user_test_size_exception(log, fraction):
 def big_log(spark):
     return spark.createDataFrame(
         data=[
-            ["user1", "item4", datetime(2019, 9, 12), 1.0],
-            ["user1", "item5", datetime(2019, 9, 13), 2.0],
-            ["user1", "item7", datetime(2019, 9, 17), 1.0],
-            ["user1", "item6", datetime(2019, 9, 17), 1.0],
-            ["user2", "item4", datetime(2019, 9, 12), 1.0],
-            ["user2", "item5", datetime(2019, 9, 13), 2.0],
-            ["user2", "item6", datetime(2019, 9, 14), 3.0],
-            ["user2", "item2", datetime(2019, 9, 15), 4.0],
-            ["user2", "item3", datetime(2019, 9, 15), 4.0],
-            ["user3", "item4", datetime(2019, 9, 12), 1.0],
-            ["user3", "item5", datetime(2019, 9, 13), 2.0],
-            ["user3", "item6", datetime(2019, 9, 14), 3.0],
-            ["user3", "item2", datetime(2019, 9, 14), 3.0],
-            ["user3", "item7", datetime(2019, 9, 17), 1.0],
-            ["user4", "item2", datetime(2019, 9, 15), 4.0],
-            ["user4", "item1", datetime(2019, 9, 16), 4.0],
-            ["user4", "item4", datetime(2019, 9, 17), 4.0],
-            ["user4", "item5", datetime(2019, 9, 18), 4.0],
-            ["user4", "item8", datetime(2019, 9, 19), 4.0],
-            ["user4", "item4", datetime(2019, 9, 20), 4.0],
-            ["user4", "item1", datetime(2019, 9, 21), 4.0],
+            [0, 3, datetime(2019, 9, 12), 1.0],
+            [0, 4, datetime(2019, 9, 13), 2.0],
+            [0, 6, datetime(2019, 9, 17), 1.0],
+            [0, 5, datetime(2019, 9, 17), 1.0],
+            [1, 3, datetime(2019, 9, 12), 1.0],
+            [1, 4, datetime(2019, 9, 13), 2.0],
+            [1, 5, datetime(2019, 9, 14), 3.0],
+            [1, 1, datetime(2019, 9, 15), 4.0],
+            [1, 2, datetime(2019, 9, 15), 4.0],
+            [2, 3, datetime(2019, 9, 12), 1.0],
+            [2, 4, datetime(2019, 9, 13), 2.0],
+            [2, 5, datetime(2019, 9, 14), 3.0],
+            [2, 1, datetime(2019, 9, 14), 3.0],
+            [2, 6, datetime(2019, 9, 17), 1.0],
+            [3, 1, datetime(2019, 9, 15), 4.0],
+            [3, 0, datetime(2019, 9, 16), 4.0],
+            [3, 3, datetime(2019, 9, 17), 4.0],
+            [3, 4, datetime(2019, 9, 18), 4.0],
+            [3, 7, datetime(2019, 9, 19), 4.0],
+            [3, 3, datetime(2019, 9, 20), 4.0],
+            [3, 0, datetime(2019, 9, 21), 4.0],
         ],
         schema=LOG_SCHEMA,
     )
@@ -102,7 +100,7 @@ def test_random_split(big_log, item_test_size):
 
     if isinstance(item_test_size, int):
         #  it's a rough check. for it to be true, item_test_size must be bigger than log length for every user
-        num_users = big_log.select("user_id").distinct().count()
+        num_users = big_log.select("user_idx").distinct().count()
         assert num_users * item_test_size == test.count()
         assert big_log.count() - num_users * item_test_size == train.count()
 
@@ -123,18 +121,18 @@ def test_item_test_size_exception(big_log, item_test_size):
 def log2(spark):
     return spark.createDataFrame(
         data=[
-            ["1", "1", datetime(2019, 1, 1), 1.0],
-            ["1", "2", datetime(2019, 1, 2), 1.0],
-            ["1", "3", datetime(2019, 1, 3), 1.0],
-            ["1", "4", datetime(2019, 1, 4), 1.0],
-            ["2", "0", datetime(2020, 2, 5), 1.0],
-            ["2", "4", datetime(2020, 2, 4), 1.0],
-            ["2", "3", datetime(2020, 2, 3), 1.0],
-            ["2", "2", datetime(2020, 2, 2), 1.0],
-            ["2", "1", datetime(2020, 2, 1), 1.0],
-            ["3", "1", datetime(1995, 1, 1), 1.0],
-            ["3", "2", datetime(1995, 1, 2), 1.0],
-            ["3", "3", datetime(1995, 1, 3), 1.0],
+            [0, 0, datetime(2019, 1, 1), 1.0],
+            [0, 1, datetime(2019, 1, 2), 1.0],
+            [0, 2, datetime(2019, 1, 3), 1.0],
+            [0, 3, datetime(2019, 1, 4), 1.0],
+            [1, 4, datetime(2020, 2, 5), 1.0],
+            [1, 3, datetime(2020, 2, 4), 1.0],
+            [1, 2, datetime(2020, 2, 3), 1.0],
+            [1, 1, datetime(2020, 2, 2), 1.0],
+            [1, 0, datetime(2020, 2, 1), 1.0],
+            [2, 0, datetime(1995, 1, 1), 1.0],
+            [2, 1, datetime(1995, 1, 2), 1.0],
+            [2, 2, datetime(1995, 1, 3), 1.0],
         ],
         schema=LOG_SCHEMA,
     )
@@ -142,23 +140,19 @@ def log2(spark):
 
 def test_split_quantity(log2):
     splitter = UserSplitter(
-        drop_cold_items=False,
-        drop_cold_users=False,
-        item_test_size=2,
+        drop_cold_items=False, drop_cold_users=False, item_test_size=2,
     )
     train, test = splitter.split(log2)
-    num_items = test.toPandas().user_id.value_counts()
+    num_items = test.toPandas().user_idx.value_counts()
     assert num_items.nunique() == 1
     assert num_items.unique()[0] == 2
 
 
 def test_split_proportion(log2):
     splitter = UserSplitter(
-        drop_cold_items=False,
-        drop_cold_users=False,
-        item_test_size=0.4,
+        drop_cold_items=False, drop_cold_users=False, item_test_size=0.4,
     )
     train, test = splitter.split(log2)
-    num_items = test.toPandas().user_id.value_counts()
-    assert num_items["2"] == 2
-    assert num_items["1"] == 1 and num_items["3"] == 1
+    num_items = test.toPandas().user_idx.value_counts()
+    assert num_items[1] == 2
+    assert num_items[0] == 1 and num_items[2] == 1

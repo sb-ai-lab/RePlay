@@ -11,8 +11,8 @@ def log():
 
     return pd.DataFrame(
         {
-            "user_id": list(range(5000)),
-            "item_id": list(range(5000)),
+            "user_idx": list(range(5000)),
+            "item_idx": list(range(5000)),
             "relevance": [1] * 5000,
         }
     )

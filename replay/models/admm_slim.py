@@ -128,17 +128,17 @@ class ADMMSLIM(NeighbourRec):
                 pandas_log["relevance"],
                 (pandas_log["user_idx"], pandas_log["item_idx"]),
             ),
-            shape=(self.users_count, self.items_count),
+            shape=(self.max_user, self.max_item),
         )
         self.logger.debug("Gram matrix")
         xtx = (interactions_matrix.T @ interactions_matrix).toarray()
         self.logger.debug("Inverse matrix")
         inv_matrix = np.linalg.inv(
-            xtx + (self.lambda_2 + self.rho) * np.eye(self.items_count)
+            xtx + (self.lambda_2 + self.rho) * np.eye(self.max_item)
         )
         self.logger.debug("Main calculations")
         p_x = inv_matrix @ xtx
-        mat_b, mat_c, mat_gamma = self._init_matrix(self.items_count)
+        mat_b, mat_c, mat_gamma = self._init_matrix(self.max_item)
         r_primal = np.linalg.norm(mat_b - mat_c)
         r_dual = np.linalg.norm(self.rho * mat_c)
         eps_primal, eps_dual = 0.0, 0.0
@@ -166,7 +166,7 @@ class ADMMSLIM(NeighbourRec):
                 self.eps_abs,
                 self.eps_rel,
                 self.lambda_1,
-                self.items_count,
+                self.max_item,
                 self.threshold,
                 self.multiplicator,
             )
@@ -180,14 +180,14 @@ class ADMMSLIM(NeighbourRec):
         mat_c_sparse = coo_matrix(mat_c)
         mat_c_pd = pd.DataFrame(
             {
-                "item_id_one": mat_c_sparse.row.astype(np.int32),
-                "item_id_two": mat_c_sparse.col.astype(np.int32),
+                "item_idx_one": mat_c_sparse.row.astype(np.int32),
+                "item_idx_two": mat_c_sparse.col.astype(np.int32),
                 "similarity": mat_c_sparse.data,
             }
         )
         self.similarity = State().session.createDataFrame(
             mat_c_pd,
-            schema="item_id_one int, item_id_two int, similarity double",
+            schema="item_idx_one int, item_idx_two int, similarity double",
         )
         self.similarity.cache()
 

@@ -8,7 +8,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from replay.models.base_rec import Recommender
-from replay.constants import IDX_REC_SCHEMA
+from replay.constants import REC_SCHEMA
 
 
 class RandomRec(Recommender):
@@ -31,20 +31,20 @@ class RandomRec(Recommender):
     >>> from replay.utils import convert2spark
     >>>
     >>> log = convert2spark(pd.DataFrame({
-    ...     "user_id": ["1", "1", "2", "2", "3", "4"],
-    ...     "item_id": ["1", "2", "2", "3", "3", "3"]
+    ...     "user_idx": [1, 1, 2, 2, 3, 4],
+    ...     "item_idx": [1, 2, 2, 3, 3, 3]
     ... }))
     >>> log.show()
-    +-------+-------+
-    |user_id|item_id|
-    +-------+-------+
-    |      1|      1|
-    |      1|      2|
-    |      2|      2|
-    |      2|      3|
-    |      3|      3|
-    |      4|      3|
-    +-------+-------+
+    +--------+--------+
+    |user_idx|item_idx|
+    +--------+--------+
+    |       1|       1|
+    |       1|       2|
+    |       2|       2|
+    |       2|       3|
+    |       3|       3|
+    |       4|       3|
+    +--------+--------+
     <BLANKLINE>
     >>> random_pop = RandomRec(distribution="popular_based", alpha=-1)
     Traceback (most recent call last):
@@ -62,32 +62,32 @@ class RandomRec(Recommender):
     +--------+-----------+
     |item_idx|probability|
     +--------+-----------+
-    |       2|        2.0|
-    |       1|        3.0|
-    |       0|        4.0|
+    |       1|        2.0|
+    |       2|        3.0|
+    |       3|        4.0|
     +--------+-----------+
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
     >>> recs.show()
-    +-------+-------+------------------+
-    |user_id|item_id|         relevance|
-    +-------+-------+------------------+
-    |      1|      3|               1.0|
-    |      2|      1|               0.5|
-    |      3|      2|               1.0|
-    |      3|      1|               0.5|
-    |      4|      2|               1.0|
-    |      4|      1|0.3333333333333333|
-    +-------+-------+------------------+
+    +--------+--------+------------------+
+    |user_idx|item_idx|         relevance|
+    +--------+--------+------------------+
+    |       1|       3|0.3333333333333333|
+    |       2|       1|               0.5|
+    |       3|       2|               1.0|
+    |       3|       1|0.3333333333333333|
+    |       4|       2|               1.0|
+    |       4|       1|               0.5|
+    +--------+--------+------------------+
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2, users=[1], items=[7, 8])
     >>> recs.show()
-    +-------+-------+---------+
-    |user_id|item_id|relevance|
-    +-------+-------+---------+
-    |      1|      8|      1.0|
-    |      1|      7|      0.5|
-    +-------+-------+---------+
+    +--------+--------+---------+
+    |user_idx|item_idx|relevance|
+    +--------+--------+---------+
+    |       1|       7|      1.0|
+    |       1|       8|      0.5|
+    +--------+--------+---------+
     <BLANKLINE>
     >>> random_pop = RandomRec(seed=555)
     >>> random_pop.fit(log)
@@ -95,9 +95,9 @@ class RandomRec(Recommender):
     +--------+-----------+
     |item_idx|probability|
     +--------+-----------+
-    |       2|        1.0|
     |       1|        1.0|
-    |       0|        1.0|
+    |       2|        1.0|
+    |       3|        1.0|
     +--------+-----------+
     <BLANKLINE>
     """
@@ -276,7 +276,7 @@ class RandomRec(Recommender):
                 "user_idx", f"LEAST(cnt + {k}, {items_np.shape[0]}) AS cnt",
             )
             .groupby("user_idx")
-            .applyInPandas(grouped_map, IDX_REC_SCHEMA)
+            .applyInPandas(grouped_map, REC_SCHEMA)
         )
 
         return recs

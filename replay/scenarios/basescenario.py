@@ -27,21 +27,17 @@ class BaseScenario(BaseRecommender):
         log: AnyDataFrame,
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
-        force_reindex: bool = True,
     ) -> None:
         """
         :param log: input DataFrame ``[user_id, item_id, timestamp, relevance]``
         :param user_features: user features ``[user_id, timestamp]`` + feature columns
         :param item_features: item features ``[item_id, timestamp]`` + feature columns
-        :param force_reindex: create indexers even if they exist
         :return:
         """
         hot_data = min_entries(log, self.threshold)
-        self.hot_users = hot_data.select("user_id").distinct()
-        self._fit_wrap(hot_data, user_features, item_features, force_reindex)
-        self.cold_model._fit_wrap(
-            log, user_features, item_features, force_reindex
-        )
+        self.hot_users = hot_data.select("user_idx").distinct()
+        self._fit_wrap(hot_data, user_features, item_features)
+        self.cold_model._fit_wrap(log, user_features, item_features)
 
     # pylint: disable=too-many-arguments
     def predict(
@@ -76,13 +72,13 @@ class BaseScenario(BaseRecommender):
             ``[user_id, item_id, relevance]``
         """
         log = convert2spark(log)
-        users = users or log or user_features or self.user_indexer.labels
-        users = self._get_ids(users, "user_id")
+        users = users or log or user_features or self.fit_users
+        users = self._get_ids(users, "user_idx")
         hot_data = min_entries(log, self.threshold)
-        hot_users = hot_data.select("user_id").distinct()
+        hot_users = hot_data.select("user_idx").distinct()
         if not self.can_predict_cold_users:
             hot_users = hot_users.join(self.hot_users)
-        hot_users = hot_users.join(users, on="user_id", how="inner")
+        hot_users = hot_users.join(users, on="user_idx", how="inner")
 
         hot_pred = self._predict_wrap(
             log=hot_data,
@@ -94,10 +90,10 @@ class BaseScenario(BaseRecommender):
             filter_seen_items=filter_seen_items,
         )
         if log is not None:
-            cold_data = log.join(self.hot_users, how="anti", on="user_id")
+            cold_data = log.join(self.hot_users, how="anti", on="user_idx")
         else:
             cold_data = None
-        cold_users = users.join(self.hot_users, how="anti", on="user_id")
+        cold_users = users.join(self.hot_users, how="anti", on="user_idx")
         cold_pred = self.cold_model._predict_wrap(
             log=cold_data,
             k=k,
@@ -118,7 +114,6 @@ class BaseScenario(BaseRecommender):
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
         filter_seen_items: bool = True,
-        force_reindex: bool = True,
     ) -> DataFrame:
         """
         Train and get recommendations
@@ -141,7 +136,7 @@ class BaseScenario(BaseRecommender):
         :return: recommendation dataframe
             ``[user_id, item_id, relevance]``
         """
-        self.fit(log, user_features, item_features, force_reindex)
+        self.fit(log, user_features, item_features)
         return self.predict(
             log,
             k,

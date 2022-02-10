@@ -20,22 +20,19 @@ def fitted_model(request, log):
 def test_popularity_matrix(log, fitted_model):
     if fitted_model.distribution == "uniform":
         true_matrix = (
-            log.select("item_id")
+            log.select("item_idx")
             .distinct()
             .withColumn("probability", sf.lit(1.0))
         )
     else:
-        true_matrix = log.groupby("item_id").agg(
-            sf.countDistinct("user_id").astype("double").alias("probability")
+        true_matrix = log.groupby(
+            "item_idx"
+        ).agg(  # pylint: disable=not-callable
+            sf.countDistinct("user_idx").astype("double").alias("probability")
         )
 
     sparkDataFrameEqual(
-        fitted_model._convert_back(
-            fitted_model.item_popularity,
-            log.schema["user_id"].dataType,
-            log.schema["item_id"].dataType,
-        ),
-        true_matrix,
+        fitted_model.item_popularity, true_matrix,
     )
 
 

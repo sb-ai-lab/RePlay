@@ -31,12 +31,12 @@ def spark():
 def log2(spark):
     return spark.createDataFrame(
         data=[
-            ["user1", "item1", datetime(2019, 9, 12), 3.0],
-            ["user1", "item5", datetime(2019, 9, 13), 2.0],
-            ["user1", "item2", datetime(2019, 9, 17), 1.0],
-            ["user2", "item6", datetime(2019, 9, 14), 4.0],
-            ["user2", "item1", datetime(2019, 9, 15), 3.0],
-            ["user3", "item2", datetime(2019, 9, 15), 3.0],
+            [0, 0, datetime(2019, 9, 12), 3.0],
+            [0, 2, datetime(2019, 9, 13), 2.0],
+            [0, 1, datetime(2019, 9, 17), 1.0],
+            [1, 3, datetime(2019, 9, 14), 4.0],
+            [1, 0, datetime(2019, 9, 15), 3.0],
+            [2, 1, datetime(2019, 9, 15), 3.0],
         ],
         schema=LOG_SCHEMA,
     )
@@ -46,17 +46,17 @@ def log2(spark):
 def log(spark):
     return spark.createDataFrame(
         data=[
-            ["user1", "item1", datetime(2019, 8, 22), 4.0],
-            ["user1", "item3", datetime(2019, 8, 23), 3.0],
-            ["user1", "item2", datetime(2019, 8, 27), 2.0],
-            ["user2", "item4", datetime(2019, 8, 24), 3.0],
-            ["user2", "item1", datetime(2019, 8, 25), 4.0],
-            ["user3", "item2", datetime(2019, 8, 26), 5.0],
-            ["user3", "item1", datetime(2019, 8, 26), 5.0],
-            ["user3", "item3", datetime(2019, 8, 26), 3.0],
-            ["user4", "item2", datetime(2019, 8, 26), 5.0],
-            ["user4", "item1", datetime(2019, 8, 26), 5.0],
-            ["user4", "item1", datetime(2019, 8, 26), 1.0],
+            [0, 0, datetime(2019, 8, 22), 4.0],
+            [0, 2, datetime(2019, 8, 23), 3.0],
+            [0, 1, datetime(2019, 8, 27), 2.0],
+            [1, 3, datetime(2019, 8, 24), 3.0],
+            [1, 0, datetime(2019, 8, 25), 4.0],
+            [2, 1, datetime(2019, 8, 26), 5.0],
+            [2, 0, datetime(2019, 8, 26), 5.0],
+            [2, 2, datetime(2019, 8, 26), 3.0],
+            [3, 1, datetime(2019, 8, 26), 5.0],
+            [3, 0, datetime(2019, 8, 26), 5.0],
+            [3, 0, datetime(2019, 8, 26), 1.0],
         ],
         schema=LOG_SCHEMA,
     )
@@ -67,20 +67,20 @@ def long_log_with_features(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
         data=[
-            ["u1", "i1", date, 1.0],
-            ["u1", "i4", datetime(2019, 1, 5), 3.0],
-            ["u1", "i2", date, 2.0],
-            ["u1", "i5", date, 4.0],
-            ["u2", "i1", datetime(2020, 1, 5), 4.0],
-            ["u2", "i3", datetime(2018, 1, 1), 2.0],
-            ["u2", "i7", datetime(2019, 1, 1), 4.0],
-            ["u2", "i8", datetime(2020, 1, 1), 4.0],
-            ["u3", "i9", date, 3.0],
-            ["u3", "i2", date, 2.0],
-            ["u3", "i6", datetime(2020, 3, 1), 1.0],
-            ["u3", "i7", date, 5.0],
+            [0, 0, date, 1.0],
+            [0, 3, datetime(2019, 1, 5), 3.0],
+            [0, 1, date, 2.0],
+            [0, 4, date, 4.0],
+            [1, 0, datetime(2020, 1, 5), 4.0],
+            [1, 2, datetime(2018, 1, 1), 2.0],
+            [1, 6, datetime(2019, 1, 1), 4.0],
+            [1, 7, datetime(2020, 1, 1), 4.0],
+            [2, 8, date, 3.0],
+            [2, 1, date, 2.0],
+            [2, 5, datetime(2020, 3, 1), 1.0],
+            [2, 6, date, 5.0],
         ],
-        schema=["user_id", "item_id", "timestamp", "relevance"],
+        schema=["user_idx", "item_idx", "timestamp", "relevance"],
     )
 
 
@@ -89,41 +89,37 @@ def short_log_with_features(spark):
     date = datetime(2021, 1, 1)
     return spark.createDataFrame(
         data=[
-            ["u1", "i3", date, 1.0],
-            ["u1", "i7", datetime(2019, 1, 5), 3.0],
-            ["u2", "i2", date, 1.0],
-            ["u2", "i10", datetime(2018, 1, 1), 2.0],
-            ["u3", "i8", date, 3.0],
-            ["u3", "i1", date, 2.0],
-            ["u4", "i7", date, 5.0],
+            [0, 2, date, 1.0],
+            [0, 4, datetime(2019, 1, 5), 3.0],
+            [1, 1, date, 1.0],
+            [1, 6, datetime(2018, 1, 1), 2.0],
+            [2, 5, date, 3.0],
+            [2, 0, date, 2.0],
+            [3, 4, date, 5.0],
         ],
-        schema=["user_id", "item_id", "timestamp", "relevance"],
+        schema=["user_idx", "item_idx", "timestamp", "relevance"],
     )
 
 
 @pytest.fixture
 def user_features(spark):
     return spark.createDataFrame(
-        [
-            ("u1", 20.0, -3.0, "M"),
-            ("u2", 30.0, 4.0, "F"),
-            ("u3", 75.0, -1.0, "M"),
-        ]
-    ).toDF("user_id", "age", "mood", "gender")
+        [(0, 20.0, -3.0, "M"), (1, 30.0, 4.0, "F"), (2, 75.0, -1.0, "M"),]
+    ).toDF("user_idx", "age", "mood", "gender")
 
 
 @pytest.fixture
 def item_features(spark):
     return spark.createDataFrame(
         [
-            ("i1", 4.0, "cat", "black"),
-            ("i2", 10.0, "dog", "green"),
-            ("i3", 7.0, "mouse", "yellow"),
-            ("i4", -1.0, "cat", "yellow"),
-            ("i5", 11.0, "dog", "white"),
-            ("i6", 0.0, "mouse", "yellow"),
+            (0, 4.0, "cat", "black"),
+            (1, 10.0, "dog", "green"),
+            (2, 7.0, "mouse", "yellow"),
+            (3, -1.0, "cat", "yellow"),
+            (4, 11.0, "dog", "white"),
+            (5, 0.0, "mouse", "yellow"),
         ]
-    ).toDF("item_id", "iq", "class", "color")
+    ).toDF("item_idx", "iq", "class", "color")
 
 
 def unify_dataframe(data_frame: DataFrame):

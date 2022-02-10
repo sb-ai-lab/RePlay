@@ -72,23 +72,23 @@ def item_distribution(
     """
     log = convert2spark(log)
     res = (
-        log.groupBy("item_id")
-        .agg(sf.countDistinct("user_id").alias("user_count"))
-        .select("item_id", "user_count")
+        log.groupBy("item_idx")
+        .agg(sf.countDistinct("user_idx").alias("user_count"))
+        .select("item_idx", "user_count")
     )
 
     rec = convert2spark(recommendations)
     rec = get_top_k_recs(rec, k)
     rec = (
-        rec.groupBy("item_id")
-        .agg(sf.countDistinct("user_id").alias("rec_count"))
-        .select("item_id", "rec_count")
+        rec.groupBy("item_idx")
+        .agg(sf.countDistinct("user_idx").alias("rec_count"))
+        .select("item_idx", "rec_count")
     )
 
     res = (
-        res.join(rec, on="item_id", how="outer")
+        res.join(rec, on="item_idx", how="outer")
         .fillna(0)
-        .orderBy(["user_count", "item_id"])
+        .orderBy(["user_count", "item_idx"])
         .toPandas()
     )
     return res

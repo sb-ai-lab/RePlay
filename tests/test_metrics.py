@@ -10,14 +10,14 @@ from tests.utils import *
 
 @pytest.fixture
 def one_user():
-    df = pd.DataFrame({"user_id": [1], "item_id": [1], "relevance": [1]})
+    df = pd.DataFrame({"user_idx": [1], "item_idx": [1], "relevance": [1]})
     return df
 
 
 @pytest.fixture
 def two_users():
     df = pd.DataFrame(
-        {"user_id": [1, 2], "item_id": [1, 2], "relevance": [1, 1]}
+        {"user_idx": [1, 2], "item_idx": [1, 2], "relevance": [1, 1]}
     )
     return df
 
@@ -26,15 +26,15 @@ def two_users():
 def recs(spark):
     return spark.createDataFrame(
         data=[
-            ["user1", "item1", 3.0],
-            ["user1", "item2", 2.0],
-            ["user1", "item3", 1.0],
-            ["user2", "item1", 3.0],
-            ["user2", "item2", 4.0],
-            ["user2", "item5", 1.0],
-            ["user3", "item1", 5.0],
-            ["user3", "item3", 1.0],
-            ["user3", "item4", 2.0],
+            [0, 0, 3.0],
+            [0, 1, 2.0],
+            [0, 2, 1.0],
+            [1, 0, 3.0],
+            [1, 1, 4.0],
+            [1, 4, 1.0],
+            [2, 0, 5.0],
+            [2, 2, 1.0],
+            [2, 3, 2.0],
         ],
         schema=REC_SCHEMA,
     )
@@ -43,8 +43,7 @@ def recs(spark):
 @pytest.fixture
 def recs2(spark):
     return spark.createDataFrame(
-        data=[["user1", "item4", 4.0], ["user1", "item5", 5.0]],
-        schema=REC_SCHEMA,
+        data=[[0, 3, 4.0], [0, 4, 5.0]], schema=REC_SCHEMA,
     )
 
 
@@ -57,12 +56,12 @@ def empty_recs(spark):
 def true(spark):
     return spark.createDataFrame(
         data=[
-            ["user1", "item1", datetime(2019, 9, 12), 3.0],
-            ["user1", "item5", datetime(2019, 9, 13), 2.0],
-            ["user1", "item2", datetime(2019, 9, 17), 1.0],
-            ["user2", "item6", datetime(2019, 9, 14), 4.0],
-            ["user2", "item1", datetime(2019, 9, 15), 3.0],
-            ["user3", "item2", datetime(2019, 9, 15), 3.0],
+            [0, 0, datetime(2019, 9, 12), 3.0],
+            [0, 4, datetime(2019, 9, 13), 2.0],
+            [0, 1, datetime(2019, 9, 17), 1.0],
+            [1, 5, datetime(2019, 9, 14), 4.0],
+            [1, 0, datetime(2019, 9, 15), 3.0],
+            [2, 1, datetime(2019, 9, 15), 3.0],
         ],
         schema=LOG_SCHEMA,
     )
@@ -77,17 +76,17 @@ def quality_metrics():
 def duplicate_recs(spark):
     return spark.createDataFrame(
         data=[
-            ["user1", "item1", 3.0],
-            ["user1", "item2", 2.0],
-            ["user1", "item3", 1.0],
-            ["user1", "item1", 3.0],
-            ["user2", "item1", 3.0],
-            ["user2", "item2", 4.0],
-            ["user2", "item5", 1.0],
-            ["user2", "item2", 2.0],
-            ["user3", "item1", 5.0],
-            ["user3", "item3", 1.0],
-            ["user3", "item4", 2.0],
+            [0, 0, 3.0],
+            [0, 1, 2.0],
+            [0, 2, 1.0],
+            [0, 0, 3.0],
+            [1, 0, 3.0],
+            [1, 1, 4.0],
+            [1, 4, 1.0],
+            [1, 1, 2.0],
+            [2, 0, 5.0],
+            [2, 2, 1.0],
+            [2, 3, 2.0],
         ],
         schema=REC_SCHEMA,
     )

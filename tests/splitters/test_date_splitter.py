@@ -13,12 +13,12 @@ from tests.utils import spark
 def log(spark):
     return spark.createDataFrame(
         data=[
-            ["user1", "item1", datetime(2019, 9, 12), 1.0],
-            ["user1", "item2", datetime(2019, 9, 13), 2.0],
-            ["user2", "item1", datetime(2019, 9, 14), 3.0],
-            ["user2", "item2", datetime(2019, 9, 15), 4.0],
-            ["user3", "item1", datetime(2019, 9, 16), 5.0],
-            ["user1", "item3", datetime(2019, 9, 17), 1.0],
+            [0, 0, datetime(2019, 9, 12), 1.0],
+            [0, 1, datetime(2019, 9, 13), 2.0],
+            [1, 0, datetime(2019, 9, 14), 3.0],
+            [1, 1, datetime(2019, 9, 15), 4.0],
+            [2, 0, datetime(2019, 9, 16), 5.0],
+            [0, 2, datetime(2019, 9, 17), 1.0],
         ],
         schema=LOG_SCHEMA,
     )
@@ -87,8 +87,8 @@ def test_drop_cold_items(log, split_date):
     )
     train, test = splitter.split(log)
 
-    train_items = train.toPandas().item_id
-    test_items = test.toPandas().item_id
+    train_items = train.toPandas().item_idx
+    test_items = test.toPandas().item_idx
 
     assert np.isin(test_items, train_items).all()
 
@@ -99,7 +99,7 @@ def test_drop_cold_users(log, split_date):
     )
     train, test = splitter.split(log)
 
-    train_users = train.toPandas().user_id
-    test_users = test.toPandas().user_id
+    train_users = train.toPandas().user_idx
+    test_users = test.toPandas().user_idx
 
     assert np.isin(test_users, train_users).all()

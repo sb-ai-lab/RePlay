@@ -109,18 +109,8 @@ class Fallback(BaseScenario):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self.main_model.user_indexer = self.user_indexer
-        self.main_model.item_indexer = self.item_indexer
-        self.main_model.inv_user_indexer = self.inv_user_indexer
-        self.main_model.inv_item_indexer = self.inv_item_indexer
-
-        self.fb_model.user_indexer = self.user_indexer
-        self.fb_model.item_indexer = self.item_indexer
-        self.fb_model.inv_user_indexer = self.inv_user_indexer
-        self.fb_model.inv_item_indexer = self.inv_item_indexer
-
-        self.main_model._fit(log, user_features, item_features)
-        self.fb_model._fit(log, user_features, item_features)
+        self.main_model._fit_wrap(log, user_features, item_features)
+        self.fb_model._fit_wrap(log, user_features, item_features)
 
     def _predict(
         self,
@@ -150,5 +140,5 @@ class Fallback(BaseScenario):
             item_features,
             filter_seen_items,
         )
-        pred = fallback(pred, extra_pred, k, id_type="idx")
+        pred = fallback(pred, extra_pred, k)
         return pred

@@ -24,59 +24,62 @@ class UserSplitter(Splitter):
 
     >>> from replay.splitters import UserSplitter
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_id": [1,1,1,2,2,2],
-    ...    "item_id": [1,2,3,1,2,3],
+    >>> data_frame = pd.DataFrame({"user_idx": [1,1,1,2,2,2],
+    ...    "item_idx": [1,2,3,1,2,3],
     ...    "relevance": [1,2,3,4,5,6],
     ...    "timestamp": [1,2,3,3,2,1]})
     >>> data_frame
-       user_id  item_id  relevance  timestamp
-    0        1        1          1          1
-    1        1        2          2          2
-    2        1        3          3          3
-    3        2        1          4          3
-    4        2        2          5          2
-    5        2        3          6          1
+       user_idx  item_idx  relevance  timestamp
+    0         1         1          1          1
+    1         1         2          2          2
+    2         1         3          3          3
+    3         2         1          4          3
+    4         2         2          5          2
+    5         2         3          6          1
+
+    >>> from replay.utils import convert2spark
+    >>> data_frame = convert2spark(data_frame)
 
     By default, test is one last item for each user
 
     >>> UserSplitter(seed=80083).split(data_frame)[-1].toPandas()
-       user_id  item_id  relevance  timestamp
-    0        1        3          3          3
-    1        2        1          4          3
+       user_idx  item_idx  relevance  timestamp
+    0         1         3          3          3
+    1         2         1          4          3
 
     Random records can be retrieved with ``shuffle``:
 
     >>> UserSplitter(shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
-       user_id  item_id  relevance  timestamp
-    0        1        2          2          2
-    1        2        3          6          1
+       user_idx  item_idx  relevance  timestamp
+    0         1         2          2          2
+    1         2         3          6          1
 
     You can specify the number of items for each user:
 
     >>> UserSplitter(item_test_size=3, shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
-       user_id  item_id  relevance  timestamp
-    0        1        2          2          2
-    1        1        3          3          3
-    2        1        1          1          1
-    3        2        3          6          1
-    4        2        2          5          2
-    5        2        1          4          3
+       user_idx  item_idx  relevance  timestamp
+    0         1         2          2          2
+    1         1         3          3          3
+    2         1         1          1          1
+    3         2         3          6          1
+    4         2         2          5          2
+    5         2         1          4          3
 
     Or a fraction:
 
     >>> UserSplitter(item_test_size=0.67, shuffle=True, seed=80083).split(data_frame)[-1].toPandas()
-       user_id  item_id  relevance  timestamp
-    0        1        2          2          2
-    1        1        3          3          3
-    2        2        3          6          1
-    3        2        2          5          2
+       user_idx  item_idx  relevance  timestamp
+    0         1         2          2          2
+    1         1         3          3          3
+    2         2         3          6          1
+    3         2         2          5          2
 
     `user_test_size` allows to put exact number of users into test set
 
-    >>> UserSplitter(user_test_size=1, item_test_size=2, seed=42).split(data_frame)[-1].toPandas().user_id.nunique()
+    >>> UserSplitter(user_test_size=1, item_test_size=2, seed=42).split(data_frame)[-1].toPandas().user_idx.nunique()
     1
 
-    >>> UserSplitter(user_test_size=0.5, item_test_size=2, seed=42).split(data_frame)[-1].toPandas().user_id.nunique()
+    >>> UserSplitter(user_test_size=0.5, item_test_size=2, seed=42).split(data_frame)[-1].toPandas().user_idx.nunique()
     1
 
     """
@@ -114,7 +117,7 @@ class UserSplitter(Splitter):
         :param log: input DataFrame
         :return: Spark DataFrame with single column `user_id`
         """
-        all_users = log.select("user_id").distinct()
+        all_users = log.select("user_idx").distinct()
         user_count = all_users.count()
         if self.user_test_size is not None:
             value_error = False
@@ -154,20 +157,20 @@ class UserSplitter(Splitter):
         :return: train and test DataFrames
         """
 
-        counts = log.groupBy("user_id").count()
+        counts = log.groupBy("user_idx").count()
         test_users = self._get_test_users(log).withColumn(
             "test_user", sf.lit(1)
         )
         if self.shuffle:
             res = self._add_random_partition(
-                log.join(test_users, how="left", on="user_id")
+                log.join(test_users, how="left", on="user_idx")
             )
         else:
             res = self._add_time_partition(
-                log.join(test_users, how="left", on="user_id")
+                log.join(test_users, how="left", on="user_idx")
             )
 
-        res = res.join(counts, on="user_id", how="left")
+        res = res.join(counts, on="user_idx", how="left")
         res = res.withColumn("frac", sf.col("row_num") / sf.col("count"))
         train = res.filter(
             f"""
@@ -196,11 +199,11 @@ class UserSplitter(Splitter):
         )
         if self.shuffle:
             res = self._add_random_partition(
-                log.join(test_users, how="left", on="user_id")
+                log.join(test_users, how="left", on="user_idx")
             )
         else:
             res = self._add_time_partition(
-                log.join(test_users, how="left", on="user_id")
+                log.join(test_users, how="left", on="user_idx")
             )
         train = res.filter(
             f"""
@@ -241,7 +244,7 @@ class UserSplitter(Splitter):
         dataframe = dataframe.withColumn(
             "row_num",
             sf.row_number().over(
-                Window.partitionBy("user_id").orderBy("rand")
+                Window.partitionBy("user_idx").orderBy("rand")
             ),
         )
         return dataframe
@@ -257,7 +260,7 @@ class UserSplitter(Splitter):
         res = dataframe.withColumn(
             "row_num",
             sf.row_number().over(
-                Window.partitionBy("user_id").orderBy(
+                Window.partitionBy("user_idx").orderBy(
                     sf.col("timestamp").desc()
                 )
             ),
@@ -286,7 +289,9 @@ def k_folds(
         dataframe = convert2spark(log).withColumn("rand", sf.rand(seed))
         dataframe = dataframe.withColumn(
             "fold",
-            sf.row_number().over(Window.partitionBy("user_id").orderBy("rand"))
+            sf.row_number().over(
+                Window.partitionBy("user_idx").orderBy("rand")
+            )
             % n_folds,
         ).drop("rand")
         for i in range(n_folds):

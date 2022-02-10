@@ -31,25 +31,25 @@ def test_diff_feedback_type(log, model):
     model.implicit_prefs = True
     pred_imp = model.fit_predict(log, k=1)
     assert not np.allclose(
-        pred_exp.toPandas().sort_values("user_id")["relevance"].values,
-        pred_imp.toPandas().sort_values("user_id")["relevance"].values,
+        pred_exp.toPandas().sort_values("user_idx")["relevance"].values,
+        pred_imp.toPandas().sort_values("user_idx")["relevance"].values,
     )
 
 
 def test_enrich_with_features(log, model):
-    model.fit(log.filter(sf.col("user_id").isin(["user1", "user3"])))
+    model.fit(log.filter(sf.col("user_idx").isin([0, 2])))
     res = get_first_level_model_features(
-        model, log.filter(sf.col("user_id").isin(["user1", "user2"]))
+        model, log.filter(sf.col("user_idx").isin([0, 1]))
     )
 
     cold_user_and_item = res.filter(
-        (sf.col("user_id") == "user2") & (sf.col("item_id") == "item4")
+        (sf.col("user_idx") == 1) & (sf.col("item_idx") == 3)
     )
     row_dict = cold_user_and_item.collect()[0].asDict()
     assert row_dict["_if_0"] == row_dict["_uf_0"] == row_dict["_fm_1"] == 0.0
 
     warm_user_and_item = res.filter(
-        (sf.col("user_id") == "user1") & (sf.col("item_id") == "item1")
+        (sf.col("user_idx") == 0) & (sf.col("item_idx") == 0)
     )
     row_dict = warm_user_and_item.collect()[0].asDict()
     np.allclose(
@@ -58,7 +58,7 @@ def test_enrich_with_features(log, model):
     )
 
     cold_user_warm_item = res.filter(
-        (sf.col("user_id") == "user2") & (sf.col("item_id") == "item1")
+        (sf.col("user_idx") == 1) & (sf.col("item_idx") == 0)
     )
     row_dict = cold_user_warm_item.collect()[0].asDict()
     np.allclose(
@@ -68,7 +68,7 @@ def test_enrich_with_features(log, model):
 
 
 def test_als_get_nearest_items_raises(log, model):
-    model.fit(log.filter(sf.col("item_id") != "item4"))
+    model.fit(log.filter(sf.col("item_idx") != 3))
     with pytest.raises(
         NotImplementedError, match=r"unknown_metric metric is not implemented"
     ):

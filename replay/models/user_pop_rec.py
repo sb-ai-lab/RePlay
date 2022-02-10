@@ -22,21 +22,23 @@ class UserPopRec(Recommender):
     :math:`N_u` - total number of interactions of user :math:`u`.
 
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 3], "item_id": [1, 2, 3], "relevance": [2, 1, 1]})
+    >>> data_frame = pd.DataFrame({"user_idx": [1, 1, 3], "item_idx": [1, 2, 3], "relevance": [2, 1, 1]})
     >>> data_frame
-       user_id  item_id  relevance
-    0        1        1          2
-    1        1        2          1
-    2        3        3          1
+       user_idx  item_idx  relevance
+    0         1         1          2
+    1         1         2          1
+    2         3         3          1
 
+    >>> from replay.utils import convert2spark
+    >>> data_frame = convert2spark(data_frame)
     >>> model = UserPopRec()
     >>> res = model.fit_predict(data_frame, 1, filter_seen_items=False)
     >>> model.user_item_popularity.count()
     3
-    >>> res.toPandas().sort_values("user_id", ignore_index=True)
-       user_id  item_id  relevance
-    0        1        1   0.666667
-    1        3        3   1.000000
+    >>> res.toPandas().sort_values("user_idx", ignore_index=True)
+       user_idx  item_idx  relevance
+    0         1         1   0.666667
+    1         3         3   1.000000
     """
 
     user_item_popularity: DataFrame
@@ -112,11 +114,8 @@ class UserPopRec(Recommender):
         users: Optional[Union[AnyDataFrame, Iterable]] = None,
         items: Optional[Union[AnyDataFrame, Iterable]] = None,
         filter_seen_items: bool = False,
-        force_reindex: bool = False,
     ) -> DataFrame:
-        return super().fit_predict(
-            log, k, users, items, filter_seen_items, force_reindex
-        )
+        return super().fit_predict(log, k, users, items, filter_seen_items)
 
     # pylint: disable=too-many-arguments
     def predict(

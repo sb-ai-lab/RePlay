@@ -17,8 +17,8 @@ class Unexpectedness(RecOnlyMetric):
     >>> spark = get_spark_session(1, 1)
     >>> state = State(spark)
 
-    >>> log = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [1, 2, 3], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
-    >>> recs = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [0, 0, 1], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
+    >>> log = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [1, 2, 3], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
+    >>> recs = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [0, 0, 1], "relevance": [5, 5, 5], "timestamp": [1, 1, 1]})
     >>> metric = Unexpectedness(log)
     >>> round(metric(recs, 3), 2)
     0.67
@@ -47,36 +47,36 @@ class Unexpectedness(RecOnlyMetric):
         base_pred = self.pred
         sort_udf = sf.udf(
             sorter,
-            returnType=st.ArrayType(base_pred.schema["item_id"].dataType),
+            returnType=st.ArrayType(base_pred.schema["item_idx"].dataType),
         )
         base_recs = (
-            base_pred.groupby("user_id")
+            base_pred.groupby("user_idx")
             .agg(
-                sf.collect_list(sf.struct("relevance", "item_id")).alias(
+                sf.collect_list(sf.struct("relevance", "item_idx")).alias(
                     "base_pred"
                 )
             )
             .select(
-                "user_id", sort_udf(sf.col("base_pred")).alias("base_pred")
+                "user_idx", sort_udf(sf.col("base_pred")).alias("base_pred")
             )
         )
 
         recommendations = (
-            recommendations.groupby("user_id")
+            recommendations.groupby("user_idx")
             .agg(
-                sf.collect_list(sf.struct("relevance", "item_id")).alias(
+                sf.collect_list(sf.struct("relevance", "item_idx")).alias(
                     "pred"
                 )
             )
-            .select("user_id", sort_udf(sf.col("pred")).alias("pred"))
-            .join(base_recs, how="right", on=["user_id"])
+            .select("user_idx", sort_udf(sf.col("pred")).alias("pred"))
+            .join(base_recs, how="right", on=["user_idx"])
         )
         return recommendations.withColumn(
             "pred",
             sf.coalesce(
                 "pred",
                 sf.array().cast(
-                    st.ArrayType(base_pred.schema["item_id"].dataType)
+                    st.ArrayType(base_pred.schema["item_idx"].dataType)
                 ),
             ),
         )

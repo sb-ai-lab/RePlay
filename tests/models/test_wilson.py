@@ -26,7 +26,7 @@ def test_works(log, model):
 
 def calc_wilson_interval(log):
     data_frame = (
-        log.groupby("item_id")
+        log.groupby("item_idx")
         .agg(
             sf.sum("relevance").alias("pos"),
             sf.count("relevance").alias("total"),
@@ -48,12 +48,7 @@ def test_calculation(log, model):
     )
     model.fit(log)
     stat_wilson = calc_wilson_interval(log)
-    spark_wilson = model._convert_back(
-        model.item_popularity,
-        log.schema["user_id"].dataType,
-        log.schema["item_id"].dataType,
-    )
-    sparkDataFrameEqual(spark_wilson, stat_wilson)
+    sparkDataFrameEqual(model.item_popularity, stat_wilson)
 
 
 def test_predict(log, model):
@@ -61,13 +56,11 @@ def test_predict(log, model):
         "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
     )
     model.fit(log)
-    recs = model.predict(
-        log, k=1, users=["user2", "user1"], items=["item4", "item3"]
-    )
+    recs = model.predict(log, k=1, users=[1, 0], items=[3, 2])
     assert recs.count() == 2
     assert (
         recs.select(
-            sf.sum(sf.col("user_id").isin(["user2", "user1"]).astype("int"))
+            sf.sum(sf.col("user_idx").isin([1, 0]).astype("int"))
         ).collect()[0][0]
         == 2
     )

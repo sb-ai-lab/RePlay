@@ -48,18 +48,18 @@ def get_enriched_recommendations(
     """
     recommendations = convert2spark(recommendations)
     ground_truth = convert2spark(ground_truth)
-    true_items_by_users = ground_truth.groupby("user_id").agg(
-        sf.collect_set("item_id").alias("ground_truth")
+    true_items_by_users = ground_truth.groupby("user_idx").agg(
+        sf.collect_set("item_idx").alias("ground_truth")
     )
     sort_udf = sf.udf(
         sorter,
-        returnType=st.ArrayType(ground_truth.schema["item_id"].dataType),
+        returnType=st.ArrayType(ground_truth.schema["item_idx"].dataType),
     )
     recommendations = (
-        recommendations.groupby("user_id")
-        .agg(sf.collect_list(sf.struct("relevance", "item_id")).alias("pred"))
-        .select("user_id", sort_udf(sf.col("pred")).alias("pred"))
-        .join(true_items_by_users, how="right", on=["user_id"])
+        recommendations.groupby("user_idx")
+        .agg(sf.collect_list(sf.struct("relevance", "item_idx")).alias("pred"))
+        .select("user_idx", sort_udf(sf.col("pred")).alias("pred"))
+        .join(true_items_by_users, how="right", on=["user_idx"])
     )
 
     return recommendations.withColumn(
@@ -67,7 +67,7 @@ def get_enriched_recommendations(
         sf.coalesce(
             "pred",
             sf.array().cast(
-                st.ArrayType(ground_truth.schema["item_id"].dataType)
+                st.ArrayType(ground_truth.schema["item_idx"].dataType)
             ),
         ),
     )
@@ -172,7 +172,7 @@ class Metric(ABC):
                 (x[0], float(cur_class._get_metric_value_by_user(k, *x[1:])))
             ]
         ).toDF(
-            f"user_id {recs.schema['user_id'].dataType.typeName()}, value double"
+            f"user_idx {recs.schema['user_idx'].dataType.typeName()}, value double"
         )
         return distribution
 
@@ -205,7 +205,7 @@ class Metric(ABC):
         :return: pandas DataFrame
         """
         log = convert2spark(log)
-        count = log.groupBy("user_id").count()
+        count = log.groupBy("user_idx").count()
         if hasattr(self, "_get_enriched_recommendations"):
             recs = self._get_enriched_recommendations(
                 recommendations, ground_truth
@@ -219,7 +219,7 @@ class Metric(ABC):
         res = pd.DataFrame()
         for cut_off in k_list:
             dist = self._get_metric_distribution(recs, cut_off)
-            val = count.join(dist, on="user_id")
+            val = count.join(dist, on="user_idx")
             val = (
                 val.groupBy("count")
                 .agg(sf.avg("value").alias("value"))

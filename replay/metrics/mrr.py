@@ -9,8 +9,8 @@ class MRR(Metric):
     :math:`\\frac {1}{rank_i}`. This value is averaged by all users.
 
     >>> import pandas as pd
-    >>> pred = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [3, 2, 1], "relevance": [5 ,5, 5]})
-    >>> true = pd.DataFrame({"user_id": [1, 1, 1], "item_id": [2, 4, 5], "relevance": [5, 5, 5]})
+    >>> pred = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [3, 2, 1], "relevance": [5 ,5, 5]})
+    >>> true = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [2, 4, 5], "relevance": [5, 5, 5]})
     >>> MRR()(pred, true, 3)
     0.5
     >>> MRR()(pred, true, 1)

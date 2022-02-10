@@ -49,10 +49,10 @@ class Surprisal(RecOnlyMetric):
         :param log: historical data
         """
         self.log = convert2spark(log)
-        n_users = self.log.select("user_id").distinct().count()  # type: ignore
-        self.item_weights = self.log.groupby("item_id").agg(
+        n_users = self.log.select("user_idx").distinct().count()  # type: ignore
+        self.item_weights = self.log.groupby("item_idx").agg(
             (
-                sf.log2(n_users / sf.countDistinct("user_id"))  # type: ignore
+                sf.log2(n_users / sf.countDistinct("user_idx"))  # type: ignore
                 / np.log2(n_users)
             ).alias("rec_weight")
         )
@@ -67,19 +67,18 @@ class Surprisal(RecOnlyMetric):
     ) -> DataFrame:
         recommendations = convert2spark(recommendations)
         sort_udf = sf.udf(
-            partial(sorter, index=2),
-            returnType=st.ArrayType(st.DoubleType()),
+            partial(sorter, index=2), returnType=st.ArrayType(st.DoubleType()),
         )
         return (
-            recommendations.join(self.item_weights, on="item_id", how="left")
+            recommendations.join(self.item_weights, on="item_idx", how="left")
             .fillna(1)
-            .groupby("user_id")
+            .groupby("user_idx")
             .agg(
                 sf.collect_list(
-                    sf.struct("relevance", "item_id", "rec_weight")
+                    sf.struct("relevance", "item_idx", "rec_weight")
                 ).alias("rec_weight")
             )
             .select(
-                "user_id", sort_udf(sf.col("rec_weight")).alias("rec_weight")
+                "user_idx", sort_udf(sf.col("rec_weight")).alias("rec_weight")
             )
         )

@@ -15,13 +15,13 @@ def log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
         data=[
-            ["u1", "i1", date, 1.0],
-            ["u2", "i1", date, 1.0],
-            ["u3", "i3", date, 2.0],
-            ["u2", "i3", date, 2.0],
-            ["u3", "i4", date, 2.0],
-            ["u1", "i4", date, 2.0],
-            ["u4", "i1", date, 2.0],
+            [0, 0, date, 1.0],
+            [1, 0, date, 1.0],
+            [2, 1, date, 2.0],
+            [1, 1, date, 2.0],
+            [2, 2, date, 2.0],
+            [0, 2, date, 2.0],
+            [3, 0, date, 2.0],
         ],
         schema=LOG_SCHEMA,
     )

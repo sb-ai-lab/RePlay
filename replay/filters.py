@@ -17,20 +17,20 @@ def min_entries(data_frame: AnyDataFrame, num_entries: int) -> DataFrame:
     Remove users with less than ``num_entries`` ratings.
 
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2]})
+    >>> data_frame = pd.DataFrame({"user_idx": [1, 1, 2]})
     >>> min_entries(data_frame, 2).toPandas()
-       user_id
-    0        1
-    1        1
+       user_idx
+    0         1
+    1         1
     """
     data_frame = convert2spark(data_frame)
     input_count = data_frame.count()
-    entries_by_user = data_frame.groupBy("user_id").count()  # type: ignore
+    entries_by_user = data_frame.groupBy("user_idx").count()  # type: ignore
     remaining_users = entries_by_user.filter(
         entries_by_user["count"] >= num_entries
-    )[["user_id"]]
+    )[["user_idx"]]
     data_frame = data_frame.join(
-        remaining_users, on="user_id", how="inner"
+        remaining_users, on="user_idx", how="inner"
     )  # type: ignore
     output_count = data_frame.count()
     diff = (input_count - output_count) / input_count
@@ -39,8 +39,7 @@ def min_entries(data_frame: AnyDataFrame, num_entries: int) -> DataFrame:
     else:
         logger_level = State().logger.info
     logger_level(
-        "current threshold removes %s%% of data",
-        diff,
+        "current threshold removes %s%% of data", diff,
     )
     return data_frame
 
@@ -69,16 +68,16 @@ def filter_user_interactions(
     num_interactions: int = 10,
     first: bool = True,
     date_col: str = "timestamp",
-    user_col: str = "user_id",
-    item_col: Optional[str] = "item_id",
+    user_col: str = "user_idx",
+    item_col: Optional[str] = "item_idx",
 ) -> DataFrame:
     """
      Get first/last ``num_interactions`` interactions for each user.
 
     >>> import pandas as pd
     >>> from replay.utils import convert2spark
-    >>> log_pd = pd.DataFrame({"user_id": ["u1", "u2", "u2", "u3", "u3", "u3"],
-    ...                     "item_id": ["i1", "i2","i3", "i1", "i2","i3"],
+    >>> log_pd = pd.DataFrame({"user_idx": ["u1", "u2", "u2", "u3", "u3", "u3"],
+    ...                     "item_idx": ["i1", "i2","i3", "i1", "i2","i3"],
     ...                     "rel": [1., 0.5, 3, 1, 0, 1],
     ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01",
     ...                                   "2020-02-01", "2020-01-01 00:04:15",
@@ -87,50 +86,50 @@ def filter_user_interactions(
     >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.show()
-    +-------+-------+---+-------------------+
-    |user_id|item_id|rel|          timestamp|
-    +-------+-------+---+-------------------+
-    |     u1|     i1|1.0|2020-01-01 23:59:59|
-    |     u2|     i2|0.5|2020-02-01 00:00:00|
-    |     u2|     i3|3.0|2020-02-01 00:00:00|
-    |     u3|     i1|1.0|2020-01-01 00:04:15|
-    |     u3|     i2|0.0|2020-01-02 00:04:14|
-    |     u3|     i3|1.0|2020-01-05 23:59:59|
-    +-------+-------+---+-------------------+
+    +--------+--------+---+-------------------+
+    |user_idx|item_idx|rel|          timestamp|
+    +--------+--------+---+-------------------+
+    |      u1|      i1|1.0|2020-01-01 23:59:59|
+    |      u2|      i2|0.5|2020-02-01 00:00:00|
+    |      u2|      i3|3.0|2020-02-01 00:00:00|
+    |      u3|      i1|1.0|2020-01-01 00:04:15|
+    |      u3|      i2|0.0|2020-01-02 00:04:14|
+    |      u3|      i3|1.0|2020-01-05 23:59:59|
+    +--------+--------+---+-------------------+
     <BLANKLINE>
 
     Only first interaction:
 
-    >>> filter_user_interactions(log_sp, 1, True).orderBy('user_id').show()
-    +-------+-------+---+-------------------+
-    |user_id|item_id|rel|          timestamp|
-    +-------+-------+---+-------------------+
-    |     u1|     i1|1.0|2020-01-01 23:59:59|
-    |     u2|     i2|0.5|2020-02-01 00:00:00|
-    |     u3|     i1|1.0|2020-01-01 00:04:15|
-    +-------+-------+---+-------------------+
+    >>> filter_user_interactions(log_sp, 1, True).orderBy('user_idx').show()
+    +--------+--------+---+-------------------+
+    |user_idx|item_idx|rel|          timestamp|
+    +--------+--------+---+-------------------+
+    |      u1|      i1|1.0|2020-01-01 23:59:59|
+    |      u2|      i2|0.5|2020-02-01 00:00:00|
+    |      u3|      i1|1.0|2020-01-01 00:04:15|
+    +--------+--------+---+-------------------+
     <BLANKLINE>
 
     Only last interaction:
 
-    >>> filter_user_interactions(log_sp, 1, False, item_col=None).orderBy('user_id').show()
-    +-------+-------+---+-------------------+
-    |user_id|item_id|rel|          timestamp|
-    +-------+-------+---+-------------------+
-    |     u1|     i1|1.0|2020-01-01 23:59:59|
-    |     u2|     i2|0.5|2020-02-01 00:00:00|
-    |     u3|     i3|1.0|2020-01-05 23:59:59|
-    +-------+-------+---+-------------------+
+    >>> filter_user_interactions(log_sp, 1, False, item_col=None).orderBy('user_idx').show()
+    +--------+--------+---+-------------------+
+    |user_idx|item_idx|rel|          timestamp|
+    +--------+--------+---+-------------------+
+    |      u1|      i1|1.0|2020-01-01 23:59:59|
+    |      u2|      i2|0.5|2020-02-01 00:00:00|
+    |      u3|      i3|1.0|2020-01-05 23:59:59|
+    +--------+--------+---+-------------------+
     <BLANKLINE>
 
-    >>> filter_user_interactions(log_sp, 1, False).orderBy('user_id').show()
-    +-------+-------+---+-------------------+
-    |user_id|item_id|rel|          timestamp|
-    +-------+-------+---+-------------------+
-    |     u1|     i1|1.0|2020-01-01 23:59:59|
-    |     u2|     i3|3.0|2020-02-01 00:00:00|
-    |     u3|     i3|1.0|2020-01-05 23:59:59|
-    +-------+-------+---+-------------------+
+    >>> filter_user_interactions(log_sp, 1, False).orderBy('user_idx').show()
+    +--------+--------+---+-------------------+
+    |user_idx|item_idx|rel|          timestamp|
+    +--------+--------+---+-------------------+
+    |      u1|      i1|1.0|2020-01-01 23:59:59|
+    |      u2|      i3|3.0|2020-02-01 00:00:00|
+    |      u3|      i3|1.0|2020-01-05 23:59:59|
+    +--------+--------+---+-------------------+
     <BLANKLINE>
 
     :param log: historical interactions DataFrame
@@ -163,15 +162,15 @@ def filter_by_user_duration(
     days: int = 10,
     first: bool = True,
     date_col: str = "timestamp",
-    user_col: str = "user_id",
+    user_col: str = "user_idx",
 ) -> DataFrame:
     """
     Get first/last ``days`` of user interactions.
 
     >>> import pandas as pd
     >>> from replay.utils import convert2spark
-    >>> log_pd = pd.DataFrame({"user_id": ["u1", "u2", "u2", "u3", "u3", "u3"],
-    ...                     "item_id": ["i1", "i2","i3", "i1", "i2","i3"],
+    >>> log_pd = pd.DataFrame({"user_idx": ["u1", "u2", "u2", "u3", "u3", "u3"],
+    ...                     "item_idx": ["i1", "i2","i3", "i1", "i2","i3"],
     ...                     "rel": [1., 0.5, 3, 1, 0, 1],
     ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01",
     ...                                   "2020-02-01", "2020-01-01 00:04:15",
@@ -179,44 +178,44 @@ def filter_by_user_duration(
     ...             )
     >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
     >>> log_sp = convert2spark(log_pd)
-    >>> log_sp.orderBy('user_id', 'item_id').show()
-    +-------+-------+---+-------------------+
-    |user_id|item_id|rel|          timestamp|
-    +-------+-------+---+-------------------+
-    |     u1|     i1|1.0|2020-01-01 23:59:59|
-    |     u2|     i2|0.5|2020-02-01 00:00:00|
-    |     u2|     i3|3.0|2020-02-01 00:00:00|
-    |     u3|     i1|1.0|2020-01-01 00:04:15|
-    |     u3|     i2|0.0|2020-01-02 00:04:14|
-    |     u3|     i3|1.0|2020-01-05 23:59:59|
-    +-------+-------+---+-------------------+
+    >>> log_sp.orderBy('user_idx', 'item_idx').show()
+    +--------+--------+---+-------------------+
+    |user_idx|item_idx|rel|          timestamp|
+    +--------+--------+---+-------------------+
+    |      u1|      i1|1.0|2020-01-01 23:59:59|
+    |      u2|      i2|0.5|2020-02-01 00:00:00|
+    |      u2|      i3|3.0|2020-02-01 00:00:00|
+    |      u3|      i1|1.0|2020-01-01 00:04:15|
+    |      u3|      i2|0.0|2020-01-02 00:04:14|
+    |      u3|      i3|1.0|2020-01-05 23:59:59|
+    +--------+--------+---+-------------------+
     <BLANKLINE>
 
     Get first day:
 
-    >>> filter_by_user_duration(log_sp, 1, True).orderBy('user_id', 'item_id').show()
-    +-------+-------+---+-------------------+
-    |user_id|item_id|rel|          timestamp|
-    +-------+-------+---+-------------------+
-    |     u1|     i1|1.0|2020-01-01 23:59:59|
-    |     u2|     i2|0.5|2020-02-01 00:00:00|
-    |     u2|     i3|3.0|2020-02-01 00:00:00|
-    |     u3|     i1|1.0|2020-01-01 00:04:15|
-    |     u3|     i2|0.0|2020-01-02 00:04:14|
-    +-------+-------+---+-------------------+
+    >>> filter_by_user_duration(log_sp, 1, True).orderBy('user_idx', 'item_idx').show()
+    +--------+--------+---+-------------------+
+    |user_idx|item_idx|rel|          timestamp|
+    +--------+--------+---+-------------------+
+    |      u1|      i1|1.0|2020-01-01 23:59:59|
+    |      u2|      i2|0.5|2020-02-01 00:00:00|
+    |      u2|      i3|3.0|2020-02-01 00:00:00|
+    |      u3|      i1|1.0|2020-01-01 00:04:15|
+    |      u3|      i2|0.0|2020-01-02 00:04:14|
+    +--------+--------+---+-------------------+
     <BLANKLINE>
 
     Get last day:
 
-    >>> filter_by_user_duration(log_sp, 1, False).orderBy('user_id', 'item_id').show()
-    +-------+-------+---+-------------------+
-    |user_id|item_id|rel|          timestamp|
-    +-------+-------+---+-------------------+
-    |     u1|     i1|1.0|2020-01-01 23:59:59|
-    |     u2|     i2|0.5|2020-02-01 00:00:00|
-    |     u2|     i3|3.0|2020-02-01 00:00:00|
-    |     u3|     i3|1.0|2020-01-05 23:59:59|
-    +-------+-------+---+-------------------+
+    >>> filter_by_user_duration(log_sp, 1, False).orderBy('user_idx', 'item_idx').show()
+    +--------+--------+---+-------------------+
+    |user_idx|item_idx|rel|          timestamp|
+    +--------+--------+---+-------------------+
+    |      u1|      i1|1.0|2020-01-01 23:59:59|
+    |      u2|      i2|0.5|2020-02-01 00:00:00|
+    |      u2|      i3|3.0|2020-02-01 00:00:00|
+    |      u3|      i3|1.0|2020-01-05 23:59:59|
+    +--------+--------+---+-------------------+
     <BLANKLINE>
 
     :param log: historical DataFrame
@@ -240,8 +239,7 @@ def filter_by_user_duration(
     return (
         log.withColumn("max_date", sf.max(col(date_col)).over(window))
         .filter(
-            col(date_col)
-            > col("max_date") - sf.expr(f"INTERVAL {days} days")
+            col(date_col) > col("max_date") - sf.expr(f"INTERVAL {days} days")
         )
         .drop("max_date")
     )
@@ -258,8 +256,8 @@ def filter_between_dates(
 
     >>> import pandas as pd
     >>> from replay.utils import convert2spark
-    >>> log_pd = pd.DataFrame({"user_id": ["u1", "u2", "u2", "u3", "u3", "u3"],
-    ...                     "item_id": ["i1", "i2","i3", "i1", "i2","i3"],
+    >>> log_pd = pd.DataFrame({"user_idx": ["u1", "u2", "u2", "u3", "u3", "u3"],
+    ...                     "item_idx": ["i1", "i2","i3", "i1", "i2","i3"],
     ...                     "rel": [1., 0.5, 3, 1, 0, 1],
     ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01",
     ...                                   "2020-02-01", "2020-01-01 00:04:15",
@@ -268,25 +266,25 @@ def filter_between_dates(
     >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.show()
-    +-------+-------+---+-------------------+
-    |user_id|item_id|rel|          timestamp|
-    +-------+-------+---+-------------------+
-    |     u1|     i1|1.0|2020-01-01 23:59:59|
-    |     u2|     i2|0.5|2020-02-01 00:00:00|
-    |     u2|     i3|3.0|2020-02-01 00:00:00|
-    |     u3|     i1|1.0|2020-01-01 00:04:15|
-    |     u3|     i2|0.0|2020-01-02 00:04:14|
-    |     u3|     i3|1.0|2020-01-05 23:59:59|
-    +-------+-------+---+-------------------+
+    +--------+--------+---+-------------------+
+    |user_idx|item_idx|rel|          timestamp|
+    +--------+--------+---+-------------------+
+    |      u1|      i1|1.0|2020-01-01 23:59:59|
+    |      u2|      i2|0.5|2020-02-01 00:00:00|
+    |      u2|      i3|3.0|2020-02-01 00:00:00|
+    |      u3|      i1|1.0|2020-01-01 00:04:15|
+    |      u3|      i2|0.0|2020-01-02 00:04:14|
+    |      u3|      i3|1.0|2020-01-05 23:59:59|
+    +--------+--------+---+-------------------+
     <BLANKLINE>
 
     >>> filter_between_dates(log_sp, start_date="2020-01-01 14:00:00", end_date=datetime(2020, 1, 3, 0, 0, 0)).show()
-    +-------+-------+---+-------------------+
-    |user_id|item_id|rel|          timestamp|
-    +-------+-------+---+-------------------+
-    |     u1|     i1|1.0|2020-01-01 23:59:59|
-    |     u3|     i2|0.0|2020-01-02 00:04:14|
-    +-------+-------+---+-------------------+
+    +--------+--------+---+-------------------+
+    |user_idx|item_idx|rel|          timestamp|
+    +--------+--------+---+-------------------+
+    |      u1|      i1|1.0|2020-01-01 23:59:59|
+    |      u3|      i2|0.0|2020-01-02 00:04:14|
+    +--------+--------+---+-------------------+
     <BLANKLINE>
 
     :param log: historical DataFrame
@@ -318,8 +316,8 @@ def filter_by_duration(
 
     >>> import pandas as pd
     >>> from replay.utils import convert2spark
-    >>> log_pd = pd.DataFrame({"user_id": ["u1", "u2", "u2", "u3", "u3", "u3"],
-    ...                     "item_id": ["i1", "i2","i3", "i1", "i2","i3"],
+    >>> log_pd = pd.DataFrame({"user_idx": ["u1", "u2", "u2", "u3", "u3", "u3"],
+    ...                     "item_idx": ["i1", "i2","i3", "i1", "i2","i3"],
     ...                     "rel": [1., 0.5, 3, 1, 0, 1],
     ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01",
     ...                                   "2020-02-01", "2020-01-01 00:04:15",
@@ -328,35 +326,35 @@ def filter_by_duration(
     >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.show()
-    +-------+-------+---+-------------------+
-    |user_id|item_id|rel|          timestamp|
-    +-------+-------+---+-------------------+
-    |     u1|     i1|1.0|2020-01-01 23:59:59|
-    |     u2|     i2|0.5|2020-02-01 00:00:00|
-    |     u2|     i3|3.0|2020-02-01 00:00:00|
-    |     u3|     i1|1.0|2020-01-01 00:04:15|
-    |     u3|     i2|0.0|2020-01-02 00:04:14|
-    |     u3|     i3|1.0|2020-01-05 23:59:59|
-    +-------+-------+---+-------------------+
+    +--------+--------+---+-------------------+
+    |user_idx|item_idx|rel|          timestamp|
+    +--------+--------+---+-------------------+
+    |      u1|      i1|1.0|2020-01-01 23:59:59|
+    |      u2|      i2|0.5|2020-02-01 00:00:00|
+    |      u2|      i3|3.0|2020-02-01 00:00:00|
+    |      u3|      i1|1.0|2020-01-01 00:04:15|
+    |      u3|      i2|0.0|2020-01-02 00:04:14|
+    |      u3|      i3|1.0|2020-01-05 23:59:59|
+    +--------+--------+---+-------------------+
     <BLANKLINE>
 
     >>> filter_by_duration(log_sp, 1).show()
-    +-------+-------+---+-------------------+
-    |user_id|item_id|rel|          timestamp|
-    +-------+-------+---+-------------------+
-    |     u1|     i1|1.0|2020-01-01 23:59:59|
-    |     u3|     i1|1.0|2020-01-01 00:04:15|
-    |     u3|     i2|0.0|2020-01-02 00:04:14|
-    +-------+-------+---+-------------------+
+    +--------+--------+---+-------------------+
+    |user_idx|item_idx|rel|          timestamp|
+    +--------+--------+---+-------------------+
+    |      u1|      i1|1.0|2020-01-01 23:59:59|
+    |      u3|      i1|1.0|2020-01-01 00:04:15|
+    |      u3|      i2|0.0|2020-01-02 00:04:14|
+    +--------+--------+---+-------------------+
     <BLANKLINE>
 
     >>> filter_by_duration(log_sp, 1, first=False).show()
-    +-------+-------+---+-------------------+
-    |user_id|item_id|rel|          timestamp|
-    +-------+-------+---+-------------------+
-    |     u2|     i2|0.5|2020-02-01 00:00:00|
-    |     u2|     i3|3.0|2020-02-01 00:00:00|
-    +-------+-------+---+-------------------+
+    +--------+--------+---+-------------------+
+    |user_idx|item_idx|rel|          timestamp|
+    +--------+--------+---+-------------------+
+    |      u2|      i2|0.5|2020-02-01 00:00:00|
+    |      u2|      i3|3.0|2020-02-01 00:00:00|
+    +--------+--------+---+-------------------+
     <BLANKLINE>
 
     :param log: historical DataFrame

@@ -20,39 +20,42 @@ class PopRec(Recommender):
     :math:`N` - total number of users
 
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 2, 3, 4], "item_id": [1, 2, 2, 3, 3, 3], "relevance": [0.5, 1, 0.1, 0.8, 0.7, 1]})
+    >>> data_frame = pd.DataFrame({"user_idx": [1, 1, 2, 2, 3, 4], "item_idx": [1, 2, 2, 3, 3, 3], "relevance": [0.5, 1, 0.1, 0.8, 0.7, 1]})
     >>> data_frame
-       user_id  item_id  relevance
-    0        1        1        0.5
-    1        1        2        1.0
-    2        2        2        0.1
-    3        2        3        0.8
-    4        3        3        0.7
-    5        4        3        1.0
+       user_idx  item_idx  relevance
+    0         1         1        0.5
+    1         1         2        1.0
+    2         2         2        0.1
+    3         2         3        0.8
+    4         3         3        0.7
+    5         4         3        1.0
+
+    >>> from replay.utils import convert2spark
+    >>> data_frame = convert2spark(data_frame)
 
     >>> res = PopRec().fit_predict(data_frame, 1)
-    >>> res.toPandas().sort_values("user_id", ignore_index=True)
-       user_id  item_id  relevance
-    0        1        3       0.75
-    1        2        1       0.25
-    2        3        2       0.50
-    3        4        2       0.50
+    >>> res.toPandas().sort_values("user_idx", ignore_index=True)
+       user_idx  item_idx  relevance
+    0         1         3       0.75
+    1         2         1       0.25
+    2         3         2       0.50
+    3         4         2       0.50
 
     >>> res = PopRec().fit_predict(data_frame, 1, filter_seen_items=False)
-    >>> res.toPandas().sort_values("user_id", ignore_index=True)
-       user_id  item_id  relevance
-    0        1        3       0.75
-    1        2        3       0.75
-    2        3        3       0.75
-    3        4        3       0.75
+    >>> res.toPandas().sort_values("user_idx", ignore_index=True)
+       user_idx  item_idx  relevance
+    0         1         3       0.75
+    1         2         3       0.75
+    2         3         3       0.75
+    3         4         3       0.75
 
     >>> res = PopRec(use_relevance=True).fit_predict(data_frame, 1)
-    >>> res.toPandas().sort_values("user_id", ignore_index=True)
-       user_id  item_id  relevance
-    0        1        3      0.625
-    1        2        1      0.125
-    2        3        2      0.275
-    3        4        2      0.275
+    >>> res.toPandas().sort_values("user_idx", ignore_index=True)
+       user_idx  item_idx  relevance
+    0         1         3      0.625
+    1         2         1      0.125
+    2         3         2      0.275
+    3         4         2      0.275
 
     """
 
@@ -116,9 +119,7 @@ class PopRec(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         selected_item_popularity = self.item_popularity.join(
-            items,
-            on="item_idx",
-            how="inner",
+            items, on="item_idx", how="inner",
         ).withColumn(
             "rank",
             sf.row_number().over(Window.orderBy(sf.col("relevance").desc())),

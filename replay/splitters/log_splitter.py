@@ -102,35 +102,35 @@ class NewUsersSplitter(Splitter):
 
     >>> from replay.splitters import NewUsersSplitter
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_id": [1,1,2,2,3,4],
-    ...    "item_id": [1,2,3,1,2,3],
+    >>> data_frame = pd.DataFrame({"user_idx": [1,1,2,2,3,4],
+    ...    "item_idx": [1,2,3,1,2,3],
     ...    "relevance": [1,2,3,4,5,6],
     ...    "timestamp": [20,40,20,30,10,40]})
     >>> data_frame
-       user_id  item_id  relevance  timestamp
-    0        1        1          1         20
-    1        1        2          2         40
-    2        2        3          3         20
-    3        2        1          4         30
-    4        3        2          5         10
-    5        4        3          6         40
+       user_idx  item_idx  relevance  timestamp
+    0         1         1          1         20
+    1         1         2          2         40
+    2         2         3          3         20
+    3         2         1          4         30
+    4         3         2          5         10
+    5         4         3          6         40
     >>> train, test = NewUsersSplitter(test_size=0.1).split(data_frame)
     >>> train.show()
-    +-------+-------+---------+---------+
-    |user_id|item_id|relevance|timestamp|
-    +-------+-------+---------+---------+
-    |      1|      1|        1|       20|
-    |      2|      3|        3|       20|
-    |      2|      1|        4|       30|
-    |      3|      2|        5|       10|
-    +-------+-------+---------+---------+
+    +--------+--------+---------+---------+
+    |user_idx|item_idx|relevance|timestamp|
+    +--------+--------+---------+---------+
+    |       1|       1|        1|       20|
+    |       2|       3|        3|       20|
+    |       2|       1|        4|       30|
+    |       3|       2|        5|       10|
+    +--------+--------+---------+---------+
     <BLANKLINE>
     >>> test.show()
-    +-------+-------+---------+---------+
-    |user_id|item_id|relevance|timestamp|
-    +-------+-------+---------+---------+
-    |      4|      3|        6|       40|
-    +-------+-------+---------+---------+
+    +--------+--------+---------+---------+
+    |user_idx|item_idx|relevance|timestamp|
+    +--------+--------+---------+---------+
+    |       4|       3|        6|       40|
+    +--------+--------+---------+---------+
     <BLANKLINE>
 
     Train DataFrame can be drastically reduced even with moderate
@@ -138,11 +138,11 @@ class NewUsersSplitter(Splitter):
 
     >>> train, test = NewUsersSplitter(test_size=0.3).split(data_frame)
     >>> train.show()
-    +-------+-------+---------+---------+
-    |user_id|item_id|relevance|timestamp|
-    +-------+-------+---------+---------+
-    |      3|      2|        5|       10|
-    +-------+-------+---------+---------+
+    +--------+--------+---------+---------+
+    |user_idx|item_idx|relevance|timestamp|
+    +--------+--------+---------+---------+
+    |       3|       2|        5|       10|
+    +--------+--------+---------+---------+
     <BLANKLINE>
     """
 
@@ -159,12 +159,12 @@ class NewUsersSplitter(Splitter):
             raise ValueError("test_size must be 0 to 1")
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
-        start_date_by_user = log.groupby("user_id").agg(
+        start_date_by_user = log.groupby("user_idx").agg(
             sf.min("timestamp").alias("start_dt")
         )
         test_start_date = (
             start_date_by_user.groupby("start_dt")
-            .agg(sf.count("user_id").alias("cnt"))
+            .agg(sf.count("user_idx").alias("cnt"))
             .select(
                 "start_dt",
                 sf.sum("cnt")
@@ -182,7 +182,7 @@ class NewUsersSplitter(Splitter):
         test = log.join(
             start_date_by_user.filter(sf.col("start_dt") >= test_start_date),
             how="inner",
-            on="user_id",
+            on="user_idx",
         ).drop("start_dt")
         return train, test
 
@@ -213,10 +213,10 @@ class ColdUserRandomSplitter(Splitter):
         self.test_size = test_size
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
-        users = log.select("user_id").distinct()
+        users = log.select("user_idx").distinct()
         train_users, test_users = users.randomSplit(
             [1 - self.test_size, self.test_size], seed=self.seed,
         )
-        train = log.join(train_users, on="user_id", how="inner")
-        test = log.join(test_users, on="user_id", how="inner")
+        train = log.join(train_users, on="user_idx", how="inner")
+        test = log.join(test_users, on="user_idx", how="inner")
         return train, test

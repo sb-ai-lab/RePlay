@@ -95,7 +95,6 @@ def eval_quality(
         split_data.train,
         split_data.user_features_train,
         split_data.item_features_train,
-        False,
     )
     logger.debug("Predicting inside optimization")
     recs = recommender._predict_wrap(
@@ -161,7 +160,7 @@ class KNNObjective:
         ]
         model = self.kwargs["recommender"]
         split_data = self.kwargs["split_data"]
-        train, _, _ = model._fit_index(split_data.train, force_reindex=False)
+        train = split_data.train
         model.num_neighbours = max_neighbours
 
         df = train.select("user_idx", "item_idx", "relevance")
@@ -191,6 +190,8 @@ class KNNObjective:
         """
         params_for_trial = suggest_params(trial, search_space)
         recommender.set_params(**params_for_trial)
+        recommender.fit_users = split_data.train.select("user_idx").distinct()
+        recommender.fit_items = split_data.train.select("item_idx").distinct()
         similarity = recommender._shrink(self.dot_products, recommender.shrink)
         recommender.similarity = recommender._get_k_most_similar(
             similarity
