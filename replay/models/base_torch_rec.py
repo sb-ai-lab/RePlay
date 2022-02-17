@@ -48,7 +48,7 @@ class TorchRecommender(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         items_consider_in_pred = items.toPandas()["item_idx"].values
-        items_count = self.max_item
+        items_count = self._item_dim
         model = self.model.cpu()
         agg_fn = self._predict_by_user
 
@@ -75,7 +75,7 @@ class TorchRecommender(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-        items_count = self.max_item
+        items_count = self._item_dim
         model = self.model.cpu()
         agg_fn = self._predict_by_user_pairs
         users = pairs.select("user_idx").distinct()
@@ -125,7 +125,9 @@ class TorchRecommender(Recommender):
     @staticmethod
     @abstractmethod
     def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
+        pandas_df: pd.DataFrame,
+        model: nn.Module,
+        item_count: int,
     ) -> pd.DataFrame:
         """
         Get relevance for provided pairs

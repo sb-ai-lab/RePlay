@@ -128,17 +128,17 @@ class ADMMSLIM(NeighbourRec):
                 pandas_log["relevance"],
                 (pandas_log["user_idx"], pandas_log["item_idx"]),
             ),
-            shape=(self.max_user, self.max_item),
+            shape=(self._user_dim, self._item_dim),
         )
         self.logger.debug("Gram matrix")
         xtx = (interactions_matrix.T @ interactions_matrix).toarray()
         self.logger.debug("Inverse matrix")
         inv_matrix = np.linalg.inv(
-            xtx + (self.lambda_2 + self.rho) * np.eye(self.max_item)
+            xtx + (self.lambda_2 + self.rho) * np.eye(self._item_dim)
         )
         self.logger.debug("Main calculations")
         p_x = inv_matrix @ xtx
-        mat_b, mat_c, mat_gamma = self._init_matrix(self.max_item)
+        mat_b, mat_c, mat_gamma = self._init_matrix(self._item_dim)
         r_primal = np.linalg.norm(mat_b - mat_c)
         r_dual = np.linalg.norm(self.rho * mat_c)
         eps_primal, eps_dual = 0.0, 0.0
@@ -166,7 +166,7 @@ class ADMMSLIM(NeighbourRec):
                 self.eps_abs,
                 self.eps_rel,
                 self.lambda_1,
-                self.max_item,
+                self._item_dim,
                 self.threshold,
                 self.multiplicator,
             )

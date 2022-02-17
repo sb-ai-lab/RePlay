@@ -467,6 +467,8 @@ def fallback(
     """
     if fill is None:
         return base
+    if base.count() == 0:
+        return get_top_k_recs(fill, k, id_type)
     margin = 0.1
     min_in_base = base.agg({"relevance": "min"}).collect()[0][0]
     max_in_fill = fill.agg({"relevance": "max"}).collect()[0][0]

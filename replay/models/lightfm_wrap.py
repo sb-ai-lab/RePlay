@@ -99,9 +99,9 @@ class LightFMWrap(HybridRecommender):
             log_ids_list, on=idx_col_name, how="inner"
         )
 
-        num_entities_in_fit = getattr(self, f"max_{entity}")
+        fit_dim = getattr(self, f"_{entity}_dim")
         matrix_height = max(
-            num_entities_in_fit,
+            fit_dim,
             log_ids_list.select(sf.max(idx_col_name)).collect()[0][0] + 1,
         )
         if not feature_table.rdd.isEmpty():
@@ -132,14 +132,14 @@ class LightFMWrap(HybridRecommender):
         number_of_features = features_np.shape[1]
 
         all_ids_list = log_ids_list.toPandas().to_numpy().ravel()
-        entities_seen_in_fit = all_ids_list[all_ids_list < num_entities_in_fit]
+        entities_seen_in_fit = all_ids_list[all_ids_list < fit_dim]
 
         entity_id_features = csr_matrix(
             (
                 [1.0] * entities_seen_in_fit.shape[0],
                 (entities_seen_in_fit, entities_seen_in_fit),
             ),
-            shape=(matrix_height, num_entities_in_fit),
+            shape=(matrix_height, fit_dim),
         )
 
         scaler_name = f"{entity}_feat_scaler"
@@ -182,7 +182,7 @@ class LightFMWrap(HybridRecommender):
         self.user_feat_scaler = None
         self.item_feat_scaler = None
 
-        interactions_matrix = to_csr(log, self.max_user, self.max_item)
+        interactions_matrix = to_csr(log, self._user_dim, self._item_dim)
         csr_item_features = self._feature_table_to_csr(
             log.select("item_idx").distinct(), item_features
         )
@@ -286,7 +286,10 @@ class LightFMWrap(HybridRecommender):
             matrix_width = getattr(self, f"fit_{entity}s").count()
             warm_ids = ids_list[ids_list < matrix_width]
             sparse_features = csr_matrix(
-                ([1] * warm_ids.shape[0], (warm_ids, warm_ids),),
+                (
+                    [1] * warm_ids.shape[0],
+                    (warm_ids, warm_ids),
+                ),
                 shape=(ids_list.max() + 1, matrix_width),
             )
         else:
@@ -305,6 +308,10 @@ class LightFMWrap(HybridRecommender):
         )
         lightfm_factors = State().session.createDataFrame(
             embed_list,
-            schema=[f"{entity}_idx", f"{entity}_bias", f"{entity}_factors",],
+            schema=[
+                f"{entity}_idx",
+                f"{entity}_bias",
+                f"{entity}_factors",
+            ],
         )
         return lightfm_factors, self.model.no_components

@@ -1,4 +1,4 @@
-# pylint: disable-all
+# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, pointless-statement
 from typing import Optional
 
 import pytest
@@ -8,6 +8,7 @@ from replay.models import Recommender
 from tests.utils import spark, log
 
 
+# pylint: disable=missing-class-docstring, too-many-arguments
 class DerivedRec(Recommender):
     def _fit(
         self,
@@ -45,16 +46,16 @@ def test_extract_if_needed(spark, model, array):
 
 def test_users_count(model, log):
     with pytest.raises(AttributeError):
-        model.max_user
+        model._user_dim
     model.fit(log)
-    assert model.max_user == 4
+    assert model._user_dim == 4
 
 
 def test_items_count(model, log):
     with pytest.raises(AttributeError):
-        model.max_item
+        model._item_dim
     model.fit(log)
-    assert model.max_item == 4
+    assert model._item_dim == 4
 
 
 def test_str(model):

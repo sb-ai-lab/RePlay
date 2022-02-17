@@ -119,7 +119,9 @@ class PopRec(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         selected_item_popularity = self.item_popularity.join(
-            items, on="item_idx", how="inner",
+            items,
+            on="item_idx",
+            how="inner",
         ).withColumn(
             "rank",
             sf.row_number().over(Window.orderBy(sf.col("relevance").desc())),

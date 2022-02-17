@@ -207,7 +207,7 @@ class MultVAE(TorchRecommender):
                 np.ones(len(data["user_idx"])),
                 ([user_idx.codes.values, data["item_idx"].values]),
             ),
-            shape=(users_count, self.max_item),
+            shape=(users_count, self._item_dim),
         )
         data_loader = DataLoader(
             TensorDataset(torch.arange(users_count).long()),
@@ -244,7 +244,7 @@ class MultVAE(TorchRecommender):
 
         self.logger.debug("Training VAE")
         self.model = VAE(
-            item_count=self.max_item,
+            item_count=self._item_dim,
             latent_dim=self.latent_dim,
             hidden_dim=self.hidden_dim,
             dropout=self.dropout,
@@ -347,7 +347,9 @@ class MultVAE(TorchRecommender):
 
     @staticmethod
     def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame, model: nn.Module, item_count: int,
+        pandas_df: pd.DataFrame,
+        model: nn.Module,
+        item_count: int,
     ) -> pd.DataFrame:
         return MultVAE._predict_pairs_inner(
             model=model,
@@ -360,7 +362,7 @@ class MultVAE(TorchRecommender):
 
     def _load_model(self, path: str):
         self.model = VAE(
-            item_count=self.max_item,
+            item_count=self._item_dim,
             latent_dim=self.latent_dim,
             hidden_dim=self.hidden_dim,
             dropout=self.dropout,

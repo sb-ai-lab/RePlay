@@ -317,7 +317,7 @@ class NeuroMF(TorchRecommender):
     def _get_neg_batch(self, batch: Tensor) -> Tensor:
         negative_items = torch.randint(
             0,
-            self.max_item - 1,
+            self._item_dim,
             (batch.shape[0] * self.count_negative_sample,),
         )
         return negative_items
@@ -329,8 +329,8 @@ class NeuroMF(TorchRecommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         self.model = NMF(
-            user_count=self.max_user,
-            item_count=self.max_item,
+            user_count=self._user_dim,
+            item_count=self._item_dim,
             embedding_gmf_dim=self.embedding_gmf_dim,
             embedding_mlp_dim=self.embedding_mlp_dim,
             hidden_mlp_dims=self.hidden_mlp_dims,
@@ -396,7 +396,10 @@ class NeuroMF(TorchRecommender):
             user_batch = LongTensor([user_idx] * len(items_np))
             item_batch = LongTensor(items_np)
             user_recs = torch.reshape(
-                model(user_batch, item_batch).detach(), [-1,],
+                model(user_batch, item_batch).detach(),
+                [
+                    -1,
+                ],
             )
             if cnt is not None:
                 best_item_idx = (
@@ -441,8 +444,8 @@ class NeuroMF(TorchRecommender):
 
     def _load_model(self, path: str):
         self.model = NMF(
-            user_count=self.max_user,
-            item_count=self.max_item,
+            user_count=self._user_dim,
+            item_count=self._item_dim,
             embedding_gmf_dim=self.embedding_gmf_dim,
             embedding_mlp_dim=self.embedding_mlp_dim,
             hidden_mlp_dims=self.hidden_mlp_dims,

@@ -1,17 +1,17 @@
 # pylint: disable=protected-access
-from typing import Optional, Dict, List, Any, Tuple
+from typing import Optional, Dict, List, Any, Tuple, Union, Iterable
 
 from pyspark.sql import DataFrame
 
 from replay.constants import AnyDataFrame
+from replay.filters import min_entries
 from replay.metrics import Metric, NDCG
 from replay.models import PopRec
 from replay.models.base_rec import BaseRecommender
-from replay.scenarios.basescenario import BaseScenario
 from replay.utils import fallback
 
 
-class Fallback(BaseScenario):
+class Fallback(BaseRecommender):
     """Fill missing recommendations using fallback model.
     Behaves like a recommender and have the same interface."""
 
@@ -21,18 +21,17 @@ class Fallback(BaseScenario):
         self,
         main_model: BaseRecommender,
         fallback_model: BaseRecommender = PopRec(),
-        cold_model: BaseRecommender = PopRec(),
-        threshold: int = 5,
+        threshold: int = 0,
     ):
         """Create recommendations with `main_model`, and fill missing with `fallback_model`.
         `relevance` of fallback_model will be decrease to keep main recommendations on top.
 
         :param main_model: initialized model
         :param fallback_model: initialized model
-        :param cold_model: model used for cold users
         :param threshold: number of interactions by which users are divided into cold and hot
         """
-        super().__init__(cold_model, threshold)
+        self.threshold = threshold
+        self.hot_users = None
         self.main_model = main_model
         # pylint: disable=invalid-name
         self.fb_model = fallback_model
@@ -40,8 +39,85 @@ class Fallback(BaseScenario):
     def __str__(self):
         return f"Fallback({str(self.main_model)}, {str(self.fb_model)})"
 
+    def fit(
+        self,
+        log: AnyDataFrame,
+        user_features: Optional[AnyDataFrame] = None,
+        item_features: Optional[AnyDataFrame] = None,
+    ) -> None:
+        """
+        :param log: input DataFrame ``[user_id, item_id, timestamp, relevance]``
+        :param user_features: user features ``[user_id, timestamp]`` + feature columns
+        :param item_features: item features ``[item_id, timestamp]`` + feature columns
+        :return:
+        """
+        hot_data = min_entries(log, self.threshold)
+        self.hot_users = hot_data.select("user_idx").distinct()
+        self._fit_wrap(hot_data, user_features, item_features)
+        self.fb_model._fit_wrap(log, user_features, item_features)
+
+    # pylint: disable=too-many-arguments
+    def predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: Optional[Union[DataFrame, Iterable]] = None,
+        items: Optional[Union[DataFrame, Iterable]] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        """
+        Get recommendations
+
+        :param log: historical log of interactions
+            ``[user_idx, item_idx, timestamp, relevance]``
+        :param k: length of recommendation lists, should be less that the total number of ``items``
+        :param users: users to create recommendations for
+            dataframe containing ``[user_idx]`` or ``array-like``;
+            if ``None``, recommend to all users from ``log``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_idx]`` or ``array-like``;
+            if ``None``, take all items from ``log``.
+            If it contains new items, ``relevance`` for them will be``0``.
+        :param user_features: user features
+            ``[user_idx , timestamp]`` + feature columns
+        :param item_features: item features
+            ``[item_idx , timestamp]`` + feature columns
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :return: recommendation dataframe
+            ``[user_idx, item_idx, relevance]``
+        """
+        users = users or log or user_features or self.fit_users
+        users = self._get_ids(users, "user_idx")
+        hot_data = min_entries(log, self.threshold)
+        hot_users = hot_data.select("user_idx").distinct()
+        hot_users = hot_users.join(self.hot_users, on="user_idx")
+        hot_users = hot_users.join(users, on="user_idx", how="inner")
+
+        hot_pred = self._predict_wrap(
+            log=hot_data,
+            k=k,
+            users=hot_users,
+            items=items,
+            user_features=user_features,
+            item_features=item_features,
+            filter_seen_items=filter_seen_items,
+        )
+        cold_pred = self.fb_model._predict_wrap(
+            log=log,
+            k=k,
+            users=users,
+            items=items,
+            user_features=user_features,
+            item_features=item_features,
+            filter_seen_items=filter_seen_items,
+        )
+        pred = fallback(hot_pred, cold_pred, k)
+        return pred
+
     # pylint: disable=too-many-arguments, too-many-locals
-    def _optimize(
+    def optimize(
         self,
         train: AnyDataFrame,
         test: AnyDataFrame,
@@ -131,14 +207,4 @@ class Fallback(BaseScenario):
             item_features,
             filter_seen_items,
         )
-        extra_pred = self.fb_model._predict(
-            log,
-            k,
-            users,
-            items,
-            user_features,
-            item_features,
-            filter_seen_items,
-        )
-        pred = fallback(pred, extra_pred, k)
         return pred
