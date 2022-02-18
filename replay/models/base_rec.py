@@ -455,7 +455,7 @@ class BaseRecommender(ABC):
         users = self._get_ids(user_data, "user_idx")
         users = self._filter_ids(users, "user_idx")
 
-        item_data = items or log or item_features or self.fit_items
+        item_data = items or self.fit_items
         items = self._get_ids(item_data, "item_idx")
         items = self._filter_ids(items, "item_idx")
 

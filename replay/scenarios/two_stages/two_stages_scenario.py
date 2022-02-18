@@ -65,7 +65,10 @@ def get_first_level_model_features(
         pairs, user_factors, how="left", on="user_idx"
     )
     pairs_with_features = join_or_return(
-        pairs_with_features, item_factors, how="left", on="item_idx",
+        pairs_with_features,
+        item_factors,
+        how="left",
+        on="item_idx",
     )
 
     factors_to_explode = []
@@ -331,7 +334,10 @@ class TwoStagesScenario(HybridRecommender):
             how="left",
         )
         full_second_level_train = join_or_return(
-            full_second_level_train, item_features, on="item_idx", how="left",
+            full_second_level_train,
+            item_features,
+            on="item_idx",
+            how="left",
         )
 
         if self.use_generated_features:
@@ -366,14 +372,6 @@ class TwoStagesScenario(HybridRecommender):
             "second_level_train info: %s", get_log_info(second_level_train)
         )
         return first_level_train, second_level_train
-
-    def _fit_wrap(
-        self,
-        log: AnyDataFrame,
-        user_features: Optional[AnyDataFrame] = None,
-        item_features: Optional[AnyDataFrame] = None,
-    ) -> None:
-        self._fit(log, user_features, item_features)
 
     @staticmethod
     def _filter_or_return(dataframe, condition):
@@ -413,7 +411,9 @@ class TwoStagesScenario(HybridRecommender):
             ]
 
         log_to_filter_cached = ugly_join(
-            left=log_to_filter, right=users, on_col_name="user_idx",
+            left=log_to_filter,
+            right=users,
+            on_col_name="user_idx",
         ).cache()
         max_positives_to_filter = 0
 
