@@ -245,22 +245,26 @@ class DataPreparator:
             self._rename(df, mapping)
             for df in [log, user_features, item_features]
         ]
-        if user_features is None:
-            users = log.select("user_id")
-        else:
+        if user_features:
             users = log.select("user_id").union(
                 user_features.select("user_id")
             )
-            user_features = self.indexer.transform(user_features)
-        if item_features is None:
-            items = log.select("item_id")
         else:
+            users = log.select("user_id")
+        if item_features:
             items = log.select("item_id").union(
                 item_features.select("item_id")
             )
-            item_features = self.indexer.transform(item_features)
+        else:
+            items = log.select("item_id")
         self.indexer.fit(users, items)
+
         log = self.indexer.transform(log)
+        if user_features:
+            user_features = self.indexer.transform(user_features)
+        if item_features:
+            item_features = self.indexer.transform(item_features)
+
         return log, user_features, item_features
 
     @staticmethod
