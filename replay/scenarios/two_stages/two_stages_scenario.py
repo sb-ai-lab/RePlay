@@ -6,14 +6,12 @@ import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 
 from replay.constants import AnyDataFrame
+from replay.data_preparator import ToNumericFeatureTransformer
+from replay.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.metrics import Metric, Precision
 from replay.models import ALSWrap, RandomRec, PopRec
 from replay.models.base_rec import BaseRecommender, HybridRecommender
 from replay.scenarios.two_stages.reranker import LamaWrap
-from replay.scenarios.two_stages.feature_processor import (
-    SecondLevelFeaturesProcessor,
-    FirstLevelFeaturesProcessor,
-)
 
 from replay.session_handler import State
 from replay.splitters import Splitter, UserSplitter
@@ -176,7 +174,7 @@ class TwoStagesScenario(HybridRecommender):
         use_generated_features: bool = False,
         user_cat_features_list: Optional[List] = None,
         item_cat_features_list: Optional[List] = None,
-        custom_features_processor: SecondLevelFeaturesProcessor = None,
+        custom_features_processor: HistoryBasedFeaturesProcessor = None,
         seed: int = 123,
     ) -> None:
         """
@@ -213,10 +211,10 @@ class TwoStagesScenario(HybridRecommender):
         self.random_model = RandomRec(seed=seed)
         self.fallback_model = fallback_model
         self.first_level_user_features_transformer = (
-            FirstLevelFeaturesProcessor()
+            ToNumericFeatureTransformer()
         )
         self.first_level_item_features_transformer = (
-            FirstLevelFeaturesProcessor()
+            ToNumericFeatureTransformer()
         )
 
         if isinstance(use_first_level_models_feat, bool):
@@ -248,12 +246,13 @@ class TwoStagesScenario(HybridRecommender):
         self.negatives_type = negatives_type
 
         self.use_generated_features = use_generated_features
-        self.user_cat_features_list = user_cat_features_list
-        self.item_cat_features_list = item_cat_features_list
         self.features_processor = (
             custom_features_processor
             if custom_features_processor
-            else SecondLevelFeaturesProcessor()
+            else HistoryBasedFeaturesProcessor(
+                user_cat_features_list=user_cat_features_list,
+                item_cat_features_list=item_cat_features_list,
+            )
         )
         self.seed = seed
 
@@ -346,8 +345,6 @@ class TwoStagesScenario(HybridRecommender):
                     log=log_for_first_level_models,
                     user_features=user_features,
                     item_features=item_features,
-                    user_cat_features_list=self.user_cat_features_list,
-                    item_cat_features_list=self.item_cat_features_list,
                 )
             self.logger.info("Adding generated features")
             full_second_level_train = self.features_processor.transform(
@@ -623,8 +620,6 @@ class TwoStagesScenario(HybridRecommender):
             log=first_level_train,
             user_features=user_features,
             item_features=item_features,
-            user_cat_features_list=self.user_cat_features_list,
-            item_cat_features_list=self.item_cat_features_list,
         )
 
         self.logger.info("Adding features to second-level train dataset")
@@ -785,11 +780,11 @@ class TwoStagesScenario(HybridRecommender):
                 "Provide search grid or None for every first level model"
             )
 
-        first_level_user_features_tr = FirstLevelFeaturesProcessor()
+        first_level_user_features_tr = ToNumericFeatureTransformer()
         first_level_user_features = first_level_user_features_tr.fit_transform(
             user_features
         )
-        first_level_item_features_tr = FirstLevelFeaturesProcessor()
+        first_level_item_features_tr = ToNumericFeatureTransformer()
         first_level_item_features = first_level_item_features_tr.fit_transform(
             item_features
         )

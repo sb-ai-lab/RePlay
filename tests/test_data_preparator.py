@@ -1,4 +1,4 @@
-# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, too-many-arguments, invalid-name
+# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 from datetime import datetime
 from copy import deepcopy
 from unittest.mock import Mock
@@ -6,9 +6,8 @@ from unittest.mock import Mock
 import pytest
 import pandas as pd
 from pyspark.sql import functions as sf, DataFrame
-from pyspark.sql.types import StringType, StructType, IntegerType
+from pyspark.sql.types import IntegerType
 
-from replay.constants import LOG_SCHEMA
 from replay.data_preparator import (
     DataPreparator,
     CatFeaturesTransformer,
@@ -25,7 +24,7 @@ from tests.utils import (
 
 
 def test_preparator():
-    p = DataPreparator()
+    prep = DataPreparator()
     in_df = pd.DataFrame({"user": [4], "item_id": [3]})
     out_df = pd.DataFrame({"user_idx": [0], "item_idx": [0]})
     out_df = convert2spark(out_df)
@@ -35,11 +34,11 @@ def test_preparator():
     out_df = out_df.withColumn(
         "item_idx", sf.col("item_idx").cast(IntegerType())
     )
-    res, _, _ = p(in_df, mapping={"user_id": "user"})
+    res, _, _ = prep(in_df, mapping={"user_id": "user"})
     assert isinstance(res, DataFrame)
     assert set(res.columns) == {"user_idx", "item_idx"}
     sparkDataFrameEqual(res, out_df)
-    res = p.back(res)
+    res = prep.back(res)
     assert set(res.columns) == {"user_id", "item_id"}
 
 
@@ -95,7 +94,8 @@ def test_cat_features_transformer(item_features):
 
 
 def test_cat_features_transformer_date(
-    long_log_with_features, short_log_with_features,
+    long_log_with_features,
+    short_log_with_features,
 ):
     transformed = get_transformed_features(
         transformer=CatFeaturesTransformer(["timestamp"]),
@@ -109,7 +109,8 @@ def test_cat_features_transformer_date(
 
 
 def test_cat_features_transformer_empty_list(
-    long_log_with_features, short_log_with_features,
+    long_log_with_features,
+    short_log_with_features,
 ):
     transformed = get_transformed_features(
         transformer=CatFeaturesTransformer([]),

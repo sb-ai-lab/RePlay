@@ -5,10 +5,8 @@ from pyspark.sql import functions as sf
 
 from replay.models import ALSWrap, KNN, PopRec, LightFMWrap
 from replay.scenarios import TwoStagesScenario
-from replay.scenarios.two_stages.feature_processor import (
-    SecondLevelFeaturesProcessor,
-    FirstLevelFeaturesProcessor,
-)
+from replay.history_based_fp import HistoryBasedFeaturesProcessor
+from replay.data_preparator import ToNumericFeatureTransformer
 from replay.scenarios.two_stages.reranker import LamaWrap
 from replay.splitters import DateSplitter
 
@@ -51,11 +49,11 @@ def test_init(two_stages_kwargs):
     assert isinstance(two_stages.fallback_model, PopRec)
     assert isinstance(two_stages.second_stage_model, LamaWrap)
     assert isinstance(
-        two_stages.features_processor, SecondLevelFeaturesProcessor
+        two_stages.features_processor, HistoryBasedFeaturesProcessor
     )
     assert isinstance(
         two_stages.first_level_item_features_transformer,
-        FirstLevelFeaturesProcessor,
+        ToNumericFeatureTransformer,
     )
     assert two_stages.use_first_level_models_feat == [True, True, True]
 
@@ -63,12 +61,12 @@ def test_init(two_stages_kwargs):
     with pytest.raises(
         ValueError, match="For each model from first_level_models specify.*"
     ):
-        two_stages = TwoStagesScenario(**two_stages_kwargs)
+        TwoStagesScenario(**two_stages_kwargs)
 
     two_stages_kwargs["use_first_level_models_feat"] = True
     two_stages_kwargs["negatives_type"] = "abs"
     with pytest.raises(ValueError, match="Invalid negatives_type value.*"):
-        two_stages = TwoStagesScenario(**two_stages_kwargs)
+        TwoStagesScenario(**two_stages_kwargs)
 
 
 def test_fit(
@@ -98,7 +96,7 @@ def test_fit(
     assert res.count() == short_log_with_features.count()
     assert "rel_0_ALSWrap" in res.columns
     assert "m_2_fm_0" in res.columns
-    assert "user_pop_by_class" in res.columns
+    assert "u_pop_by_class" in res.columns
     assert "age" in res.columns
 
     two_stages.first_level_item_features_transformer.transform(item_features)
