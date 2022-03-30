@@ -23,12 +23,14 @@ If you have an installation trouble, update the core packages:
     pip install --upgrade pip wheel
 
 
-**Implicit**
+**RePlay dependencies compilation**
 
-RePlay depends on `implicit <https://github.com/benfred/implicit>`_, which requires C++ compiler
-and may require installation of additional packages to build *implicit* from source on Unix machines.
+RePlay depends on packages (e.g. LightFM, Implicit) that perform  C/C++ extension compilation on installation.
+This requires C++ compiler, header files and other necessary components to be installed.
 
-If you are facing an error during *implicit* installation, try the following:
+An example of error indicating header files absence is: ``Python.h: No such file or directory``
+
+To install the necessary packages run the following for Ubuntu:
 
 .. code-block:: bash
 
