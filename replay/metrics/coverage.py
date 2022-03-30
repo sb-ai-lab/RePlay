@@ -38,27 +38,34 @@ class Coverage(RecOnlyMetric):
         # not averaged by users
         pass
 
-    @staticmethod
+    # pylint: disable=no-self-use
     def _get_enriched_recommendations(
-        recommendations: AnyDataFrame, ground_truth: AnyDataFrame
+        self, recommendations: AnyDataFrame, ground_truth: AnyDataFrame
     ) -> DataFrame:
         return convert2spark(recommendations)
 
     def _conf_interval(
-        self, recs: AnyDataFrame, k_list: IntOrList, alpha: float = 0.95,
+        self,
+        recs: AnyDataFrame,
+        k_list: IntOrList,
+        alpha: float = 0.95,
     ) -> Union[Dict[int, float], float]:
         if isinstance(k_list, int):
             return 0.0
         return {i: 0.0 for i in k_list}
 
     def _median(
-        self, recs: AnyDataFrame, k_list: IntOrList,
+        self,
+        recs: AnyDataFrame,
+        k_list: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
         return self._mean(recs, k_list)
 
     @process_k
     def _mean(
-        self, recs: DataFrame, k_list: list,
+        self,
+        recs: DataFrame,
+        k_list: list,
     ) -> Union[Dict[int, NumType], NumType]:
         unknown_item_count = (
             recs.select("item_idx")  # type: ignore

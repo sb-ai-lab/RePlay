@@ -239,10 +239,10 @@ class RecOnlyMetric(Metric):
     def __init__(self, log: AnyDataFrame, *args, **kwargs):
         pass
 
-    @staticmethod
+    # pylint: disable=no-self-use
     @abstractmethod
     def _get_enriched_recommendations(
-        recommendations: AnyDataFrame, ground_truth: AnyDataFrame
+        self, recommendations: AnyDataFrame, ground_truth: AnyDataFrame
     ) -> DataFrame:
         pass
 

@@ -80,7 +80,7 @@ class Word2VecRec(Recommender, ItemVectorModel):
             .select(
                 "item_idx",
                 (
-                    sf.log(self.users_count / sf.col("count"))
+                    sf.log(sf.lit(self.users_count) / sf.col("count"))
                     if self.use_idf
                     else sf.lit(1.0)
                 ).alias("idf"),
@@ -134,7 +134,9 @@ class Word2VecRec(Recommender, ItemVectorModel):
         return {"idf": self.idf, "vectors": self.vectors}
 
     def _get_user_vectors(
-        self, users: DataFrame, log: DataFrame,
+        self,
+        users: DataFrame,
+        log: DataFrame,
     ) -> DataFrame:
         """
         :param users: user ids, dataframe ``[user_idx]``
@@ -161,7 +163,9 @@ class Word2VecRec(Recommender, ItemVectorModel):
         )
 
     def _predict_pairs_inner(
-        self, pairs: DataFrame, log: DataFrame,
+        self,
+        pairs: DataFrame,
+        log: DataFrame,
     ) -> DataFrame:
         if log is None:
             raise ValueError(

@@ -22,15 +22,14 @@ from replay.utils import join_or_return, ugly_join, unpersist_if_exists
 class EmptyFeatureProcessor:
     """Do not perform any transformations on the dataframe"""
 
-    @staticmethod
-    def fit(log: DataFrame, features: DataFrame) -> None:
+    def fit(self, log: DataFrame, features: DataFrame) -> None:
         """
         :param log: input DataFrame ``[user_idx, item_idx, timestamp, relevance]``
         :param features: DataFrame with ``user_idx/item_idx`` and feature columns
         """
 
-    @staticmethod
-    def transform(log: DataFrame) -> DataFrame:
+    # pylint: disable=no-self-use
+    def transform(self, log: DataFrame) -> DataFrame:
         """
         Return log without any transformations
         :param log: spark DataFrame
