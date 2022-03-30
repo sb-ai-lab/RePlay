@@ -1,3 +1,12 @@
+---
+name: Feature request
+about: Suggest a feature to implement
+title: ''
+labels: enhancement
+assignees:
+
+---
+
 ## 🚀 Feature Request
 <!-- A clear and concise description of the feature proposal. -->
 

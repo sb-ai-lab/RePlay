@@ -3,7 +3,7 @@ name: How to question
 about: Asking how-to questions
 title: ''
 labels: help wanted, question
-assignees: AleXXL1986 monkey0head shashist
+assignees:
 ---
 
 ## ❓ Questions and Help

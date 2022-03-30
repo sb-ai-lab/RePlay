@@ -1,9 +1,9 @@
 ---
 name: Bug
-about: Create a bug report to help us improve
+about: Create a bug report
 title: ''
-labels: bug, help wanted
-assignees: Scitator, bagxi, Ditwoo
+labels: bug
+assignees:
 
 ---
 
