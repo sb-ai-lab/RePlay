@@ -7,17 +7,16 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
+import torch
 import torch.nn.functional as F
-import torch.optim
-from ignite.engine import Engine
 from pyspark.sql import DataFrame
 from sklearn.model_selection import train_test_split
 from torch import LongTensor, Tensor, nn
-from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim import Adam
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, TensorDataset
 
 from replay.models.base_torch_rec import TorchRecommender
-from replay.session_handler import State
 
 EMBED_DIM = 128
 
@@ -222,8 +221,6 @@ class NeuroMF(TorchRecommender):
 
     num_workers: int = 0
     batch_size_users: int = 100000
-    trainer: Engine
-    val_evaluator: Engine
     patience: int = 3
     n_saved: int = 2
     valid_split_size: float = 0.1
@@ -233,8 +230,9 @@ class NeuroMF(TorchRecommender):
         "embedding_mlp_dim": {"type": "int", "args": [EMBED_DIM, EMBED_DIM]},
         "learning_rate": {"type": "loguniform", "args": [0.0001, 0.5]},
         "l2_reg": {"type": "loguniform", "args": [1e-9, 5]},
-        "gamma": {"type": "uniform", "args": [0.8, 0.99]},
         "count_negative_sample": {"type": "int", "args": [1, 20]},
+        "factor": {"type": "float", "args": [0.2, 0.2]},
+        "patience": {"type": "int", "args": [3, 3]},
     }
 
     # pylint: disable=too-many-arguments
@@ -246,8 +244,9 @@ class NeuroMF(TorchRecommender):
         embedding_mlp_dim: Optional[int] = None,
         hidden_mlp_dims: Optional[List[int]] = None,
         l2_reg: float = 0,
-        gamma: float = 0.99,
         count_negative_sample: int = 1,
+        factor: float = 0.2,
+        patience: int = 3,
     ):
         """
         MLP or GMF model can be ignored if
@@ -260,8 +259,9 @@ class NeuroMF(TorchRecommender):
         :param embedding_mlp_dim: embedding size for mlp
         :param hidden_mlp_dims: list of hidden dimension sized for mlp
         :param l2_reg: l2 regularization term
-        :param gamma: decrease learning rate by this coefficient per epoch
         :param count_negative_sample: number of negative samples to use
+        :param factor: ReduceLROnPlateau reducing factor. new_lr = lr * factor
+        :param patience: number of non-improved epochs before reducing lr
         """
         super().__init__()
         if not embedding_gmf_dim and not embedding_mlp_dim:
@@ -274,15 +274,15 @@ class NeuroMF(TorchRecommender):
                 "embedding_gmf_dim and embedding_mlp_dim must be positive"
             )
 
-        self.device = State().device
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.embedding_gmf_dim = embedding_gmf_dim
         self.embedding_mlp_dim = embedding_mlp_dim
         self.hidden_mlp_dims = hidden_mlp_dims
         self.l2_reg = l2_reg
-        self.gamma = gamma
         self.count_negative_sample = count_negative_sample
+        self.factor = factor
+        self.patience = patience
 
     @property
     def _init_args(self):
@@ -293,8 +293,9 @@ class NeuroMF(TorchRecommender):
             "embedding_mlp_dim": self.embedding_mlp_dim,
             "hidden_mlp_dims": self.hidden_mlp_dims,
             "l2_reg": self.l2_reg,
-            "gamma": self.gamma,
             "count_negative_sample": self.count_negative_sample,
+            "factor": self.factor,
+            "patience": self.patience,
         }
 
     def _data_loader(
@@ -322,21 +323,14 @@ class NeuroMF(TorchRecommender):
         )
         return negative_items
 
+    # pylint: disable=too-many-locals
     def _fit(
         self,
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self.model = NMF(
-            user_count=self._user_dim,
-            item_count=self._item_dim,
-            embedding_gmf_dim=self.embedding_gmf_dim,
-            embedding_mlp_dim=self.embedding_mlp_dim,
-            hidden_mlp_dims=self.hidden_mlp_dims,
-        ).to(self.device)
-
-        self.logger.debug("Create batch")
+        self.logger.debug("Creating batch")
         tensor_data = log.select("user_idx", "item_idx").toPandas()
         train_tensor_data, valid_tensor_data = train_test_split(
             tensor_data,
@@ -344,27 +338,37 @@ class NeuroMF(TorchRecommender):
             random_state=self.seed,
         )
         train_data_loader = self._data_loader(train_tensor_data)
-        val_data_loader = self._data_loader(valid_tensor_data)
+        valid_data_loader = self._data_loader(valid_tensor_data)
 
-        self.logger.debug("Train NeuroMF")
-        optimizer = torch.optim.Adam(
+        self.logger.debug("Training NeuroMF")
+        self.model = NMF(
+            user_count=self._user_dim,
+            item_count=self._item_dim,
+            embedding_gmf_dim=self.embedding_gmf_dim,
+            embedding_mlp_dim=self.embedding_mlp_dim,
+            hidden_mlp_dims=self.hidden_mlp_dims,
+        ).to(self.device)
+        optimizer = Adam(
             self.model.parameters(),
             lr=self.learning_rate,
             weight_decay=self.l2_reg / self.batch_size_users,
         )
-        lr_scheduler = ExponentialLR(optimizer, gamma=self.gamma)
-        nmf_trainer, _ = self._create_trainer_evaluator(
-            optimizer,
-            val_data_loader,
-            lr_scheduler,
-            self.patience,
-            self.n_saved,
+        lr_scheduler = ReduceLROnPlateau(
+            optimizer, factor=self.factor, patience=self.patience
         )
 
-        nmf_trainer.run(train_data_loader, max_epochs=self.epochs)
+        self.train(
+            train_data_loader,
+            valid_data_loader,
+            optimizer,
+            lr_scheduler,
+            self.epochs,
+            "neuromf",
+        )
 
     # pylint: disable=arguments-differ
-    def _loss(self, y_pred, y_true):
+    @staticmethod
+    def _loss(y_pred, y_true):
         return F.binary_cross_entropy(y_pred, y_true).mean()
 
     def _batch_pass(self, batch, model):
@@ -382,7 +386,7 @@ class NeuroMF(TorchRecommender):
         y_true_neg = torch.zeros_like(neg_item_batch).to(self.device)
         y_true = torch.cat((y_true_pos, y_true_neg), 0).float()
 
-        return y_pred, y_true
+        return {"y_pred": y_pred, "y_true": y_true}
 
     @staticmethod
     def _predict_pairs_inner(

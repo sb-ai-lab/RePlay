@@ -80,7 +80,7 @@ def test_predict_pairs(log, log2, model):
 
 def test_save_load(log, model, spark):
     spark_local_dir = spark.conf.get("spark.local.dir")
-    pattern = "best_multvae_1_loss=-\\d\\.\\d+.pt.?"
+    pattern = "best_multvae_1_loss=\\d\\.\\d+.pt.?"
     del_files_by_pattern(spark_local_dir, pattern)
 
     model.fit(log=log)

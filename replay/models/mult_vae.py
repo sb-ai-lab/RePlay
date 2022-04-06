@@ -6,18 +6,17 @@ from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
+import torch
+import torch.nn.functional as F
 from pyspark.sql import DataFrame
 from scipy.sparse import csr_matrix
 from sklearn.model_selection import GroupShuffleSplit
-import torch
 from torch import nn
-import torch.nn.functional as F
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, TensorDataset
 
 from replay.models.base_torch_rec import TorchRecommender
-from replay.session_handler import State
 
 
 class VAE(nn.Module):
@@ -147,7 +146,8 @@ class MultVAE(TorchRecommender):
         "dropout": {"type": "uniform", "args": [0, 0.5]},
         "anneal": {"type": "uniform", "args": [0.2, 1]},
         "l2_reg": {"type": "loguniform", "args": [1e-9, 5]},
-        "gamma": {"type": "uniform", "args": [0.8, 0.99]},
+        "factor": {"type": "float", "args": [0.2, 0.2]},
+        "patience": {"type": "int", "args": [3, 3]},
     }
 
     # pylint: disable=too-many-arguments
@@ -160,7 +160,8 @@ class MultVAE(TorchRecommender):
         dropout: float = 0.3,
         anneal: float = 0.1,
         l2_reg: float = 0,
-        gamma: float = 0.99,
+        factor: float = 0.2,
+        patience: int = 3,
     ):
         """
         :param learning_rate: learning rate
@@ -170,10 +171,10 @@ class MultVAE(TorchRecommender):
         :param dropout: dropout coefficient
         :param anneal: anneal coefficient [0,1]
         :param l2_reg: l2 regularization term
-        :param gamma: reduce learning rate by this coefficient per epoch
+        :param factor: ReduceLROnPlateau reducing factor. new_lr = lr * factor
+        :param patience: number of non-improved epochs before reducing lr
         """
         super().__init__()
-        self.device = State().device
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.latent_dim = latent_dim
@@ -181,7 +182,8 @@ class MultVAE(TorchRecommender):
         self.dropout = dropout
         self.anneal = anneal
         self.l2_reg = l2_reg
-        self.gamma = gamma
+        self.factor = factor
+        self.patience = patience
 
     @property
     def _init_args(self):
@@ -193,7 +195,8 @@ class MultVAE(TorchRecommender):
             "dropout": self.dropout,
             "anneal": self.anneal,
             "l2_reg": self.l2_reg,
-            "gamma": self.gamma,
+            "factor": self.factor,
+            "patience": self.patience,
         }
 
     def _get_data_loader(
@@ -225,7 +228,7 @@ class MultVAE(TorchRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self.logger.debug("Creating batch:")
+        self.logger.debug("Creating batch")
         data = log.select("user_idx", "item_idx").toPandas()
         splitter = GroupShuffleSplit(
             n_splits=1, test_size=self.valid_split_size, random_state=self.seed
@@ -249,23 +252,23 @@ class MultVAE(TorchRecommender):
             hidden_dim=self.hidden_dim,
             dropout=self.dropout,
         ).to(self.device)
-
         optimizer = Adam(
             self.model.parameters(),
             lr=self.learning_rate,
             weight_decay=self.l2_reg / self.batch_size_users,
         )
-        lr_scheduler = ReduceLROnPlateau(optimizer, factor=0.5, patience=3)
-
-        vae_trainer, _ = self._create_trainer_evaluator(
-            optimizer,
-            valid_data_loader,
-            lr_scheduler,
-            self.patience,
-            self.n_saved,
+        lr_scheduler = ReduceLROnPlateau(
+            optimizer, factor=self.factor, patience=self.patience
         )
 
-        vae_trainer.run(train_data_loader, max_epochs=self.epochs)
+        self.train(
+            train_data_loader,
+            valid_data_loader,
+            optimizer,
+            lr_scheduler,
+            self.epochs,
+            "multvae",
+        )
 
     # pylint: disable=arguments-differ
     def _loss(self, y_pred, y_true, mu_latent, logvar_latent):
@@ -291,11 +294,12 @@ class MultVAE(TorchRecommender):
         pred_user_batch, latent_mu, latent_logvar = self.model.forward(
             user_batch
         )
-        return (
-            pred_user_batch,
-            user_batch,
-            {"mu_latent": latent_mu, "logvar_latent": latent_logvar},
-        )
+        return {
+            "y_pred": pred_user_batch,
+            "y_true": user_batch,
+            "mu_latent": latent_mu,
+            "logvar_latent": latent_logvar,
+        }
 
     @staticmethod
     def _predict_pairs_inner(
