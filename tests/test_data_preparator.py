@@ -1,12 +1,9 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-from datetime import datetime
-from copy import deepcopy
-from unittest.mock import Mock
-
+import logging
 import pytest
 import pandas as pd
-from pyspark.sql import functions as sf, DataFrame
-from pyspark.sql.types import IntegerType
+from pyspark.sql import functions as sf
+from pyspark.sql.types import TimestampType, StringType
 
 from replay.data_preparator import (
     DataPreparator,
@@ -23,31 +20,96 @@ from tests.utils import (
 )
 
 
-def test_preparator():
-    prep = DataPreparator()
-    in_df = pd.DataFrame({"user": [4], "item_id": [3]})
-    out_df = pd.DataFrame({"user_idx": [0], "item_idx": [0]})
-    out_df = convert2spark(out_df)
-    out_df = out_df.withColumn(
-        "user_idx", sf.col("user_idx").cast(IntegerType())
-    )
-    out_df = out_df.withColumn(
-        "item_idx", sf.col("item_idx").cast(IntegerType())
-    )
-    res, _, _ = prep(in_df, mapping={"user_id": "user"})
-    assert isinstance(res, DataFrame)
-    assert set(res.columns) == {"user_idx", "item_idx"}
-    sparkDataFrameEqual(res, out_df)
-    res = prep.back(res)
-    assert set(res.columns) == {"user_id", "item_id"}
+@pytest.fixture
+def data_preparator():
+    return DataPreparator()
 
 
 @pytest.fixture
-def indexer():
-    return Indexer()
+def mapping():
+    return {
+        "user_id": "user_idx",
+        "item_id": "item_idx",
+        "timestamp": "timestamp",
+        "relevance": "relevance",
+    }
 
 
-def test_indexer(indexer, long_log_with_features):
+# checks in read_as_spark_df
+def test_read_data_invalid_format(data_preparator):
+    with pytest.raises(ValueError, match=r"Invalid value of format_type.*"):
+        data_preparator.read_as_spark_df(
+            path="/test_path", format_type="blabla"
+        )
+
+    with pytest.raises(
+        ValueError, match="Either data or path parameters must not be None"
+    ):
+        data_preparator.read_as_spark_df(format_type="csv")
+
+
+# errors in check_df
+def test_check_df_errors(data_preparator, long_log_with_features, mapping):
+    with pytest.raises(ValueError, match="DataFrame is empty"):
+        data_preparator.check_df(
+            dataframe=long_log_with_features.filter(sf.col("user_idx") > 10),
+            columns_mapping=mapping,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="Column absent stated in mapping is absent in dataframe",
+    ):
+        col_map = mapping
+        data_preparator.check_df(
+            dataframe=long_log_with_features, columns_mapping=col_map
+        )
+
+
+# logging in check_df
+def test_read_check_df_logger_msg(
+    data_preparator, long_log_with_features, mapping, caplog
+):
+    with caplog.at_level(logging.INFO):
+        mapping.pop("timestamp")
+        data_preparator.check_df(
+            dataframe=long_log_with_features.withColumn(
+                "relevance",
+                sf.when(sf.col("user_idx") == 1, None).otherwise(
+                    sf.col("relevance").cast(StringType())
+                ),
+            ).drop("timestamp"),
+            columns_mapping=mapping,
+        )
+        assert (
+            "Column 'relevance' has NULL values. "
+            "Handle NULL values before the next data preprocessing/model training steps"
+            in caplog.text
+        )
+
+        assert (
+            "Columns ['timestamp'] are absent, but may be required for models training. "
+            in caplog.text
+        )
+
+        assert (
+            "Relevance column `relevance` should be numeric, but it is StringType"
+            in caplog.text
+        )
+
+
+def test_generate_cols(data_preparator, long_log_with_features, mapping):
+    mapping.pop("timestamp")
+    df = data_preparator.add_absent_log_cols(
+        dataframe=long_log_with_features.drop("timestamp"),
+        columns_mapping=mapping,
+    )
+    assert "timestamp" in df.columns
+    assert isinstance(df.schema["timestamp"].dataType, TimestampType)
+
+
+def test_indexer(long_log_with_features):
+    indexer = Indexer()
     df = long_log_with_features.withColumnRenamed("user_idx", "user_id")
     df = df.withColumnRenamed("item_idx", "item_id")
     indexer.fit(df, df)
