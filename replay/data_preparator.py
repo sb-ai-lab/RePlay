@@ -299,13 +299,13 @@ class DataPreparator:
         for value in columns_mapping.values():
             if value not in dataframe.columns:
                 raise ValueError(
-                    f"Column {value} stated in mapping is absent in dataframe"
+                    f"Column `{value}` stated in mapping is absent in dataframe"
                 )
 
         for column in columns_mapping.values():
             if dataframe.where(sf.col(column).isNull()).count() > 0:
                 self.logger.info(
-                    "Column '%s' has NULL values. Handle NULL values before "
+                    "Column `%s` has NULL values. Handle NULL values before "
                     "the next data preprocessing/model training steps",
                     column,
                 )

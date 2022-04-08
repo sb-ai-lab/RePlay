@@ -58,11 +58,12 @@ def test_check_df_errors(data_preparator, long_log_with_features, mapping):
 
     with pytest.raises(
         ValueError,
-        match="Column absent stated in mapping is absent in dataframe",
+        match="Column `relevance` stated in mapping is absent in dataframe",
     ):
         col_map = mapping
         data_preparator.check_df(
-            dataframe=long_log_with_features, columns_mapping=col_map
+            dataframe=long_log_with_features.drop("relevance"),
+            columns_mapping=col_map,
         )
 
 
@@ -82,7 +83,7 @@ def test_read_check_df_logger_msg(
             columns_mapping=mapping,
         )
         assert (
-            "Column 'relevance' has NULL values. "
+            "Column `relevance` has NULL values. "
             "Handle NULL values before the next data preprocessing/model training steps"
             in caplog.text
         )
