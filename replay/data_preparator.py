@@ -340,8 +340,8 @@ class DataPreparator:
         default_ts: str = "2099-01-01",
     ):
         """
-        Add ``relevance`` and ``timestamp`` columns with default values 
-        if ``relevance`` or ``timestamp`` is absent among mapping keys.
+        Add ``relevance`` and ``timestamp`` columns with default values if
+         ``relevance`` or ``timestamp`` is absent among mapping keys.
 
         :param dataframe: interactions log to process
         :param columns_mapping: dictionary mapping "key: column name in input DataFrame".
