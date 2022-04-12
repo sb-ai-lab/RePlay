@@ -30,8 +30,7 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
     inv_item_indexer: IndexToString
     user_type: None
     item_type: None
-    internal_user_col: str = "replay_user_id"
-    internal_item_col: str = "replay_item_id"
+    suffix = "inner"
 
     def __init__(self, user_col="user_id", item_col="item_id"):
         """
@@ -54,53 +53,65 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
     ) -> None:
         """
         Creates indexers to map raw id to numerical idx so that spark can handle them.
-        :param user: DataFrame containing user column
-        :param item: DataFrame containing item column
+        :param users: DataFrame containing user column
+        :param items: DataFrame containing item column
         :return:
         """
         users = users.select(self.user_col).withColumnRenamed(
-            self.user_col, self.internal_user_col
+            self.user_col, f"{self.user_col}_{self.suffix}"
         )
         items = items.select(self.item_col).withColumnRenamed(
-            self.item_col, self.internal_item_col
+            self.item_col, f"{self.item_col}_{self.suffix}"
         )
 
-        self.user_type = users.schema[self.internal_user_col].dataType
-        self.item_type = items.schema[self.internal_item_col].dataType
+        self.user_type = users.schema[
+            f"{self.user_col}_{self.suffix}"
+        ].dataType
+        self.item_type = items.schema[
+            f"{self.item_col}_{self.suffix}"
+        ].dataType
 
         self.user_indexer = StringIndexer(
-            inputCol=self.internal_user_col, outputCol="user_idx"
+            inputCol=f"{self.user_col}_{self.suffix}", outputCol="user_idx"
         ).fit(users)
         self.item_indexer = StringIndexer(
-            inputCol=self.internal_item_col, outputCol="item_idx"
+            inputCol=f"{self.item_col}_{self.suffix}", outputCol="item_idx"
         ).fit(items)
         self.inv_user_indexer = IndexToString(
-            inputCol="user_idx",
+            inputCol=f"{self.user_col}_{self.suffix}",
             outputCol=self.user_col,
             labels=self.user_indexer.labels,
         )
         self.inv_item_indexer = IndexToString(
-            inputCol="item_idx",
+            inputCol=f"{self.item_col}_{self.suffix}",
             outputCol=self.item_col,
             labels=self.item_indexer.labels,
         )
 
     def transform(self, df: DataFrame) -> Optional[DataFrame]:
         """
-        Convert raw ``user_id`` and ``item_id`` to numerical ``user_idx`` and ``item_idx``
+        Convert raw ``user_col`` and ``item_col`` to numerical ``user_idx`` and ``item_idx``
 
-        :param data_frame: dataframe with raw indexes
+        :param df: dataframe with raw indexes
         :return: dataframe with converted indexes
         """
         if self.user_col in df.columns:
-            df = df.withColumnRenamed(self.user_col, self.internal_user_col)
+            df = df.withColumnRenamed(
+                self.user_col, f"{self.user_col}_{self.suffix}"
+            )
             self._reindex(df, "user")
-            df = self.user_indexer.transform(df).drop(self.internal_user_col)
+            df = self.user_indexer.transform(df).drop(
+                f"{self.user_col}_{self.suffix}"
+            )
             df = df.withColumn("user_idx", sf.col("user_idx").cast("int"))
         if self.item_col in df.columns:
-            df = df.withColumnRenamed(self.item_col, self.internal_item_col)
+            df = df.withColumnRenamed(
+                self.item_col, f"{self.item_col}_{self.suffix}"
+            )
             self._reindex(df, "item")
-            df = self.item_indexer.transform(df).drop(self.internal_item_col)
+            df = self.item_indexer.transform(df).drop(
+                f"{self.item_col}_{self.suffix}"
+            )
             df = df.withColumn("item_idx", sf.col("item_idx").cast("int"))
         return df
 
@@ -108,22 +119,30 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
         """
         Convert DataFrame to the initial indexes.
 
-        :param df: DataFrame with idxs
-        :return: DataFrame with ids
+        :param df: DataFrame with numerical ``user_idx/item_idx`` columns
+        :return: DataFrame with original user/item columns
         """
         res = df
         if "user_idx" in df.columns:
             res = (
-                self.inv_user_indexer.transform(res)
-                .drop("user_idx")
+                self.inv_user_indexer.transform(
+                    res.withColumnRenamed(
+                        "user_idx", f"{self.user_col}_{self.suffix}"
+                    )
+                )
+                .drop(f"{self.user_col}_{self.suffix}")
                 .withColumn(
                     self.user_col, sf.col(self.user_col).cast(self.user_type)
                 )
             )
         if "item_idx" in df.columns:
             res = (
-                self.inv_item_indexer.transform(res)
-                .drop("item_idx")
+                self.inv_item_indexer.transform(
+                    res.withColumnRenamed(
+                        "item_idx", f"{self.item_col}_{self.suffix}"
+                    )
+                )
+                .drop(f"{self.item_col}_{self.suffix}")
                 .withColumn(
                     self.item_col, sf.col(self.item_col).cast(self.item_type)
                 )
