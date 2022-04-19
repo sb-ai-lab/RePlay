@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "replay-rec"
-version = "0.8.0"
+version = "0.9.0"
 description = "RecSys Library"
 authors = ["AI Lab, Sber",
            "Alexey Vasilev <AVaVasilyev@sberbank.ru>",
