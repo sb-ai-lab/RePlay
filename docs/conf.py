@@ -20,8 +20,8 @@ sys.path.insert(0, os.path.abspath(".."))
 # -- Project information -----------------------------------------------------
 
 project = "RePlay"
-copyright = "2021, Sberbank AI Laboratory"
-author = "Sberbank AI Laboratory"
+copyright = "2022, Sberbank AI Laboratory"
+author = "Sber AI Lab"
 
 
 # -- General configuration ---------------------------------------------------
