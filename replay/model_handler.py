@@ -48,7 +48,7 @@ def save_indexer(indexer: Indexer, path: str):
     """
     Save fitted indexer to disk as a folder
 
-    :param model: Trained indexer
+    :param indexer: Trained indexer
     :param path: destination where indexer files will be stored
     :return:
     """
