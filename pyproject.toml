@@ -2,10 +2,10 @@
 name = "replay-rec"
 version = "0.9.0"
 description = "RecSys Library"
-authors = ["AI Lab, Sber",
-           "Alexey Vasilev <AVaVasilyev@sberbank.ru>",
-           "Anna Volodkevich <AAVolodkevich@sberbank.ru>",
-           "Alexey Grishanov <AVGrishanov@sberbank.ru>",
+authors = ["AI Lab",
+           "Alexey Vasilev",
+           "Anna Volodkevich",
+           "Alexey Grishanov",
            "Yan-Martin Tamm",
            "Boris Shminke",
            "Alexander Sidorenko",
