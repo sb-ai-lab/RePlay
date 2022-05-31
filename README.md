@@ -16,7 +16,7 @@ You can
 
 ## Docs
 
-[Documentation](https://ailab-mltools.github.io/RePlay/)
+[Documentation](https://sb-ai-lab.github.io/RePlay/)
 
 
 ### Installation
@@ -29,4 +29,4 @@ pip install replay-rec
 
 It is preferable to use a virtual environment for your installation.
 
-If you encounter an error during RePlay installation, check the [troubleshooting](https://ailab-mltools.github.io/RePlay/pages/installation.html#troubleshooting) guide.
+If you encounter an error during RePlay installation, check the [troubleshooting](https://sb-ai-lab.github.io/RePlay/pages/installation.html#troubleshooting) guide.
