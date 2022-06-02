@@ -5,12 +5,12 @@ import pandas as pd
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 
-from replay.models.wilson import Wilson
+from replay.models.base_rec import Recommender
 
 
-class UCB(Wilson):
+class UCB(Recommender):
     """
-    Calculates upper confidence bound for the confidence interval
+    Calculates upper confidence bound (UCB) for the confidence interval
     of true fraction of positive ratings.
 
     ``relevance`` must be converted to binary 0-1 form.
@@ -26,6 +26,8 @@ class UCB(Wilson):
     1         2         1    2.17741
 
     """
+    can_predict_cold_users = True
+    can_predict_cold_items = True
 
     def _fit(
             self,
@@ -52,6 +54,14 @@ class UCB(Wilson):
 
         self.item_popularity = items_counts.drop("pos", "total")
         self.item_popularity.cache()
+
+    @property
+    def _dataframes(self):
+        return {"item_popularity": self.item_popularity}
+
+    def _clear_cache(self):
+        if hasattr(self, "item_popularity"):
+            self.item_popularity.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(
