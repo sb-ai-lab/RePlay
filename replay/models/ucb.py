@@ -28,15 +28,15 @@ class UCB(Recommender):
     >>> data_frame = convert2spark(data_frame)
     >>> model = UCB()
     >>> model.fit(data_frame)
-    >>> model.predict(data_frame,k=2,users=[1,2,3,4], items=[1,2,3]).toPandas()
+    >>> model.predict(data_frame,k=2,users=[1,2,3,4], items=[1,2,3]).toPandas().sort_values(["user_idx","relevance","item_idx"], ascending=[True,False,True])
        user_idx  item_idx  relevance
-    0         3         3   2.442027
     1         1         3   2.442027
     2         1         2   1.019667
     3         2         3   2.442027
     4         2         1   1.519667
+    0         3         3   2.442027
     5         4         3   2.442027
-    6         4         2   1.519667
+    6         4         1   1.519667
 
     """
     can_predict_cold_users = True
