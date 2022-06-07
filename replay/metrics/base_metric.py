@@ -9,7 +9,6 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
-from pyspark.sql import Window
 from scipy.stats import norm
 
 from replay.constants import AnyDataFrame, IntOrList, NumType
@@ -270,45 +269,3 @@ class RecOnlyMetric(Metric):
             '''self._get_enriched_recommendations''' method
         :return: metric value for current user
         """
-
-class NCISMetric(Metric):
-    def __init__(self, prev_policy: AnyDataFrame, activation: str=None):
-        self.log = convert2spark(prev_policy)
-
-        if "item_idx" in prev_policy.columns and "user_idx" in \
-                prev_policy.columns:
-            pass
-        elif "item_idx" in prev_policy.columns:
-            pass
-        else:
-            raise ValueError('`prev_policy` has bad format')
-
-        if activation == 'softmax':
-            window = Window.partitionBy("item_idx")
-            agg_prev_policy = prev_policy.withColumn("min_value", sf.min(
-                "relevance").over(window)).withColumn("sum_value", sf.min(
-                "relevance").over(window))
-            prev_policy_weights = np.exp(
-                prev_policy_weights - prev_policy_weights.min(**axis_args))
-            prev_policy_weights /= prev_policy_weights.sum(**axis_args)
-
-        elif self.activation in ['logit', 'sigmoid']:
-
-            prev_policy_weights = 1 / (1 + np.exp(-prev_policy_weights))
-            curr_policy_weights = 1 / (1 + np.exp(-curr_policy_weights))
-
-        else:
-            raise ValueError(
-                "Unexpected `activation` - {}".format(activation))
-
-        with np.errstate(divide="ignore", invalid="ignore"):
-            importance_weights = curr_policy_weights / prev_policy_weights
-            importance_weights = importance_weights.clip(1 / self.threshold,
-                                                         self.threshold)
-
-        if isinstance(importance_weights, np.matrix):
-            importance_weights = importance_weights.A
-
-        self.importance_weights = importance_weights
-        self.importance_weights.cache()
-        self.importance_weights.count()
