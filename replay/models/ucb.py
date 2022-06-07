@@ -2,8 +2,6 @@ import math
 
 from typing import Optional
 
-import pandas as pd
-
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 
@@ -43,14 +41,15 @@ class UCB(Recommender):
     """
     can_predict_cold_users = True
     can_predict_cold_items = True
+    item_popularity: DataFrame
     fill: float
 
-    def __init__(self, c=2):
+    def __init__(self, coef=2):
         """
-        :param c: exploration coefficient
+        :param coef: exploration coefficient
         """
         # pylint: disable=super-init-not-called
-        self.c = c
+        self.coef = coef
 
     def _fit(
             self,
@@ -72,14 +71,14 @@ class UCB(Recommender):
         full_count = log.count()
         items_counts = items_counts.withColumn(
             "relevance",
-            (sf.col("pos") / sf.col("total") +
-             sf.sqrt(sf.log(sf.lit(self.c * full_count)) / sf.col("total")))
+            (sf.col("pos") / sf.col("total") + sf.sqrt(
+                sf.log(sf.lit(self.coef * full_count)) / sf.col("total")))
         )
 
         self.item_popularity = items_counts.drop("pos", "total")
         self.item_popularity.cache()
 
-        self.fill = 1 + math.sqrt(math.log(self.c * full_count))
+        self.fill = 1 + math.sqrt(math.log(self.coef * full_count))
 
     @property
     def _dataframes(self):
