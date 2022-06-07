@@ -12,6 +12,7 @@ from replay.models.als import ALSWrap
 from replay.models.association_rules import AssociationRulesItemRec
 from replay.models.base_rec import Recommender
 from replay.models.base_torch_rec import TorchRecommender
+from replay.models.ddpg import DDPG
 from replay.models.implicit_wrap import ImplicitWrap
 from replay.models.knn import KNN
 from replay.models.lightfm_wrap import LightFMWrap
