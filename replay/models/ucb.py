@@ -72,8 +72,8 @@ class UCB(Recommender):
         full_count = log.count()
         items_counts = items_counts.withColumn(
             "relevance",
-            (sf.col("pos") / sf.col("total") + sf.sqrt(sf.log(sf.lit(self.c *
-                                                                     full_count)) / sf.col("total")))
+            (sf.col("pos") / sf.col("total") +
+             sf.sqrt(sf.log(sf.lit(self.c * full_count)) / sf.col("total")))
         )
 
         self.item_popularity = items_counts.drop("pos", "total")
@@ -115,11 +115,11 @@ class UCB(Recommender):
             max_hist_len = (
                 (
                     log.join(users, on="user_idx")
-                        .groupBy("user_idx")
-                        .agg(sf.countDistinct("item_idx").alias("items_count"))
+                    .groupBy("user_idx")
+                    .agg(sf.countDistinct("item_idx").alias("items_count"))
                 )
-                    .select(sf.max("items_count"))
-                    .collect()[0][0]
+                .select(sf.max("items_count"))
+                .collect()[0][0]
             )
             # all users have empty history
             if max_hist_len is None:
