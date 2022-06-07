@@ -1,3 +1,5 @@
+import math
+
 from typing import Optional
 
 import pandas as pd
@@ -13,21 +15,42 @@ class UCB(Recommender):
     Calculates upper confidence bound (UCB) for the confidence interval
     of true fraction of positive ratings.
 
-    ``relevance`` must be converted to binary 0-1 form.
+    ``relevance`` from log must be converted to binary 0-1 form.
+
+    .. math::
+        pred_i = \\overline rating \\sqrt{\\frac{\\ln{c\\cdot n}}{n_i}}
+
+    :math:`pred_i` -- predictive relevance items :math:`i`
+
+    :math:`\\overline raiting` -- avarage rating of items :math:`i`
 
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_idx": [1, 2], "item_idx": [1, 2], "relevance": [1, 1]})
+    >>> data_frame = pd.DataFrame({"user_idx": [1, 2, 3, 3], "item_idx": [1, 2, 1, 2], "relevance": [1, 0, 0, 0]})
     >>> from replay.utils import convert2spark
     >>> data_frame = convert2spark(data_frame)
     >>> model = UCB()
-    >>> model.fit_predict(data_frame,k=1).toPandas()
+    >>> model.fit(data_frame)
+    >>> model.predict(data_frame,k=2,users=[1,2,3,4], items=[1,2,3]).toPandas()
        user_idx  item_idx  relevance
-    0         1         2    2.17741
-    1         2         1    2.17741
+    0         3         3   2.442027
+    1         1         3   2.442027
+    2         1         2   1.019667
+    3         2         3   2.442027
+    4         2         1   1.519667
+    5         4         3   2.442027
+    6         4         2   1.519667
 
     """
     can_predict_cold_users = True
     can_predict_cold_items = True
+    fill: float
+
+    def __init__(self, c=2):
+        """
+        :param c: exploration coefficient
+        """
+        # pylint: disable=super-init-not-called
+        self.c = c
 
     def _fit(
             self,
@@ -49,11 +72,14 @@ class UCB(Recommender):
         full_count = log.count()
         items_counts = items_counts.withColumn(
             "relevance",
-            (sf.col("pos") / sf.col("total") + sf.sqrt(sf.log(sf.lit(2 * full_count)) / sf.col("total")))
+            (sf.col("pos") / sf.col("total") + sf.sqrt(sf.log(sf.lit(self.c *
+                                                                     full_count)) / sf.col("total")))
         )
 
         self.item_popularity = items_counts.drop("pos", "total")
         self.item_popularity.cache()
+
+        self.fill = 1 + math.sqrt(math.log(self.c * full_count))
 
     @property
     def _dataframes(self):
@@ -78,7 +104,7 @@ class UCB(Recommender):
             items,
             on="item_idx",
             how="right",
-        ).fillna(value=1, subset=["relevance"]).withColumn(
+        ).fillna(value=self.fill, subset=["relevance"]).withColumn(
             "rank",
             sf.row_number().over(Window.orderBy(sf.col("relevance").desc(),
                                                 sf.col("item_idx").desc())),
@@ -111,4 +137,4 @@ class UCB(Recommender):
             item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
         return pairs.join(self.item_popularity, on="item_idx", how="right")\
-            .fillna(value=1, subset=["relevance"])
+            .fillna(value=self.fill, subset=["relevance"])
