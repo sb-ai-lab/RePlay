@@ -31,6 +31,7 @@ The same goes for new items.
 |Popular Recommender        |Collaborative    | converted to unary ratings             | + | - |
 |Popular By Users           |Collaborative    | implicit feedback                      | - | - |
 |Wilson Recommender         |Collaborative    | binary ratings                         | + | - |
+|UCB                        |Collaborative    | binary ratings                         | + | + |
 |Random Recommender         |Collaborative    | converted to unary ratings             | + | + |
 |K-Nearest Neighbours       |Collaborative    | converted to unary ratings             | + | - |
 |Alternating Least Squares  |Collaborative    | implicit feedback                      | - | - |
@@ -59,6 +60,7 @@ The same goes for new items.
 |Popular Recommender          | - | + | - | + |
 |Popular By Users             | + | - | - | - |
 |Wilson Recommender           | - | + | - | + |
+|UCB                          | - | + | + | + |
 |Random Recommender           | - | + | + | + |
 |K-Nearest Neighbours         | + | + | - | + |
 |Alternating Least Squares    | + | - | - | + |
