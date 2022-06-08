@@ -342,11 +342,11 @@ class Env:
         self.user_id = user_id
         self.viewed_items = []
         self.related_items = list(
-            np.argwhere(self.matrix[self.user_id] > 0)[:, 1][:self.item_count]
+            np.argwhere(self.matrix[self.user_id] > 0)[:, 1][: self.item_count]
         )
         self.num_rele = len(self.related_items)
         self.nonrelated_items = list(
-            np.argwhere(self.matrix[self.user_id] < 0)[:, 1][:self.item_count]
+            np.argwhere(self.matrix[self.user_id] < 0)[:, 1][: self.item_count]
         )
         self.available_items = self.related_items + self.nonrelated_items
 
@@ -410,13 +410,19 @@ class Env:
             torch.tensor([self.user_id]),
             torch.tensor(self.memory[[self.user_id], :]),
             reward,
-            0 # done,
+            0,  # done,
         )
 
 
 class State_Repr_Module(nn.Module):
     def __init__(
-        self, user_num, item_num, embedding_dim, N, user_embeddings=None, item_embeddings=None
+        self,
+        user_num,
+        item_num,
+        embedding_dim,
+        N,
+        user_embeddings=None,
+        item_embeddings=None,
     ):
         super().__init__()
         self.user_embeddings = nn.Embedding(user_num, embedding_dim)
@@ -511,8 +517,12 @@ class DDPG(TorchRecommender):
             user_num, item_num, embedding_dim, self.N
         )
         self.policy_net = Actor_DRR(embedding_dim, hidden_dim)
-        self.value_net = Critic_DRR(embedding_dim * 3, embedding_dim, hidden_dim)
-        self.target_value_net = Critic_DRR(embedding_dim * 3, embedding_dim, hidden_dim)
+        self.value_net = Critic_DRR(
+            embedding_dim * 3, embedding_dim, hidden_dim
+        )
+        self.target_value_net = Critic_DRR(
+            embedding_dim * 3, embedding_dim, hidden_dim
+        )
         self.target_policy_net = Actor_DRR(embedding_dim, hidden_dim)
         for target_param, param in zip(
             self.target_value_net.parameters(), self.value_net.parameters()
@@ -522,7 +532,7 @@ class DDPG(TorchRecommender):
             self.target_policy_net.parameters(), self.policy_net.parameters()
         ):
             target_param.data.copy_(param.data)
-            
+
         self.environment = Env(item_num, user_num, N)
         self.test_environment = Env(item_num, user_num, N)
 
@@ -663,7 +673,9 @@ class DDPG(TorchRecommender):
 
     def _get_data_loader(self, data, item_num, matrix):
         dataset = EvalDataset(data, item_num, matrix)
-        loader = td.DataLoader(dataset, batch_size=100, shuffle=False, num_workers=16)
+        loader = td.DataLoader(
+            dataset, batch_size=100, shuffle=False, num_workers=16
+        )
         return loader
 
     def _get_beta(self, idx, beta_start=0.4, beta_steps=100000):
@@ -824,21 +836,25 @@ class DDPG(TorchRecommender):
 
     def load_user_embeddings(self, user_embeddings_path):
         user_embeddings = pd.read_parquet(user_embeddings_path)
-        user_embeddings = user_embeddings[user_embeddings["user_idx"] < self.user_num]
+        user_embeddings = user_embeddings[
+            user_embeddings["user_idx"] < self.user_num
+        ]
         indexes = user_embeddings["user_idx"]
         embeddings = user_embeddings.drop("user_idx", axis=1)
-        self.state_repr.user_embeddings.weight.data[indexes] = torch.from_numpy(
-            embeddings.values
-        ).float()
+        self.state_repr.user_embeddings.weight.data[
+            indexes
+        ] = torch.from_numpy(embeddings.values).float()
 
     def load_item_embeddings(self, item_embeddings_path):
         item_embeddings = pd.read_parquet(item_embeddings_path)
-        item_embeddings = item_embeddings[item_embeddings["item_idx"] < self.item_num]
+        item_embeddings = item_embeddings[
+            item_embeddings["item_idx"] < self.item_num
+        ]
         indexes = item_embeddings["item_idx"]
         embeddings = item_embeddings.drop("item_idx", axis=1)
-        self.state_repr.item_embeddings.weight.data[indexes] = torch.from_numpy(
-            embeddings.values
-        ).float()
+        self.state_repr.item_embeddings.weight.data[
+            indexes
+        ] = torch.from_numpy(embeddings.values).float()
 
     def _fit(
         self,
@@ -854,10 +870,10 @@ class DDPG(TorchRecommender):
             appropriate_users,
         ) = self._preprocess_log(log)
         self.environment.update_env(
-            matrix=train_matrix#, item_count=current_item_num
+            matrix=train_matrix  # , item_count=current_item_num
         )
         self.test_environment.update_env(
-            matrix=test_matrix#, item_count=current_item_num
+            matrix=test_matrix  # , item_count=current_item_num
         )
         users = np.random.permutation(appropriate_users)
         valid_loader = self._get_data_loader(
@@ -943,17 +959,17 @@ class DDPG(TorchRecommender):
                         self.state_repr.state_dict(),
                         self.log_dir / f"state_repr_{step}.pth",
                     )
-#                     if valid_loader:
-#                         hit, dcg, hit3, dcg3 = self._run_evaluation(valid_loader)
-#                         if self.writer:
-#                             self.writer.add_scalar('hit', hit, step)
-#                             self.writer.add_scalar('dcg', dcg, step)
-#                         hits.append(hit)
-#                         dcgs.append(dcg)
-#                         if np.mean(np.array([hit, dcg]) - np.array([hits[best_step], dcgs[best_step]])) > 0:
-#                             best_step = step // 10000
-#                             torch.save(self.policy_net.state_dict(), self.log_dir / 'best_policy_net.pth')
-#                             torch.save(self.state_repr.state_dict(), self.log_dir / 'best_state_repr.pth')
+                #                     if valid_loader:
+                #                         hit, dcg, hit3, dcg3 = self._run_evaluation(valid_loader)
+                #                         if self.writer:
+                #                             self.writer.add_scalar('hit', hit, step)
+                #                             self.writer.add_scalar('dcg', dcg, step)
+                #                         hits.append(hit)
+                #                         dcgs.append(dcg)
+                #                         if np.mean(np.array([hit, dcg]) - np.array([hits[best_step], dcgs[best_step]])) > 0:
+                #                             best_step = step // 10000
+                #                             torch.save(self.policy_net.state_dict(), self.log_dir / 'best_policy_net.pth')
+                #                             torch.save(self.state_repr.state_dict(), self.log_dir / 'best_state_repr.pth')
                 step += 1
         #             if len(steps) < i:
         #                 steps.append(t)
