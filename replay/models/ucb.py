@@ -9,18 +9,15 @@ from replay.models.base_rec import Recommender
 
 
 class UCB(Recommender):
-    """
-    Calculates upper confidence bound (UCB) for the confidence interval
+    """Calculates upper confidence bound (`UCB <https://medium.com/analytics-vidhya/multi-armed-bandit-analysis-of-upper-confidence-bound-algorithm-4b84be516047>`_) for the confidence interval
     of true fraction of positive ratings.
 
     ``relevance`` from log must be converted to binary 0-1 form.
 
     .. math::
-        pred_i = \\overline rating \\sqrt{\\frac{\\ln{c\\cdot n}}{n_i}}
+        pred_i = ctr_i + \\sqrt{\\frac{c\\ln{n}}{n_i}}
 
-    :math:`pred_i` -- predictive relevance items :math:`i`
-
-    :math:`\\overline raiting` -- avarage rating of items :math:`i`
+    :math:`pred_i` -- predicted relevance of item :math:`i`
 
     >>> import pandas as pd
     >>> data_frame = pd.DataFrame({"user_idx": [1, 2, 3, 3], "item_idx": [1, 2, 1, 2], "relevance": [1, 0, 0, 0]})
@@ -41,6 +38,7 @@ class UCB(Recommender):
     6         4         1   1.519667
 
     """
+
     can_predict_cold_users = True
     can_predict_cold_items = True
     item_popularity: DataFrame

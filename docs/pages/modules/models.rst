@@ -14,6 +14,7 @@ ___________________
     "Popular By Users", "PySpark"
     "Wilson Recommender", "PySpark"
     "Random Recommender", "PySpark"
+    "UCB", "PySpark"
     "K-Nearest Neighbours", "PySpark"
     "Alternating Least Squares", "PySpark"
     "SLIM", "PySpark"
@@ -73,6 +74,10 @@ Random Recommender
 .. autoclass:: replay.models.RandomRec
    :special-members: __init__
 
+UCB Recommender
+``````````````````
+.. autoclass:: replay.models.UCB
+   :special-members: __init__
 
 K Nearest Neighbours
 ````````````````````
