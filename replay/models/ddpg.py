@@ -165,15 +165,13 @@ class EvalDataset(td.Dataset):
         positive_data,
         item_num,
         positive_mat,
-        negative_samples=48,
-        seeds=None,
+        negative_samples=99,
     ):
         super(EvalDataset, self).__init__()
         self.positive_data = np.array(positive_data)
         self.item_num = item_num
         self.positive_mat = positive_mat
         self.negative_samples = negative_samples
-        self.seeds = seeds
 
         self.reset()
 
@@ -190,26 +188,14 @@ class EvalDataset(td.Dataset):
 
     def create_valid_data(self):
         valid_data = []
-
-        if self.seeds is not None:
-            for user, user_id, positive, *other in self.positive_data:
-                if len(self.seeds[self.seeds["user_id"] == user_id]) >= 48:
-                    valid_data.append([int(user), int(positive)])
-                    for negative in (
-                        self.seeds[self.seeds["user_id"] == user_id]
-                        .sort_values("score")
-                        .head(50)["item_idx"]
-                    ):
-                        valid_data.append([int(user), int(negative)])
-        else:
-            for user, user_id, positive, *other in self.positive_data:
-                valid_data.append([int(user), int(positive)])
-                for i in range(self.negative_samples):
+        for user, positive, rel in self.positive_data:
+            valid_data.append([int(user), int(positive)])
+            for i in range(self.negative_samples):
+                negative = np.random.randint(self.item_num)
+                while (user, negative) in self.positive_mat:
                     negative = np.random.randint(self.item_num)
-                    while (user, negative) in self.positive_mat:
-                        negative = np.random.randint(self.item_num)
 
-                    valid_data.append([int(user), int(negative)])
+                valid_data.append([int(user), int(negative)])
         return valid_data
 
     def __len__(self):
@@ -275,7 +261,6 @@ class OUNoise:
 class Actor_DRR(nn.Module):
     def __init__(self, embedding_dim, hidden_dim):
         super().__init__()
-
         self.layers = nn.Sequential(
             nn.Linear(embedding_dim * 3, hidden_dim),
             nn.LayerNorm(hidden_dim),
@@ -313,7 +298,6 @@ class Actor_DRR(nn.Module):
 class Critic_DRR(nn.Module):
     def __init__(self, state_repr_dim, action_emb_dim, hidden_dim):
         super().__init__()
-
         self.layers = nn.Sequential(
             nn.Linear(state_repr_dim + action_emb_dim, hidden_dim),
             nn.LayerNorm(hidden_dim),
@@ -336,26 +320,33 @@ class Critic_DRR(nn.Module):
 
 # pylint: disable=too-many-instance-attributes
 class Env:
-    def __init__(self, user_item_matrix, item_num, user_num, N):
+    def __init__(self, item_num, user_num, N):
         """
         Memory is initialized as ['item_num'] * 'N' for each user.
         It is padding indexes in state_repr and will result in zero embeddings.
         """
-        self.matrix = user_item_matrix
         self.item_count = item_num
         self.user_count = user_num
         self.N = N
         self.memory = np.ones([user_num, N]) * item_num
 
+    def update_env(self, matrix=None, item_count=None, memory=None):
+        if item_count is not None:
+            self.item_count = item_count
+        if matrix is not None:
+            self.matrix = matrix.copy()
+        if memory is not None:
+            self.memory = memory.copy()
+
     def reset(self, user_id):
         self.user_id = user_id
         self.viewed_items = []
         self.related_items = list(
-            np.argwhere(self.matrix[self.user_id] > 0)[:, 1]
+            np.argwhere(self.matrix[self.user_id] > 0)[:, 1][:self.item_count]
         )
         self.num_rele = len(self.related_items)
         self.nonrelated_items = list(
-            np.argwhere(self.matrix[self.user_id] < 0)[:, 1]
+            np.argwhere(self.matrix[self.user_id] < 0)[:, 1][:self.item_count]
         )
         self.available_items = self.related_items + self.nonrelated_items
 
@@ -419,7 +410,7 @@ class Env:
             torch.tensor([self.user_id]),
             torch.tensor(self.memory[[self.user_id], :]),
             reward,
-            done,
+            0 # done,
         )
 
 
@@ -478,17 +469,22 @@ class DDPG(TorchRecommender):
         policy_decay=1e-6,
         state_repr_lr=1e-5,
         state_repr_decay=1e-3,
-        log_dir="data/logs/duration/tmp",
         gamma=0.8,
         min_value=-10,
         max_value=10,
         soft_tau=1e-3,
+        seed=16,
         buffer_size=1000000000,
+        user_num=3000,
+        item_num=1600000,
+        log_dir="data/logs/tmp",
+        writer=False,
     ):
         super().__init__()
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+
         self.batch_size = batch_size
-        self.embedding_dim = embedding_dim
-        self.hidden_dim = hidden_dim
         self.N = N
         self.PER = PER
         self.value_lr = value_lr
@@ -503,12 +499,38 @@ class DDPG(TorchRecommender):
         self.max_value = max_value
         self.soft_tau = soft_tau
         self.buffer_size = buffer_size
+        self.user_num = user_num
+
         self.ou_noise = OUNoise(
-            self.embedding_dim,
+            embedding_dim,
             max_sigma=noise_sigma,
             min_sigma=noise_sigma,
             # noise_type="gauss",
         )  # , decay_period=1000000)
+        self.state_repr = State_Repr_Module(
+            user_num, item_num, embedding_dim, self.N
+        )
+        self.policy_net = Actor_DRR(embedding_dim, hidden_dim)
+        self.value_net = Critic_DRR(embedding_dim * 3, embedding_dim, hidden_dim)
+        self.target_value_net = Critic_DRR(embedding_dim * 3, embedding_dim, hidden_dim)
+        self.target_policy_net = Actor_DRR(embedding_dim, hidden_dim)
+        for target_param, param in zip(
+            self.target_value_net.parameters(), self.value_net.parameters()
+        ):
+            target_param.data.copy_(param.data)
+        for target_param, param in zip(
+            self.target_policy_net.parameters(), self.policy_net.parameters()
+        ):
+            target_param.data.copy_(param.data)
+            
+        self.environment = Env(item_num, user_num, N)
+        self.test_environment = Env(item_num, user_num, N)
+
+        self.replay_buffer = Buffer(self.buffer_size)
+        if writer:
+            self.writer = SummaryWriter(log_dir=self.log_dir)
+        else:
+            self.writer = None
 
     @property
     def _init_args(self):
@@ -537,7 +559,7 @@ class DDPG(TorchRecommender):
         items_count = self._item_dim
         policy_net = self.policy_net.cpu()
         state_repr = self.state_repr.cpu()
-        memory = self.train_env.memory
+        memory = self.environment.memory
         agg_fn = self._predict_by_user_ddpg
 
         def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
@@ -568,7 +590,7 @@ class DDPG(TorchRecommender):
         state_repr,
         memory,
         user_idx: int,
-        items_np: np.ndarray,  # = torch.tensor([i for i in range(item_num)],
+        items_np: np.ndarray,
         cnt: Optional[int] = None,
     ) -> DataFrame:
         with torch.no_grad():
@@ -588,8 +610,6 @@ class DDPG(TorchRecommender):
             user_recs = user_recs.squeeze(1)
 
             if cnt is not None:
-                # user_recs, ind = user_recs.topk(cnt, dim=0)
-                # items_np = torch.take(items_np, ind.T).cpu().numpy().tolist()
                 best_item_idx = (
                     torch.argsort(user_recs, descending=True)[:cnt]
                 ).numpy()
@@ -641,64 +661,22 @@ class DDPG(TorchRecommender):
     ):
         pass
 
-    def _get_data_loader(self, data, item_num, matrix, seeds=None):
-        if seeds is not None:
-            dataset = EvalDataset(data, item_num, matrix, seeds=seeds)
-        else:
-            dataset = EvalDataset(data, item_num, matrix)
-
-        loader = td.DataLoader(dataset, batch_size=100, shuffle=False)
+    def _get_data_loader(self, data, item_num, matrix):
+        dataset = EvalDataset(data, item_num, matrix)
+        loader = td.DataLoader(dataset, batch_size=100, shuffle=False, num_workers=16)
         return loader
 
-    def get_beta(self, idx, beta_start=0.4, beta_steps=100000):
+    def _get_beta(self, idx, beta_start=0.4, beta_steps=100000):
         return min(1.0, beta_start + idx * (1.0 - beta_start) / beta_steps)
 
-    def preprocess_log(self, log):
+    def _preprocess_log(self, log):
         data = log.toPandas()
-
-        data = data[data["relevance"] > 0][["user_idx", "item_idx"]]
-        user_num = data["user_idx"].max() + 1
+        data = data.drop("proc_dt", axis=1)
+        #         data = data[data["relevance"] > 0].drop('proc_dt', axis=1)
+        user_num = data["item_idx"].max() + 1
         item_num = data["item_idx"].max() + 1
 
         train_data = data.sample(frac=0.9, random_state=16)
-        test_data = data.drop(train_data.index).values.tolist()
-        train_data = train_data.values.tolist()
-
-        train_mat = defaultdict(int)
-        test_mat = defaultdict(int)
-        for user, item in train_data:
-            train_mat[user, item] = 1.0
-        for user, item in test_data:
-            test_mat[user, item] = 1.0
-        train_matrix = sp.dok_matrix((user_num, item_num), dtype=np.float32)
-        dict.update(train_matrix, train_mat)
-        test_matrix = sp.dok_matrix((user_num, item_num), dtype=np.float32)
-        dict.update(test_matrix, test_mat)
-
-        appropriate_users = np.arange(user_num).reshape(-1, 1)[
-            (train_matrix.sum(1) >= 10)
-        ]
-
-        return (
-            train_matrix,
-            test_data,
-            test_matrix,
-            user_num,
-            item_num,
-            appropriate_users,
-        )
-
-    def preprocess_sound(self, log):
-        data = log.toPandas()
-
-        data = data.drop("proc_dt", axis=1)
-        #         data = data[data["relevance"] > 0].drop('proc_dt', axis=1)
-        user_num = data["user_idx"].max() + 1
-        item_num = data["item_idx"].max() + 1
-
-        train_data = data.sample(
-            frac=0.9, random_state=16
-        )  # TODO [data["relevance"] > 0]
         appropriate_users = (
             train_data["user_idx"]
             .value_counts()[train_data["user_idx"].value_counts() > 10]
@@ -709,84 +687,27 @@ class DDPG(TorchRecommender):
 
         train_mat = defaultdict(float)
         test_mat = defaultdict(float)
-        for user, _, item, _, rel, *emb in train_data:
+        for user, item, rel in train_data:
             train_mat[user, item] = rel
-        for user, _, item, _, rel, *emb in test_data:
+        for user, item, rel, *emb in test_data:
             test_mat[user, item] = rel
         train_matrix = sp.dok_matrix((user_num, item_num), dtype=np.float32)
         dict.update(train_matrix, train_mat)
         test_matrix = sp.dok_matrix((user_num, item_num), dtype=np.float32)
         dict.update(test_matrix, test_mat)
 
-        #         appropriate_users = np.arange(user_num)
-        #         appropriate_users = np.arange(user_num).reshape(-1, 1)[
-        #             (train_matrix.sum(1) >= 10)
-        #         ]
-        user_embeddings = (
-            data.set_index("user_idx").iloc[:, -8:].drop_duplicates()
-        )
-
         return (
             train_matrix,
             test_data,
             test_matrix,
-            user_num,
             item_num,
             appropriate_users,
-            user_embeddings,
         )
 
-    def preprocess_sound_val(self, log):
-        data = log.toPandas()
-
-        data = data[data["relevance"] > 0].drop("proc_dt", axis=1)
-        #         data["user_idx"] = data["user_idx"].astype(int)
-        #         data["item_idx"] = data["item_idx"].astype(int)
-        user_num = data["user_idx"].max() + 1
-        item_num = data["item_idx"].max() + 1
-
-        train_data = data.sample(
-            frac=0.9, random_state=16
-        )  # TODO [data["relevance"] > 0]
-        appropriate_users = (
-            train_data["user_idx"]
-            .value_counts()[train_data["user_idx"].value_counts() > 10]
-            .index
-        )
-        test_df = data.drop(train_data.index)
-        test_data = data.drop(train_data.index).values.tolist()
-        train_data = train_data.values.tolist()
-
-        train_mat = defaultdict(float)
-        test_mat = defaultdict(float)
-        for user, _, item, _, rel, *_ in train_data:
-            train_mat[user, item] = rel
-        for user, _, item, _, rel, *_ in test_data:
-            test_mat[user, item] = rel
-        train_matrix = sp.dok_matrix((user_num, item_num), dtype=np.float32)
-        dict.update(train_matrix, train_mat)
-        test_matrix = sp.dok_matrix((user_num, item_num), dtype=np.float32)
-        dict.update(test_matrix, test_mat)
-
-        user_embeddings = (
-            data.set_index("user_idx").iloc[:, -8:].drop_duplicates()
-        )
-
-        return (
-            train_matrix,
-            test_data,
-            test_df,
-            test_matrix,
-            user_num,
-            item_num,
-            appropriate_users,
-            user_embeddings,
-        )
-
-    def hit_metric(self, recommended, actual):
+    def _hit_metric(self, recommended, actual):
         return int(actual in recommended)
 
-    def dcg_metric(self, recommended, actual):
+    def _dcg_metric(self, recommended, actual):
         if actual in recommended:
             index = recommended.index(actual)
             return np.reciprocal(np.log2(index + 2))
@@ -797,11 +718,9 @@ class DDPG(TorchRecommender):
         policy_optimizer,
         state_repr_optimizer,
         value_optimizer,
-        replay_buffer,
-        writer=None,
         step=0,
     ):
-        beta = self.get_beta(step)
+        beta = self._get_beta(step)
         (
             user,
             memory,
@@ -810,8 +729,8 @@ class DDPG(TorchRecommender):
             next_user,
             next_memory,
             done,
-        ) = replay_buffer.sample(self.batch_size, beta)
-        # user, memory, action, reward, next_user, next_memory, done, indices, weights = replay_buffer.sample(self.batch_size, beta)
+        ) = self.replay_buffer.sample(self.batch_size, beta)
+        # user, memory, action, reward, next_user, next_memory, done, indices, weights = self.replay_buffer.sample(self.batch_size, beta)
         user = torch.FloatTensor(user)
         memory = torch.FloatTensor(memory)
         action = torch.FloatTensor(action)
@@ -846,7 +765,7 @@ class DDPG(TorchRecommender):
 
         value_optimizer.zero_grad()
         value_loss.backward(retain_graph=True)
-        # replay_buffer.update_priorities(indices, prios.data.cpu().numpy())
+        # self.replay_buffer.update_priorities(indices, prios.data.cpu().numpy())
         value_optimizer.step()
         state_repr_optimizer.step()
 
@@ -865,66 +784,61 @@ class DDPG(TorchRecommender):
                 + param.data * self.soft_tau
             )
 
-        if writer:
-            writer.add_histogram("value", value, step)
-            writer.add_histogram("target_value", target_value, step)
-            writer.add_histogram("expected_value", expected_value, step)
-            writer.add_histogram("policy_loss", -policy_loss, step)
-            writer.add_histogram("value_loss", value_loss, step)
+        if self.writer:
+            self.writer.add_histogram("value", value, step)
+            self.writer.add_histogram("target_value", target_value, step)
+            self.writer.add_histogram("expected_value", expected_value, step)
+            self.writer.add_histogram("policy_loss", -policy_loss, step)
+            self.writer.add_histogram("value_loss", value_loss, step)
 
-    def run_evaluation(
-        self,
-        net,
-        state_representation,
-        training_env_memory,
-        test_env,
-        loader,
-    ):
+    def _run_evaluation(self, loader):
         hits3 = []
         hits = []
         dcgs3 = []
         dcgs = []
-        test_env.memory = training_env_memory.copy()
-        user, memory = test_env.reset(
+        self.test_environment.update_env(memory=self.environment.memory)
+        user, memory = self.test_environment.reset(
             int(to_np(next(iter(loader))["user"])[0])
         )
         for batch in loader:
-            action_emb = net(state_representation(user, memory))
-            scores, action = net.get_action(
-                state_representation,
+            action_emb = self.policy_net(self.state_repr(user, memory))
+            scores, action = self.policy_net.get_action(
+                self.state_repr,
                 action_emb,
                 batch["item"].long(),
                 return_scores=True,
             )
-            user, memory, _, _ = test_env.step(action)
+            user, memory, _, _ = self.test_environment.step(action)
 
             _, ind = scores[:, 0].topk(3)
             predictions = batch["item"].take(ind).cpu().numpy().tolist()
             actual = batch["item"][0].item()
-            hits3.append(self.hit_metric(predictions, actual))
-            dcgs3.append(self.dcg_metric(predictions, actual))
+            hits3.append(self._hit_metric(predictions, actual))
+            dcgs3.append(self._dcg_metric(predictions, actual))
 
             _, ind = scores[:, 0].topk(1)
             predictions = batch["item"].take(ind).cpu().numpy().tolist()
-            hits.append(self.hit_metric(predictions, actual))
-            dcgs.append(self.dcg_metric(predictions, actual))
+            hits.append(self._hit_metric(predictions, actual))
+            dcgs.append(self._dcg_metric(predictions, actual))
         return np.mean(hits), np.mean(dcgs), np.mean(hits3), np.mean(dcgs3)
 
     def load_user_embeddings(self, user_embeddings_path):
         user_embeddings = pd.read_parquet(user_embeddings_path)
+        user_embeddings = user_embeddings[user_embeddings["user_idx"] < self.user_num]
         indexes = user_embeddings["user_idx"]
         embeddings = user_embeddings.drop("user_idx", axis=1)
-        self.state_repr.user_embeddings.weight.data[indexes].copy_(
-            torch.from_numpy(embeddings.values)
-        )
+        self.state_repr.user_embeddings.weight.data[indexes] = torch.from_numpy(
+            embeddings.values
+        ).float()
 
     def load_item_embeddings(self, item_embeddings_path):
         item_embeddings = pd.read_parquet(item_embeddings_path)
+        item_embeddings = item_embeddings[item_embeddings["item_idx"] < self.item_num]
         indexes = item_embeddings["item_idx"]
         embeddings = item_embeddings.drop("item_idx", axis=1)
-        self.state_repr.item_embeddings.weight.data[indexes].copy_(
-            torch.from_numpy(embeddings.values)
-        )
+        self.state_repr.item_embeddings.weight.data[indexes] = torch.from_numpy(
+            embeddings.values
+        ).float()
 
     def _fit(
         self,
@@ -936,41 +850,22 @@ class DDPG(TorchRecommender):
             train_matrix,
             test_data,
             test_matrix,
-            user_num,
-            item_num,
+            current_item_num,
             appropriate_users,
-            user_embeddings,
-        ) = self.preprocess_sound(log)
-        np.random.seed(16)
-        torch.manual_seed(16)
+        ) = self._preprocess_log(log)
+        self.environment.update_env(
+            matrix=train_matrix#, item_count=current_item_num
+        )
+        self.test_environment.update_env(
+            matrix=test_matrix#, item_count=current_item_num
+        )
         users = np.random.permutation(appropriate_users)
-        self.train_env = Env(train_matrix, item_num, user_num, N=self.N)
-        self.test_env = Env(test_matrix, item_num, user_num, N=self.N)
-        valid_loader = None  # self._get_data_loader(
-        #             np.array(test_data)[np.array(test_data)[:, 0] == '16'],
-        #             item_num,
-        #             test_matrix,
-        #         )
+        valid_loader = self._get_data_loader(
+            np.array(test_data)[np.array(test_data)[:, 0] == 16],
+            current_item_num,
+            test_matrix,
+        )
 
-        self.state_repr = State_Repr_Module(
-            user_num, item_num, self.embedding_dim, self.N, user_embeddings
-        )
-        self.policy_net = Actor_DRR(self.embedding_dim, self.hidden_dim)
-        self.value_net = Critic_DRR(
-            self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
-        )
-        self.target_value_net = Critic_DRR(
-            self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
-        )
-        self.target_policy_net = Actor_DRR(self.embedding_dim, self.hidden_dim)
-        for target_param, param in zip(
-            self.target_value_net.parameters(), self.value_net.parameters()
-        ):
-            target_param.data.copy_(param.data)
-        for target_param, param in zip(
-            self.target_policy_net.parameters(), self.policy_net.parameters()
-        ):
-            target_param.data.copy_(param.data)
         policy_optimizer = Ranger(
             self.policy_net.parameters(),
             lr=self.policy_lr,
@@ -987,27 +882,20 @@ class DDPG(TorchRecommender):
             weight_decay=self.value_decay,
         )
 
-        replay_buffer = Buffer(self.buffer_size)
-        writer = SummaryWriter(log_dir=self.log_dir)
-
         self.train(
-            users,
             policy_optimizer,
             state_repr_optimizer,
             value_optimizer,
-            replay_buffer,
-            writer,
-            valid_loader,
+            users,
+            valid_loader=None,
         )
 
     def train(
         self,
-        users,
         policy_optimizer,
         state_repr_optimizer,
         value_optimizer,
-        replay_buffer,
-        writer,
+        users,
         valid_loader=None,
     ):
         self.log_dir.mkdir(parents=True, exist_ok=True)
@@ -1015,10 +903,9 @@ class DDPG(TorchRecommender):
         step, best_step = 0, 0
 
         for i, u in enumerate(tqdm.tqdm(users)):
-            user, memory = self.train_env.reset(u)
+            user, memory = self.environment.reset(u)
             self.ou_noise.reset()
-
-            for t in range(len(self.train_env.related_items)):
+            for t in range(len(self.environment.related_items)):
                 action_emb = self.policy_net(self.state_repr(user, memory))
                 action_emb = self.ou_noise.get_action(to_np(action_emb)[0], t)
                 action = self.policy_net.get_action(
@@ -1027,25 +914,23 @@ class DDPG(TorchRecommender):
                     torch.tensor(
                         [
                             item
-                            for item in self.train_env.available_items
-                            if item not in self.train_env.viewed_items
+                            for item in self.environment.available_items
+                            if item not in self.environment.viewed_items
                         ]
                     ).long(),
                 )
-                user, memory, reward, _ = self.train_env.step(
-                    action, action_emb, replay_buffer
+                user, memory, reward, _ = self.environment.step(
+                    action, action_emb, self.replay_buffer
                 )
                 rewards.append(reward)
                 if len(steps) < i and reward > 0:
                     steps.append(t)
 
-                if len(replay_buffer) > self.batch_size:
+                if len(self.replay_buffer) > self.batch_size:
                     self._ddpg_update(
                         policy_optimizer,
                         state_repr_optimizer,
                         value_optimizer,
-                        replay_buffer,
-                        writer=writer,
                         step=step,
                     )
 
@@ -1058,24 +943,17 @@ class DDPG(TorchRecommender):
                         self.state_repr.state_dict(),
                         self.log_dir / f"state_repr_{step}.pth",
                     )
-                    if valid_loader:
-                        self.test_env.reset_memory()
-                        hit, dcg, hit3, dcg3 = self.run_evaluation(
-                            self.policy_net,
-                            self.state_repr,
-                            self.train_env.memory,
-                            self.test_env,
-                            loader=valid_loader
-                        )
-                        if writer:
-                            writer.add_scalar('hit', hit, step)
-                            writer.add_scalar('dcg', dcg, step)
-                        hits.append(hit)
-                        dcgs.append(dcg)
-                        if np.mean(np.array([hit, dcg]) - np.array([hits[best_step], dcgs[best_step]])) > 0:
-                            best_step = step // 10000
-                            torch.save(self.policy_net.state_dict(), self.log_dir / 'best_policy_net.pth')
-                            torch.save(self.state_repr.state_dict(), self.log_dir / 'best_state_repr.pth')
+#                     if valid_loader:
+#                         hit, dcg, hit3, dcg3 = self._run_evaluation(valid_loader)
+#                         if self.writer:
+#                             self.writer.add_scalar('hit', hit, step)
+#                             self.writer.add_scalar('dcg', dcg, step)
+#                         hits.append(hit)
+#                         dcgs.append(dcg)
+#                         if np.mean(np.array([hit, dcg]) - np.array([hits[best_step], dcgs[best_step]])) > 0:
+#                             best_step = step // 10000
+#                             torch.save(self.policy_net.state_dict(), self.log_dir / 'best_policy_net.pth')
+#                             torch.save(self.state_repr.state_dict(), self.log_dir / 'best_state_repr.pth')
                 step += 1
         #             if len(steps) < i:
         #                 steps.append(t)
@@ -1094,5 +972,5 @@ class DDPG(TorchRecommender):
             self.log_dir / "state_repr_final.pth",
         )
         with open(self.log_dir / "memory.pickle", "wb") as f:
-            pickle.dump(self.train_env.memory, f)
+            pickle.dump(self.environment.memory, f)
         writer.close()
