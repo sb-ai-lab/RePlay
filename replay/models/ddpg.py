@@ -682,10 +682,10 @@ class DDPG(TorchRecommender):
         return min(1.0, beta_start + idx * (1.0 - beta_start) / beta_steps)
 
     def _preprocess_log(self, log):
-        data = log.toPandas()
-        data = data.drop("proc_dt", axis=1)
+        data = log.toPandas()[["user_idx", "item_idx", "relevance"]
+        #         data = data.drop("proc_dt", axis=1)
         #         data = data[data["relevance"] > 0].drop('proc_dt', axis=1)
-        user_num = data["item_idx"].max() + 1
+        user_num = data["user_idx"].max() + 1
         item_num = data["item_idx"].max() + 1
 
         train_data = data.sample(frac=0.9, random_state=16)
