@@ -9,7 +9,9 @@ from replay.models.base_rec import Recommender
 
 
 class UCB(Recommender):
-    """Calculates upper confidence bound (`UCB <https://medium.com/analytics-vidhya/multi-armed-bandit-analysis-of-upper-confidence-bound-algorithm-4b84be516047>`_) for the confidence interval
+    """Calculates upper confidence bound
+    (`UCB <https://medium.com/analytics-vidhya/multi-armed-bandit-analysis-of-upper-confidence-bound-algorithm-4b84be516047>`_)
+    for the confidence interval
     of true fraction of positive ratings.
 
     ``relevance`` from log must be converted to binary 0-1 form.
