@@ -876,11 +876,11 @@ class DDPG(TorchRecommender):
             matrix=test_matrix  # , item_count=current_item_num
         )
         users = np.random.permutation(appropriate_users)
-        valid_loader = self._get_data_loader(
-            np.array(test_data)[np.array(test_data)[:, 0] == 16],
-            current_item_num,
-            test_matrix,
-        )
+#         valid_loader = self._get_data_loader(
+#             np.array(test_data)[np.array(test_data)[:, 0] == 16],
+#             current_item_num,
+#             test_matrix,
+#         )
 
         policy_optimizer = Ranger(
             self.policy_net.parameters(),
@@ -939,9 +939,6 @@ class DDPG(TorchRecommender):
                     action, action_emb, self.replay_buffer
                 )
                 rewards.append(reward)
-                if len(steps) < i and reward > 0:
-                    steps.append(t)
-
                 if len(self.replay_buffer) > self.batch_size:
                     self._ddpg_update(
                         policy_optimizer,
@@ -971,13 +968,9 @@ class DDPG(TorchRecommender):
                 #                             torch.save(self.policy_net.state_dict(), self.log_dir / 'best_policy_net.pth')
                 #                             torch.save(self.state_repr.state_dict(), self.log_dir / 'best_state_repr.pth')
                 step += 1
-        #             if len(steps) < i:
-        #                 steps.append(t)
-        #             with torch.no_grad():
-        #                 if steps and writer:
-        #                     writer.add_scalars('convergence_steps', {'max': np.max(steps)}, step)
-        #                     writer.add_scalars('convergence_steps', {'current': steps[-1]}, step)
-        #                     writer.add_histogram('reward_per_episode', np.mean(rewards[-100:]), step)
+                with torch.no_grad():
+                    if self.writer:
+                        self.writer.add_histogram('reward_per_episode', np.mean(rewards[-100:]), step)
 
         torch.save(
             self.policy_net.state_dict(),
@@ -989,4 +982,3 @@ class DDPG(TorchRecommender):
         )
         with open(self.log_dir / "memory.pickle", "wb") as f:
             pickle.dump(self.environment.memory, f)
-        writer.close()
