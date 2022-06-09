@@ -682,10 +682,10 @@ class DDPG(TorchRecommender):
         return min(1.0, beta_start + idx * (1.0 - beta_start) / beta_steps)
 
     def _preprocess_log(self, log):
-        data = log.toPandas()
-        data = data.drop("proc_dt", axis=1)
+        data = log.toPandas()[["user_idx", "item_idx", "relevance"]]
+        #         data = data.drop("proc_dt", axis=1)
         #         data = data[data["relevance"] > 0].drop('proc_dt', axis=1)
-        user_num = data["item_idx"].max() + 1
+        user_num = data["user_idx"].max() + 1
         item_num = data["item_idx"].max() + 1
 
         train_data = data.sample(frac=0.9, random_state=16)
@@ -809,7 +809,7 @@ class DDPG(TorchRecommender):
         dcgs3 = []
         dcgs = []
         self.test_environment.update_env(memory=self.environment.memory)
-        user, memory = self.test_environment.reset(
+        user, memory = self.test_environment.reset_old(
             int(to_np(next(iter(loader))["user"])[0])
         )
         for batch in loader:
@@ -915,11 +915,11 @@ class DDPG(TorchRecommender):
         valid_loader=None,
     ):
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        hits, dcgs, rewards, steps = [], [], [], []
+        hits, dcgs, rewards = [], [], []
         step, best_step = 0, 0
 
         for i, u in enumerate(tqdm.tqdm(users)):
-            user, memory = self.environment.reset(u)
+            user, memory = self.environment.reset_old(u)
             self.ou_noise.reset()
             for t in range(len(self.environment.related_items)):
                 action_emb = self.policy_net(self.state_repr(user, memory))
