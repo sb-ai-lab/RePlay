@@ -12,26 +12,35 @@ from replay.utils import convert2spark
 from replay.session_handler import State
 
 
-def min_entries(data_frame: AnyDataFrame, num_entries: int) -> DataFrame:
+def filter_rare(
+    data_frame: AnyDataFrame, num_entries: int, group_by: str = "user_idx"
+) -> DataFrame:
     """
-    Remove users with less than ``num_entries`` ratings.
+    Remove entries with entities (e.g. users, items) which are presented in `data_frame`
+    less than `num_entries` times. The `data_frame` is grouped by `group_by` column,
+    which is entry column name, to calculate counts.
 
     >>> import pandas as pd
     >>> data_frame = pd.DataFrame({"user_idx": [1, 1, 2]})
-    >>> min_entries(data_frame, 2).toPandas()
+    >>> filter_rare(data_frame, 2).toPandas()
        user_idx
     0         1
     1         1
+
+    :param data_frame: spark or pandas dataframe to apply filter
+    :param num_entries: minimal number of times the entry should arears in dataset to leave
+    :param group_by: entity column, which is used to calculate entity occurrence couns
+    :return: filteder `data_frame`
     """
     data_frame = convert2spark(data_frame)
     input_count = data_frame.count()
-    entries_by_user = data_frame.groupBy("user_idx").count()  # type: ignore
-    remaining_users = entries_by_user.filter(
-        entries_by_user["count"] >= num_entries
-    )[["user_idx"]]
-    data_frame = data_frame.join(
-        remaining_users, on="user_idx", how="inner"
-    )  # type: ignore
+    count_by_group = data_frame.groupBy(group_by).agg(
+        sf.count(group_by).alias(f"{group_by}_temp_count")
+    )
+    remaining_entities = count_by_group.filter(
+        count_by_group[f"{group_by}_temp_count"] >= num_entries
+    ).select(group_by)
+    data_frame = data_frame.join(remaining_entities, on=group_by, how="inner")
     output_count = data_frame.count()
     diff = (input_count - output_count) / input_count
     if diff > 0.5:
@@ -39,26 +48,32 @@ def min_entries(data_frame: AnyDataFrame, num_entries: int) -> DataFrame:
     else:
         logger_level = State().logger.info
     logger_level(
-        "current threshold removes %s%% of data", diff,
+        "current threshold removes %s%% of data",
+        diff,
     )
     return data_frame
 
 
-def min_rating(
-    data_frame: AnyDataFrame, value: float, column="relevance"
+def filter_low_ratings(
+    data_frame: AnyDataFrame, value: float, rating_column="relevance"
 ) -> DataFrame:
     """
     Remove records with records less than ``value`` in ``column``.
 
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"relevance": [1, 5, 3, 4]})
-    >>> min_rating(data_frame, 3.5).toPandas()
-       relevance
-    0          5
-    1          4
+    >>> data_frame = pd.DataFrame({"relevance": [1, 5, 3.5, 4]})
+    >>> filter_low_ratings(data_frame, 3.5).show()
+    +---------+
+    |relevance|
+    +---------+
+    |      5.0|
+    |      3.5|
+    |      4.0|
+    +---------+
+    <BLANKLINE>
     """
     data_frame = convert2spark(data_frame)
-    data_frame = data_frame.filter(data_frame[column] > value)  # type: ignore
+    data_frame = data_frame.filter(data_frame[rating_column] >= value)
     return data_frame
 
 
@@ -151,13 +166,13 @@ def filter_user_interactions(
     window = Window().orderBy(*sorting_order).partitionBy(col(user_col))
 
     return (
-        log.withColumn("rank", sf.row_number().over(window))
-        .filter(col("rank") <= num_interactions)
-        .drop("rank")
+        log.withColumn("temp_rank", sf.row_number().over(window))
+        .filter(col("temp_rank") <= num_interactions)
+        .drop("temp_rank")
     )
 
 
-def filter_by_user_duration(
+def take_part_of_user_hist(
     log: DataFrame,
     days: int = 10,
     first: bool = True,
@@ -165,7 +180,7 @@ def filter_by_user_duration(
     user_col: str = "user_idx",
 ) -> DataFrame:
     """
-    Get first/last ``days`` of user interactions.
+    Get first/last ``days`` of users' interactions.
 
     >>> import pandas as pd
     >>> from replay.utils import convert2spark
@@ -193,7 +208,7 @@ def filter_by_user_duration(
 
     Get first day:
 
-    >>> filter_by_user_duration(log_sp, 1, True).orderBy('user_idx', 'item_idx').show()
+    >>> take_part_of_user_hist(log_sp, 1, True).orderBy('user_idx', 'item_idx').show()
     +--------+--------+---+-------------------+
     |user_idx|item_idx|rel|          timestamp|
     +--------+--------+---+-------------------+
@@ -207,7 +222,7 @@ def filter_by_user_duration(
 
     Get last day:
 
-    >>> filter_by_user_duration(log_sp, 1, False).orderBy('user_idx', 'item_idx').show()
+    >>> take_part_of_user_hist(log_sp, 1, False).orderBy('user_idx', 'item_idx').show()
     +--------+--------+---+-------------------+
     |user_idx|item_idx|rel|          timestamp|
     +--------+--------+---+-------------------+
@@ -245,7 +260,7 @@ def filter_by_user_duration(
     )
 
 
-def filter_between_dates(
+def take_time_period(
     log: DataFrame,
     start_date: Optional[Union[str, datetime]] = None,
     end_date: Optional[Union[str, datetime]] = None,
@@ -278,7 +293,7 @@ def filter_between_dates(
     +--------+--------+---+-------------------+
     <BLANKLINE>
 
-    >>> filter_between_dates(log_sp, start_date="2020-01-01 14:00:00", end_date=datetime(2020, 1, 3, 0, 0, 0)).show()
+    >>> take_time_period(log_sp, start_date="2020-01-01 14:00:00", end_date=datetime(2020, 1, 3, 0, 0, 0)).show()
     +--------+--------+---+-------------------+
     |user_idx|item_idx|rel|          timestamp|
     +--------+--------+---+-------------------+
@@ -305,7 +320,7 @@ def filter_between_dates(
     )
 
 
-def filter_by_duration(
+def take_part_of_global_hist(
     log: DataFrame,
     duration_days: int,
     first: bool = True,
@@ -338,7 +353,7 @@ def filter_by_duration(
     +--------+--------+---+-------------------+
     <BLANKLINE>
 
-    >>> filter_by_duration(log_sp, 1).show()
+    >>> take_part_of_global_hist(log_sp, 1).show()
     +--------+--------+---+-------------------+
     |user_idx|item_idx|rel|          timestamp|
     +--------+--------+---+-------------------+
@@ -348,7 +363,7 @@ def filter_by_duration(
     +--------+--------+---+-------------------+
     <BLANKLINE>
 
-    >>> filter_by_duration(log_sp, 1, first=False).show()
+    >>> take_part_of_global_hist(log_sp, 1, first=False).show()
     +--------+--------+---+-------------------+
     |user_idx|item_idx|rel|          timestamp|
     +--------+--------+---+-------------------+

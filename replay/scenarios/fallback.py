@@ -4,7 +4,7 @@ from typing import Optional, Dict, List, Any, Tuple, Union, Iterable
 from pyspark.sql import DataFrame
 
 from replay.constants import AnyDataFrame
-from replay.filters import min_entries
+from replay.filters import filter_rare
 from replay.metrics import Metric, NDCG
 from replay.models import PopRec
 from replay.models.base_rec import BaseRecommender
@@ -51,7 +51,7 @@ class Fallback(BaseRecommender):
         :param item_features: item features ``[item_id, timestamp]`` + feature columns
         :return:
         """
-        hot_data = min_entries(log, self.threshold)
+        hot_data = filter_rare(log, self.threshold, "user_idx")
         self.hot_users = hot_data.select("user_idx").distinct()
         self._fit_wrap(hot_data, user_features, item_features)
         self.fb_model._fit_wrap(log, user_features, item_features)
@@ -90,7 +90,7 @@ class Fallback(BaseRecommender):
         """
         users = users or log or user_features or self.fit_users
         users = self._get_ids(users, "user_idx")
-        hot_data = min_entries(log, self.threshold)
+        hot_data = filter_rare(log, self.threshold, "user_idx")
         hot_users = hot_data.select("user_idx").distinct()
         hot_users = hot_users.join(self.hot_users, on="user_idx")
         hot_users = hot_users.join(users, on="user_idx", how="inner")
