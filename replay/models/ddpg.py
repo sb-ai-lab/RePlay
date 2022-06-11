@@ -211,6 +211,38 @@ class EvalDataset(td.Dataset):
         return output
 
 
+class AdaptiveParamNoiseSpec():
+    def __init__(
+        self,
+        initial_stddev=0.1,
+        desired_action_stddev=0.2,
+        adaptation_coefficient=1.01,
+    ):
+        """
+        Note that initial_stddev and current_stddev refer to std of parameter noise, 
+        but desired_action_stddev refers to (as name notes) desired std in action space
+        """
+        self.initial_stddev = initial_stddev
+        self.desired_action_stddev = desired_action_stddev
+        self.adaptation_coefficient = adaptation_coefficient
+
+        self.current_stddev = initial_stddev
+
+    def adapt(self, distance):
+        if distance > self.desired_action_stddev:
+            # Decrease stddev.
+            self.current_stddev /= self.adaptation_coefficient
+        else:
+            # Increase stddev.
+            self.current_stddev *= self.adaptation_coefficient
+
+    def get_stats(self):
+        stats = {
+            "param_noise_stddev": self.current_stddev,
+        }
+        return stats
+
+
 class OUNoise:
     """https://github.com/vitchyr/rlkit/blob/master/rlkit/exploration_strategies/ou_strategy.py"""
 
@@ -513,6 +545,9 @@ class DDPG(TorchRecommender):
             min_sigma=noise_sigma,
             # noise_type="gauss",
         )  # , decay_period=1000000)
+        self.param_noise = AdaptiveParamNoiseSpec(
+            initial_stddev=0.05, desired_action_stddev=0.3, adaptation_coefficient=1.05
+        )
         self.state_repr = State_Repr_Module(
             user_num, item_num, embedding_dim, self.N
         )
@@ -524,14 +559,17 @@ class DDPG(TorchRecommender):
             embedding_dim * 3, embedding_dim, hidden_dim
         )
         self.target_policy_net = Actor_DRR(embedding_dim, hidden_dim)
-        for target_param, param in zip(
-            self.target_value_net.parameters(), self.value_net.parameters()
-        ):
-            target_param.data.copy_(param.data)
-        for target_param, param in zip(
-            self.target_policy_net.parameters(), self.policy_net.parameters()
-        ):
-            target_param.data.copy_(param.data)
+        self.perturbed_policy_net = Actor_DRR(embedding_dim, hidden_dim)
+        self._hard_update(self.target_value_net, self.value_net)
+        self._hard_update(self.target_policy_net, self.policy_net)
+#         for target_param, param in zip(
+#             self.target_value_net.parameters(), self.value_net.parameters()
+#         ):
+#             target_param.data.copy_(param.data)
+#         for target_param, param in zip(
+#             self.target_policy_net.parameters(), self.policy_net.parameters()
+#         ):
+#             target_param.data.copy_(param.data)
 
         self.environment = Env(item_num, user_num, N)
         self.test_environment = Env(item_num, user_num, N)
@@ -683,7 +721,6 @@ class DDPG(TorchRecommender):
 
     def _preprocess_log(self, log):
         data = log.toPandas()[["user_idx", "item_idx", "relevance"]]
-        #         data = data.drop("proc_dt", axis=1)
         #         data = data[data["relevance"] > 0].drop('proc_dt', axis=1)
         user_num = data["user_idx"].max() + 1
         item_num = data["item_idx"].max() + 1
@@ -724,6 +761,51 @@ class DDPG(TorchRecommender):
             index = recommended.index(actual)
             return np.reciprocal(np.log2(index + 2))
         return 0
+    
+    def _soft_update(self, target_net, net):
+        for target_param, param in zip(target_net.parameters(), net.parameters()):
+            target_param.data.copy_(
+                target_param.data * (1.0 - self.soft_tau) + param.data * self.soft_tau
+            )
+
+    def _hard_update(self, target_net, net):
+        for target_param, param in zip(target_net.parameters(), net.parameters()):
+            target_param.data.copy_(param.data)
+    
+    def ddpg_distance_metric(self, actions1, actions2):
+        diff = actions1 - actions2
+        mean_diff = np.mean(np.square(diff), axis=0)
+        dist = np.mean(mean_diff) ** 0.5
+        return dist
+
+    def get_action(
+        self, user, memory, para=None, noise=None,
+    ):
+        # self.policy_net.eval()
+        # self.perturbed_policy_net.eval()
+
+        state = self.state_repr(user, memory)
+        if para is not None:
+            a = self.perturbed_policy_net(state)
+        else:
+            a = self.policy_net(state)
+        # self.actor.train()
+
+        if noise is not None:
+            a = torch.tensor([to_np(a)[0] + noise]).float()
+#             a = a + noise
+        return a
+    
+    def perturb_actor_parameters(self):
+        """Apply parameter noise to actor model, for exploration"""
+        self._hard_update(self.perturbed_policy_net, self.policy_net)
+        params_dict = self.perturbed_policy_net.state_dict()
+        for name in params_dict:
+            if "layers.1" in name:
+                pass
+            param = params_dict[name]
+            random = torch.randn(param.shape)
+            param += random * self.param_noise.current_stddev
 
     def _ddpg_update(
         self,
@@ -780,21 +862,23 @@ class DDPG(TorchRecommender):
         # self.replay_buffer.update_priorities(indices, prios.data.cpu().numpy())
         value_optimizer.step()
         state_repr_optimizer.step()
-
-        for target_param, param in zip(
-            self.target_value_net.parameters(), self.value_net.parameters()
-        ):
-            target_param.data.copy_(
-                target_param.data * (1.0 - self.soft_tau)
-                + param.data * self.soft_tau
-            )
-        for target_param, param in zip(
-            self.target_policy_net.parameters(), self.policy_net.parameters()
-        ):
-            target_param.data.copy_(
-                target_param.data * (1.0 - self.soft_tau)
-                + param.data * self.soft_tau
-            )
+        
+        self._soft_update(self.target_value_net, self.value_net)
+        self._soft_update(self.target_policy_net, self.policy_net)
+#         for target_param, param in zip(
+#             self.target_value_net.parameters(), self.value_net.parameters()
+#         ):
+#             target_param.data.copy_(
+#                 target_param.data * (1.0 - self.soft_tau)
+#                 + param.data * self.soft_tau
+#             )
+#         for target_param, param in zip(
+#             self.target_policy_net.parameters(), self.policy_net.parameters()
+#         ):
+#             target_param.data.copy_(
+#                 target_param.data * (1.0 - self.soft_tau)
+#                 + param.data * self.soft_tau
+#             )
 
         if self.writer:
             self.writer.add_histogram("value", value, step)
@@ -916,14 +1000,21 @@ class DDPG(TorchRecommender):
     ):
         self.log_dir.mkdir(parents=True, exist_ok=True)
         hits, dcgs, rewards = [], [], []
-        step, best_step = 0, 0
+        step, best_step, noise_counter = 0, 0, 0
 
         for i, u in enumerate(tqdm.tqdm(users)):
             user, memory = self.environment.reset_old(u)
-            self.ou_noise.reset()
+#             self.ou_noise.reset()
+            self.perturb_actor_parameters()
             for t in range(len(self.environment.related_items)):
-                action_emb = self.policy_net(self.state_repr(user, memory))
-                action_emb = self.ou_noise.get_action(to_np(action_emb)[0], t)
+#                 action_emb = self.policy_net(self.state_repr(user, memory))
+#                 action_emb = self.ou_noise.get_action(to_np(action_emb)[0], t)
+                action_emb = self.get_action(
+                    user,
+                    torch.tensor(self.environment.memory[to_np(user).astype(int), :]),
+                    self.param_noise,
+                    noise=self.ou_noise.evolve_state(),
+                )
                 action = self.policy_net.get_action(
                     self.state_repr,
                     action_emb,
@@ -971,6 +1062,31 @@ class DDPG(TorchRecommender):
                 with torch.no_grad():
                     if self.writer:
                         self.writer.add_histogram('reward_per_episode', np.mean(rewards[-100:]), step)
+                
+                noise_counter += 1
+                if self.replay_buffer.pos - noise_counter > 0:
+                    noise_data = self.replay_buffer.buffer[
+                        self.replay_buffer.pos - noise_counter : self.replay_buffer.pos
+                    ]
+                else:
+                    noise_data = (
+                        self.replay_buffer.buffer[
+                            self.replay_buffer.pos - noise_counter + 60000 : 60000
+                        ]
+                        + self.replay_buffer.buffer[0 : self.replay_buffer.pos]
+                    )
+
+                noise_data = np.array(noise_data)
+                noise_user, noise_memory, noise_a, _, _, _, _ = zip(*noise_data)
+
+                ddpg_dist = self.ddpg_distance_metric(
+                    noise_a, 
+                    to_np(self.get_action(
+                        torch.tensor(noise_user).squeeze(1),
+                        torch.tensor(noise_memory).squeeze(1),
+                    ))
+                )
+                self.param_noise.adapt(ddpg_dist)
 
         torch.save(
             self.policy_net.state_dict(),
