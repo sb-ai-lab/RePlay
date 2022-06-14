@@ -12,7 +12,7 @@ from replay.utils import convert2spark
 from replay.session_handler import State
 
 
-def filter_rare(
+def filter_by_min_count(
     data_frame: AnyDataFrame, num_entries: int, group_by: str = "user_idx"
 ) -> DataFrame:
     """
@@ -22,13 +22,14 @@ def filter_rare(
 
     >>> import pandas as pd
     >>> data_frame = pd.DataFrame({"user_idx": [1, 1, 2]})
-    >>> filter_rare(data_frame, 2).toPandas()
+    >>> filter_by_min_count(data_frame, 2).toPandas()
        user_idx
     0         1
     1         1
 
     :param data_frame: spark or pandas dataframe to apply filter
-    :param num_entries: minimal number of times the entry should arears in dataset to leave
+    :param num_entries: minimal number of times the entry should appear in dataset
+        in order to remain
     :param group_by: entity column, which is used to calculate entity occurrence couns
     :return: filteder `data_frame`
     """
@@ -54,7 +55,7 @@ def filter_rare(
     return data_frame
 
 
-def filter_low_ratings(
+def filter_out_low_ratings(
     data_frame: AnyDataFrame, value: float, rating_column="relevance"
 ) -> DataFrame:
     """
@@ -62,7 +63,7 @@ def filter_low_ratings(
 
     >>> import pandas as pd
     >>> data_frame = pd.DataFrame({"relevance": [1, 5, 3.5, 4]})
-    >>> filter_low_ratings(data_frame, 3.5).show()
+    >>> filter_out_low_ratings(data_frame, 3.5).show()
     +---------+
     |relevance|
     +---------+
@@ -78,7 +79,7 @@ def filter_low_ratings(
 
 
 # pylint: disable=too-many-arguments,
-def filter_user_interactions(
+def take_num_user_interactions(
     log: DataFrame,
     num_interactions: int = 10,
     first: bool = True,
@@ -115,7 +116,7 @@ def filter_user_interactions(
 
     Only first interaction:
 
-    >>> filter_user_interactions(log_sp, 1, True).orderBy('user_idx').show()
+    >>> take_num_user_interactions(log_sp, 1, True).orderBy('user_idx').show()
     +--------+--------+---+-------------------+
     |user_idx|item_idx|rel|          timestamp|
     +--------+--------+---+-------------------+
@@ -127,7 +128,7 @@ def filter_user_interactions(
 
     Only last interaction:
 
-    >>> filter_user_interactions(log_sp, 1, False, item_col=None).orderBy('user_idx').show()
+    >>> take_num_user_interactions(log_sp, 1, False, item_col=None).orderBy('user_idx').show()
     +--------+--------+---+-------------------+
     |user_idx|item_idx|rel|          timestamp|
     +--------+--------+---+-------------------+
@@ -137,7 +138,7 @@ def filter_user_interactions(
     +--------+--------+---+-------------------+
     <BLANKLINE>
 
-    >>> filter_user_interactions(log_sp, 1, False).orderBy('user_idx').show()
+    >>> take_num_user_interactions(log_sp, 1, False).orderBy('user_idx').show()
     +--------+--------+---+-------------------+
     |user_idx|item_idx|rel|          timestamp|
     +--------+--------+---+-------------------+
@@ -172,7 +173,7 @@ def filter_user_interactions(
     )
 
 
-def take_part_of_user_hist(
+def take_num_days_of_user_hist(
     log: DataFrame,
     days: int = 10,
     first: bool = True,
@@ -208,7 +209,7 @@ def take_part_of_user_hist(
 
     Get first day:
 
-    >>> take_part_of_user_hist(log_sp, 1, True).orderBy('user_idx', 'item_idx').show()
+    >>> take_num_days_of_user_hist(log_sp, 1, True).orderBy('user_idx', 'item_idx').show()
     +--------+--------+---+-------------------+
     |user_idx|item_idx|rel|          timestamp|
     +--------+--------+---+-------------------+
@@ -222,7 +223,7 @@ def take_part_of_user_hist(
 
     Get last day:
 
-    >>> take_part_of_user_hist(log_sp, 1, False).orderBy('user_idx', 'item_idx').show()
+    >>> take_num_days_of_user_hist(log_sp, 1, False).orderBy('user_idx', 'item_idx').show()
     +--------+--------+---+-------------------+
     |user_idx|item_idx|rel|          timestamp|
     +--------+--------+---+-------------------+
@@ -320,7 +321,7 @@ def take_time_period(
     )
 
 
-def take_part_of_global_hist(
+def take_num_days_of_global_hist(
     log: DataFrame,
     duration_days: int,
     first: bool = True,
@@ -353,7 +354,7 @@ def take_part_of_global_hist(
     +--------+--------+---+-------------------+
     <BLANKLINE>
 
-    >>> take_part_of_global_hist(log_sp, 1).show()
+    >>> take_num_days_of_global_hist(log_sp, 1).show()
     +--------+--------+---+-------------------+
     |user_idx|item_idx|rel|          timestamp|
     +--------+--------+---+-------------------+
@@ -363,7 +364,7 @@ def take_part_of_global_hist(
     +--------+--------+---+-------------------+
     <BLANKLINE>
 
-    >>> take_part_of_global_hist(log_sp, 1, first=False).show()
+    >>> take_num_days_of_global_hist(log_sp, 1, first=False).show()
     +--------+--------+---+-------------------+
     |user_idx|item_idx|rel|          timestamp|
     +--------+--------+---+-------------------+
