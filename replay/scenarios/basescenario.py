@@ -6,7 +6,7 @@ from typing import Optional, Union, Iterable, Dict, List, Any, Tuple
 from pyspark.sql import DataFrame
 
 from replay.constants import AnyDataFrame
-from replay.filters import min_entries
+from replay.filters import filter_by_min_count
 from replay.metrics import Metric, NDCG
 from replay.models.base_rec import BaseRecommender
 from replay.utils import convert2spark
@@ -34,7 +34,7 @@ class BaseScenario(BaseRecommender):
         :param item_features: item features ``[item_id, timestamp]`` + feature columns
         :return:
         """
-        hot_data = min_entries(log, self.threshold)
+        hot_data = filter_by_min_count(log, self.threshold, "user_idx")
         self.hot_users = hot_data.select("user_idx").distinct()
         self._fit_wrap(hot_data, user_features, item_features)
         self.cold_model._fit_wrap(log, user_features, item_features)
@@ -74,7 +74,7 @@ class BaseScenario(BaseRecommender):
         log = convert2spark(log)
         users = users or log or user_features or self.fit_users
         users = self._get_ids(users, "user_idx")
-        hot_data = min_entries(log, self.threshold)
+        hot_data = filter_by_min_count(log, self.threshold, "user_idx")
         hot_users = hot_data.select("user_idx").distinct()
         if not self.can_predict_cold_users:
             hot_users = hot_users.join(self.hot_users)

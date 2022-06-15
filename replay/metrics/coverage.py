@@ -16,7 +16,7 @@ class Coverage(RecOnlyMetric):
 
     * take ``K`` recommendations with the biggest ``relevance`` for each ``user_id``
     * count the number of distinct ``item_id`` in these recommendations
-    * devide it by the number of items in the whole data set
+    * divide it by the number of items in the whole data set
 
     """
 
