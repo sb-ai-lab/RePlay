@@ -11,7 +11,6 @@ You can
 - Optimize hyper parameters
 - Evaluate predictions with metrics
 - Combine predictions from different models
-- Create a two-level model
 
 
 ## Docs
