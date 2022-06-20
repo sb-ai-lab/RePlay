@@ -164,7 +164,9 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
         new_objects = set(
             map(
                 str,
-                df.select(sf.collect_list(indexer.getInputCol())).first()[0],
+                df.select(indexer.getInputCol())
+                .distinct()
+                .toPandas()[indexer.getInputCol()],
             )
         ).difference(indexer.labels)
         if new_objects:
