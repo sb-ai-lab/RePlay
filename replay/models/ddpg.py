@@ -142,14 +142,12 @@ class OUNoise:
     def __init__(
         self,
         action_dim,
-        mu=0.0,
         theta=0.15,
         max_sigma=0.4,
         min_sigma=0.4,
         noise_type="ou",
         decay_period=10,
     ):
-        self.mu = mu
         self.theta = theta
         self.sigma = max_sigma
         self.max_sigma = max_sigma
@@ -160,13 +158,11 @@ class OUNoise:
         self.reset()
 
     def reset(self):
-        self.state = np.ones(self.action_dim) * self.mu
+        self.state = np.zeros(self.action_dim)
 
     def evolve_state(self):
         x = self.state
-        dx = self.theta * (self.mu - x) + self.sigma * np.random.randn(
-            self.action_dim
-        )
+        dx = -self.theta * x + self.sigma * np.random.randn(self.action_dim)
         self.state = x + dx
         return self.state
 
@@ -382,31 +378,31 @@ class State_Repr_Module(nn.Module):
 
 # pylint: disable=too-many-arguments
 class DDPG(TorchRecommender):
+
+    batch_size=512
+    embedding_dim=8
+    hidden_dim=16
+    value_lr=1e-5
+    value_decay=1e-5
+    policy_lr=1e-5
+    policy_decay=1e-6
+    state_repr_lr=1e-5
+    state_repr_decay=1e-3
+    gamma=0.8
+    N=5
+    min_value=-10
+    max_value=10
+    soft_tau=1e-3
+    buffer_size=1000000
     _search_space = {
         "gamma": {"type": "uniform", "args": [0.8, 0.8]},
     }
 
     def __init__(
         self,
-        batch_size=512,
-        embedding_dim=8,
-        hidden_dim=16,
-        N=5,
         noise_theta=0.1,
         noise_sigma=0.4,
-        PER=True,
-        value_lr=1e-5,
-        value_decay=1e-5,
-        policy_lr=1e-5,
-        policy_decay=1e-6,
-        state_repr_lr=1e-5,
-        state_repr_decay=1e-3,
-        gamma=0.8,
-        min_value=-10,
-        max_value=10,
-        soft_tau=1e-3,
         seed=16,
-        buffer_size=1000000,
         user_num=3000,
         item_num=1600000,
         log_dir="logs/tmp",
@@ -416,58 +412,29 @@ class DDPG(TorchRecommender):
         np.random.seed(seed)
         torch.manual_seed(seed)
 
-        self.batch_size = batch_size
-        self.N = N
-        self.PER = PER
-        self.value_lr = value_lr
-        self.value_decay = value_decay
-        self.policy_lr = policy_lr
-        self.policy_decay = policy_decay
-        self.state_repr_lr = state_repr_lr
-        self.state_repr_decay = state_repr_decay
-        self.log_dir = Path(log_dir)
-        self.gamma = gamma
-        self.min_value = min_value
-        self.max_value = max_value
-        self.soft_tau = soft_tau
-        self.buffer_size = buffer_size
+        self.noise_theta = noise_theta
+        self.noise_sigma = noise_sigma
         self.user_num = user_num
-
-        self.ou_noise = OUNoise(
-            embedding_dim,
-            theta=noise_theta,
-            max_sigma=noise_sigma,
-            min_sigma=noise_sigma,
-            # noise_type="gauss",
-        )  # , decay_period=1000000)
-        self.state_repr = State_Repr_Module(
-            user_num, item_num, embedding_dim, self.N
-        )
-        self.policy_net = Actor_DRR(embedding_dim, hidden_dim)
-        self.value_net = Critic_DRR(
-            embedding_dim * 3, embedding_dim, hidden_dim
-        )
-        self.target_value_net = Critic_DRR(
-            embedding_dim * 3, embedding_dim, hidden_dim
-        )
-        self.target_policy_net = Actor_DRR(embedding_dim, hidden_dim)
-        for target_param, param in zip(
-            self.target_value_net.parameters(), self.value_net.parameters()
-        ):
-            target_param.data.copy_(param.data)
-        for target_param, param in zip(
-            self.target_policy_net.parameters(), self.policy_net.parameters()
-        ):
-            target_param.data.copy_(param.data)
-
+        self.log_dir = Path(log_dir)
         self.environment = Env(item_num, user_num, N)
         self.test_environment = Env(item_num, user_num, N)
         self.replay_buffer = Buffer(self.buffer_size)
-
         if writer:
             self.writer = SummaryWriter(log_dir=self.log_dir)
-        else:
-            self.writer = None
+
+        self.state_repr = State_Repr_Module(
+            user_num, item_num, self.embedding_dim, self.N
+        )
+        self.policy_net = Actor_DRR(self.embedding_dim, self.hidden_dim)
+        self.value_net = Critic_DRR(
+            self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
+        )
+        self.target_value_net = Critic_DRR(
+            self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
+        )
+        self.target_policy_net = Actor_DRR(self.embedding_dim, self.hidden_dim)
+        self._target_update(self.target_value_net, self.value_net, tau=1)
+        self._target_update(self.target_policy_net, self.policy_net, tau=1)
 
     @property
     def _init_args(self):
@@ -702,20 +669,8 @@ class DDPG(TorchRecommender):
         value_optimizer.step()
         state_repr_optimizer.step()
 
-        for target_param, param in zip(
-            self.target_value_net.parameters(), self.value_net.parameters()
-        ):
-            target_param.data.copy_(
-                target_param.data * (1.0 - self.soft_tau)
-                + param.data * self.soft_tau
-            )
-        for target_param, param in zip(
-            self.target_policy_net.parameters(), self.policy_net.parameters()
-        ):
-            target_param.data.copy_(
-                target_param.data * (1.0 - self.soft_tau)
-                + param.data * self.soft_tau
-            )
+        self._target_update(self.target_value_net, self.value_net)
+        self._target_update(self.target_policy_net, self.policy_net)
 
         if self.writer:
             self.writer.add_histogram("value", value, step)
@@ -723,6 +678,14 @@ class DDPG(TorchRecommender):
             self.writer.add_histogram("expected_value", expected_value, step)
             self.writer.add_histogram("policy_loss", -policy_loss, step)
             self.writer.add_histogram("value_loss", value_loss, step)
+
+    def _target_update(self, target_net, net, tau=self.soft_tau):
+        for target_param, param in zip(
+            target_net.parameters(), net.parameters()
+        ):
+            target_param.data.copy_(
+                target_param.data * (1.0 - tau) + param.data * tau
+            )
 
     def _run_evaluation(self, loader):
         hits3 = []
@@ -802,6 +765,14 @@ class DDPG(TorchRecommender):
             current_item_num,
             test_matrix,
         )
+
+        self.ou_noise = OUNoise(
+            self.embedding_dim,
+            theta=self.noise_theta,
+            max_sigma=self.noise_sigma,
+            min_sigma=self.noise_sigma,
+            # noise_type="gauss",
+        )  # , decay_period=1000000)
 
         policy_optimizer = Ranger(
             self.policy_net.parameters(),
