@@ -480,7 +480,7 @@ class DDPG(TorchRecommender):
         max_value=10,
         soft_tau=1e-3,
         seed=16,
-        buffer_size=1000000000,
+        buffer_size=1000000,
         user_num=3000,
         item_num=1600000,
         log_dir="data/logs/tmp",
