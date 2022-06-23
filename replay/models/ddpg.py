@@ -467,6 +467,7 @@ class DDPG(TorchRecommender):
         embedding_dim=8,
         hidden_dim=16,
         N=5,
+        noise_theta=0.1,
         noise_sigma=0.4,
         PER=True,
         value_lr=1e-5,
@@ -509,6 +510,7 @@ class DDPG(TorchRecommender):
 
         self.ou_noise = OUNoise(
             embedding_dim,
+            theta=noise_theta,
             max_sigma=noise_sigma,
             min_sigma=noise_sigma,
             # noise_type="gauss",
