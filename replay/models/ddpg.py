@@ -84,81 +84,6 @@ class Buffer:
         return len(self.buffer)
 
 
-class Prioritized_Buffer:
-    def __init__(self, capacity, prob_alpha=0.6):
-        self.prob_alpha = prob_alpha
-        self.capacity = capacity
-        self.buffer = []
-        self.pos = 0
-        self.priorities = np.zeros((capacity,), dtype=np.float32)
-
-    def push(self, user, memory, action, reward, next_user, next_memory, done):
-        max_prio = self.priorities.max() if self.buffer else 1.0
-
-        if len(self.buffer) < self.capacity:
-            self.buffer.append(
-                (user, memory, action, reward, next_user, next_memory, done)
-            )
-        else:
-            self.buffer[self.pos] = (
-                user,
-                memory,
-                action,
-                reward,
-                next_user,
-                next_memory,
-                done,
-            )
-
-        self.priorities[self.pos] = max_prio
-        self.pos = (self.pos + 1) % self.capacity
-
-    def sample(self, batch_size, beta=0.4):
-        if len(self.buffer) == self.capacity:
-            prios = self.priorities
-        else:
-            prios = self.priorities[: self.pos]
-
-        probs = prios ** self.prob_alpha
-        probs /= probs.sum()
-
-        indices = np.random.choice(len(self.buffer), batch_size, p=probs)
-        samples = [self.buffer[idx] for idx in indices]
-
-        total = len(self.buffer)
-        weights = (total * probs[indices]) ** (-beta)
-        weights /= weights.max()
-        weights = np.array(weights, dtype=np.float32)
-
-        batch = list(zip(*samples))
-        user = np.concatenate(batch[0])
-        memory = np.concatenate(batch[1])
-        action = batch[2]
-        reward = batch[3]
-        next_user = np.concatenate(batch[4])
-        next_memory = np.concatenate(batch[5])
-        done = batch[6]
-
-        return (
-            user,
-            memory,
-            action,
-            reward,
-            next_user,
-            next_memory,
-            done,
-            indices,
-            weights,
-        )
-
-    def update_priorities(self, batch_indices, batch_priorities):
-        for idx, prio in zip(batch_indices, batch_priorities):
-            self.priorities[idx] = prio
-
-    def __len__(self):
-        return len(self.buffer)
-
-
 class EvalDataset(td.Dataset):
     def __init__(
         self,
@@ -744,7 +669,6 @@ class DDPG(TorchRecommender):
             next_memory,
             done,
         ) = self.replay_buffer.sample(self.batch_size, beta)
-        # user, memory, action, reward, next_user, next_memory, done, indices, weights = self.replay_buffer.sample(self.batch_size, beta)
         user = torch.FloatTensor(user)
         memory = torch.FloatTensor(memory)
         action = torch.FloatTensor(action)
@@ -752,7 +676,6 @@ class DDPG(TorchRecommender):
         next_user = torch.FloatTensor(next_user)
         next_memory = torch.FloatTensor(next_memory)
         done = torch.FloatTensor(done)
-        # weights     = torch.FloatTensor(weights)
 
         state = self.state_repr(user, memory)
         policy_loss = self.value_net(state, self.policy_net(state))
@@ -768,9 +691,6 @@ class DDPG(TorchRecommender):
 
         value = self.value_net(state, action)
         value_loss = (value - expected_value.detach()).squeeze(1).pow(2).mean()
-        # value_loss = (value - expected_value.detach()).squeeze(1).pow(2) * weights # .mean()
-        # prios = value_loss + 1e-5
-        # value_loss  = value_loss.mean()
 
         state_repr_optimizer.zero_grad()
         policy_optimizer.zero_grad()
@@ -779,7 +699,6 @@ class DDPG(TorchRecommender):
 
         value_optimizer.zero_grad()
         value_loss.backward(retain_graph=True)
-        # self.replay_buffer.update_priorities(indices, prios.data.cpu().numpy())
         value_optimizer.step()
         state_repr_optimizer.step()
 
