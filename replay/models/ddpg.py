@@ -483,8 +483,8 @@ class DDPG(TorchRecommender):
         buffer_size=1000000,
         user_num=3000,
         item_num=1600000,
-        log_dir="data/logs/tmp",
-        writer=False,
+        log_dir="logs/tmp",
+        writer=True,
     ):
         super().__init__()
         np.random.seed(seed)
@@ -535,8 +535,8 @@ class DDPG(TorchRecommender):
 
         self.environment = Env(item_num, user_num, N)
         self.test_environment = Env(item_num, user_num, N)
-
         self.replay_buffer = Buffer(self.buffer_size)
+
         if writer:
             self.writer = SummaryWriter(log_dir=self.log_dir)
         else:
@@ -682,7 +682,7 @@ class DDPG(TorchRecommender):
         return min(1.0, beta_start + idx * (1.0 - beta_start) / beta_steps)
 
     def _preprocess_log(self, log):
-        data = log.toPandas()[["user_idx", "item_idx", "relevance"]
+        data = log.toPandas()[["user_idx", "item_idx", "relevance"]]
         #         data = data.drop("proc_dt", axis=1)
         #         data = data[data["relevance"] > 0].drop('proc_dt', axis=1)
         user_num = data["user_idx"].max() + 1
@@ -701,7 +701,7 @@ class DDPG(TorchRecommender):
         test_mat = defaultdict(float)
         for user, item, rel in train_data:
             train_mat[user, item] = rel
-        for user, item, rel, *emb in test_data:
+        for user, item, rel in test_data:
             test_mat[user, item] = rel
         train_matrix = sp.dok_matrix((user_num, item_num), dtype=np.float32)
         dict.update(train_matrix, train_mat)
@@ -971,13 +971,9 @@ class DDPG(TorchRecommender):
                 #                             torch.save(self.policy_net.state_dict(), self.log_dir / 'best_policy_net.pth')
                 #                             torch.save(self.state_repr.state_dict(), self.log_dir / 'best_state_repr.pth')
                 step += 1
-        #             if len(steps) < i:
-        #                 steps.append(t)
-        #             with torch.no_grad():
-        #                 if steps and writer:
-        #                     writer.add_scalars('convergence_steps', {'max': np.max(steps)}, step)
-        #                     writer.add_scalars('convergence_steps', {'current': steps[-1]}, step)
-        #                     writer.add_histogram('reward_per_episode', np.mean(rewards[-100:]), step)
+                if self.writer:
+                    with torch.no_grad():
+                        self.writer.add_histogram('reward_per_episode', np.mean(rewards[-100:]), step)
 
         torch.save(
             self.policy_net.state_dict(),
@@ -989,4 +985,3 @@ class DDPG(TorchRecommender):
         )
         with open(self.log_dir / "memory.pickle", "wb") as f:
             pickle.dump(self.environment.memory, f)
-        writer.close()
