@@ -139,7 +139,7 @@ class TorchRecommender(Recommender):
 
         self.logger.debug("Predict started")
         # do not apply map on cold users for MultVAE predict
-        join_type = "inner" if self.__str__() == "MultVAE" else "left"
+        join_type = "inner" if str(self) == "MultVAE" else "left"
         recs = (
             users.join(log, how=join_type, on="user_idx")
             .select("user_idx", "item_idx")

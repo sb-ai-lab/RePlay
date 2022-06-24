@@ -348,7 +348,7 @@ class DataPreparator:
                 NumericType,
             ):
                 self.logger.info(
-                    "Relevance column `%s` should be numeric, " "but it is %s",
+                    "Relevance column `%s` should be numeric, but it is %s",
                     columns_mapping["relevance"],
                     dataframe.schema[columns_mapping["relevance"]].dataType,
                 )
