@@ -743,7 +743,7 @@ class BaseRecommender(ABC):
 
         self.logger.info(
             "get_features method is not defined for the model %s. Features will not be returned.",
-            self.__str__(),
+            str(self),
         )
         return None, None
 
@@ -770,7 +770,7 @@ class BaseRecommender(ABC):
         if metric is None:
             raise ValueError(
                 f"Distance metric is required to get nearest items with "
-                f"{self.__str__()} model"
+                f"{self} model"
             )
 
         if self.can_predict_item_to_item:
@@ -831,7 +831,7 @@ class BaseRecommender(ABC):
         candidates: Optional[DataFrame] = None,
     ) -> Optional[DataFrame]:
         raise NotImplementedError(
-            f"item-to-item prediction is not implemented for {self.__str__()}"
+            f"item-to-item prediction is not implemented for {self}"
         )
 
     def _params_tried(self):
@@ -1394,7 +1394,7 @@ class NeighbourRec(Recommender, ABC):
         if metric is not None:
             self.logger.debug(
                 "Metric is not used to determine nearest items in %s model",
-                self.__str__(),
+                str(self),
             )
 
         return self._get_nearest_items_wrap(
