@@ -403,10 +403,10 @@ class DDPG(TorchRecommender):
         noise_theta=0.1,
         noise_sigma=0.4,
         seed=16,
-        user_num=3000,
-        item_num=1600000,
+        user_num=2000,
+        item_num=200000,
         log_dir="logs/tmp",
-        writer=True,
+        writer=False,
     ):
         super().__init__()
         np.random.seed(seed)
