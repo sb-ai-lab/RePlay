@@ -416,11 +416,13 @@ class DDPG(TorchRecommender):
         self.noise_sigma = noise_sigma
         self.user_num = user_num
         self.log_dir = Path(log_dir)
-        self.environment = Env(item_num, user_num, N)
-        self.test_environment = Env(item_num, user_num, N)
+        self.environment = Env(item_num, user_num, self.N)
+        self.test_environment = Env(item_num, user_num, self.N)
         self.replay_buffer = Buffer(self.buffer_size)
         if writer:
             self.writer = SummaryWriter(log_dir=self.log_dir)
+        else:
+            self.writer = False
 
         self.state_repr = State_Repr_Module(
             user_num, item_num, self.embedding_dim, self.N
