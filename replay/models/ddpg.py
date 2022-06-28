@@ -681,7 +681,10 @@ class DDPG(TorchRecommender):
             self.writer.add_histogram("policy_loss", -policy_loss, step)
             self.writer.add_histogram("value_loss", value_loss, step)
 
-    def _target_update(self, target_net, net, tau=self.soft_tau):
+    def _target_update(self, target_net, net, tau=None):
+        if tau is None:
+            tau = self.soft_tau
+
         for target_param, param in zip(
             target_net.parameters(), net.parameters()
         ):
