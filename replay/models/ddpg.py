@@ -726,10 +726,10 @@ class DDPG(TorchRecommender):
             user_embeddings["user_idx"] < self.user_num
         ]
         indexes = user_embeddings["user_idx"]
-        embeddings = user_embeddings.drop("user_idx", axis=1)
-        self.state_repr.user_embeddings.weight.data[
-            indexes
-        ] = torch.from_numpy(embeddings.values).float()
+        embeddings = torch.from_numpy(
+            user_embeddings.iloc[:, -8:].values
+        ).float()
+        self.state_repr.user_embeddings.weight.data[indexes] = embeddings
 
     def load_item_embeddings(self, item_embeddings_path):
         item_embeddings = pd.read_parquet(item_embeddings_path)
@@ -737,10 +737,10 @@ class DDPG(TorchRecommender):
             item_embeddings["item_idx"] < self.item_num
         ]
         indexes = item_embeddings["item_idx"]
-        embeddings = item_embeddings.drop("item_idx", axis=1)
-        self.state_repr.item_embeddings.weight.data[
-            indexes
-        ] = torch.from_numpy(embeddings.values).float()
+        embeddings = torch.from_numpy(
+            item_embeddings.iloc[:, -8:].values
+        ).float()
+        self.state_repr.item_embeddings.weight.data[indexes] = embeddings
 
     def _fit(
         self,
