@@ -805,7 +805,7 @@ class DDPG(TorchRecommender):
         valid_loader=None,
     ):
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        hits, dcgs, rewards, steps = [], [], [], []
+        hits, dcgs, rewards = [], [], []
         step, best_step = 0, 0
 
         for i, u in enumerate(tqdm.tqdm(users)):
@@ -829,8 +829,6 @@ class DDPG(TorchRecommender):
                     action, action_emb, self.replay_buffer
                 )
                 rewards.append(reward)
-                if len(steps) < i and reward > 0:
-                    steps.append(t)
 
                 if len(self.replay_buffer) > self.batch_size:
                     self._ddpg_update(
