@@ -30,15 +30,20 @@ class DateSplitter(Splitter):
         test_start: Union[datetime, float, str, int],
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
+        drop_zero_rel_in_test: bool = True,
     ):
         """
         :param test_start: string``yyyy-mm-dd``, int unix timestamp, datetime or a
             fraction for test size to determine data automatically
         :param drop_cold_items: flag to drop cold items from test
         :param drop_cold_users: flag to drop cold users from test
+        :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
+            from the test part of the dataset
         """
         super().__init__(
-            drop_cold_items=drop_cold_items, drop_cold_users=drop_cold_users
+            drop_cold_items=drop_cold_items,
+            drop_cold_users=drop_cold_users,
+            drop_zero_rel_in_test=drop_zero_rel_in_test,
         )
         self.test_start = test_start
 
@@ -65,21 +70,27 @@ class DateSplitter(Splitter):
 class RandomSplitter(Splitter):
     """Assign records into train and test at random."""
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         test_size: float,
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
+        drop_zero_rel_in_test: bool = True,
         seed: Optional[int] = None,
     ):
         """
         :param test_size: test size 0 to 1
         :param drop_cold_items: flag to drop cold items from test
         :param drop_cold_users: flag to drop cold users from test
+        :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
+            from the test part of the dataset
         :param seed: random seed
         """
         super().__init__(
-            drop_cold_items=drop_cold_items, drop_cold_users=drop_cold_users
+            drop_cold_items=drop_cold_items,
+            drop_cold_users=drop_cold_users,
+            drop_zero_rel_in_test=drop_zero_rel_in_test,
         )
         self.seed = seed
         self.test_size = test_size
@@ -146,13 +157,22 @@ class NewUsersSplitter(Splitter):
     <BLANKLINE>
     """
 
-    def __init__(self, test_size: float, drop_cold_items: bool = False):
+    def __init__(
+        self,
+        test_size: float,
+        drop_cold_items: bool = False,
+        drop_zero_rel_in_test: bool = True,
+    ):
         """
         :param test_size: test size 0 to 1
         :param drop_cold_items: flag to drop cold items from test
+        :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
+            from the test part of the dataset
         """
         super().__init__(
-            drop_cold_items=drop_cold_items, drop_cold_users=False
+            drop_cold_items=drop_cold_items,
+            drop_cold_users=False,
+            drop_zero_rel_in_test=drop_zero_rel_in_test,
         )
         self.test_size = test_size
         if test_size < 0 or test_size > 1:
@@ -201,21 +221,27 @@ class ColdUserRandomSplitter(Splitter):
         test_size: float,
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
+        drop_zero_rel_in_test: bool = True,
     ):
         """
         :param test_size: fraction of users to be in test
         :param drop_cold_items: flag to drop cold items from test
         :param drop_cold_users: flag to drop cold users from test
+        :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
+            from the test part of the dataset
         """
         super().__init__(
-            drop_cold_items=drop_cold_items, drop_cold_users=drop_cold_users
+            drop_cold_items=drop_cold_items,
+            drop_cold_users=drop_cold_users,
+            drop_zero_rel_in_test=drop_zero_rel_in_test,
         )
         self.test_size = test_size
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         users = log.select("user_idx").distinct()
         train_users, test_users = users.randomSplit(
-            [1 - self.test_size, self.test_size], seed=self.seed,
+            [1 - self.test_size, self.test_size],
+            seed=self.seed,
         )
         train = log.join(train_users, on="user_idx", how="inner")
         test = log.join(test_users, on="user_idx", how="inner")
