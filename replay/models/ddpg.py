@@ -578,7 +578,6 @@ class DDPG(TorchRecommender):
 
     def _preprocess_log(self, log):
         data = log.toPandas()[["user_idx", "item_idx", "relevance"]]
-        #         data = data.drop("proc_dt", axis=1)
         #         data = data[data["relevance"] > 0].drop('proc_dt', axis=1)
         user_num = data["user_idx"].max() + 1
         item_num = data["item_idx"].max() + 1
@@ -772,9 +771,7 @@ class DDPG(TorchRecommender):
             theta=self.noise_theta,
             max_sigma=self.noise_sigma,
             min_sigma=self.noise_sigma,
-            # noise_type="gauss",
-        )  # , decay_period=1000000)
-
+        )
         policy_optimizer = Ranger(
             self.policy_net.parameters(),
             lr=self.policy_lr,
@@ -844,37 +841,25 @@ class DDPG(TorchRecommender):
                     )
 
                 if step % 10000 == 0 and step > 0:
-                    torch.save(
-                        self.policy_net.state_dict(),
-                        self.log_dir / f"policy_net_{step}.pth",
-                    )
-                    torch.save(
-                        self.state_repr.state_dict(),
-                        self.log_dir / f"state_repr_{step}.pth",
-                    )
-                #                     if valid_loader:
-                #                         hit, dcg, hit3, dcg3 = self._run_evaluation(valid_loader)
-                #                         if self.writer:
-                #                             self.writer.add_scalar('hit', hit, step)
-                #                             self.writer.add_scalar('dcg', dcg, step)
-                #                         hits.append(hit)
-                #                         dcgs.append(dcg)
-                #                         if np.mean(np.array([hit, dcg]) - np.array([hits[best_step], dcgs[best_step]])) > 0:
-                #                             best_step = step // 10000
-                #                             torch.save(self.policy_net.state_dict(), self.log_dir / 'best_policy_net.pth')
-                #                             torch.save(self.state_repr.state_dict(), self.log_dir / 'best_state_repr.pth')
+                    self._save_model("_{step}")
                 step += 1
                 if self.writer:
                     with torch.no_grad():
                         self.writer.add_histogram('reward_per_episode', np.mean(rewards[-100:]), step)
 
+        self._save_model("_final")
+        self._save_memory()
+
+    def _save_model(self, path: str = '') -> None:
         torch.save(
             self.policy_net.state_dict(),
-            self.log_dir / "policy_net_final.pth",
+            self.log_dir / f"policy_net{path}.pth",
         )
         torch.save(
             self.state_repr.state_dict(),
-            self.log_dir / "state_repr_final.pth",
+            self.log_dir / f"state_repr{path}.pth",
         )
+
+    def _save_memory(self) -> None:
         with open(self.log_dir / "memory.pickle", "wb") as f:
             pickle.dump(self.environment.memory, f)
