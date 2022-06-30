@@ -140,4 +140,5 @@ class KNN(NeighbourRec):
             df = df.withColumn("relevance", sf.lit(1))
 
         similarity_matrix = self._get_similarity(df)
-        self.similarity = self._get_k_most_similar(similarity_matrix).cache()
+        self.similarity = self._get_k_most_similar(similarity_matrix)
+        self.similarity.cache().count()

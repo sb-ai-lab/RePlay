@@ -68,6 +68,8 @@ class ALSWrap(Recommender, ItemVectorModel):
         ).fit(log)
         self.model.itemFactors.cache()
         self.model.userFactors.cache()
+        self.model.itemFactors.count()
+        self.model.userFactors.count()
 
     def _clear_cache(self):
         if hasattr(self, "model"):

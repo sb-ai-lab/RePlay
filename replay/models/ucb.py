@@ -54,10 +54,10 @@ class UCB(Recommender):
         self.coef = coef
 
     def _fit(
-            self,
-            log: DataFrame,
-            user_features: Optional[DataFrame] = None,
-            item_features: Optional[DataFrame] = None,
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
     ) -> None:
         vals = log.select("relevance").where(
             (sf.col("relevance") != 1) & (sf.col("relevance") != 0)
@@ -73,12 +73,16 @@ class UCB(Recommender):
         full_count = log.count()
         items_counts = items_counts.withColumn(
             "relevance",
-            (sf.col("pos") / sf.col("total") + sf.sqrt(
-                sf.log(sf.lit(self.coef * full_count)) / sf.col("total")))
+            (
+                sf.col("pos") / sf.col("total")
+                + sf.sqrt(
+                    sf.log(sf.lit(self.coef * full_count)) / sf.col("total")
+                )
+            ),
         )
 
         self.item_popularity = items_counts.drop("pos", "total")
-        self.item_popularity.cache()
+        self.item_popularity.cache().count()
 
         self.fill = 1 + math.sqrt(math.log(self.coef * full_count))
 
@@ -92,23 +96,30 @@ class UCB(Recommender):
 
     # pylint: disable=too-many-arguments
     def _predict(
-            self,
-            log: DataFrame,
-            k: int,
-            users: DataFrame,
-            items: DataFrame,
-            user_features: Optional[DataFrame] = None,
-            item_features: Optional[DataFrame] = None,
-            filter_seen_items: bool = True,
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
     ) -> DataFrame:
-        selected_item_popularity = self.item_popularity.join(
-            items,
-            on="item_idx",
-            how="right",
-        ).fillna(value=self.fill, subset=["relevance"]).withColumn(
-            "rank",
-            sf.row_number().over(Window.orderBy(sf.col("relevance").desc(),
-                                                sf.col("item_idx").desc())),
+        selected_item_popularity = (
+            self.item_popularity.join(
+                items,
+                on="item_idx",
+                how="right",
+            )
+            .fillna(value=self.fill, subset=["relevance"])
+            .withColumn(
+                "rank",
+                sf.row_number().over(
+                    Window.orderBy(
+                        sf.col("relevance").desc(), sf.col("item_idx").desc()
+                    )
+                ),
+            )
         )
 
         max_hist_len = 0
@@ -131,11 +142,12 @@ class UCB(Recommender):
         ).drop("rank")
 
     def _predict_pairs(
-            self,
-            pairs: DataFrame,
-            log: Optional[DataFrame] = None,
-            user_features: Optional[DataFrame] = None,
-            item_features: Optional[DataFrame] = None,
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-        return pairs.join(self.item_popularity, on="item_idx", how="right")\
-            .fillna(value=self.fill, subset=["relevance"])
+        return pairs.join(
+            self.item_popularity, on="item_idx", how="right"
+        ).fillna(value=self.fill, subset=["relevance"])

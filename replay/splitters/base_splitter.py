@@ -15,24 +15,32 @@ class Splitter(ABC):
     """Base class"""
 
     def __init__(
-        self, drop_cold_items: bool, drop_cold_users: bool,
+        self,
+        drop_cold_items: bool,
+        drop_cold_users: bool,
+        drop_zero_rel_in_test: bool,
     ):
         """
         :param drop_cold_items: flag to remove items that are not in train data
         :param drop_cold_users: flag to remove users that are not in train data
+        :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
+            from the test part of the dataset
         """
         self.drop_cold_users = drop_cold_users
         self.drop_cold_items = drop_cold_items
+        self.drop_zero_rel_in_test = drop_zero_rel_in_test
 
-    @staticmethod
-    def _filter_zero_relevance(dataframe: DataFrame) -> DataFrame:
+    def _filter_zero_relevance(self, dataframe: DataFrame) -> DataFrame:
         """
-        Removes records with zero relevance
+        Removes records with zero relevance if required by
+        `drop_zero_rel_in_test` initialization parameter
 
         :param dataframe: input DataFrame
         :returns: filtered DataFrame
         """
-        return dataframe.filter("relevance > 0.0")
+        if self.drop_zero_rel_in_test:
+            return dataframe.filter("relevance > 0.0")
+        return dataframe
 
     @staticmethod
     def _drop_cold_items_and_users(
@@ -84,7 +92,11 @@ class Splitter(ABC):
         :returns: `train` and `test` DataFrame
         """
         train, test = self._core_split(convert2spark(log))  # type: ignore
+        train.cache()
+        train.count()
         test = self._drop_cold_items_and_users(
             train, test, self.drop_cold_items, self.drop_cold_users
         )
-        return train.cache(), self._filter_zero_relevance(test).cache()
+        test = self._filter_zero_relevance(test).cache()
+        test.count()
+        return train, test

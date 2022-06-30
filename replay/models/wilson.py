@@ -61,17 +61,17 @@ class Wilson(PopRec):
         crit = norm.isf(self.alpha / 2.0)
         items_counts = items_counts.withColumn(
             "relevance",
-            (sf.col("pos") + sf.lit(0.5 * crit ** 2))
-            / (sf.col("total") + sf.lit(crit ** 2))
+            (sf.col("pos") + sf.lit(0.5 * crit**2))
+            / (sf.col("total") + sf.lit(crit**2))
             - sf.lit(crit)
-            / (sf.col("total") + sf.lit(crit ** 2))
+            / (sf.col("total") + sf.lit(crit**2))
             * sf.sqrt(
                 (sf.col("total") - sf.col("pos"))
                 * sf.col("pos")
                 / sf.col("total")
-                + crit ** 2 / 4
+                + crit**2 / 4
             ),
         )
 
         self.item_popularity = items_counts.drop("pos", "total")
-        self.item_popularity.cache()
+        self.item_popularity.cache().count()

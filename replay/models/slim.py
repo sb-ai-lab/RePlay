@@ -100,4 +100,4 @@ class SLIM(NeighbourRec):
             slim_column,
             "item_idx_one int, item_idx_two int, similarity double",
         )
-        self.similarity.cache()
+        self.similarity.cache().count()

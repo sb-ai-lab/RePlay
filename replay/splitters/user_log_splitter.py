@@ -92,6 +92,7 @@ class UserSplitter(Splitter):
         shuffle=False,
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
+        drop_zero_rel_in_test: bool = True,
         seed: Optional[int] = None,
     ):
         """
@@ -102,17 +103,24 @@ class UserSplitter(Splitter):
         :param shuffle: take random items and not last based on ``timestamp``.
         :param drop_cold_items: flag to drop cold items from test
         :param drop_cold_users: flag to drop cold users from test
+        :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
+            from the test part of the dataset
         :param seed: random seed
         """
         super().__init__(
-            drop_cold_items=drop_cold_items, drop_cold_users=drop_cold_users
+            drop_cold_items=drop_cold_items,
+            drop_cold_users=drop_cold_users,
+            drop_zero_rel_in_test=drop_zero_rel_in_test,
         )
         self.item_test_size = item_test_size
         self.user_test_size = user_test_size
         self.shuffle = shuffle
         self.seed = seed
 
-    def _get_test_users(self, log: DataFrame,) -> DataFrame:
+    def _get_test_users(
+        self,
+        log: DataFrame,
+    ) -> DataFrame:
         """
         :param log: input DataFrame
         :return: Spark DataFrame with single column `user_id`

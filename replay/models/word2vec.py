@@ -85,7 +85,7 @@ class Word2VecRec(Recommender, ItemVectorModel):
             )
             .select("item_idx", "idf")
         )
-        self.idf.cache()
+        self.idf.cache().count()
 
         log_by_users = (
             log.groupBy("user_idx")
@@ -121,7 +121,7 @@ class Word2VecRec(Recommender, ItemVectorModel):
             .getVectors()
             .select(sf.col("word").cast("int").alias("item"), "vector")
         )
-        self.vectors.cache()
+        self.vectors.cache().count()
 
     def _clear_cache(self):
         if hasattr(self, "idf") and hasattr(self, "vectors"):

@@ -189,7 +189,7 @@ class ADMMSLIM(NeighbourRec):
             mat_c_pd,
             schema="item_idx_one int, item_idx_two int, similarity double",
         )
-        self.similarity.cache()
+        self.similarity.cache().count()
 
     def _init_matrix(
         self, size: int

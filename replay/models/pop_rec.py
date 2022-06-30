@@ -101,7 +101,7 @@ class PopRec(Recommender):
                     ),
                 )
             )
-        self.item_popularity.cache()
+        self.item_popularity.cache().count()
 
     def _clear_cache(self):
         if hasattr(self, "item_popularity"):
