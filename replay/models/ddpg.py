@@ -392,7 +392,6 @@ class DDPG(TorchRecommender):
     N=5
     min_value=-10
     max_value=10
-    soft_tau=1e-3
     buffer_size=1000000
     _search_space = {
         "gamma": {"type": "uniform", "args": [0.8, 0.8]},
@@ -681,15 +680,12 @@ class DDPG(TorchRecommender):
             self.writer.add_histogram("policy_loss", -policy_loss, step)
             self.writer.add_histogram("value_loss", value_loss, step)
 
-    def _target_update(self, target_net, net, tau=None):
-        if tau is None:
-            tau = self.soft_tau
-
+    def _target_update(self, target_net, net, soft_tau=1e-3):
         for target_param, param in zip(
             target_net.parameters(), net.parameters()
         ):
             target_param.data.copy_(
-                target_param.data * (1.0 - tau) + param.data * tau
+                target_param.data * (1.0 - soft_tau) + param.data * soft_tau
             )
 
     def _run_evaluation(self, loader):
