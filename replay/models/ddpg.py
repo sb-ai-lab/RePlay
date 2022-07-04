@@ -434,8 +434,8 @@ class DDPG(TorchRecommender):
             self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
         )
         self.target_policy_net = Actor_DRR(self.embedding_dim, self.hidden_dim)
-        self._target_update(self.target_value_net, self.value_net, tau=1)
-        self._target_update(self.target_policy_net, self.policy_net, tau=1)
+        self._target_update(self.target_value_net, self.value_net, soft_tau=1)
+        self._target_update(self.target_policy_net, self.policy_net, soft_tau=1)
 
     @property
     def _init_args(self):
