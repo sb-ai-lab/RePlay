@@ -149,5 +149,5 @@ class UCB(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
         return pairs.join(
-            self.item_popularity, on="item_idx", how="right"
+            self.item_popularity, on="item_idx", how="left"
         ).fillna(value=self.fill, subset=["relevance"])
