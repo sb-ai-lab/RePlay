@@ -1,50 +1,59 @@
-workflow:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+image: replay/ci-image:0.0.1
+
+.job_template: &job_configuration
+  before_script:
+    - poetry config virtualenvs.in-project true
+    - poetry install
+    - source .venv/bin/activate
 
 cache:
+  key: $CI_COMMIT_REF_NAME
   paths:
     - ./venv/
+  policy: pull
 
 stages:
-  - build
+  - resolve
   - code_quality
-  - docs
   - test
 
-build-job:
-  stage: build
+resolve-job:
+  stage: resolve
+  cache:
+    key: $CI_COMMIT_REF_NAME
+    paths:
+      - ./venv/
+    policy: pull-push
   script:
-    - python3 --version
-    - rm -rf .venv/
-    - python3 -m venv venv
-    - source ./venv/bin/activate
-    - pip install --upgrade pip wheel poetry
-    - printf "yes" | poetry cache clear pypi --all
-    - poetry update
+    - poetry config virtualenvs.in-project true
+    - poetry lock
     - poetry install
+  artifacts:
+    paths:
+      - poetry.lock
+    expire_in: 2 week
 
 pylint-job:
+  <<: *job_configuration
   stage: code_quality
   script:
-    - source ./venv/bin/activate
     - pylint --rcfile=.pylintrc replay
 
 pycodestyle-job:
+  <<: *job_configuration
   stage: code_quality
   script:
-    - source ./venv/bin/activate
     - pycodestyle --ignore=E203,E231,E501,W503,W605 --max-doc-length=160 replay tests
 
 sphinx-job:
-  stage: docs
+  <<: *job_configuration
+  stage: code_quality
   script:
-    - source ./venv/bin/activate
     - cd docs
     - make clean html
 
 test-job:
+  <<: *job_configuration
   stage: test
   script:
-    - source ./venv/bin/activate
     - pytest --cov=replay --cov-report=term-missing --doctest-modules replay --cov-fail-under=93 tests
