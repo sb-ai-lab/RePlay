@@ -19,6 +19,10 @@ stages:
 
 resolve-job:
   stage: resolve
+  rules:
+    - changes:
+        - pyproject.toml
+        - poetry.lock
   cache:
     key: $CI_COMMIT_REF_NAME
     paths:
