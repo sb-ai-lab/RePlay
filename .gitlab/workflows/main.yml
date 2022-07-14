@@ -1,5 +1,9 @@
 image: replay/ci-image:0.0.1
 
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
 .job_template: &job_configuration
   before_script:
     - poetry config virtualenvs.in-project true
@@ -19,10 +23,6 @@ stages:
 
 resolve-job:
   stage: resolve
-  rules:
-    - changes:
-        - pyproject.toml
-        - poetry.lock
   cache:
     key: $CI_COMMIT_REF_NAME
     paths:
