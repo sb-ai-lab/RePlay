@@ -402,7 +402,7 @@ class DDPG(TorchRecommender):
         noise_theta=0.1,
         noise_sigma=0.4,
         seed=16,
-        user_num=2000,
+        user_num=5000,
         item_num=200000,
         log_dir="logs/tmp",
         writer=False,
