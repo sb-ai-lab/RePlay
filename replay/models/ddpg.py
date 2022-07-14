@@ -839,7 +839,7 @@ class DDPG(TorchRecommender):
                     )
 
                 if step % 10000 == 0 and step > 0:
-                    self._save_model("_{step}")
+                    self._save_model(f"_{step}")
                 step += 1
                 if self.writer:
                     with torch.no_grad():
