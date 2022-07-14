@@ -7,6 +7,7 @@ from inspect import getfullargspec
 import joblib
 from os.path import exists, join
 
+import pyspark.sql.types as st
 from pyspark.ml.feature import StringIndexerModel, IndexToString
 
 from replay.data_preparator import Indexer
@@ -57,6 +58,8 @@ def save_indexer(indexer: Indexer, path: str):
     os.makedirs(path)
 
     init_args = indexer._init_args
+    init_args["user_type"] = str(indexer.user_type)
+    init_args["item_type"] = str(indexer.item_type)
     with open(join(path, "init_args.json"), "w") as json_file:
         json.dump(init_args, json_file)
 
@@ -77,7 +80,15 @@ def load_indexer(path: str):
     with open(join(path, "init_args.json"), "r") as json_file:
         args = json.load(json_file)
 
+    user_type = args["user_type"]
+    del args["user_type"]
+    item_type = args["item_type"]
+    del args["item_type"]
+
     indexer = Indexer(**args)
+
+    indexer.user_type = getattr(st, user_type)()
+    indexer.item_type = getattr(st, item_type)()
 
     indexer.user_indexer = StringIndexerModel.load(join(path, "user_indexer"))
     indexer.item_indexer = StringIndexerModel.load(join(path, "item_indexer"))

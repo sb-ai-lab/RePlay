@@ -231,7 +231,7 @@ class NeuroMF(TorchRecommender):
         "learning_rate": {"type": "loguniform", "args": [0.0001, 0.5]},
         "l2_reg": {"type": "loguniform", "args": [1e-9, 5]},
         "count_negative_sample": {"type": "int", "args": [1, 20]},
-        "factor": {"type": "float", "args": [0.2, 0.2]},
+        "factor": {"type": "uniform", "args": [0.2, 0.2]},
         "patience": {"type": "int", "args": [3, 3]},
     }
 

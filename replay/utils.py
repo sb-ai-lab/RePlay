@@ -244,7 +244,9 @@ def array_mult(first: st.ArrayType, second: st.ArrayType):
     return [first[i] * second[i] for i in range(len(first))]
 
 
-def get_log_info(log: DataFrame) -> str:
+def get_log_info(
+    log: DataFrame, user_col="user_idx", item_col="item_idx"
+) -> str:
     """
     Basic log statistics
 
@@ -264,11 +266,14 @@ def get_log_info(log: DataFrame) -> str:
     'total lines: 3, total users: 3, total items: 2'
 
     :param log: interaction log containing ``user_idx`` and ``item_idx``
+    :param user_col: name of a columns containing users' identificators
+    :param item_col: name of a columns containing items' identificators
+
     :returns: statistics string
     """
     cnt = log.count()
-    user_cnt = log.select("user_idx").distinct().count()
-    item_cnt = log.select("item_idx").distinct().count()
+    user_cnt = log.select(user_col).distinct().count()
+    item_cnt = log.select(item_col).distinct().count()
     return ", ".join(
         [
             f"total lines: {cnt}",

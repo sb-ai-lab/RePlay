@@ -22,6 +22,11 @@ class BaseScenario(BaseRecommender):
         self.cold_model = cold_model
         self.hot_users = None
 
+    # TO DO: add save/load for scenarios
+    @property
+    def _init_args(self):
+        return {"threshold": self.threshold}
+
     def fit(
         self,
         log: AnyDataFrame,

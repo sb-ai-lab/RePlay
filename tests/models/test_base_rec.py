@@ -10,6 +10,10 @@ from tests.utils import spark, log
 
 # pylint: disable=missing-class-docstring, too-many-arguments
 class DerivedRec(Recommender):
+    @property
+    def _init_args(self):
+        return {}
+
     def _fit(
         self,
         log: DataFrame,
