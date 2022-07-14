@@ -861,3 +861,15 @@ class DDPG(TorchRecommender):
     def _save_memory(self) -> None:
         with open(self.log_dir / "memory.pickle", "wb") as f:
             pickle.dump(self.environment.memory, f)
+
+    def _load_model(
+        self,
+        state_repr_path: str = '',
+        policy_net_path: str = ''
+    ):
+        self.state_repr.load_state_dict(torch.load(state_repr_path))
+        self.policy_net.load_state_dict(torch.load(policy_net_path))
+
+    def _load_memory(self, path: str = ''):
+        with open(path, 'rb') as f:
+            self.environment.memory = pickle.load(f)
