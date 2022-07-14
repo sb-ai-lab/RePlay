@@ -259,7 +259,7 @@ class Env:
         if memory is not None:
             self.memory = memory.copy()
 
-    def reset(self, user_id):
+    def reset_without_sampling(self, user_id):
         self.user_id = user_id
         self.viewed_items = []
         self.related_items = list(
@@ -275,7 +275,7 @@ class Env:
             self.memory[[self.user_id], :]
         )
 
-    def reset_old(self, user_id):
+    def reset(self, user_id):
         self.user_id = user_id
         self.viewed_items = []
         self.related_items = np.argwhere(self.matrix[self.user_id] > 0)[:, 1]
