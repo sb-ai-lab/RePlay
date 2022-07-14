@@ -36,6 +36,11 @@ class Fallback(BaseRecommender):
         # pylint: disable=invalid-name
         self.fb_model = fallback_model
 
+    # TO DO: add save/load for scenarios
+    @property
+    def _init_args(self):
+        return {"threshold": self.threshold}
+
     def __str__(self):
         return f"Fallback({str(self.main_model)}, {str(self.fb_model)})"
 

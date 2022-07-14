@@ -256,6 +256,11 @@ class TwoStagesScenario(HybridRecommender):
         )
         self.seed = seed
 
+    # TO DO: add save/load for scenarios
+    @property
+    def _init_args(self):
+        return {}
+
     # pylint: disable=too-many-locals
     def _add_features_for_second_level(
         self,

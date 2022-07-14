@@ -148,4 +148,5 @@ def test_indexer(df, tmp_path):
     indexer.fit(df, df)
     save_indexer(indexer, path)
     i = load_indexer(path)
+    i.inverse_transform(i.transform(df))
     assert i.user_indexer.inputCol == indexer.user_indexer.inputCol

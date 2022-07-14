@@ -53,6 +53,14 @@ class UCB(Recommender):
         # pylint: disable=super-init-not-called
         self.coef = coef
 
+    @property
+    def _init_args(self):
+        return {"coef": self.coef}
+
+    @property
+    def _dataframes(self):
+        return {"item_popularity": self.item_popularity}
+
     def _fit(
         self,
         log: DataFrame,

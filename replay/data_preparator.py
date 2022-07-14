@@ -98,24 +98,26 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
         :param df: dataframe with raw indexes
         :return: dataframe with converted indexes
         """
-        if self.user_col in df.columns:
-            df = df.withColumnRenamed(
-                self.user_col, f"{self.user_col}_{self.suffix}"
-            )
-            self._reindex(df, "user")
-            df = self.user_indexer.transform(df).drop(
-                f"{self.user_col}_{self.suffix}"
-            )
-            df = df.withColumn("user_idx", sf.col("user_idx").cast("int"))
         if self.item_col in df.columns:
+            remaining_cols = df.drop(self.item_col).columns
             df = df.withColumnRenamed(
                 self.item_col, f"{self.item_col}_{self.suffix}"
             )
             self._reindex(df, "item")
-            df = self.item_indexer.transform(df).drop(
-                f"{self.item_col}_{self.suffix}"
+            df = self.item_indexer.transform(df).select(
+                sf.col("item_idx").cast("int").alias("item_idx"),
+                *remaining_cols,
             )
-            df = df.withColumn("item_idx", sf.col("item_idx").cast("int"))
+        if self.user_col in df.columns:
+            remaining_cols = df.drop(self.user_col).columns
+            df = df.withColumnRenamed(
+                self.user_col, f"{self.user_col}_{self.suffix}"
+            )
+            self._reindex(df, "user")
+            df = self.user_indexer.transform(df).select(
+                sf.col("user_idx").cast("int").alias("user_idx"),
+                *remaining_cols,
+            )
         return df
 
     def inverse_transform(self, df: DataFrame) -> DataFrame:
@@ -126,29 +128,29 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
         :return: DataFrame with original user/item columns
         """
         res = df
-        if "user_idx" in df.columns:
-            res = (
-                self.inv_user_indexer.transform(
-                    res.withColumnRenamed(
-                        "user_idx", f"{self.user_col}_{self.suffix}"
-                    )
-                )
-                .drop(f"{self.user_col}_{self.suffix}")
-                .withColumn(
-                    self.user_col, sf.col(self.user_col).cast(self.user_type)
-                )
-            )
         if "item_idx" in df.columns:
-            res = (
-                self.inv_item_indexer.transform(
-                    res.withColumnRenamed(
-                        "item_idx", f"{self.item_col}_{self.suffix}"
-                    )
+            remaining_cols = res.drop("item_idx").columns
+            res = self.inv_item_indexer.transform(
+                res.withColumnRenamed(
+                    "item_idx", f"{self.item_col}_{self.suffix}"
                 )
-                .drop(f"{self.item_col}_{self.suffix}")
-                .withColumn(
-                    self.item_col, sf.col(self.item_col).cast(self.item_type)
+            ).select(
+                sf.col(self.item_col)
+                .cast(self.item_type)
+                .alias(self.item_col),
+                *remaining_cols,
+            )
+        if "user_idx" in df.columns:
+            remaining_cols = res.drop("user_idx").columns
+            res = self.inv_user_indexer.transform(
+                res.withColumnRenamed(
+                    "user_idx", f"{self.user_col}_{self.suffix}"
                 )
+            ).select(
+                sf.col(self.user_col)
+                .cast(self.user_type)
+                .alias(self.user_col),
+                *remaining_cols,
             )
         return res
 
