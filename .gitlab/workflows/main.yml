@@ -3,6 +3,7 @@ image: replay/ci-image:0.0.1
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == "schedule"
 
 .job_template: &job_configuration
   before_script:
