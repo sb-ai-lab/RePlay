@@ -342,8 +342,6 @@ class State_Repr_Module(nn.Module):
         item_num,
         embedding_dim,
         N,
-        user_embeddings=None,
-        item_embeddings=None,
     ):
         super().__init__()
         self.user_embeddings = nn.Embedding(user_num, embedding_dim)
@@ -354,9 +352,9 @@ class State_Repr_Module(nn.Module):
             in_channels=N, out_channels=1, kernel_size=1
         )
 
-        self.initialize(user_embeddings, item_embeddings)
+        self.initialize()
 
-    def initialize(self, user_embeddings, item_embeddings):
+    def initialize(self):
         nn.init.normal_(self.user_embeddings.weight, std=0.01)
         self.item_embeddings.weight.data[-1].zero_()
 
