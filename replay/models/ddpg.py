@@ -180,7 +180,7 @@ class OUNoise:
 
 
 class Actor_DRR(nn.Module):
-    def __init__(self, embedding_dim, hidden_dim):
+    def __init__(self, user_num, item_num, embedding_dim, hidden_dim, N):
         super().__init__()
         self.layers = nn.Sequential(
             nn.Linear(embedding_dim * 3, hidden_dim),
@@ -189,25 +189,32 @@ class Actor_DRR(nn.Module):
             nn.Linear(hidden_dim, embedding_dim),
         )
 
+        self.state_repr = State_Repr_Module(
+            user_num, item_num, embedding_dim, N
+        )
+
         self.initialize()
+
+        self.environment = Env(item_num, user_num, N)
+        self.test_environment = Env(item_num, user_num, N)
 
     def initialize(self):
         for layer in self.layers:
             if isinstance(layer, nn.Linear):
                 nn.init.kaiming_uniform_(layer.weight)
 
-    def forward(self, state):
+    def forward(self, user, memory):
+        state = self.state_repr(user, memory)
         return self.layers(state)
 
     def get_action(
         self,
-        state_repr,
         action_emb,
         items,
         return_scores=False,
     ):
         scores = torch.bmm(
-            state_repr.item_embeddings(items).unsqueeze(0),
+            self.state_repr.item_embeddings(items).unsqueeze(0),
             action_emb.T.unsqueeze(0),
         ).squeeze(0)
         if return_scores:
@@ -384,8 +391,6 @@ class DDPG(TorchRecommender):
     value_decay=1e-5
     policy_lr=1e-5
     policy_decay=1e-6
-    state_repr_lr=1e-5
-    state_repr_decay=1e-3
     gamma=0.8
     N=5
     min_value=-10
@@ -413,27 +418,26 @@ class DDPG(TorchRecommender):
         self.noise_sigma = noise_sigma
         self.user_num = user_num
         self.log_dir = Path(log_dir)
-        self.environment = Env(item_num, user_num, self.N)
-        self.test_environment = Env(item_num, user_num, self.N)
         self.replay_buffer = Buffer(self.buffer_size)
         if writer:
             self.writer = SummaryWriter(log_dir=self.log_dir)
         else:
             self.writer = False
 
-        self.state_repr = State_Repr_Module(
-            user_num, item_num, self.embedding_dim, self.N
+        self.model = Actor_DRR(
+            user_num, item_num, self.embedding_dim, self.hidden_dim, self.N
         )
-        self.policy_net = Actor_DRR(self.embedding_dim, self.hidden_dim)
+        self.target_model = Actor_DRR(
+            user_num, item_num, self.embedding_dim, self.hidden_dim, self.N
+        )
         self.value_net = Critic_DRR(
             self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
         )
         self.target_value_net = Critic_DRR(
             self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
         )
-        self.target_policy_net = Actor_DRR(self.embedding_dim, self.hidden_dim)
         self._target_update(self.target_value_net, self.value_net, soft_tau=1)
-        self._target_update(self.target_policy_net, self.policy_net, soft_tau=1)
+        self._target_update(self.target_model, self.model, soft_tau=1)
 
     @property
     def _init_args(self):
@@ -448,64 +452,55 @@ class DDPG(TorchRecommender):
         pass
 
     # pylint: disable=too-many-arguments
-    def _predict(
-        self,
-        log: pyspark.sql.DataFrame,
-        k: int,
-        users: pyspark.sql.DataFrame,
-        items: pyspark.sql.DataFrame,
-        user_features: Optional[pyspark.sql.DataFrame] = None,
-        item_features: Optional[pyspark.sql.DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> pyspark.sql.DataFrame:
-        items_consider_in_pred = items.toPandas()["item_idx"].values
-        items_count = self._item_dim
-        policy_net = self.policy_net.cpu()
-        state_repr = self.state_repr.cpu()
-        memory = self.environment.memory
-        agg_fn = self._predict_by_user_ddpg
+    # def _predict(
+    #     self,
+    #     log: pyspark.sql.DataFrame,
+    #     k: int,
+    #     users: pyspark.sql.DataFrame,
+    #     items: pyspark.sql.DataFrame,
+    #     user_features: Optional[pyspark.sql.DataFrame] = None,
+    #     item_features: Optional[pyspark.sql.DataFrame] = None,
+    #     filter_seen_items: bool = True,
+    # ) -> pyspark.sql.DataFrame:
+    #     items_consider_in_pred = items.toPandas()["item_idx"].values
+    #     items_count = self._item_dim
+    #     model = self.model.cpu()
+    #     agg_fn = self._predict_by_user_ddpg
 
-        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
-            return agg_fn(
-                pandas_df,
-                policy_net,
-                state_repr,
-                memory,
-                items_consider_in_pred,
-                k,
-                items_count,
-            )[["user_idx", "item_idx", "relevance"]]
+    #     def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+    #         return agg_fn(
+    #             pandas_df,
+    #             model,
+    #             items_consider_in_pred,
+    #             k,
+    #             items_count,
+    #         )[["user_idx", "item_idx", "relevance"]]
 
-        self.logger.debug("Predict started")
-        # do not apply map on cold users for MultVAE predict
-        join_type = "inner" if self.__str__() == "MultVAE" else "left"
-        recs = (
-            users.join(log, how=join_type, on="user_idx")
-            .select("user_idx", "item_idx")
-            .groupby("user_idx")
-            .applyInPandas(grouped_map, REC_SCHEMA)
-        )
-        return recs
+    #     self.logger.debug("Predict started")
+    #     # do not apply map on cold users for MultVAE predict
+    #     join_type = "inner" if self.__str__() == "MultVAE" else "left"
+    #     recs = (
+    #         users.join(log, how=join_type, on="user_idx")
+    #         .select("user_idx", "item_idx")
+    #         .groupby("user_idx")
+    #         .applyInPandas(grouped_map, REC_SCHEMA)
+    #     )
+    #     return recs
 
     @staticmethod
     def _predict_pairs_inner(
-        policy_net,
-        state_repr,
-        memory,
+        model,
         user_idx: int,
         items_np: np.ndarray,
         cnt: Optional[int] = None,
     ) -> DataFrame:
         with torch.no_grad():
             user_batch = torch.LongTensor([user_idx])
-            action_emb = policy_net(
-                state_repr(
-                    user_batch,
-                    torch.tensor(memory)[to_np(user_batch).astype(int), :],
-                )
+            action_emb = model(
+                user_batch,
+                torch.tensor(model.environment)[to_np(user_batch).astype(int), :],
             )
-            user_recs, _ = policy_net.get_action(
-                state_repr,
+            user_recs, _ = model.get_action(
                 action_emb,
                 torch.tensor(items_np),
                 return_scores=True,
@@ -540,17 +535,13 @@ class DDPG(TorchRecommender):
     @staticmethod
     def _predict_by_user_ddpg(
         pandas_df: pd.DataFrame,
-        policy_net: nn.Module,
-        state_repr: nn.Module,
-        memory,
+        model: nn.Module,
         items_np: np.ndarray,
         k: int,
         item_count: int,
     ):
         return DDPG._predict_pairs_inner(
-            policy_net,
-            state_repr,
-            memory,
+            model,
             user_idx=pandas_df["user_idx"][0],
             items_np=items_np,
             cnt=min(len(pandas_df) + k, len(items_np)),
@@ -620,7 +611,6 @@ class DDPG(TorchRecommender):
     def _ddpg_update(
         self,
         policy_optimizer,
-        state_repr_optimizer,
         value_optimizer,
         step=0,
     ):
@@ -642,12 +632,12 @@ class DDPG(TorchRecommender):
         next_memory = torch.FloatTensor(next_memory)
         done = torch.FloatTensor(done)
 
-        state = self.state_repr(user, memory)
-        policy_loss = self.value_net(state, self.policy_net(state))
+        state = self.model.state_repr(user, memory)
+        policy_loss = self.value_net(state, self.model(user, memory))
         policy_loss = -policy_loss.mean()
 
-        next_state = self.state_repr(next_user, next_memory)
-        next_action = self.target_policy_net(next_state)
+        next_state = self.model.state_repr(next_user, next_memory)
+        next_action = self.target_model(next_user, next_memory)
         target_value = self.target_value_net(next_state, next_action.detach())
         expected_value = reward + (1.0 - done) * self.gamma * target_value
         expected_value = torch.clamp(
@@ -657,18 +647,15 @@ class DDPG(TorchRecommender):
         value = self.value_net(state, action)
         value_loss = (value - expected_value.detach()).squeeze(1).pow(2).mean()
 
-        state_repr_optimizer.zero_grad()
         policy_optimizer.zero_grad()
         policy_loss.backward(retain_graph=True)
         policy_optimizer.step()
-
         value_optimizer.zero_grad()
-        value_loss.backward(retain_graph=True)
+        value_loss.backward()
         value_optimizer.step()
-        state_repr_optimizer.step()
 
         self._target_update(self.target_value_net, self.value_net)
-        self._target_update(self.target_policy_net, self.policy_net)
+        self._target_update(self.target_model, self.model)
 
         if self.writer:
             self.writer.add_histogram("value", value, step)
@@ -690,19 +677,18 @@ class DDPG(TorchRecommender):
         hits = []
         dcgs3 = []
         dcgs = []
-        self.test_environment.update_env(memory=self.environment.memory)
-        user, memory = self.test_environment.reset(
+        self.model.test_environment.update_env(memory=self.model.environment.memory)
+        user, memory = self.model.test_environment.reset(
             int(to_np(next(iter(loader))["user"])[0])
         )
         for batch in loader:
-            action_emb = self.policy_net(self.state_repr(user, memory))
-            scores, action = self.policy_net.get_action(
-                self.state_repr,
+            action_emb = self.model(user, memory)
+            scores, action = self.model.get_action(
                 action_emb,
                 batch["item"].long(),
                 return_scores=True,
             )
-            user, memory, _, _ = self.test_environment.step(action)
+            user, memory, _, _ = self.model.test_environment.step(action)
 
             _, ind = scores[:, 0].topk(3)
             predictions = batch["item"].take(ind).cpu().numpy().tolist()
@@ -725,7 +711,7 @@ class DDPG(TorchRecommender):
         embeddings = torch.from_numpy(
             user_embeddings.iloc[:, -8:].values
         ).float()
-        self.state_repr.user_embeddings.weight.data[indexes] = embeddings
+        self.model.state_repr.user_embeddings.weight.data[indexes] = embeddings
 
     def load_item_embeddings(self, item_embeddings_path):
         item_embeddings = pd.read_parquet(item_embeddings_path)
@@ -736,7 +722,7 @@ class DDPG(TorchRecommender):
         embeddings = torch.from_numpy(
             item_embeddings.iloc[:, -8:].values
         ).float()
-        self.state_repr.item_embeddings.weight.data[indexes] = embeddings
+        self.model.state_repr.item_embeddings.weight.data[indexes] = embeddings
 
     def _fit(
         self,
@@ -751,10 +737,10 @@ class DDPG(TorchRecommender):
             current_item_num,
             appropriate_users,
         ) = self._preprocess_log(log)
-        self.environment.update_env(
+        self.model.environment.update_env(
             matrix=train_matrix  # , item_count=current_item_num
         )
-        self.test_environment.update_env(
+        self.model.test_environment.update_env(
             matrix=test_matrix  # , item_count=current_item_num
         )
         users = np.random.permutation(appropriate_users)
@@ -771,14 +757,9 @@ class DDPG(TorchRecommender):
             min_sigma=self.noise_sigma,
         )
         policy_optimizer = Ranger(
-            self.policy_net.parameters(),
+            self.model.parameters(),
             lr=self.policy_lr,
             weight_decay=self.policy_decay,
-        )
-        state_repr_optimizer = Ranger(
-            self.state_repr.parameters(),
-            lr=self.state_repr_lr,
-            weight_decay=self.state_repr_decay,
         )
         value_optimizer = Ranger(
             self.value_net.parameters(),
@@ -788,7 +769,6 @@ class DDPG(TorchRecommender):
 
         self.train(
             policy_optimizer,
-            state_repr_optimizer,
             value_optimizer,
             users,
             valid_loader=None,
@@ -797,7 +777,6 @@ class DDPG(TorchRecommender):
     def train(
         self,
         policy_optimizer,
-        state_repr_optimizer,
         value_optimizer,
         users,
         valid_loader=None,
@@ -807,23 +786,22 @@ class DDPG(TorchRecommender):
         step, best_step = 0, 0
 
         for i, u in enumerate(tqdm.tqdm(users)):
-            user, memory = self.environment.reset(u)
+            user, memory = self.model.environment.reset(u)
             self.ou_noise.reset()
-            for t in range(len(self.environment.related_items)):
-                action_emb = self.policy_net(self.state_repr(user, memory))
+            for t in range(len(self.model.environment.related_items)):
+                action_emb = self.model(user, memory)
                 action_emb = self.ou_noise.get_action(to_np(action_emb)[0], t)
-                action = self.policy_net.get_action(
-                    self.state_repr,
+                action = self.model.get_action(
                     action_emb,
                     torch.tensor(
                         [
                             item
-                            for item in self.environment.available_items
-                            if item not in self.environment.viewed_items
+                            for item in self.model.environment.available_items
+                            if item not in self.model.environment.viewed_items
                         ]
                     ).long(),
                 )
-                user, memory, reward, _ = self.environment.step(
+                user, memory, reward, _ = self.model.environment.step(
                     action, action_emb, self.replay_buffer
                 )
                 rewards.append(reward)
@@ -831,7 +809,6 @@ class DDPG(TorchRecommender):
                 if len(self.replay_buffer) > self.batch_size:
                     self._ddpg_update(
                         policy_optimizer,
-                        state_repr_optimizer,
                         value_optimizer,
                         step=step,
                     )
@@ -848,26 +825,17 @@ class DDPG(TorchRecommender):
 
     def _save_model(self, path: str = '') -> None:
         torch.save(
-            self.policy_net.state_dict(),
-            self.log_dir / f"policy_net{path}.pth",
-        )
-        torch.save(
-            self.state_repr.state_dict(),
-            self.log_dir / f"state_repr{path}.pth",
+            self.model.state_dict(),
+            self.log_dir / f"model{path}.pth",
         )
 
     def _save_memory(self) -> None:
         with open(self.log_dir / "memory.pickle", "wb") as f:
-            pickle.dump(self.environment.memory, f)
+            pickle.dump(self.model.environment.memory, f)
 
-    def _load_model(
-        self,
-        state_repr_path: str = '',
-        policy_net_path: str = ''
-    ):
-        self.state_repr.load_state_dict(torch.load(state_repr_path))
-        self.policy_net.load_state_dict(torch.load(policy_net_path))
+    def _load_model(self, model_path: str = ''):
+        self.model.load_state_dict(torch.load(model_path))
 
     def _load_memory(self, path: str = ''):
         with open(path, 'rb') as f:
-            self.environment.memory = pickle.load(f)
+            self.model.environment.memory = pickle.load(f)
