@@ -522,7 +522,7 @@ class DDPG(TorchRecommender):
                 }
             )
 
-    # pylint: disable=arguments-differ
+    @staticmethod
     def _predict_by_user(
         pandas_df: pd.DataFrame,
         model: nn.Module,
@@ -530,18 +530,8 @@ class DDPG(TorchRecommender):
         k: int,
         item_count: int,
     ) -> pd.DataFrame:
-        pass
-
-    @staticmethod
-    def _predict_by_user_ddpg(
-        pandas_df: pd.DataFrame,
-        model: nn.Module,
-        items_np: np.ndarray,
-        k: int,
-        item_count: int,
-    ):
         return DDPG._predict_pairs_inner(
-            model,
+            model=model,
             user_idx=pandas_df["user_idx"][0],
             items_np=items_np,
             cnt=min(len(pandas_df) + k, len(items_np)),
