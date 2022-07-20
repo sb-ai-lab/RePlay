@@ -451,42 +451,6 @@ class DDPG(TorchRecommender):
     def _loss(self, **kwargs) -> torch.Tensor:
         pass
 
-    # pylint: disable=too-many-arguments
-    # def _predict(
-    #     self,
-    #     log: pyspark.sql.DataFrame,
-    #     k: int,
-    #     users: pyspark.sql.DataFrame,
-    #     items: pyspark.sql.DataFrame,
-    #     user_features: Optional[pyspark.sql.DataFrame] = None,
-    #     item_features: Optional[pyspark.sql.DataFrame] = None,
-    #     filter_seen_items: bool = True,
-    # ) -> pyspark.sql.DataFrame:
-    #     items_consider_in_pred = items.toPandas()["item_idx"].values
-    #     items_count = self._item_dim
-    #     model = self.model.cpu()
-    #     agg_fn = self._predict_by_user_ddpg
-
-    #     def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
-    #         return agg_fn(
-    #             pandas_df,
-    #             model,
-    #             items_consider_in_pred,
-    #             k,
-    #             items_count,
-    #         )[["user_idx", "item_idx", "relevance"]]
-
-    #     self.logger.debug("Predict started")
-    #     # do not apply map on cold users for MultVAE predict
-    #     join_type = "inner" if self.__str__() == "MultVAE" else "left"
-    #     recs = (
-    #         users.join(log, how=join_type, on="user_idx")
-    #         .select("user_idx", "item_idx")
-    #         .groupby("user_idx")
-    #         .applyInPandas(grouped_map, REC_SCHEMA)
-    #     )
-    #     return recs
-
     @staticmethod
     def _predict_pairs_inner(
         model,
