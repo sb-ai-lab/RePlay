@@ -464,12 +464,9 @@ class DDPG(TorchRecommender):
                 user_batch,
                 torch.tensor(model.environment)[to_np(user_batch).astype(int), :],
             )
-            user_recs, _ = model.get_action(
-                action_emb,
-                torch.tensor(items_np),
-                return_scores=True,
-            )
-            user_recs = user_recs.squeeze(1)
+            user_recs = model.get_action(
+                action_emb, torch.tensor(items_np)
+            ).squeeze(1)
 
             if cnt is not None:
                 best_item_idx = (
