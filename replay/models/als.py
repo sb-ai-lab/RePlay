@@ -79,7 +79,7 @@ class ALSWrap(Recommender, ItemVectorModel):
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        log: Optional[DataFrame],
         k: int,
         users: DataFrame,
         items: DataFrame,
@@ -87,13 +87,39 @@ class ALSWrap(Recommender, ItemVectorModel):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        test_data = users.crossJoin(items).withColumn("relevance", sf.lit(1))
-        recs = (
-            self.model.transform(test_data)
-            .withColumn("relevance", sf.col("prediction").cast(DoubleType()))
-            .drop("prediction")
+
+        if (items.count() == self.fit_items.count()) and (
+            items.join(self.fit_items, on="item_idx", how="inner").count()
+            == self.fit_items.count()
+        ):
+            max_seen = 0
+            if filter_seen_items and log is not None:
+                max_seen_in_log = (
+                    log.join(users, on="user_idx")
+                    .groupBy("user_idx")
+                    .agg(sf.count("user_idx").alias("num_seen"))
+                    .select(sf.max("num_seen"))
+                    .collect()[0][0]
+                )
+                max_seen = max_seen_in_log if max_seen_in_log is not None else 0
+
+            recs_als = self.model.recommendForUserSubset(users, k + max_seen)
+            return (
+                recs_als.withColumn(
+                    "recommendations", sf.explode("recommendations")
+                )
+                .withColumn("item_idx", sf.col("recommendations.item_idx"))
+                .withColumn(
+                    "relevance",
+                    sf.col("recommendations.rating").cast(DoubleType()),
+                )
+                .select("user_idx", "item_idx", "relevance")
+            )
+
+        return self._predict_pairs(
+            pairs=users.crossJoin(items).withColumn("relevance", sf.lit(1)),
+            log=log,
         )
-        return recs
 
     def _predict_pairs(
         self,
