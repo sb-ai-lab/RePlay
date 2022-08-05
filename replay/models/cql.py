@@ -161,7 +161,7 @@ class CQL(TorchRecommender):
         train = self._prepare_data(log.toPandas(), self.k)
         self.model.fit(train, n_epochs=self.n_epochs)
 
-    def _prepare_data(self, df, k : int):
+    def _prepare_data(self, df, k: int) -> MDPDataset:
         gb = df.sort_values('timestamp').groupby('user_idx')    
         list_dfs = [gb.get_group(x) for x in gb.groups]
         df_s = pd.concat(list_dfs)
@@ -180,11 +180,12 @@ class CQL(TorchRecommender):
         df_s['terminals'] = terminals
 
         train_dataset = MDPDataset(
-            observations = np.array(df_s[['user_idx', 'item_idx']]),
-            actions = np.array(df_s['relevance'] +
-                               0.1 * np.random.randn(len(df_s)))[:, None],
-            rewards = df_s['rewards'],
-            terminals = df_s['terminals']
+            observations=np.array(df_s[['user_idx', 'item_idx']]),
+            actions=np.array(
+                df_s['relevance'] + 0.1 * np.random.randn(len(df_s))
+            )[:, None],
+            rewards=df_s['rewards'],
+            terminals=df_s['terminals']
         )
         return train_dataset
     
