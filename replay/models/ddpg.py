@@ -507,7 +507,13 @@ class DDPG(TorchRecommender):
         model: nn.Module,
         item_count: int,
     ):
-        pass
+        print(pandas_df, item_count)
+        return DDPG._predict_pairs_inner(
+            model=model,
+            user_idx=pandas_df["user_idx"][0],
+            items_np=np.array(pandas_df["item_idx_to_pred"][0]),
+            cnt=None,
+        )
 
     def _get_data_loader(self, data, item_num, matrix):
         dataset = EvalDataset(data, item_num, matrix)
