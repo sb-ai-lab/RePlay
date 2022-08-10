@@ -19,6 +19,7 @@ from replay.models import (
     SLIM,
     MultVAE,
     Word2VecRec,
+    DDPG,
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
 
@@ -59,6 +60,7 @@ def log_to_pred(spark):
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         PopRec(),
+        DDPG(seed=SEED)
     ],
     ids=[
         "als",
@@ -70,6 +72,7 @@ def log_to_pred(spark):
         "slim",
         "word2vec",
         "poprec",
+        "ddpg",
     ],
 )
 def test_predict_pairs_warm_only(log, log_to_pred, model):
