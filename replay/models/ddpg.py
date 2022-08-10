@@ -462,7 +462,7 @@ class DDPG(TorchRecommender):
             user_batch = torch.LongTensor([user_idx])
             action_emb = model(
                 user_batch,
-                torch.tensor(model.environment)[to_np(user_batch).astype(int), :],
+                torch.tensor(model.environment.memory)[to_np(user_batch).astype(int), :],
             )
             user_recs, _ = model.get_action(
                 action_emb,
@@ -698,11 +698,11 @@ class DDPG(TorchRecommender):
             matrix=test_matrix  # , item_count=current_item_num
         )
         users = np.random.permutation(appropriate_users)
-        valid_loader = self._get_data_loader(
-            np.array(test_data)[np.array(test_data)[:, 0] == 16],
-            current_item_num,
-            test_matrix,
-        )
+        # valid_loader = self._get_data_loader(
+        #     np.array(test_data)[np.array(test_data)[:, 0] == 16],
+        #     current_item_num,
+        #     test_matrix,
+        # )
 
         self.ou_noise = OUNoise(
             self.embedding_dim,
