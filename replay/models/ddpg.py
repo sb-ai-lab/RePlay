@@ -562,7 +562,7 @@ class DDPG(TorchRecommender):
             return np.reciprocal(np.log2(index + 2))
         return 0
 
-    def _ddpg_update(
+    def _run_train_step(
         self,
         policy_optimizer,
         value_optimizer,
@@ -755,7 +755,7 @@ class DDPG(TorchRecommender):
                 rewards.append(reward)
 
                 if len(self.replay_buffer) > self.batch_size:
-                    self._ddpg_update(
+                    self._run_train_step(
                         policy_optimizer,
                         value_optimizer,
                         step=step,
