@@ -569,22 +569,14 @@ class DDPG(TorchRecommender):
         step=0,
     ):
         beta = self._get_beta(step)
-        (
-            user,
-            memory,
-            action,
-            reward,
-            next_user,
-            next_memory,
-            done,
-        ) = self.replay_buffer.sample(self.batch_size, beta)
-        user = torch.FloatTensor(user)
-        memory = torch.FloatTensor(memory)
-        action = torch.FloatTensor(action)
-        reward = torch.FloatTensor(reward)
-        next_user = torch.FloatTensor(next_user)
-        next_memory = torch.FloatTensor(next_memory)
-        done = torch.FloatTensor(done)
+        batch = self.replay_buffer.sample(self.batch_size, beta)
+        user = torch.FloatTensor(batch[0])
+        memory = torch.FloatTensor(batch[1])
+        action = torch.FloatTensor(batch[2])
+        reward = torch.FloatTensor(batch[3])
+        next_user = torch.FloatTensor(batch[4])
+        next_memory = torch.FloatTensor(batch[5])
+        done = torch.FloatTensor(batch[6])
 
         state = self.model.state_repr(user, memory)
         policy_loss = self.value_net(state, self.model(user, memory))
