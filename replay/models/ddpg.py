@@ -619,35 +619,32 @@ class DDPG(TorchRecommender):
                 target_param.data * (1.0 - soft_tau) + param.data * soft_tau
             )
 
-    def _run_evaluation(self, loader):
-        hits3 = []
+    def _run_validation(self, loader):
+        self.model.eval()
         hits = []
-        dcgs3 = []
         dcgs = []
-        self.model.test_environment.update_env(memory=self.model.environment.memory)
-        user, memory = self.model.test_environment.reset(
-            int(to_np(next(iter(loader))["user"])[0])
-        )
-        for batch in loader:
-            action_emb = self.model(user, memory)
-            scores, action = self.model.get_action(
-                action_emb,
-                batch["item"].long(),
-                return_scores=True,
+        with torch.no_grad():
+            self.model.test_environment.update_env(
+                memory=self.model.environment.memory
             )
-            user, memory, _, _ = self.model.test_environment.step(action)
+            user, memory = self.model.test_environment.reset(
+                int(to_np(next(iter(loader))["user"])[0])
+            )
+            for batch in loader:
+                action_emb = self.model(user, memory)
+                scores, action = self.model.get_action(
+                    action_emb,
+                    batch["item"].long(),
+                    return_scores=True,
+                )
+                user, memory, _, _ = self.model.test_environment.step(action)
 
-            _, ind = scores[:, 0].topk(3)
-            predictions = batch["item"].take(ind).cpu().numpy().tolist()
-            actual = batch["item"][0].item()
-            hits3.append(self._hit_metric(predictions, actual))
-            dcgs3.append(self._dcg_metric(predictions, actual))
-
-            _, ind = scores[:, 0].topk(1)
-            predictions = batch["item"].take(ind).cpu().numpy().tolist()
-            hits.append(self._hit_metric(predictions, actual))
-            dcgs.append(self._dcg_metric(predictions, actual))
-        return np.mean(hits), np.mean(dcgs), np.mean(hits3), np.mean(dcgs3)
+                _, ind = scores[:, 0].topk(10)
+                predictions = batch["item"].take(ind).cpu().numpy().tolist()
+                actual = batch["item"][0].item()
+                hits.append(self._hit_metric(predictions, actual))
+                dcgs.append(self._dcg_metric(predictions, actual))
+        return np.mean(hits), np.mean(dcgs)
 
     def load_user_embeddings(self, user_embeddings_path):
         user_embeddings = pd.read_parquet(user_embeddings_path)
