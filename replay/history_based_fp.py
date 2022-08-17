@@ -16,7 +16,11 @@ from datetime import datetime
 from pyspark.sql import DataFrame
 from pyspark.sql.types import TimestampType
 
-from replay.utils import join_or_return, ugly_join, unpersist_if_exists
+from replay.utils import (
+    join_or_return,
+    join_with_col_renaming,
+    unpersist_if_exists,
+)
 
 
 class EmptyFeatureProcessor:
@@ -190,7 +194,7 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
         :return: features dataframe with new columns
         """
         # Abnormality
-        abnormality_df = ugly_join(
+        abnormality_df = join_with_col_renaming(
             left=log,
             right=item_features.select("item_idx", "i_mean", "i_std"),
             on_col_name="item_idx",
@@ -270,7 +274,7 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
                 how="left",
             ).cache()
 
-        self.user_log_features = ugly_join(
+        self.user_log_features = join_with_col_renaming(
             left=user_log_features,
             right=self._cals_cross_interactions_count(
                 log=log, features=item_log_features
@@ -279,7 +283,7 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
             how="left",
         ).cache()
 
-        self.item_log_features = ugly_join(
+        self.item_log_features = join_with_col_renaming(
             left=item_log_features,
             right=self._cals_cross_interactions_count(
                 log=log, features=user_log_features
