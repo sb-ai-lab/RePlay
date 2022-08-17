@@ -13,7 +13,6 @@ import torch.nn as nn
 import torch.utils.data as td
 from pandas import DataFrame
 from pytorch_ranger import Ranger
-from tensorboardX import SummaryWriter
 
 from replay.constants import REC_SCHEMA
 from replay.models.base_torch_rec import TorchRecommender
@@ -408,7 +407,6 @@ class DDPG(TorchRecommender):
         user_num=5000,
         item_num=200000,
         log_dir="logs/tmp",
-        writer=False,
     ):
         super().__init__()
         np.random.seed(seed)
@@ -419,10 +417,6 @@ class DDPG(TorchRecommender):
         self.user_num = user_num
         self.log_dir = Path(log_dir)
         self.replay_buffer = Buffer(self.buffer_size)
-        if writer:
-            self.writer = SummaryWriter(log_dir=self.log_dir)
-        else:
-            self.writer = False
 
         self.model = Actor_DRR(
             user_num, item_num, self.embedding_dim, self.hidden_dim, self.N
@@ -617,13 +611,6 @@ class DDPG(TorchRecommender):
         self._target_update(self.target_value_net, self.value_net)
         self._target_update(self.target_model, self.model)
 
-        if self.writer:
-            self.writer.add_histogram("value", value, step)
-            self.writer.add_histogram("target_value", target_value, step)
-            self.writer.add_histogram("expected_value", expected_value, step)
-            self.writer.add_histogram("policy_loss", -policy_loss, step)
-            self.writer.add_histogram("value_loss", value_loss, step)
-
     def _target_update(self, target_net, net, soft_tau=1e-3):
         for target_param, param in zip(
             target_net.parameters(), net.parameters()
@@ -776,9 +763,6 @@ class DDPG(TorchRecommender):
                 if step % 10000 == 0 and step > 0:
                     self._save_model(f"_{step}")
                 step += 1
-                if self.writer:
-                    with torch.no_grad():
-                        self.writer.add_histogram('reward_per_episode', np.mean(rewards[-100:]), step)
 
         self._save_model("_final")
         self._save_memory()
