@@ -714,6 +714,7 @@ class DDPG(TorchRecommender):
             weight_decay=self.value_decay,
         )
 
+        self.logger.debug("Training DDPG")
         self.train(
             policy_optimizer,
             value_optimizer,
