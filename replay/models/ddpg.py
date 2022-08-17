@@ -460,7 +460,7 @@ class DDPG(TorchRecommender):
             )
             user_recs, _ = model.get_action(
                 action_emb,
-                torch.tensor(items_np),
+                torch.tensor(items_np).long(),
                 return_scores=True,
             )
             user_recs = user_recs.squeeze(1)
