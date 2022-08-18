@@ -267,7 +267,6 @@ class Env:
 
     def reset_without_sampling(self, user_id):
         self.user_id = user_id
-        self.viewed_items = []
         self.related_items = list(
             np.argwhere(self.matrix[self.user_id] > 0)[:, 1][: self.item_count]
         )
@@ -283,14 +282,13 @@ class Env:
 
     def reset(self, user_id):
         self.user_id = user_id
-        self.viewed_items = []
         self.related_items = np.argwhere(self.matrix[self.user_id] > 0)[:, 1]
         self.num_rele = len(self.related_items)
         self.nonrelated_items = np.random.choice(
             list(set(range(self.item_count)) - set(self.related_items)),
             self.num_rele,
         )
-        self.available_items = np.zeros(self.num_rele * 2)
+        self.available_items = list(np.zeros(self.num_rele * 2))
         self.available_items[::2] = self.related_items
         self.available_items[1::2] = self.nonrelated_items
 
@@ -316,8 +314,8 @@ class Env:
                     self.memory[self.user_id][1:]
                 ) + [action[0]]
 
-        self.viewed_items.append(to_np(action)[0])
-        if len(self.viewed_items) == len(self.related_items):
+        self.available_items.remove(to_np(action)[0])
+        if len(self.available_items) == len(self.related_items):
             done = 1
         else:
             done = 0
@@ -730,13 +728,7 @@ class DDPG(TorchRecommender):
                 action_emb = self.ou_noise.get_action(to_np(action_emb)[0], t)
                 action = self.model.get_action(
                     action_emb,
-                    torch.tensor(
-                        [
-                            item
-                            for item in self.model.environment.available_items
-                            if item not in self.model.environment.viewed_items
-                        ]
-                    ).long(),
+                    torch.tensor(self.model.environment.available_items).long(),
                 )
                 user, memory, reward, _ = self.model.environment.step(
                     action, action_emb, self.replay_buffer
