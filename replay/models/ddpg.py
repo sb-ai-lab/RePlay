@@ -753,9 +753,6 @@ class DDPG(TorchRecommender):
         with open(self.log_dir / "memory.pickle", "wb") as f:
             pickle.dump(self.model.environment.memory, f)
 
-    def _load_model(self, model_path: str = ''):
-        self.model.load_state_dict(torch.load(model_path))
-
     def _load_memory(self, path: str = ''):
         with open(path, 'rb') as f:
             self.model.environment.memory = pickle.load(f)
