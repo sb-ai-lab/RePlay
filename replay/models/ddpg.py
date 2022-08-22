@@ -743,17 +743,11 @@ class DDPG(TorchRecommender):
                     )
 
                 if step % 10000 == 0 and step > 0:
-                    self._save_model(f"_{step}")
+                    self._save_model(self.log_dir / f"model_{step}.pt")
                 step += 1
 
-        self._save_model("_final")
+        self._save_model(self.log_dir / "model_final.pt")
         self._save_memory()
-
-    def _save_model(self, path: str = '') -> None:
-        torch.save(
-            self.model.state_dict(),
-            self.log_dir / f"model{path}.pth",
-        )
 
     def _save_memory(self) -> None:
         with open(self.log_dir / "memory.pickle", "wb") as f:
