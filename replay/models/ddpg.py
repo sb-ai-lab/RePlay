@@ -394,7 +394,8 @@ class DDPG(TorchRecommender):
     max_value=10
     buffer_size=1000000
     _search_space = {
-        "gamma": {"type": "uniform", "args": [0.8, 0.8]},
+        "noise_sigma": {"type": "uniform", "args": [0.1, 0.6]},
+        "noise_theta": {"type": "uniform", "args": [0.1, 0.4]},
     }
 
     def __init__(
