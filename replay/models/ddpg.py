@@ -519,7 +519,6 @@ class DDPG(TorchRecommender):
 
     def _preprocess_log(self, log):
         data = log.toPandas()[["user_idx", "item_idx", "relevance"]]
-        #         data = data[data["relevance"] > 0].drop('proc_dt', axis=1)
         user_num = data["user_idx"].max() + 1
         item_num = data["item_idx"].max() + 1
 
