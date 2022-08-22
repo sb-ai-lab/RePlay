@@ -45,6 +45,7 @@ llvmlite = ">=0.32.1"
 seaborn = "*"
 pyarrow = "*"
 implicit = "<0.5"
+pytorch-ranger = "^0.1.1"
 
 [tool.poetry.dev-dependencies]
 # dev only
