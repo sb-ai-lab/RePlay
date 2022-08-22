@@ -6,7 +6,6 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
-import pyspark.sql
 import scipy.sparse as sp
 import torch
 import torch.nn as nn
@@ -14,7 +13,6 @@ import torch.utils.data as td
 from pandas import DataFrame
 from pytorch_ranger import Ranger
 
-from replay.constants import REC_SCHEMA
 from replay.models.base_torch_rec import TorchRecommender
 
 
