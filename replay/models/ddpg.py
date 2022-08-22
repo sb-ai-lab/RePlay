@@ -399,8 +399,8 @@ class DDPG(TorchRecommender):
 
     def __init__(
         self,
-        noise_theta=0.1,
         noise_sigma=0.4,
+        noise_theta=0.1,
         seed=16,
         user_num=5000,
         item_num=200000,
@@ -413,6 +413,7 @@ class DDPG(TorchRecommender):
         self.noise_theta = noise_theta
         self.noise_sigma = noise_sigma
         self.user_num = user_num
+        self.item_num = item_num
         self.log_dir = Path(log_dir)
         self.replay_buffer = Buffer(self.buffer_size)
 
@@ -434,7 +435,10 @@ class DDPG(TorchRecommender):
     @property
     def _init_args(self):
         return {
-            "gamma": self.gamma,
+            "noise_sigma": self.noise_sigma,
+            "noise_theta": self.noise_theta,
+            "user_num": self.user_num,
+            "item_num": self.item_num,
         }
 
     def _batch_pass(self, batch, model) -> Dict[str, Any]:
