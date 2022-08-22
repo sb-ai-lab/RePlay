@@ -379,18 +379,18 @@ class State_Repr_Module(nn.Module):
 # pylint: disable=too-many-arguments
 class DDPG(TorchRecommender):
 
-    batch_size=512
-    embedding_dim=8
-    hidden_dim=16
-    value_lr=1e-5
-    value_decay=1e-5
-    policy_lr=1e-5
-    policy_decay=1e-6
-    gamma=0.8
-    N=5
-    min_value=-10
-    max_value=10
-    buffer_size=1000000
+    batch_size: int = 512
+    embedding_dim: int = 8
+    hidden_dim: int = 16
+    value_lr: float = 1e-5
+    value_decay: float = 1e-5
+    policy_lr: float = 1e-5
+    policy_decay: float = 1e-6
+    gamma: float = 0.8
+    N: int = 5
+    min_value: int = -10
+    max_value: int = 10
+    buffer_size: int = 1000000
     _search_space = {
         "noise_sigma": {"type": "uniform", "args": [0.1, 0.6]},
         "noise_theta": {"type": "uniform", "args": [0.1, 0.4]},
