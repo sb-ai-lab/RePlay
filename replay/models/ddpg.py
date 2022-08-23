@@ -378,6 +378,12 @@ class State_Repr_Module(nn.Module):
 
 # pylint: disable=too-many-arguments
 class DDPG(TorchRecommender):
+    """
+    `Deep Deterministic Policy Gradient
+    <https://arxiv.org/pdf/1810.12027.pdf>`_
+
+    This implementation enhanced by more advanced noise strategy.
+    """
 
     batch_size: int = 512
     embedding_dim: int = 8
@@ -398,13 +404,21 @@ class DDPG(TorchRecommender):
 
     def __init__(
         self,
-        noise_sigma=0.4,
-        noise_theta=0.1,
-        seed=16,
-        user_num=5000,
-        item_num=200000,
-        log_dir="logs/tmp",
+        noise_sigma: float = 0.4,
+        noise_theta: float = 0.1,
+        seed: int = 16,
+        user_num: int = 5000,
+        item_num: int = 200000,
+        log_dir: str = "logs/tmp",
     ):
+        """
+        :param noise_sigma: Ornstein-Uhlenbeck noise sigma value
+        :param noise_theta: Ornstein-Uhlenbeck noise theta value
+        :param seed: random seed
+        :param user_num: number of users
+        :param item_num: number of items
+        :param log_dir: dir to save models
+        """
         super().__init__()
         np.random.seed(seed)
         torch.manual_seed(seed)
