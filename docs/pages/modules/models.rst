@@ -24,8 +24,8 @@ ___________________
     "MultVAE", "Python CPU/GPU"
     "DDPG", "Python CPU"
     "ADMM SLIM", "Python CPU"
-    "Обертка Implicit", "Python CPU"
-
+    "Wrapper for implicit", "Python CPU"
+    "Wrapper for LightFM", "Python CPU"
 
 To get more info on how to choose base model, please see this  :doc:`page </pages/useful_data/algorithm_selection>`.
 
