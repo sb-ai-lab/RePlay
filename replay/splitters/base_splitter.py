@@ -14,6 +14,12 @@ SplitterReturnType = Tuple[DataFrame, DataFrame]
 class Splitter(ABC):
     """Base class"""
 
+    _init_arg_names = [
+        "drop_cold_users",
+        "drop_cold_items",
+        "drop_zero_rel_in_test",
+    ]
+
     def __init__(
         self,
         drop_cold_items: bool,
@@ -29,6 +35,13 @@ class Splitter(ABC):
         self.drop_cold_users = drop_cold_users
         self.drop_cold_items = drop_cold_items
         self.drop_zero_rel_in_test = drop_zero_rel_in_test
+
+    @property
+    def _init_args(self):
+        return {name: getattr(self, name) for name in self._init_arg_names}
+
+    def __str__(self):
+        return type(self).__name__
 
     def _filter_zero_relevance(self, dataframe: DataFrame) -> DataFrame:
         """
