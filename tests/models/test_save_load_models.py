@@ -42,7 +42,7 @@ def df():
     [
         ALSWrap,
         ADMMSLIM,
-        KNN,
+        ItemKNN,
         MultVAE,
         NeuroMF,
         PopRec,

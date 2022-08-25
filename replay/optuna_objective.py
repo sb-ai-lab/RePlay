@@ -141,7 +141,7 @@ MainObjective = partial(
 
 
 # pylint: disable=too-few-public-methods
-class KNNObjective:
+class ItemKNNObjective:
     """
     This class is implemented according to
     `instruction <https://optuna.readthedocs.io/en/stable/faq.html#how-to-define-objective-functions-that-have-own-arguments>`_

@@ -3,7 +3,7 @@
 import pytest
 from pyspark.sql import functions as sf
 
-from replay.models import ALSWrap, KNN, PopRec, LightFMWrap
+from replay.models import ALSWrap, ItemKNN, PopRec, LightFMWrap
 from replay.scenarios import TwoStagesScenario
 from replay.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.data_preparator import ToNumericFeatureTransformer
@@ -25,7 +25,7 @@ def two_stages_kwargs():
     return {
         "first_level_models": [
             ALSWrap(rank=4),
-            KNN(num_neighbours=4),
+            ItemKNN(num_neighbours=4),
             LightFMWrap(no_components=4),
         ],
         "train_splitter": DateSplitter(test_start=0.1),
