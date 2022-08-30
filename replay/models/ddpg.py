@@ -20,7 +20,15 @@ def to_np(tensor):
     return tensor.detach().cpu().numpy()
 
 
-class Buffer:
+class ReplayBuffer:
+    """
+    Stores transitions for training RL model.
+
+    Usually transition is (state, action, reward, next_state).
+    In this implementation we compute state using embedding of user 
+    and embeddings of `N` latest relevant items (memory).
+    Thereby in this ReplayBuffer we store (user, memory) instead of state.
+    """
     def __init__(self, capacity, prob_alpha=0.6):
         self.prob_alpha = prob_alpha
         self.capacity = capacity
@@ -82,6 +90,7 @@ class Buffer:
 
 
 class EvalDataset(td.Dataset):
+    """Pytorch Dataset for evaluation."""
     def __init__(
         self,
         positive_data,
@@ -89,6 +98,12 @@ class EvalDataset(td.Dataset):
         positive_mat,
         negative_samples=99,
     ):
+        """
+        :param positive_data: array with relevant user-item interactions
+        :param item_num: number of items
+        :param positive_mat: matrix with relevant user-item interactions
+        :param negative_samples: number of negative samples for evaluation
+        """
         super(EvalDataset, self).__init__()
         self.positive_data = np.array(positive_data)
         self.item_num = item_num
@@ -245,10 +260,22 @@ class Critic_DRR(nn.Module):
 
 # pylint: disable=too-many-instance-attributes
 class Env:
+    """
+    RL environment for recommender systems.
+
+    Keep users' latest relevant items (memory).
+    """
     def __init__(self, item_num, user_num, N):
         """
-        Memory is initialized as ['item_num'] * 'N' for each user.
-        It is padding indexes in state_repr and will result in zero embeddings.
+        Initialize memory as ['item_num'] * 'N' for each user.
+
+        'item_num' is a padding index in State_Repr_Module.
+        It will result in zero embeddings.
+
+        :param item_num: number of items
+        :param user_num: number of users
+        :param N: maximum number of items in memory
+        :param memory: np array with users' latest relevant items
         """
         self.item_count = item_num
         self.user_count = user_num
@@ -338,6 +365,14 @@ class Env:
 
 
 class State_Repr_Module(nn.Module):
+    """
+    Compute state for RL environment. Based on `DRR paper
+    <https://arxiv.org/pdf/1810.12027.pdf>`_
+
+    Computes State is a concatenation of user embedding, 
+    weighted average pooling of `N` latest relevant items
+    and their pairwise product.
+    """
     def __init__(
         self,
         user_num,
@@ -428,7 +463,7 @@ class DDPG(TorchRecommender):
         self.user_num = user_num
         self.item_num = item_num
         self.log_dir = Path(log_dir)
-        self.replay_buffer = Buffer(self.buffer_size)
+        self.replay_buffer = ReplayBuffer(self.buffer_size)
 
         self.model = Actor_DRR(
             user_num, item_num, self.embedding_dim, self.hidden_dim, self.N
