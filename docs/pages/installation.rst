@@ -83,3 +83,5 @@ Currently *AssociationRulesItemRec* doesn't have ``predict[_pairs]`` interface.
 Current model inheritance in RePlay:
 
 .. image:: /images/model_inheritance.jpg
+
+`Current framework architecture <https://miro.com/app/board/uXjVOhTSHK0=/?share_link_id=748466292621>`_
