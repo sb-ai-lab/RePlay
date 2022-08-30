@@ -567,10 +567,10 @@ class DDPG(TorchRecommender):
             appropriate_users,
         )
 
-    def _hit_metric(self, recommended, actual):
+    def hit_metric(self, recommended, actual):
         return int(actual in recommended)
 
-    def _dcg_metric(self, recommended, actual):
+    def dcg_metric(self, recommended, actual):
         if actual in recommended:
             index = recommended.index(actual)
             return np.reciprocal(np.log2(index + 2))
@@ -648,8 +648,8 @@ class DDPG(TorchRecommender):
                 _, ind = scores[:, 0].topk(10)
                 predictions = batch["item"].take(ind).cpu().numpy().tolist()
                 actual = batch["item"][0].item()
-                hits.append(self._hit_metric(predictions, actual))
-                dcgs.append(self._dcg_metric(predictions, actual))
+                hits.append(self.hit_metric(predictions, actual))
+                dcgs.append(self.dcg_metric(predictions, actual))
         return np.mean(hits), np.mean(dcgs)
 
     def load_user_embeddings(self, user_embeddings_path):
