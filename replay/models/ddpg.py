@@ -441,7 +441,7 @@ class DDPG(TorchRecommender):
         self,
         noise_sigma: float = 0.4,
         noise_theta: float = 0.1,
-        seed: int = 16,
+        seed: int = 9,
         user_num: int = 5000,
         item_num: int = 200000,
         log_dir: str = "logs/tmp",
