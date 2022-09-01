@@ -121,6 +121,14 @@ class BaseRecommender(ABC):
         self.set_params(**best_params)
         return best_params
 
+    @property
+    @abstractmethod
+    def _init_args(self):
+        """
+        Dictionary of the model attributes passed during model initialization.
+        Used for model saving and loading
+        """
+
     def _init_params_in_search_space(self, search_space):
         """Check if model params are inside search space"""
         params = self._init_args  # pylint: disable=no-member
@@ -333,8 +341,8 @@ class BaseRecommender(ABC):
                 .union(item_features.select("item_idx"))
                 .distinct()
             )
-        self.fit_users = users.cache()
-        self.fit_items = items.cache()
+        self.fit_users = sf.broadcast(users)
+        self.fit_items = sf.broadcast(items)
         self._num_users = self.fit_users.count()
         self._num_items = self.fit_items.count()
         self._user_dim_size = (
@@ -453,15 +461,11 @@ class BaseRecommender(ABC):
         self.logger.debug("Starting predict %s", type(self).__name__)
         user_data = users or log or user_features or self.fit_users
         users = self._get_ids(user_data, "user_idx")
-        users = self._filter_ids(users, "user_idx")
+        users, log = self._filter_cold_for_predict(users, log, "user")
 
         item_data = items or self.fit_items
         items = self._get_ids(item_data, "item_idx")
-        items = self._filter_ids(items, "item_idx")
-
-        if log is not None:
-            log = self._filter_ids(log, "user_idx")
-            log = self._filter_ids(log, "item_idx")
+        items, log = self._filter_cold_for_predict(items, log, "item")
 
         num_items = items.count()
         if num_items < k:
@@ -502,18 +506,50 @@ class BaseRecommender(ABC):
             raise ValueError(f"Wrong type {type(log)}")
         return unique
 
-    def _filter_ids(self, log: DataFrame, column: str) -> DataFrame:
+    def _filter_cold(
+        self, df: Optional[DataFrame], entity: str, suffix: str = "idx"
+    ) -> Tuple[int, Optional[DataFrame]]:
         """
-        Filter out new ids if the model cannot predict cold items
+        Filter out new ids if the model cannot predict cold users/items.
+        Return number of new users/items and filtered dataframe.
         """
-        entity = column.split("_")[0]
-        if getattr(self, f"can_predict_cold_{entity}s"):
-            return log
-        self.logger.warning(
-            "This model can't predict cold %ss, they will be ignored", entity
+        if getattr(self, f"can_predict_cold_{entity}s") or df is None:
+            return 0, df
+
+        col_name = f"{entity}_{suffix}"
+        num_cold = (
+            df.select(col_name)
+            .distinct()
+            .join(getattr(self, f"fit_{entity}s"), on=col_name, how="anti")
+            .count()
         )
-        res = log.join(getattr(self, f"fit_{entity}s"), on=column, how="inner")
-        return res
+        if num_cold == 0:
+            return 0, df
+
+        return num_cold, df.join(
+            getattr(self, f"fit_{entity}s"), on=col_name, how="inner"
+        )
+
+    def _filter_cold_for_predict(
+        self,
+        main_df: DataFrame,
+        log_df: DataFrame,
+        entity: str,
+        suffix: str = "idx",
+    ):
+        """
+        Filter out cold entities (users/items) from the `main_df` and `log_df`.
+        Warn if cold entities are present in the `main_df`.
+        """
+        num_new, main_df = self._filter_cold(main_df, entity, suffix)
+        if num_new > 0:
+            self.logger.info(
+                "%s model can't predict cold %ss, they will be ignored",
+                self,
+                entity,
+            )
+        _, log_df = self._filter_cold(log_df, entity, suffix)
+        return main_df, log_df
 
     # pylint: disable=too-many-arguments
     @abstractmethod
@@ -662,12 +698,8 @@ class BaseRecommender(ABC):
             raise ValueError(
                 "pairs must be a dataframe with columns strictly [user_idx, item_idx]"
             )
-
-        if log is not None:
-            log = self._filter_ids(log, "user_idx")
-            log = self._filter_ids(log, "item_idx")
-        pairs = self._filter_ids(pairs, "item_idx")
-        pairs = self._filter_ids(pairs, "user_idx")
+        pairs, log = self._filter_cold_for_predict(pairs, log, "user")
+        pairs, log = self._filter_cold_for_predict(pairs, log, "item")
 
         pred = self._predict_pairs(
             pairs=pairs,
@@ -743,7 +775,7 @@ class BaseRecommender(ABC):
 
         self.logger.info(
             "get_features method is not defined for the model %s. Features will not be returned.",
-            self.__str__(),
+            str(self),
         )
         return None, None
 
@@ -770,7 +802,7 @@ class BaseRecommender(ABC):
         if metric is None:
             raise ValueError(
                 f"Distance metric is required to get nearest items with "
-                f"{self.__str__()} model"
+                f"{self} model"
             )
 
         if self.can_predict_item_to_item:
@@ -831,7 +863,7 @@ class BaseRecommender(ABC):
         candidates: Optional[DataFrame] = None,
     ) -> Optional[DataFrame]:
         raise NotImplementedError(
-            f"item-to-item prediction is not implemented for {self.__str__()}"
+            f"item-to-item prediction is not implemented for {self}"
         )
 
     def _params_tried(self):
@@ -1394,7 +1426,7 @@ class NeighbourRec(Recommender, ABC):
         if metric is not None:
             self.logger.debug(
                 "Metric is not used to determine nearest items in %s model",
-                self.__str__(),
+                str(self),
             )
 
         return self._get_nearest_items_wrap(

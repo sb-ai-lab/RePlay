@@ -1,18 +1,19 @@
-# pylint: disable-all
+# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
 from os.path import dirname, join
 
 import pytest
 import pandas as pd
 
-from implicit.als import AlternatingLeastSquares
-from pyspark.sql import functions as sf
-
 import replay
 from replay.data_preparator import Indexer
-from replay.model_handler import save, load, save_indexer, load_indexer
-from replay.models import *
+from replay.model_handler import (
+    save_indexer,
+    load_indexer,
+    save_splitter,
+    load_splitter,
+)
 from replay.utils import convert2spark
-from tests.utils import sparkDataFrameEqual, long_log_with_features, spark
+from replay.splitters import *
 
 
 @pytest.fixture
@@ -37,110 +38,6 @@ def df():
     return res
 
 
-@pytest.mark.parametrize(
-    "recommender",
-    [
-        ALSWrap,
-        ADMMSLIM,
-        KNN,
-        MultVAE,
-        NeuroMF,
-        PopRec,
-        SLIM,
-        UserPopRec,
-        LightFMWrap,
-    ],
-)
-def test_equal_preds(long_log_with_features, recommender, tmp_path):
-    path = (tmp_path / "test").resolve()
-    model = recommender()
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
-    save(model, path)
-    m = load(path)
-    new_pred = m.predict(long_log_with_features, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
-
-
-def test_random(long_log_with_features, tmp_path):
-    path = (tmp_path / "random").resolve()
-    model = RandomRec(seed=1)
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
-    save(model, path)
-    m = load(path)
-    new_pred = m.predict(long_log_with_features, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
-
-
-def test_rules(df, tmp_path):
-    path = (tmp_path / "rules").resolve()
-    model = AssociationRulesItemRec()
-    model.fit(df)
-    base_pred = model.get_nearest_items([1], 5, metric="lift")
-    save(model, path)
-    m = load(path)
-    new_pred = m.get_nearest_items([1], 5, metric="lift")
-    sparkDataFrameEqual(base_pred, new_pred)
-
-
-def test_word(df, tmp_path):
-    path = (tmp_path / "word").resolve()
-    model = Word2VecRec()
-    model.fit(df)
-    base_pred = model.predict(df, 5)
-    save(model, path)
-    m = load(path)
-    new_pred = m.predict(df, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
-
-
-def test_implicit(long_log_with_features, tmp_path):
-    path = (tmp_path / "implicit").resolve()
-    model = ImplicitWrap(AlternatingLeastSquares())
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
-    save(model, path)
-    m = load(path)
-    new_pred = m.predict(long_log_with_features, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
-
-
-def test_cluster(long_log_with_features, user_features, tmp_path):
-    path = (tmp_path / "cluster").resolve()
-    model = ClusterRec()
-    model.fit(long_log_with_features, user_features)
-    base_pred = model.predict(user_features, 5)
-    save(model, path)
-    m = load(path)
-    new_pred = m.predict(user_features, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
-
-
-def test_wilson(long_log_with_features, tmp_path):
-    path = (tmp_path / "wilson").resolve()
-    model = Wilson()
-    df = long_log_with_features.withColumn(
-        "relevance", (sf.col("relevance") > 3).cast("integer")
-    )
-    model.fit(df)
-    base_pred = model.predict(df, 5)
-    save(model, path)
-    m = load(path)
-    new_pred = m.predict(df, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
-
-
-def test_study(df, tmp_path):
-    path = (tmp_path / "study").resolve()
-    model = PopRec()
-    model.study = 80083
-    model.fit(df)
-    save(model, path)
-    m = load(path)
-    assert m.study == model.study
-
-
 def test_indexer(df, tmp_path):
     path = (tmp_path / "indexer").resolve()
     indexer = Indexer("user_idx", "item_idx")
@@ -148,4 +45,31 @@ def test_indexer(df, tmp_path):
     indexer.fit(df, df)
     save_indexer(indexer, path)
     i = load_indexer(path)
+    i.inverse_transform(i.transform(df))
     assert i.user_indexer.inputCol == indexer.user_indexer.inputCol
+
+
+@pytest.mark.parametrize(
+    "splitter, init_args",
+    [
+        (DateSplitter, {"test_start": 0.8}),
+        (RandomSplitter, {"test_size": 0.8, "seed": 123}),
+        (NewUsersSplitter, {"test_size": 0.8}),
+        (ColdUserRandomSplitter, {"test_size": 0.8, "seed": 123}),
+        (
+            UserSplitter,
+            {"item_test_size": 1, "user_test_size": 0.2, "seed": 123},
+        ),
+    ],
+)
+def test_splitter(splitter, init_args, df, tmp_path):
+    path = (tmp_path / "splitter").resolve()
+    splitter = splitter(**init_args)
+    save_splitter(splitter, path)
+    train, test = splitter.split(df)
+    restored_splitter = load_splitter(path)
+    for arg_, value_ in init_args.items():
+        assert getattr(restored_splitter, arg_) == value_
+    new_train, new_test = restored_splitter.split(df)
+    assert new_train.count() == train.count()
+    assert new_test.count() == test.count()

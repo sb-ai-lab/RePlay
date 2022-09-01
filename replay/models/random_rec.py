@@ -7,8 +7,8 @@ from numpy.random import default_rng
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from replay.models.base_rec import Recommender
 from replay.constants import REC_SCHEMA
+from replay.models.base_rec import Recommender
 
 
 class RandomRec(Recommender):
@@ -201,7 +201,7 @@ class RandomRec(Recommender):
                 .withColumn("probability", sf.lit(1.0))
             )
 
-        self.item_popularity.cache()
+        self.item_popularity.cache().count()
         self.fill = (
             self.item_popularity.agg({"probability": "min"}).first()[0]
             if self.add_cold
@@ -242,7 +242,9 @@ class RandomRec(Recommender):
     ) -> DataFrame:
 
         filtered_popularity = self.item_popularity.join(
-            items, on="item_idx", how="right" if self.add_cold else "inner",
+            items,
+            on="item_idx",
+            how="right" if self.add_cold else "inner",
         ).fillna(self.fill)
 
         items_np, probs_np = self._get_ids_and_probs_pd(filtered_popularity)
@@ -256,7 +258,10 @@ class RandomRec(Recommender):
             else:
                 local_rng = default_rng()
             items_idx = local_rng.choice(
-                items_np, size=cnt, p=probs_np, replace=False,
+                items_np,
+                size=cnt,
+                p=probs_np,
+                replace=False,
             )
             relevance = 1 / np.arange(1, cnt + 1)
             return pd.DataFrame(
@@ -273,7 +278,8 @@ class RandomRec(Recommender):
             .groupby("user_idx")
             .agg(sf.countDistinct("item_idx").alias("cnt"))
             .selectExpr(
-                "user_idx", f"LEAST(cnt + {k}, {items_np.shape[0]}) AS cnt",
+                "user_idx",
+                f"LEAST(cnt + {k}, {items_np.shape[0]}) AS cnt",
             )
             .groupby("user_idx")
             .applyInPandas(grouped_map, REC_SCHEMA)

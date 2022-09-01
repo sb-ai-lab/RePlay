@@ -244,7 +244,9 @@ def array_mult(first: st.ArrayType, second: st.ArrayType):
     return [first[i] * second[i] for i in range(len(first))]
 
 
-def get_log_info(log: DataFrame) -> str:
+def get_log_info(
+    log: DataFrame, user_col="user_idx", item_col="item_idx"
+) -> str:
     """
     Basic log statistics
 
@@ -264,11 +266,14 @@ def get_log_info(log: DataFrame) -> str:
     'total lines: 3, total users: 3, total items: 2'
 
     :param log: interaction log containing ``user_idx`` and ``item_idx``
+    :param user_col: name of a columns containing users' identificators
+    :param item_col: name of a columns containing items' identificators
+
     :returns: statistics string
     """
     cnt = log.count()
-    user_cnt = log.select("user_idx").distinct().count()
-    item_cnt = log.select("item_idx").distinct().count()
+    user_cnt = log.select(user_col).distinct().count()
+    item_cnt = log.select(item_col).distinct().count()
     return ", ".join(
         [
             f"total lines: {cnt}",
@@ -456,7 +461,7 @@ def fallback(
     base: DataFrame, fill: DataFrame, k: int, id_type: str = "idx"
 ) -> DataFrame:
     """
-    Fill missing recommendations for users that have less than ``k`` recomended items.
+    Fill missing recommendations for users that have less than ``k`` recommended items.
     Score values for the fallback model may be decreased to preserve sorting.
 
     :param base: base recommendations that need to be completed
@@ -507,7 +512,7 @@ def unpersist_if_exists(dataframe: Optional[DataFrame]) -> None:
         dataframe.unpersist()
 
 
-def ugly_join(
+def join_with_col_renaming(
     left: DataFrame,
     right: DataFrame,
     on_col_name: Union[str, List],
@@ -515,13 +520,19 @@ def ugly_join(
     suffix="join",
 ) -> DataFrame:
     """
-    Ugly workaround for joining DataFrames derived form the same DataFrame
+    There is a bug in some Spark versions (e.g. 3.0.2), which causes errors
+    in joins of DataFrames derived form the same DataFrame on the columns with the same name:
     https://issues.apache.org/jira/browse/SPARK-14948
+    https://issues.apache.org/jira/browse/SPARK-36815.
+
+    The function renames columns stated in `on_col_name` in one dataframe,
+    performs join and removes renamed columns.
+
     :param left: left-side dataframe
     :param right: right-side dataframe
-    :param on_col_name: column name to join on
+    :param on_col_name: column names to join on
     :param how: join type
-    :param suffix: suffix added to `on_col_name` value to name temporary column
+    :param suffix: suffix added to `on_col_name` values to name temporary column
     :return: join result
     """
     if isinstance(on_col_name, str):
@@ -529,7 +540,10 @@ def ugly_join(
 
     on_condition = sf.lit(True)
     for name in on_col_name:
-        right = right.withColumnRenamed(name, f"{name}_{suffix}")
+        if how == "right":
+            left = left.withColumnRenamed(name, f"{name}_{suffix}")
+        else:
+            right = right.withColumnRenamed(name, f"{name}_{suffix}")
         on_condition &= sf.col(name) == sf.col(f"{name}_{suffix}")
 
     return (left.join(right, on=on_condition, how=how)).drop(
@@ -597,7 +611,9 @@ def add_to_date(
 
 
 def process_timestamp_column(
-    dataframe: DataFrame, column_name: str, date_format: Optional[str] = None,
+    dataframe: DataFrame,
+    column_name: str,
+    date_format: Optional[str] = None,
 ) -> DataFrame:
     """
     Convert ``column_name`` column of numeric/string/timestamp type
@@ -628,7 +644,8 @@ def process_timestamp_column(
 
     # datetime in string format
     dataframe = dataframe.withColumn(
-        column_name, sf.to_timestamp(sf.col(column_name), format=date_format),
+        column_name,
+        sf.to_timestamp(sf.col(column_name), format=date_format),
     )
     return dataframe
 

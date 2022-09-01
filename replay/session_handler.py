@@ -28,7 +28,7 @@ def get_spark_session(
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
     if spark_memory is None:
-        spark_memory = floor(psutil.virtual_memory().total / 1024 ** 3 * 0.7)
+        spark_memory = floor(psutil.virtual_memory().total / 1024**3 * 0.7)
     if shuffle_partitions is None:
         shuffle_partitions = os.cpu_count() * 3
     driver_memory = f"{spark_memory}g"
@@ -45,6 +45,7 @@ def get_spark_session(
         .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.host", "localhost")
         .config("spark.sql.execution.arrow.pyspark.enabled", "true")
+        .config("spark.kryoserializer.buffer.max", "256m")
         .master("local[*]")
         .enableHiveSupport()
         .getOrCreate()
@@ -56,8 +57,6 @@ def logger_with_settings() -> logging.Logger:
     """Set up default logging"""
     spark_logger = logging.getLogger("py4j")
     spark_logger.setLevel(logging.WARN)
-    ignite_engine_logger = logging.getLogger("ignite.engine.engine.Engine")
-    ignite_engine_logger.setLevel(logging.WARN)
     logger = logging.getLogger("replay")
     formatter = logging.Formatter(
         "%(asctime)s, %(name)s, %(levelname)s: %(message)s",

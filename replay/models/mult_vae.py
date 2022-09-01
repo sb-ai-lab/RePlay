@@ -146,7 +146,7 @@ class MultVAE(TorchRecommender):
         "dropout": {"type": "uniform", "args": [0, 0.5]},
         "anneal": {"type": "uniform", "args": [0.2, 1]},
         "l2_reg": {"type": "loguniform", "args": [1e-9, 5]},
-        "factor": {"type": "float", "args": [0.2, 0.2]},
+        "factor": {"type": "uniform", "args": [0.2, 0.2]},
         "patience": {"type": "int", "args": [3, 3]},
     }
 

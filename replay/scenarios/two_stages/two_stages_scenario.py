@@ -23,7 +23,7 @@ from replay.utils import (
     get_top_k_recs,
     horizontal_explode,
     join_or_return,
-    ugly_join,
+    join_with_col_renaming,
     unpersist_if_exists,
 )
 
@@ -256,6 +256,11 @@ class TwoStagesScenario(HybridRecommender):
         )
         self.seed = seed
 
+    # TO DO: add save/load for scenarios
+    @property
+    def _init_args(self):
+        return {}
+
     # pylint: disable=too-many-locals
     def _add_features_for_second_level(
         self,
@@ -311,7 +316,7 @@ class TwoStagesScenario(HybridRecommender):
                     item_features=first_level_item_features_cached,
                     prefix=f"m_{idx}",
                 )
-                full_second_level_train = ugly_join(
+                full_second_level_train = join_with_col_renaming(
                     left=full_second_level_train,
                     right=features,
                     on_col_name=["user_idx", "item_idx"],
@@ -407,7 +412,7 @@ class TwoStagesScenario(HybridRecommender):
                 for df in [log, users, user_features]
             ]
 
-        log_to_filter_cached = ugly_join(
+        log_to_filter_cached = join_with_col_renaming(
             left=log_to_filter,
             right=users,
             on_col_name="user_idx",

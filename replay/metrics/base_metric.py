@@ -126,7 +126,10 @@ class Metric(ABC):
                     sf.count("value").alias("count"),
                 )
                 .select(
-                    sf.when(sf.isnan(sf.col("std")), sf.lit(0.0))
+                    sf.when(
+                        sf.isnan(sf.col("std")) | sf.col("std").isNull(),
+                        sf.lit(0.0),
+                    )
                     .otherwise(sf.col("std"))
                     .cast("float")
                     .alias("std"),

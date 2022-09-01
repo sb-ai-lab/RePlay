@@ -75,10 +75,14 @@ class AssociationRulesItemRec(Recommender):
         2) Calculate items support, pairs confidence, lift and confidence_gain defined as
             confidence(a, b)/confidence(!a, b).
         """
-        rel_col = sf.col("relevance") if self.use_relevance else sf.lit(1)
-        log = log.select(
-            self.session_col, "item_idx", rel_col.alias("relevance")
-        ).distinct()
+        log = (
+            log.withColumn(
+                "relevance",
+                sf.col("relevance") if self.use_relevance else sf.lit(1),
+            )
+            .select(self.session_col, "item_idx", "relevance")
+            .distinct()
+        )
         num_sessions = log.select(self.session_col).distinct().count()
 
         frequent_items_cached = (
@@ -167,7 +171,8 @@ class AssociationRulesItemRec(Recommender):
                     "similarity_order",
                     sf.row_number().over(
                         Window.partitionBy("antecedent").orderBy(
-                            sf.col("lift").desc(), sf.col("consequent").desc(),
+                            sf.col("lift").desc(),
+                            sf.col("consequent").desc(),
                         )
                     ),
                 )
@@ -175,31 +180,24 @@ class AssociationRulesItemRec(Recommender):
                 .drop("similarity_order")
             )
 
-        self.pair_metrics = (
-            pairs_metrics.withColumn(
-                "confidence_gain",
-                sf.when(
-                    sf.col("consequent_relevance") - sf.col("pair_relevance")
-                    == 0,
-                    sf.lit(np.inf),
-                ).otherwise(
-                    sf.col("confidence")
-                    * (num_sessions - sf.col("antecedent_relevance"))
-                    / (
-                        sf.col("consequent_relevance")
-                        - sf.col("pair_relevance")
-                    )
-                ),
-            )
-            .select(
-                "antecedent",
-                "consequent",
-                "confidence",
-                "lift",
-                "confidence_gain",
-            )
-            .cache()
+        self.pair_metrics = pairs_metrics.withColumn(
+            "confidence_gain",
+            sf.when(
+                sf.col("consequent_relevance") - sf.col("pair_relevance") == 0,
+                sf.lit(np.inf),
+            ).otherwise(
+                sf.col("confidence")
+                * (num_sessions - sf.col("antecedent_relevance"))
+                / (sf.col("consequent_relevance") - sf.col("pair_relevance"))
+            ),
+        ).select(
+            "antecedent",
+            "consequent",
+            "confidence",
+            "lift",
+            "confidence_gain",
         )
+        self.pair_metrics.cache().count()
         frequent_items_cached.unpersist()
 
     # pylint: disable=too-many-arguments
@@ -214,7 +212,7 @@ class AssociationRulesItemRec(Recommender):
         filter_seen_items: bool = True,
     ) -> None:
         raise NotImplementedError(
-            f"item-to-user predict is not implemented for {self.__str__()}, "
+            f"item-to-user predict is not implemented for {self}, "
             f"use get_nearest_items method to get item-to-item recommendations"
         )
 
@@ -253,7 +251,10 @@ class AssociationRulesItemRec(Recommender):
             )
 
         return self._get_nearest_items_wrap(
-            items=items, k=k, metric=metric, candidates=candidates,
+            items=items,
+            k=k,
+            metric=metric,
+            candidates=candidates,
         )
 
     def _get_nearest_items(

@@ -64,7 +64,7 @@ class ClusterRec(UserRecommender):
         self.item_rel_in_cluster = self.item_rel_in_cluster.withColumn(
             "relevance", sf.col("item_count") / sf.col("max_count_in_cluster")
         ).drop("item_count", "max_count_in_cluster")
-        self.item_rel_in_cluster.cache()
+        self.item_rel_in_cluster.cache().count()
 
     def _clear_cache(self):
         if hasattr(self, "item_rel_in_cluster"):

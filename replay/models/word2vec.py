@@ -7,7 +7,7 @@ from pyspark.sql import types as st
 from pyspark.ml.stat import Summarizer
 
 from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.utils import vector_dot, vector_mult
+from replay.utils import vector_dot, vector_mult, join_with_col_renaming
 
 
 # pylint: disable=too-many-instance-attributes
@@ -77,16 +77,15 @@ class Word2VecRec(Recommender, ItemVectorModel):
         self.idf = (
             log.groupBy("item_idx")
             .agg(sf.countDistinct("user_idx").alias("count"))
-            .select(
-                "item_idx",
-                (
-                    sf.log(sf.lit(self.users_count) / sf.col("count"))
-                    if self.use_idf
-                    else sf.lit(1.0)
-                ).alias("idf"),
+            .withColumn(
+                "idf",
+                sf.log(sf.lit(self.users_count) / sf.col("count"))
+                if self.use_idf
+                else sf.lit(1.0),
             )
+            .select("item_idx", "idf")
         )
-        self.idf.cache()
+        self.idf.cache().count()
 
         log_by_users = (
             log.groupBy("user_idx")
@@ -122,7 +121,7 @@ class Word2VecRec(Recommender, ItemVectorModel):
             .getVectors()
             .select(sf.col("word").cast("int").alias("item"), "vector")
         )
-        self.vectors.cache()
+        self.vectors.cache().count()
 
     def _clear_cache(self):
         if hasattr(self, "idf") and hasattr(self, "vectors"):
@@ -145,15 +144,19 @@ class Word2VecRec(Recommender, ItemVectorModel):
         :return: user embeddings dataframe
             ``[user_idx, user_vector]``
         """
+        res = join_with_col_renaming(
+            log, users, on_col_name="user_idx", how="inner"
+        )
+        res = join_with_col_renaming(
+            res, self.idf, on_col_name="item_idx", how="inner"
+        )
+        res = res.join(
+            self.vectors,
+            how="inner",
+            on=sf.col("item_idx") == sf.col("item"),
+        ).drop("item")
         return (
-            log.join(users, how="inner", on="user_idx")
-            .join(self.idf, how="inner", on="item_idx")
-            .join(
-                self.vectors,
-                how="inner",
-                on=sf.col("item_idx") == sf.col("item"),
-            )
-            .groupby("user_idx")
+            res.groupby("user_idx")
             .agg(
                 Summarizer.mean(
                     vector_mult(sf.col("idf"), sf.col("vector"))
@@ -169,17 +172,18 @@ class Word2VecRec(Recommender, ItemVectorModel):
     ) -> DataFrame:
         if log is None:
             raise ValueError(
-                f"log is not provided, {self.__str__()} predict requires log."
+                f"log is not provided, {self} predict requires log."
             )
 
         user_vectors = self._get_user_vectors(
             pairs.select("user_idx").distinct(), log
         )
-        pairs_with_vectors = pairs.join(
-            user_vectors, on="user_idx", how="inner"
-        ).join(
-            self.vectors, on=sf.col("item_idx") == sf.col("item"), how="inner"
+        pairs_with_vectors = join_with_col_renaming(
+            pairs, user_vectors, on_col_name="user_idx", how="inner"
         )
+        pairs_with_vectors = pairs_with_vectors.join(
+            self.vectors, on=sf.col("item_idx") == sf.col("item"), how="inner"
+        ).drop("item")
         return pairs_with_vectors.select(
             "user_idx",
             sf.col("item_idx"),
