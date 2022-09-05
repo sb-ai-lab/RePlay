@@ -11,7 +11,12 @@ import pandas as pd
 import pyspark.sql
 import torch
 import torch.nn as nn
+from d3rlpy.argument_utility import (
+    EncoderArg, QFuncArg, UseGPUArg, ScalerArg, ActionScalerArg,
+    RewardScalerArg
+)
 from d3rlpy.dataset import MDPDataset
+from d3rlpy.models.optimizers import OptimizerFactory, AdamFactory
 from pandas import DataFrame
 
 from replay.data_preparator import DataPreparator
@@ -112,16 +117,83 @@ class CQL(TorchRecommender):
 
     k: int
     n_epochs: int
+    model: CQL_d3rlpy.CQL
+
+    _search_space = {
+        "actor_learning_rate": {"type": "loguniform", "args": [1e-5, 1e-3]},
+        "critic_learning_rate": {"type": "loguniform", "args": [3e-5, 3e-4]},
+        "n_epochs": {"type": "int", "args": [3, 20]},
+        "temp_learning_rate": {"type": "loguniform", "args": [1e-5, 1e-3]},
+        "alpha_learning_rate": {"type": "loguniform", "args": [1e-5, 1e-3]},
+        "gamma": {"type": "loguniform", "args": [0.9, 0.999]},
+        "n_critics": {"type": "int", "args": [2, 4]},
+    }
     
     def __init__(
         self, *,
         k: int, n_epochs: int = 1,
+        actor_learning_rate: float = 1e-4,
+        critic_learning_rate: float = 3e-4,
+        temp_learning_rate: float = 1e-4,
+        alpha_learning_rate: float = 1e-4,
+        actor_optim_factory: OptimizerFactory = AdamFactory(),
+        critic_optim_factory: OptimizerFactory = AdamFactory(),
+        temp_optim_factory: OptimizerFactory = AdamFactory(),
+        alpha_optim_factory: OptimizerFactory = AdamFactory(),
+        actor_encoder_factory: EncoderArg = "default",
+        critic_encoder_factory: EncoderArg = "default",
+        q_func_factory: QFuncArg = "mean",
+        batch_size: int = 256,
+        n_frames: int = 1,
+        n_steps: int = 1,
+        gamma: float = 0.99,
+        tau: float = 0.005,
+        n_critics: int = 2,
+        initial_temperature: float = 1.0,
+        initial_alpha: float = 1.0,
+        alpha_threshold: float = 10.0,
+        conservative_weight: float = 5.0,
+        n_action_samples: int = 10,
+        soft_q_backup: bool = False,
+        use_gpu: UseGPUArg = False,
+        scaler: ScalerArg = None,
+        action_scaler: ActionScalerArg = None,
+        reward_scaler: RewardScalerArg = None,
         **params
     ):
         super().__init__()
         self.k = k
         self.n_epochs = n_epochs
-        self.model = CQL_d3rlpy.CQL(**params)
+        self.model = CQL_d3rlpy.CQL(
+            actor_learning_rate=actor_learning_rate,
+            critic_learning_rate=critic_learning_rate,
+            temp_learning_rate=temp_learning_rate,
+            alpha_learning_rate=alpha_learning_rate,
+            actor_optim_factory=actor_optim_factory,
+            critic_optim_factory=critic_optim_factory,
+            temp_optim_factory=temp_optim_factory,
+            alpha_optim_factory=alpha_optim_factory,
+            actor_encoder_factory=actor_encoder_factory,
+            critic_encoder_factory=critic_encoder_factory,
+            q_func_factory=q_func_factory,
+            batch_size=batch_size,
+            n_frames=n_frames,
+            n_steps=n_steps,
+            gamma=gamma,
+            tau=tau,
+            n_critics=n_critics,
+            initial_temperature=initial_temperature,
+            initial_alpha=initial_alpha,
+            alpha_threshold=alpha_threshold,
+            conservative_weight=conservative_weight,
+            n_action_samples=n_action_samples,
+            soft_q_backup=soft_q_backup,
+            use_gpu=use_gpu,
+            scaler=scaler,
+            action_scaler=action_scaler,
+            reward_scaler=reward_scaler,
+            **params
+        )
 
     def _predict(
         self,
@@ -139,7 +211,6 @@ class CQL(TorchRecommender):
 
         pred = pd.DataFrame()
         
-        # progress = tqdm.auto.tqdm(users, desc='User')
         for user in users:
             matrix = pd.DataFrame({
                 'user_idx': np.repeat(user, len(items)),
@@ -157,41 +228,62 @@ class CQL(TorchRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        
         train = self._prepare_data(log.toPandas(), self.k)
         self.model.fit(train, n_epochs=self.n_epochs)
 
     def _prepare_data(self, df, k: int) -> MDPDataset:
         gb = df.sort_values('timestamp').groupby('user_idx')    
-        list_dfs = [gb.get_group(x) for x in gb.groups]
-        df_s = pd.concat(list_dfs)
+        user_logs = pd.concat([
+            gb.get_group(x) for x in gb.groups
+        ])
 
-        #   reward top-K and later watched movies with 1, other - 0
-        idxs = df_s.sort_values(['relevance', 'timestamp'], ascending=False).groupby('user_idx').head(k).index
-        rewards = np.zeros(len(df_s))
+        # reward top-K watched movies with 1, the others - with 0
+        idxs = (
+            user_logs
+            .sort_values(['relevance', 'timestamp'], ascending=False)
+            .groupby('user_idx')
+            .head(k)
+            .index
+        )
+        rewards = np.zeros(len(user_logs))
         rewards[idxs] = 1
-        df_s['rewards'] = rewards
+        user_logs['rewards'] = rewards
 
-        #   every user has his own episode (for the latest movie terminals has 1, other - 0)
-        user_change = (df_s.user_idx != df_s.user_idx.shift())
-        terminals = np.zeros(len(df_s))
+        # every user has his own episode (the latest movie defined as terminal)
+        user_change = user_logs.user_idx != user_logs.user_idx.shift()
+        terminals = np.zeros(len(user_logs))
         terminals[user_change] = 1
         terminals[0] = 0
-        df_s['terminals'] = terminals
+        user_logs['terminals'] = terminals
 
         train_dataset = MDPDataset(
-            observations=np.array(df_s[['user_idx', 'item_idx']]),
+            observations=np.array(user_logs[['user_idx', 'item_idx']]),
             actions=np.array(
-                df_s['relevance'] + 0.1 * np.random.randn(len(df_s))
+                user_logs['relevance'] + 0.1 * np.random.randn(len(user_logs))
             )[:, None],
-            rewards=df_s['rewards'],
-            terminals=df_s['terminals']
+            rewards=user_logs['rewards'],
+            terminals=user_logs['terminals']
         )
         return train_dataset
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+        # take from torch recommender
+        ...
     
     @property
     def _init_args(self):
-        pass
+        args = dict(
+            k=self.k,
+            n_epochs=self.n_epochs,
+        )
+        args.update(**self.model.get_params())
+        return args
 
     def _batch_pass(self, batch, model) -> Dict[str, Any]:
         pass
