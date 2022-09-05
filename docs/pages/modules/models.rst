@@ -82,7 +82,7 @@ UCB Recommender
 
 K Nearest Neighbours
 ````````````````````
-.. autoclass:: replay.models.KNN
+.. autoclass:: replay.models.ItemKNN
     :special-members: __init__
 
 .. _als-rec:

@@ -7,7 +7,7 @@ from pyspark.sql import types as st
 from pyspark.ml.stat import Summarizer
 
 from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.utils import vector_dot, vector_mult, ugly_join
+from replay.utils import vector_dot, vector_mult, join_with_col_renaming
 
 
 # pylint: disable=too-many-instance-attributes
@@ -144,8 +144,12 @@ class Word2VecRec(Recommender, ItemVectorModel):
         :return: user embeddings dataframe
             ``[user_idx, user_vector]``
         """
-        res = ugly_join(log, users, on_col_name="user_idx", how="inner")
-        res = ugly_join(res, self.idf, on_col_name="item_idx", how="inner")
+        res = join_with_col_renaming(
+            log, users, on_col_name="user_idx", how="inner"
+        )
+        res = join_with_col_renaming(
+            res, self.idf, on_col_name="item_idx", how="inner"
+        )
         res = res.join(
             self.vectors,
             how="inner",
@@ -174,7 +178,7 @@ class Word2VecRec(Recommender, ItemVectorModel):
         user_vectors = self._get_user_vectors(
             pairs.select("user_idx").distinct(), log
         )
-        pairs_with_vectors = ugly_join(
+        pairs_with_vectors = join_with_col_renaming(
             pairs, user_vectors, on_col_name="user_idx", how="inner"
         )
         pairs_with_vectors = pairs_with_vectors.join(

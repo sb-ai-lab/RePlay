@@ -13,7 +13,7 @@ from replay.models.association_rules import AssociationRulesItemRec
 from replay.models.base_rec import Recommender
 from replay.models.base_torch_rec import TorchRecommender
 from replay.models.implicit_wrap import ImplicitWrap
-from replay.models.knn import KNN
+from replay.models.knn import ItemKNN
 from replay.models.lightfm_wrap import LightFMWrap
 from replay.models.mult_vae import MultVAE
 from replay.models.neuromf import NeuroMF

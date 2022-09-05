@@ -84,6 +84,16 @@ class UserSplitter(Splitter):
 
     """
 
+    _init_arg_names = [
+        "item_test_size",
+        "user_test_size",
+        "shuffle",
+        "drop_cold_items",
+        "drop_cold_users",
+        "drop_zero_rel_in_test",
+        "seed",
+    ]
+
     # pylint: disable=too-many-arguments
     def __init__(
         self,

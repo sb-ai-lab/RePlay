@@ -1,7 +1,7 @@
 # pylint: disable-all
 import pandas as pd
 
-from replay.models import KNN
+from replay.models import ItemKNN
 from replay.scenarios import Fallback
 from replay.utils import fallback, convert2spark
 from tests.utils import log, log2, spark
@@ -27,9 +27,9 @@ def test_fallback():
 
 
 def test_class(log, log2):
-    model = Fallback(KNN(), threshold=3)
+    model = Fallback(ItemKNN(), threshold=3)
     s = str(model)
-    assert s == "Fallback(KNN, PopRec)"
+    assert s == "Fallback(ItemKNN, PopRec)"
     model.fit(log2)
     p1, p2 = model.optimize(log, log2, k=1, budget=1)
     assert p2 is None
