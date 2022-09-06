@@ -1,29 +1,26 @@
 """
-Using CQL implementation from d3rlpy
-For 'alpha' version PySpark DataFrame converts to Pandas
+Using CQL implementation from `d3rlpy` package.
+For 'alpha' version PySpark DataFrame are converted to Pandas
 """
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import d3rlpy.algos.cql as CQL_d3rlpy
 import numpy as np
 import pandas as pd
-import pyspark.sql
-import torch
-import torch.nn as nn
 from d3rlpy.argument_utility import (
     EncoderArg, QFuncArg, UseGPUArg, ScalerArg, ActionScalerArg,
     RewardScalerArg
 )
 from d3rlpy.dataset import MDPDataset
 from d3rlpy.models.optimizers import OptimizerFactory, AdamFactory
-from pandas import DataFrame
+from pyspark.sql import DataFrame
 
 from replay.data_preparator import DataPreparator
-from replay.models.base_torch_rec import TorchRecommender
+from replay.models import Recommender
 
 
-class CQL(TorchRecommender):
+class CQL(Recommender):
     r"""Conservative Q-Learning algorithm.
 
     CQL is a SAC-based data-driven deep reinforcement learning algorithm, which
@@ -197,30 +194,30 @@ class CQL(TorchRecommender):
 
     def _predict(
         self,
-        log: pyspark.sql.DataFrame,
+        log: DataFrame,
         k: int,
-        users: pyspark.sql.DataFrame,
-        items: pyspark.sql.DataFrame,
-        user_features: Optional[pyspark.sql.DataFrame] = None,
-        item_features: Optional[pyspark.sql.DataFrame] = None,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> pyspark.sql.DataFrame:
+    ) -> DataFrame:
+        if user_features or item_features:
+            message = f'CQL recommender does not support user/item features'
+            self.logger.debug(message)
 
         users = users.toPandas().to_numpy().flatten()
         items = items.toPandas().to_numpy().flatten()
 
-        pred = pd.DataFrame()
-        
-        for user in users:
-            matrix = pd.DataFrame({
-                'user_idx': np.repeat(user, len(items)),
-                'item_idx': items
-            })
-            matrix['relevance'] = self.model.predict(matrix.to_numpy())
-            top = matrix.sort_values('relevance', ascending=False).head(k)
-            pred = pd.concat((pred, top))
+        user_item_pairs = pd.DataFrame({
+            'user_idx': np.repeat(users, len(items)),
+            'item_idx': np.tile(items, reps=len(users))
+        })
+        user_item_pairs['relevance'] = self.model.predict(user_item_pairs.to_numpy())
 
-        return DataPreparator.read_as_spark_df(pred)
+        # it doesn't explicitly filter seen items and doesn't return top k items
+        # instead, it keeps all predictions as is to be filtered further by base methods
+        return DataPreparator.read_as_spark_df(user_item_pairs)
 
     def _fit(
         self,
@@ -228,13 +225,15 @@ class CQL(TorchRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        train = self._prepare_data(log.toPandas(), self.k)
+        train: MDPDataset = self._prepare_data(log, self.k)
         self.model.fit(train, n_epochs=self.n_epochs)
 
-    def _prepare_data(self, df, k: int) -> MDPDataset:
-        gb = df.sort_values('timestamp').groupby('user_idx')    
+    @staticmethod
+    def _prepare_data(log: DataFrame, k: int) -> MDPDataset:
+        # TODO: consider making calculations in Spark before converting to pandas
+        user_logs = log.toPandas().sort_values('timestamp').groupby('user_idx')
         user_logs = pd.concat([
-            gb.get_group(x) for x in gb.groups
+            user_logs.get_group(x) for x in user_logs.groups
         ])
 
         # reward top-K watched movies with 1, the others - with 0
@@ -265,16 +264,6 @@ class CQL(TorchRecommender):
             terminals=user_logs['terminals']
         )
         return train_dataset
-
-    def _predict_pairs(
-        self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
-        # take from torch recommender
-        ...
     
     @property
     def _init_args(self):
@@ -284,27 +273,3 @@ class CQL(TorchRecommender):
         )
         args.update(**self.model.get_params())
         return args
-
-    def _batch_pass(self, batch, model) -> Dict[str, Any]:
-        pass
-
-    def _loss(self, **kwargs) -> torch.Tensor:
-        pass
-
-    @staticmethod
-    def _predict_by_user(
-        pandas_df: pd.DataFrame,
-        model: nn.Module,
-        items_np: np.ndarray,
-        k: int,
-        item_count: int,
-    ) -> pd.DataFrame:
-        pass
-
-    @staticmethod
-    def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame,
-        model: nn.Module,
-        item_count: int,
-    ):
-        pass
