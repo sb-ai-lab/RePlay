@@ -215,6 +215,7 @@ class CQL(Recommender):
         users = users.toPandas().to_numpy().flatten()
         items = items.toPandas().to_numpy().flatten()
 
+        # TODO: consider size-dependent batch prediction instead of by user
         user_predictions = []
         for user in users:
             user_item_pairs = pd.DataFrame({
