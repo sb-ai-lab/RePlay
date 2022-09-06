@@ -225,11 +225,10 @@ class CQL(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        train: MDPDataset = self._prepare_data(log, self.k)
+        train: MDPDataset = self._prepare_data(log)
         self.model.fit(train, n_epochs=self.n_epochs)
 
-    @staticmethod
-    def _prepare_data(log: DataFrame, k: int) -> MDPDataset:
+    def _prepare_data(self, log: DataFrame) -> MDPDataset:
         # TODO: consider making calculations in Spark before converting to pandas
         user_logs = log.toPandas().sort_values('timestamp').groupby('user_idx')
         user_logs = pd.concat([
@@ -241,11 +240,11 @@ class CQL(Recommender):
             user_logs
             .sort_values(['relevance', 'timestamp'], ascending=False)
             .groupby('user_idx')
-            .head(k)
+            .head(self.k)
             .index
         )
         rewards = np.zeros(len(user_logs))
-        rewards[idxs] = 1
+        rewards[idxs] = 1.0
         user_logs['rewards'] = rewards
 
         # every user has his own episode (the latest movie defined as terminal)
