@@ -209,15 +209,20 @@ class CQL(Recommender):
         users = users.toPandas().to_numpy().flatten()
         items = items.toPandas().to_numpy().flatten()
 
-        user_item_pairs = pd.DataFrame({
-            'user_idx': np.repeat(users, len(items)),
-            'item_idx': np.tile(items, reps=len(users))
-        })
-        user_item_pairs['relevance'] = self.model.predict(user_item_pairs.to_numpy())
+        user_predictions = []
+        for user in users:
+            user_item_pairs = pd.DataFrame({
+                'user_idx': np.repeat(user, len(items)),
+                'item_idx': items
+            })
+            user_item_pairs['relevance'] = self.model.predict(user_item_pairs.to_numpy())
+            user_predictions.append(user_item_pairs)
+
+        prediction = pd.concat(user_predictions)
 
         # it doesn't explicitly filter seen items and doesn't return top k items
         # instead, it keeps all predictions as is to be filtered further by base methods
-        return DataPreparator.read_as_spark_df(user_item_pairs)
+        return DataPreparator.read_as_spark_df(prediction)
 
     def _fit(
         self,
