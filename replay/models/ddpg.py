@@ -30,6 +30,7 @@ class ReplayBuffer:
     and embeddings of `memory_size` latest relevant items.
     Thereby in this ReplayBuffer we store (user, memory) instead of state.
     """
+
     # pylint: disable=too-many-arguments
     def __init__(self, capacity: int, prob_alpha: float = 0.6):
         self.prob_alpha = prob_alpha
@@ -96,6 +97,7 @@ class ReplayBuffer:
 
 class EvalDataset(td.Dataset):
     """Pytorch Dataset for evaluation."""
+
     def __init__(
         self,
         positive_data,
@@ -205,7 +207,9 @@ class ActorDRR(nn.Module):
     <https://arxiv.org/pdf/1802.05814.pdf>`_).
     """
 
-    def __init__(self, user_num, item_num, embedding_dim, hidden_dim, memory_size):
+    def __init__(
+        self, user_num, item_num, embedding_dim, hidden_dim, memory_size
+    ):
         super().__init__()
         self.layers = nn.Sequential(
             nn.Linear(embedding_dim * 3, hidden_dim),
@@ -301,6 +305,7 @@ class Env:
 
     Keep users' latest relevant items (memory).
     """
+
     def __init__(self, item_num, user_num, memory_size):
         """
         Initialize memory as ['item_num'] * 'memory_size' for each user.
@@ -404,6 +409,7 @@ class StateReprModule(nn.Module):
     weighted average pooling of `memory_size` latest relevant items
     and their pairwise product.
     """
+
     def __init__(
         self,
         user_num,
@@ -514,14 +520,14 @@ class DDPG(TorchRecommender):
             item_num,
             self.embedding_dim,
             self.hidden_dim,
-            self.memory_size
+            self.memory_size,
         )
         self.target_model = ActorDRR(
             user_num,
             item_num,
             self.embedding_dim,
             self.hidden_dim,
-            self.memory_size
+            self.memory_size,
         )
         self.value_net = CriticDRR(
             self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
@@ -558,7 +564,9 @@ class DDPG(TorchRecommender):
             user_batch = torch.LongTensor([user_idx])
             action_emb = model(
                 user_batch,
-                torch.from_numpy(model.environment.memory)[to_np(user_batch).astype(int), :],
+                torch.from_numpy(model.environment.memory)[
+                    to_np(user_batch).astype(int), :
+                ],
             )
             user_recs, _ = model.get_action(
                 action_emb,
@@ -841,10 +849,14 @@ class DDPG(TorchRecommender):
             self.ou_noise.reset()
             for user_step in range(len(self.model.environment.related_items)):
                 action_emb = self.model(user, memory)
-                action_emb = self.ou_noise.get_action(to_np(action_emb)[0], user_step)
+                action_emb = self.ou_noise.get_action(
+                    to_np(action_emb)[0], user_step
+                )
                 action = self.model.get_action(
                     action_emb,
-                    torch.from_numpy(self.model.environment.available_items).long(),
+                    torch.from_numpy(
+                        self.model.environment.available_items
+                    ).long(),
                 )
                 user, memory, reward, _ = self.model.environment.step(
                     action, action_emb, self.replay_buffer
@@ -869,6 +881,6 @@ class DDPG(TorchRecommender):
         with open(self.log_dir / "memory.pickle", "wb") as memory_file:
             pickle.dump(self.model.environment.memory, memory_file)
 
-    def _load_memory(self, path: str = ''):
-        with open(path, 'rb') as memory_file:
+    def _load_memory(self, path: str = ""):
+        with open(path, "rb") as memory_file:
             self.model.environment.memory = pickle.load(memory_file)
