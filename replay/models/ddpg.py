@@ -311,35 +311,32 @@ class Env:
         :param item_num: number of items
         :param user_num: number of users
         :param memory_size: maximum number of items in memory
-        :param memory: np array with users' latest relevant items
+        :param memory: np.array with users' latest relevant items
+        :param matrix: sparse matrix with users-item ratings
+        :param user_id: users_id number
+        :param related_items: relevant items for user_id
+        :param num_rele: number of related_items
+        :param available_items: non-seen items
         """
         self.item_count = item_num
         self.user_count = user_num
         self.memory_size = memory_size
         self.memory = np.ones([user_num, memory_size]) * item_num
 
+        self.matrix = np.ones([user_num, item_num])
+        self.user_id = 0
+        self.related_items = np.arange(item_num)
+        self.num_rele = len(self.related_items)
+        self.available_items = list(np.zeros(self.num_rele * 2))
+
     def update_env(self, matrix=None, item_count=None, memory=None):
+        """Update some of Env attributes."""
         if item_count is not None:
             self.item_count = item_count
         if matrix is not None:
             self.matrix = matrix.copy()
         if memory is not None:
             self.memory = memory.copy()
-
-    def reset_without_sampling(self, user_id):
-        self.user_id = user_id
-        self.related_items = list(
-            np.argwhere(self.matrix[self.user_id] > 0)[:, 1][: self.item_count]
-        )
-        self.num_rele = len(self.related_items)
-        self.nonrelated_items = list(
-            np.argwhere(self.matrix[self.user_id] < 0)[:, 1][: self.item_count]
-        )
-        self.available_items = self.related_items + self.nonrelated_items
-
-        return torch.from_numpy([self.user_id]), torch.from_numpy(
-            self.memory[[self.user_id], :]
-        )
 
     def reset(self, user_id):
         """
@@ -378,10 +375,6 @@ class Env:
                 ) + [action[0]]
 
         self.available_items.remove(to_np(action)[0])
-        if len(self.available_items) == len(self.related_items):
-            done = 1
-        else:
-            done = 0
 
         if buffer is not None:
             buffer.push(
@@ -398,7 +391,7 @@ class Env:
             torch.from_numpy([self.user_id]),
             torch.from_numpy(self.memory[[self.user_id], :]),
             reward,
-            0,  # done,
+            0,
         )
 
 
@@ -801,9 +794,9 @@ class DDPG(TorchRecommender):
     ) -> None:
         (
             train_matrix,
-            test_data,
+            _,
             test_matrix,
-            current_item_num,
+            _,
             appropriate_users,
         ) = self._preprocess_log(log)
         self.model.environment.update_env(
@@ -813,11 +806,6 @@ class DDPG(TorchRecommender):
             matrix=test_matrix  # , item_count=current_item_num
         )
         users = np.random.permutation(appropriate_users)
-        # valid_loader = self._get_data_loader(
-        #     np.array(test_data)[np.array(test_data)[:, 0] == 16],
-        #     current_item_num,
-        #     test_matrix,
-        # )
 
         policy_optimizer = Ranger(
             self.model.parameters(),
@@ -835,7 +823,6 @@ class DDPG(TorchRecommender):
             policy_optimizer,
             value_optimizer,
             users,
-            valid_loader=None,
         )
 
     # pylint: disable=arguments-differ
@@ -844,7 +831,6 @@ class DDPG(TorchRecommender):
         policy_optimizer,
         value_optimizer,
         users,
-        valid_loader=None,
     ):
         self.log_dir.mkdir(parents=True, exist_ok=True)
         rewards = []
