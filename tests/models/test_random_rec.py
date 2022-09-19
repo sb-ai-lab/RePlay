@@ -32,20 +32,41 @@ def test_popularity_matrix(log, fitted_model):
         )
 
     sparkDataFrameEqual(
-        fitted_model.item_popularity, true_matrix,
+        fitted_model.item_popularity,
+        true_matrix,
     )
 
 
 def test_predict(fitted_model, log):
-    # fixed seed provides reproducibility, non-fixed provides diversity
+    # fixed seed provides reproducibility (the same prediction every time),
+    # non-fixed provides diversity (predictions differ every time)
     equality_check = (
         sparkDataFrameNotEqual
         if fitted_model.seed is None
         else sparkDataFrameEqual
     )
     pred = fitted_model.predict(log, k=1)
+    pred_checkpoint = pred.localCheckpoint()
+    pred.unpersist()
+
+    # predictions are equal/non-equal after model re-fit
     fitted_model.fit(log)
     pred_after_refit = fitted_model.predict(log, k=1)
-    equality_check(pred, pred_after_refit)
+    equality_check(pred_checkpoint, pred_after_refit)
+
+    # predictions are equal/non-equal when call `predict repeatedly`
+    pred_after_refit_checkpoint = pred_after_refit.localCheckpoint()
+    pred_after_refit.unpersist()
     pred_repeat = fitted_model.predict(log, k=1)
-    equality_check(pred_after_refit, pred_repeat)
+    equality_check(pred_after_refit_checkpoint, pred_repeat)
+
+
+def test_predict_to_file(spark, fitted_model, log, tmp_path):
+    path = str((tmp_path / "pred.parquet").resolve().absolute())
+    fitted_model.predict(log, k=10, recs_file_path=path)
+    pred_cached = fitted_model.predict(log, k=10, recs_file_path=None)
+    pred_from_file = spark.read.parquet(path)
+    if fitted_model.seed is not None:
+        sparkDataFrameEqual(pred_cached, pred_from_file)
+    else:
+        sparkDataFrameNotEqual(pred_cached, pred_from_file)
