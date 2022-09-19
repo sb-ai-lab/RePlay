@@ -29,7 +29,7 @@ def test_fallback():
 def test_class(log, log2):
     model = Fallback(ItemKNN(), threshold=3)
     s = str(model)
-    assert s == "Fallback(ItemKNN, PopRec)"
+    assert s == "Fallback_ItemKNN_PopRec"
     model.fit(log2)
     p1, p2 = model.optimize(log, log2, k=1, budget=1)
     assert p2 is None

@@ -1,9 +1,8 @@
-from typing import Optional, Union, Iterable
+from typing import Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from replay.constants import AnyDataFrame
 from replay.models.base_rec import Recommender
 
 
@@ -105,25 +104,3 @@ class UserPopRec(Recommender):
         return self.user_item_popularity.join(users, on="user_idx").join(
             items, on="item_idx"
         )
-
-    # pylint: disable=too-many-arguments
-    def fit_predict(
-        self,
-        log: AnyDataFrame,
-        k: int,
-        users: Optional[Union[AnyDataFrame, Iterable]] = None,
-        items: Optional[Union[AnyDataFrame, Iterable]] = None,
-        filter_seen_items: bool = False,
-    ) -> DataFrame:
-        return super().fit_predict(log, k, users, items, filter_seen_items)
-
-    # pylint: disable=too-many-arguments
-    def predict(
-        self,
-        log: AnyDataFrame,
-        k: int,
-        users: Optional[Union[AnyDataFrame, Iterable]] = None,
-        items: Optional[Union[AnyDataFrame, Iterable]] = None,
-        filter_seen_items: bool = False,
-    ) -> DataFrame:
-        return super().predict(log, k, users, items, filter_seen_items)
