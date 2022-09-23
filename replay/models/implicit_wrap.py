@@ -2,10 +2,11 @@ from typing import Optional
 
 import joblib
 import pandas as pd
+import numpy as np
 from pyspark.sql import DataFrame
 
 from replay.models.base_rec import Recommender
-from replay.utils import to_csr
+from replay.utils import to_csr, convert2spark
 from replay.constants import REC_SCHEMA
 
 
@@ -37,6 +38,7 @@ class ImplicitWrap(Recommender):
         self.logger.info(
             "The model is a wrapper of a non-distributed model which may affect performance"
         )
+        self.csr_log = None
 
     @property
     def _init_args(self):
@@ -54,7 +56,8 @@ class ImplicitWrap(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        matrix = to_csr(log).T
+        matrix = to_csr(log)
+        self.csr_log = matrix
         self.model.fit(matrix)
 
     # pylint: disable=too-many-arguments
@@ -70,14 +73,14 @@ class ImplicitWrap(Recommender):
     ) -> DataFrame:
         def predict_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
             user = int(pandas_df["user_idx"].iloc[0])
-            res = model.recommend(
-                user, user_item_data, k, filter_seen_items, items_to_drop
+            ids, rel = model.recommend(
+                user, user_item_data[user], k, filter_seen_items, items_to_drop
             )
             return pd.DataFrame(
                 {
-                    "user_idx": [user] * len(res),
-                    "item_idx": [val[0] for val in res],
-                    "relevance": [val[1] for val in res],
+                    "user_idx": [user] * len(ids),
+                    "item_idx": ids,
+                    "relevance": rel,
                 }
             )
 
@@ -113,9 +116,9 @@ class ImplicitWrap(Recommender):
         )
         user_grid = np.repeat(np.array(users)[:, np.newaxis], len(items), axis=1)
         res = np.stack([user_grid, item_grid, rel], axis=2).reshape(-1, 3)
-        res_df = pd.DataFrame(res)
-        res_df = res_df.astype(dtype={0: "int64",
-                                      1: "int64", 2: "float64"})
-        res_spark = spark.createDataFrame(res_df, ["user_idx", "item_idx", "relevance"])
+        res_df = pd.DataFrame(res, columns=["user_idx", "item_idx", "relevance"])
+        res_df = res_df.astype(dtype={"user_idx": "int64",
+                                      "item_idx": "int64", "relevance": "float64"})
+        res_spark = convert2spark(res_df)
 
         return res_spark
