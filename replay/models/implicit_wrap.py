@@ -112,7 +112,7 @@ class ImplicitWrap(Recommender):
         users = pairs.select("user_idx").distinct().toPandas().user_idx.to_list()
         items = pairs.select("item_idx").distinct().toPandas().item_idx.to_list()
         item_grid, rel = self.model.recommend(
-            users, user_plays_pred[users], len(items), False, items=items #?
+            users, user_plays_pred[users], len(items), False, items=items
         )
         user_grid = np.repeat(np.array(users)[:, np.newaxis], len(items), axis=1)
         res = np.stack([user_grid, item_grid, rel], axis=2).reshape(-1, 3)
