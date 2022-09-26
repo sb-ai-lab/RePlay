@@ -23,6 +23,12 @@ class RandomRec(Recommender):
     :math:`\\alpha` --- bigger :math:`\\alpha` values increase amount of rare items in recommendations.
         Must be bigger than -1. Default value is :math:`\\alpha = 0`.
 
+    Model without seed provides non-determenistic recommendations,
+    model with fixed seed provides reproducible recommendataions.
+
+    As the recommendations from `predict` are cached, save them to disk, or create a checkpoint
+    and unpersist them to get different recommendations after another `predict` call.
+
     >>> from replay.session_handler import get_spark_session, State
     >>> spark = get_spark_session(1, 1)
     >>> state = State(spark)

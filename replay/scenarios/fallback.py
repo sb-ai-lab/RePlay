@@ -42,7 +42,7 @@ class Fallback(BaseRecommender):
         return {"threshold": self.threshold}
 
     def __str__(self):
-        return f"Fallback({str(self.main_model)}, {str(self.fb_model)})"
+        return f"Fallback_{str(self.main_model)}_{str(self.fb_model)}"
 
     def fit(
         self,
