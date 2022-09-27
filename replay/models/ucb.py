@@ -1,10 +1,16 @@
+import joblib
 import math
 
+from os.path import join
 from typing import Any, Dict, List, Optional
+
+import pandas as pd
+from numpy.random import default_rng
 
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 
+from replay.constants import REC_SCHEMA
 from replay.metrics import Metric, NDCG
 from replay.models.base_rec import Recommender
 
@@ -50,20 +56,41 @@ class UCB(Recommender):
     item_popularity: DataFrame
     fill: float
 
-    def __init__(self, exploration_coef=2):
+    def __init__(
+        self,
+        exploration_coef: float = 2,
+        sample: bool = False,
+        seed: Optional[int] = None,
+    ):
         """
         :param exploration_coef: exploration coefficient
+        :param sample: flag to choose recommendation strategy.
+            If True, items are sampled with a probability proportional
+            to the calculated predicted relevance
+        :param seed: random seed. Provides reproducibility if fixed
         """
         # pylint: disable=super-init-not-called
         self.coef = exploration_coef
+        self.sample = sample
+        self.seed = seed
 
     @property
     def _init_args(self):
-        return {"exploration_coef": self.coef}
+        return {
+            "exploration_coef": self.coef,
+            "sample": self.sample,
+            "seed": self.seed,
+        }
 
     @property
     def _dataframes(self):
         return {"item_popularity": self.item_popularity}
+
+    def _save_model(self, path: str):
+        joblib.dump({"fill": self.fill}, join(path))
+
+    def _load_model(self, path: str):
+        self.fill = joblib.load(join(path))["fill"]
 
     # pylint: disable=too-many-arguments
     def optimize(
@@ -137,6 +164,76 @@ class UCB(Recommender):
         if hasattr(self, "item_popularity"):
             self.item_popularity.unpersist()
 
+    def _predict_with_sampling(
+        self,
+        log: DataFrame,
+        item_popularity: DataFrame,
+        k: int,
+        users: DataFrame,
+    ):
+        items_pd = item_popularity.withColumn(
+            "probability",
+            sf.col("relevance")
+            / item_popularity.select(sf.sum("relevance")).first()[0],
+        ).toPandas()
+
+        seed = self.seed
+
+        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+            user_idx = pandas_df["user_idx"][0]
+            cnt = pandas_df["cnt"][0]
+
+            if seed is not None:
+                local_rng = default_rng(seed + user_idx)
+            else:
+                local_rng = default_rng()
+
+            items_idx = local_rng.choice(
+                items_pd["item_idx"].values,
+                size=cnt,
+                p=items_pd["probability"].values,
+                replace=False,
+            )
+
+            return pd.DataFrame(
+                {
+                    "user_idx": cnt * [user_idx],
+                    "item_idx": items_idx,
+                    "relevance": items_pd["probability"].values[items_idx],
+                }
+            )
+
+        recs = (
+            log.join(users, how="right", on="user_idx")
+            .select("user_idx", "item_idx")
+            .groupby("user_idx")
+            .agg(sf.countDistinct("item_idx").alias("cnt"))
+            .selectExpr(
+                "user_idx",
+                f"LEAST(cnt + {k}, {items_pd.shape[0]}) AS cnt",
+            )
+            .groupby("user_idx")
+            .applyInPandas(grouped_map, REC_SCHEMA)
+        )
+
+        return recs
+
+    @staticmethod
+    def _calc_max_hist_len(log, users):
+        max_hist_len = (
+            (
+                log.join(users, on="user_idx")
+                .groupBy("user_idx")
+                .agg(sf.countDistinct("item_idx").alias("items_count"))
+            )
+            .select(sf.max("items_count"))
+            .collect()[0][0]
+        )
+        # all users have empty history
+        if max_hist_len is None:
+            return 0
+        return max_hist_len
+
     # pylint: disable=too-many-arguments
     def _predict(
         self,
@@ -148,37 +245,33 @@ class UCB(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        selected_item_popularity = (
-            self.item_popularity.join(
-                items,
-                on="item_idx",
-                how="right",
+
+        selected_item_popularity = self.item_popularity.join(
+            items,
+            on="item_idx",
+            how="right",
+        ).fillna(value=self.fill, subset=["relevance"])
+
+        if self.sample:
+            return self._predict_with_sampling(
+                log=log,
+                item_popularity=selected_item_popularity,
+                k=k,
+                users=users,
             )
-            .fillna(value=self.fill, subset=["relevance"])
-            .withColumn(
-                "rank",
-                sf.row_number().over(
-                    Window.orderBy(
-                        sf.col("relevance").desc(), sf.col("item_idx").desc()
-                    )
-                ),
-            )
+
+        selected_item_popularity = selected_item_popularity.withColumn(
+            "rank",
+            sf.row_number().over(
+                Window.orderBy(
+                    sf.col("relevance").desc(), sf.col("item_idx").desc()
+                )
+            ),
         )
 
-        max_hist_len = 0
-        if filter_seen_items:
-            max_hist_len = (
-                (
-                    log.join(users, on="user_idx")
-                    .groupBy("user_idx")
-                    .agg(sf.countDistinct("item_idx").alias("items_count"))
-                )
-                .select(sf.max("items_count"))
-                .collect()[0][0]
-            )
-            # all users have empty history
-            if max_hist_len is None:
-                max_hist_len = 0
+        max_hist_len = (
+            self._calc_max_hist_len(log, users) if filter_seen_items else 0
+        )
 
         return users.crossJoin(
             selected_item_popularity.filter(sf.col("rank") <= k + max_hist_len)
