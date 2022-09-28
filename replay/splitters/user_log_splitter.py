@@ -92,6 +92,9 @@ class UserSplitter(Splitter):
         "drop_cold_users",
         "drop_zero_rel_in_test",
         "seed",
+        "user_col",
+        "item_col",
+        "date_col",
     ]
 
     # pylint: disable=too-many-arguments
@@ -104,6 +107,9 @@ class UserSplitter(Splitter):
         drop_cold_users: bool = False,
         drop_zero_rel_in_test: bool = True,
         seed: Optional[int] = None,
+        user_col: str = "user_idx",
+        item_col: Optional[str] = "item_idx",
+        date_col: Optional[str] = "timestamp",
     ):
         """
         :param item_test_size: fraction or a number of items per user
@@ -116,11 +122,17 @@ class UserSplitter(Splitter):
         :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
             from the test part of the dataset
         :param seed: random seed
+        :param user_col: user id column name
+        :param item_col: item id column name
+        :param date_col: timestamp column name
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
             drop_zero_rel_in_test=drop_zero_rel_in_test,
+            user_col=user_col,
+            item_col=item_col,
+            date_col=date_col,
         )
         self.item_test_size = item_test_size
         self.user_test_size = user_test_size
@@ -135,7 +147,7 @@ class UserSplitter(Splitter):
         :param log: input DataFrame
         :return: Spark DataFrame with single column `user_id`
         """
-        all_users = log.select("user_idx").distinct()
+        all_users = log.select(self.user_col).distinct()
         user_count = all_users.count()
         if self.user_test_size is not None:
             value_error = False
@@ -156,12 +168,12 @@ class UserSplitter(Splitter):
                 """
                 )
             test_users = (
-                all_users.withColumn("rand", sf.rand(self.seed))
+                all_users.withColumn("_rand", sf.rand(self.seed))
                 .withColumn(
-                    "row_num", sf.row_number().over(Window.orderBy("rand"))
+                    "_row_num", sf.row_number().over(Window.orderBy("_rand"))
                 )
-                .filter(f"row_num <= {test_user_count}")
-                .drop("rand", "row_num")
+                .filter(f"_row_num <= {test_user_count}")
+                .drop("_rand", "_row_num")
             )
         else:
             test_users = all_users
@@ -171,44 +183,44 @@ class UserSplitter(Splitter):
         """
         Proportionate split
 
-        :param log: input DataFrame `[timestamp, user_id, item_id, relevance]`
+        :param log: input DataFrame `[self.user_col, self.item_col, self.date_col, relevance]`
         :return: train and test DataFrames
         """
 
-        counts = log.groupBy("user_idx").count()
+        counts = log.groupBy(self.user_col).count()
         test_users = self._get_test_users(log).withColumn(
             "test_user", sf.lit(1)
         )
         if self.shuffle:
             res = self._add_random_partition(
-                log.join(test_users, how="left", on="user_idx")
+                log.join(test_users, how="left", on=self.user_col)
             )
         else:
             res = self._add_time_partition(
-                log.join(test_users, how="left", on="user_idx")
+                log.join(test_users, how="left", on=self.user_col)
             )
 
-        res = res.join(counts, on="user_idx", how="left")
-        res = res.withColumn("frac", sf.col("row_num") / sf.col("count"))
+        res = res.join(counts, on=self.user_col, how="left")
+        res = res.withColumn("_frac", sf.col("_row_num") / sf.col("count"))
         train = res.filter(
             f"""
-                    frac > {self.item_test_size} OR
+                    _frac > {self.item_test_size} OR
                     test_user IS NULL
                 """
-        ).drop("rand", "row_num", "count", "frac", "test_user")
+        ).drop("_rand", "_row_num", "count", "_frac", "test_user")
         test = res.filter(
             f"""
-                    frac <= {self.item_test_size} AND
+                    _frac <= {self.item_test_size} AND
                     test_user IS NOT NULL
                 """
-        ).drop("rand", "row_num", "count", "frac", "test_user")
+        ).drop("_rand", "_row_num", "count", "_frac", "test_user")
         return train, test
 
     def _split_quantity(self, log: DataFrame) -> SplitterReturnType:
         """
         Split by quantity
 
-        :param log: input DataFrame `[timestamp, user_id, item_id, relevance]`
+        :param log: input DataFrame `[self.user_col, self.item_col, self.date_col, relevance]`
         :return: train and test DataFrames
         """
 
@@ -217,24 +229,24 @@ class UserSplitter(Splitter):
         )
         if self.shuffle:
             res = self._add_random_partition(
-                log.join(test_users, how="left", on="user_idx")
+                log.join(test_users, how="left", on=self.user_col)
             )
         else:
             res = self._add_time_partition(
-                log.join(test_users, how="left", on="user_idx")
+                log.join(test_users, how="left", on=self.user_col)
             )
         train = res.filter(
             f"""
-                    row_num > {self.item_test_size} OR
+                    _row_num > {self.item_test_size} OR
                     test_user IS NULL
                 """
-        ).drop("rand", "row_num", "test_user")
+        ).drop("_rand", "_row_num", "test_user")
         test = res.filter(
             f"""
-                    row_num <= {self.item_test_size} AND
+                    _row_num <= {self.item_test_size} AND
                     test_user IS NOT NULL
                 """
-        ).drop("rand", "row_num", "test_user")
+        ).drop("_rand", "_row_num", "test_user")
         return train, test
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
@@ -253,33 +265,39 @@ class UserSplitter(Splitter):
 
     def _add_random_partition(self, dataframe: DataFrame) -> DataFrame:
         """
-        Adds `rand` column and a user index column `row_num` based on `rand`.
+        Adds `_rand` column and a user index column `_row_num` based on `_rand`.
 
         :param dataframe: input DataFrame with `user_id` column
         :returns: processed DataFrame
         """
-        dataframe = dataframe.withColumn("rand", sf.rand(self.seed))
+        dataframe = dataframe.withColumn("_rand", sf.rand(self.seed))
         dataframe = dataframe.withColumn(
-            "row_num",
+            "_row_num",
             sf.row_number().over(
-                Window.partitionBy("user_idx").orderBy("rand")
+                Window.partitionBy(self.user_col).orderBy("_rand")
             ),
         )
         return dataframe
 
     @staticmethod
-    def _add_time_partition(dataframe: DataFrame) -> DataFrame:
+    def _add_time_partition(
+            dataframe: DataFrame,
+            user_col: str = "user_idx",
+            date_col: str = "timestamp",
+    ) -> DataFrame:
         """
-        Adds user index `row_num` based on `timestamp`.
+        Adds user index `_row_num` based on `timestamp`.
 
         :param dataframe: input DataFrame with `[timestamp, user_id]`
+        :param user_col: user id column name
+        :param date_col: timestamp column name
         :returns: processed DataFrame
         """
         res = dataframe.withColumn(
-            "row_num",
+            "_row_num",
             sf.row_number().over(
-                Window.partitionBy("user_idx").orderBy(
-                    sf.col("timestamp").desc()
+                Window.partitionBy(user_col).orderBy(
+                    sf.col(date_col).desc()
                 )
             ),
         )
@@ -291,6 +309,7 @@ def k_folds(
     n_folds: Optional[int] = 5,
     seed: Optional[int] = None,
     splitter: Optional[str] = "user",
+    user_col: str = "user_idx",
 ) -> SplitterReturnType:
     """
     Splits log inside each user into folds at random
@@ -299,19 +318,20 @@ def k_folds(
     :param n_folds: number of folds
     :param seed: random seed
     :param splitter: splitting strategy. Only user variant is available atm.
+    :param user_col: user id column name
     :return: yields train and test DataFrames by folds
     """
     if splitter not in {"user"}:
         raise ValueError(f"Wrong splitter parameter: {splitter}")
     if splitter == "user":
-        dataframe = convert2spark(log).withColumn("rand", sf.rand(seed))
+        dataframe = convert2spark(log).withColumn("_rand", sf.rand(seed))
         dataframe = dataframe.withColumn(
             "fold",
             sf.row_number().over(
-                Window.partitionBy("user_idx").orderBy("rand")
+                Window.partitionBy(user_col).orderBy("_rand")
             )
             % n_folds,
-        ).drop("rand")
+        ).drop("_rand")
         for i in range(n_folds):
             train = dataframe.filter(f"fold != {i}").drop("fold")
             test = dataframe.filter(f"fold == {i}").drop("fold")
