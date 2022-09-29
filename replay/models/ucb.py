@@ -171,6 +171,7 @@ class UCB(Recommender):
         item_popularity: DataFrame,
         k: int,
         users: DataFrame,
+        filter_seen_items: bool = True,
     ):
         items_pd = item_popularity.withColumn(
             "probability",
@@ -206,20 +207,19 @@ class UCB(Recommender):
                 }
             )
 
-        recs = (
-            log.join(users, how="right", on="user_idx")
-            .select("user_idx", "item_idx")
-            .groupby("user_idx")
-            .agg(sf.countDistinct("item_idx").alias("cnt"))
-            .selectExpr(
-                "user_idx",
-                f"LEAST(cnt + {k}, {items_pd.shape[0]}) AS cnt",
+        recs = users.withColumn("cnt", sf.lit(k))
+        if log is not None and filter_seen_items:
+            recs = (
+                log.join(users, how="right", on="user_idx")
+                .select("user_idx", "item_idx")
+                .groupby("user_idx")
+                .agg(sf.countDistinct("item_idx").alias("cnt"))
+                .selectExpr(
+                    "user_idx",
+                    f"LEAST(cnt + {k}, {items_pd.shape[0]}) AS cnt",
+                )
             )
-            .groupby("user_idx")
-            .applyInPandas(grouped_map, REC_SCHEMA)
-        )
-
-        return recs
+        return recs.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
 
     @staticmethod
     def _calc_max_hist_len(log, users):
@@ -261,6 +261,7 @@ class UCB(Recommender):
                 item_popularity=selected_item_popularity,
                 k=k,
                 users=users,
+                filter_seen_items=filter_seen_items,
             )
 
         selected_item_popularity = selected_item_popularity.withColumn(
@@ -273,7 +274,9 @@ class UCB(Recommender):
         )
 
         max_hist_len = (
-            self._calc_max_hist_len(log, users) if filter_seen_items else 0
+            self._calc_max_hist_len(log, users)
+            if filter_seen_items and log is not None
+            else 0
         )
 
         return users.crossJoin(
