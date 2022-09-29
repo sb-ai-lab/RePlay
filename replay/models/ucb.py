@@ -4,6 +4,7 @@ import math
 from os.path import join
 from typing import Any, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 from numpy.random import default_rng
 
@@ -188,8 +189,8 @@ class UCB(Recommender):
             else:
                 local_rng = default_rng()
 
-            items_idx = local_rng.choice(
-                items_pd["item_idx"].values,
+            items_positions = local_rng.choice(
+                np.arange(items_pd.shape[0]),
                 size=cnt,
                 p=items_pd["probability"].values,
                 replace=False,
@@ -198,8 +199,10 @@ class UCB(Recommender):
             return pd.DataFrame(
                 {
                     "user_idx": cnt * [user_idx],
-                    "item_idx": items_idx,
-                    "relevance": items_pd["probability"].values[items_idx],
+                    "item_idx": items_pd["item_idx"].values[items_positions],
+                    "relevance": items_pd["probability"].values[
+                        items_positions
+                    ],
                 }
             )
 

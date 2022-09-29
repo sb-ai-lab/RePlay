@@ -44,7 +44,6 @@ def test_predict(fitted_model, log_ucb, sample, seed):
     fitted_model.seed = seed
     fitted_model.sample = sample
 
-    print(fitted_model.sample)
     equality_check = (
         sparkDataFrameNotEqual
         if fitted_model.sample and fitted_model.seed is None
