@@ -36,6 +36,7 @@ def log(spark):
         schema=LOG_SCHEMA,
     )
 
+
 @pytest.fixture
 def pairs(spark):
     return spark.createDataFrame(
@@ -43,12 +44,12 @@ def pairs(spark):
             [1, 1],
             [2, 1],
         ],
-        schema=StructType(
-        [
+        schema=StructType([
             StructField("user_idx", IntegerType()),
             StructField("item_idx", IntegerType()),
         ])
     )
+
 
 @pytest.mark.parametrize(
     "model",
@@ -68,6 +69,7 @@ def test_predict(model, log):
     )
     assert len(pred.toPandas()["user_idx"].unique()) == 1
     assert pred.toPandas().shape[0] == 2
+
 
 @pytest.mark.parametrize(
     "model",
