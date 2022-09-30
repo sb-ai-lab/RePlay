@@ -38,7 +38,6 @@ class ImplicitWrap(Recommender):
         self.logger.info(
             "The model is a wrapper of a non-distributed model which may affect performance"
         )
-        self.csr_log = None
 
     @property
     def _init_args(self):
@@ -57,7 +56,6 @@ class ImplicitWrap(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         matrix = to_csr(log)
-        self.csr_log = matrix
         self.model.fit(matrix)
 
     # pylint: disable=too-many-arguments
@@ -74,7 +72,11 @@ class ImplicitWrap(Recommender):
         def predict_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
             user = int(pandas_df["user_idx"].iloc[0])
             ids, rel = model.recommend(
-                user, user_item_data[user], k, filter_seen_items, items_to_drop
+                userid=user,
+                user_items=user_item_data[user],
+                N=k,
+                filter_already_liked_items=filter_seen_items,
+                items=items_to_use
             )
             return pd.DataFrame(
                 {
@@ -83,15 +85,8 @@ class ImplicitWrap(Recommender):
                     "relevance": rel,
                 }
             )
-
-        items_to_drop = (
-            log.select("item_idx")
-            .subtract(items)
-            .select("item_idx")
-            .toPandas()
-            .item_idx.to_list()
-        )
-        user_item_data = to_csr(log).tocsr()
+        items_to_use = items.distinct().toPandas().item_idx.tolist()
+        user_item_data = to_csr(log)
         model = self.model
         return (
             users.select("user_idx")
