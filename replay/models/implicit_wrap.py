@@ -37,7 +37,6 @@ class ImplicitWrap(Recommender):
         self.logger.info(
             "The model is a wrapper of a non-distributed model which may affect performance"
         )
-        self.csr_log = None
 
     @property
     def _init_args(self):
@@ -56,7 +55,6 @@ class ImplicitWrap(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         matrix = to_csr(log)
-        self.csr_log = matrix
         self.model.fit(matrix)
 
     # pylint: disable=too-many-arguments
