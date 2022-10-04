@@ -102,20 +102,23 @@ class ImplicitWrap(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
 
-        users = pairs.select("user_idx").distinct().toPandas().user_idx.to_list()
-        items = pairs.select("item_idx").distinct().toPandas().item_idx.to_list()
-        item_grid, rel = self.model.recommend(
-            userid=users,
-            user_items=to_csr(log)[users] if log is not None else None,
-            N=len(items),
-            filter_already_liked_items=False,
-            items=items,
-        )
-        user_grid = np.repeat(np.array(users)[:, np.newaxis], len(items), axis=1)
-        res = np.stack([user_grid, item_grid, rel], axis=2).reshape(-1, 3)
-        res_df = pd.DataFrame(res, columns=["user_idx", "item_idx", "relevance"])
-        res_df = res_df.astype(dtype={"user_idx": "int64",
-                                      "item_idx": "int64", "relevance": "float64"})
-        res_spark = convert2spark(res_df)
-
-        return res_spark
+        def predict_by_user_item(pandas_df: pd.DataFrame) -> pd.DataFrame:
+            user = int(pandas_df["user_idx"].iloc[0])
+            items = pandas_df.item_idx.to_list()
+            item_grid, rel = model.recommend(
+                userid=user,
+                user_items=user_item_data[user] if user_item_data is not None else None,
+                N=len(items),
+                filter_already_liked_items=False,
+                items=items,
+            )
+            return pd.DataFrame(
+                {
+                    "user_idx": [user] * len(items),
+                    "item_idx": item_grid,
+                    "relevance": rel,
+                }
+            )
+        user_item_data = to_csr(log) if log is not None else None
+        model = self.model
+        return pairs.groupby("user_idx").applyInPandas(predict_by_user_item, REC_SCHEMA)
