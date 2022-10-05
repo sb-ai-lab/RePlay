@@ -54,7 +54,7 @@ class ImplicitWrap(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        matrix = to_csr(log).T
+        matrix = to_csr(log)
         self.model.fit(matrix)
 
     # pylint: disable=too-many-arguments
@@ -70,25 +70,22 @@ class ImplicitWrap(Recommender):
     ) -> DataFrame:
         def predict_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
             user = int(pandas_df["user_idx"].iloc[0])
-            res = model.recommend(
-                user, user_item_data, k, filter_seen_items, items_to_drop
+            ids, rel = model.recommend(
+                userid=user,
+                user_items=user_item_data[user],
+                N=k,
+                filter_already_liked_items=filter_seen_items,
+                items=items_to_use
             )
             return pd.DataFrame(
                 {
-                    "user_idx": [user] * len(res),
-                    "item_idx": [val[0] for val in res],
-                    "relevance": [val[1] for val in res],
+                    "user_idx": [user] * len(ids),
+                    "item_idx": ids,
+                    "relevance": rel,
                 }
             )
-
-        items_to_drop = (
-            log.select("item_idx")
-            .subtract(items)
-            .select("item_idx")
-            .toPandas()
-            .item_idx.to_list()
-        )
-        user_item_data = to_csr(log).tocsr()
+        items_to_use = items.distinct().toPandas().item_idx.tolist()
+        user_item_data = to_csr(log)
         model = self.model
         return (
             users.select("user_idx")
