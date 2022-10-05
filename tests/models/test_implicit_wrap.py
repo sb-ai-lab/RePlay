@@ -11,7 +11,7 @@ from pyspark.sql.types import (
 
 from replay.constants import LOG_SCHEMA
 from replay.models import ImplicitWrap
-from tests.utils import spark, log
+from tests.utils import spark, log, sparkDataFrameEqual
 from replay.session_handler import get_spark_session
 
 
@@ -45,7 +45,7 @@ def test_predict(model, log):
         users=[1],
         filter_seen_items=False
     )
-    assert len(pred.toPandas()["user_idx"].unique()) == 1
+    assert pred.select("user_idx").distinct().count() == 1
     assert pred.count() == 2
 
 
@@ -62,6 +62,6 @@ def test_predict_pairs(model, log, pairs):
     pred_no_log = model.predict_pairs(pairs)
     pred_log = model.predict_pairs(pairs, log)
 
-    assert len(pred_log.toPandas()["user_idx"].unique()) == len(pred_no_log.toPandas()["user_idx"].unique()) == 2
-    assert np.allclose(pairs.toPandas()["user_idx"], pred_no_log.toPandas()["user_idx"], pred_log.toPandas()["user_idx"])
-    assert np.allclose(pairs.toPandas()["item_idx"], pred_no_log.toPandas()["item_idx"], pred_log.toPandas()["item_idx"])
+    assert pred_log.select("user_idx").distinct().count() == pred_no_log.select("user_idx").distinct().count() == 2
+    sparkDataFrameEqual(pairs.select("user_idx","item_idx"), pred_no_log.select("user_idx","item_idx"))
+    sparkDataFrameEqual(pred_log.select("user_idx","item_idx"), pred_no_log.select("user_idx","item_idx"))
