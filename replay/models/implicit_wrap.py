@@ -2,11 +2,10 @@ from typing import Optional
 
 import joblib
 import pandas as pd
-import numpy as np
 from pyspark.sql import DataFrame
 
 from replay.models.base_rec import Recommender
-from replay.utils import to_csr, convert2spark
+from replay.utils import to_csr
 from replay.constants import REC_SCHEMA
 
 
