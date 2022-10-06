@@ -30,14 +30,21 @@ class DateSplitter(Splitter):
         "drop_cold_users",
         "drop_cold_items",
         "drop_zero_rel_in_test",
+        "user_col",
+        "item_col",
+        "date_col",
     ]
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         test_start: Union[datetime, float, str, int],
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         drop_zero_rel_in_test: bool = True,
+        user_col: str = "user_idx",
+        item_col: Optional[str] = "item_idx",
+        date_col: Optional[str] = "timestamp",
     ):
         """
         :param test_start: string``yyyy-mm-dd``, int unix timestamp, datetime or a
@@ -46,30 +53,36 @@ class DateSplitter(Splitter):
         :param drop_cold_users: flag to drop cold users from test
         :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
             from the test part of the dataset
+        :param user_col: user id column name
+        :param item_col: item id column name
+        :param date_col: timestamp column name
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
             drop_zero_rel_in_test=drop_zero_rel_in_test,
+            user_col=user_col,
+            item_col=item_col,
+            date_col=date_col,
         )
         self.test_start = test_start
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
         if isinstance(self.test_start, float):
-            dates = log.select("timestamp").withColumn(
-                "idx", sf.row_number().over(Window.orderBy("timestamp"))
+            dates = log.select(self.date_col).withColumn(
+                "_row_number_by_ts", sf.row_number().over(Window.orderBy(self.date_col))
             )
             test_start = int(dates.count() * (1 - self.test_start)) + 1
             test_start = (
-                dates.filter(sf.col("idx") == test_start)
-                .select("timestamp")
+                dates.filter(sf.col("_row_number_by_ts") == test_start)
+                .select(self.date_col)
                 .collect()[0][0]
             )
         else:
-            dtype = dict(log.dtypes)["timestamp"]
-            test_start = sf.lit(self.test_start).cast("timestamp").cast(dtype)
-        train = log.filter(sf.col("timestamp") < test_start)
-        test = log.filter(sf.col("timestamp") >= test_start)
+            dtype = dict(log.dtypes)[self.date_col]
+            test_start = sf.lit(self.test_start).cast(self.date_col).cast(dtype)
+        train = log.filter(sf.col(self.date_col) < test_start)
+        test = log.filter(sf.col(self.date_col) >= test_start)
         return train, test
 
 
@@ -83,6 +96,9 @@ class RandomSplitter(Splitter):
         "drop_cold_users",
         "drop_zero_rel_in_test",
         "seed",
+        "user_col",
+        "item_col",
+        "date_col",
     ]
 
     # pylint: disable=too-many-arguments
@@ -93,6 +109,9 @@ class RandomSplitter(Splitter):
         drop_cold_users: bool = False,
         drop_zero_rel_in_test: bool = True,
         seed: Optional[int] = None,
+        user_col: str = "user_idx",
+        item_col: Optional[str] = "item_idx",
+        date_col: Optional[str] = "timestamp",
     ):
         """
         :param test_size: test size 0 to 1
@@ -101,11 +120,17 @@ class RandomSplitter(Splitter):
         :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
             from the test part of the dataset
         :param seed: random seed
+        :param user_col: user id column name
+        :param item_col: item id column name
+        :param date_col: timestamp column name
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
             drop_zero_rel_in_test=drop_zero_rel_in_test,
+            user_col=user_col,
+            item_col=item_col,
+            date_col=date_col,
         )
         self.seed = seed
         self.test_size = test_size
@@ -172,55 +197,70 @@ class NewUsersSplitter(Splitter):
     <BLANKLINE>
     """
 
-    _init_arg_names = ["test_size", "drop_cold_items", "drop_zero_rel_in_test"]
+    _init_arg_names = ["test_size",
+                       "drop_cold_items",
+                       "drop_zero_rel_in_test",
+                       "user_col",
+                       "item_col",
+                       "date_col",]
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         test_size: float,
         drop_cold_items: bool = False,
         drop_zero_rel_in_test: bool = True,
+        user_col: str = "user_idx",
+        item_col: Optional[str] = "item_idx",
+        date_col: Optional[str] = "timestamp",
     ):
         """
         :param test_size: test size 0 to 1
         :param drop_cold_items: flag to drop cold items from test
         :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
             from the test part of the dataset
+        :param user_col: user id column name
+        :param item_col: item id column name
+        :param date_col: timestamp column name
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
             drop_cold_users=False,
             drop_zero_rel_in_test=drop_zero_rel_in_test,
+            user_col=user_col,
+            item_col=item_col,
+            date_col=date_col,
         )
         self.test_size = test_size
         if test_size < 0 or test_size > 1:
             raise ValueError("test_size must be 0 to 1")
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
-        start_date_by_user = log.groupby("user_idx").agg(
-            sf.min("timestamp").alias("start_dt")
+        start_date_by_user = log.groupby(self.user_col).agg(
+            sf.min(self.date_col).alias("_start_dt_by_user")
         )
         test_start_date = (
-            start_date_by_user.groupby("start_dt")
-            .agg(sf.count("user_idx").alias("cnt"))
+            start_date_by_user.groupby("_start_dt_by_user")
+            .agg(sf.count(self.user_col).alias("_num_users_by_start_date"))
             .select(
-                "start_dt",
-                sf.sum("cnt")
-                .over(Window.orderBy(sf.desc("start_dt")))
-                .alias("cnt"),
-                sf.sum("cnt").over(Window.orderBy(sf.lit(1))).alias("total"),
+                "_start_dt_by_user",
+                sf.sum("_num_users_by_start_date")
+                .over(Window.orderBy(sf.desc("_start_dt_by_user")))
+                .alias("_cum_num_users_to_dt"),
+                sf.sum("_num_users_by_start_date").over(Window.orderBy(sf.lit(1))).alias("total"),
             )
-            .filter(sf.col("cnt") >= sf.col("total") * self.test_size)
-            .agg(sf.max("start_dt"))
+            .filter(sf.col("_cum_num_users_to_dt") >= sf.col("total") * self.test_size)
+            .agg(sf.max("_start_dt_by_user"))
             .head()[0]
         )
 
-        train = log.filter(sf.col("timestamp") < test_start_date)
+        train = log.filter(sf.col(self.date_col) < test_start_date)
 
         test = log.join(
-            start_date_by_user.filter(sf.col("start_dt") >= test_start_date),
+            start_date_by_user.filter(sf.col("_start_dt_by_user") >= test_start_date),
             how="inner",
-            on="user_idx",
-        ).drop("start_dt")
+            on=self.user_col,
+        ).drop("_start_dt_by_user")
         return train, test
 
 
@@ -238,6 +278,9 @@ class ColdUserRandomSplitter(Splitter):
         "drop_cold_users",
         "drop_zero_rel_in_test",
         "seed",
+        "user_col",
+        "item_col",
+        "date_col",
     ]
 
     # pylint: disable=too-many-arguments
@@ -248,6 +291,9 @@ class ColdUserRandomSplitter(Splitter):
         drop_cold_users: bool = False,
         drop_zero_rel_in_test: bool = True,
         seed: Optional[int] = None,
+        user_col: str = "user_idx",
+        item_col: Optional[str] = "item_idx",
+        date_col: Optional[str] = "timestamp",
     ):
         """
         :param test_size: fraction of users to be in test
@@ -256,21 +302,27 @@ class ColdUserRandomSplitter(Splitter):
         :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
             from the test part of the dataset
         :param seed: random seed
+        :param user_col: user id column name
+        :param item_col: item id column name
+        :param date_col: timestamp column name
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
             drop_zero_rel_in_test=drop_zero_rel_in_test,
+            user_col=user_col,
+            item_col=item_col,
+            date_col=date_col,
         )
         self.test_size = test_size
         self.seed = seed
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
-        users = log.select("user_idx").distinct()
+        users = log.select(self.user_col).distinct()
         train_users, test_users = users.randomSplit(
             [1 - self.test_size, self.test_size],
             seed=self.seed,
         )
-        train = log.join(train_users, on="user_idx", how="inner")
-        test = log.join(test_users, on="user_idx", how="inner")
+        train = log.join(train_users, on=self.user_col, how="inner")
+        test = log.join(test_users, on=self.user_col, how="inner")
         return train, test

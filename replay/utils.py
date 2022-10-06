@@ -693,3 +693,20 @@ def cosine_similarity(first: DenseVector, second: DenseVector) -> float:
     num = first.dot(second)
     denom = first.dot(first) ** 0.5 * second.dot(second) ** 0.5
     return float(num / denom)
+
+
+def cache_temp_view(df: DataFrame, name: str) -> None:
+    """
+    Create Spark SQL temporary view with `name` and cache it
+    """
+    spark = State().session
+    df.createOrReplaceTempView(name)
+    spark.sql(f"cache table {name}")
+
+
+def drop_temp_view(temp_view_name: str) -> None:
+    """
+    Uncache and drop Spark SQL temporary view
+    """
+    spark = State().session
+    spark.catalog.dropTempView(temp_view_name)

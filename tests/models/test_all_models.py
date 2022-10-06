@@ -119,7 +119,12 @@ def test_predict_pairs_warm_only(log, log_to_pred, model):
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
     ],
-    ids=["admm_slim", "knn", "slim", "word2vec",],
+    ids=[
+        "admm_slim",
+        "knn",
+        "slim",
+        "word2vec",
+    ],
 )
 def test_predict_pairs_raises(log, model):
     with pytest.raises(ValueError, match="log is not provided,.*"):
@@ -171,7 +176,10 @@ def test_get_nearest_items(log, model, metric):
 
     # filter neighbours
     res = model.get_nearest_items(
-        items=[0, 1], k=4, metric=metric, candidates=[0, 3],
+        items=[0, 1],
+        k=4,
+        metric=metric,
+        candidates=[0, 3],
     )
     assert res.count() == 1
     assert (
@@ -276,7 +284,12 @@ def test_predict_new_users(model, long_log_with_features, user_features):
         PopRec(),
         RandomRec(seed=SEED),
     ],
-    ids=["cluster", "lightfm", "pop_rec", "random_rec",],
+    ids=[
+        "cluster",
+        "lightfm",
+        "pop_rec",
+        "random_rec",
+    ],
 )
 def test_predict_cold_users(model, long_log_with_features, user_features):
     pred = fit_predict_selected(
@@ -324,3 +337,60 @@ def test_predict_cold_and_new_filter_out(model, long_log_with_features):
         assert pred.count() == 0
     else:
         assert 1 <= pred.count() <= 2
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        PopRec(),
+        ALSWrap(rank=2, seed=SEED),
+        ItemKNN(),
+    ],
+    ids=[
+        "pop_rec",
+        "als",
+        "knn",
+    ],
+)
+def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
+    path = str((tmp_path / "pred.parquet").resolve().absolute())
+    model.fit(long_log_with_features)
+    model.predict_pairs(
+        log=long_log_with_features,
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
+            "user_idx", "item_idx"
+        ),
+        recs_file_path=path,
+    )
+    pred_cached = model.predict_pairs(
+        log=long_log_with_features,
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
+            "user_idx", "item_idx"
+        ),
+        recs_file_path=None,
+    )
+    pred_from_file = spark.read.parquet(path)
+    sparkDataFrameEqual(pred_cached, pred_from_file)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        PopRec(),
+        ALSWrap(rank=2, seed=SEED),
+        ItemKNN(),
+    ],
+    ids=[
+        "pop_rec",
+        "als",
+        "knn",
+    ],
+)
+def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
+    path = str((tmp_path / "pred.parquet").resolve().absolute())
+    model.fit_predict(long_log_with_features, k=10, recs_file_path=path)
+    pred_cached = model.predict(
+        long_log_with_features, k=10, recs_file_path=None
+    )
+    pred_from_file = spark.read.parquet(path)
+    sparkDataFrameEqual(pred_cached, pred_from_file)
