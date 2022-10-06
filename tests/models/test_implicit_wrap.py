@@ -3,6 +3,7 @@ import implicit
 import pytest
 import numpy as np
 from datetime import datetime
+from pyspark.sql import functions as sf
 from pyspark.sql.types import (
     IntegerType,
     StructField,
@@ -15,19 +16,11 @@ from tests.utils import spark, log, sparkDataFrameEqual
 from replay.session_handler import get_spark_session
 
 
-@pytest.fixture
-def pairs(spark):
-    return spark.createDataFrame(
-        data=[
-            [1, 1],
-            [2, 1],
-        ],
-        schema=StructType([
-            StructField("user_idx", IntegerType()),
-            StructField("item_idx", IntegerType()),
-        ])
-    )
-
+test_models = [
+        ImplicitWrap(implicit.als.AlternatingLeastSquares()),
+        ImplicitWrap(implicit.bpr.BayesianPersonalizedRanking()),
+        ImplicitWrap(implicit.lmf.LogisticMatrixFactorization()),
+]
 
 @pytest.mark.parametrize(
     "model",
@@ -37,31 +30,41 @@ def pairs(spark):
         ImplicitWrap(implicit.lmf.LogisticMatrixFactorization()),
     ]
 )
-def test_predict(model, log):
+@pytest.mark.parametrize(
+    "filter_see",
+    [
+        True,
+        False
+    ]
+)
+def test_predict(model, log,filter_see):
     model.fit(log)
     pred = model.predict(
         log=log,
-        k=2,
+        k=5,
         users=[1],
-        filter_seen_items=False
+        filter_seen_items=filter_see
     )
+
     assert pred.select("user_idx").distinct().count() == 1
-    assert pred.count() == 2
+    assert pred.count() == 2 if filter_see else 4
 
 
 @pytest.mark.parametrize(
     "model",
+    test_models
+)
+@pytest.mark.parametrize(
+    "log_in_pred",
     [
-        ImplicitWrap(implicit.als.AlternatingLeastSquares()),
-        ImplicitWrap(implicit.bpr.BayesianPersonalizedRanking()),
-        ImplicitWrap(implicit.lmf.LogisticMatrixFactorization()),
+        True,
+        False
     ]
 )
-def test_predict_pairs(model, log, pairs):
+def test_predict_pairs(model, log, log_in_pred):
+    pairs = log.select("user_idx","item_idx").filter(sf.col("user_idx") == 2)
     model.fit(log)
-    pred_no_log = model.predict_pairs(pairs)
-    pred_log = model.predict_pairs(pairs, log)
+    pred = model.predict_pairs(pairs, log if log_in_pred else None)
 
-    assert pred_log.select("user_idx").distinct().count() == pred_no_log.select("user_idx").distinct().count() == 2
-    sparkDataFrameEqual(pairs.select("user_idx","item_idx"), pred_no_log.select("user_idx","item_idx"))
-    sparkDataFrameEqual(pred_log.select("user_idx","item_idx"), pred_no_log.select("user_idx","item_idx"))
+    assert pred.select("user_idx").distinct().count() == 1
+    sparkDataFrameEqual(pairs.select("user_idx","item_idx"), pred.select("user_idx","item_idx"))
