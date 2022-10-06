@@ -17,10 +17,11 @@ from replay.session_handler import get_spark_session
 
 
 test_models = [
-        ImplicitWrap(implicit.als.AlternatingLeastSquares()),
-        ImplicitWrap(implicit.bpr.BayesianPersonalizedRanking()),
-        ImplicitWrap(implicit.lmf.LogisticMatrixFactorization()),
+    ImplicitWrap(implicit.als.AlternatingLeastSquares()),
+    ImplicitWrap(implicit.bpr.BayesianPersonalizedRanking()),
+    ImplicitWrap(implicit.lmf.LogisticMatrixFactorization()),
 ]
+
 
 @pytest.mark.parametrize(
     "model",

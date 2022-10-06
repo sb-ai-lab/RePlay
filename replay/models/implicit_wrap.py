@@ -104,7 +104,7 @@ class ImplicitWrap(Recommender):
         def predict_by_user_item(pandas_df: pd.DataFrame) -> pd.DataFrame:
             user = int(pandas_df["user_idx"].iloc[0])
             items = pandas_df.item_idx.to_list()
-            item_grid, rel = model.recommend(
+            items_res, rel = model.recommend(
                 userid=user,
                 user_items=user_item_data[user] if user_item_data is not None else None,
                 N=len(items),
@@ -114,7 +114,7 @@ class ImplicitWrap(Recommender):
             return pd.DataFrame(
                 {
                     "user_idx": [user] * len(items),
-                    "item_idx": item_grid,
+                    "item_idx": items_res,
                     "relevance": rel,
                 }
             )
