@@ -320,6 +320,7 @@ class Env:
         :param matrix: sparse matrix with users-item ratings
         :param user_id: users_id number
         :param related_items: relevant items for user_id
+        :param nonrelated_items: non-relevant items for user_id
         :param num_rele: number of related_items
         :param available_items: non-seen items
         """
@@ -331,6 +332,7 @@ class Env:
         self.matrix = np.ones([user_num, item_num])
         self.user_id = 0
         self.related_items = np.arange(item_num)
+        self.nonrelated_items = np.arange(item_num)
         self.num_rele = len(self.related_items)
         self.available_items = list(np.zeros(self.num_rele * 2))
 
@@ -687,7 +689,7 @@ class DDPG(TorchRecommender):
             return np.reciprocal(np.log2(index + 2))
         return 0
 
-    # pylint: disable=arguments-differ,too-many-locals
+    # pylint: disable=arguments-differ,too-many-locals,arguments-renamed
     def _run_train_step(
         self,
         policy_optimizer,
