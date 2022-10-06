@@ -594,7 +594,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [[package]]
 name = "implicit"
-version = "0.4.8"
+version = "0.6.1"
 description = "Collaborative Filtering for Implicit Feedback Datasets"
 category = "main"
 optional = false
@@ -988,7 +988,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
 
 [[package]]
 name = "lightautoml"
-version = "0.3.1"
+version = "0.3.3"
 description = "Fast and customizable framework for automatic ML model creation (AutoML)"
 category = "main"
 optional = false
@@ -1020,8 +1020,8 @@ tqdm = "*"
 
 [package.extras]
 report = ["cffi (>=1.14.5,<2.0.0)", "weasyprint (>=52.5,<53.0)"]
-all = ["cffi (>=1.14.5,<2.0.0)", "weasyprint (>=52.5,<53.0)", "torchvision (==0.8.0)", "scikit-image", "pywavelets", "opencv-python", "efficientnet-pytorch", "albumentations (>=0.4.6)", "transformers (>=4)", "nltk", "gensim (>=4)"]
-cv = ["torchvision (==0.8.0)", "scikit-image", "pywavelets", "opencv-python", "efficientnet-pytorch", "albumentations (>=0.4.6)"]
+all = ["cffi (>=1.14.5,<2.0.0)", "weasyprint (>=52.5,<53.0)", "torchvision (==0.8.0)", "scikit-image", "pywavelets", "opencv-python (==4.5.2.52)", "efficientnet-pytorch", "albumentations (>=0.4.6)", "transformers (>=4)", "nltk", "gensim (>=4)"]
+cv = ["torchvision (==0.8.0)", "scikit-image", "pywavelets", "opencv-python (==4.5.2.52)", "efficientnet-pytorch", "albumentations (>=0.4.6)"]
 nlp = ["transformers (>=4)", "nltk", "gensim (>=4)"]
 
 [[package]]
@@ -2493,7 +2493,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7, <3.10"
-content-hash = "6b076b2b38896ab95ec34390a7dd5e1578b1d103b96181bdd128a23de86bcb3f"
+content-hash = "b94c574dc825f357cbcff62960a9cd51d035623049d949ff29d5d607e5ea8ef5"
 
 [metadata.files]
 alabaster = []
