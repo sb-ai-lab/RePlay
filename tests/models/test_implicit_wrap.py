@@ -44,7 +44,7 @@ def test_predict(model, log,filter_seen):
     )
 
     assert pred.select("user_idx").distinct().count() == 1
-    assert pred.count() == 2 if filter_see else 4
+    assert pred.count() == 2 if filter_seen else 4
 
 
 @pytest.mark.parametrize(
