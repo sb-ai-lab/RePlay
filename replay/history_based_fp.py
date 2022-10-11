@@ -49,6 +49,7 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
         - average log number of interactions by users interacted with item and vice versa (2)
         - difference between number of interactions by user/item (1)
         and average number of interactions (2)
+        - cold user/item flag
 
         Based on timestamp (if present and has a TimestampType):
         - min and max interaction timestamp for user/item
