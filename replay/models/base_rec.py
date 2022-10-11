@@ -8,6 +8,8 @@ Base abstract classes:
 - NeighbourRec - base class that requires log at prediction time
 - ItemVectorModel - class for models which provides items' vectors.
     Implements similar items search.
+- NonPersonalizedRecommender - base class for non-personalized recommenders
+    with popularity statistics
 """
 import collections
 import logging
@@ -25,13 +27,16 @@ from typing import (
     Tuple,
 )
 
+import numpy as np
 import pandas as pd
+from numpy.random import default_rng
 from optuna import create_study
 from optuna.samplers import TPESampler
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 from pyspark.sql.column import Column
 
+from replay.constants import REC_SCHEMA
 from replay.metrics import Metric, NDCG
 from replay.optuna_objective import SplitData, MainObjective
 from replay.session_handler import State
@@ -1549,3 +1554,159 @@ class NeighbourRec(Recommender, ABC):
         return similarity_filtered.select(
             "item_idx_one", "item_idx_two", "similarity"
         )
+
+
+class NonPersonalizedRecommender(Recommender, ABC):
+    """Base class for non-personalized recommenders with popularity statistics."""
+
+    can_predict_cold_users = True
+    item_popularity: DataFrame
+    fill: float
+    seed: int
+
+    @property
+    def _dataframes(self):
+        return {"item_popularity": self.item_popularity}
+
+    def _clear_cache(self):
+        if hasattr(self, "item_popularity"):
+            self.item_popularity.unpersist()
+
+    @staticmethod
+    def _check_relevance(log: DataFrame):
+
+        vals = log.select("relevance").where(
+            (sf.col("relevance") != 1) & (sf.col("relevance") != 0)
+        )
+        if vals.count() > 0:
+            raise ValueError("Relevance values in log must be 0 or 1")
+
+    # pylint: disable=too-many-arguments
+    def _predict_without_sampling(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+
+        if hasattr(self, "fill") and self.fill is not None:
+            selected_item_popularity = self.item_popularity.join(
+                items,
+                on="item_idx",
+                how="right",
+            ).fillna(value=self.fill, subset=["relevance"])
+        else:
+            selected_item_popularity = self.item_popularity.join(
+                items,
+                on="item_idx",
+                how="inner",
+            )
+
+        selected_item_popularity = selected_item_popularity.withColumn(
+            "rank",
+            sf.row_number().over(
+                Window.orderBy(
+                    sf.col("relevance").desc(), sf.col("item_idx").desc()
+                )
+            ),
+        )
+
+        max_hist_len = (
+            self._calc_max_hist_len(log, users)
+            if filter_seen_items and log is not None
+            else 0
+        )
+
+        return users.crossJoin(
+            selected_item_popularity.filter(sf.col("rank") <= k + max_hist_len)
+        ).drop("rank")
+
+    @staticmethod
+    def _calc_max_hist_len(log: DataFrame, users: DataFrame) -> int:
+
+        max_hist_len = (
+            (
+                log.join(users, on="user_idx")
+                .groupBy("user_idx")
+                .agg(sf.countDistinct("item_idx").alias("items_count"))
+            )
+            .select(sf.max("items_count"))
+            .collect()[0][0]
+        )
+        # all users have empty history
+        if max_hist_len is None:
+            max_hist_len = 0
+
+        return max_hist_len
+
+    def _predict_with_sampling(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        filter_seen_items: bool = True,
+        add_cold_items: bool = True,
+    ) -> DataFrame:
+
+        selected_item_popularity = self.item_popularity.join(
+            items, on="item_idx", how="right" if add_cold_items else "inner"
+        ).fillna(value=self.fill, subset=["relevance"])
+
+        items_pd = selected_item_popularity.withColumn(
+            "probability",
+            sf.col("relevance")
+            / selected_item_popularity.select(sf.sum("relevance")).first()[0],
+        ).toPandas()
+
+        seed = self.seed
+        class_name = self.__class__.__name__
+
+        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+            user_idx = pandas_df["user_idx"][0]
+            cnt = pandas_df["cnt"][0]
+
+            if seed is not None:
+                local_rng = default_rng(seed + user_idx)
+            else:
+                local_rng = default_rng()
+
+            items_positions = local_rng.choice(
+                np.arange(items_pd.shape[0]),
+                size=cnt,
+                p=items_pd["probability"].values,
+                replace=False,
+            )
+
+            # workaround to unify RandomRec and UCB
+            if class_name == "RandomRec":
+                relevance = 1 / np.arange(1, cnt + 1)
+            else:
+                relevance = items_pd["probability"].values[items_positions]
+
+            return pd.DataFrame(
+                {
+                    "user_idx": cnt * [user_idx],
+                    "item_idx": items_pd["item_idx"].values[items_positions],
+                    "relevance": relevance,
+                }
+            )
+
+        if log is not None and filter_seen_items:
+            recs = (
+                log.select("user_idx", "item_idx")
+                .distinct()
+                .join(users, how="right", on="user_idx")
+                .groupby("user_idx")
+                .agg(sf.countDistinct("item_idx").alias("cnt"))
+                .selectExpr(
+                    "user_idx",
+                    f"LEAST(cnt + {k}, {items_pd.shape[0]}) AS cnt",
+                )
+            )
+        else:
+            recs = users.withColumn("cnt", sf.lit(min(k, items_pd.shape[0])))
+
+        return recs.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
