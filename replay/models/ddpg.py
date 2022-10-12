@@ -740,62 +740,6 @@ class DDPG(TorchRecommender):
                 target_param.data * (1.0 - soft_tau) + param.data * soft_tau
             )
 
-    # pylint: disable=arguments-differ
-    def _run_validation(self, loader):
-        self.model.eval()
-        hits = []
-        dcgs = []
-        with torch.no_grad():
-            self.model.test_environment.update_env(
-                memory=self.model.environment.memory
-            )
-            user, memory = self.model.test_environment.reset(
-                int(to_np(next(iter(loader))["user"])[0])
-            )
-            for batch in loader:
-                action_emb = self.model(user, memory)
-                scores, action = self.model.get_action(
-                    action_emb,
-                    batch["item"].long(),
-                    return_scores=True,
-                )
-                user, memory, _, _ = self.model.test_environment.step(action)
-
-                _, ind = scores[:, 0].topk(10)
-                predictions = batch["item"].take(ind).cpu().numpy().tolist()
-                actual = batch["item"][0].item()
-                hits.append(self.hit_metric(predictions, actual))
-                dcgs.append(self.dcg_metric(predictions, actual))
-        return np.mean(hits), np.mean(dcgs)
-
-    def load_user_embeddings(self, user_embeddings_path):
-        """
-        :param user_embeddings_path: path to embeddings parquet
-        """
-        user_embeddings = pd.read_parquet(user_embeddings_path)
-        user_embeddings = user_embeddings[
-            user_embeddings["user_idx"] < self.user_num
-        ]
-        indexes = user_embeddings["user_idx"]
-        embeddings = torch.from_numpy(
-            user_embeddings.iloc[:, -8:].values
-        ).float()
-        self.model.state_repr.user_embeddings.weight.data[indexes] = embeddings
-
-    def load_item_embeddings(self, item_embeddings_path):
-        """
-        :param user_embeddings_path: path to embeddings parquet
-        """
-        item_embeddings = pd.read_parquet(item_embeddings_path)
-        item_embeddings = item_embeddings[
-            item_embeddings["item_idx"] < self.item_num
-        ]
-        indexes = item_embeddings["item_idx"]
-        embeddings = torch.from_numpy(
-            item_embeddings.iloc[:, -8:].values
-        ).float()
-        self.model.state_repr.item_embeddings.weight.data[indexes] = embeddings
-
     def _fit(
         self,
         log: DataFrame,
