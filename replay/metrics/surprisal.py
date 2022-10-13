@@ -6,7 +6,7 @@ from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
 from replay.constants import AnyDataFrame
-from replay.utils import convert2spark
+from replay.utils import convert2spark, get_top_k_recs
 from replay.metrics.base_metric import RecOnlyMetric, sorter
 
 
@@ -63,11 +63,28 @@ class Surprisal(RecOnlyMetric):
         return sum(weigths[:k]) / k
 
     def _get_enriched_recommendations(
-        self, recommendations: DataFrame, ground_truth: DataFrame
+        self, recommendations: DataFrame, ground_truth: DataFrame, max_k: int
     ) -> DataFrame:
         recommendations = convert2spark(recommendations)
+        recommendations = get_top_k_recs(recommendations, max_k)
         sort_udf = sf.udf(
-            partial(sorter, index=2), returnType=st.ArrayType(st.DoubleType()),
+            partial(sorter, extra_position=2),
+            returnType=st.StructType(
+                [
+                    st.StructField(
+                        "pred",
+                        st.ArrayType(
+                            self.item_weights.schema["item_idx"].dataType
+                        ),
+                    ),
+                    st.StructField(
+                        "rec_weight",
+                        st.ArrayType(
+                            self.item_weights.schema["rec_weight"].dataType
+                        ),
+                    ),
+                ],
+            ),
         )
         return (
             recommendations.join(self.item_weights, on="item_idx", how="left")
@@ -76,9 +93,8 @@ class Surprisal(RecOnlyMetric):
             .agg(
                 sf.collect_list(
                     sf.struct("relevance", "item_idx", "rec_weight")
-                ).alias("rec_weight")
+                ).alias("rel_id_weight")
             )
-            .select(
-                "user_idx", sort_udf(sf.col("rec_weight")).alias("rec_weight")
-            )
+            .withColumn("pred_rec_weight", sort_udf(sf.col("rel_id_weight")))
+            .select("user_idx", sf.col("pred_rec_weight.rec_weight"))
         )
