@@ -7,7 +7,7 @@ from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
 from scipy.sparse import csr_matrix
 
-from replay.constants import NumType, AnyDataFrame
+from replay.constants import AnyDataFrame, NumType
 from replay.session_handler import State
 
 # pylint: disable=invalid-name
