@@ -83,14 +83,22 @@ class Experiment:
         :param name: name of the run to store in the resulting DataFrame
         :param pred: model recommendations
         """
-        recs = get_enriched_recommendations(pred, self.test).cache()
+        max_k = 0
+        for current_k in self.metrics.values():
+            max_k = max(
+                (*current_k, max_k)
+                if isinstance(current_k, list)
+                else (current_k, max_k)
+            )
+
+        recs = get_enriched_recommendations(pred, self.test, max_k).cache()
         for metric, k_list in sorted(
             self.metrics.items(), key=lambda x: str(x[0])
         ):
             enriched = None
             if isinstance(metric, RecOnlyMetric):
                 enriched = metric._get_enriched_recommendations(
-                    pred, self.test
+                    pred, self.test, max_k
                 )
 
             values, median, conf_interval = self._calculate(

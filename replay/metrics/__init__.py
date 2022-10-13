@@ -26,10 +26,15 @@ of ``conf_interval`` for a given ``alpha``.
 
 Diversity metrics require extra parameters on initialization stage,
 but do not use ``ground_truth`` parameter.
+
+For each metric, a formula for its calculation is given, because this is
+important for the correct comparison of algorithms, as mentioned in our
+`article <https://arxiv.org/abs/2206.12858>`_.
 """
 from replay.metrics.base_metric import Metric
 from replay.metrics.coverage import Coverage
 from replay.metrics.hitrate import HitRate
+from replay.metrics.ncis_precision import NCISPrecision
 from replay.metrics.map import MAP
 from replay.metrics.mrr import MRR
 from replay.metrics.ndcg import NDCG
