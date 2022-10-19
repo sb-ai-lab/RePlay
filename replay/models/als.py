@@ -7,7 +7,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
 from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.utils import get_cores_number, list_to_vector_udf
+from replay.utils import list_to_vector_udf
 
 
 class ALSWrap(Recommender, ItemVectorModel):
@@ -62,11 +62,10 @@ class ALSWrap(Recommender, ItemVectorModel):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         if self._num_item_blocks is None or self._num_user_blocks is None:
-            cores = get_cores_number()
             if self._num_item_blocks is None:
-                self._num_item_blocks = 3 * cores
+                self._num_item_blocks = log.rdd.getNumPartitions()
             if self._num_user_blocks is None:
-                self._num_user_blocks = 3 * cores
+                self._num_user_blocks = log.rdd.getNumPartitions()
 
         self.model = ALS(
             rank=self.rank,
