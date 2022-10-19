@@ -1,8 +1,10 @@
 # pylint: disable=wildcard-import,invalid-name,unused-wildcard-import,unspecified-encoding
 import os
 import json
+import pickle
 import shutil
 from inspect import getfullargspec
+from collections import namedtuple
 
 import joblib
 from os.path import exists, join
@@ -26,7 +28,7 @@ def prepare_dir(path):
     os.makedirs(path)
 
 
-def save(model: BaseRecommender, path: str):
+def save(model: BaseRecommender, path: str, overwrite: bool = False):
     """
     Save fitted model to disk as a folder
 
@@ -34,23 +36,35 @@ def save(model: BaseRecommender, path: str):
     :param path: destination where model files will be stored
     :return:
     """
-    prepare_dir(path)
+    spark = State().session
+    
+    if not overwrite:
+        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration())
+        is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
+        if is_exists:
+            raise FileExistsError(f"Path '{path}' already exists. Mode is 'overwrite = False'.")
+    # list_status = fs.listStatus(spark._jvm.org.apache.hadoop.fs.Path(path))
+
     model._save_model(join(path, "model"))
 
     init_args = model._init_args
     init_args["_model_name"] = str(model)
-    with open(join(path, "init_args.json"), "w") as json_file:
-        json.dump(init_args, json_file)
+    sc = spark.sparkContext
+    df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
+    df.coalesce(1).write.mode("overwrite").json(join(path, "init_args.json"))
 
     dataframes = model._dataframes
     df_path = join(path, "dataframes")
-    os.makedirs(df_path)
     for name, df in dataframes.items():
         df.write.parquet(join(df_path, name))
-    model.fit_users.write.parquet(join(df_path, "fit_users"))
-    model.fit_items.write.parquet(join(df_path, "fit_items"))
+    model.fit_users.write.mode("overwrite").parquet(join(df_path, "fit_users"))
+    model.fit_items.write.mode("overwrite").parquet(join(df_path, "fit_items"))
 
-    joblib.dump(model.study, join(path, "study"))
+    pickled_instance = pickle.dumps(model.study)
+    Record = namedtuple("Record", ["study"])
+    rdd = sc.parallelize([Record(pickled_instance)])
+    instance_df = rdd.map(lambda rec: Record(bytearray(rec.study))).toDF()
+    instance_df.write.mode("overwrite").parquet(join(path, "study"))
 
 
 def load(path: str) -> BaseRecommender:
@@ -61,8 +75,8 @@ def load(path: str) -> BaseRecommender:
     :return: Restored trained model
     """
     spark = State().session
-    with open(join(path, "init_args.json"), "r") as json_file:
-        args = json.load(json_file)
+    sc = spark.sparkContext
+    args = spark.read.json(join(path, "init_args.json")).first().asDict()
     name = args["_model_name"]
     del args["_model_name"]
 
@@ -88,7 +102,10 @@ def load(path: str) -> BaseRecommender:
         setattr(model, name, df)
 
     model._load_model(join(path, "model"))
-    model.study = joblib.load(join(path, "study"))
+    df = spark.read.parquet(join(path, "study"))
+    pickled_instance = df.rdd.map(lambda row: bytes(row.study)).first()
+    model.study = pickle.loads(pickled_instance)
+
     return model
 
 
