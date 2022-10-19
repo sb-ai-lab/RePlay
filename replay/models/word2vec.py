@@ -109,7 +109,7 @@ class Word2VecRec(Recommender, ItemVectorModel):
         self.logger.debug("Model training")
 
         if self._num_partitions is None:
-            self._num_partitions = 3 * log_by_users.rdd.getNumPartitions()
+            self._num_partitions = log_by_users.rdd.getNumPartitions()
         
         word_2_vec = Word2Vec(
             vectorSize=self.rank,
