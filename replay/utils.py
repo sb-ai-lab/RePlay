@@ -1,8 +1,9 @@
-from typing import Any, List, Optional, Set, Union
+import os
 
 import numpy as np
 import pyspark.sql.types as st
 
+from pyspark.sql import SparkSession
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
 from scipy.sparse import csr_matrix
@@ -710,3 +711,24 @@ def drop_temp_view(temp_view_name: str) -> None:
     """
     spark = State().session
     spark.catalog.dropTempView(temp_view_name)
+
+
+def get_cores_number() -> int:
+    spark_conf = SparkSession.getActiveSession().getConf()  # .conf
+    master_addr = spark_conf.get("spark.master")
+    if master_addr.startswith("local"):
+        # https://spark.apache.org/docs/latest/submitting-applications.html#master-urls
+        # formats: local, local[K], local[K,F], local[*], local[*,F]
+        if master_addr == "local":
+            cores = 1
+        else:
+            cores_str = master_addr[len("local[") : -1]
+            cores_str = cores_str.split(",")[0]
+            cores = int(cores_str) if cores_str != "*" else os.cpu_count()
+    else:
+        # check spark.cores.max?
+        cores = int(spark_conf.get("spark.executor.cores")) * int(
+            spark_conf.get("spark.executor.instances")
+        )
+
+    return cores
