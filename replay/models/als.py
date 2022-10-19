@@ -61,11 +61,10 @@ class ALSWrap(Recommender, ItemVectorModel):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        if self._num_item_blocks is None or self._num_user_blocks is None:
-            if self._num_item_blocks is None:
-                self._num_item_blocks = log.rdd.getNumPartitions()
-            if self._num_user_blocks is None:
-                self._num_user_blocks = log.rdd.getNumPartitions()
+        if self._num_item_blocks is None:
+            self._num_item_blocks = log.rdd.getNumPartitions()
+        if self._num_user_blocks is None:
+            self._num_user_blocks = log.rdd.getNumPartitions()
 
         self.model = ALS(
             rank=self.rank,
