@@ -3,7 +3,6 @@ from typing import Any, List, Optional, Set, Union
 import numpy as np
 import pyspark.sql.types as st
 
-from pyspark.sql import SparkSession
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
 from scipy.sparse import csr_matrix
