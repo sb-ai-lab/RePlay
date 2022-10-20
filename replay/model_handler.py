@@ -75,7 +75,6 @@ def load(path: str) -> BaseRecommender:
     :return: Restored trained model
     """
     spark = State().session
-    sc = spark.sparkContext
     args = spark.read.json(join(path, "init_args.json")).first().asDict()
     name = args["_model_name"]
     del args["_model_name"]
@@ -109,25 +108,32 @@ def load(path: str) -> BaseRecommender:
     return model
 
 
-def save_indexer(indexer: Indexer, path: str):
+def save_indexer(indexer: Indexer, path: str, overwrite: bool = False):
     """
     Save fitted indexer to disk as a folder
 
     :param indexer: Trained indexer
     :param path: destination where indexer files will be stored
     """
-    prepare_dir(path)
+    spark = State().session
+    
+    if not overwrite:
+        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration())
+        is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
+        if is_exists:
+            raise FileExistsError(f"Path '{path}' already exists. Mode is 'overwrite = False'.")
 
     init_args = indexer._init_args
     init_args["user_type"] = str(indexer.user_type)
     init_args["item_type"] = str(indexer.item_type)
-    with open(join(path, "init_args.json"), "w") as json_file:
-        json.dump(init_args, json_file)
+    sc = spark.sparkContext
+    df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
+    df.coalesce(1).write.mode("overwrite").json(join(path, "init_args.json"))
 
-    indexer.user_indexer.save(join(path, "user_indexer"))
-    indexer.item_indexer.save(join(path, "item_indexer"))
-    indexer.inv_user_indexer.save(join(path, "inv_user_indexer"))
-    indexer.inv_item_indexer.save(join(path, "inv_item_indexer"))
+    indexer.user_indexer.write().overwrite().save(join(path, "user_indexer"))
+    indexer.item_indexer.write().overwrite().save(join(path, "item_indexer"))
+    indexer.inv_user_indexer.write().overwrite().save(join(path, "inv_user_indexer"))
+    indexer.inv_item_indexer.write().overwrite().save(join(path, "inv_item_indexer"))
 
 
 def load_indexer(path: str) -> Indexer:
@@ -137,9 +143,8 @@ def load_indexer(path: str) -> Indexer:
     :param path: path to folder
     :return: restored Indexer
     """
-    State()
-    with open(join(path, "init_args.json"), "r") as json_file:
-        args = json.load(json_file)
+    spark = State().session
+    args = spark.read.json(join(path, "init_args.json")).first().asDict()
 
     user_type = args["user_type"]
     del args["user_type"]
@@ -163,18 +168,22 @@ def load_indexer(path: str) -> Indexer:
     return indexer
 
 
-def save_splitter(splitter: Splitter, path: str):
+def save_splitter(splitter: Splitter, path: str, overwrite: bool = False):
     """
     Save initialized splitter
 
     :param splitter: Initialized splitter
     :param path: destination where splitter files will be stored
     """
-    prepare_dir(path)
     init_args = splitter._init_args
     init_args["_splitter_name"] = str(splitter)
-    with open(join(path, "init_args.json"), "w") as json_file:
-        json.dump(init_args, json_file)
+    spark = State().session
+    sc = spark.sparkContext
+    df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
+    if overwrite:
+        df.coalesce(1).write.mode("overwrite").json(join(path, "init_args.json"))
+    else:
+        df.coalesce(1).write.json(join(path, "init_args.json"))
 
 
 def load_splitter(path: str) -> Splitter:
@@ -184,9 +193,8 @@ def load_splitter(path: str) -> Splitter:
     :param path: path to folder
     :return: restored Splitter
     """
-    State()
-    with open(join(path, "init_args.json"), "r") as json_file:
-        args = json.load(json_file)
+    spark = State().session
+    args = spark.read.json(join(path, "init_args.json")).first().asDict()
     name = args["_splitter_name"]
     del args["_splitter_name"]
     splitter = globals()[name]
