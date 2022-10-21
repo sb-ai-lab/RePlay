@@ -32,7 +32,7 @@ class ReplayBuffer:
     """
 
     # pylint: disable=too-many-arguments
-    def __init__(self, capacity: int, prob_alpha: float = 0.6):
+    def __init__(self, capacity: int = 1000000, prob_alpha: float = 0.6):
         self.prob_alpha = prob_alpha
         self.capacity = capacity
         self.buffer = []
@@ -187,6 +187,7 @@ class OUNoise:
 
     def get_action(self, action, step=0):
         """Get state after applying noise."""
+        action = to_np(action)
         self.sigma = self.max_sigma - (self.max_sigma - self.min_sigma) * min(
             1.0, step / self.decay_period
         )
@@ -254,6 +255,7 @@ class ActorDRR(nn.Module):
         :param return_scores: whether to return scores of items
         :return: output, prediction (and scores if return_scores)
         """
+        items = torch.tensor(items).long()
         scores = torch.bmm(
             self.state_repr.item_embeddings(items).unsqueeze(0),
             action_emb.T.unsqueeze(0),
@@ -361,9 +363,12 @@ class Env:
         self.available_items[::2] = self.related_items
         self.available_items[1::2] = self.nonrelated_items
 
-        return torch.from_numpy([self.user_id]), torch.from_numpy(
-            self.memory[[self.user_id], :]
-        )
+        try:
+            return torch.tensor([self.user_id]), torch.tensor(
+                self.memory[[self.user_id], :]
+            )
+        except:
+            from pdb import set_trace; set_trace()
 
     def step(self, action, action_emb=None, buffer=None):
         """Execute step and return (user, memory) for new state"""
@@ -381,7 +386,10 @@ class Env:
                     self.memory[self.user_id][1:]
                 ) + [action[0]]
 
-        self.available_items.remove(to_np(action)[0])
+        try:
+            self.available_items.remove(to_np(action)[0])
+        except ValueError:
+            pass
 
         if buffer is not None:
             buffer.push(
@@ -395,8 +403,8 @@ class Env:
             )
 
         return (
-            torch.from_numpy([self.user_id]),
-            torch.from_numpy(self.memory[[self.user_id], :]),
+            torch.tensor([self.user_id]),
+            torch.tensor(self.memory[[self.user_id], :]),
             reward,
             0,
         )
@@ -570,11 +578,7 @@ class DDPG(TorchRecommender):
                     to_np(user_batch).astype(int), :
                 ],
             )
-            user_recs, _ = model.get_action(
-                action_emb,
-                torch.from_numpy(items_np).long(),
-                return_scores=True,
-            )
+            user_recs, _ = model.get_action(action_emb, items_np, True)
             user_recs = user_recs.squeeze(1)
 
             if cnt is not None:
@@ -689,15 +693,18 @@ class DDPG(TorchRecommender):
             return np.reciprocal(np.log2(index + 2))
         return 0
 
+    def _get_batch(self, step=0):
+        beta = self._get_beta(step)
+        batch = self.replay_buffer.sample(self.batch_size, beta)
+        return batch
+
     # pylint: disable=arguments-differ,too-many-locals,arguments-renamed
     def _run_train_step(
         self,
+        batch,
         policy_optimizer,
         value_optimizer,
-        step=0,
     ):
-        beta = self._get_beta(step)
-        batch = self.replay_buffer.sample(self.batch_size, beta)
         user = torch.FloatTensor(batch[0])
         memory = torch.FloatTensor(batch[1])
         action = torch.FloatTensor(batch[2])
@@ -795,14 +802,10 @@ class DDPG(TorchRecommender):
             self.ou_noise.reset()
             for user_step in range(len(self.model.environment.related_items)):
                 action_emb = self.model(user, memory)
-                action_emb = self.ou_noise.get_action(
-                    to_np(action_emb)[0], user_step
-                )
+                action_emb = self.ou_noise.get_action(action_emb[0], user_step)
                 action = self.model.get_action(
                     action_emb,
-                    torch.from_numpy(
-                        self.model.environment.available_items
-                    ).long(),
+                    self.model.environment.available_items,
                 )
                 user, memory, reward, _ = self.model.environment.step(
                     action, action_emb, self.replay_buffer
@@ -810,10 +813,9 @@ class DDPG(TorchRecommender):
                 rewards.append(reward)
 
                 if len(self.replay_buffer) > self.batch_size:
+                    batch = self._get_batch(step)
                     self._run_train_step(
-                        policy_optimizer,
-                        value_optimizer,
-                        step=step,
+                        batch, policy_optimizer, value_optimizer
                     )
 
                 if step % 10000 == 0 and step > 0:
