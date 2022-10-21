@@ -7,7 +7,7 @@ import numpy as np
 
 from replay.constants import LOG_SCHEMA
 from replay.models import DDPG
-from replay.models.ddpg import ActorDRR
+from replay.models.ddpg import ActorDRR, Env, to_np
 from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
 
 
@@ -46,8 +46,9 @@ def log(spark):
 
 
 @pytest.fixture
-def model():
+def model(log):
     model = DDPG()
+    model.fit(log)
     return model
 
 
@@ -124,3 +125,23 @@ def test_save_load(log, model, spark):
             old_params[i],
             atol=1.0e-3,
         )
+
+
+def test_env_step(log, model, user=0):
+    replay_buffer = ReplayBuffer()
+    train_matrix, _, _, item_num, _ = model._preprocess_log(log)
+    model.model.environment.update_env(matrix=train_matrix, item_count=item_num)
+
+    user, memory = model.model.environment.reset(user)
+
+    action_emb = model.model(user, memory)
+    action = model.model.get_action(
+        action_emb, model.model.environment.available_items,
+    )
+
+    model.model.environment.memory[to_np(user), to_np(action)] = 1
+
+    user, new_memory, reward, _ = model.model.environment.step(
+        action, action_emb, replay_buffer
+    )
+    assert new_memory[user][0][-1] == action

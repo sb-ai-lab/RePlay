@@ -49,6 +49,7 @@ def df():
         SLIM,
         UserPopRec,
         LightFMWrap,
+        DDPG,
     ],
 )
 def test_equal_preds(long_log_with_features, recommender, tmp_path):
