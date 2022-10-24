@@ -1,8 +1,12 @@
-from typing import Any, List, Optional, Set, Union
+import logging
+from typing import Any, List, Optional, Set, Tuple, Union
+from datetime import datetime
 
 import numpy as np
 import pyspark.sql.types as st
 
+from contextlib import contextmanager
+from pyspark.sql import SparkSession
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
 from scipy.sparse import csr_matrix
@@ -11,6 +15,8 @@ from replay.constants import NumType, AnyDataFrame
 from replay.session_handler import State
 
 # pylint: disable=invalid-name
+
+logger = logging.getLogger("replay")
 
 
 def convert2spark(data_frame: Optional[AnyDataFrame]) -> Optional[DataFrame]:
@@ -281,6 +287,39 @@ def get_log_info(
             f"total items: {item_cnt}",
         ]
     )
+
+
+def get_log_info2(
+    log: DataFrame, user_col="user_idx", item_col="item_idx"
+) -> Tuple[int, int, int]:
+    """
+    Basic log statistics
+
+    >>> from replay.session_handler import State
+    >>> spark = State().session
+    >>> log = spark.createDataFrame([(1, 2), (3, 4), (5, 2)]).toDF("user_idx", "item_idx")
+    >>> log.show()
+    +--------+--------+
+    |user_idx|item_idx|
+    +--------+--------+
+    |       1|       2|
+    |       3|       4|
+    |       5|       2|
+    +--------+--------+
+    <BLANKLINE>
+    >>> get_log_info2(log)
+    (3, 3, 2)
+
+    :param log: interaction log containing ``user_idx`` and ``item_idx``
+    :param user_col: name of a columns containing users' identificators
+    :param item_col: name of a columns containing items' identificators
+
+    :returns: statistics string
+    """
+    cnt = log.count()
+    user_cnt = log.select(user_col).distinct().count()
+    item_cnt = log.select(item_col).distinct().count()
+    return cnt, user_cnt, item_cnt
 
 
 def get_stats(
@@ -710,3 +749,35 @@ def drop_temp_view(temp_view_name: str) -> None:
     """
     spark = State().session
     spark.catalog.dropTempView(temp_view_name)
+
+
+class log_exec_timer:
+    def __init__(self, name: Optional[str] = None):
+        self.name = name
+        self._start = None
+        self._duration = None
+
+    def __enter__(self):
+        self._start = datetime.now()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self._duration = (datetime.now() - self._start).total_seconds()
+        msg = (
+            f"Exec time of {self.name}: {self._duration}"
+            if self.name
+            else f"Exec time: {self._duration}"
+        )
+        logger.info(msg)
+
+    @property
+    def duration(self):
+        return self._duration
+
+
+@contextmanager
+def JobGroup(group_id: str, description: str):
+    sc = SparkSession.getActiveSession().sparkContext
+    sc.setJobGroup(group_id, description)
+    yield
+    sc._jsc.clearJobGroup()

@@ -35,6 +35,7 @@ def get_spark_session(
     user_home = os.environ["HOME"]
     spark = (
         SparkSession.builder.config("spark.driver.memory", driver_memory)
+        .config('spark.jars.packages', 'com.github.jelmerk:hnswlib-spark_3.3_2.12:1.0.1')
         .config(
             "spark.driver.extraJavaOptions",
             "-Dio.netty.tryReflectionSetAccessible=true",
