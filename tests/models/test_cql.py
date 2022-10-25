@@ -25,7 +25,7 @@ def log(spark):
 
 @pytest.fixture
 def model():
-    model = CQL(k=1, n_epochs=1)
+    model = CQL(top_k=1, n_epochs=1)
     return model
 
 

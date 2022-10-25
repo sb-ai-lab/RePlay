@@ -145,7 +145,7 @@ def main():
     })
 
     algorithms = {
-        f'CQL_{e}': CQL(use_gpu=use_gpu, k=K, n_epochs=e)
+        f'CQL_{e}': CQL(use_gpu=use_gpu, top_k=K, n_epochs=e)
         for e in n_epochs
     }
 

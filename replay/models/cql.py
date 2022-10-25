@@ -112,7 +112,8 @@ class CQL(Recommender):
 
     """
 
-    k: int
+    top_k: int
+    action_randomization_scale: float
     n_epochs: int
     model: CQL_d3rlpy.CQL
 
@@ -128,7 +129,10 @@ class CQL(Recommender):
     
     def __init__(
         self, *,
-        k: int, n_epochs: int = 1,
+        top_k: int, n_epochs: int = 1,
+        action_randomization_scale: float = 0.,
+
+        # CQL inner params
         actor_learning_rate: float = 1e-4,
         critic_learning_rate: float = 3e-4,
         temp_learning_rate: float = 1e-4,
@@ -159,8 +163,10 @@ class CQL(Recommender):
         **params
     ):
         super().__init__()
-        self.k = k
+        self.top_k = top_k
+        self.action_randomization_scale = action_randomization_scale
         self.n_epochs = n_epochs
+
         self.model = CQL_d3rlpy.CQL(
             actor_learning_rate=actor_learning_rate,
             critic_learning_rate=critic_learning_rate,
@@ -235,44 +241,49 @@ class CQL(Recommender):
 
     def _prepare_data(self, log: DataFrame) -> MDPDataset:
         # TODO: consider making calculations in Spark before converting to pandas
-        user_logs = log.toPandas().sort_values('timestamp').groupby('user_idx')
-        user_logs = pd.concat([
-            user_logs.get_group(x) for x in user_logs.groups
-        ])
+        user_logs = log.toPandas().sort_values(['user_idx', 'timestamp'], ascending=True)
 
         # reward top-K watched movies with 1, the others - with 0
-        idxs = (
+        user_top_k_idxs = (
             user_logs
             .sort_values(['relevance', 'timestamp'], ascending=False)
             .groupby('user_idx')
-            .head(self.k)
+            .head(self.top_k)
             .index
         )
         rewards = np.zeros(len(user_logs))
-        rewards[idxs] = 1.0
-        user_logs['rewards'] = rewards
+        rewards[user_top_k_idxs] = 1.0
 
-        # every user has his own episode (the latest movie defined as terminal)
-        user_change = user_logs.user_idx != user_logs.user_idx.shift()
+        # every user has his own episode (the latest item is defined as terminal)
+        user_terminal_idxs = (
+            user_logs[::-1]
+            .groupby('user_idx')
+            .head(1)
+            .index
+        )
         terminals = np.zeros(len(user_logs))
-        terminals[user_change] = 1
-        terminals[0] = 0
-        user_logs['terminals'] = terminals
+        terminals[user_terminal_idxs] = 1
+
+        actions = user_logs['relevance'].to_numpy()
+        if self.action_randomization_scale > 0:
+            # cannot set zero scale as d3rlpy will treat transitions as discrete :/
+            action_randomization_scale = self.action_randomization_scale
+            action_randomization = np.random.randn(len(user_logs)) * action_randomization_scale
+            actions += action_randomization
 
         train_dataset = MDPDataset(
             observations=np.array(user_logs[['user_idx', 'item_idx']]),
-            actions=np.array(
-                user_logs['relevance'] + 0.1 * np.random.randn(len(user_logs))
-            )[:, None],
-            rewards=user_logs['rewards'],
-            terminals=user_logs['terminals']
+            actions=actions[:, None],
+            rewards=rewards,
+            terminals=terminals
         )
         return train_dataset
     
     @property
     def _init_args(self):
         args = dict(
-            k=self.k,
+            top_k=self.top_k,
+            action_randomization_scale=self.action_randomization_scale,
             n_epochs=self.n_epochs,
         )
         args.update(**self.model.get_params())
