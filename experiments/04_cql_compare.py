@@ -80,6 +80,9 @@ def main():
     parser.add_argument('--epochs', dest='epochs', nargs='*', type=int, required=True)
     parser.add_argument('--part', dest='partitions', type=float, required=False, default=0.8)
     parser.add_argument('--mem', dest='memory', type=float, required=False, default=0.7)
+    parser.add_argument(
+        '--scale', dest='action_randomization_scale', type=float, required=False, default=0.01
+    )
 
     args = parser.parse_args()
     ds = args.dataset
@@ -145,17 +148,20 @@ def main():
     })
 
     algorithms = {
-        f'CQL_{e}': CQL(use_gpu=use_gpu, top_k=K, n_epochs=e)
+        f'CQL_{e}': CQL(
+            use_gpu=use_gpu, top_k=K, n_epochs=e,
+            action_randomization_scale=args.action_randomization_scale
+        )
         for e in n_epochs
     }
 
-    algorithms.update({
-        'ALS': ALSWrap(seed=SEED),
-        'KNN': ItemKNN(num_neighbours=K),
-        'LightFM': LightFMWrap(random_state=SEED),
-        # 'SLIM': SLIM(seed=SEED),
-        'UCB': UCB(exploration_coef=0.5)
-    })
+    # algorithms.update({
+    #     'ALS': ALSWrap(seed=SEED),
+    #     'KNN': ItemKNN(num_neighbours=K),
+    #     'LightFM': LightFMWrap(random_state=SEED),
+    #     # 'SLIM': SLIM(seed=SEED),
+    #     'UCB': UCB(exploration_coef=0.5)
+    # })
 
     logger = logging.getLogger("replay")
     test_users = test.select('user_idx').distinct()

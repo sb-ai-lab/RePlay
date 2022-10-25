@@ -130,7 +130,7 @@ class CQL(Recommender):
     def __init__(
         self, *,
         top_k: int, n_epochs: int = 1,
-        action_randomization_scale: float = 0.,
+        action_randomization_scale: float = 1e-3,
 
         # CQL inner params
         actor_learning_rate: float = 1e-4,
