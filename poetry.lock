@@ -1839,17 +1839,6 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 six = ">=1.5"
 
 [[package]]
-name = "pytorch-ignite"
-version = "0.4.7"
-description = "A lightweight library to help with training neural networks in PyTorch."
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.dependencies]
-torch = ">=1.3,<2"
-
-[[package]]
 name = "pytorch-ranger"
 version = "0.1.1"
 description = "Ranger - a synergistic optimizer using RAdam (Rectified Adam) and LookAhead in one codebase"
@@ -2493,7 +2482,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7, <3.10"
-content-hash = "b94c574dc825f357cbcff62960a9cd51d035623049d949ff29d5d607e5ea8ef5"
+content-hash = "fe0144f89e7f81ea962cc69d245a6d905734c27383430880241ed9e4617adadd"
 
 [metadata.files]
 alabaster = []
@@ -2637,7 +2626,6 @@ pyspark-stubs = []
 pytest = []
 pytest-cov = []
 python-dateutil = []
-pytorch-ignite = []
 pytorch-ranger = []
 pytz = []
 pywin32 = []
