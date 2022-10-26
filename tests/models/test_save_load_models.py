@@ -1,4 +1,5 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
+import os
 from os.path import dirname, join
 
 import pytest
@@ -13,6 +14,13 @@ from replay.model_handler import save, load
 from replay.models import *
 from replay.utils import convert2spark
 from tests.utils import long_log_with_features, sparkDataFrameEqual, spark
+
+
+@pytest.fixture
+def log_unary(long_log_with_features):
+    return long_log_with_features.withColumn(
+        "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
+    )
 
 
 @pytest.fixture
@@ -117,17 +125,14 @@ def test_cluster(long_log_with_features, user_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
-def test_wilson(long_log_with_features, tmp_path):
-    path = (tmp_path / "wilson").resolve()
-    model = Wilson()
-    df = long_log_with_features.withColumn(
-        "relevance", (sf.col("relevance") > 3).cast("integer")
-    )
-    model.fit(df)
-    base_pred = model.predict(df, 5)
+@pytest.mark.parametrize("model", [Wilson(), UCB()], ids=["wilson", "ucb"])
+def test_wilson_ucb(model, log_unary, tmp_path):
+    path = (tmp_path / "model").resolve()
+    model.fit(log_unary)
+    base_pred = model.predict(log_unary, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(df, 5)
+    new_pred = loaded_model.predict(log_unary, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 

@@ -44,7 +44,7 @@ numba = ">=0.50"
 llvmlite = ">=0.32.1"
 seaborn = "*"
 pyarrow = "*"
-implicit = "<0.5"
+implicit = ">=0.5"
 d3rlpy = "*"
 
 [tool.poetry.dev-dependencies]

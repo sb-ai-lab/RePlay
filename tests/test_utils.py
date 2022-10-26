@@ -12,13 +12,17 @@ import pytest
 
 import replay.session_handler
 from replay import utils
-from tests.utils import spark, sparkDataFrameEqual
+from tests.utils import spark, sparkDataFrameEqual, long_log_with_features
 
 datetime = partial(datetime, tzinfo=timezone.utc)
 
 different_timestamp_formats_data = [
     (
-        [[1.0, 1], [300003.0, 300003], [0.0, 0],],
+        [
+            [1.0, 1],
+            [300003.0, 300003],
+            [0.0, 0],
+        ],
         [
             [datetime(1970, 1, 1, 0, 0, 1), datetime(1970, 1, 1, 0, 0, 1)],
             [datetime(1970, 1, 4, 11, 20, 3), datetime(1970, 1, 4, 11, 20, 3)],
@@ -69,7 +73,7 @@ def test_process_timestamp(log_data, ground_truth_data, schema, spark):
         kwargs = (
             {"date_format": "dd.MM.yyyy[-HH:mm:ss[.SSS]]"}
             if col == "str_format_"
-            else dict()
+            else {}
         )
         log = utils.process_timestamp_column(log, col, **kwargs)
         assert isinstance(log.schema[col].dataType, TimestampType)
