@@ -482,6 +482,7 @@ class DDPG(TorchRecommender):
     min_value: int = -10
     max_value: int = 10
     buffer_size: int = 1000000
+    user_min_count: int = 10
     _search_space = {
         "noise_sigma": {"type": "uniform", "args": [0.1, 0.6]},
         "noise_theta": {"type": "uniform", "args": [0.1, 0.4]},
@@ -633,8 +634,7 @@ class DDPG(TorchRecommender):
     def _get_beta(idx, beta_start=0.4, beta_steps=100000):
         return min(1.0, beta_start + idx * (1.0 - beta_start) / beta_steps)
 
-    @staticmethod
-    def _preprocess_log(log):
+    def _preprocess_log(self, log):
         """
         :param log: pyspark DataFrame
         """
@@ -645,7 +645,7 @@ class DDPG(TorchRecommender):
         train_data = data.sample(frac=0.9, random_state=16)
         appropriate_users = (
             train_data["user_idx"]
-            .value_counts()[train_data["user_idx"].value_counts() > 10]
+            .value_counts()[train_data["user_idx"].value_counts() > self.user_min_count]
             .index
         )
         test_data = data.drop(train_data.index).values.tolist()
