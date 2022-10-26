@@ -193,9 +193,9 @@ class OUNoise:
         )
         if self.noise_type == "ou":
             ou_state = self.evolve_state()
-            return torch.from_numpy([action + ou_state]).float()
+            return torch.tensor([action + ou_state]).float()
         elif self.noise_type == "gauss":
-            return torch.from_numpy(
+            return torch.tensor(
                 [self.sigma * np.random.randn(self.action_dim)]
             ).float()
         else:
@@ -363,12 +363,9 @@ class Env:
         self.available_items[::2] = self.related_items
         self.available_items[1::2] = self.nonrelated_items
 
-        try:
-            return torch.tensor([self.user_id]), torch.tensor(
-                self.memory[[self.user_id], :]
-            )
-        except:
-            from pdb import set_trace; set_trace()
+        return torch.tensor([self.user_id]), torch.tensor(
+            self.memory[[self.user_id], :]
+        )
 
     def step(self, action, action_emb=None, buffer=None):
         """Execute step and return (user, memory) for new state"""
@@ -574,7 +571,7 @@ class DDPG(TorchRecommender):
             user_batch = torch.LongTensor([user_idx])
             action_emb = model(
                 user_batch,
-                torch.from_numpy(model.environment.memory)[
+                torch.tensor(model.environment.memory)[
                     to_np(user_batch).astype(int), :
                 ],
             )
@@ -617,7 +614,6 @@ class DDPG(TorchRecommender):
         model: nn.Module,
         item_count: int,
     ):
-        print(pandas_df, item_count)
         return DDPG._predict_pairs_inner(
             model=model,
             user_idx=pandas_df["user_idx"][0],
