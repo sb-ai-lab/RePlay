@@ -14,9 +14,9 @@ from d3rlpy.argument_utility import (
 )
 from d3rlpy.dataset import MDPDataset
 from d3rlpy.models.optimizers import OptimizerFactory, AdamFactory
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, functions as sf
 
-from replay.data_preparator import DataPreparator
+from replay.constants import REC_SCHEMA
 from replay.models import Recommender
 
 
@@ -197,7 +197,57 @@ class CQL(Recommender):
             reward_scaler=reward_scaler,
             **params
         )
+    #
+    # def _predict(
+    #     self,
+    #     log: DataFrame,
+    #     k: int,
+    #     users: DataFrame,
+    #     items: DataFrame,
+    #     user_features: Optional[DataFrame] = None,
+    #     item_features: Optional[DataFrame] = None,
+    #     filter_seen_items: bool = True,
+    # ) -> DataFrame:
+    #     if user_features or item_features:
+    #         message = f'CQL recommender does not support user/item features'
+    #         self.logger.debug(message)
+    #
+    #     users = users.toPandas().to_numpy().flatten()
+    #     items = items.toPandas().to_numpy().flatten()
+    #
+    #     # TODO: consider size-dependent batch prediction instead of by user
+    #     user_predictions = []
+    #     for user in users:
+    #         user_item_pairs = pd.DataFrame({
+    #             'user_idx': np.repeat(user, len(items)),
+    #             'item_idx': items
+    #         })
+    #         user_item_pairs['relevance'] = self.model.predict(user_item_pairs.to_numpy())
+    #         user_predictions.append(user_item_pairs)
+    #
+    #     prediction = pd.concat(user_predictions)
+    #
+    #     # it doesn't explicitly filter seen items and doesn't return top k items
+    #     # instead, it keeps all predictions as is to be filtered further by base methods
+    #     return DataPreparator.read_as_spark_df(prediction)
 
+    @staticmethod
+    def _rate_user_items(
+        model,
+        user_idx: int,
+        items: np.ndarray,
+    ) -> pd.DataFrame:
+        user_item_pairs = pd.DataFrame({
+            'user_idx': np.repeat(user_idx, len(items)),
+            'item_idx': items
+        })
+        user_item_pairs['relevance'] = model.predict_best_action(user_item_pairs.to_numpy())
+
+        # it doesn't explicitly filter seen items and doesn't return top k items
+        # instead, it keeps all predictions as is to be filtered further by base methods
+        return user_item_pairs
+
+    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: DataFrame,
@@ -208,28 +258,50 @@ class CQL(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        if user_features or item_features:
-            message = f'CQL recommender does not support user/item features'
-            self.logger.debug(message)
+        available_items = items.toPandas()["item_idx"].values
 
-        users = users.toPandas().to_numpy().flatten()
-        items = items.toPandas().to_numpy().flatten()
+        def grouped_map(log_slice: pd.DataFrame) -> pd.DataFrame:
+            return self._rate_user_items(
+                model=self.model._impl,
+                user_idx=log_slice["user_idx"][0],
+                items=available_items,
+            )[["user_idx", "item_idx", "relevance"]]
 
-        # TODO: consider size-dependent batch prediction instead of by user
-        user_predictions = []
-        for user in users:
-            user_item_pairs = pd.DataFrame({
-                'user_idx': np.repeat(user, len(items)),
-                'item_idx': items
-            })
-            user_item_pairs['relevance'] = self.model.predict(user_item_pairs.to_numpy())
-            user_predictions.append(user_item_pairs)
+        self.logger.debug("Predict started")
+        return users.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
 
-        prediction = pd.concat(user_predictions)
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+        # users = pairs.select("user_idx").distinct()
 
-        # it doesn't explicitly filter seen items and doesn't return top k items
-        # instead, it keeps all predictions as is to be filtered further by base methods
-        return DataPreparator.read_as_spark_df(prediction)
+        def grouped_map(user_log: pd.DataFrame) -> pd.DataFrame:
+            return self._rate_user_items(
+                model=self.model,
+                user_idx=user_log["user_idx"][0],
+                items=np.array(user_log["item_idx_to_pred"][0]),
+            )[["user_idx", "item_idx", "relevance"]]
+
+        self.logger.debug("Calculate relevance for user-item pairs")
+        # FIXME: user history is useless here
+        # user_history = (
+        #     users
+        #     .join(log, how="inner", on="user_idx")
+        #     .groupBy("user_idx")
+        #     .agg(sf.collect_list("item_idx").alias("item_idx_history"))
+        # )
+        return (
+            pairs
+            .groupBy("user_idx")
+            .agg(sf.collect_list("item_idx").alias("item_idx_to_pred"))
+            .join(log.select("user_idx").distinct(), on="user_idx", how="inner")
+            .groupby("user_idx")
+            .applyInPandas(grouped_map, REC_SCHEMA)
+        )
 
     def _fit(
         self,
