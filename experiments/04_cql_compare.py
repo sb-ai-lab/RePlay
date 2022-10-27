@@ -150,7 +150,8 @@ def main():
     algorithms = {
         f'CQL_{e}': CQL(
             use_gpu=use_gpu, top_k=K, n_epochs=e,
-            action_randomization_scale=args.action_randomization_scale
+            action_randomization_scale=args.action_randomization_scale,
+            batch_size=2048
         )
         for e in n_epochs
     }
