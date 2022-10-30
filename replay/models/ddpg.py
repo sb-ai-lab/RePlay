@@ -94,63 +94,6 @@ class ReplayBuffer:
         return len(self.buffer)
 
 
-class EvalDataset(td.Dataset):
-    """Pytorch Dataset for evaluation."""
-
-    def __init__(
-        self,
-        positive_data,
-        item_num,
-        positive_mat,
-        negative_samples=99,
-    ):
-        """
-        :param positive_data: array with relevant user-item interactions
-        :param item_num: number of items
-        :param positive_mat: matrix with relevant user-item interactions
-        :param negative_samples: number of negative samples for evaluation
-        """
-        super().__init__()
-        self.positive_data = np.array(positive_data)
-        self.item_num = item_num
-        self.positive_mat = positive_mat
-        self.negative_samples = negative_samples
-
-        data = self.create_valid_data()
-        labels = np.zeros(
-            len(self.positive_data) * (1 + self.negative_samples)
-        )
-        labels[:: 1 + self.negative_samples] = 1
-        self.data = np.concatenate(
-            [np.array(data), np.array(labels)[:, np.newaxis]], axis=1
-        )
-
-    def create_valid_data(self):
-        """sample 1 relevant and 99 random items"""
-        valid_data = []
-        for user, positive, _ in self.positive_data:
-            valid_data.append([int(user), int(positive)])
-            for _ in range(self.negative_samples):
-                negative = np.random.randint(self.item_num)
-                while (user, negative) in self.positive_mat:
-                    negative = np.random.randint(self.item_num)
-
-                valid_data.append([int(user), int(negative)])
-        return valid_data
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        user, item, label = self.data[idx]
-        output = {
-            "user": user,
-            "item": item,
-            "label": np.float32(label),
-        }
-        return output
-
-
 # pylint: disable=too-many-instance-attributes,too-many-arguments,not-callable
 class OUNoise:
     """https://github.com/vitchyr/rlkit/blob/master/rlkit/exploration_strategies/ou_strategy.py"""
