@@ -584,14 +584,6 @@ class DDPG(TorchRecommender):
         )
 
     @staticmethod
-    def _get_data_loader(data, item_num, matrix):
-        dataset = EvalDataset(data, item_num, matrix)
-        loader = td.DataLoader(
-            dataset, batch_size=100, shuffle=False, num_workers=16
-        )
-        return loader
-
-    @staticmethod
     def _get_beta(idx, beta_start=0.4, beta_steps=100000):
         return min(1.0, beta_start + idx * (1.0 - beta_start) / beta_steps)
 
@@ -647,21 +639,6 @@ class DDPG(TorchRecommender):
             target_param.data.copy_(
                 target_param.data * (1.0 - soft_tau) + param.data * soft_tau
             )
-
-    def load_item_embeddings(self, item_embeddings_path):
-        """
-        :param user_embeddings_path: path to embeddings parquet
-        """
-        item_embeddings = pd.read_parquet(item_embeddings_path)
-        item_embeddings = item_embeddings[
-            item_embeddings["item_idx"] < self.item_num
-        ]
-        indexes = item_embeddings["item_idx"]
-        embeddings = torch.from_numpy(
-            item_embeddings.iloc[:, -8:].values
-        ).float()
-
-        self.model.state_repr.item_embeddings.weight.data[indexes] = embeddings
 
     def _fit(
         self,
