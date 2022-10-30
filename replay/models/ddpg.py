@@ -555,8 +555,32 @@ class DDPG(TorchRecommender):
             "item_num": self.item_num,
         }
 
-    def _batch_pass(self, batch, model) -> Dict[str, Any]:
-        pass
+    # pylint: disable=arguments-differ,too-many-locals
+    def _batch_pass(self, batch) -> Dict[str, Any]:
+        user = torch.FloatTensor(batch[0])
+        memory = torch.FloatTensor(batch[1])
+        action = torch.FloatTensor(batch[2])
+        reward = torch.FloatTensor(batch[3])
+        next_user = torch.FloatTensor(batch[4])
+        next_memory = torch.FloatTensor(batch[5])
+        done = torch.FloatTensor(batch[6])
+
+        state = self.model.state_repr(user, memory)
+        policy_loss = self.value_net(state, self.model(user, memory))
+        policy_loss = -policy_loss.mean()
+
+        next_state = self.model.state_repr(next_user, next_memory)
+        next_action = self.target_model(next_user, next_memory)
+        target_value = self.target_value_net(next_state, next_action.detach())
+        expected_value = reward + (1.0 - done) * self.gamma * target_value
+        expected_value = torch.clamp(
+            expected_value, self.min_value, self.max_value
+        )
+
+        value = self.value_net(state, action)
+        value_loss = (value - expected_value.detach()).squeeze(1).pow(2).mean()
+
+        return policy_loss, value_loss
 
     def _loss(self, **kwargs) -> torch.Tensor:
         pass
@@ -694,35 +718,14 @@ class DDPG(TorchRecommender):
         batch = self.replay_buffer.sample(self.batch_size, beta)
         return batch
 
-    # pylint: disable=arguments-differ,too-many-locals,arguments-renamed
+    # pylint: disable=arguments-differ,arguments-renamed
     def _run_train_step(
         self,
         batch,
         policy_optimizer,
         value_optimizer,
     ):
-        user = torch.FloatTensor(batch[0])
-        memory = torch.FloatTensor(batch[1])
-        action = torch.FloatTensor(batch[2])
-        reward = torch.FloatTensor(batch[3])
-        next_user = torch.FloatTensor(batch[4])
-        next_memory = torch.FloatTensor(batch[5])
-        done = torch.FloatTensor(batch[6])
-
-        state = self.model.state_repr(user, memory)
-        policy_loss = self.value_net(state, self.model(user, memory))
-        policy_loss = -policy_loss.mean()
-
-        next_state = self.model.state_repr(next_user, next_memory)
-        next_action = self.target_model(next_user, next_memory)
-        target_value = self.target_value_net(next_state, next_action.detach())
-        expected_value = reward + (1.0 - done) * self.gamma * target_value
-        expected_value = torch.clamp(
-            expected_value, self.min_value, self.max_value
-        )
-
-        value = self.value_net(state, action)
-        value_loss = (value - expected_value.detach()).squeeze(1).pow(2).mean()
+        policy_loss, value_loss = self._batch_pass(batch)
 
         policy_optimizer.zero_grad()
         policy_loss.backward(retain_graph=True)
@@ -776,11 +779,7 @@ class DDPG(TorchRecommender):
         )
 
         self.logger.debug("Training DDPG")
-        self.train(
-            policy_optimizer,
-            value_optimizer,
-            users,
-        )
+        self.train(policy_optimizer, value_optimizer, users)
 
     # pylint: disable=arguments-differ
     def train(
