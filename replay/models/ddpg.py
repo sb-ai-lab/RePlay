@@ -738,6 +738,6 @@ class DDPG(TorchRecommender):
         self.logger.debug("-- Loading model from file")
 
         checkpoint = torch.load(path)
-        self.model.load_state_dict(torch.load(checkpoint["actor"]))
-        self.value_net.load_state_dict(torch.load(checkpoint["critic"]))
-        self.model.environment.memory = torch.load(checkpoint["memory"])
+        self.model.load_state_dict(checkpoint["actor"])
+        self.value_net.load_state_dict(checkpoint["critic"])
+        self.model.environment.memory = checkpoint["memory"]
