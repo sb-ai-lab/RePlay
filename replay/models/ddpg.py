@@ -1,4 +1,3 @@
-import pickle
 import tqdm
 from collections import defaultdict
 from pathlib import Path
@@ -152,7 +151,7 @@ class EvalDataset(td.Dataset):
         return output
 
 
-# pylint: disable=too-many-instance-attributes,too-many-arguments
+# pylint: disable=too-many-instance-attributes,too-many-arguments,not-callable
 class OUNoise:
     """https://github.com/vitchyr/rlkit/blob/master/rlkit/exploration_strategies/ou_strategy.py"""
 
@@ -243,12 +242,8 @@ class ActorDRR(nn.Module):
         state = self.state_repr(user, memory)
         return self.layers(state)
 
-    def get_action(
-        self,
-        action_emb,
-        items,
-        return_scores=False,
-    ):
+    # pylint: disable=not-callable
+    def get_action(self, action_emb, items, return_scores=False):
         """
         :param action_emb: output of the .forward()
         :param items: items batch
@@ -300,7 +295,7 @@ class CriticDRR(nn.Module):
         return x
 
 
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes, not-callable
 class Env:
     """
     RL environment for recommender systems.
@@ -586,6 +581,7 @@ class DDPG(TorchRecommender):
         pass
 
     @staticmethod
+    # pylint: disable=not-callable
     def _predict_pairs_inner(
         model,
         user_idx: int,
@@ -818,12 +814,18 @@ class DDPG(TorchRecommender):
                 step += 1
 
         self._save_model(self.log_dir / "model_final.pt")
-        self._save_memory()
 
-    def _save_memory(self) -> None:
-        with open(self.log_dir / "memory.pickle", "wb") as memory_file:
-            pickle.dump(self.model.environment.memory, memory_file)
+    def _save_model(self, path: str) -> None:
+        torch.save({
+            "actor": self.model.state_dict(),
+            "critic": self.value_net.state_dict(),
+            "memory": self.model.environment.memory,
+        }, path)
 
-    def _load_memory(self, path: str = ""):
-        with open(path, "rb") as memory_file:
-            self.model.environment.memory = pickle.load(memory_file)
+    def load_model(self, path: str) -> None:
+        self.logger.debug("-- Loading model from file")
+
+        checkpoint = torch.load(path)
+        self.model.load_state_dict(torch.load(checkpoint["actor"]))
+        self.value_net.load_state_dict(torch.load(checkpoint["critic"]))
+        self.model.environment.memory = torch.load(checkpoint["memory"])
