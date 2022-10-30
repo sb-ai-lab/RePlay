@@ -684,8 +684,7 @@ class DDPG(TorchRecommender):
                 action_emb = self.model(user, memory)
                 action_emb = self.ou_noise.get_action(action_emb[0], user_step)
                 action = self.model.get_action(
-                    action_emb,
-                    self.model.environment.available_items,
+                    action_emb, self.model.environment.available_items,
                 )
                 user, memory, reward, _ = self.model.environment.step(
                     action, action_emb, self.replay_buffer
@@ -711,7 +710,7 @@ class DDPG(TorchRecommender):
             "memory": self.model.environment.memory,
         }, path)
 
-    def load_model(self, path: str) -> None:
+    def _load_model(self, path: str) -> None:
         self.logger.debug("-- Loading model from file")
 
         checkpoint = torch.load(path)
