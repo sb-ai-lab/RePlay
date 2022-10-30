@@ -611,7 +611,7 @@ class DDPG(TorchRecommender):
         train_matrix = sp.dok_matrix((user_num, item_num), dtype=np.float32)
         dict.update(train_matrix, train_mat)
 
-        appropriate_users = data["user_idx"].index
+        appropriate_users = data["user_idx"].unique()
 
         return train_matrix, item_num, appropriate_users
 
