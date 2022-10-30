@@ -168,7 +168,6 @@ class ActorDRR(nn.Module):
         self.initialize()
 
         self.environment = Env(item_num, user_num, memory_size)
-        self.test_environment = Env(item_num, user_num, memory_size)
 
     def initialize(self):
         """weight init"""
@@ -420,7 +419,6 @@ class DDPG(TorchRecommender):
     min_value: int = -10
     max_value: int = 10
     buffer_size: int = 1000000
-    user_min_count: int = 10
     _search_space = {
         "noise_sigma": {"type": "uniform", "args": [0.1, 0.6]},
         "noise_theta": {"type": "uniform", "args": [0.1, 0.4]},
@@ -602,55 +600,20 @@ class DDPG(TorchRecommender):
         :param log: pyspark DataFrame
         """
         data = log.toPandas()[["user_idx", "item_idx", "relevance"]]
+        train_data = data.values.tolist()
+
         user_num = data["user_idx"].max() + 1
         item_num = data["item_idx"].max() + 1
 
-        train_data = data.sample(frac=0.9, random_state=16)
-        appropriate_users = (
-            train_data["user_idx"]
-            .value_counts()[train_data["user_idx"].value_counts() > self.user_min_count]
-            .index
-        )
-        test_data = data.drop(train_data.index).values.tolist()
-        train_data = train_data.values.tolist()
-
         train_mat = defaultdict(float)
-        test_mat = defaultdict(float)
         for user, item, rel in train_data:
             train_mat[user, item] = rel
-        for user, item, rel in test_data:
-            test_mat[user, item] = rel
         train_matrix = sp.dok_matrix((user_num, item_num), dtype=np.float32)
         dict.update(train_matrix, train_mat)
-        test_matrix = sp.dok_matrix((user_num, item_num), dtype=np.float32)
-        dict.update(test_matrix, test_mat)
 
-        return (
-            train_matrix,
-            test_data,
-            test_matrix,
-            item_num,
-            appropriate_users,
-        )
+        appropriate_users = data["user_idx"].index
 
-    @staticmethod
-    def hit_metric(recommended, actual):
-        """
-        :param recommended: list with predictions
-        :param actual: single true prediction
-        """
-        return int(actual in recommended)
-
-    @staticmethod
-    def dcg_metric(recommended, actual):
-        """
-        :param recommended: list with predictions
-        :param actual: single true prediction
-        """
-        if actual in recommended:
-            index = recommended.index(actual)
-            return np.reciprocal(np.log2(index + 2))
-        return 0
+        return train_matrix, item_num, appropriate_users
 
     def _get_batch(self, step=0):
         beta = self._get_beta(step)
@@ -685,24 +648,30 @@ class DDPG(TorchRecommender):
                 target_param.data * (1.0 - soft_tau) + param.data * soft_tau
             )
 
+    def load_item_embeddings(self, item_embeddings_path):
+        """
+        :param user_embeddings_path: path to embeddings parquet
+        """
+        item_embeddings = pd.read_parquet(item_embeddings_path)
+        item_embeddings = item_embeddings[
+            item_embeddings["item_idx"] < self.item_num
+        ]
+        indexes = item_embeddings["item_idx"]
+        embeddings = torch.from_numpy(
+            item_embeddings.iloc[:, -8:].values
+        ).float()
+
+        self.model.state_repr.item_embeddings.weight.data[indexes] = embeddings
+
     def _fit(
         self,
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        (
-            train_matrix,
-            _,
-            test_matrix,
-            _,
-            appropriate_users,
-        ) = self._preprocess_log(log)
+        train_matrix, _, appropriate_users = self._preprocess_log(log)
         self.model.environment.update_env(
             matrix=train_matrix  # , item_count=current_item_num
-        )
-        self.model.test_environment.update_env(
-            matrix=test_matrix  # , item_count=current_item_num
         )
         users = np.random.permutation(appropriate_users)
 
