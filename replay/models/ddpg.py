@@ -428,6 +428,7 @@ class DDPG(TorchRecommender):
         self,
         noise_sigma: float = 0.4,
         noise_theta: float = 0.1,
+        noise_type: str = "ou",
         seed: int = 9,
         user_num: int = 5000,
         item_num: int = 200000,
@@ -436,6 +437,7 @@ class DDPG(TorchRecommender):
         """
         :param noise_sigma: Ornstein-Uhlenbeck noise sigma value
         :param noise_theta: Ornstein-Uhlenbeck noise theta value
+        :param noise_type: type of action noise, one of ["ou", "gauss"]
         :param seed: random seed
         :param user_num: number of users
         :param item_num: number of items
@@ -457,6 +459,7 @@ class DDPG(TorchRecommender):
             theta=noise_theta,
             max_sigma=noise_sigma,
             min_sigma=noise_sigma,
+            noise_type=noise_type,
         )
 
         self.model = ActorDRR(
