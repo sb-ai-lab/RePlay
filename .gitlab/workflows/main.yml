@@ -61,4 +61,4 @@ test-job:
   <<: *job_configuration
   stage: test
   script:
-    - pytest --cov=replay --cov-report=term-missing --doctest-modules replay --cov-fail-under=93 tests
+    - pytest --tb=long -vv --cov=replay --cov-report=term-missing --doctest-modules replay --cov-fail-under=93 tests
