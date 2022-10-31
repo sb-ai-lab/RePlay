@@ -280,8 +280,6 @@ class Env:
             self.item_count = item_count
         if matrix is not None:
             self.matrix = matrix.copy()
-        if memory is not None:
-            self.memory = memory.copy()
 
     def reset(self, user_id):
         """
@@ -319,10 +317,7 @@ class Env:
                     self.memory[self.user_id][1:]
                 ) + [action[0]]
 
-        try:
-            self.available_items.remove(to_np(action)[0])
-        except ValueError:
-            pass
+        self.available_items.remove(to_np(action)[0])
 
         if buffer is not None:
             buffer.push(
