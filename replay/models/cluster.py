@@ -80,6 +80,30 @@ class ClusterRec(UserRecommender):
         vec = VectorAssembler(inputCols=feature_columns, outputCol="features")
         return vec.transform(user_features).select("user_idx", "features")
 
+    def _make_user_clusters(self, users, user_features):
+
+        usr_cnt_in_fv = (user_features
+                         .select("user_idx")
+                         .distinct()
+                         .join(users.distinct(), on="user_idx").count())
+
+        user_cnt = users.distinct().count()
+
+        if usr_cnt_in_fv < user_cnt:
+            self.logger.info("% user(s) don't "
+                             "have a feature vector. "
+                             "The results will not be calculated for them.",
+                             user_cnt - usr_cnt_in_fv)
+
+        user_features_vector = self._transform_features(
+            user_features.join(users, on="user_idx")
+        )
+        return (
+            self.model.transform(user_features_vector)
+            .select("user_idx", "prediction")
+            .withColumnRenamed("prediction", "cluster")
+        )
+
     # pylint: disable=too-many-arguments
     def _predict(
         self,
@@ -92,14 +116,27 @@ class ClusterRec(UserRecommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
 
-        user_features_vector = self._transform_features(
-            user_features.join(users, on="user_idx")
-        )
-        user_clusters = (
-            self.model.transform(user_features_vector)
-            .select("user_idx", "prediction")
-            .withColumnRenamed("prediction", "cluster")
-        )
+        user_clusters = self._make_user_clusters(users, user_features)
         filtered_items = self.item_rel_in_cluster.join(items, on="item_idx")
         pred = user_clusters.join(filtered_items, on="cluster").drop("cluster")
+        return pred
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+
+        if not user_features:
+            raise ValueError("User features are missing for predict")
+
+        user_clusters = self._make_user_clusters(pairs.select("user_idx").distinct(), user_features)
+        pairs_with_clusters = pairs.join(user_clusters, on="user_idx")
+        filtered_items = (self.item_rel_in_cluster
+                          .join(pairs.select("item_idx").distinct(), on="item_idx"))
+        pred = (pairs_with_clusters
+                .join(filtered_items, on=["cluster", "item_idx"])
+                .select("user_idx","item_idx","relevance"))
         return pred
