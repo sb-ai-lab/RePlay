@@ -53,7 +53,7 @@ def model(log):
     return model
 
 
-def test_fit(log, model):
+def test_fit(log, model, user_num=5, item_num=5):
     model.fit(log)
     assert len(list(model.model.parameters())) == 10
     param_shapes = [
@@ -63,8 +63,8 @@ def test_fit(log, model):
         (16,),
         (8, 16),
         (8,),
-        (5000, 8),
-        (200001, 8),
+        (user_num, 8),
+        (item_num + 1, 8),
         (1, 5, 1),
         (1,),
     ]
@@ -84,7 +84,7 @@ def test_predict(log, model):
         pytest.fail()
 
 
-def test_save_load(log, model, spark):
+def test_save_load(log, model, spark, user_num=5, item_num=5):
     spark_local_dir = "./logs/tmp/"
     pattern = "model_final.pt"
     del_files_by_pattern(spark_local_dir, pattern)
@@ -96,10 +96,10 @@ def test_save_load(log, model, spark):
     path = find_file_by_pattern(spark_local_dir, pattern)
     assert path is not None
 
-    new_model = DDPG()
+    new_model = DDPG(user_num=user_num, item_num=item_num)
     new_model.model = ActorDRR(
-        user_num=5000,
-        item_num=200000,
+        user_num=user_num,
+        item_num=item_num,
         embedding_dim=8,
         hidden_dim=16,
         memory_size=5,
@@ -112,29 +112,3 @@ def test_save_load(log, model, spark):
             parameter.detach().cpu().numpy(), old_params[i], atol=1.0e-3,
         )
 
-
-def test_env_step(log, model, user=0):
-    replay_buffer = ReplayBuffer()
-    train_matrix, item_num, _ = model._preprocess_log(log)
-    model.model.environment.update_env(matrix=train_matrix, item_count=item_num)
-
-    user, memory = model.model.environment.reset(user)
-
-    action_emb = model.model(user, memory)
-    model.ou_noise.noise_type = "abcd"
-    with pytest.raises(ValueError):
-        action_emb = model.ou_noise.get_action(action_emb[0], 0)
-
-    model.ou_noise.noise_type = "ou"
-    scores, action = model.model.get_action(
-        action_emb,
-        model.model.environment.available_items,
-        return_scores=True,
-    )
-
-    model.model.environment.memory[to_np(user), to_np(action)] = 1
-
-    user, new_memory, reward, _ = model.model.environment.step(
-        action, action_emb, replay_buffer
-    )
-    assert new_memory[user][0][-1] == action
