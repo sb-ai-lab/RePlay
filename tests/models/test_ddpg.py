@@ -74,7 +74,8 @@ def test_fit(log, model):
 
 def test_predict(log, model):
     model.ou_noise.noise_type = "gauss"
-    model.replay_buffer.capacity = 8
+    model.replay_buffer.capacity = 4
+    model.batch_size = 4
     model.fit(log)
     try:
         pred = model.predict(log=log, k=1)
@@ -120,8 +121,15 @@ def test_env_step(log, model, user=0):
     user, memory = model.model.environment.reset(user)
 
     action_emb = model.model(user, memory)
-    action = model.model.get_action(
-        action_emb, model.model.environment.available_items,
+    model.ou_noise.noise_type = "abcd"
+    with pytest.raises(ValueError):
+        action_emb = model.ou_noise.get_action(action_emb[0], 0)
+
+    model.ou_noise.noise_type = "ou"
+    scores, action = model.model.get_action(
+        action_emb,
+        model.model.environment.available_items,
+        return_scores=True,
     )
 
     model.model.environment.memory[to_np(user), to_np(action)] = 1
