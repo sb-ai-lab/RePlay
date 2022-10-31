@@ -111,4 +111,3 @@ def test_save_load(log, model, spark, user_num=5, item_num=5):
         assert np.allclose(
             parameter.detach().cpu().numpy(), old_params[i], atol=1.0e-3,
         )
-
