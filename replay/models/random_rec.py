@@ -278,17 +278,22 @@ class RandomRec(Recommender):
                 }
             )
 
-        recs = (
-            log.join(users, how="right", on="user_idx")
-            .select("user_idx", "item_idx")
-            .groupby("user_idx")
-            .agg(sf.countDistinct("item_idx").alias("cnt"))
-            .selectExpr(
-                "user_idx",
-                f"LEAST(cnt + {k}, {items_np.shape[0]}) AS cnt",
-            )
-            .groupby("user_idx")
-            .applyInPandas(grouped_map, REC_SCHEMA)
+        recs = users.selectExpr(
+            "user_idx",
+            f"LEAST({k}, {items_np.shape[0]}) AS cnt",
         )
 
-        return recs
+        if log is not None and filter_seen_items:
+            recs = (
+                log.select("user_idx", "item_idx")
+                .distinct()
+                .join(users, how="right", on="user_idx")
+                .select("user_idx", "item_idx")
+                .groupby("user_idx")
+                .agg(sf.countDistinct("item_idx").alias("cnt"))
+                .selectExpr(
+                    "user_idx",
+                    f"LEAST(cnt + {k}, {items_np.shape[0]}) AS cnt",
+                )
+            )
+        return recs.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
