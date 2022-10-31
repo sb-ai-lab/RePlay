@@ -274,7 +274,7 @@ class Env:
         self.num_rele = len(self.related_items)
         self.available_items = list(np.zeros(self.num_rele * 2))
 
-    def update_env(self, matrix=None, item_count=None, memory=None):
+    def update_env(self, matrix=None, item_count=None):
         """Update some of Env attributes."""
         if item_count is not None:
             self.item_count = item_count
