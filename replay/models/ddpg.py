@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 import torch
-import torch.utils.data as td
 from pandas import DataFrame
 from pytorch_ranger import Ranger
 from torch import nn
@@ -590,7 +589,8 @@ class DDPG(TorchRecommender):
     def _get_beta(idx, beta_start=0.4, beta_steps=100000):
         return min(1.0, beta_start + idx * (1.0 - beta_start) / beta_steps)
 
-    def _preprocess_log(self, log):
+    @staticmethod
+    def _preprocess_log(log):
         """
         :param log: pyspark DataFrame
         """
