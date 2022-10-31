@@ -4,10 +4,11 @@ from datetime import datetime
 import pytest
 import torch
 import numpy as np
+from pytorch_ranger import Ranger
 
 from replay.constants import LOG_SCHEMA
 from replay.models import DDPG
-from replay.models.ddpg import ActorDRR, Env, to_np
+from replay.models.ddpg import ActorDRR, Env, ReplayBuffer, to_np
 from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
 
 
@@ -48,7 +49,7 @@ def log(spark):
 @pytest.fixture
 def model(log):
     model = DDPG()
-    model.fit(log)
+    model.batch_size = 1
     return model
 
 
@@ -72,28 +73,14 @@ def test_fit(log, model):
 
 
 def test_predict(log, model):
+    model.ou_noise.noise_type = "gauss"
+    model.replay_buffer.capacity = 8
     model.fit(log)
     try:
         pred = model.predict(log=log, k=1)
         pred.count()
     except RuntimeError:  # noqa
         pytest.fail()
-
-
-def test_predict_pairs(log, log2, model):
-    recs = model.predict_pairs(
-        pairs=log2.select("user_idx", "item_idx"), log=log
-    )
-    assert (
-        recs.count()
-        == (
-            log2.join(
-                log.select("user_idx").distinct(), on="user_idx", how="inner"
-            ).join(
-                log.select("item_idx").distinct(), on="item_idx", how="inner"
-            )
-        ).count()
-    )
 
 
 def test_save_load(log, model, spark):
@@ -118,18 +105,16 @@ def test_save_load(log, model, spark):
     )
     assert len(old_params) == len(list(new_model.model.parameters()))
 
-    new_model.load_model(path)
+    new_model._load_model(path)
     for i, parameter in enumerate(new_model.model.parameters()):
         assert np.allclose(
-            parameter.detach().cpu().numpy(),
-            old_params[i],
-            atol=1.0e-3,
+            parameter.detach().cpu().numpy(), old_params[i], atol=1.0e-3,
         )
 
 
 def test_env_step(log, model, user=0):
     replay_buffer = ReplayBuffer()
-    train_matrix, _, _, item_num, _ = model._preprocess_log(log)
+    train_matrix, item_num, _ = model._preprocess_log(log)
     model.model.environment.update_env(matrix=train_matrix, item_count=item_num)
 
     user, memory = model.model.environment.reset(user)
