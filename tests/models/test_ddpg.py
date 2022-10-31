@@ -48,7 +48,7 @@ def log(spark):
 
 @pytest.fixture
 def model(log):
-    model = DDPG()
+    model = DDPG(user_num=5, item_num=5)
     model.batch_size = 1
     return model
 
