@@ -16,16 +16,13 @@ from tests.utils import spark, log, sparkDataFrameEqual
 from replay.session_handler import get_spark_session
 
 
-test_models = [
-    ImplicitWrap(implicit.als.AlternatingLeastSquares()),
-    ImplicitWrap(implicit.bpr.BayesianPersonalizedRanking()),
-    ImplicitWrap(implicit.lmf.LogisticMatrixFactorization()),
-]
-
-
 @pytest.mark.parametrize(
     "model",
-    test_models
+    [
+        ImplicitWrap(implicit.als.AlternatingLeastSquares()),
+        ImplicitWrap(implicit.bpr.BayesianPersonalizedRanking()),
+        ImplicitWrap(implicit.lmf.LogisticMatrixFactorization()),
+    ]
 )
 @pytest.mark.parametrize(
     "filter_seen",
@@ -49,7 +46,11 @@ def test_predict(model, log,filter_seen):
 
 @pytest.mark.parametrize(
     "model",
-    test_models
+    [
+        ImplicitWrap(implicit.als.AlternatingLeastSquares()),
+        ImplicitWrap(implicit.bpr.BayesianPersonalizedRanking()),
+        ImplicitWrap(implicit.lmf.LogisticMatrixFactorization()),
+    ]
 )
 @pytest.mark.parametrize(
     "log_in_pred",
