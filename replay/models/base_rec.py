@@ -1375,8 +1375,8 @@ class UserRecommender(BaseRecommender, ABC):
     def predict_pairs(
         self,
         pairs: DataFrame,
+        user_features: DataFrame,
         log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
         recs_file_path: Optional[str] = None,
     ) -> Optional[DataFrame]:
         """
@@ -1385,10 +1385,10 @@ class UserRecommender(BaseRecommender, ABC):
         for specific pair it is removed from the resulting dataframe.
 
         :param pairs: dataframe with pairs to calculate relevance for, ``[user_idx, item_idx]``.
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
         :param user_features: user features
             ``[user_idx , timestamp]`` + feature columns
+        :param log: historical log of interactions
+            ``[user_idx, item_idx, timestamp, relevance]``
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
         :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
