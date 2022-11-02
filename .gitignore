@@ -148,3 +148,6 @@ tmp/
 docs/_build/
 *.DS_Store
 */catboost_info
+
+# Spark files
+metastore_db/

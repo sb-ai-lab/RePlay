@@ -13,6 +13,7 @@ import collections
 import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
+import os
 from typing import (
     Any,
     Dict,
@@ -25,6 +26,7 @@ from typing import (
     Tuple,
 )
 
+import mlflow
 import pandas as pd
 from optuna import create_study
 from optuna.samplers import TPESampler
@@ -36,12 +38,14 @@ from replay.metrics import Metric, NDCG
 from replay.optuna_objective import SplitData, MainObjective
 from replay.session_handler import State
 from replay.utils import (
+    JobGroup,
     cache_temp_view,
     convert2spark,
     cosine_similarity,
     drop_temp_view,
     get_top_k,
     get_top_k_recs,
+    log_exec_timer,
     vector_euclidean_distance_similarity,
     vector_dot,
 )
@@ -492,44 +496,72 @@ class BaseRecommender(ABC):
             or None if `file_path` is provided
         """
         self.logger.debug("Starting predict %s", type(self).__name__)
-        user_data = users or log or user_features or self.fit_users
-        users = self._get_ids(user_data, "user_idx")
-        users, log = self._filter_cold_for_predict(users, log, "user")
+        with log_exec_timer("_get_ids() and _filter_cold_for_predict()") as before_predict_timer:
+            user_data = users or log or user_features or self.fit_users
+            users = self._get_ids(user_data, "user_idx")
+            users, log = self._filter_cold_for_predict(users, log, "user")
 
-        item_data = items or self.fit_items
-        items = self._get_ids(item_data, "item_idx")
-        items, log = self._filter_cold_for_predict(items, log, "item")
+            item_data = items or self.fit_items
+            items = self._get_ids(item_data, "item_idx")
+            items, log = self._filter_cold_for_predict(items, log, "item")
 
-        num_items = items.count()
-        if num_items < k:
-            message = f"k = {k} > number of items = {num_items}"
-            self.logger.debug(message)
+            num_items = items.count()
+            if num_items < k:
+                message = f"k = {k} > number of items = {num_items}"
+                self.logger.debug(message)
+        if os.environ.get("LOG_TO_MLFLOW", None) == "True":
+            mlflow.log_metric("before_predict_sec", before_predict_timer.duration)
 
-        recs = self._predict(
-            log,
-            k,
-            users,
-            items,
-            user_features,
-            item_features,
-            filter_seen_items,
-        )
+        with log_exec_timer(f"{self.__class__.__name__} execution") as _predict_timer, JobGroup(
+            f"{self.__class__.__name__}._predict()", "Model inference (inside 1)"
+        ):
+            recs = self._predict(
+                log,
+                k,
+                users,
+                items,
+                user_features,
+                item_features,
+                filter_seen_items,
+            )
+            recs = recs.cache()
+            recs.write.mode("overwrite").format("noop").save()
+        if os.environ.get("LOG_TO_MLFLOW", None) == "True":
+            mlflow.log_metric("_predict_sec", _predict_timer.duration)
+
         if filter_seen_items and log:
-            recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
+            with log_exec_timer("_filter_seen()") as _filter_seen_timer, JobGroup(
+                f"{self.__class__.__name__}._filter_seen()", "Model inference (inside 2)"
+            ):
+                recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
+                recs = recs.cache()
+                recs.write.mode("overwrite").format("noop").save()
+            if os.environ.get("LOG_TO_MLFLOW", None) == "True":
+                mlflow.log_metric("filter_seen_sec", _filter_seen_timer.duration)
 
-        recs = get_top_k_recs(recs, k=k).select(
-            "user_idx", "item_idx", "relevance"
-        )
+        with log_exec_timer("get_top_k_recs()") as get_top_k_recs_timer, JobGroup(
+                f"get_top_k_recs()", "Model inference (inside 3)"
+        ):
+            recs = get_top_k_recs(recs, k=k).select(
+                "user_idx", "item_idx", "relevance"
+            )
+            recs = recs.cache()
+            recs.write.mode("overwrite").format("noop").save()
+        if os.environ.get("LOG_TO_MLFLOW", None) == "True":
+            mlflow.log_metric("get_top_k_recs_sec", get_top_k_recs_timer.duration)
+        
         output = None
-
         if recs_file_path is not None:
             recs.write.parquet(path=recs_file_path, mode="overwrite")
         else:
             output = recs.cache()
             output.count()
 
-        self._clear_model_temp_view("filter_seen_users_log")
-        self._clear_model_temp_view("filter_seen_num_seen")
+        with log_exec_timer("_clear_model_temp_view()") as _clear_model_temp_view_timer:
+            self._clear_model_temp_view("filter_seen_users_log")
+            self._clear_model_temp_view("filter_seen_num_seen")
+        if os.environ.get("LOG_TO_MLFLOW", None) == "True":
+            mlflow.log_metric("clear_model_temp_view_sec", _clear_model_temp_view_timer.duration)
         return output
 
     @staticmethod

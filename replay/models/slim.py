@@ -25,6 +25,7 @@ class SLIM(NeighbourRec):
         beta: float = 0.01,
         lambda_: float = 0.01,
         seed: Optional[int] = None,
+        nmslib_hnsw_params: Optional[dict] = None,
     ):
         """
         :param beta: l2 regularization
@@ -36,6 +37,7 @@ class SLIM(NeighbourRec):
         self.beta = beta
         self.lambda_ = lambda_
         self.seed = seed
+        self._nmslib_hnsw_params = nmslib_hnsw_params
 
     @property
     def _init_args(self):
@@ -101,3 +103,10 @@ class SLIM(NeighbourRec):
             "item_idx_one int, item_idx_two int, similarity double",
         )
         self.similarity.cache().count()
+
+        if self._nmslib_hnsw_params:
+            pass
+
+            
+
+

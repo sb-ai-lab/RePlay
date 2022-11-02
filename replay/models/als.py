@@ -1,23 +1,33 @@
+import copy
 import os
 from typing import Optional, Tuple
 
 import pyspark.sql.functions as sf
 
+# import numpy as np
+# import pandas as pd
 import mlflow
+# import nmslib
+# import tempfile
+
+# from pyarrow import fs
+
 from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.ml.functions import array_to_vector
-from pyspark_hnsw.knn import HnswSimilarity
+from pyspark.sql.functions import udf, pandas_udf
 from pyspark.sql import SparkSession
 from pyspark.sql import DataFrame, Window
 from pyspark.sql.types import DoubleType
 
+from pyspark_hnsw.knn import HnswSimilarity
 
 from replay.models.base_rec import Recommender, ItemVectorModel
+from replay.models.nmslib_hnsw import NmslibHnsw
 from replay.utils import JobGroup, list_to_vector_udf, log_exec_timer
-from replay.utils import get_top_k_recs
+# from replay.utils import get_top_k_recs
 
 
-class ALSWrap(Recommender, ItemVectorModel):
+class ALSWrap(Recommender, ItemVectorModel, NmslibHnsw):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
@@ -34,7 +44,8 @@ class ALSWrap(Recommender, ItemVectorModel):
         seed: Optional[int] = None,
         num_item_blocks: Optional[int] = None,
         num_user_blocks: Optional[int] = None,
-        hnsw_params: Optional[dict] = None,
+        pyspark_hnsw_params: Optional[dict] = None,
+        nmslib_hnsw_params: Optional[dict] = None,
     ):
         """
         :param rank: hidden dimension for the approximate matrix
@@ -46,7 +57,8 @@ class ALSWrap(Recommender, ItemVectorModel):
         self._seed = seed
         self._num_item_blocks = num_item_blocks
         self._num_user_blocks = num_user_blocks
-        self._hnsw_params = hnsw_params
+        self._pyspark_hnsw_params = pyspark_hnsw_params
+        self._nmslib_hnsw_params = nmslib_hnsw_params
 
     @property
     def _init_args(self):
@@ -95,7 +107,21 @@ class ALSWrap(Recommender, ItemVectorModel):
         self.model.itemFactors.count()
         self.model.userFactors.count()
 
-        if self._hnsw_params:
+        if self._nmslib_hnsw_params:
+            item_vectors, _ = self.get_features(
+                log.select("item_idx").distinct()
+            )
+
+            self._build_hnsw_index(item_vectors, 'item_factors', self._nmslib_hnsw_params)
+
+            self._max_items_to_retrieve, *_ = (
+                log.groupBy("user_idx")
+                .agg(sf.count("item_idx").alias("num_items"))
+                .select(sf.max("num_items"))
+                .first()
+            )
+
+        if self._pyspark_hnsw_params:
             item_vectors, _ = self.get_features(
                 log.select("item_idx").distinct()
             )
@@ -111,13 +137,15 @@ class ALSWrap(Recommender, ItemVectorModel):
                 identifierCol="id",
                 featuresCol="features",
                 queryIdentifierCol="user_id",
-                distanceFunction=self._hnsw_params["distanceFunction"],
-                m=self._hnsw_params["m"],
-                ef=self._hnsw_params["ef"],
-                k=self._hnsw_params["k"] + max_items_to_retrieve,
-                efConstruction=self._hnsw_params["efConstruction"],
-                numPartitions=self._hnsw_params["numPartitions"],  # log.rdd.getNumPartitions()
-                excludeSelf=self._hnsw_params["excludeSelf"],
+                distanceFunction=self._pyspark_hnsw_params["distanceFunction"],
+                m=self._pyspark_hnsw_params["m"],
+                ef=self._pyspark_hnsw_params["ef"],
+                k=self._pyspark_hnsw_params["k"] + max_items_to_retrieve,
+                efConstruction=self._pyspark_hnsw_params["efConstruction"],
+                numPartitions=self._pyspark_hnsw_params[
+                    "numPartitions"
+                ],  # log.rdd.getNumPartitions()
+                excludeSelf=self._pyspark_hnsw_params["excludeSelf"],
             )
 
             to_index = item_vectors.select(
@@ -190,36 +218,6 @@ class ALSWrap(Recommender, ItemVectorModel):
 
         return spark_res
 
-    def _filter_seen_hnsw_res(self, log, pred, k, id_type="idx"):
-        """
-        filter items seen in log and leave top-k most relevant
-        """
-
-        user_id = "user_" + id_type
-        item_id = "item_" + id_type
-        num_of_seen = log.groupBy(user_id).agg(
-            sf.count(item_id).alias("seen_count")
-        )
-
-        max_seen = num_of_seen.select(sf.max("seen_count")).collect()[0][0]
-
-        recs = pred.withColumn(
-            "temp_rank",
-            sf.row_number().over(
-                Window.partitionBy(user_id).orderBy(sf.col("relevance").desc())
-            ),
-        ).filter(sf.col("temp_rank") <= sf.lit(max_seen + k))
-
-        recs = (
-            recs.join(num_of_seen, on=user_id, how="left")
-            .fillna(0)
-            .filter(sf.col("temp_rank") <= sf.col("seen_count") + sf.lit(k))
-            .drop("temp_rank", "seen_count")
-        )
-
-        recs = recs.join(log, on=[user_id, item_id], how="anti")
-        return get_top_k_recs(recs, k, id_type=id_type)
-
     # pylint: disable=too-many-arguments
     def _predict(
         self,
@@ -231,7 +229,24 @@ class ALSWrap(Recommender, ItemVectorModel):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        if self._hnsw_params:
+        
+        if self._nmslib_hnsw_params:
+
+            params = self._nmslib_hnsw_params
+
+            with JobGroup(
+                f"{self.__class__.__name__}.get_features()",
+                "Model inference (inside 1.5)",
+            ):
+                user_vectors, _ = self.get_features(users)
+                # user_vectors = user_vectors.cache()
+                # user_vectors.write.mode("overwrite").format("noop").save()
+
+            res = self._infer_hnsw_index(log, user_vectors, "user_factors", params, k, filter_seen_items)
+
+            return res
+
+        if self._pyspark_hnsw_params:
             with JobGroup(
                 f"{self.__class__.__name__}.get_features()",
                 "Model inference (inside 1.1)",
@@ -288,7 +303,16 @@ class ALSWrap(Recommender, ItemVectorModel):
                     max_seen_in_log if max_seen_in_log is not None else 0
                 )
 
-            recs_als = self.model.recommendForUserSubset(users, k + max_seen)
+            with JobGroup(
+                f"{self.__class__.__name__}.model.recommendForUserSubset()",
+                "Model inference (inside 1.4)",
+            ):
+                recs_als = self.model.recommendForUserSubset(
+                    users, k + max_seen
+                )
+                recs_als = recs_als.cache()
+                recs_als.write.mode("overwrite").format("noop").save()
+
             mlflow.log_metric("als_predict_branch", 1)
             return (
                 recs_als.withColumn(

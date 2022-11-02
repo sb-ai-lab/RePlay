@@ -46,6 +46,7 @@ seaborn = "*"
 pyarrow = "*"
 implicit = ">=0.5"
 pyspark-hnsw = "*"
+nmslib = "*"
 
 [tool.poetry.dev-dependencies]
 # dev only
@@ -76,6 +77,7 @@ virtualenv = "*"
 # stubs
 data-science-types = "*"
 pyspark-stubs = "*"
+autopep8 = "^1.7.0"
 
 [tool.black]
 line-length = 79
