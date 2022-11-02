@@ -67,7 +67,11 @@ class NmslibHnsw:
                         data=np.stack(item_vectors_np),
                         ids=pdf["item_idx"].values,
                     )
-                index.createIndex()
+                index.createIndex({
+                    'M': params["M"],
+                    'efConstruction': params["efC"],
+                    'post' : params["post"]
+                })
 
                 if filesystem == FileSystem.HDFS:
                     temp_path = tempfile.mkdtemp()
@@ -223,6 +227,7 @@ class NmslibHnsw:
             else:
                 index.loadIndex(SparkFiles.get("nmslib_hnsw_index"))
 
+            index.setQueryTimeParams({'efSearch': params["efS"]})
             neighbours = index.knnQueryBatch(np.stack(vectors.values), k=k_udf)
             pd_res = pd.DataFrame(neighbours, columns=["item_idx", "distance"])
             # which is better?

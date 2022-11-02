@@ -12,7 +12,7 @@ from pyspark.sql import types as st
 from scipy.stats import norm
 
 from replay.constants import AnyDataFrame, IntOrList, NumType
-from replay.utils import convert2spark
+from replay.utils import JobGroup, convert2spark
 
 
 # pylint: disable=no-member
@@ -119,24 +119,35 @@ class Metric(ABC):
         res = {}
         quantile = norm.ppf((1 + alpha) / 2)
         for k in k_list:
-            distribution = self._get_metric_distribution(recs, k)
-            value = (
-                distribution.agg(
-                    sf.stddev("value").alias("std"),
-                    sf.count("value").alias("count"),
-                )
-                .select(
-                    sf.when(
-                        sf.isnan(sf.col("std")) | sf.col("std").isNull(),
-                        sf.lit(0.0),
+            with JobGroup(
+                "_conf_interval()",
+                "self._get_metric_distribution()",
+            ):
+                distribution = self._get_metric_distribution(recs, k)    
+                distribution = distribution.cache()
+                distribution.write.mode("overwrite").format("noop").save()
+            
+            with JobGroup(
+                "_conf_interval()",
+                "distribution.agg()",
+            ):
+                value = (
+                    distribution.agg(
+                        sf.stddev("value").alias("std"),
+                        sf.count("value").alias("count"),
                     )
-                    .otherwise(sf.col("std"))
-                    .cast("float")
-                    .alias("std"),
-                    "count",
+                    .select(
+                        sf.when(
+                            sf.isnan(sf.col("std")) | sf.col("std").isNull(),
+                            sf.lit(0.0),
+                        )
+                        .otherwise(sf.col("std"))
+                        .cast("float")
+                        .alias("std"),
+                        "count",
+                    )
+                    .first()
                 )
-                .first()
-            )
             res[k] = quantile * value["std"] / (value["count"] ** 0.5)
         return res
 

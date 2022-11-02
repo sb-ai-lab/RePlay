@@ -8,7 +8,11 @@ from replay.experiment import Experiment
 from replay.metrics import HitRate, MAP, NDCG
 from replay.model_handler import load, save
 from replay.session_handler import get_spark_session
-from replay.utils import JobGroup, getNumberOfAllocatedExecutors, log_exec_timer
+from replay.utils import (
+    JobGroup,
+    getNumberOfAllocatedExecutors,
+    log_exec_timer,
+)
 
 from replay.models import (
     ALSWrap,
@@ -42,7 +46,9 @@ logger.setLevel(logging.DEBUG)
 def main(spark: SparkSession, dataset_name: str):
     spark_conf: SparkConf = spark.sparkContext.getConf()
 
-    if getNumberOfAllocatedExecutors(spark) < int(spark_conf.get("spark.executor.instances")):
+    if getNumberOfAllocatedExecutors(spark) < int(
+        spark_conf.get("spark.executor.instances")
+    ):
         # logger.error("Not enough executors to run experiment!")
         raise Exception("Not enough executors to run experiment!")
 
@@ -52,7 +58,9 @@ def main(spark: SparkSession, dataset_name: str):
     MLFLOW_TRACKING_URI = os.environ.get(
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
-    MODEL = os.environ.get("MODEL", "ALS_NMSLIB_HNSW")  # ALS SLIM Word2VecRec PopRec ALS_NMSLIB_HNSW
+    MODEL = os.environ.get(
+        "MODEL", "ALS_NMSLIB_HNSW"
+    )  # ALS SLIM Word2VecRec PopRec ALS_NMSLIB_HNSW
 
     if os.environ.get("PARTITION_NUM"):
         partition_num = int(os.environ.get("PARTITION_NUM"))
@@ -63,7 +71,9 @@ def main(spark: SparkSession, dataset_name: str):
             partition_num = int(spark_conf.get("spark.cores.max"))  # 28
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    mlflow.set_experiment(os.environ.get("EXPERIMENT", "delete"))  # os.environ["EXPERIMENT"]
+    mlflow.set_experiment(
+        os.environ.get("EXPERIMENT", "delete")
+    )  # os.environ["EXPERIMENT"]
 
     with mlflow.start_run():
 
@@ -238,9 +248,9 @@ def main(spark: SparkSession, dataset_name: str):
                     .bucketBy(partition_num, BUCKETING_KEY)
                     .sortBy(BUCKETING_KEY)
                     .saveAsTable(
-                        "bucketed_train",
+                        f"bucketed_train_{spark.sparkContext.applicationId}",
                         format="parquet",
-                        path="/spark-warehouse/bucketed_train",
+                        path=f"/spark-warehouse/bucketed_train_{spark.sparkContext.applicationId}",
                     )
                 )
 
@@ -254,7 +264,9 @@ def main(spark: SparkSession, dataset_name: str):
                 #     f"spark.catalog.listTables('default'): {str(spark.catalog.listTables('default'))}"
                 # )
 
-                train = spark.table("bucketed_train")
+                train = spark.table(
+                    f"bucketed_train_{spark.sparkContext.applicationId}"
+                )
 
                 (
                     test.repartition(partition_num, BUCKETING_KEY)
@@ -262,12 +274,14 @@ def main(spark: SparkSession, dataset_name: str):
                     .bucketBy(partition_num, BUCKETING_KEY)
                     .sortBy(BUCKETING_KEY)
                     .saveAsTable(
-                        "bucketed_test",
+                        f"bucketed_test_{spark.sparkContext.applicationId}",
                         format="parquet",
-                        path="/spark-warehouse/bucketed_test",
+                        path=f"/spark-warehouse/bucketed_test_{spark.sparkContext.applicationId}",
                     )
                 )
-                test = spark.table("bucketed_test")
+                test = spark.table(
+                    f"bucketed_test_{spark.sparkContext.applicationId}"
+                )
 
             mlflow.log_metric("bucketing_sec", bucketing_timer.duration)
 
@@ -348,14 +362,16 @@ def main(spark: SparkSession, dataset_name: str):
             )
         elif MODEL == "ALS_NMSLIB_HNSW":
             ALS_RANK = int(os.environ.get("ALS_RANK", 100))
-            build_index_on = "driver" # driver executor
+            build_index_on = "driver"  # driver executor
             num_blocks = int(os.environ.get("NUM_BLOCKS", 10))
 
-            mlflow.log_params({
-                "ALS_rank": ALS_RANK,
-                "num_blocks": num_blocks,
-                "build_index_on": build_index_on
-            })
+            mlflow.log_params(
+                {
+                    "ALS_rank": ALS_RANK,
+                    "num_blocks": num_blocks,
+                    "build_index_on": build_index_on,
+                }
+            )
 
             model = ALSWrap(
                 rank=ALS_RANK,
@@ -382,19 +398,23 @@ def main(spark: SparkSession, dataset_name: str):
             # )
             model = Word2VecRec(seed=SEED)
         elif MODEL == "Word2VecRec_NMSLIB_HNSW":
-            build_index_on = "executor" # driver executor
-            mlflow.log_params({
-                "build_index_on": build_index_on
-            })
+            build_index_on = "executor"  # driver executor
+            mlflow.log_params({"build_index_on": build_index_on})
+            nmslib_hnsw_params = {
+                "method": "hnsw",
+                "space": "negdotprod",
+                "M": 100,
+                "efS": 2000,
+                "efC": 2000,
+                "post": 0,
+                "index_path": "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/nmslib_hnsw_index_Word2Vec",
+                "build_index_on": build_index_on,
+            }
             model = Word2VecRec(
-                    seed=SEED,
-                    nmslib_hnsw_params={
-                        "method": "hnsw",
-                        "space": "negdotprod",
-                        "index_path": "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/nmslib_hnsw_index_Word2Vec",
-                        "build_index_on": build_index_on,
-                    },
-                )
+                seed=SEED,
+                nmslib_hnsw_params=nmslib_hnsw_params,
+            )
+            mlflow.log_param("nmslib_hnsw_params", nmslib_hnsw_params)
         elif MODEL == "PopRec":
             model = PopRec()
         elif MODEL == "UserPopRec":

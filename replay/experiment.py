@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 import pandas as pd
 
 from replay.constants import IntOrList, NumType
-from replay.utils import convert2spark
+from replay.utils import JobGroup, convert2spark
 from replay.metrics.base_metric import (
     Metric,
     RecOnlyMetric,
@@ -83,12 +83,18 @@ class Experiment:
         :param name: name of the run to store in the resulting DataFrame
         :param pred: model recommendations
         """
-        recs = get_enriched_recommendations(pred, self.test).cache()
+
+        with JobGroup("Experiment.add_result()", "get_enriched_recommendations()"):
+            recs = get_enriched_recommendations(pred, self.test).cache()
+            recs.write.mode("overwrite").format("noop").save()
+
+
         for metric, k_list in sorted(
             self.metrics.items(), key=lambda x: str(x[0])
         ):
             enriched = None
             if isinstance(metric, RecOnlyMetric):
+                print("Calc metric._get_enriched_recommendations()")
                 enriched = metric._get_enriched_recommendations(
                     pred, self.test
                 )
