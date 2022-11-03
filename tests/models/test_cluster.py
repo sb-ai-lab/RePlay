@@ -48,7 +48,7 @@ def test_predict_pairs(long_log_with_features, users_features):
 
 def test_raises(long_log_with_features, users_features):
     model = ClusterRec()
-    with pytest.raises(ValueError, match="User features are missing for predict"):
+    with pytest.raises(TypeError, match="missing 1 required positional argument"):
         model.fit(long_log_with_features, user_features=users_features)
         model.predict_pairs(
             long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx","item_idx")
