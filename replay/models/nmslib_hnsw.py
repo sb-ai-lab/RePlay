@@ -25,7 +25,8 @@ class NmslibHnsw:
         item_vectors: DataFrame,
         features_col: str,
         params: Dict[str, Any],
-        index_type: str = None
+        index_type: str = None,
+        items_count: Optional[int] = None
     ):
         """ "Builds hnsw index and dump it to hdfs or disk.
 
@@ -61,13 +62,14 @@ class NmslibHnsw:
                     # M = pdf['item_idx_one'].max() + 1
                     # N = pdf['item_idx_two'].max() + 1
 
-                    sim_matrix_tmp = csr_matrix((data, (row_ind, col_ind))) # , shape=(M, N)
+                    sim_matrix_tmp = csr_matrix((data, (row_ind, col_ind)), shape=(items_count, items_count)) # , shape=(M, N)
                     index.addDataPointBatch(
                         data=sim_matrix_tmp
                     )
 
                     print(f"max(rowIds): {row_ind.max()}")
                     print(f"max(col_ind): {col_ind.max()}")
+                    print(f"items_count: {items_count}")
                     print(f"len(index): {len(index)}")
 
                     index.createIndex({
@@ -201,17 +203,16 @@ class NmslibHnsw:
         index_type: str = None,
         max_user_id: Optional[int] = None,
         items_count: Optional[int] = None,
-        test_unique_user_idx: Optional[int] = None
+        users: Optional[int] = None
     ):
 
         if params["build_index_on"] == "executor":
             filesystem, hdfs_uri, index_path = get_filesystem(params["index_path"])
 
         k_udf = k + self._max_items_to_retrieve
-        return_type = "item_idx array<int>, distance array<double>, user_idx int"
+        return_type = "user_idx int, item_idx int, distance double"
 
         if index_type == "sparse":
-            # test_unique_user_idx = 
             @pandas_udf(return_type)
             def infer_index(
                 user_idx: pd.Series, item_idx: pd.Series
@@ -240,24 +241,40 @@ class NmslibHnsw:
                     index.loadIndex(SparkFiles.get("nmslib_hnsw_index"))
 
                 index.setQueryTimeParams({'efSearch': params["efS"]})
-                ones = pd.Series(1 for _ in range(len(user_idx)))
+
+                ones = pd.Series(1. for _ in range(len(user_idx)))
                 print(f"len(ones): {len(ones)}")
                 print(f"len(user_idx): {len(user_idx)}")
                 print(f"len(item_idx): {len(item_idx)}")
                 print(f"max_user_id: {max_user_id}")
                 print(f"items_count: {items_count}")
+                print(f"user_idx.nunique(): {user_idx.nunique()}")
+                print(f"item_idx.nunique(): {item_idx.nunique()}")
                 interactions_matrix = csr_matrix(
                     (ones, (user_idx, item_idx)),
                     shape=(max_user_id+1, items_count), # user_idx.max()+1
                 )
                 neighbours = index.knnQueryBatch(interactions_matrix, k=k_udf)
                 pd_res = pd.DataFrame(neighbours, columns=['item_idx', 'distance'])
+                print(f"len(pd_res): {len(pd_res)}")
+                # print(pd_res.iloc[0])
                 pd_res['user_idx'] = [x for x in range(interactions_matrix.shape[0])]
-                pd_res = pd_res[pd_res['user_idx'].isin(test_unique_user_idx)]
+                # pd_res = pd_res[pd_res['user_idx'].isin(test_unique_user_idx)]
                 # which is better?
                 # pd_res['user_idx'] = user_ids_list
                 # pd_res = pd_res.assign(user_idx=user_idx.values)
 
+                # pd_res.explode(column=['item_idx', 'distance'])
+                pd_res = pd_res.set_index(['user_idx']).apply(pd.Series.explode).reset_index()
+
+                df = pd.DataFrame(columns = ['user_idx', 'item_idx'])
+                df['user_idx'] = user_idx
+                df['item_idx'] = item_idx
+                # pd_res = pd_res[(pd_res['user_idx'].isin(user_idx)) & (pd_res['item_idx'].isin(item_idx))]
+                pd_res = pd.merge(df, pd_res, how="left", on=['user_idx', 'item_idx'])
+                print(f"udf len: {len(user_idx)}, len(pd_res): {len(pd_res)}")
+                # print(pd_res.columns)
+                # pd_res[['user_idx', 'item_idx', 'distance']]
                 return pd_res
         else:
             @pandas_udf(return_type)
@@ -301,7 +318,7 @@ class NmslibHnsw:
             "infer_hnsw_index (inside 1)",
         ):
             if index_type == "sparse":
-                res = user_vectors.select(
+                res = log.select(
                     infer_index("user_idx", "item_idx").alias("r")
                 )
             else:
@@ -311,22 +328,25 @@ class NmslibHnsw:
             res = res.cache()
             res.write.mode("overwrite").format("noop").save()
 
+        res.select("r.user_idx", "r.item_idx", "r.distance").show()
+
         with JobGroup(
             "res.withColumn('zip_exp', ...",
             "infer_hnsw_index (inside 2)",
         ):
-            res = res.withColumn(
-                "zip_exp",
-                sf.explode(sf.arrays_zip("r.item_idx", "r.distance")),
-            ).select(
-                sf.col("r.user_idx").alias("user_idx"),
-                sf.col("zip_exp.item_idx").alias("item_idx"),
-                (sf.lit(-1.0) * sf.col("zip_exp.distance")).alias(
-                    "relevance"
-                ),  # -1
-            )
+            if index_type == "sparse":
+                res = res.select(
+                    sf.col("r.user_idx").alias("user_idx"),
+                    sf.col("r.item_idx").alias("item_idx"),
+                    (sf.lit(-1.0) * sf.col("r.distance")).alias(
+                        "relevance"
+                    ),  # -1
+                )
+                res = res.join(users, on="user_idx", how="inner")
             res = res.cache()
             res.write.mode("overwrite").format("noop").save()
+
+        res.show()
 
         if filter_seen_items:
             with JobGroup(
@@ -338,6 +358,10 @@ class NmslibHnsw:
                 res.write.mode("overwrite").format("noop").save()
         else:
             res = res.cache()
+
+        res = res.fillna(value=0, subset="relevance")
+        res.show()
+        print(res.count())
 
         return res
    

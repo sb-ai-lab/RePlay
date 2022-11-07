@@ -108,8 +108,9 @@ class SLIM(NeighbourRec, NmslibHnsw):
 
         if self._nmslib_hnsw_params:
             
+            items_count = log.select(sf.max('item_idx')).first()[0] + 1 
             similarity_df = self.similarity.select("similarity", 'item_idx_one', 'item_idx_two')
-            self._build_hnsw_index(similarity_df, None, self._nmslib_hnsw_params, index_type="sparse")
+            self._build_hnsw_index(similarity_df, None, self._nmslib_hnsw_params, index_type="sparse", items_count=items_count)
 
             self._max_items_to_retrieve, *_ = (
                     log.groupBy('user_idx')
@@ -161,14 +162,20 @@ class SLIM(NeighbourRec, NmslibHnsw):
 
             items_count = log.select(sf.max('item_idx')).first()[0] + 1 # .distinct().count()
             max_user_id = log.select(sf.max('user_idx')).first()[0]
-            test_unique_user_idx = users.select('user_idx').distinct().rdd.flatMap(list).collect()
+            # test_unique_user_idx = users.select('user_idx').distinct().rdd.flatMap(list).collect()
             res = self._infer_hnsw_index(log, log.select("user_idx", "item_idx"), "", 
                 params, k, filter_seen_items, 
                 index_type="sparse", max_user_id=max_user_id, items_count=items_count,
-                test_unique_user_idx=test_unique_user_idx)
+                users=users)
 
             return res
 
+        return self._predict_pairs_inner(
+            log=log,
+            filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
+            condition=sf.col("item_idx_two") == sf.col("item_idx_filter"),
+            users=users,
+        )
             
 
 

@@ -475,6 +475,9 @@ def main(spark: SparkSession, dataset_name: str):
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer_sec", infer_timer.duration)
 
+
+        print("in main script")
+        recs.show()
         with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
             "Metrics calculation", "e.add_result()"
         ):
