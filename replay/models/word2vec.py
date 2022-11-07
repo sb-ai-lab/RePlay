@@ -222,8 +222,6 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnsw):
             how="inner",
             on=sf.col("item_idx") == sf.col("item"),
         ).drop("item")
-        l = len(self.vectors.select("vector").first()[0])
-        print(f"length of vectors {l}")
         return (
             res.groupby("user_idx")
             .agg(

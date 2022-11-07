@@ -46,11 +46,11 @@ logger.setLevel(logging.DEBUG)
 def main(spark: SparkSession, dataset_name: str):
     spark_conf: SparkConf = spark.sparkContext.getConf()
 
-    if getNumberOfAllocatedExecutors(spark) < int(
-        spark_conf.get("spark.executor.instances")
-    ):
-        # logger.error("Not enough executors to run experiment!")
-        raise Exception("Not enough executors to run experiment!")
+    if spark_conf.get("spark.executor.instances"):
+        if getNumberOfAllocatedExecutors(spark) < int(
+            spark_conf.get("spark.executor.instances")
+        ):
+            raise Exception("Not enough executors to run experiment!")
 
     K = int(os.environ.get("K", 5))
     K_list_metrics = [5, 10]
@@ -59,8 +59,8 @@ def main(spark: SparkSession, dataset_name: str):
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
     MODEL = os.environ.get(
-        "MODEL", "ALS_NMSLIB_HNSW"
-    )  # ALS SLIM Word2VecRec PopRec ALS_NMSLIB_HNSW
+        "MODEL", "SLIM_NMSLIB_HNSW"
+    )  # ALS SLIM Word2VecRec PopRec ALS_NMSLIB_HNSW SLIM_NMSLIB_HNSW
 
     if os.environ.get("PARTITION_NUM"):
         partition_num = int(os.environ.get("PARTITION_NUM"))
@@ -364,29 +364,52 @@ def main(spark: SparkSession, dataset_name: str):
             ALS_RANK = int(os.environ.get("ALS_RANK", 100))
             build_index_on = "driver"  # driver executor
             num_blocks = int(os.environ.get("NUM_BLOCKS", 10))
-
+            nmslib_hnsw_params = {
+                "method": "hnsw",
+                "space": "negdotprod",
+                "M": 100,
+                "efS": 2000,
+                "efC": 2000,
+                "post": 0,
+                # "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
+                "build_index_on": build_index_on,
+            }
             mlflow.log_params(
                 {
                     "ALS_rank": ALS_RANK,
                     "num_blocks": num_blocks,
                     "build_index_on": build_index_on,
+                    "nmslib_hnsw_params": nmslib_hnsw_params,
                 }
             )
-
             model = ALSWrap(
                 rank=ALS_RANK,
                 seed=SEED,
                 num_item_blocks=num_blocks,
                 num_user_blocks=num_blocks,
-                nmslib_hnsw_params={
-                    "method": "hnsw",
-                    "space": "negdotprod",
-                    # "index_path": "/opt/spark_data/replay_datasets/nmslib_hnsw_index",
-                    "build_index_on": build_index_on,
-                },
+                nmslib_hnsw_params=nmslib_hnsw_params,
             )
         elif MODEL == "SLIM":
             model = SLIM(seed=SEED)
+        elif MODEL == "SLIM_NMSLIB_HNSW":
+            build_index_on = "executor"  # driver executor driver
+            nmslib_hnsw_params = {
+                "method": "hnsw",
+                "space": "negdotprod_sparse",
+                "M": 100,
+                "efS": 2000,
+                "efC": 2000,
+                "post": 0,
+                "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
+                "build_index_on": build_index_on,
+            }
+            mlflow.log_params(
+                {
+                    "build_index_on": build_index_on,
+                    "nmslib_hnsw_params": nmslib_hnsw_params,
+                }
+            )
+            model = SLIM(seed=SEED, nmslib_hnsw_params=nmslib_hnsw_params)
         elif MODEL == "ItemKNN":
             model = ItemKNN(num_neighbours=100)
         elif MODEL == "LightFM":
@@ -399,7 +422,6 @@ def main(spark: SparkSession, dataset_name: str):
             model = Word2VecRec(seed=SEED)
         elif MODEL == "Word2VecRec_NMSLIB_HNSW":
             build_index_on = "executor"  # driver executor
-            mlflow.log_params({"build_index_on": build_index_on})
             nmslib_hnsw_params = {
                 "method": "hnsw",
                 "space": "negdotprod",
@@ -407,14 +429,20 @@ def main(spark: SparkSession, dataset_name: str):
                 "efS": 2000,
                 "efC": 2000,
                 "post": 0,
-                "index_path": "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/nmslib_hnsw_index_Word2Vec",
+                "index_path": f"hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
                 "build_index_on": build_index_on,
             }
+            mlflow.log_params(
+                {
+                    "build_index_on": build_index_on,
+                    "nmslib_hnsw_params": nmslib_hnsw_params,
+                }
+            )
+
             model = Word2VecRec(
                 seed=SEED,
                 nmslib_hnsw_params=nmslib_hnsw_params,
             )
-            mlflow.log_param("nmslib_hnsw_params", nmslib_hnsw_params)
         elif MODEL == "PopRec":
             model = PopRec()
         elif MODEL == "UserPopRec":
@@ -429,15 +457,14 @@ def main(spark: SparkSession, dataset_name: str):
             raise ValueError("Unknown model.")
 
         with log_exec_timer(f"{MODEL} training") as train_timer, JobGroup(
-            f"{model.__class__.__name__}.fit()", "Model training"
+            "Model training", f"{model.__class__.__name__}.fit()"
         ):
             model.fit(log=train)
         mlflow.log_metric("train_sec", train_timer.duration)
 
         with log_exec_timer(f"{MODEL} prediction") as infer_timer, JobGroup(
-            f"{model.__class__.__name__}.predict()", "Model inference"
+            "Model inference", f"{model.__class__.__name__}.predict()"
         ):
-
             recs = model.predict(
                 k=K,
                 users=test.select("user_idx").distinct(),
@@ -448,7 +475,9 @@ def main(spark: SparkSession, dataset_name: str):
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer_sec", infer_timer.duration)
 
-        with log_exec_timer(f"Metrics calculation") as metrics_timer:
+        with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
+            "Metrics calculation", "e.add_result()"
+        ):
             e = Experiment(
                 test,
                 {

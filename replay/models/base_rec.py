@@ -513,7 +513,7 @@ class BaseRecommender(ABC):
             mlflow.log_metric("before_predict_sec", before_predict_timer.duration)
 
         with log_exec_timer(f"{self.__class__.__name__} execution") as _predict_timer, JobGroup(
-            f"{self.__class__.__name__}._predict()", "Model inference (inside 1)"
+            "Model inference (inside 1)", f"{self.__class__.__name__}._predict()"
         ):
             recs = self._predict(
                 log,
@@ -531,7 +531,7 @@ class BaseRecommender(ABC):
 
         if filter_seen_items and log:
             with log_exec_timer("_filter_seen()") as _filter_seen_timer, JobGroup(
-                f"{self.__class__.__name__}._filter_seen()", "Model inference (inside 2)"
+                "Model inference (inside 2)", f"{self.__class__.__name__}._filter_seen()"
             ):
                 recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
                 recs = recs.cache()
@@ -540,7 +540,7 @@ class BaseRecommender(ABC):
                 mlflow.log_metric("filter_seen_sec", _filter_seen_timer.duration)
 
         with log_exec_timer("get_top_k_recs()") as get_top_k_recs_timer, JobGroup(
-                f"get_top_k_recs()", "Model inference (inside 3)"
+            "Model inference (inside 3)", "get_top_k_recs()"
         ):
             recs = get_top_k_recs(recs, k=k).select(
                 "user_idx", "item_idx", "relevance"

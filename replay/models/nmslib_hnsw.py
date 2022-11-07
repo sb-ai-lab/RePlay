@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,7 @@ from pyspark import SparkFiles
 from pyspark.sql import SparkSession
 from pyspark.sql import DataFrame, Window, functions as sf
 from pyspark.sql.functions import pandas_udf
+from scipy.sparse import csr_matrix
 
 from replay.utils import FileSystem, JobGroup, get_filesystem
 
@@ -24,6 +25,7 @@ class NmslibHnsw:
         item_vectors: DataFrame,
         features_col: str,
         params: Dict[str, Any],
+        index_type: str = None
     ):
         """ "Builds hnsw index and dump it to hdfs or disk.
 
@@ -32,87 +34,113 @@ class NmslibHnsw:
             params (Dict[str, Any]): hnsw params
         """
 
-        self._broadcast_index = None
         if params["build_index_on"] == "executor":
             # to execution in one executor
             item_vectors = item_vectors.repartition(1)
 
-            # to_hdfs = False
-            # default_fs = ""
-            # if params["index_path"].startswith("hdfs://"):
-            #     to_hdfs = True
-            # elif params["index_path"].startswith("file://"):
-            #     to_hdfs = False
-            # else:
-            #     spark = SparkSession.getActiveSession()
-            #     hadoop_conf = spark._jsc.hadoopConfiguration()
-            #     default_fs = hadoop_conf.get("fs.defaultFS")  # copy.deepcopy(
-            #     logger.debug(f"fs.defaultFS: {default_fs}")
-            #     if default_fs.startswith("hdfs://"):
-            #         to_hdfs = True
             filesystem, hdfs_uri, index_path = get_filesystem(params["index_path"])
-            print(hdfs_uri)
-            print(index_path)
 
-            # def create_udf_func(method, space, to_hdfs, hdfs_uri, index_path):
-            def build_index(iterator):
-                index = nmslib.init(
-                    method=params["method"],
-                    space=params["space"],
-                    data_type=nmslib.DataType.DENSE_VECTOR,
-                )
-                for pdf in iterator:
-                    item_vectors_np = np.squeeze(pdf[features_col].values)
+            if index_type == "sparse":
+                def build_index(iterator):
+                    index = nmslib.init(
+                            method=params["method"],
+                            space=params["space"], # cosinesimil_sparse negdotprod_sparse
+                            data_type=nmslib.DataType.SPARSE_VECTOR
+                    )
+                    
+                    pdfs = []
+                    for pdf in iterator:
+                        pdfs.append(pdf)
+                    
+                    pdf = pd.concat(pdfs)
+                    
+                    data = pdf['similarity'].values
+                    row_ind = pdf['item_idx_two'].values # 'item_idx_one'
+                    col_ind = pdf['item_idx_one'].values # 'item_idx_two'
+
+                    # M = pdf['item_idx_one'].max() + 1
+                    # N = pdf['item_idx_two'].max() + 1
+
+                    sim_matrix_tmp = csr_matrix((data, (row_ind, col_ind))) # , shape=(M, N)
                     index.addDataPointBatch(
-                        data=np.stack(item_vectors_np),
-                        ids=pdf["item_idx"].values,
-                    )
-                index.createIndex({
-                    'M': params["M"],
-                    'efConstruction': params["efC"],
-                    'post' : params["post"]
-                })
-
-                if filesystem == FileSystem.HDFS:
-                    temp_path = tempfile.mkdtemp()
-                    tmp_file_path = os.path.join(
-                        temp_path, "nmslib_hnsw_index"
-                    )
-                    index.saveIndex(tmp_file_path)
-
-                    destination_filesystem = fs.HadoopFileSystem.from_uri(hdfs_uri)
-                    fs.copy_files(
-                        "file://" + tmp_file_path, index_path,
-                        destination_filesystem=destination_filesystem
+                        data=sim_matrix_tmp
                     )
 
-                    # hdfs = fs.HadoopFileSystem.from_uri(hdfs_uri)
-                    # fs.copy_files("file://" + tmp_file_path, index_path, destination_filesystem=hdfs)
-                    # param use_threads=True (?)
-                else:
-                    # if params["index_path"].startswith('file://'):
-                    #     index.saveIndex(params["index_path"][7:])
-                    # else:
-                    #     index.saveIndex(params["index_path"])
-                    # if index_path.startswith('file://'):
-                    #     index_path = index_path[7:]
-                    index.saveIndex(index_path)
+                    print(f"max(rowIds): {row_ind.max()}")
+                    print(f"max(col_ind): {col_ind.max()}")
+                    print(f"len(index): {len(index)}")
 
-                yield pd.DataFrame(data={"_success": 1}, index=[0])
+                    index.createIndex({
+                        'M': params["M"],
+                        'efConstruction': params["efC"],
+                        'post' : params["post"]
+                    })
+                    
+                    if filesystem == FileSystem.HDFS:
+                        temp_path = tempfile.mkdtemp()
+                        tmp_file_path = os.path.join(
+                            temp_path, "nmslib_hnsw_index"
+                        )
+                        index.saveIndex(tmp_file_path, save_data=True)
 
-                # return build_index
+                        destination_filesystem = fs.HadoopFileSystem.from_uri(hdfs_uri)
+                        fs.copy_files(
+                            "file://" + tmp_file_path, index_path,
+                            destination_filesystem=destination_filesystem
+                        )
+                        # param use_threads=True (?)
+                    else:
+                        index.saveIndex(index_path, save_data=True)
 
-            # build_index = create_udf_func(
-            #     params["method"],
-            #     params["space"],
-            #     to_hdfs,
-            #     default_fs,
-            #     params["index_path"],
-            # )
+                    yield pd.DataFrame(data={"_success": 1}, index=[0])
+            else:
+                def build_index(iterator):
+                    index = nmslib.init(
+                        method=params["method"],
+                        space=params["space"],
+                        data_type=nmslib.DataType.DENSE_VECTOR,
+                    )
+                    for pdf in iterator:
+                        item_vectors_np = np.squeeze(pdf[features_col].values)
+                        index.addDataPointBatch(
+                            data=np.stack(item_vectors_np),
+                            ids=pdf["item_idx"].values,
+                        )
+                    index.createIndex({
+                        'M': params["M"],
+                        'efConstruction': params["efC"],
+                        'post' : params["post"]
+                    })
 
-            item_vectors.select("item_idx", features_col).mapInPandas(
-                build_index, "_success int"
-            ).show()
+                    if filesystem == FileSystem.HDFS:
+                        temp_path = tempfile.mkdtemp()
+                        tmp_file_path = os.path.join(
+                            temp_path, "nmslib_hnsw_index"
+                        )
+                        index.saveIndex(tmp_file_path)
+
+                        destination_filesystem = fs.HadoopFileSystem.from_uri(hdfs_uri)
+                        fs.copy_files(
+                            "file://" + tmp_file_path, index_path,
+                            destination_filesystem=destination_filesystem
+                        )
+
+                        # hdfs = fs.HadoopFileSystem.from_uri(hdfs_uri)
+                        # fs.copy_files("file://" + tmp_file_path, index_path, destination_filesystem=hdfs)
+                        # param use_threads=True (?)
+                    else:
+                        index.saveIndex(index_path)
+
+                    yield pd.DataFrame(data={"_success": 1}, index=[0])
+
+            if index_type == "sparse":
+                item_vectors.select('similarity', 'item_idx_one', 'item_idx_two').mapInPandas(
+                    build_index, "_success int"
+                ).show()
+            else:
+                item_vectors.select("item_idx", features_col).mapInPandas(
+                    build_index, "_success int"
+                ).show()
         else:
             item_vectors = item_vectors.toPandas()
             item_vectors_np = np.squeeze(item_vectors[features_col].values)
@@ -169,26 +197,12 @@ class NmslibHnsw:
         features_col: str,
         params: Dict[str, Any],
         k: int,
-        filter_seen_items: bool = True
+        filter_seen_items: bool = True,
+        index_type: str = None,
+        max_user_id: Optional[int] = None,
+        items_count: Optional[int] = None,
+        test_unique_user_idx: Optional[int] = None
     ):
-
-        # if params["build_index_on"] == "executor":
-        #     from_hdfs = False
-        #     default_fs = ""
-        #     if params["index_path"].startswith("hdfs://"):
-        #         from_hdfs = True
-        #     elif params["index_path"].startswith("file://"):
-        #         from_hdfs = False
-        #     else:
-        #         spark = SparkSession.getActiveSession()
-        #         hadoop_conf = spark._jsc.hadoopConfiguration()
-        #         default_fs = copy.deepcopy(hadoop_conf.get("fs.defaultFS"))
-        #         if default_fs.startswith("hdfs://"):
-        #             from_hdfs = True
-
-        #         logger.debug(
-        #             f"hadoop_conf.get('fs.defaultFS'): {hadoop_conf.get('fs.defaultFS')}"
-        #         )
 
         if params["build_index_on"] == "executor":
             filesystem, hdfs_uri, index_path = get_filesystem(params["index_path"])
@@ -196,53 +210,104 @@ class NmslibHnsw:
         k_udf = k + self._max_items_to_retrieve
         return_type = "item_idx array<int>, distance array<double>, user_idx int"
 
-        @pandas_udf(return_type)
-        def infer_index(
-            user_ids_list: pd.Series, vectors: pd.Series
-        ) -> pd.DataFrame:
-            index = nmslib.init(
-                method=params["method"],
-                space=params["space"],
-                data_type=nmslib.DataType.DENSE_VECTOR,
-            )
-            if params["build_index_on"] == "executor":
-                if filesystem == FileSystem.HDFS:
-                    temp_path = tempfile.mkdtemp()
-                    tmp_file_path = os.path.join(
-                        temp_path, "nmslib_hnsw_index"
-                    )
-                    source_filesystem = fs.HadoopFileSystem.from_uri(hdfs_uri)
-                    fs.copy_files(
-                        index_path,
-                        "file://" + tmp_file_path,
-                        source_filesystem=source_filesystem
-                    )
-                    index.loadIndex(tmp_file_path)
+        if index_type == "sparse":
+            # test_unique_user_idx = 
+            @pandas_udf(return_type)
+            def infer_index(
+                user_idx: pd.Series, item_idx: pd.Series
+            ) -> pd.DataFrame:
+                index = nmslib.init(
+                    method=params["method"],
+                    space=params["space"],
+                    data_type=nmslib.DataType.SPARSE_VECTOR,
+                )
+                if params["build_index_on"] == "executor":
+                    if filesystem == FileSystem.HDFS:
+                        temp_path = tempfile.mkdtemp()
+                        tmp_file_path = os.path.join(
+                            temp_path, "nmslib_hnsw_index"
+                        )
+                        source_filesystem = fs.HadoopFileSystem.from_uri(hdfs_uri)
+                        fs.copy_files(
+                            index_path,
+                            "file://" + tmp_file_path,
+                            source_filesystem=source_filesystem
+                        )
+                        index.loadIndex(tmp_file_path, load_data=True)
+                    else:
+                        index.loadIndex(index_path, load_data=True)
                 else:
-                    # if params["index_path"].startswith('file://'):
-                    #     index.loadIndex(params["index_path"][7:])
-                    # else:
-                    #     index.loadIndex(params["index_path"])
-                    index.loadIndex(index_path)
-            else:
-                index.loadIndex(SparkFiles.get("nmslib_hnsw_index"))
+                    index.loadIndex(SparkFiles.get("nmslib_hnsw_index"))
 
-            index.setQueryTimeParams({'efSearch': params["efS"]})
-            neighbours = index.knnQueryBatch(np.stack(vectors.values), k=k_udf)
-            pd_res = pd.DataFrame(neighbours, columns=["item_idx", "distance"])
-            # which is better?
-            # pd_res['user_idx'] = user_ids_list
-            pd_res = pd_res.assign(user_idx=user_ids_list.values)
+                index.setQueryTimeParams({'efSearch': params["efS"]})
+                ones = pd.Series(1 for _ in range(len(user_idx)))
+                print(f"len(ones): {len(ones)}")
+                print(f"len(user_idx): {len(user_idx)}")
+                print(f"len(item_idx): {len(item_idx)}")
+                print(f"max_user_id: {max_user_id}")
+                print(f"items_count: {items_count}")
+                interactions_matrix = csr_matrix(
+                    (ones, (user_idx, item_idx)),
+                    shape=(max_user_id+1, items_count), # user_idx.max()+1
+                )
+                neighbours = index.knnQueryBatch(interactions_matrix, k=k_udf)
+                pd_res = pd.DataFrame(neighbours, columns=['item_idx', 'distance'])
+                pd_res['user_idx'] = [x for x in range(interactions_matrix.shape[0])]
+                pd_res = pd_res[pd_res['user_idx'].isin(test_unique_user_idx)]
+                # which is better?
+                # pd_res['user_idx'] = user_ids_list
+                # pd_res = pd_res.assign(user_idx=user_idx.values)
 
-            return pd_res
+                return pd_res
+        else:
+            @pandas_udf(return_type)
+            def infer_index(
+                user_ids_list: pd.Series, vectors: pd.Series
+            ) -> pd.DataFrame:
+                index = nmslib.init(
+                    method=params["method"],
+                    space=params["space"],
+                    data_type=nmslib.DataType.DENSE_VECTOR,
+                )
+                if params["build_index_on"] == "executor":
+                    if filesystem == FileSystem.HDFS:
+                        temp_path = tempfile.mkdtemp()
+                        tmp_file_path = os.path.join(
+                            temp_path, "nmslib_hnsw_index"
+                        )
+                        source_filesystem = fs.HadoopFileSystem.from_uri(hdfs_uri)
+                        fs.copy_files(
+                            index_path,
+                            "file://" + tmp_file_path,
+                            source_filesystem=source_filesystem
+                        )
+                        index.loadIndex(tmp_file_path)
+                    else:
+                        index.loadIndex(index_path)
+                else:
+                    index.loadIndex(SparkFiles.get("nmslib_hnsw_index"))
+
+                index.setQueryTimeParams({'efSearch': params["efS"]})
+                neighbours = index.knnQueryBatch(np.stack(vectors.values), k=k_udf)
+                pd_res = pd.DataFrame(neighbours, columns=["item_idx", "distance"])
+                # which is better?
+                # pd_res['user_idx'] = user_ids_list
+                pd_res = pd_res.assign(user_idx=user_ids_list.values)
+
+                return pd_res
 
         with JobGroup(
             "infer_index()",
             "infer_hnsw_index (inside 1)",
         ):
-            res = user_vectors.select(
-                infer_index("user_idx", features_col).alias("r")
-            )
+            if index_type == "sparse":
+                res = user_vectors.select(
+                    infer_index("user_idx", "item_idx").alias("r")
+                )
+            else:
+                res = user_vectors.select(
+                    infer_index("user_idx", features_col).alias("r")
+                )
             res = res.cache()
             res.write.mode("overwrite").format("noop").save()
 
@@ -327,6 +392,4 @@ class NmslibHnsw:
                     destination_filesystem=destination_filesystem
                 )
 
-            # hdfs = fs.HadoopFileSystem.from_uri(hdfs_uri)
-            # fs.copy_files("file://" + tmp_file_path, index_path, destination_filesystem=hdfs)
             # param use_threads=True (?)

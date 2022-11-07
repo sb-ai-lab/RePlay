@@ -3,15 +3,17 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from pyspark.sql import DataFrame
+from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
 from replay.models.base_rec import NeighbourRec
+from replay.models.nmslib_hnsw import NmslibHnsw
 from replay.session_handler import State
 
 
-class SLIM(NeighbourRec):
+class SLIM(NeighbourRec, NmslibHnsw):
     """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
 
@@ -105,7 +107,67 @@ class SLIM(NeighbourRec):
         self.similarity.cache().count()
 
         if self._nmslib_hnsw_params:
-            pass
+            
+            similarity_df = self.similarity.select("similarity", 'item_idx_one', 'item_idx_two')
+            self._build_hnsw_index(similarity_df, None, self._nmslib_hnsw_params, index_type="sparse")
+
+            self._max_items_to_retrieve, *_ = (
+                    log.groupBy('user_idx')
+                    .agg(sf.count('item_idx').alias('num_items'))
+                    .select(sf.max('num_items'))
+                    .first()
+            )
+
+
+    # pylint: disable=too-many-arguments
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        
+        if self._nmslib_hnsw_params:
+
+            params = self._nmslib_hnsw_params
+
+            # with JobGroup(
+            #     "self._get_user_vectors()",
+            #     "_predict (inside 1)",
+            # ):
+            #     user_vectors = self._get_user_vectors(users, log)
+            #     user_vectors = user_vectors.cache()
+            #     user_vectors.write.mode("overwrite").format("noop").save()
+            
+
+            # with JobGroup(
+            #     "select vector_to_array",
+            #     "_predict (inside 2)",
+            # ):
+            #     # converts to pandas_udf compatible format
+            #     user_vectors = (
+            #             user_vectors
+            #             .select(
+            #                 "user_idx",
+            #                 vector_to_array("user_vector").alias("user_vector")
+            #             )
+            #     )
+            #     user_vectors = user_vectors.cache()
+            #     user_vectors.write.mode("overwrite").format("noop").save()
+
+            items_count = log.select(sf.max('item_idx')).first()[0] + 1 # .distinct().count()
+            max_user_id = log.select(sf.max('user_idx')).first()[0]
+            test_unique_user_idx = users.select('user_idx').distinct().rdd.flatMap(list).collect()
+            res = self._infer_hnsw_index(log, log.select("user_idx", "item_idx"), "", 
+                params, k, filter_seen_items, 
+                index_type="sparse", max_user_id=max_user_id, items_count=items_count,
+                test_unique_user_idx=test_unique_user_idx)
+
+            return res
 
             
 
