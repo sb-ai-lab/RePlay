@@ -8,8 +8,18 @@ from tests.utils import log, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
 
 
 @pytest.fixture(
-    params=[{"seed": 123}, {}, {"distribution": "popular_based", "seed": 123}],
-    ids=["uniform_seed", "uniform_no_seed", "popular_based_seed"],
+    params=[
+        {"seed": 123},
+        {},
+        {"distribution": "popular_based", "seed": 123},
+        {"distribution": "relevance", "seed": 123},
+    ],
+    ids=[
+        "uniform_seed",
+        "uniform_no_seed",
+        "popular_based_seed",
+        "relevance_seed",
+    ],
 )
 def fitted_model(request, log):
     model = RandomRec(**request.param)
@@ -22,13 +32,23 @@ def test_popularity_matrix(log, fitted_model):
         true_matrix = (
             log.select("item_idx")
             .distinct()
-            .withColumn("probability", sf.lit(1.0))
+            .withColumn("relevance", sf.lit(1.0))
         )
-    else:
+    elif fitted_model.distribution == "popular_based":
         true_matrix = log.groupby(
             "item_idx"
         ).agg(  # pylint: disable=not-callable
-            sf.countDistinct("user_idx").astype("double").alias("probability")
+            sf.countDistinct("user_idx").astype("double").alias("relevance")
+        )
+    elif fitted_model.distribution == "relevance":
+        true_matrix = (
+            log.groupby("item_idx")
+            .agg(sf.sum("relevance").alias("relevance"))
+            .withColumn(
+                "relevance",
+                sf.col("relevance")
+                / sf.lit(log.agg(sf.sum("relevance")).first()[0]),
+            )
         )
 
     sparkDataFrameEqual(

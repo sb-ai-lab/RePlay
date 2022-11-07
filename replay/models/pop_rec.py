@@ -1,12 +1,12 @@
 from typing import Optional
 
-from pyspark.sql import DataFrame, Window
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from replay.models.base_rec import Recommender
+from replay.models.base_rec import NonPersonalizedRecommender
 
 
-class PopRec(Recommender):
+class PopRec(NonPersonalizedRecommender):
     """
     Recommend objects using their popularity.
 
@@ -59,9 +59,6 @@ class PopRec(Recommender):
 
     """
 
-    item_popularity: DataFrame
-    can_predict_cold_users = True
-
     def __init__(self, use_relevance: bool = False):
         """
         :param use_relevance: flag to use relevance values as is or to treat them as 1
@@ -72,16 +69,13 @@ class PopRec(Recommender):
     def _init_args(self):
         return {"use_relevance": self.use_relevance}
 
-    @property
-    def _dataframes(self):
-        return {"item_popularity": self.item_popularity}
-
     def _fit(
         self,
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
+
         if self.use_relevance:
             self.item_popularity = (
                 log.groupBy("item_idx")
@@ -103,10 +97,6 @@ class PopRec(Recommender):
             )
         self.item_popularity.cache().count()
 
-    def _clear_cache(self):
-        if hasattr(self, "item_popularity"):
-            self.item_popularity.unpersist()
-
     # pylint: disable=too-many-arguments
     def _predict(
         self,
@@ -118,33 +108,10 @@ class PopRec(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        selected_item_popularity = self.item_popularity.join(
-            items,
-            on="item_idx",
-            how="inner",
-        ).withColumn(
-            "rank",
-            sf.row_number().over(Window.orderBy(sf.col("relevance").desc())),
+
+        return self._predict_without_sampling(
+            log, k, users, items, filter_seen_items
         )
-
-        max_hist_len = 0
-        if filter_seen_items:
-            max_hist_len = (
-                (
-                    log.join(users, on="user_idx")
-                    .groupBy("user_idx")
-                    .agg(sf.countDistinct("item_idx").alias("items_count"))
-                )
-                .select(sf.max("items_count"))
-                .collect()[0][0]
-            )
-            # all users have empty history
-            if max_hist_len is None:
-                max_hist_len = 0
-
-        return users.crossJoin(
-            selected_item_popularity.filter(sf.col("rank") <= k + max_hist_len)
-        ).drop("rank")
 
     def _predict_pairs(
         self,
@@ -153,4 +120,5 @@ class PopRec(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
+
         return pairs.join(self.item_popularity, on="item_idx", how="inner")

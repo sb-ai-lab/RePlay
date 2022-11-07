@@ -37,21 +37,14 @@ class Wilson(PopRec):
     def _init_args(self):
         return {"alpha": self.alpha}
 
-    @property
-    def _dataframes(self):
-        return {"item_popularity": self.item_popularity}
-
     def _fit(
         self,
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        vals = log.select("relevance").where(
-            (sf.col("relevance") != 1) & (sf.col("relevance") != 0)
-        )
-        if vals.count() > 0:
-            raise ValueError("Relevance values in log must be 0 or 1")
+
+        self._check_relevance(log)
 
         items_counts = log.groupby("item_idx").agg(
             sf.sum("relevance").alias("pos"),

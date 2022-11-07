@@ -148,3 +148,4 @@ tmp/
 docs/_build/
 *.DS_Store
 */catboost_info
+.vscode
