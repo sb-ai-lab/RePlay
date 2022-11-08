@@ -19,6 +19,7 @@ from replay.models import (
     SLIM,
     MultVAE,
     Word2VecRec,
+    DDPG,
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
 
@@ -59,6 +60,7 @@ def log_to_pred(spark):
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         PopRec(),
+        DDPG(seed=SEED),
     ],
     ids=[
         "als",
@@ -70,6 +72,7 @@ def log_to_pred(spark):
         "slim",
         "word2vec",
         "poprec",
+        "ddpg",
     ],
 )
 def test_predict_pairs_warm_only(log, log_to_pred, model):
@@ -310,6 +313,7 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
         NeuroMF(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
+        DDPG(seed=SEED, user_num=6, item_num=6),
     ],
     ids=[
         "als",
@@ -319,6 +323,7 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
         "neuromf",
         "slim",
         "word2vec",
+        "ddpg",
     ],
 )
 def test_predict_cold_and_new_filter_out(model, long_log_with_features):
@@ -342,11 +347,13 @@ def test_predict_cold_and_new_filter_out(model, long_log_with_features):
         PopRec(),
         ALSWrap(rank=2, seed=SEED),
         ItemKNN(),
+        DDPG(seed=SEED, user_num=6, item_num=6),
     ],
     ids=[
         "pop_rec",
         "als",
         "knn",
+        "ddpg",
     ],
 )
 def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
@@ -376,11 +383,13 @@ def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
         PopRec(),
         ALSWrap(rank=2, seed=SEED),
         ItemKNN(),
+        DDPG(seed=SEED, user_num=6, item_num=6),
     ],
     ids=[
         "pop_rec",
         "als",
         "knn",
+        "ddpg",
     ],
 )
 def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
