@@ -425,8 +425,8 @@ class DDPG(TorchRecommender):
         noise_theta: float = 0.1,
         noise_type: str = "ou",
         seed: int = 9,
-        user_num: int = 5000,
-        item_num: int = 200000,
+        user_num: int = 10,
+        item_num: int = 10,
         log_dir: str = "logs/tmp",
         exact_embeddings_size=True,
     ):
