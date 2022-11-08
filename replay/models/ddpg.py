@@ -611,6 +611,7 @@ class DDPG(TorchRecommender):
                 target_param.data * (1.0 - soft_tau) + param.data * soft_tau
             )
 
+    # pylint: disable=attribute-defined-outside-init
     def _fit(
         self,
         log: DataFrame,
@@ -688,7 +689,8 @@ class DDPG(TorchRecommender):
                 action_emb = self.model(user, memory)
                 action_emb = self.ou_noise.get_action(action_emb[0], user_step)
                 action = self.model.get_action(
-                    action_emb, self.model.environment.available_items,
+                    action_emb,
+                    self.model.environment.available_items,
                 )
                 user, memory, reward, _ = self.model.environment.step(
                     action, action_emb, self.replay_buffer
@@ -707,15 +709,24 @@ class DDPG(TorchRecommender):
 
         self._save_model(self.log_dir / "model_final.pt")
         if self.save_optimizers:
-            DDPG._save_optimizers(policy_optimizer, value_optimizer, self.log_dir)
+            DDPG._save_optimizers(
+                policy_optimizer, value_optimizer, self.log_dir
+            )
 
     def _save_model(self, path: str) -> None:
-        self.logger.debug(f"-- Saving model from file (user_num={self.user_num}, item_num={self.item_num})")
-        torch.save({
-            "actor": self.model.state_dict(),
-            "critic": self.value_net.state_dict(),
-            "memory": self.model.environment.memory,
-        }, path)
+        self.logger.debug(
+            "-- Saving model from file (user_num=%d, item_num=%d)",
+            self.user_num,
+            self.item_num
+        )
+        torch.save(
+            {
+                "actor": self.model.state_dict(),
+                "critic": self.value_net.state_dict(),
+                "memory": self.model.environment.memory,
+            },
+            path,
+        )
 
     def _load_model(self, path: str) -> None:
         self.logger.debug("-- Loading model from file")

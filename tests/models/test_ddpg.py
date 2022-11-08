@@ -4,11 +4,10 @@ from datetime import datetime
 import pytest
 import torch
 import numpy as np
-from pytorch_ranger import Ranger
 
 from replay.constants import LOG_SCHEMA
 from replay.models import DDPG
-from replay.models.ddpg import ActorDRR, Env, ReplayBuffer, to_np
+from replay.models.ddpg import ActorDRR, OUNoise, ReplayBuffer, to_np
 from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
 
 
@@ -53,7 +52,7 @@ def model(log):
     return model
 
 
-def test_fit(log, model, user_num=5, item_num=5):
+def test_fit(log, model):
     model.fit(log)
     assert len(list(model.model.parameters())) == 10
     param_shapes = [
@@ -63,8 +62,8 @@ def test_fit(log, model, user_num=5, item_num=5):
         (16,),
         (8, 16),
         (8,),
-        (user_num, 8),
-        (item_num + 1, 8),
+        (3, 8),
+        (5, 8),
         (1, 5, 1),
         (1,),
     ]
@@ -73,8 +72,7 @@ def test_fit(log, model, user_num=5, item_num=5):
 
 
 def test_predict(log, model):
-    model.ou_noise.noise_type = "gauss"
-    model.replay_buffer.capacity = 4
+    model.noise_type = "gauss"
     model.batch_size = 4
     model.fit(log)
     try:
@@ -84,11 +82,12 @@ def test_predict(log, model):
         pytest.fail()
 
 
-def test_save_load(log, model, spark, user_num=5, item_num=5):
+def test_save_load(log, model, user_num=5, item_num=5):
     spark_local_dir = "./logs/tmp/"
     pattern = "model_final.pt"
     del_files_by_pattern(spark_local_dir, pattern)
 
+    model.exact_embeddings_size = False
     model.fit(log=log)
     old_params = [
         param.detach().cpu().numpy() for param in model.model.parameters()
@@ -111,3 +110,45 @@ def test_save_load(log, model, spark, user_num=5, item_num=5):
         assert np.allclose(
             parameter.detach().cpu().numpy(), old_params[i], atol=1.0e-3,
         )
+
+
+def test_env_step(log, model, user=0):
+    replay_buffer = ReplayBuffer()
+    # model.replay_buffer.capacity = 4
+    train_matrix, _, _, _ = model._preprocess_log(log)
+    model.model = ActorDRR(
+        model.user_num,
+        model.item_num,
+        model.embedding_dim,
+        model.hidden_dim,
+        model.memory_size,
+    )
+    model.model.environment.update_env(matrix=train_matrix)
+    model.ou_noise = OUNoise(
+        model.embedding_dim,
+        theta=model.noise_theta,
+        max_sigma=model.noise_sigma,
+        min_sigma=model.noise_sigma,
+        noise_type=model.noise_type,
+    )
+
+    user, memory = model.model.environment.reset(user)
+
+    action_emb = model.model(user, memory)
+    model.ou_noise.noise_type = "abcd"
+    with pytest.raises(ValueError):
+        action_emb = model.ou_noise.get_action(action_emb[0], 0)
+
+    model.ou_noise.noise_type = "ou"
+    _, action = model.model.get_action(
+        action_emb,
+        model.model.environment.available_items,
+        return_scores=True,
+    )
+
+    model.model.environment.memory[to_np(user), to_np(action)] = 1
+
+    user, new_memory, _, _ = model.model.environment.step(
+        action, action_emb, replay_buffer
+    )
+    assert new_memory[user][0][-1] == action
