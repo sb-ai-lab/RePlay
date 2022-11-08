@@ -428,6 +428,7 @@ class DDPG(TorchRecommender):
         user_num: int = 5000,
         item_num: int = 200000,
         log_dir: str = "logs/tmp",
+        exact_embeddings_size=True,
     ):
         """
         :param noise_sigma: Ornstein-Uhlenbeck noise sigma value
@@ -437,6 +438,7 @@ class DDPG(TorchRecommender):
         :param user_num: number of users
         :param item_num: number of items
         :param log_dir: dir to save models
+        :exact_embeddings_size: flag whether to use user/item count from data
         """
         super().__init__()
         np.random.seed(seed)
@@ -444,41 +446,11 @@ class DDPG(TorchRecommender):
 
         self.noise_theta = noise_theta
         self.noise_sigma = noise_sigma
+        self.noise_type = noise_type
         self.user_num = user_num
         self.item_num = item_num
         self.log_dir = Path(log_dir)
-        self.replay_buffer = ReplayBuffer(self.buffer_size)
-
-        self.ou_noise = OUNoise(
-            self.embedding_dim,
-            theta=noise_theta,
-            max_sigma=noise_sigma,
-            min_sigma=noise_sigma,
-            noise_type=noise_type,
-        )
-
-        self.model = ActorDRR(
-            user_num,
-            item_num,
-            self.embedding_dim,
-            self.hidden_dim,
-            self.memory_size,
-        )
-        self.target_model = ActorDRR(
-            user_num,
-            item_num,
-            self.embedding_dim,
-            self.hidden_dim,
-            self.memory_size,
-        )
-        self.value_net = CriticDRR(
-            self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
-        )
-        self.target_value_net = CriticDRR(
-            self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
-        )
-        self._target_update(self.target_value_net, self.value_net, soft_tau=1)
-        self._target_update(self.target_model, self.model, soft_tau=1)
+        self.exact_embeddings_size = exact_embeddings_size
 
     @property
     def _init_args(self):
@@ -604,7 +576,7 @@ class DDPG(TorchRecommender):
 
         appropriate_users = data["user_idx"].unique()
 
-        return train_matrix, item_num, appropriate_users
+        return train_matrix, user_num, item_num, appropriate_users
 
     def _get_batch(self, step=0):
         beta = self._get_beta(step)
@@ -645,11 +617,44 @@ class DDPG(TorchRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        train_matrix, _, appropriate_users = self._preprocess_log(log)
-        self.model.environment.update_env(
-            matrix=train_matrix  # , item_count=current_item_num
+        train_matrix, user_num, item_num, users = self._preprocess_log(log)
+        users = np.random.permutation(users)
+        if self.exact_embeddings_size:
+            self.user_num = user_num
+            self.item_num = item_num
+
+        self.replay_buffer = ReplayBuffer(self.buffer_size)
+        self.ou_noise = OUNoise(
+            self.embedding_dim,
+            theta=self.noise_theta,
+            max_sigma=self.noise_sigma,
+            min_sigma=self.noise_sigma,
+            noise_type=self.noise_type,
         )
-        users = np.random.permutation(appropriate_users)
+
+        self.model = ActorDRR(
+            self.user_num,
+            self.item_num,
+            self.embedding_dim,
+            self.hidden_dim,
+            self.memory_size,
+        )
+        self.model.environment.update_env(matrix=train_matrix)
+        self.target_model = ActorDRR(
+            self.user_num,
+            self.item_num,
+            self.embedding_dim,
+            self.hidden_dim,
+            self.memory_size,
+        )
+        self.value_net = CriticDRR(
+            self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
+        )
+        self.target_value_net = CriticDRR(
+            self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
+        )
+        self._target_update(self.target_value_net, self.value_net, soft_tau=1)
+        self._target_update(self.target_model, self.model, soft_tau=1)
 
         policy_optimizer = Ranger(
             self.model.parameters(),
