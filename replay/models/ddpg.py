@@ -710,6 +710,7 @@ class DDPG(TorchRecommender):
             DDPG._save_optimizers(policy_optimizer, value_optimizer, self.log_dir)
 
     def _save_model(self, path: str) -> None:
+        self.logger.debug(f"-- Saving model from file (user_num={self.user_num}, item_num={self.item_num})")
         torch.save({
             "actor": self.model.state_dict(),
             "critic": self.value_net.state_dict(),
@@ -718,6 +719,16 @@ class DDPG(TorchRecommender):
 
     def _load_model(self, path: str) -> None:
         self.logger.debug("-- Loading model from file")
+        self.model = ActorDRR(
+            self.user_num,
+            self.item_num,
+            self.embedding_dim,
+            self.hidden_dim,
+            self.memory_size,
+        )
+        self.value_net = CriticDRR(
+            self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
+        )
 
         checkpoint = torch.load(path)
         self.model.load_state_dict(checkpoint["actor"])
