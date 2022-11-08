@@ -413,6 +413,7 @@ class DDPG(TorchRecommender):
     min_value: int = -10
     max_value: int = 10
     buffer_size: int = 1000000
+    save_optimizers: bool = True
     _search_space = {
         "noise_sigma": {"type": "uniform", "args": [0.1, 0.6]},
         "noise_theta": {"type": "uniform", "args": [0.1, 0.4]},
@@ -700,6 +701,8 @@ class DDPG(TorchRecommender):
                 step += 1
 
         self._save_model(self.log_dir / "model_final.pt")
+        if self.save_optimizers:
+            DDPG._save_optimizers(policy_optimizer, value_optimizer, self.log_dir)
 
     def _save_model(self, path: str) -> None:
         torch.save({
@@ -715,3 +718,8 @@ class DDPG(TorchRecommender):
         self.model.load_state_dict(checkpoint["actor"])
         self.value_net.load_state_dict(checkpoint["critic"])
         self.model.environment.memory = checkpoint["memory"]
+
+    @staticmethod
+    def _save_optimizers(policy_optimizer, value_optimizer, path: str) -> None:
+        torch.save(policy_optimizer, path / "policy_optimizer.pt")
+        torch.save(value_optimizer, path / "value_optimizer.pt")
