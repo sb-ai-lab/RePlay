@@ -815,7 +815,27 @@ def get_default_fs():
     )
     return default_fs
 
-def get_filesystem(path: str):
+def get_filesystem(path: str) -> Tuple[int, Optional[str], str]:
+    """Analyzes path and hadoop config and return tuple of `filesystem`,
+    `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix).
+
+    For example:
+
+    >>> path = 'hdfs://node21.bdcl:9000/tmp/file'
+    >>> get_filesystem(path)
+    FileSystem.HDFS, 'hdfs://node21.bdcl:9000', '/tmp/file'
+    or
+    >>> path = 'file:///tmp/file'
+    >>> get_filesystem(path)
+    FileSystem.LOCAL, None, '/tmp/file'
+
+    Args:
+        path (str): path to file on hdfs or local disk
+
+    Returns:
+        Tuple[int, Optional[str], str]: `filesystem id`,
+    `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix)
+    """
     if path.startswith("hdfs://"):
         if path.startswith("hdfs:///"):
             default_fs = get_default_fs()

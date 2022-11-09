@@ -1,5 +1,6 @@
 import os
 import logging.config
+import time
 
 import mlflow
 import pandas as pd
@@ -24,6 +25,8 @@ from replay.models import (
     RandomRec,
     AssociationRulesItemRec,
     UserPopRec,
+    Wilson,
+    ClusterRec
 )
 
 # from rs_datasets import MovieLens, MillionSongDataset
@@ -59,8 +62,11 @@ def main(spark: SparkSession, dataset_name: str):
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
     MODEL = os.environ.get(
-        "MODEL", "SLIM_NMSLIB_HNSW"
-    )  # ALS SLIM Word2VecRec PopRec ALS_NMSLIB_HNSW SLIM_NMSLIB_HNSW
+        "MODEL", "ALS_NMSLIB_HNSW"
+    )  # Word2VecRec PopRec
+    # ALS ALS_NMSLIB_HNSW 
+    # SLIM SLIM_NMSLIB_HNSW
+    # ItemKNN ItemKNN_NMSLIB_HNSW
 
     if os.environ.get("PARTITION_NUM"):
         partition_num = int(os.environ.get("PARTITION_NUM"))
@@ -392,10 +398,10 @@ def main(spark: SparkSession, dataset_name: str):
         elif MODEL == "SLIM":
             model = SLIM(seed=SEED)
         elif MODEL == "SLIM_NMSLIB_HNSW":
-            build_index_on = "executor"  # driver executor driver
+            build_index_on = "executor"  # driver executor
             nmslib_hnsw_params = {
                 "method": "hnsw",
-                "space": "negdotprod_sparse",
+                "space": "negdotprod_sparse", # cosinesimil_sparse negdotprod_sparse
                 "M": 100,
                 "efS": 2000,
                 "efC": 2000,
@@ -412,6 +418,25 @@ def main(spark: SparkSession, dataset_name: str):
             model = SLIM(seed=SEED, nmslib_hnsw_params=nmslib_hnsw_params)
         elif MODEL == "ItemKNN":
             model = ItemKNN(num_neighbours=100)
+        elif MODEL == "ItemKNN_NMSLIB_HNSW":
+            build_index_on = "executor"  # driver executor
+            nmslib_hnsw_params = {
+                "method": "hnsw",
+                "space": "negdotprod_sparse", # cosinesimil_sparse negdotprod_sparse
+                "M": 100,
+                "efS": 2000,
+                "efC": 2000,
+                "post": 0,
+                "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
+                "build_index_on": build_index_on,
+            }
+            mlflow.log_params(
+                {
+                    "build_index_on": build_index_on,
+                    "nmslib_hnsw_params": nmslib_hnsw_params,
+                }
+            )
+            model = ItemKNN(num_neighbours=100, nmslib_hnsw_params=nmslib_hnsw_params)
         elif MODEL == "LightFM":
             model = LightFMWrap(random_state=SEED)
         elif MODEL == "Word2VecRec":
@@ -453,6 +478,10 @@ def main(spark: SparkSession, dataset_name: str):
             model = RandomRec(seed=SEED, distribution="popular_based")
         elif MODEL == "AssociationRulesItemRec":
             model = AssociationRulesItemRec()
+        elif MODEL == "Wilson":
+            model = Wilson()
+        elif MODEL == "ClusterRec":
+            model = ClusterRec()
         else:
             raise ValueError("Unknown model.")
 
@@ -555,8 +584,9 @@ def main(spark: SparkSession, dataset_name: str):
 
 if __name__ == "__main__":
     spark_sess = get_spark_session()
-    dataset = os.environ.get("DATASET", "ml1m")
+    dataset = os.environ.get("DATASET", "ml1m") # ml1m
     # dataset = "MovieLens__1m"
     # dataset = "MillionSongDataset"
     main(spark=spark_sess, dataset_name=dataset)
+    time.sleep(100)
     spark_sess.stop()

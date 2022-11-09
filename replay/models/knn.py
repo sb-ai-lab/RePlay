@@ -3,12 +3,16 @@ from typing import Optional
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
+from scipy.sparse import csr_matrix
 
 from replay.models.base_rec import NeighbourRec
+from replay.models.nmslib_hnsw import NmslibHnsw
 from replay.optuna_objective import ItemKNNObjective
+from replay.session_handler import State
+from replay.utils import JobGroup
 
 
-class ItemKNN(NeighbourRec):
+class ItemKNN(NeighbourRec, NmslibHnsw):
     """Item-based ItemKNN with modified cosine similarity measure."""
 
     all_items: Optional[DataFrame]
@@ -29,6 +33,7 @@ class ItemKNN(NeighbourRec):
         use_relevance: bool = False,
         shrink: float = 0.0,
         weighting: str = None,
+        nmslib_hnsw_params: Optional[dict] = None,
     ):
         """
         :param num_neighbours: number of neighbours
@@ -44,6 +49,7 @@ class ItemKNN(NeighbourRec):
         if weighting not in valid_weightings:
             raise ValueError(f"weighting must be one of {valid_weightings}")
         self.weighting = weighting
+        self._nmslib_hnsw_params = nmslib_hnsw_params
 
     @property
     def _init_args(self):
@@ -234,3 +240,59 @@ class ItemKNN(NeighbourRec):
         similarity_matrix = self._get_similarity(df)
         self.similarity = self._get_k_most_similar(similarity_matrix)
         self.similarity.cache().count()
+
+        if self._nmslib_hnsw_params:
+
+            pandas_log = df.select("user_idx", "item_idx", "relevance").toPandas()
+            interactions_matrix = csr_matrix(
+                (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
+                shape=(self._user_dim, self._item_dim),
+            )
+            self._interactions_matrix_broadcast = (
+                    State().session.sparkContext.broadcast(interactions_matrix.tocsr(copy=False))
+            )
+
+            items_count = log.select(sf.max('item_idx')).first()[0] + 1 
+            similarity_df = self.similarity.select("similarity", 'item_idx_one', 'item_idx_two')
+            self._build_hnsw_index(similarity_df, None, self._nmslib_hnsw_params, index_type="sparse", items_count=items_count)
+
+            self._max_items_to_retrieve, *_ = (
+                    log.groupBy('user_idx')
+                    .agg(sf.count('item_idx').alias('num_items'))
+                    .select(sf.max('num_items'))
+                    .first()
+            )
+
+
+    # pylint: disable=too-many-arguments
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        
+        if self._nmslib_hnsw_params:
+
+            params = self._nmslib_hnsw_params
+         
+            with JobGroup(
+                f"{self.__class__.__name__}._predict()",
+                "_infer_hnsw_index()",
+            ):
+                res = self._infer_hnsw_index(log, users, "", 
+                    params, k, filter_seen_items, 
+                    index_type="sparse")
+
+            return res
+
+        return self._predict_pairs_inner(
+            log=log,
+            filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
+            condition=sf.col("item_idx_two") == sf.col("item_idx_filter"),
+            users=users,
+        )

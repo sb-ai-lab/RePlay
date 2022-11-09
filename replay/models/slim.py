@@ -11,6 +11,7 @@ from sklearn.linear_model import ElasticNet
 from replay.models.base_rec import NeighbourRec
 from replay.models.nmslib_hnsw import NmslibHnsw
 from replay.session_handler import State
+from replay.utils import JobGroup
 
 
 class SLIM(NeighbourRec, NmslibHnsw):
@@ -56,6 +57,9 @@ class SLIM(NeighbourRec, NmslibHnsw):
         interactions_matrix = csc_matrix(
             (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
             shape=(self._user_dim, self._item_dim),
+        )
+        self._interactions_matrix_broadcast = (
+                State().session.sparkContext.broadcast(interactions_matrix.tocsr(copy=False))
         )
         similarity = (
             State()
@@ -135,38 +139,20 @@ class SLIM(NeighbourRec, NmslibHnsw):
         if self._nmslib_hnsw_params:
 
             params = self._nmslib_hnsw_params
-
-            # with JobGroup(
-            #     "self._get_user_vectors()",
-            #     "_predict (inside 1)",
-            # ):
-            #     user_vectors = self._get_user_vectors(users, log)
-            #     user_vectors = user_vectors.cache()
-            #     user_vectors.write.mode("overwrite").format("noop").save()
-            
-
-            # with JobGroup(
-            #     "select vector_to_array",
-            #     "_predict (inside 2)",
-            # ):
-            #     # converts to pandas_udf compatible format
-            #     user_vectors = (
-            #             user_vectors
-            #             .select(
-            #                 "user_idx",
-            #                 vector_to_array("user_vector").alias("user_vector")
-            #             )
-            #     )
-            #     user_vectors = user_vectors.cache()
-            #     user_vectors.write.mode("overwrite").format("noop").save()
-
-            items_count = log.select(sf.max('item_idx')).first()[0] + 1 # .distinct().count()
-            max_user_id = log.select(sf.max('user_idx')).first()[0]
-            # test_unique_user_idx = users.select('user_idx').distinct().rdd.flatMap(list).collect()
-            res = self._infer_hnsw_index(log, log.select("user_idx", "item_idx"), "", 
-                params, k, filter_seen_items, 
-                index_type="sparse", max_user_id=max_user_id, items_count=items_count,
-                users=users)
+         
+            with JobGroup(
+                f"{self.__class__.__name__}._predict()",
+                "_infer_hnsw_index()",
+            ):
+                # test_max_user_id = users.select(sf.max('user_idx')).first()[0]
+                # print(f"test_max_user_id: {test_max_user_id}")
+                # items_count = log.select(sf.max('item_idx')).first()[0] + 1 # .distinct().count()
+                # max_user_id = log.select(sf.max('user_idx')).first()[0]
+                # print(f"max_user_id: {max_user_id}")
+                # test_unique_user_idx = users.select('user_idx').distinct().rdd.flatMap(list).collect()
+                res = self._infer_hnsw_index(log, users, "", 
+                    params, k, filter_seen_items, 
+                    index_type="sparse")
 
             return res
 
