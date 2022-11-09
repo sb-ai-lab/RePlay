@@ -28,23 +28,38 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.7, <3.10"
+python = ">=3.7, <=3.10"
+#lightautoml = {version = ">=0.3.1, <0.3.7", python = "<3.10"}
 pytorch-ignite = "*"
-lightfm = "*"
-lightautoml = ">=0.3.1, <0.3.7"
-numpy = ">=1.20.0"
+lightfm = {version = "*", python = "<3.10"}
+numpy = [
+    {version = "<=1.19.5", python = "<3.7"},
+    {version = ">=1.2, <=1.21.5", python = ">=3.7, <3.10"},
+    {version = "1.22.3", python = "3.10"},
+]
 optuna = "*"
-pandas = "*"
+pandas = [
+    {version = "<=1.1.5", python = "<3.10"},
+    {version = "1.5.1", python = "3.10"}
+]
 psutil = "*"
 pyspark = ">=3.0, < 3.2"
 scipy = "*"
 scikit-learn = "*"
-torch = "*"
+torch = [
+    {version = "*", python = "<3.7"},
+    {version = "<1.13.0", python = ">=3.7, <3.10"},
+    {version = ">=1.11.0, <1.13.0", python = "3.10"},
+]
 numba = ">=0.50"
 llvmlite = ">=0.32.1"
 seaborn = "*"
 pyarrow = "*"
 implicit = ">=0.5"
+ipython = [
+    {version = "<8.0", python = "<3.8"},
+    {version = ">=8.0", python = ">=3.8"}
+]
 
 [tool.poetry.dev-dependencies]
 # dev only
