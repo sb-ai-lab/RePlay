@@ -1,13 +1,18 @@
 from typing import Iterable, List, Optional, Union
 
 import numpy as np
+import pandas as pd
+from scipy.sparse import csr_matrix
+
 import pyspark.sql.functions as sf
 
 from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
 
 from replay.models.base_rec import Recommender
-from replay.utils import unpersist_if_exists
+from replay.utils import unpersist_if_exists, to_csr
+from replay.session_handler import State
+from replay.constants import REC_SCHEMA
 
 
 class AssociationRulesItemRec(Recommender):
@@ -210,10 +215,49 @@ class AssociationRulesItemRec(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> None:
-        raise NotImplementedError(
-            f"item-to-user predict is not implemented for {self}, "
-            f"use get_nearest_items method to get item-to-item recommendations"
+    ) -> DataFrame:
+
+        def predict_by_user(pandas_df):
+            user_idx = int(pandas_df["user_idx"].iloc[0])
+            uniq = pandas_df["item_idx"].unique()
+            mul = csr_matrix((pandas_df["relevance"], ([0] * (uniq.shape[0]), uniq)), shape=(1, max_idx_from_log + 1))
+            res = mul @ sim_log_csr
+            res_arr = res.toarray()[0]
+            return pd.DataFrame(
+                {
+                    "user_idx": [user_idx] * k,
+                    "item_idx": np.argsort(res_arr)[::-1][:k],
+                    "relevance": np.sort(res_arr)[::-1][:k],
+                }
+            )
+
+        sim_log = (
+            self.pair_metrics
+                .select(sf.col("antecedent").alias("user_idx"),
+                        sf.col("consequent").alias("item_idx"),
+                        sf.log("lift").alias("relevance"))
+        )
+
+        max_idx_from_sim = sim_log.select(sf.max("item_idx")).first()[0]
+        max_idx_from_log = log.select(sf.max("item_idx")).first()[0]
+
+        if max_idx_from_sim < max_idx_from_log:
+            spark = State().session
+            sim_log = sim_log.union(
+                spark.createDataFrame(
+                    data=[
+                        [max_idx_from_log, max_idx_from_log, 0.]
+                    ],
+                    schema=sim_log.schema,
+                )
+            )
+
+        sim_log_csr = to_csr(sim_log)
+
+        return (
+                log.select("user_idx", "item_idx", "relevance")
+                .groupby("user_idx")
+                .applyInPandas(predict_by_user, REC_SCHEMA)
         )
 
     @property
