@@ -233,13 +233,17 @@ class ItemKNN(NeighbourRec, NmslibHnsw):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        df = log.select("user_idx", "item_idx", "relevance")
-        if not self.use_relevance:
-            df = df.withColumn("relevance", sf.lit(1))
+        with JobGroup(
+            f"{self.__class__.__name__}._fit()",
+            "self.similarity",
+        ):
+            df = log.select("user_idx", "item_idx", "relevance")
+            if not self.use_relevance:
+                df = df.withColumn("relevance", sf.lit(1))
 
-        similarity_matrix = self._get_similarity(df)
-        self.similarity = self._get_k_most_similar(similarity_matrix)
-        self.similarity.cache().count()
+            similarity_matrix = self._get_similarity(df)
+            self.similarity = self._get_k_most_similar(similarity_matrix)
+            self.similarity.cache().count()
 
         if self._nmslib_hnsw_params:
 
@@ -249,19 +253,23 @@ class ItemKNN(NeighbourRec, NmslibHnsw):
                 shape=(self._user_dim, self._item_dim),
             )
             self._interactions_matrix_broadcast = (
-                    State().session.sparkContext.broadcast(interactions_matrix.tocsr(copy=False))
+                    State().session.sparkContext.broadcast(interactions_matrix)
             )
 
             items_count = log.select(sf.max('item_idx')).first()[0] + 1 
             similarity_df = self.similarity.select("similarity", 'item_idx_one', 'item_idx_two')
             self._build_hnsw_index(similarity_df, None, self._nmslib_hnsw_params, index_type="sparse", items_count=items_count)
 
-            self._max_items_to_retrieve, *_ = (
-                    log.groupBy('user_idx')
-                    .agg(sf.count('item_idx').alias('num_items'))
-                    .select(sf.max('num_items'))
-                    .first()
-            )
+            with JobGroup(
+                f"{self.__class__.__name__}._fit()",
+                "self._max_items_to_retrieve",
+            ):
+                self._max_items_to_retrieve, *_ = (
+                        log.groupBy('user_idx')
+                        .agg(sf.count('item_idx').alias('num_items'))
+                        .select(sf.max('num_items'))
+                        .first()
+                )
 
 
     # pylint: disable=too-many-arguments

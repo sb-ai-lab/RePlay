@@ -45,6 +45,10 @@ class SLIM(NeighbourRec, NmslibHnsw):
     @property
     def _init_args(self):
         return {"beta": self.beta, "lambda_": self.lambda_, "seed": self.seed}
+    
+    def _save_model(self, path: str):
+        if self._nmslib_hnsw_params:
+            self._save_nmslib_hnsw_index(path)
 
     def _fit(
         self,
@@ -57,9 +61,6 @@ class SLIM(NeighbourRec, NmslibHnsw):
         interactions_matrix = csc_matrix(
             (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
             shape=(self._user_dim, self._item_dim),
-        )
-        self._interactions_matrix_broadcast = (
-                State().session.sparkContext.broadcast(interactions_matrix.tocsr(copy=False))
         )
         similarity = (
             State()
@@ -111,6 +112,10 @@ class SLIM(NeighbourRec, NmslibHnsw):
         self.similarity.cache().count()
 
         if self._nmslib_hnsw_params:
+
+            self._interactions_matrix_broadcast = (
+                    State().session.sparkContext.broadcast(interactions_matrix.tocsr(copy=False))
+            )
             
             items_count = log.select(sf.max('item_idx')).first()[0] + 1 
             similarity_df = self.similarity.select("similarity", 'item_idx_one', 'item_idx_two')

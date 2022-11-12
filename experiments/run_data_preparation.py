@@ -98,7 +98,7 @@ def main(spark: SparkSession, dataset_name: str):
         raise ValueError("Unknown dataset.")
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    mlflow.set_experiment(os.getenv("EXPERIMENT")) # f"replay-{MODEL}"
+    mlflow.set_experiment(os.environ.get("EXPERIMENT", "Dataset_preparation")) # os.getenv("EXPERIMENT") f"replay-{MODEL}"
 
     with mlflow.start_run():
 

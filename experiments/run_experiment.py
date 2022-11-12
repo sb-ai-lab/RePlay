@@ -63,7 +63,8 @@ def main(spark: SparkSession, dataset_name: str):
     )
     MODEL = os.environ.get(
         "MODEL", "ALS_NMSLIB_HNSW"
-    )  # Word2VecRec PopRec
+    )
+    # Word2VecRec PopRec
     # ALS ALS_NMSLIB_HNSW 
     # SLIM SLIM_NMSLIB_HNSW
     # ItemKNN ItemKNN_NMSLIB_HNSW
@@ -232,8 +233,8 @@ def main(spark: SparkSession, dataset_name: str):
                 test = spark.read.parquet(
                     "/opt/spark_data/replay_datasets/ml1m_test.parquet"
                 )
-                train = train.repartition(partition_num)
-                test = test.repartition(partition_num)
+                train = train.repartition(partition_num, "user_idx")
+                test = test.repartition(partition_num, "user_idx")
             mlflow.log_metric(
                 "parquets_read_sec", parquets_read_timer.duration
             )
@@ -402,10 +403,10 @@ def main(spark: SparkSession, dataset_name: str):
             nmslib_hnsw_params = {
                 "method": "hnsw",
                 "space": "negdotprod_sparse", # cosinesimil_sparse negdotprod_sparse
-                "M": 100,
-                "efS": 2000,
-                "efC": 2000,
-                "post": 0,
+                # "M": 100,
+                # "efS": 2000,
+                # "efC": 2000,
+                # "post": 0,
                 "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
                 "build_index_on": build_index_on,
             }
@@ -504,9 +505,6 @@ def main(spark: SparkSession, dataset_name: str):
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer_sec", infer_timer.duration)
 
-
-        print("in main script")
-        recs.show()
         with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
             "Metrics calculation", "e.add_result()"
         ):

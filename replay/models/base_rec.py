@@ -425,6 +425,16 @@ class BaseRecommender(ABC):
         )
         self._cache_model_temp_view(num_seen, "filter_seen_num_seen")
 
+        # filter recommendations presented in interactions log
+        recs = recs.join(
+            users_log.withColumnRenamed("item_idx", "item")
+            .withColumnRenamed("user_idx", "user")
+            .select("user", "item"),
+            on=(sf.col("user_idx") == sf.col("user"))
+            & (sf.col("item_idx") == sf.col("item")),
+            how="anti",
+        ).drop("user", "item")
+
         # count maximal number of items seen by users
         max_seen = 0
         if num_seen.count() > 0:
@@ -438,25 +448,15 @@ class BaseRecommender(ABC):
                     sf.col("relevance").desc()
                 )
             ),
-        ).filter(sf.col("temp_rank") <= sf.lit(max_seen + k))
+        ).filter(sf.col("temp_rank") <= sf.lit(k)) # max_seen + 
 
-        # leave k + number of items seen by user recommendations in recs
-        recs = (
-            recs.join(num_seen, on="user_idx", how="left")
-            .fillna(0)
-            .filter(sf.col("temp_rank") <= sf.col("seen_count") + sf.lit(k))
-            .drop("temp_rank", "seen_count")
-        )
-
-        # filter recommendations presented in interactions log
-        recs = recs.join(
-            users_log.withColumnRenamed("item_idx", "item")
-            .withColumnRenamed("user_idx", "user")
-            .select("user", "item"),
-            on=(sf.col("user_idx") == sf.col("user"))
-            & (sf.col("item_idx") == sf.col("item")),
-            how="anti",
-        ).drop("user", "item")
+        # # leave k + number of items seen by user recommendations in recs
+        # recs = (
+        #     recs.join(num_seen, on="user_idx", how="left")
+        #     .fillna(0)
+        #     .filter(sf.col("temp_rank") <= sf.col("seen_count") + sf.lit(k))
+        #     .drop("temp_rank", "seen_count")
+        # )
 
         return recs
 
@@ -524,8 +524,8 @@ class BaseRecommender(ABC):
                 item_features,
                 filter_seen_items,
             )
-            recs = recs.cache()
-            recs.write.mode("overwrite").format("noop").save()
+            # recs = recs.cache()
+            # recs.write.mode("overwrite").format("noop").save()
         if os.environ.get("LOG_TO_MLFLOW", None) == "True":
             mlflow.log_metric("_predict_sec", _predict_timer.duration)
 
@@ -534,28 +534,29 @@ class BaseRecommender(ABC):
                 "Model inference (inside 2)", f"{self.__class__.__name__}._filter_seen()"
             ):
                 recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
-                recs = recs.cache()
-                recs.write.mode("overwrite").format("noop").save()
+                # recs = recs.cache()
+                # recs.write.mode("overwrite").format("noop").save()
             if os.environ.get("LOG_TO_MLFLOW", None) == "True":
                 mlflow.log_metric("filter_seen_sec", _filter_seen_timer.duration)
 
-        with log_exec_timer("get_top_k_recs()") as get_top_k_recs_timer, JobGroup(
-            "Model inference (inside 3)", "get_top_k_recs()"
-        ):
-            recs = get_top_k_recs(recs, k=k).select(
-                "user_idx", "item_idx", "relevance"
-            )
-            recs = recs.cache()
-            recs.write.mode("overwrite").format("noop").save()
-        if os.environ.get("LOG_TO_MLFLOW", None) == "True":
-            mlflow.log_metric("get_top_k_recs_sec", get_top_k_recs_timer.duration)
+        # with log_exec_timer("get_top_k_recs()") as get_top_k_recs_timer, JobGroup(
+        #     "Model inference (inside 3)", "get_top_k_recs()"
+        # ):
+        #     recs = get_top_k_recs(recs, k=k).select(
+        #         "user_idx", "item_idx", "relevance"
+        #     )
+        #     # recs = recs.cache()
+        #     # recs.write.mode("overwrite").format("noop").save()
+        # if os.environ.get("LOG_TO_MLFLOW", None) == "True":
+        #     mlflow.log_metric("get_top_k_recs_sec", get_top_k_recs_timer.duration)
         
         output = None
-        if recs_file_path is not None:
-            recs.write.parquet(path=recs_file_path, mode="overwrite")
-        else:
-            output = recs.cache()
-            output.count()
+        with JobGroup("Model inference (inside 4)", f"{self.__class__.__name__}._predict()"):
+            if recs_file_path is not None:
+                recs.write.parquet(path=recs_file_path, mode="overwrite")
+            else:
+                output = recs.cache()
+                output.count()
 
         with log_exec_timer("_clear_model_temp_view()") as _clear_model_temp_view_timer:
             self._clear_model_temp_view("filter_seen_users_log")
