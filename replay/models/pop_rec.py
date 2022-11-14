@@ -119,26 +119,26 @@ class PopRec(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        with JobGroup(
-            "selected_item_popularity",
-            "_predict (inside 1)",
-        ):
-            selected_item_popularity = self.item_popularity.join(
-                items,
-                on="item_idx",
-                how="inner",
-            ).withColumn(
-                "rank",
-                sf.row_number().over(Window.orderBy(sf.col("relevance").desc())),
-            )
-            selected_item_popularity = selected_item_popularity.cache()
-            selected_item_popularity.write.mode("overwrite").format("noop").save()
+        # with JobGroup(
+        #     "selected_item_popularity",
+        #     "_predict (inside 1)",
+        # ):
+        selected_item_popularity = self.item_popularity.join(
+            items,
+            on="item_idx",
+            how="inner",
+        ).withColumn(
+            "rank",
+            sf.row_number().over(Window.orderBy(sf.col("relevance").desc())),
+        )
+            # selected_item_popularity = selected_item_popularity.cache()
+            # selected_item_popularity.write.mode("overwrite").format("noop").save()
 
         max_hist_len = 0
         if filter_seen_items:
             with JobGroup(
-                "max_hist_len",
-                "_predict (inside 2)",
+                "PopRec._predict()",
+                "PopRec._predict.max_hist_len",
             ):
                 max_hist_len = (
                     (
@@ -153,15 +153,15 @@ class PopRec(Recommender):
                 if max_hist_len is None:
                     max_hist_len = 0
 
-        with JobGroup(
-            "users.crossJoin",
-            "_predict (inside 3)",
-        ):
-            res = users.crossJoin(
-                selected_item_popularity.filter(sf.col("rank") <= k + max_hist_len)
-            ).drop("rank")
-            res = res.cache()
-            res.write.mode("overwrite").format("noop").save()
+        # with JobGroup(
+        #     "users.crossJoin",
+        #     "_predict (inside 3)",
+        # ):
+        res = users.crossJoin(
+            selected_item_popularity.filter(sf.col("rank") <= k + max_hist_len)
+        ).drop("rank")
+        # res = res.cache()
+        # res.write.mode("overwrite").format("noop").save()
 
         return res
 

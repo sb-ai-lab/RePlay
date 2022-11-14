@@ -440,15 +440,47 @@ class BaseRecommender(ABC):
         if num_seen.count() > 0:
             max_seen = num_seen.select(sf.max("seen_count")).collect()[0][0]
 
-        # crop recommendations to first k + max_seen items for each user
-        recs = recs.withColumn(
-            "temp_rank",
-            sf.row_number().over(
-                Window.partitionBy("user_idx").orderBy(
-                    sf.col("relevance").desc()
-                )
-            ),
-        ).filter(sf.col("temp_rank") <= sf.lit(k)) # max_seen + 
+
+        # def get_top_k_items_per_user(partitionData):
+        #     row = next(partitionData)
+        #     current_user_id = row.user_idx
+        #     yield [row.user_idx, row.item_idx, row.relevance]
+        #     n = 1
+        #     for row in partitionData:
+        #         if row.user_idx == current_user_id:
+        #             if n == k:
+        #                 continue
+        #             else:
+        #                 yield [row.user_idx, row.item_idx, row.relevance]
+        #                 n += 1
+        #         else:
+        #             current_user_id = row.user_idx
+        #             yield [row.user_idx, row.item_idx, row.relevance]
+        #             n = 1
+
+        def get_top_k(iterator):
+            current_user_idx = None
+            n = 0
+            for row in iterator:
+                if row.user_idx == current_user_idx and n <= k:
+                    k += 1
+                    yield row
+                elif row.user_idx != current_user_idx:
+                    current_user_idx = row.user_idx
+                    k = 1
+                    yield row
+
+        recs = recs.rdd.mapPartitions(get_top_k).toDF(["user_idx", "item_idx", "relevance"])
+
+        # # crop recommendations to first k + max_seen items for each user
+        # recs = recs.withColumn(
+        #     "temp_rank",
+        #     sf.row_number().over(
+        #         Window.partitionBy("user_idx").orderBy(
+        #             sf.col("relevance").desc()
+        #         )
+        #     ),
+        # ).filter(sf.col("temp_rank") <= sf.lit(k)) # max_seen + 
 
         # # leave k + number of items seen by user recommendations in recs
         # recs = (
@@ -459,6 +491,34 @@ class BaseRecommender(ABC):
         # )
 
         return recs
+    
+    
+    # def _filter_seen_hnsw_res(
+    #     self, log: DataFrame, pred: DataFrame, k: int, id_type="idx"
+    # ):
+    #     """
+    #     filter items seen in log and leave top-k most relevant
+    #     """
+
+    #     user_id = "user_" + id_type
+    #     item_id = "item_" + id_type
+
+    #     recs = pred.join(log, on=[user_id, item_id], how="anti")
+
+    #     recs = (
+    #         recs.withColumn(
+    #             "temp_rank",
+    #             sf.row_number().over(
+    #                 Window.partitionBy(user_id).orderBy(
+    #                     sf.col("relevance").desc()
+    #                 )
+    #             ),
+    #         )
+    #         .filter(sf.col("temp_rank") <= k)
+    #         .drop("temp_rank")
+    #     )
+
+    #     return recs
 
     # pylint: disable=too-many-arguments
     def _predict_wrap(

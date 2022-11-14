@@ -422,7 +422,7 @@ class NmslibHnsw:
             index_file_manager1
         )
 
-        k_udf = k + self._max_items_to_retrieve
+        # k_udf = k + self._max_items_to_retrieve
         return_type = (
             "user_idx int, item_idx array<int>, distance array<double>"
         )
@@ -431,15 +431,19 @@ class NmslibHnsw:
             interactions_matrix_broadcast = self._interactions_matrix_broadcast
 
             @pandas_udf(return_type)
-            def infer_index(user_idx: pd.Series) -> pd.DataFrame:
+            def infer_index(user_idx: pd.Series, num_items: pd.Series) -> pd.DataFrame:
                 index_file_manager = index_file_manager_broadcast.value
                 interactions_matrix = interactions_matrix_broadcast.value
 
                 index = index_file_manager.index
 
+                # max number of items to retrieve per batch
+                max_items_to_retrieve = num_items.max()
+                print(f"max_items_to_retrieve: {max_items_to_retrieve}")
+
                 # take slice
                 m = interactions_matrix[user_idx.values, :]
-                neighbours = index.knnQueryBatch(m, k=k_udf)  # , num_threads=1
+                neighbours = index.knnQueryBatch(m, k=k+max_items_to_retrieve)  # , num_threads=1  k_udf
                 pd_res = pd.DataFrame(
                     neighbours, columns=["item_idx", "distance"]
                 )
@@ -458,13 +462,18 @@ class NmslibHnsw:
 
             @pandas_udf(return_type)
             def infer_index(
-                user_ids: pd.Series, vectors: pd.Series
+                user_ids: pd.Series, vectors: pd.Series, num_items: pd.Series
             ) -> pd.DataFrame:
                 index_file_manager = index_file_manager_broadcast.value
                 index = index_file_manager.index
+
+                # max number of items to retrieve per batch
+                max_items_to_retrieve = num_items.max()
+                print(f"max_items_to_retrieve: {max_items_to_retrieve}")
+
                 neighbours = index.knnQueryBatch(
                     np.stack(vectors.values),
-                    k=k_udf,
+                    k=k+max_items_to_retrieve, # k_udf
                     # num_threads=1
                 )
                 pd_res = pd.DataFrame(
@@ -481,13 +490,12 @@ class NmslibHnsw:
             "infer_hnsw_index (inside 1)",
         ):
             if index_type == "sparse":
-                res = user_vectors.select(
-                    "user_idx", infer_index("user_idx").alias("r")
+                res = user_vectors.select( # "user_idx", 
+                    infer_index("user_idx", "num_items").alias("r")
                 )
             else:
-                res = user_vectors.select(
-                    "user_idx",
-                    infer_index("user_idx", features_col).alias("r"),
+                res = user_vectors.select( # "user_idx",
+                    infer_index("user_idx", features_col, "num_items").alias("r"),
                 )
             # res = res.cache()
             # res.write.mode("overwrite").format("noop").save()
@@ -500,8 +508,8 @@ class NmslibHnsw:
                 "zip_exp",
                 sf.explode(sf.arrays_zip("r.item_idx", "r.distance")),
             ).select(
-                "user_idx",
-                # sf.col("r.user_idx").alias("user_idx"),
+                # "user_idx",
+                sf.col("r.user_idx").alias("user_idx"),
                 sf.col("zip_exp.item_idx").alias("item_idx"),
                 (sf.lit(-1.0) * sf.col("zip_exp.distance")).alias("relevance"),
             )

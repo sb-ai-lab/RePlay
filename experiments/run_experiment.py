@@ -62,9 +62,10 @@ def main(spark: SparkSession, dataset_name: str):
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
     MODEL = os.environ.get(
-        "MODEL", "ALS_NMSLIB_HNSW"
+        "MODEL", "Word2VecRec_NMSLIB_HNSW"
     )
-    # Word2VecRec PopRec
+    # Word2VecRec Word2VecRec_NMSLIB_HNSW
+    # PopRec
     # ALS ALS_NMSLIB_HNSW 
     # SLIM SLIM_NMSLIB_HNSW
     # ItemKNN ItemKNN_NMSLIB_HNSW
@@ -403,10 +404,10 @@ def main(spark: SparkSession, dataset_name: str):
             nmslib_hnsw_params = {
                 "method": "hnsw",
                 "space": "negdotprod_sparse", # cosinesimil_sparse negdotprod_sparse
-                # "M": 100,
-                # "efS": 2000,
-                # "efC": 2000,
-                # "post": 0,
+                "M": 100,
+                "efS": 2000,
+                "efC": 2000,
+                "post": 0,
                 "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
                 "build_index_on": build_index_on,
             }
@@ -455,7 +456,8 @@ def main(spark: SparkSession, dataset_name: str):
                 "efS": 2000,
                 "efC": 2000,
                 "post": 0,
-                "index_path": f"hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
+                # hdfs://node21.bdcl:9000
+                "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
                 "build_index_on": build_index_on,
             }
             mlflow.log_params(

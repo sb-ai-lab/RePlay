@@ -39,6 +39,7 @@ def get_spark_session(
     spark = (
         SparkSession.builder.config("spark.driver.memory", driver_memory)
         .config('spark.jars.packages', 'com.github.jelmerk:hnswlib-spark_3.3_2.12:1.0.1')
+        .config("spark.jars", 'scala/target/scala-2.12/replay_2.12-0.1.jar')
         .config(
             "spark.driver.extraJavaOptions",
             "-Dio.netty.tryReflectionSetAccessible=true",

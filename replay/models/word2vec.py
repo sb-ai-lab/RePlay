@@ -180,14 +180,11 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnsw):
                     )
             )
 
-            # build_hnsw_index(item_vectors, 'item_vector', self._nmslib_hnsw_params)
             self._build_hnsw_index(item_vectors, 'item_vector', self._nmslib_hnsw_params)
 
-            self._max_items_to_retrieve, *_ = (
+            self._user_to_max_items = (
                     log.groupBy('user_idx')
                     .agg(sf.count('item_idx').alias('num_items'))
-                    .select(sf.max('num_items'))
-                    .first()
             )
 
     def _clear_cache(self):
@@ -303,8 +300,8 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnsw):
                 "_predict (inside 1)",
             ):
                 user_vectors = self._get_user_vectors(users, log)
-                user_vectors = user_vectors.cache()
-                user_vectors.write.mode("overwrite").format("noop").save()
+                # user_vectors = user_vectors.cache()
+                # user_vectors.write.mode("overwrite").format("noop").save()
             
 
             with JobGroup(
@@ -319,9 +316,10 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnsw):
                             vector_to_array("user_vector").alias("user_vector")
                         )
                 )
-                user_vectors = user_vectors.cache()
-                user_vectors.write.mode("overwrite").format("noop").save()
+                # user_vectors = user_vectors.cache()
+                # user_vectors.write.mode("overwrite").format("noop").save()
 
+            user_vectors = user_vectors.join(self._user_to_max_items, on="user_idx")
 
             res = self._infer_hnsw_index(log, user_vectors, "user_vector", params, k, filter_seen_items)
 

@@ -114,11 +114,9 @@ class ALSWrap(Recommender, ItemVectorModel, NmslibHnsw):
 
             self._build_hnsw_index(item_vectors, 'item_factors', self._nmslib_hnsw_params)
 
-            self._max_items_to_retrieve, *_ = (
-                log.groupBy("user_idx")
-                .agg(sf.count("item_idx").alias("num_items"))
-                .select(sf.max("num_items"))
-                .first()
+            self._user_to_max_items = (
+                    log.groupBy('user_idx')
+                    .agg(sf.count('item_idx').alias('num_items'))
             )
 
         if self._pyspark_hnsw_params:
@@ -241,6 +239,8 @@ class ALSWrap(Recommender, ItemVectorModel, NmslibHnsw):
                 user_vectors, _ = self.get_features(users)
                 # user_vectors = user_vectors.cache()
                 # user_vectors.write.mode("overwrite").format("noop").save()
+
+                user_vectors = user_vectors.join(self._user_to_max_items, on="user_idx")
 
             res = self._infer_hnsw_index(log, user_vectors, "user_factors", params, k, filter_seen_items)
 
