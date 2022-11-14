@@ -9,13 +9,13 @@ import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
 
-from replay.models.base_rec import Recommender
+from replay.models.base_rec import NeighbourRec
 from replay.utils import unpersist_if_exists, to_csr
 from replay.session_handler import State
 from replay.constants import REC_SCHEMA
 
 
-class AssociationRulesItemRec(Recommender):
+class AssociationRulesItemRec(NeighbourRec):
     """
     Item-to-item recommender based on association rules.
     Calculate pairs confidence, lift and confidence_gain defined as
@@ -27,10 +27,10 @@ class AssociationRulesItemRec(Recommender):
     if you want to apply time smoothing and treat old sessions as less important.
     In this case all items in sessions should have the same relevance.
     """
-
     can_predict_item_to_item = True
     item_to_item_metrics: List[str] = ["lift", "confidence_gain"]
-    pair_metrics: DataFrame
+    similarity: DataFrame
+    sim_column = "lift_for_pred"
 
     # pylint: disable=too-many-arguments,
     def __init__(
@@ -185,7 +185,7 @@ class AssociationRulesItemRec(Recommender):
                 .drop("similarity_order")
             )
 
-        self.pair_metrics = pairs_metrics.withColumn(
+        self.similarity = pairs_metrics.withColumn(
             "confidence_gain",
             sf.when(
                 sf.col("consequent_relevance") - sf.col("pair_relevance") == 0,
@@ -196,83 +196,130 @@ class AssociationRulesItemRec(Recommender):
                 / (sf.col("consequent_relevance") - sf.col("pair_relevance"))
             ),
         ).select(
-            "antecedent",
-            "consequent",
+            sf.col("antecedent").alias("item_idx_one"),
+            sf.col("consequent").alias("item_idx_two"),
             "confidence",
             "lift",
+            sf.log("lift").alias(self.sim_column),
             "confidence_gain",
         )
-        self.pair_metrics.cache().count()
+        self.similarity.cache().count()
         frequent_items_cached.unpersist()
 
-    # pylint: disable=too-many-arguments
-    def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> DataFrame:
+    # def get_sim_csr(self):
+    #     sim_log = (
+    #         self.similarity
+    #             .select(sf.col("antecedent").alias("user_idx"),
+    #                     sf.col("consequent").alias("item_idx"),
+    #                     sf.log("lift").alias("relevance"))
+    #     )
+    #
+    #     max_idx_from_sim = sim_log.select(sf.max("item_idx")).first()[0]
+    #     max_idx_from_log = self.fit_items.select(sf.max("item_idx")).first()[0]
+    #
+    #     if max_idx_from_sim < max_idx_from_log:
+    #         spark = State().session
+    #         sim_log = sim_log.union(
+    #             spark.createDataFrame(
+    #                 data=[
+    #                     [max_idx_from_log, max_idx_from_log, 0.]
+    #                 ],
+    #                 schema=sim_log.schema,
+    #             )
+    #         )
+    #
+    #     return to_csr(sim_log)
+    #
+    #
+    # # pylint: disable=too-many-arguments
+    # def _predict(
+    #     self,
+    #     log: DataFrame,
+    #     k: int,
+    #     users: DataFrame,
+    #     items: DataFrame,
+    #     user_features: Optional[DataFrame] = None,
+    #     item_features: Optional[DataFrame] = None,
+    #     filter_seen_items: bool = True,
+    # ) -> DataFrame:
+    #
+    #     def predict_top_by_user(pandas_df):
+    #         user_idx = int(pandas_df["user_idx"].iloc[0])
+    #         uniq = pandas_df["item_idx"].unique()
+    #         mul = csr_matrix((pandas_df["relevance"], ([0] * (uniq.shape[0]), uniq)), shape=(1, sim_csr.shape[0]))
+    #         res = mul @ sim_csr
+    #         res_arr = res.toarray()[0]
+    #         return pd.DataFrame(
+    #             {
+    #                 "user_idx": [user_idx] * np.argsort(res_arr).shape[0],
+    #                 "item_idx": np.argsort(res_arr)[::-1],
+    #                 "relevance": np.sort(res_arr)[::-1],
+    #             }
+    #         )
+    #
+    #     sim_csr = self.get_sim_csr()
+    #
+    #     return (
+    #             log
+    #             .join(users, on='user_idx')
+    #             .select("user_idx", "item_idx", "relevance")
+    #             .groupby("user_idx")
+    #             .applyInPandas(predict_top_by_user, REC_SCHEMA)
+    #     ).join(items, on='item_idx')
+    #
+    #
+    # def _predict_pairs(
+    #     self,
+    #     pairs: DataFrame,
+    #     log: Optional[DataFrame] = None,
+    #     user_features: Optional[DataFrame] = None,
+    #     item_features: Optional[DataFrame] = None,
+    # ) -> DataFrame:
+    #
+    #     if log is None:
+    #         raise ValueError(
+    #             "log is not provided, but it is required for prediction"
+    #         )
+    #
+    #     def predict_pairs(pandas_df):
+    #         user_idx = int(pandas_df["user_idx"].iloc[0])
+    #         uniq = pandas_df["item_idx"].unique()
+    #         mul = csr_matrix((pandas_df["relevance"], ([0] * (uniq.shape[0]), uniq)), shape=(1, sim_csr.shape[0]))
+    #         res = mul @ sim_csr
+    #         _, idx_for_res = pairs_csr[user_idx].nonzero()
+    #
+    #         res_arr = res.toarray()[0][idx_for_res]
+    #         return pd.DataFrame(
+    #             {
+    #                 "user_idx": [user_idx] * idx_for_res.shape[0],
+    #                 "item_idx": idx_for_res,
+    #                 "relevance": res_arr,
+    #             }
+    #         )
+    #
+    #     sim_csr = self.get_sim_csr()
+    #     pairs_csr = to_csr(pairs.withColumn("relevance", sf.lit(1)))
+    #     return (
+    #             log.join(pairs.select("user_idx").distinct(), on="user_idx")
+    #             .select("user_idx", "item_idx", "relevance")
+    #             .groupby("user_idx")
+    #             .applyInPandas(predict_pairs, REC_SCHEMA)
+    #     )
 
-        def predict_by_user(pandas_df):
-            user_idx = int(pandas_df["user_idx"].iloc[0])
-            uniq = pandas_df["item_idx"].unique()
-            mul = csr_matrix((pandas_df["relevance"], ([0] * (uniq.shape[0]), uniq)), shape=(1, max_idx_from_log + 1))
-            res = mul @ sim_log_csr
-            res_arr = res.toarray()[0]
-            return pd.DataFrame(
-                {
-                    "user_idx": [user_idx] * k,
-                    "item_idx": np.argsort(res_arr)[::-1][:k],
-                    "relevance": np.sort(res_arr)[::-1][:k],
-                }
-            )
-
-        sim_log = (
-            self.pair_metrics
-                .select(sf.col("antecedent").alias("user_idx"),
-                        sf.col("consequent").alias("item_idx"),
-                        sf.log("lift").alias("relevance"))
-        )
-
-        max_idx_from_sim = sim_log.select(sf.max("item_idx")).first()[0]
-        max_idx_from_log = log.select(sf.max("item_idx")).first()[0]
-
-        if max_idx_from_sim < max_idx_from_log:
-            spark = State().session
-            sim_log = sim_log.union(
-                spark.createDataFrame(
-                    data=[
-                        [max_idx_from_log, max_idx_from_log, 0.]
-                    ],
-                    schema=sim_log.schema,
-                )
-            )
-
-        sim_log_csr = to_csr(sim_log)
-
-        return (
-                log.select("user_idx", "item_idx", "relevance")
-                .groupby("user_idx")
-                .applyInPandas(predict_by_user, REC_SCHEMA)
-        )
 
     @property
-    def get_pair_metrics(self):
+    def get_similarity(self):
         """
         Return matrix with calculated confidence, lift and confidence gain.
         :return: association rules measures calculated during ``fit`` stage
         """
-        return self.pair_metrics
+        return self.similarity
 
     def get_nearest_items(
         self,
         items: Union[DataFrame, Iterable],
         k: int,
-        metric: Optional[str] = "lift",
+        metric: str = "lift",
         candidates: Optional[Union[DataFrame, Iterable]] = None,
     ) -> DataFrame:
         """
@@ -301,45 +348,10 @@ class AssociationRulesItemRec(Recommender):
             candidates=candidates,
         )
 
-    def _get_nearest_items(
-        self,
-        items: DataFrame,
-        metric: Optional[str] = None,
-        candidates: Optional[DataFrame] = None,
-    ) -> DataFrame:
-        """
-        Return metric for all available associated items filtered by `candidates`.
-
-        :param items: items to find associated
-        :param metric: `lift` of 'confidence_gain'
-        :param candidates: items to consider as candidates
-        :return: associated items
-        """
-
-        pairs_to_consider = self.pair_metrics
-        if candidates is not None:
-            pairs_to_consider = self.pair_metrics.join(
-                sf.broadcast(
-                    candidates.withColumnRenamed("item_idx", "consequent")
-                ),
-                on="consequent",
-            )
-
-        return (
-            pairs_to_consider.withColumnRenamed("antecedent", "item_idx_one")
-            .withColumnRenamed("consequent", "item_idx_two")
-            .join(
-                sf.broadcast(
-                    items.withColumnRenamed("item_idx", "item_idx_one")
-                ),
-                on="item_idx_one",
-            )
-        )
-
     def _clear_cache(self):
-        if hasattr(self, "pair_metrics"):
-            unpersist_if_exists(self.pair_metrics)
+        if hasattr(self, "similarity"):
+            unpersist_if_exists(self.similarity)
 
     @property
     def _dataframes(self):
-        return {"pair_metrics": self.pair_metrics}
+        return {"similarity": self.similarity}

@@ -29,6 +29,7 @@ from typing import (
 
 import numpy as np
 import pandas as pd
+from scipy.sparse import csr_matrix
 from numpy.random import default_rng
 from optuna import create_study
 from optuna.samplers import TPESampler
@@ -49,6 +50,7 @@ from replay.utils import (
     get_top_k_recs,
     vector_euclidean_distance_similarity,
     vector_dot,
+    to_csr,
 )
 
 
@@ -1410,6 +1412,7 @@ class NeighbourRec(Recommender, ABC):
     similarity: Optional[DataFrame]
     can_predict_item_to_item: bool = True
     can_predict_cold_users: bool = True
+    sim_column = "similarity"
 
     @property
     def _dataframes(self):
@@ -1457,10 +1460,34 @@ class NeighbourRec(Recommender, ABC):
                 on=condition,
             )
             .groupby("user_idx", "item_idx_two")
-            .agg(sf.sum("similarity").alias("relevance"))
+            .agg(sf.sum(self.sim_column).alias("relevance"))
             .withColumnRenamed("item_idx_two", "item_idx")
         )
         return recs
+
+    # def get_sim_csr(self):
+    #     sim_log = (
+    #         self.similarity
+    #             .select(sf.col("item_idx_one").alias("user_idx"),
+    #                     sf.col("item_idx_two").alias("item_idx"),
+    #                     sf.col(self.sim_column).alias("relevance"))
+    #     )
+    #
+    #     max_idx_from_sim = sim_log.select(sf.max("item_idx")).first()[0]
+    #     max_idx_from_log = self.fit_items.select(sf.max("item_idx")).first()[0]
+    #
+    #     if max_idx_from_sim < max_idx_from_log:
+    #         spark = State().session
+    #         sim_log = sim_log.union(
+    #             spark.createDataFrame(
+    #                 data=[
+    #                     [max_idx_from_log, max_idx_from_log, 0.]
+    #                 ],
+    #                 schema=sim_log.schema,
+    #             )
+    #         )
+    #
+    #     return to_csr(sim_log)
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -1473,6 +1500,31 @@ class NeighbourRec(Recommender, ABC):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
+
+        # def predict_top_by_user(pandas_df):
+        #     user_idx = int(pandas_df["user_idx"].iloc[0])
+        #     uniq = pandas_df["item_idx"].unique()
+        #     mul = csr_matrix(([1] * (uniq.shape[0]), ([0] * (uniq.shape[0]), uniq)), shape=(1, sim_csr.shape[0]))
+        #     res = mul @ sim_csr
+        #     res_arr = res.toarray()[0]
+        #     return pd.DataFrame(
+        #         {
+        #             "user_idx": [user_idx] * np.argsort(res_arr).shape[0],
+        #             "item_idx": np.argsort(res_arr)[::-1],
+        #             "relevance": np.sort(res_arr)[::-1],
+        #         }
+        #     )
+        #
+        # sim_csr = self.get_sim_csr()
+        #
+        # return (
+        #             log
+        #             .join(users, on='user_idx')
+        #             .select("user_idx", "item_idx", "relevance")
+        #             .groupby("user_idx")
+        #             .applyInPandas(predict_top_by_user, REC_SCHEMA)
+        #     ).join(items, on='item_idx')
+
         return self._predict_pairs_inner(
             log=log,
             filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
@@ -1487,6 +1539,38 @@ class NeighbourRec(Recommender, ABC):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
+
+        if log is None:
+            raise ValueError(
+                "log is not provided, but it is required for prediction"
+            )
+
+        # def predict_pairs(pandas_df):
+        #     user_idx = int(pandas_df["user_idx"].iloc[0])
+        #     uniq = pandas_df["item_idx"].unique()
+        #     mul = csr_matrix((pandas_df["relevance"], ([0] * (uniq.shape[0]), uniq)), shape=(1, sim_csr.shape[0]))
+        #     res = mul @ sim_csr
+        #     _, idx_for_res = pairs_csr[user_idx].nonzero()
+        #
+        #     res_arr = res.toarray()[0][idx_for_res]
+        #     return pd.DataFrame(
+        #         {
+        #             "user_idx": [user_idx] * idx_for_res.shape[0],
+        #             "item_idx": idx_for_res,
+        #             "relevance": res_arr,
+        #         }
+        #     )
+        #
+        # sim_csr = self.get_sim_csr()
+        # pairs_csr = to_csr(pairs.withColumn("relevance", sf.lit(1)))
+        #
+        # return (
+        #         log.join(pairs.select("user_idx").distinct(), on="user_idx")
+        #         .select("user_idx", "item_idx", "relevance")
+        #         .groupby("user_idx")
+        #         .applyInPandas(predict_pairs, REC_SCHEMA)
+        # )
+
         return self._predict_pairs_inner(
             log=log,
             filter_df=(
@@ -1520,6 +1604,7 @@ class NeighbourRec(Recommender, ABC):
             where bigger value means greater similarity.
             spark-dataframe with columns ``[item_idx, neighbour_item_idx, similarity]``
         """
+
         if metric is not None:
             self.logger.debug(
                 "Metric is not used to determine nearest items in %s model",
@@ -1529,7 +1614,7 @@ class NeighbourRec(Recommender, ABC):
         return self._get_nearest_items_wrap(
             items=items,
             k=k,
-            metric=None,
+            metric=metric,
             candidates=candidates,
         )
 
@@ -1552,7 +1637,7 @@ class NeighbourRec(Recommender, ABC):
             )
 
         return similarity_filtered.select(
-            "item_idx_one", "item_idx_two", "similarity"
+            "item_idx_one", "item_idx_two", "similarity" if metric is None else metric
         )
 
 
