@@ -2,12 +2,16 @@
 Using CQL implementation from `d3rlpy` package.
 For 'alpha' version PySpark DataFrame are converted to Pandas
 """
-
+import io
+import logging
+import os
+import tempfile
 from typing import Optional
 
 import d3rlpy.algos.cql as CQL_d3rlpy
 import numpy as np
 import pandas as pd
+import torch
 from d3rlpy.argument_utility import (
     EncoderArg, QFuncArg, UseGPUArg, ScalerArg, ActionScalerArg,
     RewardScalerArg
@@ -17,7 +21,7 @@ from d3rlpy.models.optimizers import OptimizerFactory, AdamFactory
 from pyspark.sql import DataFrame, functions as sf
 
 from replay.constants import REC_SCHEMA
-from replay.models import Recommender
+from replay.models.base_rec import Recommender
 
 
 class CQL(Recommender):
@@ -166,6 +170,7 @@ class CQL(Recommender):
         self.top_k = top_k
         self.action_randomization_scale = action_randomization_scale
         self.n_epochs = n_epochs
+        self.assert_omp_single_thread()
 
         self.model = CQL_d3rlpy.CQL(
             actor_learning_rate=actor_learning_rate,
@@ -197,43 +202,10 @@ class CQL(Recommender):
             reward_scaler=reward_scaler,
             **params
         )
-    #
-    # def _predict(
-    #     self,
-    #     log: DataFrame,
-    #     k: int,
-    #     users: DataFrame,
-    #     items: DataFrame,
-    #     user_features: Optional[DataFrame] = None,
-    #     item_features: Optional[DataFrame] = None,
-    #     filter_seen_items: bool = True,
-    # ) -> DataFrame:
-    #     if user_features or item_features:
-    #         message = f'CQL recommender does not support user/item features'
-    #         self.logger.debug(message)
-    #
-    #     users = users.toPandas().to_numpy().flatten()
-    #     items = items.toPandas().to_numpy().flatten()
-    #
-    #     # TODO: consider size-dependent batch prediction instead of by user
-    #     user_predictions = []
-    #     for user in users:
-    #         user_item_pairs = pd.DataFrame({
-    #             'user_idx': np.repeat(user, len(items)),
-    #             'item_idx': items
-    #         })
-    #         user_item_pairs['relevance'] = self.model.predict(user_item_pairs.to_numpy())
-    #         user_predictions.append(user_item_pairs)
-    #
-    #     prediction = pd.concat(user_predictions)
-    #
-    #     # it doesn't explicitly filter seen items and doesn't return top k items
-    #     # instead, it keeps all predictions as is to be filtered further by base methods
-    #     return DataPreparator.read_as_spark_df(prediction)
 
     @staticmethod
     def _rate_user_items(
-        model,
+        model: bytes,
         user_idx: int,
         items: np.ndarray,
     ) -> pd.DataFrame:
@@ -241,10 +213,18 @@ class CQL(Recommender):
             'user_idx': np.repeat(user_idx, len(items)),
             'item_idx': items
         })
-        user_item_pairs['relevance'] = model.predict_best_action(user_item_pairs.to_numpy())
+        input_batch = torch.from_numpy(
+            user_item_pairs.to_numpy()
+        ).float().cpu()
 
-        # it doesn't explicitly filter seen items and doesn't return top k items
-        # instead, it keeps all predictions as is to be filtered further by base methods
+        with io.BytesIO(model) as buffer:
+            model = torch.jit.load(buffer, map_location=torch.device('cpu'))
+
+        with torch.no_grad():
+            user_item_pairs['relevance'] = model.forward(input_batch).numpy()
+
+        # It doesn't explicitly filter seen items and doesn't return top k items.
+        # Instead, it returns all predictions as is to be filtered further by base methods
         return user_item_pairs
 
     # pylint: disable=too-many-arguments
@@ -259,10 +239,11 @@ class CQL(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         available_items = items.toPandas()["item_idx"].values
+        policy_bytes = self.serialize_policy()
 
         def grouped_map(log_slice: pd.DataFrame) -> pd.DataFrame:
-            return self._rate_user_items(
-                model=self.model._impl,
+            return CQL._rate_user_items(
+                model=policy_bytes,
                 user_idx=log_slice["user_idx"][0],
                 items=available_items,
             )[["user_idx", "item_idx", "relevance"]]
@@ -277,23 +258,16 @@ class CQL(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-        # users = pairs.select("user_idx").distinct()
+        policy_bytes = self.serialize_policy()
 
         def grouped_map(user_log: pd.DataFrame) -> pd.DataFrame:
-            return self._rate_user_items(
-                model=self.model,
+            return CQL._rate_user_items(
+                model=policy_bytes,
                 user_idx=user_log["user_idx"][0],
                 items=np.array(user_log["item_idx_to_pred"][0]),
             )[["user_idx", "item_idx", "relevance"]]
 
         self.logger.debug("Calculate relevance for user-item pairs")
-        # FIXME: user history is useless here
-        # user_history = (
-        #     users
-        #     .join(log, how="inner", on="user_idx")
-        #     .groupBy("user_idx")
-        #     .agg(sf.collect_list("item_idx").alias("item_idx_history"))
-        # )
         return (
             pairs
             .groupBy("user_idx")
@@ -313,7 +287,6 @@ class CQL(Recommender):
         self.model.fit(train, n_epochs=self.n_epochs)
 
     def _prepare_data(self, log: DataFrame) -> MDPDataset:
-        # TODO: consider making calculations in Spark before converting to pandas
         user_logs = log.toPandas().sort_values(['user_idx', 'timestamp'], ascending=True)
 
         # reward top-K watched movies with 1, the others - with 0
@@ -361,3 +334,20 @@ class CQL(Recommender):
         )
         args.update(**self.model.get_params())
         return args
+
+    def serialize_policy(self) -> bytes:
+        # store using temporary file and immediately read serialized version
+        with tempfile.NamedTemporaryFile(suffix='.pt') as tmp:
+            # noinspection PyProtectedMember
+            self.model._impl.save_policy(tmp.name)
+            with open(tmp.name, 'rb') as policy_file:
+                return policy_file.read()
+
+    @staticmethod
+    def assert_omp_single_thread():
+        omp_num_threads = os.environ.get('OMP_NUM_THREADS', None)
+        if omp_num_threads != '1':
+            logging.getLogger("replay").warning(
+                f'Environment variable "OMP_NUM_THREADS" is set to {omp_num_threads}. '
+                'Set it to 1 in case CQL prediction freezes.'
+            )

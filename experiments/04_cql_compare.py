@@ -73,6 +73,7 @@ def main():
     warnings.filterwarnings("ignore", category=UserWarning)
     warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
+    os.environ['OMP_NUM_THREADS'] = '1'
     use_gpu = torch.cuda.is_available()
 
     parser = ArgumentParser()
@@ -151,18 +152,18 @@ def main():
         f'CQL_{e}': CQL(
             use_gpu=use_gpu, top_k=K, n_epochs=e,
             action_randomization_scale=args.action_randomization_scale,
-            batch_size=2048
+            batch_size=512
         )
         for e in n_epochs
     }
 
-    # algorithms.update({
-    #     'ALS': ALSWrap(seed=SEED),
-    #     'KNN': ItemKNN(num_neighbours=K),
-    #     'LightFM': LightFMWrap(random_state=SEED),
-    #     # 'SLIM': SLIM(seed=SEED),
-    #     'UCB': UCB(exploration_coef=0.5)
-    # })
+    algorithms.update({
+        'ALS': ALSWrap(seed=SEED),
+        'KNN': ItemKNN(num_neighbours=K),
+        'LightFM': LightFMWrap(random_state=SEED),
+        'SLIM': SLIM(seed=SEED),
+        'UCB': UCB(exploration_coef=0.5)
+    })
 
     logger = logging.getLogger("replay")
     test_users = test.select('user_idx').distinct()
