@@ -612,18 +612,7 @@ class DDPG(TorchRecommender):
             )
 
     # pylint: disable=attribute-defined-outside-init
-    def _fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
-        train_matrix, user_num, item_num, users = self._preprocess_log(log)
-        users = np.random.permutation(users)
-        if self.exact_embeddings_size:
-            self.user_num = user_num
-            self.item_num = item_num
-
+    def _init_inner(self):
         self.replay_buffer = ReplayBuffer(self.buffer_size)
         self.ou_noise = OUNoise(
             self.embedding_dim,
@@ -640,7 +629,6 @@ class DDPG(TorchRecommender):
             self.hidden_dim,
             self.memory_size,
         )
-        self.model.environment.update_env(matrix=train_matrix)
         self.target_model = ActorDRR(
             self.user_num,
             self.item_num,
@@ -654,9 +642,25 @@ class DDPG(TorchRecommender):
         self.target_value_net = CriticDRR(
             self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
         )
+
+    def _fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
+        train_matrix, user_num, item_num, users = self._preprocess_log(log)
+        if self.exact_embeddings_size:
+            self.user_num = user_num
+            self.item_num = item_num
+
+        self._init_inner()
         self._target_update(self.target_value_net, self.value_net, soft_tau=1)
         self._target_update(self.target_model, self.model, soft_tau=1)
 
+        self.model.environment.update_env(matrix=train_matrix)
+        users = np.random.permutation(users)
+        
         policy_optimizer = Ranger(
             self.model.parameters(),
             lr=self.policy_lr,
@@ -730,21 +734,15 @@ class DDPG(TorchRecommender):
 
     def _load_model(self, path: str) -> None:
         self.logger.debug("-- Loading model from file")
-        self.model = ActorDRR(
-            self.user_num,
-            self.item_num,
-            self.embedding_dim,
-            self.hidden_dim,
-            self.memory_size,
-        )
-        self.value_net = CriticDRR(
-            self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
-        )
+        self._init_inner()
 
         checkpoint = torch.load(path)
         self.model.load_state_dict(checkpoint["actor"])
         self.value_net.load_state_dict(checkpoint["critic"])
         self.model.environment.memory = checkpoint["memory"]
+
+        self._target_update(self.target_value_net, self.value_net, soft_tau=1)
+        self._target_update(self.target_model, self.model, soft_tau=1)
 
     @staticmethod
     def _save_optimizers(policy_optimizer, value_optimizer, path: str) -> None:
