@@ -321,7 +321,7 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnsw):
 
             user_vectors = user_vectors.join(self._user_to_max_items, on="user_idx")
 
-            res = self._infer_hnsw_index(log, user_vectors, "user_vector", params, k, filter_seen_items)
+            res = self._infer_hnsw_index(user_vectors, "user_vector", params, k)
 
             return res
 

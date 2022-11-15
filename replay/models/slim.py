@@ -149,8 +149,8 @@ class SLIM(NeighbourRec, NmslibHnsw):
             ):
                 users = users.join(self._user_to_max_items, on="user_idx")
 
-                res = self._infer_hnsw_index(log, users, "", 
-                    params, k, filter_seen_items, 
+                res = self._infer_hnsw_index(users, "", 
+                    params, k, 
                     index_type="sparse")
 
             return res
