@@ -349,5 +349,5 @@ class CQL(Recommender):
         if omp_num_threads != '1':
             logging.getLogger("replay").warning(
                 f'Environment variable "OMP_NUM_THREADS" is set to {omp_num_threads}. '
-                'Set it to 1 in case CQL prediction freezes.'
+                'Set it to 1 if CQL prediction process freezes.'
             )
