@@ -436,9 +436,9 @@ class BaseRecommender(ABC):
         ).drop("user", "item")
 
         # count maximal number of items seen by users
-        max_seen = 0
-        if num_seen.count() > 0:
-            max_seen = num_seen.select(sf.max("seen_count")).collect()[0][0]
+        # max_seen = 0
+        # if num_seen.count() > 0:
+        #     max_seen = num_seen.select(sf.max("seen_count")).collect()[0][0]
 
 
         # def get_top_k_items_per_user(partitionData):
@@ -463,11 +463,11 @@ class BaseRecommender(ABC):
             n = 0
             for row in iterator:
                 if row.user_idx == current_user_idx and n <= k:
-                    k += 1
+                    n += 1
                     yield row
                 elif row.user_idx != current_user_idx:
                     current_user_idx = row.user_idx
-                    k = 1
+                    n = 1
                     yield row
 
         recs = recs.rdd.mapPartitions(get_top_k).toDF(["user_idx", "item_idx", "relevance"])
