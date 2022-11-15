@@ -62,13 +62,14 @@ def main(spark: SparkSession, dataset_name: str):
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
     MODEL = os.environ.get(
-        "MODEL", "Word2VecRec_NMSLIB_HNSW"
+        "MODEL", "ClusterRec"
     )
-    # Word2VecRec Word2VecRec_NMSLIB_HNSW
     # PopRec
+    # Word2VecRec Word2VecRec_NMSLIB_HNSW
     # ALS ALS_NMSLIB_HNSW 
     # SLIM SLIM_NMSLIB_HNSW
     # ItemKNN ItemKNN_NMSLIB_HNSW
+    # ClusterRec
 
     if os.environ.get("PARTITION_NUM"):
         partition_num = int(os.environ.get("PARTITION_NUM"))
@@ -226,7 +227,7 @@ def main(spark: SparkSession, dataset_name: str):
             # test = test.repartition(partition_num)
 
             with log_exec_timer(
-                "Train/test datasets reading to parquet"
+                "Train/test/user_features datasets reading to parquet"
             ) as parquets_read_timer:
                 train = spark.read.parquet(
                     "/opt/spark_data/replay_datasets/ml1m_train.parquet"
@@ -234,6 +235,10 @@ def main(spark: SparkSession, dataset_name: str):
                 test = spark.read.parquet(
                     "/opt/spark_data/replay_datasets/ml1m_test.parquet"
                 )
+                user_features = spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/ml1m_user_features.parquet"
+                )
+                #.select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
                 train = train.repartition(partition_num, "user_idx")
                 test = test.repartition(partition_num, "user_idx")
             mlflow.log_metric(
@@ -488,20 +493,25 @@ def main(spark: SparkSession, dataset_name: str):
         else:
             raise ValueError("Unknown model.")
 
+        kwargs = {}
+        if isinstance(model, (ClusterRec)):
+            kwargs = {"user_features": user_features}
+
         with log_exec_timer(f"{MODEL} training") as train_timer, JobGroup(
             "Model training", f"{model.__class__.__name__}.fit()"
         ):
-            model.fit(log=train)
+            model.fit(log=train, **kwargs)
         mlflow.log_metric("train_sec", train_timer.duration)
 
         with log_exec_timer(f"{MODEL} prediction") as infer_timer, JobGroup(
             "Model inference", f"{model.__class__.__name__}.predict()"
-        ):
+        ):            
             recs = model.predict(
                 k=K,
                 users=test.select("user_idx").distinct(),
                 log=train,
                 filter_seen_items=True,
+                **kwargs
             )
             recs = recs.cache()
             recs.write.mode("overwrite").format("noop").save()
