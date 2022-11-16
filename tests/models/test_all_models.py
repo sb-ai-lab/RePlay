@@ -19,6 +19,7 @@ from replay.models import (
     SLIM,
     MultVAE,
     Word2VecRec,
+    AssociationRulesItemRec,
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
 
@@ -59,6 +60,7 @@ def log_to_pred(spark):
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         PopRec(),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
         "als",
@@ -70,6 +72,7 @@ def log_to_pred(spark):
         "slim",
         "word2vec",
         "poprec",
+        "association_rules"
     ],
 )
 def test_predict_pairs_warm_only(log, log_to_pred, model):
@@ -115,12 +118,14 @@ def test_predict_pairs_warm_only(log, log_to_pred, model):
         ItemKNN(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
         "admm_slim",
         "knn",
         "slim",
         "word2vec",
+        "association_rules",
     ],
 )
 def test_predict_pairs_raises(log, model):
@@ -147,6 +152,9 @@ def test_predict_pairs_raises_pairs_format(log):
         (ADMMSLIM(seed=SEED), None),
         (ItemKNN(), None),
         (SLIM(seed=SEED), None),
+        (AssociationRulesItemRec(min_item_count=1, min_pair_count=0), "lift"),
+        (AssociationRulesItemRec(min_item_count=1, min_pair_count=0), "confidence"),
+        (AssociationRulesItemRec(min_item_count=1, min_pair_count=0), "confidence_gain"),
     ],
     ids=[
         "als_euclidean",
@@ -156,6 +164,9 @@ def test_predict_pairs_raises_pairs_format(log):
         "admm_slim",
         "knn",
         "slim",
+        "association_rules_lift",
+        "association_rules_confidence",
+        "association_rules_confidence_gain",
     ],
 )
 def test_get_nearest_items(log, model, metric):
@@ -248,6 +259,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
         PopRec(),
         RandomRec(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
         "admm_slim",
@@ -259,6 +271,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
         "pop_rec",
         "random_rec",
         "word2vec",
+        "association_rules",
     ],
 )
 def test_predict_new_users(model, long_log_with_features, user_features):
@@ -310,6 +323,7 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
         NeuroMF(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
         "als",
@@ -319,6 +333,7 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
         "neuromf",
         "slim",
         "word2vec",
+        "association_rules",
     ],
 )
 def test_predict_cold_and_new_filter_out(model, long_log_with_features):
