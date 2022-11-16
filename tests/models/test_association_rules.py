@@ -4,7 +4,14 @@ import pytest
 from pyspark.sql import functions as sf
 
 from replay.models import AssociationRulesItemRec
-from tests.utils import log, spark, sparkDataFrameEqual
+from tests.utils import (
+    log,
+    spark,
+    sparkDataFrameEqual,
+    sparkDataFrameNotEqual,
+    log,
+    log_to_pred,
+)
 
 
 @pytest.fixture
@@ -88,3 +95,42 @@ def test_get_nearest_items(model):
     assert res.count() == 2
 
     model._clear_cache()
+
+
+def test_metric(log, log_to_pred, model):
+    model.fit(log)
+
+    p_pred_metr_from_init_conf = model.predict_pairs(
+        pairs=log_to_pred.select("user_idx", "item_idx"),
+        log=log.unionByName(log_to_pred),
+    )
+
+    model.similarity_metric = "confidence"
+
+    p_pred_metr_from_user_conf = model.predict_pairs(
+        pairs=log_to_pred.select("user_idx", "item_idx"),
+        log=log.unionByName(log_to_pred),
+    )
+
+    sparkDataFrameEqual(
+        p_pred_metr_from_init_conf,
+        p_pred_metr_from_user_conf,
+    )
+
+    model.similarity_metric = "lift"
+
+    p_pred_metr_from_user_lift = model.predict_pairs(
+        pairs=log_to_pred.select("user_idx", "item_idx"),
+        log=log.unionByName(log_to_pred),
+    )
+
+    sparkDataFrameNotEqual(
+        p_pred_metr_from_user_conf,
+        p_pred_metr_from_user_lift
+    )
+
+
+def test_similarity_metric_raises(log, model):
+    with pytest.raises(ValueError, match="Select one of the valid metrics for predict:.*"):
+        model.fit(log)
+        model.similarity_metric = "invalid"

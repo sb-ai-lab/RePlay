@@ -8,7 +8,6 @@ from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
 
 from replay.models.base_rec import NeighbourRec
-from replay.utils import unpersist_if_exists
 
 
 class AssociationRulesItemRec(NeighbourRec):
@@ -17,6 +16,52 @@ class AssociationRulesItemRec(NeighbourRec):
     Calculate pairs confidence, lift and confidence_gain defined as
     confidence(a, b)/confidence(!a, b) to get top-k associated items.
     Predict items for users using lift, confidence or confidence_gain metrics.
+
+    Forecasts will be based on indicators: lift, confidence or confidence_gain.
+    It all depends on your choice.
+
+    During class initialization, you can explicitly specify the metric to be used as
+    a similarity for calculating the predict.
+
+    You can change your selection before calling `.predict()` or `.predict_pairs()`
+    if you set a new value for the `similarity_metric` parameter.
+
+    >>> import pandas as pd
+    >>> data_frame = pd.DataFrame({"user_idx": [1, 1, 2, 3], "item_idx": [1, 2, 2, 3], "relevance": [2, 1, 4, 1]})
+    >>> data_frame_for_predict = pd.DataFrame({"user_idx": [2], "item_idx": [1]})
+    >>> data_frame
+       user_idx  item_idx  relevance
+    0         1         1          2
+    1         1         2          1
+    2         2         2          4
+    3         3         3          1
+    >>> from replay.utils import convert2spark
+    >>> from replay.models import AssociationRulesItemRec
+    >>> data_frame = convert2spark(data_frame)
+    >>> data_frame_for_predict = convert2spark(data_frame_for_predict)
+    >>> model = AssociationRulesItemRec(min_item_count=1, min_pair_count=0)
+    >>> res = model.fit(data_frame)
+    >>> model.similarity.show()
+    +------------+------------+----------+----+---------------+
+    |item_idx_one|item_idx_two|confidence|lift|confidence_gain|
+    +------------+------------+----------+----+---------------+
+    |           1|           2|       1.0| 1.5|            2.0|
+    |           2|           1|       0.5| 1.5|       Infinity|
+    +------------+------------+----------+----+---------------+
+    >>> model.similarity_metric = "confidence"
+    >>> model.predict_pairs(data_frame_for_predict, data_frame).show()
+    +--------+--------+---------+
+    |user_idx|item_idx|relevance|
+    +--------+--------+---------+
+    |       2|       1|      0.5|
+    +--------+--------+---------+
+    >>> model.similarity_metric = "lift"
+    >>> model.predict_pairs(data_frame_for_predict, data_frame).show()
+    +--------+--------+---------+
+    |user_idx|item_idx|relevance|
+    +--------+--------+---------+
+    |       2|       1|      1.5|
+    +--------+--------+---------+
 
     Classical model uses items co-occurrence in sessions for
     confidence, lift and confidence_gain calculation
@@ -27,12 +72,13 @@ class AssociationRulesItemRec(NeighbourRec):
     can_predict_item_to_item = True
     item_to_item_metrics: List[str] = ["lift", "confidence", "confidence_gain"]
     similarity: DataFrame
+    can_change_metric = True
     _search_space = {
         "min_item_count": {"type": "int", "args": [3, 10]},
         "min_pair_count": {"type": "int", "args": [3, 10]},
         "num_neighbours": {"type": "int", "args": [300, 2000]},
         "use_relevance": {"type": "categorical", "args": [True, False]},
-        "metric_for_study": {"type": "categorical", "args": ["confidence", "lift"]},
+        "similarity_metric": {"type": "categorical", "args": ["confidence", "lift"]},
     }
 
     # pylint: disable=too-many-arguments,
@@ -43,7 +89,7 @@ class AssociationRulesItemRec(NeighbourRec):
         min_pair_count: int = 5,
         num_neighbours: Optional[int] = 1000,
         use_relevance: bool = False,
-        metric_for_predict: str = "confidence",
+        similarity_metric: str = "confidence",
     ) -> None:
         """
         :param session_col: name of column to group sessions.
@@ -54,16 +100,10 @@ class AssociationRulesItemRec(NeighbourRec):
         :param use_relevance: flag to use relevance values instead of co-occurrence count
             If true, pair relevance in session is minimal relevance of item in pair.
             Item relevance is sum of relevance in all sessions.
-        :param metric_for_predict: `lift` of 'confidence'
-            Metric used like similarity for calculate predict,
-            one of [''lift'', ''confidence'', "confidence_gain'']
+        :param similarity_metric: `lift` of 'confidence'
+            The metric used as a similarity to calculate the prediction,
+            one of [``lift``, ``confidence``, ``confidence_gain``]
         """
-
-        if metric_for_predict not in self.item_to_item_metrics:
-            raise ValueError(
-                f"Select one of the valid metrics for predict: "
-                f"{self.item_to_item_metrics}"
-            )
 
         self.session_col = (
             session_col if session_col is not None else "user_idx"
@@ -72,7 +112,7 @@ class AssociationRulesItemRec(NeighbourRec):
         self.min_pair_count = min_pair_count
         self.num_neighbours = num_neighbours
         self.use_relevance = use_relevance
-        self.metric_for_predict = metric_for_predict
+        self.similarity_metric = similarity_metric
 
     @property
     def _init_args(self):
@@ -82,7 +122,7 @@ class AssociationRulesItemRec(NeighbourRec):
             "min_pair_count": self.min_pair_count,
             "num_neighbours": self.num_neighbours,
             "use_relevance": self.use_relevance,
-            "metric_for_predict": self.metric_for_predict,
+            "similarity_metric": self.similarity_metric,
         }
 
     def _fit(
@@ -218,13 +258,6 @@ class AssociationRulesItemRec(NeighbourRec):
             "lift",
             "confidence_gain",
         )
-        if self.metric_for_predict == "lift":
-            self.similarity = self.similarity.withColumn("similarity", sf.log("lift"))
-        elif self.metric_for_predict:
-            self.similarity = (
-                self.similarity.withColumn("similarity", sf.col(self.metric_for_predict))
-            )
-
         self.similarity.cache().count()
         frequent_items_cached.unpersist()
 
@@ -302,10 +335,6 @@ class AssociationRulesItemRec(NeighbourRec):
                 on="item_idx_one",
             )
         )
-
-    def _clear_cache(self):
-        if hasattr(self, "similarity"):
-            unpersist_if_exists(self.similarity)
 
     @property
     def _dataframes(self):

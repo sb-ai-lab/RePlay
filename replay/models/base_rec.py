@@ -1409,6 +1409,9 @@ class NeighbourRec(Recommender, ABC):
     similarity: Optional[DataFrame]
     can_predict_item_to_item: bool = True
     can_predict_cold_users: bool = True
+    can_change_metric: bool = False
+    item_to_item_metrics = ["similarity"]
+    _similarity_metric = "similarity"
 
     @property
     def _dataframes(self):
@@ -1417,6 +1420,21 @@ class NeighbourRec(Recommender, ABC):
     def _clear_cache(self):
         if hasattr(self, "similarity"):
             self.similarity.unpersist()
+
+    @property
+    def similarity_metric(self):
+        return self._similarity_metric
+
+    @similarity_metric.setter
+    def similarity_metric(self, value):
+        if not self.can_change_metric:
+            raise ValueError("This class does not support changing similarity metrics")
+        if value not in self.item_to_item_metrics:
+            raise ValueError(
+                f"Select one of the valid metrics for predict: "
+                f"{self.item_to_item_metrics}"
+            )
+        self._similarity_metric = value
 
     def _predict_pairs_inner(
         self,
@@ -1456,7 +1474,7 @@ class NeighbourRec(Recommender, ABC):
                 on=condition,
             )
             .groupby("user_idx", "item_idx_two")
-            .agg(sf.sum("similarity").alias("relevance"))
+            .agg(sf.sum(self.similarity_metric).alias("relevance"))
             .withColumnRenamed("item_idx_two", "item_idx")
         )
         return recs

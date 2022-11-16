@@ -28,6 +28,20 @@ def spark():
 
 
 @pytest.fixture
+def log_to_pred(spark):
+    return spark.createDataFrame(
+        data=[
+            [0, 2, datetime(2019, 9, 12), 3.0],
+            [0, 4, datetime(2019, 9, 13), 2.0],
+            [1, 5, datetime(2019, 9, 14), 4.0],
+            [4, 0, datetime(2019, 9, 15), 3.0],
+            [4, 1, datetime(2019, 9, 15), 3.0],
+        ],
+        schema=LOG_SCHEMA,
+    )
+
+
+@pytest.fixture
 def log2(spark):
     return spark.createDataFrame(
         data=[

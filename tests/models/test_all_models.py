@@ -1,6 +1,4 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-from datetime import datetime
-
 import pytest
 import numpy as np
 
@@ -26,26 +24,13 @@ from replay.models.base_rec import HybridRecommender, UserRecommender
 from tests.utils import (
     spark,
     log,
+    log_to_pred,
     long_log_with_features,
     user_features,
     sparkDataFrameEqual,
 )
 
 SEED = 123
-
-
-@pytest.fixture
-def log_to_pred(spark):
-    return spark.createDataFrame(
-        data=[
-            [0, 2, datetime(2019, 9, 12), 3.0],
-            [0, 4, datetime(2019, 9, 13), 2.0],
-            [1, 5, datetime(2019, 9, 14), 4.0],
-            [4, 0, datetime(2019, 9, 15), 3.0],
-            [4, 1, datetime(2019, 9, 15), 3.0],
-        ],
-        schema=LOG_SCHEMA,
-    )
 
 
 @pytest.mark.parametrize(
@@ -406,3 +391,20 @@ def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
     )
     pred_from_file = spark.read.parquet(path)
     sparkDataFrameEqual(pred_cached, pred_from_file)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ItemKNN(),
+        SLIM(seed=SEED),
+    ],
+    ids=[
+        "knn",
+        "slim",
+    ],
+)
+def test_similarity_metric_raises(log, model):
+    with pytest.raises(ValueError, match="This class does not support changing similarity metrics"):
+        model.fit(log)
+        model.similarity_metric = "some"
