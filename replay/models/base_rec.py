@@ -1421,6 +1421,7 @@ class NeighbourRec(Recommender, ABC):
         if hasattr(self, "similarity"):
             self.similarity.unpersist()
 
+    # pylint: disable=missing-function-docstring
     @property
     def similarity_metric(self):
         return self._similarity_metric
