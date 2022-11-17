@@ -8,8 +8,6 @@ from pyspark.ml.feature import StringIndexerModel, StringIndexer
 from replay.model_handler import save_indexer, save_splitter
 from replay.model_handler import load_indexer, load_splitter
 
-# , load_indexer, load
-
 from replay.data_preparator import DataPreparator, Indexer
 from replay.session_handler import get_spark_session
 from replay.utils import JobGroup, log_exec_timer
@@ -73,22 +71,28 @@ def main(spark: SparkSession):
         }
         mlflow.log_params(spark_configs)
 
-        df = pd.read_csv(
-            "/opt/spark_data/replay_datasets/ml1m_ratings.dat",
-            sep="\t",
-            names=["userId", "item_id", "relevance", "timestamp"],
-        )
-        users = pd.read_csv(
-            "/opt/spark_data/replay_datasets/ml1m_users.dat",
-            sep="\t",
-            names=["user_id", "gender", "age", "occupation", "zip_code"],
-        )
+        # df = spark.read.parquet("file:///opt/spark_data/replay_datasets/MovieLens/train_ml1m_1m_users_3_7k_items.parquet")
+        df = spark.read.parquet("file:///opt/spark_data/replay_datasets/MovieLens/train_ml1m_1m_users_37k_items.parquet")
+        # df = pd.read_csv(
+        #     "/opt/spark_data/replay_datasets/ml1m_ratings.dat",
+        #     sep="\t",
+        #     names=["userId", "item_id", "relevance", "timestamp"],
+        # )
+        # users = spark.read.parquet("file:///opt/spark_data/replay_datasets/MovieLens/train_ml1m_1m_users_3_7k_items_user_features.parquet")
+        users = spark.read.parquet("file:///opt/spark_data/replay_datasets/MovieLens/train_ml1m_1m_users_37k_items_user_features.parquet")
+        users = users.withColumn("age", users["age"].cast("int"))
+        users = users.withColumn("occupation", users["occupation"].cast("int"))
+        # users = pd.read_csv(
+        #     "/opt/spark_data/replay_datasets/ml1m_users.dat",
+        #     sep="\t",
+        #     names=["user_id", "gender", "age", "occupation", "zip_code"],
+        # )
         preparator = DataPreparator()
         log = preparator.transform(
             columns_mapping={
-                "user_id": "userId",
+                "user_id": "user_id",
                 "item_id": "item_id",
-                "relevance": "relevance",
+                "relevance": "rating",
                 "timestamp": "timestamp",
             },
             data=df,
@@ -182,9 +186,13 @@ def main(spark: SparkSession):
         mlflow.log_param("test.total_items", test_info[2])
 
         with log_exec_timer("Train/test/user_features datasets saving to parquet") as parquets_save_timer:
-            train.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/ml1m_train.parquet")
-            test.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/ml1m_test.parquet")
-            user_features.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/ml1m_user_features.parquet")
+            # train.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_train.parquet")
+            # test.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_test.parquet")
+            # user_features.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_user_features.parquet")
+            train.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/ml1m_1m_users_37k_items_train.parquet")
+            test.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/ml1m_1m_users_37k_items_test.parquet")
+            user_features.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/ml1m_1m_users_37k_items_user_features.parquet")
+            
         mlflow.log_metric(f"parquets{partition_num}_write_sec", parquets_save_timer.duration)
 
 

@@ -28,6 +28,7 @@ from replay.models import (
     Wilson,
     ClusterRec
 )
+from replay.utils import logger
 
 # from rs_datasets import MovieLens, MillionSongDataset
 from pyspark.sql import functions as sf
@@ -38,12 +39,13 @@ from replay.filters import filter_by_min_count, filter_out_low_ratings
 from pyspark.conf import SparkConf
 
 
-VERBOSE_LOGGING_FORMAT = (
-    "%(asctime)s %(levelname)s %(module)s %(filename)s:%(lineno)d %(message)s"
-)
-logging.basicConfig(level=logging.INFO, format=VERBOSE_LOGGING_FORMAT)
-logger = logging.getLogger("replay")
-logger.setLevel(logging.DEBUG)
+
+# VERBOSE_LOGGING_FORMAT = (
+#     "%(asctime)s %(levelname)s %(module)s %(filename)s:%(lineno)d %(message)s"
+# )
+# logging.basicConfig(level=logging.INFO, format=VERBOSE_LOGGING_FORMAT)
+# logger = logging.getLogger("replay")
+# logger.setLevel(logging.DEBUG)
 
 
 def main(spark: SparkSession, dataset_name: str):
@@ -62,7 +64,7 @@ def main(spark: SparkSession, dataset_name: str):
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
     MODEL = os.environ.get(
-        "MODEL", "ClusterRec"
+        "MODEL", "ALS_NMSLIB_HNSW"
     )
     # PopRec
     # Word2VecRec Word2VecRec_NMSLIB_HNSW
@@ -102,12 +104,11 @@ def main(spark: SparkSession, dataset_name: str):
                 "spark.default.parallelism"
             ),
             "spark.applicationId": spark.sparkContext.applicationId,
+            "dataset": dataset_name,
+            "seed": SEED,
+            "K": K
         }
         mlflow.log_params(spark_configs)
-
-        mlflow.log_param("dataset", dataset_name)
-        mlflow.log_param("seed", SEED)
-        mlflow.log_param("K", K)
 
         if dataset_name.startswith("MovieLens"):
             dataset_params = dataset_name.split("__")
@@ -177,55 +178,6 @@ def main(spark: SparkSession, dataset_name: str):
             #     "relevance": "play_count",
             # }
         elif dataset_name == "ml1m":
-            # df = pd.read_csv(
-            #     "/opt/spark_data/replay_datasets/ml1m_ratings.dat",
-            #     sep="\t",
-            #     names=["userId", "item_id", "relevance", "timestamp"],
-            # )
-            # users = pd.read_csv(
-            #     "/opt/spark_data/replay_datasets/ml1m_users.dat",
-            #     sep="\t",
-            #     names=["user_id", "gender", "age", "occupation", "zip_code"],
-            # )
-            # preparator = DataPreparator()
-            # log = preparator.transform(
-            #     columns_mapping={
-            #         "user_id": "userId",
-            #         "item_id": "item_id",
-            #         "relevance": "relevance",
-            #         "timestamp": "timestamp",
-            #     },
-            #     data=df,
-            # )
-            # user_features = preparator.transform(
-            #     columns_mapping={"user_id": "user_id"}, data=users
-            # )
-            # log = filter_out_low_ratings(log, value=3)
-            # log = filter_by_min_count(log, num_entries=5, group_by="user_id")
-            # indexer = Indexer(user_col="user_id", item_col="item_id")
-            # indexer.fit(
-            #     users=log.select("user_id").unionByName(
-            #         user_features.select("user_id")
-            #     ),
-            #     items=log.select("item_id"),
-            # )
-            # log_replay = indexer.transform(df=log)
-            # log_replay = log_replay.repartition(partition_num)
-            # log_replay = log_replay.cache()
-            # log_replay.write.mode("overwrite").format("noop").save()
-            # splitter = UserSplitter(
-            #     drop_cold_items=True,
-            #     drop_cold_users=True,
-            #     item_test_size=K,
-            #     user_test_size=500,
-            #     seed=SEED,
-            #     shuffle=True,
-            # )
-            # train, test = splitter.split(log_replay)
-
-            # train = train.repartition(partition_num)
-            # test = test.repartition(partition_num)
-
             with log_exec_timer(
                 "Train/test/user_features datasets reading to parquet"
             ) as parquets_read_timer:
@@ -244,7 +196,46 @@ def main(spark: SparkSession, dataset_name: str):
             mlflow.log_metric(
                 "parquets_read_sec", parquets_read_timer.duration
             )
-
+        elif dataset_name == "ml1m_1m_users_3_7k_items":
+            with log_exec_timer(
+                "Train/test/user_features datasets reading to parquet"
+            ) as parquets_read_timer:
+                train = spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_train.parquet"
+                )
+                test = spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_test.parquet"
+                )
+                user_features = spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_user_features.parquet"
+                )
+                #.select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
+                print(user_features.printSchema())
+                train = train.repartition(partition_num, "user_idx")
+                test = test.repartition(partition_num, "user_idx")
+            mlflow.log_metric(
+                "parquets_read_sec", parquets_read_timer.duration
+            )
+        elif dataset_name == "ml1m_1m_users_37k_items":
+            with log_exec_timer(
+                "Train/test/user_features datasets reading to parquet"
+            ) as parquets_read_timer:
+                train = spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/ml1m_1m_users_37k_items_train.parquet"
+                )
+                test = spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/ml1m_1m_users_37k_items_test.parquet"
+                )
+                user_features = spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/ml1m_1m_users_37k_items_user_features.parquet"
+                )
+                #.select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
+                print(user_features.printSchema())
+                train = train.repartition(partition_num, "user_idx")
+                test = test.repartition(partition_num, "user_idx")
+            mlflow.log_metric(
+                "parquets_read_sec", parquets_read_timer.duration
+            )
         else:
             raise ValueError("Unknown dataset.")
 
