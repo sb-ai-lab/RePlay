@@ -490,17 +490,19 @@ class NmslibHnsw:
             "infer_hnsw_index (inside 1)",
         ):
             if index_type == "sparse":
-                res = user_vectors.select(  # "user_idx",
+                res = user_vectors.select(
                     infer_index("user_idx", "num_items").alias("r")
                 )
             else:
-                res = user_vectors.select(  # "user_idx",
+                res = user_vectors.select(
                     infer_index("user_idx", features_col, "num_items").alias(
                         "r"
-                    ),
+                    )
                 )
             # res = res.cache()
             # res.write.mode("overwrite").format("noop").save()
+
+        print(res.printSchema())
 
         with JobGroup(
             "res.withColumn('zip_exp', ...",
