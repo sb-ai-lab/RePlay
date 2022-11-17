@@ -410,14 +410,14 @@ class NmslibHnsw:
             filesystem, hdfs_uri, index_path = get_filesystem(
                 params["index_path"]
             )
-            index_file_manager1 = NmslibIndexFileManager(
+            _index_file_manager = NmslibIndexFileManager(
                 params, index_type, index_path, filesystem, hdfs_uri
             )
         else:
-            index_file_manager1 = NmslibIndexFileManager(params, index_type)
+            _index_file_manager = NmslibIndexFileManager(params, index_type)
 
         index_file_manager_broadcast = State().session.sparkContext.broadcast(
-            index_file_manager1
+            _index_file_manager
         )
 
         # k_udf = k + self._max_items_to_retrieve
@@ -453,7 +453,7 @@ class NmslibHnsw:
                 # pd_res = pd_res.assign(user_idx=user_idx.values)
 
                 # pd_res looks like
-                # user_id item_ids  distances
+                # user_id item_idx  distances
                 # 0       [1, 2, 3] [-0.5, -0.3, -0.1]
                 # 1       [1, 3, 4] [-0.1, -0.8, -0.2]
 
@@ -473,9 +473,8 @@ class NmslibHnsw:
 
                 neighbours = index.knnQueryBatch(
                     np.stack(vectors.values),
-                    k=k + max_items_to_retrieve,  # k_udf
-                    # num_threads=1
-                )
+                    k=k + max_items_to_retrieve
+                ) # num_threads=1
                 pd_res = pd.DataFrame(
                     neighbours, columns=["item_idx", "distance"]
                 )
@@ -495,42 +494,30 @@ class NmslibHnsw:
                 )
             else:
                 res = user_vectors.select(
-                    infer_index("user_idx", features_col, "num_items").alias(
-                        "r"
-                    )
+                    infer_index("user_idx", features_col, "num_items").alias("r")
                 )
             # res = res.cache()
             # res.write.mode("overwrite").format("noop").save()
-
-        print(res.printSchema())
 
         with JobGroup(
             "res.withColumn('zip_exp', ...",
             "infer_hnsw_index (inside 2)",
         ):
-            res = res.withColumn(
-                "zip_exp",
-                sf.explode(sf.arrays_zip("r.item_idx", "r.distance")),
-            ).select(
-                # "user_idx",
+            res = res.select('*',
+                sf.explode(sf.arrays_zip("r.item_idx", "r.distance")).alias('zip_exp')
+            )
+            
+            # Fix arrays_zip random behavior. It can return zip_exp.0 or zip_exp.item_idx in different machines
+            item_idx_field_name: str = res.schema["zip_exp"].jsonValue()["type"]["fields"][0]["name"]
+            distance_field_name: str = res.schema["zip_exp"].jsonValue()["type"]["fields"][1]["name"]
+
+            res = res.select(
                 sf.col("r.user_idx").alias("user_idx"),
-                sf.col("zip_exp.item_idx").alias("item_idx"),
-                (sf.lit(-1.0) * sf.col("zip_exp.distance")).alias("relevance"),
+                sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx"),
+                (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias("relevance")
             )
             # res = res.cache()
             # res.write.mode("overwrite").format("noop").save()
-
-        # if filter_seen_items:
-        #     with JobGroup(
-        #         "filter_seen_hnsw_res()",
-        #         "infer_hnsw_index (inside 3)",
-        #     ):
-        #         res = self._filter_seen_hnsw_res(log, res, k)
-        #         res = res.cache()
-        #         res.write.mode("overwrite").format("noop").save()
-        # else:
-        #     res = res.cache()
-        # res = res.cache()
 
         return res
 
