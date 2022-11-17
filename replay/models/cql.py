@@ -125,6 +125,7 @@ class CQL(Recommender):
         "actor_learning_rate": {"type": "loguniform", "args": [1e-5, 1e-3]},
         "critic_learning_rate": {"type": "loguniform", "args": [3e-5, 3e-4]},
         "n_epochs": {"type": "int", "args": [3, 20]},
+        "action_randomization_scale": {"type": "loguniform", "args": [1e-3, 1e-1]},
         "temp_learning_rate": {"type": "loguniform", "args": [1e-5, 1e-3]},
         "alpha_learning_rate": {"type": "loguniform", "args": [1e-5, 1e-3]},
         "gamma": {"type": "loguniform", "args": [0.9, 0.999]},
@@ -315,7 +316,7 @@ class CQL(Recommender):
             # cannot set zero scale as d3rlpy will treat transitions as discrete :/
             action_randomization_scale = self.action_randomization_scale
             action_randomization = np.random.randn(len(user_logs)) * action_randomization_scale
-            actions += action_randomization
+            actions = actions.astype(float) + action_randomization
 
         train_dataset = MDPDataset(
             observations=np.array(user_logs[['user_idx', 'item_idx']]),
