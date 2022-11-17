@@ -420,10 +420,10 @@ class BaseRecommender(ABC):
         """
         users_log = log.join(users, on="user_idx")
         self._cache_model_temp_view(users_log, "filter_seen_users_log")
-        num_seen = users_log.groupBy("user_idx").agg(
-            sf.count("item_idx").alias("seen_count")
-        )
-        self._cache_model_temp_view(num_seen, "filter_seen_num_seen")
+        # num_seen = users_log.groupBy("user_idx").agg(
+        #     sf.count("item_idx").alias("seen_count")
+        # )
+        # self._cache_model_temp_view(num_seen, "filter_seen_num_seen")
 
         # filter recommendations presented in interactions log
         recs = recs.join(
