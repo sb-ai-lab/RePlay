@@ -101,3 +101,20 @@ def test_convert():
     spark_df = utils.convert2spark(dataframe)
     pd.testing.assert_frame_equal(dataframe, spark_df.toPandas())
     assert utils.convert2spark(spark_df) is spark_df
+
+
+def test_sample_top_k(long_log_with_features):
+    res = utils.sample_k_items(long_log_with_features, 1, seed=123)
+    res.show()
+    assert (
+        res.count()
+        == long_log_with_features.select("user_idx").distinct().count()
+    )
+    test_rel = (
+        res.withColumnRenamed("relevance", "predicted_relevance")
+        .join(long_log_with_features, on=["user_idx", "item_idx"])
+        .withColumn(
+            "wrong_rel", sf.col("relevance") != sf.col("predicted_relevance")
+        )
+    )
+    assert test_rel.selectExpr("any(wrong_rel)").collect()[0][0] is False

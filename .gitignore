@@ -148,6 +148,7 @@ tmp/
 docs/_build/
 *.DS_Store
 */catboost_info
+.vscode
 
 ### d3rlpy logs
 d3rlpy_logs/
