@@ -31,6 +31,7 @@ class Word2VecRec(Recommender, ItemVectorModel):
         self,
         rank: int = 100,
         min_count: int = 5,
+        num_partitions: Optional[int] = None,
         step_size: int = 0.025,
         max_iter: int = 1,
         window_size: int = 1,
@@ -52,6 +53,7 @@ class Word2VecRec(Recommender, ItemVectorModel):
         self.window_size = window_size
         self.use_idf = use_idf
         self.min_count = min_count
+        self._num_partitions = num_partitions
         self.step_size = step_size
         self.max_iter = max_iter
         self._seed = seed
@@ -106,9 +108,13 @@ class Word2VecRec(Recommender, ItemVectorModel):
 
         self.logger.debug("Model training")
 
+        if self._num_partitions is None:
+            self._num_partitions = log_by_users.rdd.getNumPartitions()
+        
         word_2_vec = Word2Vec(
             vectorSize=self.rank,
             minCount=self.min_count,
+            numPartitions=self._num_partitions,
             stepSize=self.step_size,
             maxIter=self.max_iter,
             inputCol="items",
