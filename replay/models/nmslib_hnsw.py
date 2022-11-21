@@ -46,10 +46,8 @@ class NmslibIndexFileManager:
     @property
     def index(self):
         if self._index:
-            print("using loaded index")
             return self._index
 
-        print("*load index*")
         if self._index_type == "sparse":
             self._index = nmslib.init(
                 method=self._method,
@@ -161,8 +159,8 @@ class NmslibHnsw:
                         pdf = pd.concat(pdfs, copy=False)
 
                         data = pdf["similarity"].values
-                        row_ind = pdf["item_idx_two"].values  # 'item_idx_one'
-                        col_ind = pdf["item_idx_one"].values  # 'item_idx_two'
+                        row_ind = pdf["item_idx_two"].values
+                        col_ind = pdf["item_idx_one"].values
 
                         # M = pdf['item_idx_one'].max() + 1
                         # N = pdf['item_idx_two'].max() + 1
@@ -254,9 +252,6 @@ class NmslibHnsw:
                                 index_path,
                                 destination_filesystem=destination_filesystem,
                             )
-
-                            # hdfs = fs.HadoopFileSystem.from_uri(hdfs_uri)
-                            # fs.copy_files("file://" + tmp_file_path, index_path, destination_filesystem=hdfs)
                             # param use_threads=True (?)
                         else:
                             index.saveIndex(index_path)
@@ -268,31 +263,10 @@ class NmslibHnsw:
                     item_vectors.select(
                         "similarity", "item_idx_one", "item_idx_two"
                     ).mapInPandas(build_index, "_success int").show()
-
-                    # logger.debug(f"filesystem: {filesystem}")
-                    # logger.debug(f"hdfs_uri: {hdfs_uri}")
-                    # logger.debug(f"index_path: {index_path}")
-                    # # share index to executors
-                    # spark = SparkSession.getActiveSession()
-                    # if filesystem == FileSystem.HDFS:
-                    #     full_path = hdfs_uri + index_path
-                    # else:
-                    #     full_path = index_path
-                    # spark.sparkContext.addFile(full_path)
-                    # # if index is sparse then we need include .dat file also!
-                    # spark.sparkContext.addFile(full_path + ".dat")
                 else:
                     item_vectors.select("item_idx", features_col).mapInPandas(
                         build_index, "_success int"
                     ).show()
-
-                    # # share index to executors
-                    # spark = SparkSession.getActiveSession()
-                    # if filesystem == FileSystem.HDFS:
-                    #     full_path = hdfs_uri + index_path
-                    # else:
-                    #     full_path = index_path
-                    # spark.sparkContext.addFile(full_path)
             else:
                 if index_type == "sparse":
                     item_vectors = item_vectors.toPandas()
@@ -370,32 +344,6 @@ class NmslibHnsw:
                     spark = SparkSession.getActiveSession()
                     spark.sparkContext.addFile("file://" + tmp_file_path)
 
-    # def _filter_seen_hnsw_res(
-    #     self, log: DataFrame, pred: DataFrame, k: int, id_type="idx"
-    # ):
-    #     """
-    #     filter items seen in log and leave top-k most relevant
-    #     """
-
-    #     user_id = "user_" + id_type
-    #     item_id = "item_" + id_type
-
-    #     recs = pred.join(log, on=[user_id, item_id], how="anti")
-
-    #     recs = (
-    #         recs.withColumn(
-    #             "temp_rank",
-    #             sf.row_number().over(
-    #                 Window.partitionBy(user_id).orderBy(
-    #                     sf.col("relevance").desc()
-    #                 )
-    #             ),
-    #         )
-    #         .filter(sf.col("temp_rank") <= k)
-    #         .drop("temp_rank")
-    #     )
-
-    #     return recs
 
     def _infer_hnsw_index(
         self,
@@ -420,7 +368,6 @@ class NmslibHnsw:
             _index_file_manager
         )
 
-        # k_udf = k + self._max_items_to_retrieve
         return_type = (
             "user_idx int, item_idx array<int>, distance array<double>"
         )
@@ -443,8 +390,9 @@ class NmslibHnsw:
                 # take slice
                 m = interactions_matrix[user_idx.values, :]
                 neighbours = index.knnQueryBatch(
-                    m, k=k + max_items_to_retrieve
-                )  # , num_threads=1  k_udf
+                    m, k=k + max_items_to_retrieve,
+                    num_threads=1
+                )
                 pd_res = pd.DataFrame(
                     neighbours, columns=["item_idx", "distance"]
                 )
@@ -454,8 +402,8 @@ class NmslibHnsw:
 
                 # pd_res looks like
                 # user_id item_idx  distances
-                # 0       [1, 2, 3] [-0.5, -0.3, -0.1]
-                # 1       [1, 3, 4] [-0.1, -0.8, -0.2]
+                # 0       [1, 2, 3, ...] [-0.5, -0.3, -0.1, ...]
+                # 1       [1, 3, 4, ...] [-0.1, -0.8, -0.2, ...]
 
                 return pd_res
 
@@ -473,8 +421,9 @@ class NmslibHnsw:
 
                 neighbours = index.knnQueryBatch(
                     np.stack(vectors.values),
-                    k=k + max_items_to_retrieve
-                ) # num_threads=1
+                    k=k + max_items_to_retrieve,
+                    num_threads=1
+                )
                 pd_res = pd.DataFrame(
                     neighbours, columns=["item_idx", "distance"]
                 )
@@ -531,78 +480,50 @@ class NmslibHnsw:
 
         params = self._nmslib_hnsw_params
 
-        if params["build_index_on"] == "executor":
-            index_filename = params["index_path"].split("/")[-1]
-            # print(SparkFiles.get(index_filename))
-            from_path = SparkFiles.get(index_filename)
-            logger.debug(f"index local path: {from_path}")
-        else:
-            # print(SparkFiles.get("nmslib_hnsw_index"))
-            from_path = SparkFiles.get("nmslib_hnsw_index")
-            logger.debug(f"index local path: {from_path}")
-
-        # from_filesystem, from_hdfs_uri, from_path = get_filesystem(
-        #     params["index_path"]
-        # )
+        from_filesystem, from_hdfs_uri, from_path = get_filesystem(
+            params["index_path"]
+        )
         to_filesystem, to_hdfs_uri, to_path = get_filesystem(path)
 
-        source_filesystem = fs.LocalFileSystem()
-        if to_filesystem == FileSystem.HDFS:
-            destination_filesystem = fs.HadoopFileSystem.from_uri(to_hdfs_uri)
-            fs.copy_files(
-                from_path,
-                os.path.join(to_path, "nmslib_hnsw_index"),
-                source_filesystem=source_filesystem,
-                destination_filesystem=destination_filesystem,
-            )
+        if from_filesystem == FileSystem.HDFS:
+            source_filesystem = fs.HadoopFileSystem.from_uri(from_hdfs_uri)
+            if to_filesystem == FileSystem.HDFS:
+                destination_filesystem = fs.HadoopFileSystem.from_uri(
+                    to_hdfs_uri
+                )
+                fs.copy_files(
+                    from_path,
+                    os.path.join(to_path, "nmslib_hnsw_index"),
+                    source_filesystem=source_filesystem,
+                    destination_filesystem=destination_filesystem,
+                )
+            else:
+                destination_filesystem = fs.LocalFileSystem()
+                fs.copy_files(
+                    from_path,
+                    os.path.join(to_path, "nmslib_hnsw_index"),
+                    source_filesystem=source_filesystem,
+                    destination_filesystem=destination_filesystem,
+                )
         else:
-            destination_filesystem = fs.LocalFileSystem()
-            fs.copy_files(
-                from_path,
-                os.path.join(to_path, "nmslib_hnsw_index"),
-                source_filesystem=source_filesystem,
-                destination_filesystem=destination_filesystem,
-            )
-
-        # if from_filesystem == FileSystem.HDFS:
-        #     source_filesystem = fs.HadoopFileSystem.from_uri(from_hdfs_uri)
-        #     if to_filesystem == FileSystem.HDFS:
-        #         destination_filesystem = fs.HadoopFileSystem.from_uri(
-        #             to_hdfs_uri
-        #         )
-        #         fs.copy_files(
-        #             from_path,
-        #             os.path.join(to_path, "nmslib_hnsw_index"),
-        #             source_filesystem=source_filesystem,
-        #             destination_filesystem=destination_filesystem,
-        #         )
-        #     else:
-        #         destination_filesystem = fs.LocalFileSystem()
-        #         fs.copy_files(
-        #             from_path,
-        #             os.path.join(to_path, "nmslib_hnsw_index"),
-        #             source_filesystem=source_filesystem,
-        #             destination_filesystem=destination_filesystem,
-        #         )
-        # else:
-        #     source_filesystem = fs.LocalFileSystem()
-        #     if to_filesystem == FileSystem.HDFS:
-        #         destination_filesystem = fs.HadoopFileSystem.from_uri(
-        #             to_hdfs_uri
-        #         )
-        #         fs.copy_files(
-        #             from_path,
-        #             os.path.join(to_path, "nmslib_hnsw_index"),
-        #             source_filesystem=source_filesystem,
-        #             destination_filesystem=destination_filesystem,
-        #         )
-        #     else:
-        #         destination_filesystem = fs.LocalFileSystem()
-        #         fs.copy_files(
-        #             from_path,
-        #             os.path.join(to_path, "nmslib_hnsw_index"),
-        #             source_filesystem=source_filesystem,
-        #             destination_filesystem=destination_filesystem,
-        #         )
+            source_filesystem = fs.LocalFileSystem()
+            if to_filesystem == FileSystem.HDFS:
+                destination_filesystem = fs.HadoopFileSystem.from_uri(
+                    to_hdfs_uri
+                )
+                fs.copy_files(
+                    from_path,
+                    os.path.join(to_path, "nmslib_hnsw_index"),
+                    source_filesystem=source_filesystem,
+                    destination_filesystem=destination_filesystem,
+                )
+            else:
+                destination_filesystem = fs.LocalFileSystem()
+                fs.copy_files(
+                    from_path,
+                    os.path.join(to_path, "nmslib_hnsw_index"),
+                    source_filesystem=source_filesystem,
+                    destination_filesystem=destination_filesystem,
+                )
 
         # param use_threads=True (?)
