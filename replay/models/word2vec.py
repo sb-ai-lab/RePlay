@@ -88,12 +88,10 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnswMixin):
     def _save_model(self, path: str):
         if self._nmslib_hnsw_params:
             self._save_nmslib_hnsw_index(path)
-        # self.model.write().overwrite().save(path)
             
     # def _load_model(self, path: str):
         # if self._nmslib_hnsw_params:
             # self._load_nmslib_hnsw_index(path)
-        
 
     def _fit(
         self,

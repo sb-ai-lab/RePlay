@@ -533,14 +533,14 @@ def main(spark: SparkSession, dataset_name: str):
                 e.results.at[MODEL, "HitRate@{}".format(k)],
             )
 
-        # with log_exec_timer(f"Model saving") as model_save_timer:
-        #     # save_indexer(indexer, './indexer_ml1')
-        #     save(
-        #         model,
-        #         path=f"/opt/spark_data/replay_datasets/{MODEL}_{dataset_name}", # file://
-        #         overwrite=True
-        #     )
-        # mlflow.log_metric("model_save_sec", model_save_timer.duration)
+        with log_exec_timer(f"Model saving") as model_save_timer:
+            save(
+                model,
+                path=f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}", # file://
+                overwrite=True
+            )
+        mlflow.log_param("model_save_dir", f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}")
+        mlflow.log_metric("model_save_sec", model_save_timer.duration)
 
         # with log_exec_timer(f"Model loading") as model_load_timer:
         #     # save_indexer(indexer, './indexer_ml1')
