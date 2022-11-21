@@ -425,10 +425,6 @@ class BaseRecommender(ABC):
         """
         users_log = log.join(users, on="user_idx")
         self._cache_model_temp_view(users_log, "filter_seen_users_log")
-        # num_seen = users_log.groupBy("user_idx").agg(
-        #     sf.count("item_idx").alias("seen_count")
-        # )
-        # self._cache_model_temp_view(num_seen, "filter_seen_num_seen")
 
         # filter recommendations presented in interactions log
         recs = recs.join(
@@ -440,29 +436,8 @@ class BaseRecommender(ABC):
             how="anti",
         ).drop("user", "item")
 
-        # count maximal number of items seen by users
-        # max_seen = 0
-        # if num_seen.count() > 0:
-        #     max_seen = num_seen.select(sf.max("seen_count")).collect()[0][0]
-
-
-        # def get_top_k_items_per_user(partitionData):
-        #     row = next(partitionData)
-        #     current_user_id = row.user_idx
-        #     yield [row.user_idx, row.item_idx, row.relevance]
-        #     n = 1
-        #     for row in partitionData:
-        #         if row.user_idx == current_user_id:
-        #             if n == k:
-        #                 continue
-        #             else:
-        #                 yield [row.user_idx, row.item_idx, row.relevance]
-        #                 n += 1
-        #         else:
-        #             current_user_id = row.user_idx
-        #             yield [row.user_idx, row.item_idx, row.relevance]
-        #             n = 1
-
+        # because relevances are already sorted, we can return the first k values
+        # for every user_idx
         def get_top_k(iterator):
             current_user_idx = None
             n = 0
@@ -477,53 +452,7 @@ class BaseRecommender(ABC):
 
         recs = recs.rdd.mapPartitions(get_top_k).toDF(["user_idx", "item_idx", "relevance"])
 
-        # # crop recommendations to first k + max_seen items for each user
-        # recs = recs.withColumn(
-        #     "temp_rank",
-        #     sf.row_number().over(
-        #         Window.partitionBy("user_idx").orderBy(
-        #             sf.col("relevance").desc()
-        #         )
-        #     ),
-        # ).filter(sf.col("temp_rank") <= sf.lit(k)) # max_seen + 
-
-        # # leave k + number of items seen by user recommendations in recs
-        # recs = (
-        #     recs.join(num_seen, on="user_idx", how="left")
-        #     .fillna(0)
-        #     .filter(sf.col("temp_rank") <= sf.col("seen_count") + sf.lit(k))
-        #     .drop("temp_rank", "seen_count")
-        # )
-
         return recs
-    
-    
-    # def _filter_seen_hnsw_res(
-    #     self, log: DataFrame, pred: DataFrame, k: int, id_type="idx"
-    # ):
-    #     """
-    #     filter items seen in log and leave top-k most relevant
-    #     """
-
-    #     user_id = "user_" + id_type
-    #     item_id = "item_" + id_type
-
-    #     recs = pred.join(log, on=[user_id, item_id], how="anti")
-
-    #     recs = (
-    #         recs.withColumn(
-    #             "temp_rank",
-    #             sf.row_number().over(
-    #                 Window.partitionBy(user_id).orderBy(
-    #                     sf.col("relevance").desc()
-    #                 )
-    #             ),
-    #         )
-    #         .filter(sf.col("temp_rank") <= k)
-    #         .drop("temp_rank")
-    #     )
-
-    #     return recs
 
     # pylint: disable=too-many-arguments
     def _predict_wrap(
@@ -603,17 +532,6 @@ class BaseRecommender(ABC):
                 # recs.write.mode("overwrite").format("noop").save()
             if os.environ.get("LOG_TO_MLFLOW", None) == "True":
                 mlflow.log_metric("filter_seen_sec", _filter_seen_timer.duration)
-
-        # with log_exec_timer("get_top_k_recs()") as get_top_k_recs_timer, JobGroup(
-        #     "Model inference (inside 3)", "get_top_k_recs()"
-        # ):
-        #     recs = get_top_k_recs(recs, k=k).select(
-        #         "user_idx", "item_idx", "relevance"
-        #     )
-        #     # recs = recs.cache()
-        #     # recs.write.mode("overwrite").format("noop").save()
-        # if os.environ.get("LOG_TO_MLFLOW", None) == "True":
-        #     mlflow.log_metric("get_top_k_recs_sec", get_top_k_recs_timer.duration)
         
         output = None
         with JobGroup("Model inference (inside 4)", f"{self.__class__.__name__}._predict()"):

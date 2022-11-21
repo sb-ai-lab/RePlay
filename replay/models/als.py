@@ -22,12 +22,12 @@ from pyspark.sql.types import DoubleType
 from pyspark_hnsw.knn import HnswSimilarity
 
 from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.models.nmslib_hnsw import NmslibHnsw
+from replay.models.nmslib_hnsw import NmslibHnswMixin
 from replay.utils import JobGroup, list_to_vector_udf, log_exec_timer
 # from replay.utils import get_top_k_recs
 
 
-class ALSWrap(Recommender, ItemVectorModel, NmslibHnsw):
+class ALSWrap(Recommender, ItemVectorModel, NmslibHnswMixin):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """

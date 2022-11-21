@@ -9,12 +9,12 @@ from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
 from replay.models.base_rec import NeighbourRec
-from replay.models.nmslib_hnsw import NmslibHnsw
+from replay.models.nmslib_hnsw import NmslibHnswMixin
 from replay.session_handler import State
 from replay.utils import JobGroup
 
 
-class SLIM(NeighbourRec, NmslibHnsw):
+class SLIM(NeighbourRec, NmslibHnswMixin):
     """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
 

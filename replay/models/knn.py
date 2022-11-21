@@ -6,13 +6,13 @@ from pyspark.sql.window import Window
 from scipy.sparse import csr_matrix
 
 from replay.models.base_rec import NeighbourRec
-from replay.models.nmslib_hnsw import NmslibHnsw
+from replay.models.nmslib_hnsw import NmslibHnswMixin
 from replay.optuna_objective import ItemKNNObjective
 from replay.session_handler import State
 from replay.utils import JobGroup
 
 
-class ItemKNN(NeighbourRec, NmslibHnsw):
+class ItemKNN(NeighbourRec, NmslibHnswMixin):
     """Item-based ItemKNN with modified cosine similarity measure."""
 
     all_items: Optional[DataFrame]

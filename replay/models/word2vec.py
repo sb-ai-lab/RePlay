@@ -19,12 +19,12 @@ from pyspark.ml.stat import Summarizer
 # from pyspark.sql import SparkSession
 
 from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.models.nmslib_hnsw import NmslibHnsw
+from replay.models.nmslib_hnsw import NmslibHnswMixin
 from replay.utils import JobGroup, log_exec_timer, multiply_scala_udf, vector_dot, vector_mult, join_with_col_renaming
 
 
 # pylint: disable=too-many-instance-attributes
-class Word2VecRec(Recommender, ItemVectorModel, NmslibHnsw):
+class Word2VecRec(Recommender, ItemVectorModel, NmslibHnswMixin):
     """
     Trains word2vec model where items ar treated as words and users as sentences.
     """

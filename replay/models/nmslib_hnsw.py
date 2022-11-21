@@ -115,7 +115,11 @@ class NmslibIndexFileManager:
         return self._index
 
 
-class NmslibHnsw:
+class NmslibHnswMixin:
+    """Mixin that provides methods to build nmslib hnsw index and infer it.
+    Also provides methods to saving and loading index to/from disk.
+    """
+
     def _build_hnsw_index(
         self,
         item_vectors: DataFrame,
