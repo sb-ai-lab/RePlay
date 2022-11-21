@@ -29,7 +29,7 @@ lib/
 lib64
 parts/
 sdist/
-src/
+src/*
 var/
 wheels/
 pip-wheel-metadata/
