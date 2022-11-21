@@ -3,7 +3,7 @@ from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
 from replay.constants import AnyDataFrame
-from replay.utils import convert2spark
+from replay.utils import convert2spark, get_top_k_recs
 from replay.metrics.base_metric import RecOnlyMetric, sorter
 
 
@@ -41,7 +41,7 @@ class Unexpectedness(RecOnlyMetric):
         return 1.0 - len(set(pred[:k]) & set(base_pred[:k])) / k
 
     def _get_enriched_recommendations(
-        self, recommendations: DataFrame, ground_truth: DataFrame
+        self, recommendations: DataFrame, ground_truth: DataFrame, max_k: int
     ) -> DataFrame:
         recommendations = convert2spark(recommendations)
         base_pred = self.pred
@@ -60,7 +60,7 @@ class Unexpectedness(RecOnlyMetric):
                 "user_idx", sort_udf(sf.col("base_pred")).alias("base_pred")
             )
         )
-
+        recommendations = get_top_k_recs(recommendations, k=max_k)
         recommendations = (
             recommendations.groupby("user_idx")
             .agg(

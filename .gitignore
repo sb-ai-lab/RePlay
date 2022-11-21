@@ -151,3 +151,5 @@ docs/_build/
 
 # Spark files
 metastore_db/
+
+.vscode

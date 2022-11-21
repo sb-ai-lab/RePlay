@@ -44,8 +44,9 @@ def test_works(log, model):
         pytest.fail()
 
 
-def test_clear_cache(model):
+def test_clear_cache(log, model):
     try:
+        model.fit(log)
         model._clear_cache()
     except:  # noqa
         pytest.fail()

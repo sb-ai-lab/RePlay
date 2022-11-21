@@ -26,7 +26,7 @@ from replay.utils import (
 class EmptyFeatureProcessor:
     """Do not perform any transformations on the dataframe"""
 
-    def fit(self, log: DataFrame, features: DataFrame) -> None:
+    def fit(self, log: DataFrame, features: Optional[DataFrame]) -> None:
         """
         :param log: input DataFrame ``[user_idx, item_idx, timestamp, relevance]``
         :param features: DataFrame with ``user_idx/item_idx`` and feature columns
@@ -49,6 +49,7 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
         - average log number of interactions by users interacted with item and vice versa (2)
         - difference between number of interactions by user/item (1)
         and average number of interactions (2)
+        - cold user/item flag
 
         Based on timestamp (if present and has a TimestampType):
         - min and max interaction timestamp for user/item
@@ -460,7 +461,7 @@ class HistoryBasedFeaturesProcessor:
     for detailed description of generated features.
     """
 
-    log_proc = EmptyFeatureProcessor()
+    log_processor = EmptyFeatureProcessor()
     user_cond_pop_proc = EmptyFeatureProcessor()
     item_cond_pop_proc = EmptyFeatureProcessor()
 
@@ -483,6 +484,7 @@ class HistoryBasedFeaturesProcessor:
         """
         if use_log_features:
             self.log_processor = LogStatFeaturesProcessor()
+
         if use_conditional_popularity and user_cat_features_list:
             if user_cat_features_list:
                 self.user_cond_pop_proc = ConditionalPopularityProcessor(
@@ -508,7 +510,7 @@ class HistoryBasedFeaturesProcessor:
         :param item_features: DataFrame with ``item_idx`` and feature columns
         """
         log = log.cache()
-        self.log_processor.fit(log=log)
+        self.log_processor.fit(log=log, features=user_features)
         self.user_cond_pop_proc.fit(log=log, features=user_features)
         self.item_cond_pop_proc.fit(log=log, features=item_features)
         self.fitted = True

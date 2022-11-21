@@ -84,10 +84,17 @@ class Experiment:
         :param pred: model recommendations
         """
 
-        with JobGroup("Experiment.add_result()", "get_enriched_recommendations()"):
-            recs = get_enriched_recommendations(pred, self.test).cache()
-            recs.write.mode("overwrite").format("noop").save()
+        max_k = 0
+        for current_k in self.metrics.values():
+            max_k = max(
+                (*current_k, max_k)
+                if isinstance(current_k, list)
+                else (current_k, max_k)
+            )
 
+        with JobGroup("Experiment.add_result()", "get_enriched_recommendations()"):
+            recs = get_enriched_recommendations(pred, self.test, max_k).cache() 
+            recs.write.mode("overwrite").format("noop").save()
 
         for metric, k_list in sorted(
             self.metrics.items(), key=lambda x: str(x[0])
@@ -96,7 +103,7 @@ class Experiment:
             if isinstance(metric, RecOnlyMetric):
                 print("Calc metric._get_enriched_recommendations()")
                 enriched = metric._get_enriched_recommendations(
-                    pred, self.test
+                    pred, self.test, max_k
                 )
 
             values, median, conf_interval = self._calculate(
