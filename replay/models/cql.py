@@ -311,12 +311,12 @@ class CQL(Recommender):
         terminals = np.zeros(len(user_logs))
         terminals[user_terminal_idxs] = 1
 
-        actions = user_logs['relevance'].to_numpy()
-        if self.action_randomization_scale > 0:
-            # cannot set zero scale as d3rlpy will treat transitions as discrete :/
-            action_randomization_scale = self.action_randomization_scale
-            action_randomization = np.random.randn(len(user_logs)) * action_randomization_scale
-            actions = actions.astype(float) + action_randomization
+        # cannot set zero scale as d3rlpy will treat transitions as discrete :/
+        assert self.action_randomization_scale > 0
+        action_randomization_scale = self.action_randomization_scale
+        action_randomization = np.random.randn(len(user_logs)) * action_randomization_scale
+
+        actions = user_logs['relevance'].to_numpy().astype(float) + action_randomization
 
         train_dataset = MDPDataset(
             observations=np.array(user_logs[['user_idx', 'item_idx']]),
