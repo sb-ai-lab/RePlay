@@ -58,7 +58,7 @@ class ImplicitWrap(Recommender):
         self.model.fit(matrix)
 
     @staticmethod
-    def _pd_funk(model, items_to_use=None, user_item_data=None, filter_seen_items=False):
+    def _pd_func(model, items_to_use=None, user_item_data=None, filter_seen_items=False):
         def predict_by_user_item(pandas_df):
             user = int(pandas_df["user_idx"].iloc[0])
             items = items_to_use if items_to_use else pandas_df.item_idx.to_list()
@@ -98,7 +98,7 @@ class ImplicitWrap(Recommender):
         return (
             users.select("user_idx")
             .groupby("user_idx")
-            .applyInPandas(self._pd_funk(
+            .applyInPandas(self._pd_func(
                 model=model,
                 items_to_use=items_to_use,
                 user_item_data=user_item_data,
@@ -115,5 +115,5 @@ class ImplicitWrap(Recommender):
 
         model = self.model
         return pairs.groupby("user_idx").applyInPandas(
-            self._pd_funk(model=model, filter_seen_items=False),
+            self._pd_func(model=model, filter_seen_items=False),
             REC_SCHEMA)
