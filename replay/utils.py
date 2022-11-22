@@ -1,18 +1,31 @@
-from typing import Any, List, Optional, Set, Union
+# import copy
+import logging
+# import os
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from datetime import datetime
+from enum import Enum
 
 import numpy as np
 import pandas as pd
 import pyspark.sql.types as st
+# import nmslib
+# import tempfile
 
+from contextlib import contextmanager
+from pyarrow import fs
+from pyspark.sql import SparkSession
 from numpy.random import default_rng
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
+from pyspark.sql.functions import pandas_udf
 from scipy.sparse import csr_matrix
 
 from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
 from replay.session_handler import State
 
 # pylint: disable=invalid-name
+
+logger = logging.getLogger("replay")
 
 
 def convert2spark(data_frame: Optional[AnyDataFrame]) -> Optional[DataFrame]:
@@ -206,6 +219,12 @@ def vector_mult(
     """
     return one * two
 
+from pyspark.sql.column import _to_java_column, _to_seq
+def multiply_scala_udf(scalar, vector):
+    sc = SparkSession.getActiveSession().sparkContext
+    _f = sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.multiplyUDF()
+    return Column(_f.apply(_to_seq(sc, [scalar, vector], _to_java_column)))
+
 
 @sf.udf(returnType=st.ArrayType(st.DoubleType()))
 def array_mult(first: st.ArrayType, second: st.ArrayType):
@@ -283,6 +302,39 @@ def get_log_info(
             f"total items: {item_cnt}",
         ]
     )
+
+
+def get_log_info2(
+    log: DataFrame, user_col="user_idx", item_col="item_idx"
+) -> Tuple[int, int, int]:
+    """
+    Basic log statistics
+
+    >>> from replay.session_handler import State
+    >>> spark = State().session
+    >>> log = spark.createDataFrame([(1, 2), (3, 4), (5, 2)]).toDF("user_idx", "item_idx")
+    >>> log.show()
+    +--------+--------+
+    |user_idx|item_idx|
+    +--------+--------+
+    |       1|       2|
+    |       3|       4|
+    |       5|       2|
+    +--------+--------+
+    <BLANKLINE>
+    >>> get_log_info2(log)
+    (3, 3, 2)
+
+    :param log: interaction log containing ``user_idx`` and ``item_idx``
+    :param user_col: name of a columns containing users' identificators
+    :param item_col: name of a columns containing items' identificators
+
+    :returns: statistics string
+    """
+    cnt = log.count()
+    user_cnt = log.select(user_col).distinct().count()
+    item_cnt = log.select(item_col).distinct().count()
+    return cnt, user_cnt, item_cnt
 
 
 def get_stats(
@@ -712,6 +764,98 @@ def drop_temp_view(temp_view_name: str) -> None:
     """
     spark = State().session
     spark.catalog.dropTempView(temp_view_name)
+
+
+class log_exec_timer:
+    def __init__(self, name: Optional[str] = None):
+        self.name = name
+        self._start = None
+        self._duration = None
+
+    def __enter__(self):
+        self._start = datetime.now()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self._duration = (datetime.now() - self._start).total_seconds()
+        msg = (
+            f"Exec time of {self.name}: {self._duration}"
+            if self.name
+            else f"Exec time: {self._duration}"
+        )
+        logger.info(msg)
+
+    @property
+    def duration(self):
+        return self._duration
+
+
+@contextmanager
+def JobGroup(group_id: str, description: str):
+    sc = SparkSession.getActiveSession().sparkContext
+    sc.setJobGroup(group_id, description)
+    yield
+    sc._jsc.clearJobGroup()
+
+
+def getNumberOfAllocatedExecutors(spark: SparkSession):
+    sc = spark._jsc.sc()
+    return len([executor.host() for executor in sc.statusTracker().getExecutorInfos() ]) -1
+
+
+class FileSystem(Enum):
+    HDFS = 1
+    LOCAL = 2
+
+def get_default_fs():
+    spark = SparkSession.getActiveSession()
+    hadoop_conf = spark._jsc.hadoopConfiguration()
+    default_fs = hadoop_conf.get("fs.defaultFS")
+    logger.debug(
+        f"hadoop_conf.get('fs.defaultFS'): {default_fs}"
+    )
+    return default_fs
+
+def get_filesystem(path: str) -> Tuple[int, Optional[str], str]:
+    """Analyzes path and hadoop config and return tuple of `filesystem`,
+    `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix).
+
+    For example:
+
+    >>> path = 'hdfs://node21.bdcl:9000/tmp/file'
+    >>> get_filesystem(path)
+    FileSystem.HDFS, 'hdfs://node21.bdcl:9000', '/tmp/file'
+    or
+    >>> path = 'file:///tmp/file'
+    >>> get_filesystem(path)
+    FileSystem.LOCAL, None, '/tmp/file'
+
+    Args:
+        path (str): path to file on hdfs or local disk
+
+    Returns:
+        Tuple[int, Optional[str], str]: `filesystem id`,
+    `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix)
+    """
+    if path.startswith("hdfs://"):
+        if path.startswith("hdfs:///"):
+            default_fs = get_default_fs()
+            if default_fs.startswith("hdfs://"):
+                return FileSystem.HDFS, default_fs, path[7:]
+            else:
+                raise Exception(f"Can't get default hdfs uri for path = '{path}'. "
+                    "Specify an explicit path, such as 'hdfs://host:port/dir/file', or set 'fs.defaultFS' in hadoop configuration.")
+        else:
+            hdfs_uri = "hdfs://" + path[7:].split('/', 1)[0]
+            return FileSystem.HDFS, hdfs_uri, path[7+len(hdfs_uri):]
+    elif path.startswith("file://"):
+        return FileSystem.LOCAL, None, path[7:]
+    else:
+        default_fs = get_default_fs()
+        if default_fs.startswith("hdfs://"):
+            return FileSystem.HDFS, default_fs, path
+        else:
+            return FileSystem.LOCAL, None, path
 
 
 def sample_k_items(pairs: DataFrame, k: int, seed: int = None):

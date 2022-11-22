@@ -24,6 +24,9 @@ def get_spark_session(
         70% of RAM by default.
     :param shuffle_partitions: number of partitions for Spark; triple CPU count by default
     """
+    if os.environ.get("SCRIPT_ENV", None) == "cluster":
+        return SparkSession.builder.getOrCreate()
+
     os.environ["PYSPARK_PYTHON"] = sys.executable
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
@@ -35,6 +38,8 @@ def get_spark_session(
     user_home = os.environ["HOME"]
     spark = (
         SparkSession.builder.config("spark.driver.memory", driver_memory)
+        .config('spark.jars.packages', 'com.github.jelmerk:hnswlib-spark_3.3_2.12:1.0.1')
+        .config("spark.jars", 'scala/target/scala-2.12/replay_2.12-0.1.jar')
         .config(
             "spark.driver.extraJavaOptions",
             "-Dio.netty.tryReflectionSetAccessible=true",
@@ -65,7 +70,7 @@ def logger_with_settings() -> logging.Logger:
     hdlr = logging.StreamHandler()
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     return logger
 
 
