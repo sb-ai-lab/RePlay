@@ -45,7 +45,6 @@ llvmlite = ">=0.32.1"
 seaborn = "*"
 pyarrow = "*"
 implicit = ">=0.5"
-pyspark-hnsw = "*"
 nmslib = "*"
 
 [tool.poetry.dev-dependencies]
@@ -78,6 +77,8 @@ virtualenv = "*"
 data-science-types = "*"
 pyspark-stubs = "*"
 autopep8 = "^1.7.0"
+# logging
+mlflow-skinny = "*"
 
 [tool.black]
 line-length = 79

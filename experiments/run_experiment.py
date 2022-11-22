@@ -342,28 +342,6 @@ def main(spark: SparkSession, dataset_name: str):
             ALS_RANK = int(os.environ.get("ALS_RANK", 100))
             mlflow.log_param("ALS_rank", ALS_RANK)
             model = ALSWrap(rank=ALS_RANK, seed=SEED, implicit_prefs=False)
-
-        elif MODEL == "ALS_PYSPARK_HNSW":
-            ALS_RANK = int(os.environ.get("ALS_RANK", 100))
-            num_blocks = int(os.environ.get("NUM_BLOCKS", 10))
-
-            mlflow.log_params({"num_blocks": num_blocks, "ALS_rank": ALS_RANK})
-
-            model = ALSWrap(
-                rank=ALS_RANK,
-                seed=SEED,
-                num_item_blocks=num_blocks,
-                num_user_blocks=num_blocks,
-                pyspark_hnsw_params={
-                    "distanceFunction": "cosine",
-                    "m": 48,
-                    "ef": 5,
-                    "k": K,
-                    "efConstruction": 200,
-                    "numPartitions": 4,  # TODO: set via variable
-                    "excludeSelf": True,
-                },
-            )
         elif MODEL == "ALS_NMSLIB_HNSW":
             ALS_RANK = int(os.environ.get("ALS_RANK", 100))
             build_index_on = "driver"  # driver executor
