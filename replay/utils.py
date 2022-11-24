@@ -714,11 +714,16 @@ def drop_temp_view(temp_view_name: str) -> None:
     spark.catalog.dropTempView(temp_view_name)
 
 
-def sample_k_items(pairs: DataFrame, k: int, seed: int = None):
+def sample_top_k_recs(pairs: DataFrame, k: int, seed: int = None):
     """
-    Take dataframe with columns 'user_idx, item_idx, relevance' and
-    returns k items for each user with probability proportional to the relevance score.
-    May be used after getting recommendations with `predict_pairs` method.
+    Sample k items for each user with probability proportional to the relevance score.
+
+    Motivation: sometimes we have a pre-defined list of items for each user
+    and could use `predict_pairs` method of RePlay models to score them.
+    After that we could select top K most relevant items for each user
+    with `replay.utils.get_top_k_recs` or sample them with
+    probabilities proportional to their relevance score
+    with `replay.utils.sample_top_k_recs` to get more diverse recommendations.
 
     :param pairs: spark dataframe with columns ``[user_idx, item_idx, relevance]``
     :param k: number of items for each user to return
@@ -732,7 +737,6 @@ def sample_k_items(pairs: DataFrame, k: int, seed: int = None):
     )
 
     def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
-        # return pandas_df[["user_idx", "item_idx", "relevance"]]
         user_idx = pandas_df["user_idx"][0]
 
         if seed is not None:
