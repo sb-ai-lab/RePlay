@@ -244,6 +244,7 @@ class Env:
     Keep users' latest relevant items (memory).
     """
 
+    matrix: np.array
     def __init__(self, item_num, user_num, memory_size):
         """
         Initialize memory as ['item_num'] * 'memory_size' for each user.
@@ -267,7 +268,6 @@ class Env:
         self.memory_size = memory_size
         self.memory = np.ones([user_num, memory_size]) * item_num
 
-        self.matrix = np.ones([user_num, item_num])
         self.user_id = 0
         self.related_items = np.arange(item_num)
         self.nonrelated_items = np.arange(item_num)
@@ -686,7 +686,7 @@ class DDPG(TorchRecommender):
         rewards = []
         step = 0
 
-        for user in tqdm.tqdm(users):
+        for user in tqdm.auto.tqdm(users):
             user, memory = self.model.environment.reset(user)
             self.ou_noise.reset()
             for user_step in range(len(self.model.environment.related_items)):
