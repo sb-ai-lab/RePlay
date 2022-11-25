@@ -504,7 +504,6 @@ class BaseRecommender(ABC):
         item_data = items or self.fit_items
         items = self._get_ids(item_data, "item_idx")
         items, log = self._filter_cold_for_predict(items, log, "item")
-
         num_items = items.count()
         if num_items < k:
             message = f"k = {k} > number of items = {num_items}"
@@ -1410,6 +1409,9 @@ class NeighbourRec(Recommender, ABC):
     similarity: Optional[DataFrame]
     can_predict_item_to_item: bool = True
     can_predict_cold_users: bool = True
+    can_change_metric: bool = False
+    item_to_item_metrics = ["similarity"]
+    _similarity_metric = "similarity"
 
     @property
     def _dataframes(self):
@@ -1418,6 +1420,22 @@ class NeighbourRec(Recommender, ABC):
     def _clear_cache(self):
         if hasattr(self, "similarity"):
             self.similarity.unpersist()
+
+    # pylint: disable=missing-function-docstring
+    @property
+    def similarity_metric(self):
+        return self._similarity_metric
+
+    @similarity_metric.setter
+    def similarity_metric(self, value):
+        if not self.can_change_metric:
+            raise ValueError("This class does not support changing similarity metrics")
+        if value not in self.item_to_item_metrics:
+            raise ValueError(
+                f"Select one of the valid metrics for predict: "
+                f"{self.item_to_item_metrics}"
+            )
+        self._similarity_metric = value
 
     def _predict_pairs_inner(
         self,
@@ -1457,7 +1475,7 @@ class NeighbourRec(Recommender, ABC):
                 on=condition,
             )
             .groupby("user_idx", "item_idx_two")
-            .agg(sf.sum("similarity").alias("relevance"))
+            .agg(sf.sum(self.similarity_metric).alias("relevance"))
             .withColumnRenamed("item_idx_two", "item_idx")
         )
         return recs
@@ -1473,6 +1491,7 @@ class NeighbourRec(Recommender, ABC):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
+
         return self._predict_pairs_inner(
             log=log,
             filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
@@ -1487,6 +1506,12 @@ class NeighbourRec(Recommender, ABC):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
+
+        if log is None:
+            raise ValueError(
+                "log is not provided, but it is required for prediction"
+            )
+
         return self._predict_pairs_inner(
             log=log,
             filter_df=(
@@ -1520,6 +1545,7 @@ class NeighbourRec(Recommender, ABC):
             where bigger value means greater similarity.
             spark-dataframe with columns ``[item_idx, neighbour_item_idx, similarity]``
         """
+
         if metric is not None:
             self.logger.debug(
                 "Metric is not used to determine nearest items in %s model",
@@ -1529,7 +1555,7 @@ class NeighbourRec(Recommender, ABC):
         return self._get_nearest_items_wrap(
             items=items,
             k=k,
-            metric=None,
+            metric=metric,
             candidates=candidates,
         )
 
@@ -1552,7 +1578,7 @@ class NeighbourRec(Recommender, ABC):
             )
 
         return similarity_filtered.select(
-            "item_idx_one", "item_idx_two", "similarity"
+            "item_idx_one", "item_idx_two", "similarity" if metric is None else metric
         )
 
 
