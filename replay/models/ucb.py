@@ -2,7 +2,7 @@ import joblib
 import math
 
 from os.path import join
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
