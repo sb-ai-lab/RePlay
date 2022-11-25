@@ -26,7 +26,7 @@ from replay.models import (
     AssociationRulesItemRec,
     UserPopRec,
     Wilson,
-    ClusterRec
+    ClusterRec,
 )
 from replay.utils import logger
 
@@ -37,7 +37,6 @@ from replay.splitters import DateSplitter, UserSplitter
 from replay.utils import get_log_info2
 from replay.filters import filter_by_min_count, filter_out_low_ratings
 from pyspark.conf import SparkConf
-
 
 
 # VERBOSE_LOGGING_FORMAT = (
@@ -63,12 +62,10 @@ def main(spark: SparkSession, dataset_name: str):
     MLFLOW_TRACKING_URI = os.environ.get(
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
-    MODEL = os.environ.get(
-        "MODEL", "ALS_NMSLIB_HNSW"
-    )
+    MODEL = os.environ.get("MODEL", "Word2VecRec_NMSLIB_HNSW")
     # PopRec
     # Word2VecRec Word2VecRec_NMSLIB_HNSW
-    # ALS ALS_NMSLIB_HNSW 
+    # ALS ALS_NMSLIB_HNSW
     # SLIM SLIM_NMSLIB_HNSW
     # ItemKNN ItemKNN_NMSLIB_HNSW
     # ClusterRec
@@ -79,7 +76,7 @@ def main(spark: SparkSession, dataset_name: str):
         if spark_conf.get("spark.cores.max") is None:
             partition_num = os.cpu_count()
         else:
-            partition_num = int(spark_conf.get("spark.cores.max"))  # 28
+            partition_num = int(spark_conf.get("spark.cores.max"))
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(
@@ -106,7 +103,7 @@ def main(spark: SparkSession, dataset_name: str):
             "spark.applicationId": spark.sparkContext.applicationId,
             "dataset": dataset_name,
             "seed": SEED,
-            "K": K
+            "K": K,
         }
         mlflow.log_params(spark_configs)
 
@@ -120,10 +117,10 @@ def main(spark: SparkSession, dataset_name: str):
             with log_exec_timer(
                 "Train/test datasets reading to parquet"
             ) as parquets_read_timer:
-                train = spark.read.parquet(
+                train = spark.read.parquet(  # hdfs://node21.bdcl:9000
                     f"/opt/spark_data/replay_datasets/MovieLens/train_{dataset_version}.parquet"
                 )
-                test = spark.read.parquet(
+                test = spark.read.parquet(  # hdfs://node21.bdcl:9000
                     f"/opt/spark_data/replay_datasets/MovieLens/test_{dataset_version}.parquet"
                 )
             train = train.repartition(partition_num)
@@ -190,7 +187,7 @@ def main(spark: SparkSession, dataset_name: str):
                 user_features = spark.read.parquet(
                     "/opt/spark_data/replay_datasets/ml1m_user_features.parquet"
                 )
-                #.select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
+                # .select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
                 train = train.repartition(partition_num, "user_idx")
                 test = test.repartition(partition_num, "user_idx")
             mlflow.log_metric(
@@ -209,7 +206,7 @@ def main(spark: SparkSession, dataset_name: str):
                 user_features = spark.read.parquet(
                     "/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_user_features.parquet"
                 )
-                #.select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
+                # .select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
                 print(user_features.printSchema())
                 train = train.repartition(partition_num, "user_idx")
                 test = test.repartition(partition_num, "user_idx")
@@ -229,7 +226,7 @@ def main(spark: SparkSession, dataset_name: str):
                 user_features = spark.read.parquet(
                     "/opt/spark_data/replay_datasets/ml1m_1m_users_37k_items_user_features.parquet"
                 )
-                #.select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
+                # .select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
                 print(user_features.printSchema())
                 train = train.repartition(partition_num, "user_idx")
                 test = test.repartition(partition_num, "user_idx")
@@ -377,7 +374,7 @@ def main(spark: SparkSession, dataset_name: str):
             build_index_on = "executor"  # driver executor
             nmslib_hnsw_params = {
                 "method": "hnsw",
-                "space": "negdotprod_sparse", # cosinesimil_sparse negdotprod_sparse
+                "space": "negdotprod_sparse",  # cosinesimil_sparse negdotprod_sparse
                 "M": 100,
                 "efS": 2000,
                 "efC": 2000,
@@ -393,12 +390,12 @@ def main(spark: SparkSession, dataset_name: str):
             )
             model = SLIM(seed=SEED, nmslib_hnsw_params=nmslib_hnsw_params)
         elif MODEL == "ItemKNN":
-            model = ItemKNN(num_neighbours=100)
+            model = ItemKNN()  # num_neighbours=100
         elif MODEL == "ItemKNN_NMSLIB_HNSW":
             build_index_on = "executor"  # driver executor
             nmslib_hnsw_params = {
                 "method": "hnsw",
-                "space": "negdotprod_sparse", # cosinesimil_sparse negdotprod_sparse
+                "space": "negdotprod_sparse",  # cosinesimil_sparse negdotprod_sparse
                 "M": 100,
                 "efS": 2000,
                 "efC": 2000,
@@ -412,7 +409,7 @@ def main(spark: SparkSession, dataset_name: str):
                     "nmslib_hnsw_params": nmslib_hnsw_params,
                 }
             )
-            model = ItemKNN(num_neighbours=100, nmslib_hnsw_params=nmslib_hnsw_params)
+            model = ItemKNN(nmslib_hnsw_params=nmslib_hnsw_params)
         elif MODEL == "LightFM":
             model = LightFMWrap(random_state=SEED)
         elif MODEL == "Word2VecRec":
@@ -474,13 +471,13 @@ def main(spark: SparkSession, dataset_name: str):
 
         with log_exec_timer(f"{MODEL} prediction") as infer_timer, JobGroup(
             "Model inference", f"{model.__class__.__name__}.predict()"
-        ):            
+        ):
             recs = model.predict(
                 k=K,
                 users=test.select("user_idx").distinct(),
                 log=train,
                 filter_seen_items=True,
-                **kwargs
+                **kwargs,
             )
             recs = recs.cache()
             recs.write.mode("overwrite").format("noop").save()
@@ -514,10 +511,13 @@ def main(spark: SparkSession, dataset_name: str):
         with log_exec_timer(f"Model saving") as model_save_timer:
             save(
                 model,
-                path=f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}", # file://
-                overwrite=True
+                path=f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}",  # file://
+                overwrite=True,
             )
-        mlflow.log_param("model_save_dir", f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}")
+        mlflow.log_param(
+            "model_save_dir",
+            f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}",
+        )
         mlflow.log_metric("model_save_sec", model_save_timer.duration)
 
         # with log_exec_timer(f"Model loading") as model_load_timer:
@@ -563,9 +563,9 @@ def main(spark: SparkSession, dataset_name: str):
 
 if __name__ == "__main__":
     spark_sess = get_spark_session()
-    dataset = os.environ.get("DATASET", "ml1m") # ml1m
+    dataset = os.environ.get("DATASET", "ml1m")  # ml1m
     # dataset = "MovieLens__1m"
     # dataset = "MillionSongDataset"
     main(spark=spark_sess, dataset_name=dataset)
-    time.sleep(100)
+    # time.sleep(100)
     spark_sess.stop()

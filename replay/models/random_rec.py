@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -163,36 +163,124 @@ class RandomRec(NonPersonalizedRecommender):
     ) -> None:
 
         if self.distribution == "popular_based":
-            self.item_popularity = (
-                log.groupBy("item_idx")
-                .agg(sf.countDistinct("user_idx").alias("user_count"))
-                .select(
-                    sf.col("item_idx"),
-                    (sf.col("user_count").astype("float") + self.alpha).alias(
-                        "relevance"
-                    ),
-                )
+            # item_idx int, user_idx array<int>
+            self.item_users = log.groupBy("item_idx").agg(
+                sf.collect_set("user_idx").alias("user_idx")
+            )
+
+            self.item_popularity = self.item_users.select(
+                sf.col("item_idx"),
+                (sf.size("user_idx").astype("float") + self.alpha).alias(
+                    "relevance"
+                ),
             )
         elif self.distribution == "relevance":
-            total_relevance = log.agg(sf.sum("relevance")).first()[0]
-            self.item_popularity = (
-                log.groupBy("item_idx")
-                .agg(sf.sum("relevance").alias("relevance"))
-                .select(
-                    "item_idx",
-                    (sf.col("relevance") / sf.lit(total_relevance)).alias(
-                        "relevance"
-                    ),
-                )
+            self.total_relevance = log.agg(sf.sum("relevance")).first()[0]
+            self.relevance_sums = log.groupBy("item_idx").agg(
+                sf.sum("relevance").alias("relevance")
+            )
+            self.item_popularity = self.relevance_sums.select(
+                "item_idx",
+                (sf.col("relevance") / sf.lit(self.total_relevance)).alias(
+                    "relevance"
+                ),
             )
         else:
-            self.item_popularity = (
-                log.select("item_idx")
-                .distinct()
-                .withColumn("relevance", sf.lit(1.0))
+            self.item_idxs = log.select("item_idx").distinct()
+            self.item_popularity = self.item_idxs.withColumn(
+                "relevance", sf.lit(1.0)
             )
 
         self.item_popularity.cache().count()
+        self.fill = (
+            self.item_popularity.agg({"relevance": "min"}).first()[0]
+            if self.add_cold_items
+            else 0.0
+        )
+
+    def refit(
+        self,
+        log: DataFrame,
+        previous_log: Optional[Union[str, DataFrame]] = None,
+        merged_log_path: Optional[str] = None,
+    ) -> None:
+        if self.distribution == "popular_based":
+            new_item_idx = (
+                log.select("item_idx", "user_idx")
+                .join(
+                    self.item_users.select("item_idx"),
+                    on=["item_idx"],
+                    how="leftanti",
+                )
+                .distinct()
+            )
+            self.logger.debug(f"new_item_idx.count(): {new_item_idx.count()}")
+            # item_idx int, user_idx array<int>
+            new_item_users = new_item_idx.groupBy("item_idx").agg(
+                sf.collect_set("user_idx").alias("user_idx")
+            )
+
+            existing_item_idx = log.select("item_idx", "user_idx").join(
+                self.item_users.select("item_idx"),
+                on=["item_idx"],
+                how="inner",
+            )
+            self.logger.debug(
+                f"existing_item_idx.count(): {existing_item_idx.count()}"
+            )
+            existing_item_groups = existing_item_idx.groupBy("item_idx").agg(
+                sf.collect_set("user_idx").alias("new_user_idx")
+            )
+
+            # item_idx int, user_idx array<int>
+            self.item_users = (
+                self.item_users.alias("a")
+                .join(
+                    existing_item_groups.alias("b"),
+                    on=["item_idx"],
+                    how="left",
+                )
+                .select(
+                    "item_idx",
+                    sf.array_union(
+                        "a.user_idx",
+                        sf.coalesce( # converts nulls to empty arrays
+                            "b.new_user_idx", sf.array().cast("array<integer>")
+                        )
+                    ).alias("user_idx"),
+                )
+            )
+
+            self.item_users = self.item_users.union(new_item_users)
+
+            self.item_popularity = self.item_users.select(
+                sf.col("item_idx"),
+                (sf.size("user_idx").astype("float") + self.alpha).alias(
+                    "relevance"
+                ),
+            )
+        elif self.distribution == "relevance":
+            self.total_relevance += log.agg(sf.sum("relevance")).first()[0]
+            self.relevance_sums = (
+                log.select("item_idx", "relevance")
+                .union(self.relevance_sums)
+                .groupBy("item_idx")
+                .agg(sf.sum("relevance").alias("relevance"))
+            )
+            self.item_popularity = self.relevance_sums.select(
+                "item_idx",
+                (sf.col("relevance") / sf.lit(self.total_relevance)).alias(
+                    "relevance"
+                ),
+            )
+        else:
+            self.item_idxs = (
+                log.select("item_idx").union(self.item_idxs).distinct()
+            )
+            self.item_popularity = self.item_idxs.withColumn(
+                "relevance", sf.lit(1.0)
+            )
+
         self.fill = (
             self.item_popularity.agg({"relevance": "min"}).first()[0]
             if self.add_cold_items

@@ -349,6 +349,140 @@ class NmslibHnswMixin:
                     spark.sparkContext.addFile("file://" + tmp_file_path)
 
 
+    def _build_hnsw_index_on_sparse(
+        self,
+        item_vectors: DataFrame,
+        features_col: str,
+        params: Dict[str, Any],
+        items_count: int,
+        users_count: int
+    ):
+        """ "Builds hnsw index and dump it to hdfs or disk.
+
+        Args:
+            item_vectors (DataFrame): DataFrame with item vectors
+            params (Dict[str, Any]): hnsw params
+        """
+
+        with JobGroup(
+            f"{self.__class__.__name__}._build_hnsw_index()",
+            "all _build_hnsw_index()",
+        ):
+            if params["build_index_on"] == "executor":
+                # to execution in one executor
+                item_vectors = item_vectors.repartition(1)
+
+                filesystem, hdfs_uri, index_path = get_filesystem(
+                    params["index_path"]
+                )
+
+                def build_index(iterator):
+                    index = nmslib.init(
+                        method=params["method"],
+                        space=params["space"],
+                        data_type=nmslib.DataType.SPARSE_VECTOR,
+                    )
+
+                    pdfs = []
+                    for pdf in iterator:
+                        pdfs.append(pdf)
+
+                    pdf = pd.concat(pdfs, copy=False)
+
+                    data = pdf["relevance"].values
+                    row_ind = pdf["item_idx"].values
+                    col_ind = pdf["user_idx"].values
+
+                    sim_matrix_tmp = csr_matrix(
+                        (data, (row_ind, col_ind)),
+                        shape=(items_count, users_count),
+                    )
+                    index.addDataPointBatch(data=sim_matrix_tmp)
+
+                    index_params = {}
+                    if "M" in params:
+                        index_params["M"] = params["M"]
+                    if "efC" in params:
+                        index_params["efConstruction"] = params["efC"]
+                    if "post" in params:
+                        index_params["post"] = params["post"]
+                    if index_params:
+                        index.createIndex(index_params)
+                    else:
+                        index.createIndex()
+
+                    if filesystem == FileSystem.HDFS:
+                        temp_path = tempfile.mkdtemp()
+                        tmp_file_path = os.path.join(
+                            temp_path, "nmslib_hnsw_index"
+                        )
+                        index.saveIndex(tmp_file_path, save_data=True)
+
+                        destination_filesystem = (
+                            fs.HadoopFileSystem.from_uri(hdfs_uri)
+                        )
+                        fs.copy_files(
+                            "file://" + tmp_file_path,
+                            index_path,
+                            destination_filesystem=destination_filesystem,
+                        )
+                        fs.copy_files(
+                            "file://" + tmp_file_path + ".dat",
+                            index_path + ".dat",
+                            destination_filesystem=destination_filesystem,
+                        )
+                        # param use_threads=True (?)
+                    else:
+                        index.saveIndex(index_path, save_data=True)
+
+                    yield pd.DataFrame(data={"_success": 1}, index=[0])
+
+
+                # builds index on executor and writes it to shared disk or hdfs
+                item_vectors.select(
+                    "item_idx", "user_idx", "relevance"
+                ).mapInPandas(build_index, "_success int").show()
+            else:
+                item_vectors = item_vectors.toPandas()
+
+                index = nmslib.init(
+                    method=params["method"],
+                    space=params["space"],
+                    data_type=nmslib.DataType.SPARSE_VECTOR,
+                )
+
+                data = item_vectors["relevance"].values
+                row_ind = item_vectors["item_idx"].values
+                col_ind = item_vectors["user_idx"].values
+
+                sim_matrix = csr_matrix(
+                    (data, (row_ind, col_ind)),
+                    shape=(items_count, items_count),
+                )
+                index.addDataPointBatch(data=sim_matrix)
+                index_params = {}
+                if "M" in params:
+                    index_params["M"] = params["M"]
+                if "efC" in params:
+                    index_params["efConstruction"] = params["efC"]
+                if "post" in params:
+                    index_params["post"] = params["post"]
+                if index_params:
+                    index.createIndex(index_params)
+                else:
+                    index.createIndex()
+                # saving index to local temp file and sending it to executors
+                temp_path = tempfile.mkdtemp()
+                tmp_file_path = os.path.join(
+                    temp_path, "nmslib_hnsw_index"
+                )
+                index.saveIndex(tmp_file_path, save_data=True)
+                spark = SparkSession.getActiveSession()
+                spark.sparkContext.addFile("file://" + tmp_file_path)
+                spark.sparkContext.addFile(
+                    "file://" + tmp_file_path + ".dat"
+                )
+
     def _infer_hnsw_index(
         self,
         user_vectors: DataFrame,
@@ -467,6 +601,97 @@ class NmslibHnswMixin:
             res = res.select(
                 sf.col("r.user_idx").alias("user_idx"),
                 sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx"),
+                (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias("relevance")
+            )
+            # res = res.cache()
+            # res.write.mode("overwrite").format("noop").save()
+
+        return res
+
+    def _infer_hnsw_index_on_sparse(
+        self,
+        user_vectors: DataFrame,
+        features_col: str,
+        params: Dict[str, Any],
+        k: int,
+        index_type: str = None,
+    ):
+
+        if params["build_index_on"] == "executor":
+            filesystem, hdfs_uri, index_path = get_filesystem(
+                params["index_path"]
+            )
+            _index_file_manager = NmslibIndexFileManager(
+                params, index_type, index_path, filesystem, hdfs_uri
+            )
+        else:
+            _index_file_manager = NmslibIndexFileManager(params, index_type)
+
+        index_file_manager_broadcast = State().session.sparkContext.broadcast(
+            _index_file_manager
+        )
+
+        return_type = (
+            "item_idx int, item_idxs array<int>, distances array<double>"
+        )
+
+        interactions_matrix_broadcast = self._interactions_matrix_broadcast
+
+        @pandas_udf(return_type)
+        def infer_index(
+            item_idx: pd.Series
+        ) -> pd.DataFrame:
+            index_file_manager = index_file_manager_broadcast.value
+            interactions_matrix = interactions_matrix_broadcast.value
+
+            index = index_file_manager.index
+
+            # take slice
+            m = interactions_matrix[item_idx.values, :]
+            neighbours = index.knnQueryBatch(
+                m, k=k,
+                num_threads=1
+            )
+            pd_res = pd.DataFrame(
+                neighbours, columns=["item_idxs", "distances"]
+            )
+            # which is better?
+            pd_res["item_idx"] = item_idx.values
+            # pd_res = pd_res.assign(user_idx=user_idx.values)
+
+            # pd_res looks like
+            # user_id item_idxs  distances
+            # 0       [1, 2, 3, ...] [-0.5, -0.3, -0.1, ...]
+            # 1       [1, 3, 4, ...] [-0.1, -0.8, -0.2, ...]
+
+            return pd_res
+
+
+        with JobGroup(
+            "infer_index()",
+            "infer_hnsw_index (inside 1)",
+        ):
+            res = user_vectors.select(
+                infer_index("item_idx").alias("r")
+            )
+            # res = res.cache()
+            # res.write.mode("overwrite").format("noop").save()
+
+        with JobGroup(
+            "res.withColumn('zip_exp', ...",
+            "infer_hnsw_index (inside 2)",
+        ):
+            res = res.select('*',
+                sf.explode(sf.arrays_zip("r.item_idxs", "r.distances")).alias('zip_exp')
+            )
+            
+            # Fix arrays_zip random behavior. It can return zip_exp.0 or zip_exp.item_idx in different machines
+            item_idx_field_name: str = res.schema["zip_exp"].jsonValue()["type"]["fields"][0]["name"]
+            distance_field_name: str = res.schema["zip_exp"].jsonValue()["type"]["fields"][1]["name"]
+
+            res = res.select(
+                sf.col("r.item_idx").alias("item_idx_one"),
+                sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx_two"),
                 (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias("relevance")
             )
             # res = res.cache()

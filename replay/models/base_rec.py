@@ -518,8 +518,8 @@ class BaseRecommender(ABC):
                 item_features,
                 filter_seen_items,
             )
-            # recs = recs.cache()
-            # recs.write.mode("overwrite").format("noop").save()
+            recs = recs.cache()
+            recs.write.mode("overwrite").format("noop").save()
         if os.environ.get("LOG_TO_MLFLOW", None) == "True":
             mlflow.log_metric("_predict_sec", _predict_timer.duration)
 
@@ -528,8 +528,8 @@ class BaseRecommender(ABC):
                 "Model inference (inside 2)", f"{self.__class__.__name__}._filter_seen()"
             ):
                 recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
-                # recs = recs.cache()
-                # recs.write.mode("overwrite").format("noop").save()
+                recs = recs.cache()
+                recs.write.mode("overwrite").format("noop").save()
             if os.environ.get("LOG_TO_MLFLOW", None) == "True":
                 mlflow.log_metric("filter_seen_sec", _filter_seen_timer.duration)
         

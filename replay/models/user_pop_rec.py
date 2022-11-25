@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -57,15 +57,19 @@ class UserPopRec(Recommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
 
+        self.relevance_sums = (
+            log.groupBy("user_idx", "item_idx")
+            .agg(sf.sum("relevance").alias("user_item_rel_sum"))
+        )
+
         user_relevance_sum = (
-            log.groupBy("user_idx")
-            .agg(sf.sum("relevance").alias("user_rel_sum"))
+            self.relevance_sums.groupBy("user_idx")
+            .agg(sf.sum("user_item_rel_sum").alias("user_rel_sum"))
             .withColumnRenamed("user_idx", "user")
             .select("user", "user_rel_sum")
         )
         self.user_item_popularity = (
-            log.groupBy("user_idx", "item_idx")
-            .agg(sf.sum("relevance").alias("user_item_rel_sum"))
+            self.relevance_sums
             .join(
                 user_relevance_sum,
                 how="inner",
@@ -80,6 +84,37 @@ class UserPopRec(Recommender):
             )
         )
         self.user_item_popularity.cache().count()
+
+    def refit(self, log: DataFrame, previous_log: Optional[Union[str, DataFrame]] = None, merged_log_path: Optional[str] = None) -> None:
+
+        self.relevance_sums = (
+            log.select("user_idx", "item_idx", "relevance")
+            .union(self.relevance_sums.select("user_idx", "item_idx", sf.col("user_item_rel_sum").alias("relevance")))
+            .groupBy("user_idx", "item_idx")
+            .agg(sf.sum("relevance").alias("user_item_rel_sum"))
+        )
+
+        user_relevance_sum = (
+            self.relevance_sums.groupBy("user_idx")
+            .agg(sf.sum("user_item_rel_sum").alias("user_rel_sum"))
+            .withColumnRenamed("user_idx", "user")
+            .select("user", "user_rel_sum")
+        )
+        self.user_item_popularity = (
+            self.relevance_sums
+            .join(
+                user_relevance_sum,
+                how="inner",
+                on=sf.col("user_idx") == sf.col("user"),
+            )
+            .select(
+                "user_idx",
+                "item_idx",
+                (sf.col("user_item_rel_sum") / sf.col("user_rel_sum")).alias(
+                    "relevance"
+                ),
+            )
+        )
 
     def _clear_cache(self):
         if hasattr(self, "user_item_popularity"):
