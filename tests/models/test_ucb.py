@@ -4,12 +4,19 @@ import pytest
 from pyspark.sql import functions as sf
 
 from replay.models import UCB
-from tests.utils import log, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
+from tests.utils import log, log2, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
 
 
 @pytest.fixture
 def log_ucb(log):
     return log.withColumn(
+        "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
+    )
+
+
+@pytest.fixture
+def log_ucb2(log2):
+    return log2.withColumn(
         "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
     )
 
@@ -87,3 +94,28 @@ def test_predict(fitted_model, log_ucb, sample, seed):
     pred_after_refit.unpersist()
     pred_repeat = fitted_model.predict(log_ucb, items=list(range(10)), k=1)
     equality_check(pred_after_refit_checkpoint, pred_repeat)
+
+
+def test_refit(fitted_model, log_ucb, log_ucb2):
+
+    fitted_model.seed = 123
+    fitted_model.sample = True
+
+    equality_check = (
+        sparkDataFrameNotEqual
+        if fitted_model.sample and fitted_model.seed is None
+        else sparkDataFrameEqual
+    )
+
+    fitted_model.refit(log_ucb2)
+    pred_after_refit = fitted_model.predict(
+        log_ucb, items=list(range(10)), k=1
+    )
+
+    fitted_model.fit(log_ucb.union(log_ucb2))
+    pred_after_full_fit = fitted_model.predict(
+        log_ucb, items=list(range(10)), k=1
+    )
+
+    # predictions are equal/non-equal after model refit and full fit on all log
+    equality_check(pred_after_full_fit, pred_after_refit)
