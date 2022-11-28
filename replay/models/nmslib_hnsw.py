@@ -692,7 +692,7 @@ class NmslibHnswMixin:
             res = res.select(
                 sf.col("r.item_idx").alias("item_idx_one"),
                 sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx_two"),
-                (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias("relevance")
+                (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias("similarity")
             )
             # res = res.cache()
             # res.write.mode("overwrite").format("noop").save()
