@@ -179,7 +179,7 @@ class UCB(NonPersonalizedRecommender):
             (
                 sf.col("pos") / sf.col("total")
                 + sf.sqrt(
-                    sf.log(sf.lit(self.coef * self.full_count)) / sf.col("total")
+                    self.coef * sf.log(sf.lit(self.full_count)) / sf.col("total")
                 )
             ),
         )
@@ -187,7 +187,7 @@ class UCB(NonPersonalizedRecommender):
         self.item_popularity = items_counts.drop("pos", "total")
         self.item_popularity.cache().count()
 
-        self.fill = 1 + math.sqrt(math.log(self.coef * self.full_count))
+        self.fill = 1 + math.sqrt(self.coef * math.log(self.full_count))
 
     # pylint: disable=too-many-arguments
     def _predict(
