@@ -41,19 +41,19 @@ def test_popularity_matrix(log, fitted_model):
             sf.countDistinct("user_idx").astype("double").alias("relevance")
         )
     elif fitted_model.distribution == "relevance":
-        true_matrix = (
-            log.groupby("item_idx")
-            .agg(sf.sum("relevance").alias("relevance"))
-            .withColumn(
-                "relevance",
-                sf.col("relevance")
-                / sf.lit(log.agg(sf.sum("relevance")).first()[0]),
-            )
+        true_matrix = log.groupby("item_idx").agg(
+            sf.sum("relevance").alias("relevance")
         )
 
+    true_matrix = true_matrix.withColumn(
+        "relevance",
+        sf.col("relevance")
+        / sf.lit(true_matrix.agg(sf.sum("relevance")).first()[0]),
+    )
+
     sparkDataFrameEqual(
-        fitted_model.item_popularity,
-        true_matrix,
+        fitted_model.item_popularity.orderBy(["item_idx"]),
+        true_matrix.orderBy(["item_idx"]),
     )
 
 

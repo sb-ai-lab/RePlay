@@ -1,7 +1,5 @@
-import joblib
 import math
 
-from os.path import join
 from typing import Any, Dict, List, Optional
 
 from pyspark.sql import DataFrame
@@ -47,9 +45,6 @@ class UCB(NonPersonalizedRecommender):
 
     """
 
-    can_predict_cold_items = True
-    fill: float
-
     # attributes which are needed for refit method
     full_count: int
     items_counts_aggr: DataFrame
@@ -64,13 +59,15 @@ class UCB(NonPersonalizedRecommender):
         :param exploration_coef: exploration coefficient
         :param sample: flag to choose recommendation strategy.
             If True, items are sampled with a probability proportional
-            to the calculated predicted relevance
+            to the calculated predicted relevance.
+            Could be changed after model training by setting the `sample` attribute.
         :param seed: random seed. Provides reproducibility if fixed
         """
         # pylint: disable=super-init-not-called
         self.coef = exploration_coef
         self.sample = sample
         self.seed = seed
+        super().__init__(add_cold_items=True, cold_weight=1)
 
     @property
     def _init_args(self):
@@ -79,12 +76,6 @@ class UCB(NonPersonalizedRecommender):
             "sample": self.sample,
             "seed": self.seed,
         }
-
-    def _save_model(self, path: str):
-        joblib.dump({"fill": self.fill}, join(path))
-
-    def _load_model(self, path: str):
-        self.fill = joblib.load(join(path))["fill"]
 
     # pylint: disable=too-many-arguments
     def optimize(
@@ -179,7 +170,9 @@ class UCB(NonPersonalizedRecommender):
             (
                 sf.col("pos") / sf.col("total")
                 + sf.sqrt(
-                    self.coef * sf.log(sf.lit(self.full_count)) / sf.col("total")
+                    self.coef
+                    * sf.log(sf.lit(self.full_count))
+                    / sf.col("total")
                 )
             ),
         )
@@ -188,41 +181,3 @@ class UCB(NonPersonalizedRecommender):
         self.item_popularity.cache().count()
 
         self.fill = 1 + math.sqrt(self.coef * math.log(self.full_count))
-
-    # pylint: disable=too-many-arguments
-    def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> DataFrame:
-
-        if self.sample:
-            return self._predict_with_sampling(
-                log=log,
-                k=k,
-                users=users,
-                items=items,
-                filter_seen_items=filter_seen_items,
-                add_cold_items=True,
-            )
-        else:
-            return self._predict_without_sampling(
-                log, k, users, items, filter_seen_items
-            )
-
-    def _predict_pairs(
-        self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
-
-        return pairs.join(
-            self.item_popularity, on="item_idx", how="left"
-        ).fillna(value=self.fill, subset=["relevance"])

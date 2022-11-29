@@ -60,13 +60,13 @@ class RandomRec(NonPersonalizedRecommender):
     >>> random_pop = RandomRec(distribution="popular_based", alpha=1.0, seed=777)
     >>> random_pop.fit(log)
     >>> random_pop.item_popularity.show()
-    +--------+---------+
-    |item_idx|relevance|
-    +--------+---------+
-    |       1|      2.0|
-    |       2|      3.0|
-    |       3|      4.0|
-    +--------+---------+
+    +--------+------------------+
+    |item_idx|         relevance|
+    +--------+------------------+
+    |       1|0.2222222222222222|
+    |       2|0.3333333333333333|
+    |       3|0.4444444444444444|
+    +--------+------------------+
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
     >>> recs.show()
@@ -93,17 +93,16 @@ class RandomRec(NonPersonalizedRecommender):
     >>> random_pop = RandomRec(seed=555)
     >>> random_pop.fit(log)
     >>> random_pop.item_popularity.show()
-    +--------+---------+
-    |item_idx|relevance|
-    +--------+---------+
-    |       1|      1.0|
-    |       2|      1.0|
-    |       3|      1.0|
-    +--------+---------+
+    +--------+------------------+
+    |item_idx|         relevance|
+    +--------+------------------+
+    |       1|0.3333333333333333|
+    |       2|0.3333333333333333|
+    |       3|0.3333333333333333|
+    +--------+------------------+
     <BLANKLINE>
     """
 
-    can_predict_cold_items = True
     _search_space = {
         "distribution": {
             "type": "categorical",
@@ -111,14 +110,16 @@ class RandomRec(NonPersonalizedRecommender):
         },
         "alpha": {"type": "uniform", "args": [-0.5, 100]},
     }
-    fill: float
+    sample: bool = True
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         distribution: str = "uniform",
         alpha: float = 0.0,
         seed: Optional[int] = None,
-        add_cold_items: Optional[bool] = True,
+        add_cold_items: bool = True,
+        cold_weight: float = 0.5,
     ):
         """
         :param distribution: recommendation strategy:
@@ -126,7 +127,18 @@ class RandomRec(NonPersonalizedRecommender):
             "popular_based" - recommend popular items more
         :param alpha: bigger values adjust model towards less popular items
         :param seed: random seed
-        :param add_cold_items: flag to add cold items with minimal probability
+        :param add_cold_items: flag to consider cold items in recommendations building
+            if present in `items` parameter of `predict` method
+            or `pairs` parameter of `predict_pairs` methods.
+            If true, cold items are assigned relevance equals to the less relevant item relevance
+            multiplied by `cold_weight` and may appear among top-K recommendations.
+            Otherwise cold items are filtered out.
+            Could be changed after model training by setting the `add_cold_items` attribute.
+        :param cold_weight: if `add_cold_items` is True,
+            cold items are added with reduced relevance.
+            The relevance for cold items is equal to the relevance
+            of a least relevant item multiplied by a `cold_weight` value.
+            `Cold_weight` value should be in interval (0, 1].
         """
         if distribution not in ("popular_based", "relevance", "uniform"):
             raise ValueError(
@@ -137,7 +149,9 @@ class RandomRec(NonPersonalizedRecommender):
         self.distribution = distribution
         self.alpha = alpha
         self.seed = seed
-        self.add_cold_items = add_cold_items
+        super().__init__(
+            add_cold_items=add_cold_items, cold_weight=cold_weight
+        )
 
     @property
     def _init_args(self):
@@ -146,14 +160,8 @@ class RandomRec(NonPersonalizedRecommender):
             "alpha": self.alpha,
             "seed": self.seed,
             "add_cold_items": self.add_cold_items,
+            "cold_weight": self.cold_weight,
         }
-
-    def _load_model(self, path: str):
-        if self.add_cold_items:
-            fill = self.item_popularity.agg({"relevance": "min"}).first()[0]
-        else:
-            fill = 0
-        self.fill = fill
 
     def _fit(
         self,
@@ -161,29 +169,23 @@ class RandomRec(NonPersonalizedRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-
         if self.distribution == "popular_based":
             self.item_popularity = (
                 log.groupBy("item_idx")
                 .agg(sf.countDistinct("user_idx").alias("user_count"))
                 .select(
                     sf.col("item_idx"),
-                    (sf.col("user_count").astype("float") + self.alpha).alias(
-                        "relevance"
-                    ),
+                    (
+                        sf.col("user_count").astype("float")
+                        + sf.lit(self.alpha)
+                    ).alias("relevance"),
                 )
             )
         elif self.distribution == "relevance":
-            total_relevance = log.agg(sf.sum("relevance")).first()[0]
             self.item_popularity = (
                 log.groupBy("item_idx")
                 .agg(sf.sum("relevance").alias("relevance"))
-                .select(
-                    "item_idx",
-                    (sf.col("relevance") / sf.lit(total_relevance)).alias(
-                        "relevance"
-                    ),
-                )
+                .select("item_idx", "relevance")
             )
         else:
             self.item_popularity = (
@@ -191,26 +193,10 @@ class RandomRec(NonPersonalizedRecommender):
                 .distinct()
                 .withColumn("relevance", sf.lit(1.0))
             )
-
+        self.item_popularity = self.item_popularity.withColumn(
+            "relevance",
+            sf.col("relevance")
+            / self.item_popularity.agg(sf.sum("relevance")).first()[0],
+        )
         self.item_popularity.cache().count()
-        self.fill = (
-            self.item_popularity.agg({"relevance": "min"}).first()[0]
-            if self.add_cold_items
-            else 0.0
-        )
-
-    # pylint: disable=too-many-arguments
-    def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> DataFrame:
-
-        return self._predict_with_sampling(
-            log, k, users, items, filter_seen_items, self.add_cold_items
-        )
+        self.fill = self._calc_fill(self.item_popularity, self.cold_weight)

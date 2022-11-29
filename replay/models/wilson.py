@@ -26,16 +26,51 @@ class Wilson(PopRec):
 
     """
 
-    def __init__(self, alpha=0.05):
+    # pylint: disable=too-many-arguments
+    def __init__(
+        self,
+        alpha=0.05,
+        add_cold_items: bool = True,
+        cold_weight: float = 0.5,
+        sample: bool = False,
+        seed: Optional[int] = None,
+    ):
         """
         :param alpha: significance level, default 0.05
+        :param add_cold_items: flag to consider cold items in recommendations building
+            if present in `items` parameter of `predict` method
+            or `pairs` parameter of `predict_pairs` methods.
+            If true, cold items are assigned relevance equals to the less relevant item relevance
+            multiplied by cold_weight and may appear among top-K recommendations.
+            Otherwise cold items are filtered out.
+            Could be changed after model training by setting the `add_cold_items` attribute.
+        : param cold_weight: if `add_cold_items` is True,
+            cold items are added with reduced relevance.
+            The relevance for cold items is equal to the relevance
+            of a least relevant item multiplied by a `cold_weight` value.
+            `Cold_weight` value should be in interval (0, 1].
+        :param sample: flag to choose recommendation strategy.
+            If True, items are sampled with a probability proportional
+            to the calculated predicted relevance.
+            Could be changed after model training by setting the `sample` attribute.
+        :param seed: random seed. Provides reproducibility if fixed
         """
-        # pylint: disable=super-init-not-called
         self.alpha = alpha
+        self.sample = sample
+        self.seed = seed
+        super().__init__(
+            add_cold_items=add_cold_items, cold_weight=cold_weight
+        )
 
     @property
     def _init_args(self):
-        return {"alpha": self.alpha}
+        return {
+            "alpha": self.alpha,
+            "add_cold_items": self.add_cold_items,
+            "cold_weight": self.cold_weight,
+            "sample": self.sample,
+            "seed": self.seed,
+        }
 
     def _fit(
         self,
@@ -68,3 +103,4 @@ class Wilson(PopRec):
 
         self.item_popularity = items_counts.drop("pos", "total")
         self.item_popularity.cache().count()
+        self.fill = self._calc_fill(self.item_popularity, self.cold_weight)
