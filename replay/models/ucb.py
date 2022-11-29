@@ -37,18 +37,22 @@ class UCB(NonPersonalizedRecommender):
     ... ).toPandas().sort_values(["user_idx","relevance","item_idx"],
     ... ascending=[True,False,True]).reset_index(drop=True)
        user_idx  item_idx  relevance
-    0         1         3   2.442027
-    1         1         2   1.019667
-    2         2         3   2.442027
-    3         2         1   1.519667
-    4         3         3   2.442027
-    5         4         3   2.442027
-    6         4         1   1.519667
+    0         1         3   2.665109
+    1         1         2   1.177410
+    2         2         3   2.665109
+    3         2         1   1.677410
+    4         3         3   2.665109
+    5         4         3   2.665109
+    6         4         1   1.677410
 
     """
 
     can_predict_cold_items = True
     fill: float
+
+    # attributes which are needed for refit method
+    full_count: int
+    items_counts_aggr: DataFrame
 
     def __init__(
         self,
@@ -126,18 +130,56 @@ class UCB(NonPersonalizedRecommender):
 
         self._check_relevance(log)
 
-        items_counts = log.groupby("item_idx").agg(
+        # we save this dataframe for the refit() method
+        self.items_counts_aggr = log.groupby("item_idx").agg(
             sf.sum("relevance").alias("pos"),
             sf.count("relevance").alias("total"),
         )
+        # we save this variable for the refit() method
+        self.full_count = log.count()
 
-        full_count = log.count()
-        items_counts = items_counts.withColumn(
+        self._calc_item_popularity()
+
+    def refit(
+        self,
+        log: DataFrame,
+    ) -> None:
+        """Iteratively refit with new part of log.
+
+        :param log: historical log of interactions
+            ``[user_idx, item_idx, timestamp, relevance]``
+        :return:
+        """
+
+        self._check_relevance(log)
+
+        # aggregate new log part
+        items_counts_aggr = log.groupby("item_idx").agg(
+            sf.sum("relevance").alias("pos"),
+            sf.count("relevance").alias("total"),
+        )
+        # combine old and new aggregations and aggregate
+        self.items_counts_aggr = (
+            self.items_counts_aggr.union(items_counts_aggr)
+            .groupby("item_idx")
+            .agg(
+                sf.sum("pos").alias("pos"),
+                sf.sum("total").alias("total"),
+            )
+        )
+        # sum old and new log lengths
+        self.full_count += log.count()
+
+        self._calc_item_popularity()
+
+    def _calc_item_popularity(self):
+
+        items_counts = self.items_counts_aggr.withColumn(
             "relevance",
             (
                 sf.col("pos") / sf.col("total")
                 + sf.sqrt(
-                    sf.log(sf.lit(self.coef * full_count)) / sf.col("total")
+                    self.coef * sf.log(sf.lit(self.full_count)) / sf.col("total")
                 )
             ),
         )
@@ -145,7 +187,7 @@ class UCB(NonPersonalizedRecommender):
         self.item_popularity = items_counts.drop("pos", "total")
         self.item_popularity.cache().count()
 
-        self.fill = 1 + math.sqrt(math.log(self.coef * full_count))
+        self.fill = 1 + math.sqrt(self.coef * math.log(self.full_count))
 
     # pylint: disable=too-many-arguments
     def _predict(
