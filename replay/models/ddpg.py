@@ -245,6 +245,7 @@ class Env:
     """
 
     matrix: np.array
+
     def __init__(self, item_num, user_num, memory_size):
         """
         Initialize memory as ['item_num'] * 'memory_size' for each user.
@@ -660,7 +661,7 @@ class DDPG(TorchRecommender):
 
         self.model.environment.update_env(matrix=train_matrix)
         users = np.random.permutation(users)
-        
+
         policy_optimizer = Ranger(
             self.model.parameters(),
             lr=self.policy_lr,
