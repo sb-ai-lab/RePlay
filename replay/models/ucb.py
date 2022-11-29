@@ -37,13 +37,13 @@ class UCB(NonPersonalizedRecommender):
     ... ).toPandas().sort_values(["user_idx","relevance","item_idx"],
     ... ascending=[True,False,True]).reset_index(drop=True)
        user_idx  item_idx  relevance
-    0         1         3   2.442027
-    1         1         2   1.019667
-    2         2         3   2.442027
-    3         2         1   1.519667
-    4         3         3   2.442027
-    5         4         3   2.442027
-    6         4         1   1.519667
+    0         1         3   2.665109
+    1         1         2   1.177410
+    2         2         3   2.665109
+    3         2         1   1.677410
+    4         3         3   2.665109
+    5         4         3   2.665109
+    6         4         1   1.677410
 
     """
 
