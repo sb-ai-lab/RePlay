@@ -12,9 +12,11 @@ Base abstract classes:
     with popularity statistics
 """
 import collections
+import joblib
 import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from os.path import join
 from typing import (
     Any,
     Dict,
@@ -1586,17 +1588,47 @@ class NonPersonalizedRecommender(Recommender, ABC):
     """Base class for non-personalized recommenders with popularity statistics."""
 
     can_predict_cold_users = True
+    can_predict_cold_items = True
     item_popularity: DataFrame
+    add_cold_items: bool
+    cold_weight: float
+    sample: bool
     fill: float
-    seed: int
+    seed: Optional[int] = None
+
+    def __init__(self, add_cold_items: bool, cold_weight: float):
+        self.add_cold_items = add_cold_items
+        if 0 < cold_weight <= 1:
+            self.cold_weight = cold_weight
+        else:
+            raise ValueError(
+                "`cold_weight` value should be in interval (0, 1]"
+            )
 
     @property
     def _dataframes(self):
         return {"item_popularity": self.item_popularity}
 
+    def _save_model(self, path: str):
+        joblib.dump({"fill": self.fill}, join(path))
+
+    def _load_model(self, path: str):
+        self.fill = joblib.load(join(path))["fill"]
+
     def _clear_cache(self):
         if hasattr(self, "item_popularity"):
             self.item_popularity.unpersist()
+
+    @staticmethod
+    def _calc_fill(item_popularity: DataFrame, weight: float) -> float:
+        """
+        Calculating a fill value a the minimal relevance
+        calculated during model training multiplied by weight.
+        """
+        return (
+            item_popularity.select(sf.min("relevance")).collect()[0][0]
+            * weight
+        )
 
     @staticmethod
     def _check_relevance(log: DataFrame):
@@ -1607,6 +1639,34 @@ class NonPersonalizedRecommender(Recommender, ABC):
         if vals.count() > 0:
             raise ValueError("Relevance values in log must be 0 or 1")
 
+    def _get_selected_item_popularity(self, items: DataFrame) -> DataFrame:
+        """
+        Choose only required item from `item_popularity` dataframe
+        for further recommendations generation.
+        """
+        return self.item_popularity.join(
+            items,
+            on="item_idx",
+            how="right" if self.add_cold_items else "inner",
+        ).fillna(value=self.fill, subset=["relevance"])
+
+    @staticmethod
+    def _calc_max_hist_len(log: DataFrame, users: DataFrame) -> int:
+        max_hist_len = (
+            (
+                log.join(users, on="user_idx")
+                .groupBy("user_idx")
+                .agg(sf.countDistinct("item_idx").alias("items_count"))
+            )
+            .select(sf.max("items_count"))
+            .collect()[0][0]
+        )
+        # all users have empty history
+        if max_hist_len is None:
+            max_hist_len = 0
+
+        return max_hist_len
+
     # pylint: disable=too-many-arguments
     def _predict_without_sampling(
         self,
@@ -1616,20 +1676,11 @@ class NonPersonalizedRecommender(Recommender, ABC):
         items: DataFrame,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-
-        if hasattr(self, "fill") and self.fill is not None:
-            selected_item_popularity = self.item_popularity.join(
-                items,
-                on="item_idx",
-                how="right",
-            ).fillna(value=self.fill, subset=["relevance"])
-        else:
-            selected_item_popularity = self.item_popularity.join(
-                items,
-                on="item_idx",
-                how="inner",
-            )
-
+        """
+        Regular prediction for popularity-based models,
+        top-k most relevant items from `items` are chosen for each user
+        """
+        selected_item_popularity = self._get_selected_item_popularity(items)
         selected_item_popularity = selected_item_popularity.withColumn(
             "rank",
             sf.row_number().over(
@@ -1649,24 +1700,6 @@ class NonPersonalizedRecommender(Recommender, ABC):
             selected_item_popularity.filter(sf.col("rank") <= k + max_hist_len)
         ).drop("rank")
 
-    @staticmethod
-    def _calc_max_hist_len(log: DataFrame, users: DataFrame) -> int:
-
-        max_hist_len = (
-            (
-                log.join(users, on="user_idx")
-                .groupBy("user_idx")
-                .agg(sf.countDistinct("item_idx").alias("items_count"))
-            )
-            .select(sf.max("items_count"))
-            .collect()[0][0]
-        )
-        # all users have empty history
-        if max_hist_len is None:
-            max_hist_len = 0
-
-        return max_hist_len
-
     def _predict_with_sampling(
         self,
         log: DataFrame,
@@ -1674,18 +1707,28 @@ class NonPersonalizedRecommender(Recommender, ABC):
         users: DataFrame,
         items: DataFrame,
         filter_seen_items: bool = True,
-        add_cold_items: bool = True,
     ) -> DataFrame:
-
-        selected_item_popularity = self.item_popularity.join(
-            items, on="item_idx", how="right" if add_cold_items else "inner"
-        ).fillna(value=self.fill, subset=["relevance"])
+        """
+        Randomized prediction for popularity-based models,
+        top-k items from `items` are sampled for each user based with
+        probability proportional to items' popularity
+        """
+        selected_item_popularity = self._get_selected_item_popularity(items)
+        selected_item_popularity = selected_item_popularity.withColumn(
+            "relevance",
+            sf.when(sf.col("relevance") == sf.lit(0.0), 0.1**6).otherwise(
+                sf.col("relevance")
+            ),
+        )
 
         items_pd = selected_item_popularity.withColumn(
             "probability",
             sf.col("relevance")
             / selected_item_popularity.select(sf.sum("relevance")).first()[0],
         ).toPandas()
+
+        if items_pd.shape[0] == 0:
+            return State().session.createDataFrame([], REC_SCHEMA)
 
         seed = self.seed
         class_name = self.__class__.__name__
@@ -1736,3 +1779,41 @@ class NonPersonalizedRecommender(Recommender, ABC):
             recs = users.withColumn("cnt", sf.lit(min(k, items_pd.shape[0])))
 
         return recs.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
+
+    # pylint: disable=too-many-arguments
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+
+        if self.sample:
+            return self._predict_with_sampling(
+                log=log,
+                k=k,
+                users=users,
+                items=items,
+                filter_seen_items=filter_seen_items,
+            )
+        else:
+            return self._predict_without_sampling(
+                log, k, users, items, filter_seen_items
+            )
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+        return pairs.join(
+            self.item_popularity,
+            on="item_idx",
+            how="left" if self.add_cold_items else "inner",
+        ).fillna(value=self.fill, subset=["relevance"])
