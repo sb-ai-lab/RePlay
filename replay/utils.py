@@ -1,13 +1,15 @@
 from typing import Any, List, Optional, Set, Union
 
 import numpy as np
+import pandas as pd
 import pyspark.sql.types as st
 
+from numpy.random import default_rng
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
 from scipy.sparse import csr_matrix
 
-from replay.constants import NumType, AnyDataFrame
+from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
 from replay.session_handler import State
 
 # pylint: disable=invalid-name
@@ -710,3 +712,53 @@ def drop_temp_view(temp_view_name: str) -> None:
     """
     spark = State().session
     spark.catalog.dropTempView(temp_view_name)
+
+
+def sample_top_k_recs(pairs: DataFrame, k: int, seed: int = None):
+    """
+    Sample k items for each user with probability proportional to the relevance score.
+
+    Motivation: sometimes we have a pre-defined list of items for each user
+    and could use `predict_pairs` method of RePlay models to score them.
+    After that we could select top K most relevant items for each user
+    with `replay.utils.get_top_k_recs` or sample them with
+    probabilities proportional to their relevance score
+    with `replay.utils.sample_top_k_recs` to get more diverse recommendations.
+
+    :param pairs: spark dataframe with columns ``[user_idx, item_idx, relevance]``
+    :param k: number of items for each user to return
+    :param seed: random seed
+    :return:  spark dataframe with columns ``[user_idx, item_idx, relevance]``
+    """
+    pairs = pairs.withColumn(
+        "probability",
+        sf.col("relevance")
+        / sf.sum("relevance").over(Window.partitionBy("user_idx")),
+    )
+
+    def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+        user_idx = pandas_df["user_idx"][0]
+
+        if seed is not None:
+            local_rng = default_rng(seed + user_idx)
+        else:
+            local_rng = default_rng()
+
+        items_positions = local_rng.choice(
+            np.arange(pandas_df.shape[0]),
+            size=min(k, pandas_df.shape[0]),
+            p=pandas_df["probability"].values,
+            replace=False,
+        )
+
+        return pd.DataFrame(
+            {
+                "user_idx": k * [user_idx],
+                "item_idx": pandas_df["item_idx"].values[items_positions],
+                "relevance": pandas_df["relevance"].values[items_positions],
+            }
+        )
+
+    recs = pairs.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
+
+    return recs

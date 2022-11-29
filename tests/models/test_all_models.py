@@ -1,6 +1,4 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-from datetime import datetime
-
 import pytest
 import numpy as np
 
@@ -20,32 +18,20 @@ from replay.models import (
     MultVAE,
     Word2VecRec,
     DDPG,
+    AssociationRulesItemRec,
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
 
 from tests.utils import (
     spark,
     log,
+    log_to_pred,
     long_log_with_features,
     user_features,
     sparkDataFrameEqual,
 )
 
 SEED = 123
-
-
-@pytest.fixture
-def log_to_pred(spark):
-    return spark.createDataFrame(
-        data=[
-            [0, 2, datetime(2019, 9, 12), 3.0],
-            [0, 4, datetime(2019, 9, 13), 2.0],
-            [1, 5, datetime(2019, 9, 14), 4.0],
-            [4, 0, datetime(2019, 9, 15), 3.0],
-            [4, 1, datetime(2019, 9, 15), 3.0],
-        ],
-        schema=LOG_SCHEMA,
-    )
 
 
 @pytest.mark.parametrize(
@@ -60,7 +46,7 @@ def log_to_pred(spark):
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         PopRec(),
-        DDPG(seed=SEED),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
         "als",
@@ -72,7 +58,7 @@ def log_to_pred(spark):
         "slim",
         "word2vec",
         "poprec",
-        "ddpg",
+        "association_rules"
     ],
 )
 def test_predict_pairs_warm_only(log, log_to_pred, model):
@@ -118,12 +104,14 @@ def test_predict_pairs_warm_only(log, log_to_pred, model):
         ItemKNN(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
         "admm_slim",
         "knn",
         "slim",
         "word2vec",
+        "association_rules",
     ],
 )
 def test_predict_pairs_raises(log, model):
@@ -150,6 +138,9 @@ def test_predict_pairs_raises_pairs_format(log):
         (ADMMSLIM(seed=SEED), None),
         (ItemKNN(), None),
         (SLIM(seed=SEED), None),
+        (AssociationRulesItemRec(min_item_count=1, min_pair_count=0), "lift"),
+        (AssociationRulesItemRec(min_item_count=1, min_pair_count=0), "confidence"),
+        (AssociationRulesItemRec(min_item_count=1, min_pair_count=0), "confidence_gain"),
     ],
     ids=[
         "als_euclidean",
@@ -159,6 +150,9 @@ def test_predict_pairs_raises_pairs_format(log):
         "admm_slim",
         "knn",
         "slim",
+        "association_rules_lift",
+        "association_rules_confidence",
+        "association_rules_confidence_gain",
     ],
 )
 def test_get_nearest_items(log, model, metric):
@@ -251,6 +245,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
         PopRec(),
         RandomRec(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
         "admm_slim",
@@ -262,6 +257,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
         "pop_rec",
         "random_rec",
         "word2vec",
+        "association_rules",
     ],
 )
 def test_predict_new_users(model, long_log_with_features, user_features):
@@ -313,7 +309,7 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
         NeuroMF(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
-        DDPG(seed=SEED, user_num=6, item_num=6),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
         "als",
@@ -323,7 +319,7 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
         "neuromf",
         "slim",
         "word2vec",
-        "ddpg",
+        "association_rules",
     ],
 )
 def test_predict_cold_and_new_filter_out(model, long_log_with_features):
@@ -400,3 +396,20 @@ def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
     )
     pred_from_file = spark.read.parquet(path)
     sparkDataFrameEqual(pred_cached, pred_from_file)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ItemKNN(),
+        SLIM(seed=SEED),
+    ],
+    ids=[
+        "knn",
+        "slim",
+    ],
+)
+def test_similarity_metric_raises(log, model):
+    with pytest.raises(ValueError, match="This class does not support changing similarity metrics"):
+        model.fit(log)
+        model.similarity_metric = "some"

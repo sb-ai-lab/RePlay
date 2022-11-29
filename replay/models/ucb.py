@@ -1,19 +1,21 @@
+import joblib
 import math
 
+from os.path import join
 from typing import Any, Dict, List, Optional
 
-from pyspark.sql import DataFrame, Window
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from replay.metrics import Metric, NDCG
-from replay.models.base_rec import Recommender
+from replay.models.base_rec import NonPersonalizedRecommender
 
 
-class UCB(Recommender):
+class UCB(NonPersonalizedRecommender):
     """Simple bandit model, which caclulate item relevance as upper confidence bound
     (`UCB <https://medium.com/analytics-vidhya/multi-armed-bandit-analysis-of-upper-confidence-bound-algorithm-4b84be516047>`_)
     for the confidence interval of true fraction of positive ratings.
-    Should be used in iterative (online) mode to achive preper recommendation quality.
+    Should be used in iterative (online) mode to achive proper recommendation quality.
 
     ``relevance`` from log must be converted to binary 0-1 form.
 
@@ -35,35 +37,54 @@ class UCB(Recommender):
     ... ).toPandas().sort_values(["user_idx","relevance","item_idx"],
     ... ascending=[True,False,True]).reset_index(drop=True)
        user_idx  item_idx  relevance
-    0         1         3   2.442027
-    1         1         2   1.019667
-    2         2         3   2.442027
-    3         2         1   1.519667
-    4         3         3   2.442027
-    5         4         3   2.442027
-    6         4         1   1.519667
+    0         1         3   2.665109
+    1         1         2   1.177410
+    2         2         3   2.665109
+    3         2         1   1.677410
+    4         3         3   2.665109
+    5         4         3   2.665109
+    6         4         1   1.677410
 
     """
 
-    can_predict_cold_users = True
     can_predict_cold_items = True
-    item_popularity: DataFrame
     fill: float
 
-    def __init__(self, exploration_coef=2):
+    # attributes which are needed for refit method
+    full_count: int
+    items_counts_aggr: DataFrame
+
+    def __init__(
+        self,
+        exploration_coef: float = 2,
+        sample: bool = False,
+        seed: Optional[int] = None,
+    ):
         """
         :param exploration_coef: exploration coefficient
+        :param sample: flag to choose recommendation strategy.
+            If True, items are sampled with a probability proportional
+            to the calculated predicted relevance
+        :param seed: random seed. Provides reproducibility if fixed
         """
         # pylint: disable=super-init-not-called
         self.coef = exploration_coef
+        self.sample = sample
+        self.seed = seed
 
     @property
     def _init_args(self):
-        return {"exploration_coef": self.coef}
+        return {
+            "exploration_coef": self.coef,
+            "sample": self.sample,
+            "seed": self.seed,
+        }
 
-    @property
-    def _dataframes(self):
-        return {"item_popularity": self.item_popularity}
+    def _save_model(self, path: str):
+        joblib.dump({"fill": self.fill}, join(path))
+
+    def _load_model(self, path: str):
+        self.fill = joblib.load(join(path))["fill"]
 
     # pylint: disable=too-many-arguments
     def optimize(
@@ -106,24 +127,59 @@ class UCB(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        vals = log.select("relevance").where(
-            (sf.col("relevance") != 1) & (sf.col("relevance") != 0)
-        )
-        if vals.count() > 0:
-            raise ValueError("Relevance values in log must be 0 or 1")
 
-        items_counts = log.groupby("item_idx").agg(
+        self._check_relevance(log)
+
+        # we save this dataframe for the refit() method
+        self.items_counts_aggr = log.groupby("item_idx").agg(
             sf.sum("relevance").alias("pos"),
             sf.count("relevance").alias("total"),
         )
+        # we save this variable for the refit() method
+        self.full_count = log.count()
 
-        full_count = log.count()
-        items_counts = items_counts.withColumn(
+        self._calc_item_popularity()
+
+    def refit(
+        self,
+        log: DataFrame,
+    ) -> None:
+        """Iteratively refit with new part of log.
+
+        :param log: historical log of interactions
+            ``[user_idx, item_idx, timestamp, relevance]``
+        :return:
+        """
+
+        self._check_relevance(log)
+
+        # aggregate new log part
+        items_counts_aggr = log.groupby("item_idx").agg(
+            sf.sum("relevance").alias("pos"),
+            sf.count("relevance").alias("total"),
+        )
+        # combine old and new aggregations and aggregate
+        self.items_counts_aggr = (
+            self.items_counts_aggr.union(items_counts_aggr)
+            .groupby("item_idx")
+            .agg(
+                sf.sum("pos").alias("pos"),
+                sf.sum("total").alias("total"),
+            )
+        )
+        # sum old and new log lengths
+        self.full_count += log.count()
+
+        self._calc_item_popularity()
+
+    def _calc_item_popularity(self):
+
+        items_counts = self.items_counts_aggr.withColumn(
             "relevance",
             (
                 sf.col("pos") / sf.col("total")
                 + sf.sqrt(
-                    sf.log(sf.lit(self.coef * full_count)) / sf.col("total")
+                    self.coef * sf.log(sf.lit(self.full_count)) / sf.col("total")
                 )
             ),
         )
@@ -131,11 +187,7 @@ class UCB(Recommender):
         self.item_popularity = items_counts.drop("pos", "total")
         self.item_popularity.cache().count()
 
-        self.fill = 1 + math.sqrt(math.log(self.coef * full_count))
-
-    def _clear_cache(self):
-        if hasattr(self, "item_popularity"):
-            self.item_popularity.unpersist()
+        self.fill = 1 + math.sqrt(self.coef * math.log(self.full_count))
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -148,41 +200,20 @@ class UCB(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        selected_item_popularity = (
-            self.item_popularity.join(
-                items,
-                on="item_idx",
-                how="right",
-            )
-            .fillna(value=self.fill, subset=["relevance"])
-            .withColumn(
-                "rank",
-                sf.row_number().over(
-                    Window.orderBy(
-                        sf.col("relevance").desc(), sf.col("item_idx").desc()
-                    )
-                ),
-            )
-        )
 
-        max_hist_len = 0
-        if filter_seen_items:
-            max_hist_len = (
-                (
-                    log.join(users, on="user_idx")
-                    .groupBy("user_idx")
-                    .agg(sf.countDistinct("item_idx").alias("items_count"))
-                )
-                .select(sf.max("items_count"))
-                .collect()[0][0]
+        if self.sample:
+            return self._predict_with_sampling(
+                log=log,
+                k=k,
+                users=users,
+                items=items,
+                filter_seen_items=filter_seen_items,
+                add_cold_items=True,
             )
-            # all users have empty history
-            if max_hist_len is None:
-                max_hist_len = 0
-
-        return users.crossJoin(
-            selected_item_popularity.filter(sf.col("rank") <= k + max_hist_len)
-        ).drop("rank")
+        else:
+            return self._predict_without_sampling(
+                log, k, users, items, filter_seen_items
+            )
 
     def _predict_pairs(
         self,
@@ -191,6 +222,7 @@ class UCB(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
+
         return pairs.join(
             self.item_popularity, on="item_idx", how="left"
         ).fillna(value=self.fill, subset=["relevance"])

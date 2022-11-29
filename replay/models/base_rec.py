@@ -8,6 +8,8 @@ Base abstract classes:
 - NeighbourRec - base class that requires log at prediction time
 - ItemVectorModel - class for models which provides items' vectors.
     Implements similar items search.
+- NonPersonalizedRecommender - base class for non-personalized recommenders
+    with popularity statistics
 """
 import collections
 import logging
@@ -25,13 +27,16 @@ from typing import (
     Tuple,
 )
 
+import numpy as np
 import pandas as pd
+from numpy.random import default_rng
 from optuna import create_study
 from optuna.samplers import TPESampler
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 from pyspark.sql.column import Column
 
+from replay.constants import REC_SCHEMA
 from replay.metrics import Metric, NDCG
 from replay.optuna_objective import SplitData, MainObjective
 from replay.session_handler import State
@@ -499,7 +504,6 @@ class BaseRecommender(ABC):
         item_data = items or self.fit_items
         items = self._get_ids(item_data, "item_idx")
         items, log = self._filter_cold_for_predict(items, log, "item")
-
         num_items = items.count()
         if num_items < k:
             message = f"k = {k} > number of items = {num_items}"
@@ -1375,8 +1379,8 @@ class UserRecommender(BaseRecommender, ABC):
     def predict_pairs(
         self,
         pairs: DataFrame,
+        user_features: DataFrame,
         log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
         recs_file_path: Optional[str] = None,
     ) -> Optional[DataFrame]:
         """
@@ -1385,10 +1389,10 @@ class UserRecommender(BaseRecommender, ABC):
         for specific pair it is removed from the resulting dataframe.
 
         :param pairs: dataframe with pairs to calculate relevance for, ``[user_idx, item_idx]``.
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
         :param user_features: user features
             ``[user_idx , timestamp]`` + feature columns
+        :param log: historical log of interactions
+            ``[user_idx, item_idx, timestamp, relevance]``
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
         :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
@@ -1405,6 +1409,9 @@ class NeighbourRec(Recommender, ABC):
     similarity: Optional[DataFrame]
     can_predict_item_to_item: bool = True
     can_predict_cold_users: bool = True
+    can_change_metric: bool = False
+    item_to_item_metrics = ["similarity"]
+    _similarity_metric = "similarity"
 
     @property
     def _dataframes(self):
@@ -1413,6 +1420,22 @@ class NeighbourRec(Recommender, ABC):
     def _clear_cache(self):
         if hasattr(self, "similarity"):
             self.similarity.unpersist()
+
+    # pylint: disable=missing-function-docstring
+    @property
+    def similarity_metric(self):
+        return self._similarity_metric
+
+    @similarity_metric.setter
+    def similarity_metric(self, value):
+        if not self.can_change_metric:
+            raise ValueError("This class does not support changing similarity metrics")
+        if value not in self.item_to_item_metrics:
+            raise ValueError(
+                f"Select one of the valid metrics for predict: "
+                f"{self.item_to_item_metrics}"
+            )
+        self._similarity_metric = value
 
     def _predict_pairs_inner(
         self,
@@ -1452,7 +1475,7 @@ class NeighbourRec(Recommender, ABC):
                 on=condition,
             )
             .groupby("user_idx", "item_idx_two")
-            .agg(sf.sum("similarity").alias("relevance"))
+            .agg(sf.sum(self.similarity_metric).alias("relevance"))
             .withColumnRenamed("item_idx_two", "item_idx")
         )
         return recs
@@ -1468,6 +1491,7 @@ class NeighbourRec(Recommender, ABC):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
+
         return self._predict_pairs_inner(
             log=log,
             filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
@@ -1482,6 +1506,12 @@ class NeighbourRec(Recommender, ABC):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
+
+        if log is None:
+            raise ValueError(
+                "log is not provided, but it is required for prediction"
+            )
+
         return self._predict_pairs_inner(
             log=log,
             filter_df=(
@@ -1515,6 +1545,7 @@ class NeighbourRec(Recommender, ABC):
             where bigger value means greater similarity.
             spark-dataframe with columns ``[item_idx, neighbour_item_idx, similarity]``
         """
+
         if metric is not None:
             self.logger.debug(
                 "Metric is not used to determine nearest items in %s model",
@@ -1524,7 +1555,7 @@ class NeighbourRec(Recommender, ABC):
         return self._get_nearest_items_wrap(
             items=items,
             k=k,
-            metric=None,
+            metric=metric,
             candidates=candidates,
         )
 
@@ -1547,5 +1578,161 @@ class NeighbourRec(Recommender, ABC):
             )
 
         return similarity_filtered.select(
-            "item_idx_one", "item_idx_two", "similarity"
+            "item_idx_one", "item_idx_two", "similarity" if metric is None else metric
         )
+
+
+class NonPersonalizedRecommender(Recommender, ABC):
+    """Base class for non-personalized recommenders with popularity statistics."""
+
+    can_predict_cold_users = True
+    item_popularity: DataFrame
+    fill: float
+    seed: int
+
+    @property
+    def _dataframes(self):
+        return {"item_popularity": self.item_popularity}
+
+    def _clear_cache(self):
+        if hasattr(self, "item_popularity"):
+            self.item_popularity.unpersist()
+
+    @staticmethod
+    def _check_relevance(log: DataFrame):
+
+        vals = log.select("relevance").where(
+            (sf.col("relevance") != 1) & (sf.col("relevance") != 0)
+        )
+        if vals.count() > 0:
+            raise ValueError("Relevance values in log must be 0 or 1")
+
+    # pylint: disable=too-many-arguments
+    def _predict_without_sampling(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+
+        if hasattr(self, "fill") and self.fill is not None:
+            selected_item_popularity = self.item_popularity.join(
+                items,
+                on="item_idx",
+                how="right",
+            ).fillna(value=self.fill, subset=["relevance"])
+        else:
+            selected_item_popularity = self.item_popularity.join(
+                items,
+                on="item_idx",
+                how="inner",
+            )
+
+        selected_item_popularity = selected_item_popularity.withColumn(
+            "rank",
+            sf.row_number().over(
+                Window.orderBy(
+                    sf.col("relevance").desc(), sf.col("item_idx").desc()
+                )
+            ),
+        )
+
+        max_hist_len = (
+            self._calc_max_hist_len(log, users)
+            if filter_seen_items and log is not None
+            else 0
+        )
+
+        return users.crossJoin(
+            selected_item_popularity.filter(sf.col("rank") <= k + max_hist_len)
+        ).drop("rank")
+
+    @staticmethod
+    def _calc_max_hist_len(log: DataFrame, users: DataFrame) -> int:
+
+        max_hist_len = (
+            (
+                log.join(users, on="user_idx")
+                .groupBy("user_idx")
+                .agg(sf.countDistinct("item_idx").alias("items_count"))
+            )
+            .select(sf.max("items_count"))
+            .collect()[0][0]
+        )
+        # all users have empty history
+        if max_hist_len is None:
+            max_hist_len = 0
+
+        return max_hist_len
+
+    def _predict_with_sampling(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        filter_seen_items: bool = True,
+        add_cold_items: bool = True,
+    ) -> DataFrame:
+
+        selected_item_popularity = self.item_popularity.join(
+            items, on="item_idx", how="right" if add_cold_items else "inner"
+        ).fillna(value=self.fill, subset=["relevance"])
+
+        items_pd = selected_item_popularity.withColumn(
+            "probability",
+            sf.col("relevance")
+            / selected_item_popularity.select(sf.sum("relevance")).first()[0],
+        ).toPandas()
+
+        seed = self.seed
+        class_name = self.__class__.__name__
+
+        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+            user_idx = pandas_df["user_idx"][0]
+            cnt = pandas_df["cnt"][0]
+
+            if seed is not None:
+                local_rng = default_rng(seed + user_idx)
+            else:
+                local_rng = default_rng()
+
+            items_positions = local_rng.choice(
+                np.arange(items_pd.shape[0]),
+                size=cnt,
+                p=items_pd["probability"].values,
+                replace=False,
+            )
+
+            # workaround to unify RandomRec and UCB
+            if class_name == "RandomRec":
+                relevance = 1 / np.arange(1, cnt + 1)
+            else:
+                relevance = items_pd["probability"].values[items_positions]
+
+            return pd.DataFrame(
+                {
+                    "user_idx": cnt * [user_idx],
+                    "item_idx": items_pd["item_idx"].values[items_positions],
+                    "relevance": relevance,
+                }
+            )
+
+        if log is not None and filter_seen_items:
+            recs = (
+                log.select("user_idx", "item_idx")
+                .distinct()
+                .join(users, how="right", on="user_idx")
+                .groupby("user_idx")
+                .agg(sf.countDistinct("item_idx").alias("cnt"))
+                .selectExpr(
+                    "user_idx",
+                    f"LEAST(cnt + {k}, {items_pd.shape[0]}) AS cnt",
+                )
+            )
+        else:
+            recs = users.withColumn("cnt", sf.lit(min(k, items_pd.shape[0])))
+
+        return recs.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)

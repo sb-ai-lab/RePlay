@@ -1,4 +1,3 @@
-import logging
 from typing import Dict, Union
 
 from pyspark.sql import Window, DataFrame
@@ -31,7 +30,6 @@ class Coverage(RecOnlyMetric):
             convert2spark(log).select("item_idx").distinct()  # type: ignore
         )
         self.item_count = self.items.count()
-        self.logger = logging.getLogger("replay")
 
     @staticmethod
     def _get_metric_value_by_user(k, *args):
@@ -40,7 +38,10 @@ class Coverage(RecOnlyMetric):
 
     # pylint: disable=no-self-use
     def _get_enriched_recommendations(
-        self, recommendations: AnyDataFrame, ground_truth: AnyDataFrame
+        self,
+        recommendations: AnyDataFrame,
+        ground_truth: AnyDataFrame,
+        max_k: int,
     ) -> DataFrame:
         return convert2spark(recommendations)
 
