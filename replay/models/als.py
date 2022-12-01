@@ -13,13 +13,13 @@ from pyspark.sql.functions import udf
 from scipy.sparse import csr_matrix, csc_matrix
 
 from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.models.nmslib_hnsw import NmslibHnswMixin
+from replay.models.hnswlib import HnswlibMixin
 from replay.session_handler import State
 from replay.utils import JobGroup, list_to_vector_udf, log_exec_timer
 from sklearn.linear_model import Ridge
 
 
-class ALSWrap(Recommender, ItemVectorModel, NmslibHnswMixin):
+class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
@@ -50,7 +50,7 @@ class ALSWrap(Recommender, ItemVectorModel, NmslibHnswMixin):
         self._num_user_blocks = num_user_blocks
         self._nmslib_hnsw_params = nmslib_hnsw_params
 
-        NmslibHnswMixin.__init__(self)
+        HnswlibMixin.__init__(self)
 
     @property
     def _init_args(self):
@@ -104,7 +104,8 @@ class ALSWrap(Recommender, ItemVectorModel, NmslibHnswMixin):
                 log.select("item_idx").distinct()
             )
 
-            self._build_hnsw_index(item_vectors, 'item_factors', self._nmslib_hnsw_params)
+            num_elements = log.select("item_idx").distinct().count()
+            self._build_hnsw_index(item_vectors, 'item_factors', self._nmslib_hnsw_params, self.rank, num_elements)
 
             self._user_to_max_items = (
                     log.groupBy('user_idx')
@@ -225,7 +226,7 @@ class ALSWrap(Recommender, ItemVectorModel, NmslibHnswMixin):
         # unioning old and new item factors
         # self.df_item_factors_total = self.model.itemFactors.union(df_new_item_factors)
 
-        self._update_hnsw_index(df_new_item_factors, 'features', self._nmslib_hnsw_params)
+        self._update_hnsw_index(df_new_item_factors, 'features', self._nmslib_hnsw_params, self.rank)
 
         self._user_to_max_items = (
                 train_union.groupBy('user_idx')
@@ -263,7 +264,7 @@ class ALSWrap(Recommender, ItemVectorModel, NmslibHnswMixin):
 
                 user_vectors = user_vectors.join(self._user_to_max_items, on="user_idx")
 
-            res = self._infer_hnsw_index(user_vectors, "user_factors", params, k)
+            res = self._infer_hnsw_index(user_vectors, "user_factors", params, k, self.rank)
 
             return res
 
