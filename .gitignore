@@ -153,3 +153,5 @@ docs/_build/
 metastore_db/
 
 .vscode
+
+.metals
