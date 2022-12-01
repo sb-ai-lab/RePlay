@@ -132,7 +132,6 @@ class PopRec(NonPersonalizedRecommender):
                     "relevance", sf.col("relevance") / sf.lit(self._users_count)
                 )
             )
-            self.item_popularity.sort("item_idx").show()
         else:
             new_item_idx = log.select("item_idx", "user_idx").join(self.item_users.select("item_idx"), on=["item_idx"], how="leftanti").distinct()
             # item_idx int, user_idx array<int>
@@ -171,6 +170,9 @@ class PopRec(NonPersonalizedRecommender):
                     ),
                 )
             )
+
+        self.item_popularity = self.item_popularity.cache()
+        self.item_popularity.write.mode("overwrite").format("noop").save()
 
     # pylint: disable=too-many-arguments
     def _predict(

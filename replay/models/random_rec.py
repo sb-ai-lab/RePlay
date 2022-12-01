@@ -214,7 +214,6 @@ class RandomRec(NonPersonalizedRecommender):
                 )
                 .distinct()
             )
-            self.logger.debug(f"new_item_idx.count(): {new_item_idx.count()}")
             # item_idx int, user_idx array<int>
             new_item_users = new_item_idx.groupBy("item_idx").agg(
                 sf.collect_set("user_idx").alias("user_idx")
@@ -224,9 +223,6 @@ class RandomRec(NonPersonalizedRecommender):
                 self.item_users.select("item_idx"),
                 on=["item_idx"],
                 how="inner",
-            )
-            self.logger.debug(
-                f"existing_item_idx.count(): {existing_item_idx.count()}"
             )
             existing_item_groups = existing_item_idx.groupBy("item_idx").agg(
                 sf.collect_set("user_idx").alias("new_user_idx")
@@ -281,6 +277,8 @@ class RandomRec(NonPersonalizedRecommender):
                 "relevance", sf.lit(1.0)
             )
 
+        self.item_popularity = self.item_popularity.cache()
+        self.item_popularity.write.mode("overwrite").format("noop").save()
         self.fill = (
             self.item_popularity.agg({"relevance": "min"}).first()[0]
             if self.add_cold_items
