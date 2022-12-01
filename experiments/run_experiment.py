@@ -56,13 +56,13 @@ def main(spark: SparkSession, dataset_name: str):
         ):
             raise Exception("Not enough executors to run experiment!")
 
-    K = int(os.environ.get("K", 5))
+    K = int(os.environ.get("K", 10))
     K_list_metrics = [5, 10]
     SEED = int(os.environ.get("SEED", 1234))
     MLFLOW_TRACKING_URI = os.environ.get(
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
-    MODEL = os.environ.get("MODEL", "Word2VecRec_NMSLIB_HNSW")
+    MODEL = os.environ.get("MODEL", "ItemKNN_NMSLIB_HNSW")
     # PopRec
     # Word2VecRec Word2VecRec_NMSLIB_HNSW
     # ALS ALS_NMSLIB_HNSW
@@ -390,15 +390,17 @@ def main(spark: SparkSession, dataset_name: str):
             )
             model = SLIM(seed=SEED, nmslib_hnsw_params=nmslib_hnsw_params)
         elif MODEL == "ItemKNN":
-            model = ItemKNN()  # num_neighbours=100
+            num_neighbours = int(os.environ.get("NUM_NEIGHBOURS", 10))
+            mlflow.log_param("num_neighbours", num_neighbours)
+            model = ItemKNN(num_neighbours=num_neighbours)
         elif MODEL == "ItemKNN_NMSLIB_HNSW":
             build_index_on = "executor"  # driver executor
             nmslib_hnsw_params = {
                 "method": "hnsw",
-                "space": "negdotprod_sparse",  # cosinesimil_sparse negdotprod_sparse
-                "M": 100,
-                "efS": 2000,
-                "efC": 2000,
+                "space": "negdotprod_sparse_fast",  # cosinesimil_sparse negdotprod_sparse
+                "M": 16,
+                "efS": 200,
+                "efC": 200,
                 "post": 0,
                 "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
                 "build_index_on": build_index_on,
