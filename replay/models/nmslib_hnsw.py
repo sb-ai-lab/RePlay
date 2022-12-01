@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import Any, Dict, Optional
+import uuid
 
 import numpy as np
 import pandas as pd
@@ -32,6 +33,7 @@ class NmslibIndexFileManager:
         index_path: Optional[str] = None,
         filesystem: Optional[FileSystem] = None,
         hdfs_uri: Optional[str] = None,
+        index_filename: Optional[str] = None,
     ) -> None:
 
         self._method = index_params["method"]
@@ -41,6 +43,7 @@ class NmslibIndexFileManager:
         self._index_path = index_path
         self._filesystem = filesystem
         self._hdfs_uri = hdfs_uri
+        self._index_filename = index_filename
         self._index = None
 
     @property
@@ -82,7 +85,7 @@ class NmslibIndexFileManager:
                     )
             else:
                 self._index.loadIndex(
-                    SparkFiles.get("nmslib_hnsw_index"), load_data=True
+                    SparkFiles.get(self._index_filename), load_data=True
                 )
         else:
             self._index = nmslib.init(
@@ -108,7 +111,7 @@ class NmslibIndexFileManager:
                 else:
                     self._index.loadIndex(self._index_path)
             else:
-                self._index.loadIndex(SparkFiles.get("nmslib_hnsw_index"))
+                self._index.loadIndex(SparkFiles.get(self._index_filename))
 
         if self._efS:
             self._index.setQueryTimeParams({"efSearch": self._efS})
@@ -119,6 +122,10 @@ class NmslibHnswMixin:
     """Mixin that provides methods to build nmslib hnsw index and infer it.
     Also provides methods to saving and loading index to/from disk.
     """
+
+    def __init__(self):
+        #: A unique id for the object.
+        self.uid = uuid.uuid4().hex[-12:]
 
     def _build_hnsw_index(
         self,
@@ -304,7 +311,7 @@ class NmslibHnswMixin:
                     # saving index to local temp file and sending it to executors
                     temp_path = tempfile.mkdtemp()
                     tmp_file_path = os.path.join(
-                        temp_path, "nmslib_hnsw_index"
+                        temp_path, "nmslib_hnsw_index_" + self.uid
                     )
                     index.saveIndex(tmp_file_path, save_data=True)
                     spark = SparkSession.getActiveSession()
@@ -342,12 +349,53 @@ class NmslibHnswMixin:
                     # saving index to local temp file and sending it to executors
                     temp_path = tempfile.mkdtemp()
                     tmp_file_path = os.path.join(
-                        temp_path, "nmslib_hnsw_index"
+                        temp_path, "nmslib_hnsw_index_" + self.uid
                     )
                     index.saveIndex(tmp_file_path)
                     spark = SparkSession.getActiveSession()
                     spark.sparkContext.addFile("file://" + tmp_file_path)
 
+    def _update_hnsw_index(
+        self,
+        item_vectors: DataFrame,
+        features_col: str,
+        params: Dict[str, Any]
+    ):
+        index = nmslib.init(
+            method=params["method"],
+            space=params["space"],
+            data_type=nmslib.DataType.DENSE_VECTOR,
+        )
+        index_path = SparkFiles.get("nmslib_hnsw_index_" + self.uid)
+        index.loadIndex(index_path)
+        item_vectors = item_vectors.toPandas()
+        item_vectors_np = np.squeeze(
+            item_vectors[features_col].values
+        )
+        index.addDataPointBatch(
+            data=np.stack(item_vectors_np),
+            ids=item_vectors["id"].values,
+        )
+        index_params = {}
+        if "M" in params:
+            index_params["M"] = params["M"]
+        if "efC" in params:
+            index_params["efConstruction"] = params["efC"]
+        if "post" in params:
+            index_params["post"] = params["post"]
+        if index_params:
+            index.createIndex(index_params)
+        else:
+            index.createIndex()
+
+        # saving index to local temp file and sending it to executors
+        temp_path = tempfile.mkdtemp()
+        tmp_file_path = os.path.join(
+            temp_path, "nmslib_hnsw_index_" + self.uid
+        )
+        index.saveIndex(tmp_file_path)
+        spark = SparkSession.getActiveSession()
+        spark.sparkContext.addFile("file://" + tmp_file_path)
 
     def _build_hnsw_index_on_sparse(
         self,
@@ -393,11 +441,11 @@ class NmslibHnswMixin:
                     row_ind = pdf["item_idx"].values
                     col_ind = pdf["user_idx"].values
 
-                    sim_matrix_tmp = csr_matrix(
+                    interactions_matrix = csr_matrix(
                         (data, (row_ind, col_ind)),
                         shape=(items_count, users_count),
                     )
-                    index.addDataPointBatch(data=sim_matrix_tmp)
+                    index.addDataPointBatch(data=interactions_matrix)
 
                     index_params = {}
                     if "M" in params:
@@ -474,7 +522,7 @@ class NmslibHnswMixin:
                 # saving index to local temp file and sending it to executors
                 temp_path = tempfile.mkdtemp()
                 tmp_file_path = os.path.join(
-                    temp_path, "nmslib_hnsw_index"
+                    temp_path, "nmslib_hnsw_index_" + self.uid
                 )
                 index.saveIndex(tmp_file_path, save_data=True)
                 spark = SparkSession.getActiveSession()
@@ -500,7 +548,8 @@ class NmslibHnswMixin:
                 params, index_type, index_path, filesystem, hdfs_uri
             )
         else:
-            _index_file_manager = NmslibIndexFileManager(params, index_type)
+            print(f"Creation NmslibIndexFileManager instance with index_filename=nmslib_hnsw_index_{self.uid}")
+            _index_file_manager = NmslibIndexFileManager(params, index_type, index_filename="nmslib_hnsw_index_" + self.uid)
 
         index_file_manager_broadcast = State().session.sparkContext.broadcast(
             _index_file_manager
@@ -625,7 +674,7 @@ class NmslibHnswMixin:
                 params, index_type, index_path, filesystem, hdfs_uri
             )
         else:
-            _index_file_manager = NmslibIndexFileManager(params, index_type)
+            _index_file_manager = NmslibIndexFileManager(params, index_type, index_filename="nmslib_hnsw_index_" + self.uid)
 
         index_file_manager_broadcast = State().session.sparkContext.broadcast(
             _index_file_manager

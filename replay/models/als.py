@@ -1,28 +1,22 @@
-import copy
 import os
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import pyspark.sql.functions as sf
-
-# import numpy as np
-# import pandas as pd
 import mlflow
-# import nmslib
-# import tempfile
-
-# from pyarrow import fs
+import numpy as np
 
 from pyspark.ml.recommendation import ALS, ALSModel
-from pyspark.ml.functions import array_to_vector
-from pyspark.sql.functions import udf, pandas_udf
-from pyspark.sql import SparkSession
-from pyspark.sql import DataFrame, Window
+from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
+from pyspark.sql.types import ArrayType, FloatType
+from pyspark.sql.functions import udf
+from scipy.sparse import csr_matrix, csc_matrix
 
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.models.nmslib_hnsw import NmslibHnswMixin
+from replay.session_handler import State
 from replay.utils import JobGroup, list_to_vector_udf, log_exec_timer
-# from replay.utils import get_top_k_recs
+from sklearn.linear_model import Ridge
 
 
 class ALSWrap(Recommender, ItemVectorModel, NmslibHnswMixin):
@@ -55,6 +49,8 @@ class ALSWrap(Recommender, ItemVectorModel, NmslibHnswMixin):
         self._num_item_blocks = num_item_blocks
         self._num_user_blocks = num_user_blocks
         self._nmslib_hnsw_params = nmslib_hnsw_params
+
+        NmslibHnswMixin.__init__(self)
 
     @property
     def _init_args(self):
@@ -114,6 +110,127 @@ class ALSWrap(Recommender, ItemVectorModel, NmslibHnswMixin):
                     log.groupBy('user_idx')
                     .agg(sf.count('item_idx').alias('num_items'))
             )
+
+    def refit(self, log: DataFrame, previous_log: Optional[Union[str, DataFrame]] = None, merged_log_path: Optional[str] = None) -> None:
+        new_users = log.select('user_idx').distinct().join(previous_log.select('user_idx').distinct(), how='left_anti', on='user_idx')
+        old_items = previous_log.select('item_idx').distinct()
+        old_users = previous_log.select('user_idx').distinct()
+        new_items = log.select('item_idx').distinct().join(old_items, how='left_anti', on='item_idx')
+
+        train_union = previous_log.union(log)
+
+        train_union_new_users_old_items = train_union.join(new_users, how='inner', on='user_idx').join(old_items, how='inner', on='item_idx')
+
+        items_count = train_union.agg({"item_idx": "max"}).first()[0] + 1
+        users_count = train_union.agg({"user_idx": "max"}).first()[0] + 1
+
+        train_union_new_users_old_items = train_union_new_users_old_items.toPandas()
+
+        interactions_matrix_new_users_old_items = csr_matrix(
+            (train_union_new_users_old_items.relevance, (train_union_new_users_old_items.user_idx, train_union_new_users_old_items.item_idx)),
+            shape=(users_count, items_count))
+
+        interactions_matrix_broadcast = (
+                State().session.sparkContext.broadcast(interactions_matrix_new_users_old_items)
+        )
+
+        df_item_factors = self.model.itemFactors.toPandas()
+        X_regr = np.zeros((items_count, self.rank))
+        for i, row in df_item_factors.iterrows():
+            X_regr[int(row['id'])] = row['features']
+            
+        old_items_values = old_items.toPandas()['item_idx'].values
+        X_regr = X_regr[old_items_values]
+        X_regr_broadcast = (
+                State().session.sparkContext.broadcast(X_regr)
+        )
+
+        SOLVER = 'auto' #'lsqr' 'sag'
+        MAX_ITER = None
+        reduction = 10
+
+        rank = self.rank
+
+        @udf(returnType=ArrayType(FloatType(), True)) 
+        def compute_new_user_factors_udf(user_id: int):
+            interactions_matrix = interactions_matrix_broadcast.value
+            Y_regr = interactions_matrix[user_id].toarray()[0][old_items_values]
+            non_zero_indexes = np.nonzero(Y_regr)[0]
+            zero_indexes = np.random.choice(np.where(Y_regr == 0)[0], int((Y_regr.shape[0]-non_zero_indexes.shape[0])/reduction))  # what if count(1) > count(0) ?
+            usefull_indexes = np.concatenate([non_zero_indexes, zero_indexes])
+            if usefull_indexes.shape[0] == 0:
+                return [float(x) for x in np.zeros(rank)]
+
+            reg_model = Ridge(alpha=.75, solver=SOLVER, max_iter=MAX_ITER)
+
+            X_regr = X_regr_broadcast.value
+            reg_model.fit(X_regr[usefull_indexes], Y_regr[usefull_indexes])
+            
+            return [float(x) for x in reg_model.coef_]
+
+        # getting factors for new users
+        df_new_user_factors = new_users.select(sf.col("user_idx").alias("id"), compute_new_user_factors_udf("user_idx").alias("features"))
+
+        # unioning old and new user factors
+        self.df_user_factors_total = self.model.userFactors.union(df_new_user_factors)
+
+        # new items
+        train_union_all_users_new_items = train_union.join(new_items, how='inner', on='item_idx').join(old_users, how='inner', on='user_idx') #old users + new items
+
+        train_union_all_users_new_items = train_union_all_users_new_items.toPandas()
+
+        interactions_matrix_all_users_new_items =  csc_matrix(
+            (train_union_all_users_new_items.relevance, (train_union_all_users_new_items.user_idx, train_union_all_users_new_items.item_idx)),
+            shape=(users_count, items_count))
+
+        interactions_matrix_broadcast = (
+                State().session.sparkContext.broadcast(interactions_matrix_all_users_new_items)
+        )
+
+        all_users = train_union_all_users_new_items['user_idx'].unique()
+
+        X_regr = np.zeros((users_count, self.rank))
+        for i, row in self.df_user_factors_total.toPandas().iterrows(): #df_user_factors
+            X_regr[int(row['id'])] = row['features'] # a lot of zero-features users 
+            
+        # new_items_values = new_items.toPandas()['item_idx'].values
+        X_regr = X_regr[all_users]
+        X_regr_broadcast = (
+                State().session.sparkContext.broadcast(X_regr)
+        )
+
+        @udf(returnType=ArrayType(FloatType(), True))
+        def compute_new_item_factors(item_id: int):
+            interactions_matrix = interactions_matrix_broadcast.value
+            Y_regr = interactions_matrix[:, item_id].toarray()[all_users]
+            non_zero_indexes = np.nonzero(Y_regr)[0]
+            try:
+                # zero_indexes = np.random.choice(np.where(Y_regr == 0)[0], non_zero_indexes.shape[0])  # what if count(1) > count(0) ?
+                zero_indexes = np.random.choice(np.where(Y_regr == 0)[0], int((Y_regr.shape[0]-non_zero_indexes.shape[0])/reduction))  # what if count(1) > count(0) ?
+            except:
+                return [float(x) for x in np.zeros(rank)]
+            usefull_indexes = np.concatenate([non_zero_indexes, zero_indexes])
+            if usefull_indexes.shape[0] == 0:
+                return [float(x) for x in np.zeros(rank)]
+
+            X_regr = X_regr_broadcast.value
+            reg_model = Ridge(alpha=.75, solver=SOLVER, max_iter=MAX_ITER)
+            reg_model.fit(X_regr[usefull_indexes], Y_regr[usefull_indexes].flatten())
+            
+            return [float(x) for x in reg_model.coef_]
+
+        # getting factors for new items
+        df_new_item_factors = new_items.select(sf.col("item_idx").alias("id"), compute_new_item_factors("item_idx").alias("features"))
+
+        # unioning old and new item factors
+        # self.df_item_factors_total = self.model.itemFactors.union(df_new_item_factors)
+
+        self._update_hnsw_index(df_new_item_factors, 'features', self._nmslib_hnsw_params)
+
+        self._user_to_max_items = (
+                train_union.groupBy('user_idx')
+                .agg(sf.count('item_idx').alias('num_items'))
+        )
 
     def _clear_cache(self):
         if hasattr(self, "model"):

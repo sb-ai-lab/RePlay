@@ -51,6 +51,7 @@ def get_spark_session(
         .config("spark.driver.host", "localhost")
         .config("spark.sql.execution.arrow.pyspark.enabled", "true")
         .config("spark.kryoserializer.buffer.max", "256m")
+        .config("spark.files.overwrite", "true")
         .master("local[*]")
         .enableHiveSupport()
         .getOrCreate()
