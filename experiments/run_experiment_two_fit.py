@@ -5,7 +5,7 @@ import time
 import mlflow
 import pandas as pd
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, IntegerType
+from pyspark.sql.types import StructType, IntegerType, StringType, DateType, LongType
 from replay.experiment import Experiment
 from replay.metrics import HitRate, MAP, NDCG
 from replay.model_handler import load, save
@@ -73,9 +73,9 @@ def get_model(MODEL: str, SEED: int, spark_app_id: str):
         nmslib_hnsw_params = {
             "method": "hnsw",
             "space": "negdotprod",
-            "M": 100,
-            "efS": 2000,
-            "efC": 2000,
+            "M": 16,
+            "efS": 200,
+            "efC": 200,
             "post": 0,
             # "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark_app_id}",
             "build_index_on": build_index_on,
@@ -157,7 +157,7 @@ def get_model(MODEL: str, SEED: int, spark_app_id: str):
             "efC": 2000,
             "post": 0,
             # hdfs://node21.bdcl:9000
-            "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
+            "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark_app_id}",
             "build_index_on": build_index_on,
         }
         mlflow.log_params(
@@ -212,13 +212,14 @@ def main(spark: SparkSession, dataset_name: str):
     MLFLOW_TRACKING_URI = os.environ.get(
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
-    MODEL = os.environ.get("MODEL", "PopRec")
+    MODEL = os.environ.get("MODEL", "ALS_NMSLIB_HNSW")
     # PopRec
     # Word2VecRec Word2VecRec_NMSLIB_HNSW
     # ALS ALS_NMSLIB_HNSW
     # SLIM SLIM_NMSLIB_HNSW
     # ItemKNN ItemKNN_NMSLIB_HNSW
     # ClusterRec
+    # UCB
 
     if os.environ.get("PARTITION_NUM"):
         partition_num = int(os.environ.get("PARTITION_NUM"))
@@ -257,51 +258,82 @@ def main(spark: SparkSession, dataset_name: str):
         }
         mlflow.log_params(params)
 
-        schema = (
-            StructType()
-            .add("relevance", IntegerType(), True)
-            .add("timestamp", IntegerType(), True)
-            .add("user_idx", IntegerType(), True)
-            .add("item_idx", IntegerType(), True)
-        )
+        if dataset_name == "ml1m":        
+            schema = (
+                StructType()
+                .add("relevance", IntegerType(), True)
+                .add("timestamp", IntegerType(), True)
+                .add("user_idx", IntegerType(), True)
+                .add("item_idx", IntegerType(), True)
+            )
 
-        train70 = (
-            spark.read.option("header", True)
-            .format("csv")
-            .schema(schema)
-            .load(
-                # "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train70.csv"
-                "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train70_ml1m.csv"
+            train70 = (
+                spark.read.option("header", True)
+                .format("csv")
+                .schema(schema)
+                .load(
+                    # "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train70.csv"
+                    "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train70_ml1m.csv"
+                )
             )
-        )
-        train80 = (
-            spark.read.option("header", True)
-            .format("csv")
-            .schema(schema)
-            .load(
-                # "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train80.csv"
-                "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train80_ml1m.csv"
+            train80 = (
+                spark.read.option("header", True)
+                .format("csv")
+                .schema(schema)
+                .load(
+                    # "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train80.csv"
+                    "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train80_ml1m.csv"
+                )
             )
-        )
-        train_diff80 = (
-            spark.read.option("header", True)
-            .format("csv")
-            .schema(schema)
-            .load(
-                # "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train_dif80.csv"
-                "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train_dif80_ml1m.csv"
+            train_diff80 = (
+                spark.read.option("header", True)
+                .format("csv")
+                .schema(schema)
+                .load(
+                    # "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train_dif80.csv"
+                    "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train_dif80_ml1m.csv"
+                )
             )
-        )
-        test = (
-            spark.read.option("header", True)
-            .format("csv")
-            .schema(schema)
-            .load(
-                # "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/test.csv"
-                "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/test_ml1m.csv"
+            test = (
+                spark.read.option("header", True)
+                .format("csv")
+                .schema(schema)
+                .load(
+                    # "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/test.csv"
+                    "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/test_ml1m.csv"
+                )
             )
-        )
+        elif dataset_name == "MillionSongDataset":
+            # schema = (
+            #     StructType()
+            #     .add("relevance", IntegerType(), True)
+            #     .add("timestamp", DateType(), True)
+            #     .add("user_idx", StringType(), True)
+            #     .add("item_idx", StringType(), True)
+            # )
 
+            train70 = (
+                spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/MillionSongDataset/train70.parquet"
+                )
+            )
+            train80 = (
+                spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/MillionSongDataset/train80.parquet"
+                )
+            )
+            train_diff80 = (
+                spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/MillionSongDataset/train_diff80.parquet"
+                )
+            )
+            test = (
+                spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/MillionSongDataset/test.parquet"
+                )
+            )
+        else:
+            ValueError("Unknown dataset.")
 
         kwargs = {}
         if MODEL == "ClusterRec":
@@ -352,8 +384,12 @@ def main(spark: SparkSession, dataset_name: str):
 
         with log_exec_timer("Train/test caching") as train_test_cache_timer:
             train70 = train70.cache()
+            train80 = train80.cache()
+            train_diff80 = train_diff80.cache()
             test = test.cache()
             train70.write.mode("overwrite").format("noop").save()
+            train80.write.mode("overwrite").format("noop").save()
+            train_diff80.write.mode("overwrite").format("noop").save()
             test.write.mode("overwrite").format("noop").save()
         mlflow.log_metric(
             "train_test_cache_sec", train_test_cache_timer.duration
@@ -367,7 +403,7 @@ def main(spark: SparkSession, dataset_name: str):
         with log_exec_timer(
             "get_log_info2() execution"
         ) as get_log_info2_timer:
-            train_info = get_log_info2(train70)
+            train_info = get_log_info2(train80)
             test_info = get_log_info2(test)
             logger.info(
                 "train info: total lines: {}, total users: {}, total items: {}".format(
@@ -423,7 +459,6 @@ def main(spark: SparkSession, dataset_name: str):
                     filter_seen_items=filter_seen_items,
                     **kwargs,
                 )
-            recs.printSchema()
             recs = recs.cache()
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer70_sec", infer_timer.duration)
@@ -460,7 +495,7 @@ def main(spark: SparkSession, dataset_name: str):
         ) as train_timer, JobGroup(
             "Model training (additional)", f"{model.__class__.__name__}.fit()"
         ):
-            model.refit(log=train_diff80)
+            model.refit(log=train_diff80, previous_log=train70)
         mlflow.log_metric("train_diff_sec", train_timer.duration)
 
         with log_exec_timer(f"{MODEL} prediction") as infer_timer, JobGroup(
