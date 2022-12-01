@@ -241,14 +241,12 @@ class ItemKNN(NeighbourRec, NmslibHnswMixin):
             if not self.use_relevance:
                 df = df.withColumn("relevance", sf.lit(1))
 
-            # построение индекса
-            # similarity_matrix = self._get_similarity(df)
-            items_count = log.select(sf.max('item_idx')).first()[0] + 1 
-            users_count = log.select(sf.max('user_idx')).first()[0] + 1 
-            self._build_hnsw_index_on_sparse(df, None, self._nmslib_hnsw_params, items_count=items_count, users_count=users_count)
+            similarity_matrix = self._get_similarity(df)
+            self.similarity = self._get_k_most_similar(similarity_matrix)
+            self.similarity.cache().count()
 
-            # батч запрос к индексу
-            # self.similarity = self._get_k_most_similar(similarity_matrix)
+        if self._nmslib_hnsw_params:
+
             pandas_log = df.select("user_idx", "item_idx", "relevance").toPandas()
             interactions_matrix = csr_matrix(
                 (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
@@ -257,28 +255,15 @@ class ItemKNN(NeighbourRec, NmslibHnswMixin):
             self._interactions_matrix_broadcast = (
                     State().session.sparkContext.broadcast(interactions_matrix)
             )
-            self.similarity = self._infer_hnsw_index_on_sparse(df, None, self._nmslib_hnsw_params, k=self.num_neighbours, index_type="sparse")
-            self.similarity.cache().count()
 
-        # if self._nmslib_hnsw_params:
+            items_count = log.select(sf.max('item_idx')).first()[0] + 1 
+            similarity_df = self.similarity.select("similarity", 'item_idx_one', 'item_idx_two')
+            self._build_hnsw_index(similarity_df, None, self._nmslib_hnsw_params, index_type="sparse", items_count=items_count)
 
-        #     pandas_log = df.select("user_idx", "item_idx", "relevance").toPandas()
-        #     interactions_matrix = csr_matrix(
-        #         (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
-        #         shape=(self._user_dim, self._item_dim),
-        #     )
-        #     self._interactions_matrix_broadcast = (
-        #             State().session.sparkContext.broadcast(interactions_matrix)
-        #     )
-
-        #     items_count = log.select(sf.max('item_idx')).first()[0] + 1 
-        #     similarity_df = self.similarity.select("similarity", 'item_idx_one', 'item_idx_two')
-        #     self._build_hnsw_index(similarity_df, None, self._nmslib_hnsw_params, index_type="sparse", items_count=items_count)
-
-        #     self._user_to_max_items = (
-        #             log.groupBy('user_idx')
-        #             .agg(sf.count('item_idx').alias('num_items'))
-        #     )
+            self._user_to_max_items = (
+                    log.groupBy('user_idx')
+                    .agg(sf.count('item_idx').alias('num_items'))
+            )
 
     def refit(
         self,
