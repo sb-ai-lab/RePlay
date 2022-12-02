@@ -54,7 +54,7 @@ class HnswlibIndexFileManager:
         #     space=self._space,
         #     data_type=nmslib.DataType.DENSE_VECTOR,
         # )
-        index = hnswlib.Index(space=self.space, dim=self._dim)
+        self._index = hnswlib.Index(space=self._space, dim=self._dim)
         if self._index_path:
             if self._filesystem == FileSystem.HDFS:
                 with tempfile.TemporaryDirectory() as temp_path:
@@ -98,8 +98,8 @@ class HnswlibMixin:
         item_vectors: DataFrame,
         features_col: str,
         params: Dict[str, Any],
-        dim: Optional[int] = None,
-        num_elements: Optional[int] = None,
+        dim: int,
+        num_elements: int,
     ):
         """ "Builds hnsw index and dump it to hdfs or disk.
 
@@ -129,7 +129,7 @@ class HnswlibMixin:
                     index = hnswlib.Index(space=params["space"], dim=dim)
 
                     # Initializing index - the maximum number of elements should be known beforehand
-                    index.init_index(max_elements = num_elements, ef_construction = 200, M = 16)
+                    index.init_index(max_elements = num_elements, ef_construction = params["efC"], M = params["M"])
 
                     for pdf in iterator:
                         item_vectors_np = np.squeeze(
@@ -188,7 +188,7 @@ class HnswlibMixin:
                 index = hnswlib.Index(space=params["space"], dim=dim)
 
                 # Initializing index - the maximum number of elements should be known beforehand
-                index.init_index(max_elements = num_elements, ef_construction = 200, M = 16)
+                index.init_index(max_elements = num_elements, ef_construction = params["efC"], M = params["M"])
 
                 index.add_items(np.stack(item_vectors_np), item_vectors["item_idx"].values)                
 
@@ -228,7 +228,8 @@ class HnswlibMixin:
         item_vectors: DataFrame,
         features_col: str,
         params: Dict[str, Any],
-        dim: int
+        dim: int,
+        num_elements: int
     ):
         # index = nmslib.init(
         #     method=params["method"],
@@ -238,7 +239,7 @@ class HnswlibMixin:
         index = hnswlib.Index(space=params["space"], dim=dim)
         index_path = SparkFiles.get("nmslib_hnsw_index_" + self.uid)
         # index.loadIndex(index_path)
-        index.load_index(index_path)
+        index.load_index(index_path, max_elements = num_elements)
         item_vectors = item_vectors.toPandas()
         item_vectors_np = np.squeeze(
             item_vectors[features_col].values
@@ -260,6 +261,7 @@ class HnswlibMixin:
         # else:
         #     index.createIndex()
 
+        self.uid = uuid.uuid4().hex[-12:]
         # saving index to local temp file and sending it to executors
         temp_path = tempfile.mkdtemp()
         tmp_file_path = os.path.join(

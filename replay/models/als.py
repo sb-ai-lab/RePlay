@@ -36,7 +36,7 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         seed: Optional[int] = None,
         num_item_blocks: Optional[int] = None,
         num_user_blocks: Optional[int] = None,
-        nmslib_hnsw_params: Optional[dict] = None,
+        hnswlib_params: Optional[dict] = None,
     ):
         """
         :param rank: hidden dimension for the approximate matrix
@@ -48,7 +48,7 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         self._seed = seed
         self._num_item_blocks = num_item_blocks
         self._num_user_blocks = num_user_blocks
-        self._nmslib_hnsw_params = nmslib_hnsw_params
+        self._hnswlib_params = hnswlib_params
 
         HnswlibMixin.__init__(self)
 
@@ -99,13 +99,14 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         self.model.itemFactors.count()
         self.model.userFactors.count()
 
-        if self._nmslib_hnsw_params:
+        if self._hnswlib_params:
             item_vectors, _ = self.get_features(
                 log.select("item_idx").distinct()
             )
 
-            num_elements = log.select("item_idx").distinct().count()
-            self._build_hnsw_index(item_vectors, 'item_factors', self._nmslib_hnsw_params, self.rank, num_elements)
+            self.num_elements = log.select("item_idx").distinct().count()
+            print(f"index 'num_elements' = {self.num_elements}")
+            self._build_hnsw_index(item_vectors, 'item_factors', self._hnswlib_params, self.rank, self.num_elements)
 
             self._user_to_max_items = (
                     log.groupBy('user_idx')
@@ -166,7 +167,7 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
 
             X_regr = X_regr_broadcast.value
             reg_model.fit(X_regr[usefull_indexes], Y_regr[usefull_indexes])
-            
+
             return [float(x) for x in reg_model.coef_]
 
         # getting factors for new users
@@ -226,7 +227,9 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         # unioning old and new item factors
         # self.df_item_factors_total = self.model.itemFactors.union(df_new_item_factors)
 
-        self._update_hnsw_index(df_new_item_factors, 'features', self._nmslib_hnsw_params, self.rank)
+        self.num_elements = self.num_elements + df_new_item_factors.count()
+        print(f"new index 'num_elements' = {self.num_elements}")
+        self._update_hnsw_index(df_new_item_factors, 'features', self._hnswlib_params, self.rank, self.num_elements)
 
         self._user_to_max_items = (
                 train_union.groupBy('user_idx')
@@ -250,9 +253,9 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         
-        if self._nmslib_hnsw_params:
+        if self._hnswlib_params:
 
-            params = self._nmslib_hnsw_params
+            params = self._hnswlib_params
 
             with JobGroup(
                 f"{self.__class__.__name__}.get_features()",

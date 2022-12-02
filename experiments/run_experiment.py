@@ -366,7 +366,7 @@ def main(spark: SparkSession, dataset_name: str):
                 seed=SEED,
                 num_item_blocks=num_blocks,
                 num_user_blocks=num_blocks,
-                nmslib_hnsw_params=nmslib_hnsw_params,
+                hnswlib_params=nmslib_hnsw_params,
             )
         elif MODEL == "SLIM":
             model = SLIM(seed=SEED)
