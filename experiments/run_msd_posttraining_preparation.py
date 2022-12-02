@@ -25,18 +25,25 @@ def main(spark: SparkSession, dataset_name: str):
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
 
-    schema = (
+    schema1 = (
         StructType()
         .add("user_idx", StringType(), True)
         .add("item_idx", StringType(), True)
         .add("relevance", IntegerType(), True)
         .add("timestamp", DateType(), True)
     )
+    schema2 = (
+        StructType()
+        .add("relevance", IntegerType(), True)
+        .add("timestamp", DateType(), True)
+        .add("user_idx", StringType(), True)
+        .add("item_idx", StringType(), True)
+    )
 
     train70 = (
         spark.read.option("header", True)
         .format("csv")
-        .schema(schema)
+        .schema(schema1)
         .load(
             "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train70.csv"
         )
@@ -44,7 +51,7 @@ def main(spark: SparkSession, dataset_name: str):
     train80 = (
         spark.read.option("header", True)
         .format("csv")
-        .schema(schema)
+        .schema(schema1)
         .load(
             "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train80.csv"
         )
@@ -52,7 +59,7 @@ def main(spark: SparkSession, dataset_name: str):
     train90 = (
         spark.read.option("header", True)
         .format("csv")
-        .schema(schema)
+        .schema(schema1)
         .load(
             "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train90.csv"
         )
@@ -60,7 +67,7 @@ def main(spark: SparkSession, dataset_name: str):
     train = (
         spark.read.option("header", True)
         .format("csv")
-        .schema(schema)
+        .schema(schema1)
         .load(
             "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train.csv"
         )
@@ -68,7 +75,7 @@ def main(spark: SparkSession, dataset_name: str):
     train_diff80 = (
         spark.read.option("header", True)
         .format("csv")
-        .schema(schema)
+        .schema(schema2)
         .load(
             "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif80.csv"
         )
@@ -76,7 +83,7 @@ def main(spark: SparkSession, dataset_name: str):
     train_diff90 = (
         spark.read.option("header", True)
         .format("csv")
-        .schema(schema)
+        .schema(schema2)
         .load(
             "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif90.csv"
         )
@@ -84,7 +91,7 @@ def main(spark: SparkSession, dataset_name: str):
     train_diff100 = (
         spark.read.option("header", True)
         .format("csv")
-        .schema(schema)
+        .schema(schema2)
         .load(
             "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif100.csv"
         )
@@ -92,7 +99,7 @@ def main(spark: SparkSession, dataset_name: str):
     test = (
         spark.read.option("header", True)
         .format("csv")
-        .schema(schema)
+        .schema(schema1)
         .load(
             "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/test.csv"
         )
