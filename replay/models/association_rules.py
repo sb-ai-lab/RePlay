@@ -84,6 +84,7 @@ class AssociationRulesItemRec(Recommender):
             .distinct()
         )
         self.session_col_unique_vals = log.select(self.session_col).distinct()
+        self.session_col_unique_vals = self.session_col_unique_vals.cache()
         num_sessions = self.session_col_unique_vals.count()
 
         self.items_aggr = (
@@ -93,6 +94,7 @@ class AssociationRulesItemRec(Recommender):
                 sf.sum("relevance").alias("item_relevance"),
             )
         )
+        self.items_aggr = self.items_aggr.cache()
 
         frequent_items_cached = (
             self.items_aggr
@@ -220,6 +222,7 @@ class AssociationRulesItemRec(Recommender):
             .distinct()
         )
         self.session_col_unique_vals = self.session_col_unique_vals.union(log.select(self.session_col)).distinct()
+        self.session_col_unique_vals = self.session_col_unique_vals.cache()
         num_sessions = self.session_col_unique_vals.count()
 
         items_aggr = log.groupby("item_idx").agg(
@@ -235,6 +238,7 @@ class AssociationRulesItemRec(Recommender):
                 sf.sum("item_relevance").alias("item_relevance"),
             )
         )
+        self.items_aggr = self.items_aggr.cache()
 
         frequent_items_cached = (
             self.items_aggr
@@ -344,6 +348,9 @@ class AssociationRulesItemRec(Recommender):
             "lift",
             "confidence_gain",
         )
+
+        self.pair_metrics.cache().count()
+        frequent_items_cached.unpersist()
 
     # pylint: disable=too-many-arguments
     def _predict(
