@@ -61,6 +61,7 @@ class UserPopRec(Recommender):
             log.groupBy("user_idx", "item_idx")
             .agg(sf.sum("relevance").alias("user_item_rel_sum"))
         )
+        self.relevance_sums = self.relevance_sums.cache()
 
         user_relevance_sum = (
             self.relevance_sums.groupBy("user_idx")
@@ -93,6 +94,7 @@ class UserPopRec(Recommender):
             .groupBy("user_idx", "item_idx")
             .agg(sf.sum("relevance").alias("user_item_rel_sum"))
         )
+        self.relevance_sums = self.relevance_sums.cache()
 
         user_relevance_sum = (
             self.relevance_sums.groupBy("user_idx")
@@ -115,6 +117,8 @@ class UserPopRec(Recommender):
                 ),
             )
         )
+        self.user_item_popularity = self.user_item_popularity.cache()
+        self.user_item_popularity.write.mode("overwrite").format("noop").save()
 
     def _clear_cache(self):
         if hasattr(self, "user_item_popularity"):

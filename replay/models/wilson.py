@@ -50,6 +50,8 @@ class Wilson(PopRec):
             sf.sum("relevance").alias("pos"),
             sf.count("relevance").alias("total"),
         )
+        self.items_counts_aggr = self.items_counts_aggr.cache()
+
         # https://en.wikipedia.org/w/index.php?title=Binomial_proportion_confidence_interval
         crit = norm.isf(self.alpha / 2.0)
         items_counts = self.items_counts_aggr.withColumn(
@@ -89,6 +91,7 @@ class Wilson(PopRec):
                 sf.sum("total").alias("total"),
             )
         )
+        self.items_counts_aggr = self.items_counts_aggr.cache()
 
         # https://en.wikipedia.org/w/index.php?title=Binomial_proportion_confidence_interval
         crit = norm.isf(self.alpha / 2.0)
@@ -107,4 +110,9 @@ class Wilson(PopRec):
                 )
             ).alias("relevance")
         )
+
+        self.item_popularity = self.item_popularity.drop("pos", "total")
+
+        self.item_popularity = self.item_popularity.cache()
+        self.item_popularity.write.mode("overwrite").format("noop").save()
         

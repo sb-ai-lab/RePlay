@@ -84,6 +84,8 @@ class PopRec(NonPersonalizedRecommender):
             )
             self._users_count = self.users_count
             self.all_user_ids = log.select("user_idx").distinct()
+            self.item_abs_relevances = self.item_abs_relevances.cache()
+            self.all_user_ids = self.all_user_ids.cache()
 
             self.item_popularity = (
                 self.item_abs_relevances
@@ -96,8 +98,10 @@ class PopRec(NonPersonalizedRecommender):
                 log.groupBy("item_idx")
                 .agg(sf.collect_set('user_idx').alias('user_idx'))
             )
+            self.item_users = self.item_users.cache()
             self._users_count = self.users_count
             self.all_user_ids = log.select("user_idx").distinct()
+            self.all_user_ids = self.all_user_ids.cache()
 
             self.item_popularity = (
                 self.item_users
@@ -121,9 +125,11 @@ class PopRec(NonPersonalizedRecommender):
                 .groupBy("item_idx")
                 .agg(sf.sum("relevance").alias("relevance"))
             )
+            self.item_abs_relevances = self.item_abs_relevances.cache()
 
             new_user_ids = log.select("user_idx").join(self.all_user_ids, on=["user_idx"], how="leftanti").distinct()
             self.all_user_ids = self.all_user_ids.union(new_user_ids)
+            self.all_user_ids = self.all_user_ids.cache()
             self._users_count = self._users_count + new_user_ids.count()
 
             self.item_popularity = (
@@ -156,9 +162,11 @@ class PopRec(NonPersonalizedRecommender):
             )
 
             self.item_users = self.item_users.union(new_item_users)
+            self.item_users = self.item_users.cache()
 
             new_user_ids = log.select("user_idx").join(self.all_user_ids, on=["user_idx"], how="leftanti").distinct()
-            self.all_user_ids.union(new_user_ids)
+            self.all_user_ids = self.all_user_ids.union(new_user_ids)
+            self.all_user_ids = self.all_user_ids.cache()
             self._users_count = self._users_count + new_user_ids.count()
 
             self.item_popularity = (

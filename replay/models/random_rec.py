@@ -167,6 +167,7 @@ class RandomRec(NonPersonalizedRecommender):
             self.item_users = log.groupBy("item_idx").agg(
                 sf.collect_set("user_idx").alias("user_idx")
             )
+            self.item_users = self.item_users.cache()
 
             self.item_popularity = self.item_users.select(
                 sf.col("item_idx"),
@@ -179,6 +180,7 @@ class RandomRec(NonPersonalizedRecommender):
             self.relevance_sums = log.groupBy("item_idx").agg(
                 sf.sum("relevance").alias("relevance")
             )
+            self.relevance_sums = self.relevance_sums.cache()
             self.item_popularity = self.relevance_sums.select(
                 "item_idx",
                 (sf.col("relevance") / sf.lit(self.total_relevance)).alias(
@@ -187,6 +189,7 @@ class RandomRec(NonPersonalizedRecommender):
             )
         else:
             self.item_idxs = log.select("item_idx").distinct()
+            self.item_idxs = self.item_idxs.cache()
             self.item_popularity = self.item_idxs.withColumn(
                 "relevance", sf.lit(1.0)
             )
@@ -248,6 +251,7 @@ class RandomRec(NonPersonalizedRecommender):
             )
 
             self.item_users = self.item_users.union(new_item_users)
+            self.item_users = self.item_users.cache()
 
             self.item_popularity = self.item_users.select(
                 sf.col("item_idx"),
@@ -263,6 +267,7 @@ class RandomRec(NonPersonalizedRecommender):
                 .groupBy("item_idx")
                 .agg(sf.sum("relevance").alias("relevance"))
             )
+            self.relevance_sums = self.relevance_sums.cache()
             self.item_popularity = self.relevance_sums.select(
                 "item_idx",
                 (sf.col("relevance") / sf.lit(self.total_relevance)).alias(
@@ -273,6 +278,7 @@ class RandomRec(NonPersonalizedRecommender):
             self.item_idxs = (
                 log.select("item_idx").union(self.item_idxs).distinct()
             )
+            self.item_idxs = self.item_idxs.cache()
             self.item_popularity = self.item_idxs.withColumn(
                 "relevance", sf.lit(1.0)
             )

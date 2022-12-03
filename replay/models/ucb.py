@@ -131,6 +131,7 @@ class UCB(NonPersonalizedRecommender):
             sf.sum("relevance").alias("pos"),
             sf.count("relevance").alias("total"),
         )
+        self.items_counts_aggr = self.items_counts_aggr.cache()
 
         # we save this variable for the refit() method
         self.full_count = log.count()
@@ -170,6 +171,7 @@ class UCB(NonPersonalizedRecommender):
                 sf.sum("total").alias("total"),
             )
         )
+        self.items_counts_aggr = self.items_counts_aggr.cache()
 
         # sum old and new log lengths
         self.full_count += log.count()
