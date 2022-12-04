@@ -49,11 +49,6 @@ class HnswlibIndexFileManager:
         if self._index:
             return self._index
 
-        # self._index = nmslib.init(
-        #     method=self._method,
-        #     space=self._space,
-        #     data_type=nmslib.DataType.DENSE_VECTOR,
-        # )
         self._index = hnswlib.Index(space=self._space, dim=self._dim)
         if self._index_path:
             if self._filesystem == FileSystem.HDFS:
@@ -69,13 +64,10 @@ class HnswlibIndexFileManager:
                         "file://" + tmp_file_path,
                         source_filesystem=source_filesystem,
                     )
-                    # self._index.loadIndex(tmp_file_path)
                     self._index.load_index(tmp_file_path)
             else:
-                # self._index.loadIndex(self._index_path)
                 self._index.load_index(self._index_path)
         else:
-            # self._index.loadIndex(SparkFiles.get(self._index_filename))
             self._index.load_index(SparkFiles.get(self._index_filename))
 
         # if self._efS:
@@ -85,7 +77,7 @@ class HnswlibIndexFileManager:
 
 
 class HnswlibMixin:
-    """Mixin that provides methods to build nmslib hnsw index and infer it.
+    """Mixin that provides methods to build hnswlib index and infer it.
     Also provides methods to saving and loading index to/from disk.
     """
 
@@ -102,7 +94,7 @@ class HnswlibMixin:
         num_elements: int,
         id_col: Optional[str] = None,
     ):
-        """ "Builds hnsw index and dump it to hdfs or disk.
+        """Builds hnsw index and dump it to hdfs or disk.
 
         Args:
             item_vectors (DataFrame): DataFrame with item vectors
@@ -122,51 +114,34 @@ class HnswlibMixin:
                 )
 
                 def build_index(iterator: Iterator[pd.DataFrame]):
-                    # index = nmslib.init(
-                    #     method=params["method"],
-                    #     space=params["space"],
-                    #     data_type=nmslib.DataType.DENSE_VECTOR,
-                    # )
                     index = hnswlib.Index(space=params["space"], dim=dim)
 
                     # Initializing index - the maximum number of elements should be known beforehand
-                    index.init_index(max_elements = num_elements, ef_construction = params["efC"], M = params["M"])
+                    index.init_index(
+                        max_elements=num_elements,
+                        ef_construction=params["efC"],
+                        M=params["M"],
+                    )
 
                     for pdf in iterator:
-                        item_vectors_np = np.squeeze(
-                            pdf[features_col].values
-                        )
+                        item_vectors_np = np.squeeze(pdf[features_col].values)
                         if id_col:
-                            index.add_items(np.stack(item_vectors_np), pdf[id_col].values) # "item_idx"
+                            index.add_items(
+                                np.stack(item_vectors_np), pdf[id_col].values
+                            )
                         else:
                             # ids will be from [0, ..., len(item_vectors_np)]
                             index.add_items(np.stack(item_vectors_np))
-                        # index.addDataPointBatch(
-                        #     data=np.stack(item_vectors_np),
-                        #     ids=pdf["item_idx"].values,
-                        # )
-                    # index_params = {}
-                    # if "M" in params:
-                    #     index_params["M"] = params["M"]
-                    # if "efC" in params:
-                    #     index_params["efConstruction"] = params["efC"]
-                    # if "post" in params:
-                    #     index_params["post"] = params["post"]
-                    # if index_params:
-                    #     index.createIndex(index_params)
-                    # else:
-                    #     index.createIndex()
 
                     if filesystem == FileSystem.HDFS:
                         temp_path = tempfile.mkdtemp()
                         tmp_file_path = os.path.join(
                             temp_path, "nmslib_hnsw_index"
                         )
-                        # index.saveIndex(tmp_file_path)
                         index.save_index(tmp_file_path)
 
-                        destination_filesystem = (
-                            fs.HadoopFileSystem.from_uri(hdfs_uri)
+                        destination_filesystem = fs.HadoopFileSystem.from_uri(
+                            hdfs_uri
                         )
                         fs.copy_files(
                             "file://" + tmp_file_path,
@@ -175,7 +150,6 @@ class HnswlibMixin:
                         )
                         # param use_threads=True (?)
                     else:
-                        # index.saveIndex(index_path)
                         index.save_index(index_path)
 
                     yield pd.DataFrame(data={"_success": 1}, index=[0])
@@ -186,40 +160,23 @@ class HnswlibMixin:
                 ).show()
             else:
                 item_vectors = item_vectors.toPandas()
-                item_vectors_np = np.squeeze(
-                    item_vectors[features_col].values
-                )
+                item_vectors_np = np.squeeze(item_vectors[features_col].values)
 
                 index = hnswlib.Index(space=params["space"], dim=dim)
 
                 # Initializing index - the maximum number of elements should be known beforehand
-                index.init_index(max_elements = num_elements, ef_construction = params["efC"], M = params["M"])
+                index.init_index(
+                    max_elements=num_elements,
+                    ef_construction=params["efC"],
+                    M=params["M"],
+                )
 
                 if id_col:
-                    index.add_items(np.stack(item_vectors_np), item_vectors[id_col].values)
+                    index.add_items(
+                        np.stack(item_vectors_np), item_vectors[id_col].values
+                    )
                 else:
                     index.add_items(np.stack(item_vectors_np))
-
-                # index = nmslib.init(
-                #     method=params["method"],
-                #     space=params["space"],
-                #     data_type=nmslib.DataType.DENSE_VECTOR,
-                # )
-                # index.addDataPointBatch(
-                #     data=np.stack(item_vectors_np),
-                #     ids=item_vectors["item_idx"].values,
-                # )
-                # index_params = {}
-                # if "M" in params:
-                #     index_params["M"] = params["M"]
-                # if "efC" in params:
-                #     index_params["efConstruction"] = params["efC"]
-                # if "post" in params:
-                #     index_params["post"] = params["post"]
-                # if index_params:
-                #     index.createIndex(index_params)
-                # else:
-                #     index.createIndex()
 
                 # saving index to local temp file and sending it to executors
                 temp_path = tempfile.mkdtemp()
@@ -237,37 +194,14 @@ class HnswlibMixin:
         features_col: str,
         params: Dict[str, Any],
         dim: int,
-        num_elements: int
+        num_elements: int,
     ):
-        # index = nmslib.init(
-        #     method=params["method"],
-        #     space=params["space"],
-        #     data_type=nmslib.DataType.DENSE_VECTOR,
-        # )
         index = hnswlib.Index(space=params["space"], dim=dim)
         index_path = SparkFiles.get("nmslib_hnsw_index_" + self.uid)
-        # index.loadIndex(index_path)
-        index.load_index(index_path, max_elements = num_elements)
+        index.load_index(index_path, max_elements=num_elements)
         item_vectors = item_vectors.toPandas()
-        item_vectors_np = np.squeeze(
-            item_vectors[features_col].values
-        )
+        item_vectors_np = np.squeeze(item_vectors[features_col].values)
         index.add_items(np.stack(item_vectors_np), item_vectors["id"].values)
-        # index.addDataPointBatch(
-        #     data=np.stack(item_vectors_np),
-        #     ids=item_vectors["id"].values,
-        # )
-        # index_params = {}
-        # if "M" in params:
-        #     index_params["M"] = params["M"]
-        # if "efC" in params:
-        #     index_params["efConstruction"] = params["efC"]
-        # if "post" in params:
-        #     index_params["post"] = params["post"]
-        # if index_params:
-        #     index.createIndex(index_params)
-        # else:
-        #     index.createIndex()
 
         self.uid = uuid.uuid4().hex[-12:]
         # saving index to local temp file and sending it to executors
@@ -275,7 +209,6 @@ class HnswlibMixin:
         tmp_file_path = os.path.join(
             temp_path, "nmslib_hnsw_index_" + self.uid
         )
-        # index.saveIndex(tmp_file_path)
         index.save_index(tmp_file_path)
         spark = SparkSession.getActiveSession()
         spark.sparkContext.addFile("file://" + tmp_file_path)
@@ -297,8 +230,11 @@ class HnswlibMixin:
                 params, index_dim, index_path, filesystem, hdfs_uri
             )
         else:
-            print(f"Creation HnswlibIndexFileManager instance with index_filename=nmslib_hnsw_index_{self.uid}")
-            _index_file_manager = HnswlibIndexFileManager(params, index_dim, index_filename="nmslib_hnsw_index_" + self.uid)
+            _index_file_manager = HnswlibIndexFileManager(
+                params,
+                index_dim,
+                index_filename="nmslib_hnsw_index_" + self.uid,
+            )
 
         index_file_manager_broadcast = State().session.sparkContext.broadcast(
             _index_file_manager
@@ -318,7 +254,9 @@ class HnswlibMixin:
             # max number of items to retrieve per batch
             max_items_to_retrieve = num_items.max()
 
-            labels, distances = index.knn_query(np.stack(vectors.values), k = k + max_items_to_retrieve)
+            labels, distances = index.knn_query(
+                np.stack(vectors.values), k=k + max_items_to_retrieve
+            )
             # neighbours = index.knnQueryBatch(
             #     np.stack(vectors.values),
             #     k=k + max_items_to_retrieve,
@@ -328,7 +266,9 @@ class HnswlibMixin:
             #     neighbours, columns=["item_idx", "distance"]
             # )
             # pd_res = pd.DataFrame({'labels': list(labels), 'distances': list(distances)})
-            pd_res = pd.DataFrame({'item_idx': list(labels), 'distance': list(distances)})
+            pd_res = pd.DataFrame(
+                {"item_idx": list(labels), "distance": list(distances)}
+            )
 
             # which is better?
             # pd_res['user_idx'] = user_ids
@@ -350,18 +290,24 @@ class HnswlibMixin:
             "res.withColumn('zip_exp', ...",
             "infer_hnsw_index (inside 2)",
         ):
-            res = res.select('*',
-                sf.explode(sf.arrays_zip("r.item_idx", "r.distance")).alias('zip_exp')
+            res = res.select(
+                "*",
+                sf.explode(sf.arrays_zip("r.item_idx", "r.distance")).alias(
+                    "zip_exp"
+                ),
             )
-            
+
             # Fix arrays_zip random behavior. It can return zip_exp.0 or zip_exp.item_idx in different machines
-            item_idx_field_name: str = res.schema["zip_exp"].jsonValue()["type"]["fields"][0]["name"]
-            distance_field_name: str = res.schema["zip_exp"].jsonValue()["type"]["fields"][1]["name"]
+            fields = res.schema["zip_exp"].jsonValue()["type"]["fields"]
+            item_idx_field_name: str = fields[0]["name"]
+            distance_field_name: str = fields[1]["name"]
 
             res = res.select(
                 sf.col("r.user_idx").alias("user_idx"),
                 sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx"),
-                (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias("relevance")
+                (
+                    sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")
+                ).alias("relevance"),
             )
             # res = res.cache()
             # res.write.mode("overwrite").format("noop").save()
