@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterator, Optional
 import uuid
 
 import numpy as np
@@ -100,6 +100,7 @@ class HnswlibMixin:
         params: Dict[str, Any],
         dim: int,
         num_elements: int,
+        id_col: Optional[str] = None,
     ):
         """ "Builds hnsw index and dump it to hdfs or disk.
 
@@ -120,7 +121,7 @@ class HnswlibMixin:
                     params["index_path"]
                 )
 
-                def build_index(iterator):
+                def build_index(iterator: Iterator[pd.DataFrame]):
                     # index = nmslib.init(
                     #     method=params["method"],
                     #     space=params["space"],
@@ -135,7 +136,11 @@ class HnswlibMixin:
                         item_vectors_np = np.squeeze(
                             pdf[features_col].values
                         )
-                        index.add_items(np.stack(item_vectors_np), pdf["item_idx"].values)
+                        if id_col:
+                            index.add_items(np.stack(item_vectors_np), pdf[id_col].values) # "item_idx"
+                        else:
+                            # ids will be from [0, ..., len(item_vectors_np)]
+                            index.add_items(np.stack(item_vectors_np))
                         # index.addDataPointBatch(
                         #     data=np.stack(item_vectors_np),
                         #     ids=pdf["item_idx"].values,
@@ -190,7 +195,10 @@ class HnswlibMixin:
                 # Initializing index - the maximum number of elements should be known beforehand
                 index.init_index(max_elements = num_elements, ef_construction = params["efC"], M = params["M"])
 
-                index.add_items(np.stack(item_vectors_np), item_vectors["item_idx"].values)                
+                if id_col:
+                    index.add_items(np.stack(item_vectors_np), item_vectors[id_col].values)
+                else:
+                    index.add_items(np.stack(item_vectors_np))
 
                 # index = nmslib.init(
                 #     method=params["method"],

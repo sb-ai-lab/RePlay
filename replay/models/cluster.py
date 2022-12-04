@@ -3,13 +3,17 @@ from typing import Optional, Union
 from pyspark.sql import DataFrame
 from pyspark.ml.clustering import KMeans, KMeansModel
 from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.functions import vector_to_array
 from pyspark.sql import functions as sf
+from pyspark.sql.types import ArrayType, DoubleType, StructType, StructField
+
 
 from replay.models.base_rec import UserRecommender
-from replay.models.nmslib_hnsw import NmslibHnswMixin
+from replay.models.hnswlib import HnswlibMixin
+from replay.session_handler import State
 
 
-class ClusterRec(UserRecommender, NmslibHnswMixin):
+class ClusterRec(UserRecommender, HnswlibMixin):
     """
     Generate recommendations for cold users using k-means clusters
     """
@@ -21,13 +25,15 @@ class ClusterRec(UserRecommender, NmslibHnswMixin):
     item_rel_in_cluster: DataFrame
 
     def __init__(
-        self, num_clusters: int = 10, nmslib_hnsw_params: Optional[dict] = None
+        self, num_clusters: int = 10, hnswlib_params: Optional[dict] = None
     ):
         """
         :param num_clusters: number of clusters
         """
         self.num_clusters = num_clusters
-        self._nmslib_hnsw_params = nmslib_hnsw_params
+        self._hnswlib_params = hnswlib_params
+
+        HnswlibMixin.__init__(self)
 
     @property
     def _init_args(self):
@@ -70,15 +76,22 @@ class ClusterRec(UserRecommender, NmslibHnswMixin):
         ).drop("item_count", "max_count_in_cluster")
         self.item_rel_in_cluster.cache().count()
 
-        # if self._nmslib_hnsw_params:
-        #     item_vectors = log.select("item_idx", "cluster").distinct()
+        if self._hnswlib_params:
+            schema = (
+                StructType([StructField("cluster_center", ArrayType(DoubleType(), False), False)])
+            )
 
-        #     self._build_hnsw_index(item_vectors, features_col='cluster', params=self._nmslib_hnsw_params)
+            cluster_centers = self.model.clusterCenters()
+            self._index_dim = cluster_centers[0].shape[0]
+            # converts to [([0.5, 0.5],), ([8.5, 8.5],)] format, where
+            # tuple as row
+            # list in tuple as array
+            cluster_centers = list(map(lambda x: tuple([[float(n) for n in x]]), cluster_centers))
+            cluster_centers_df = State().session.createDataFrame(cluster_centers, schema)
+            
 
-        #     self._user_to_max_items = (
-        #             log.groupBy('user_idx')
-        #             .agg(sf.count('item_idx').alias('num_items'))
-        #     )
+            self._build_hnsw_index(cluster_centers_df, features_col='cluster_center', params=self._hnswlib_params, dim=self._index_dim,
+            num_elements=self.num_clusters)
 
     def refit(
         self,
@@ -146,6 +159,12 @@ class ClusterRec(UserRecommender, NmslibHnswMixin):
         user_features_vector = self._transform_features(
             user_features.join(users, on="user_idx")
         )
+
+        if self._hnswlib_params:
+            vectors = user_features_vector.select("user_idx", vector_to_array("features").alias("features"), sf.lit(0).alias("num_items"))
+            res = self._infer_hnsw_index(vectors, 'features', self._hnswlib_params, 1, self._index_dim)
+            return res.select("user_idx", sf.col("item_idx").alias("cluster"))
+
         return (
             self.model.transform(user_features_vector)
             .select("user_idx", "prediction")

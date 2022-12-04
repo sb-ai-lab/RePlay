@@ -106,7 +106,7 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
 
             self.num_elements = log.select("item_idx").distinct().count()
             print(f"index 'num_elements' = {self.num_elements}")
-            self._build_hnsw_index(item_vectors, 'item_factors', self._hnswlib_params, self.rank, self.num_elements)
+            self._build_hnsw_index(item_vectors, 'item_factors', self._hnswlib_params, self.rank, self.num_elements, id_col='item_idx')
 
             self._user_to_max_items = (
                     log.groupBy('user_idx')

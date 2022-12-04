@@ -46,6 +46,7 @@ seaborn = "*"
 pyarrow = "*"
 implicit = ">=0.5"
 nmslib = "*"
+hnswlib = "*"
 
 [tool.poetry.dev-dependencies]
 # dev only

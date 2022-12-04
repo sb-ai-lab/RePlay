@@ -62,7 +62,7 @@ def main(spark: SparkSession, dataset_name: str):
     MLFLOW_TRACKING_URI = os.environ.get(
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
-    MODEL = os.environ.get("MODEL", "ItemKNN_NMSLIB_HNSW")
+    MODEL = os.environ.get("MODEL", "ClusterRec_HNSWLIB")
     # PopRec
     # Word2VecRec Word2VecRec_NMSLIB_HNSW
     # ALS ALS_NMSLIB_HNSW
@@ -198,13 +198,13 @@ def main(spark: SparkSession, dataset_name: str):
                 "Train/test/user_features datasets reading to parquet"
             ) as parquets_read_timer:
                 train = spark.read.parquet(
-                    "/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_train.parquet"
+                    "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_train.parquet"
                 )
                 test = spark.read.parquet(
-                    "/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_test.parquet"
+                    "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_test.parquet"
                 )
                 user_features = spark.read.parquet(
-                    "/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_user_features.parquet"
+                    "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_user_features.parquet"
                 )
                 # .select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
                 print(user_features.printSchema())
@@ -458,6 +458,20 @@ def main(spark: SparkSession, dataset_name: str):
             model = Wilson()
         elif MODEL == "ClusterRec":
             model = ClusterRec()
+        elif MODEL == "ClusterRec_HNSWLIB":
+            build_index_on = "driver"
+            hnswlib_params = {
+                "space": "ip",
+                "M": 16,
+                "efS": 200,
+                "efC": 200,
+                "post": 0,
+                # hdfs://node21.bdcl:9000
+                # "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark_app_id}",
+                "build_index_on": build_index_on,
+            }
+            mlflow.log_param("hnswlib_params", hnswlib_params)
+            model = ClusterRec(hnswlib_params=hnswlib_params)
         else:
             raise ValueError("Unknown model.")
 
