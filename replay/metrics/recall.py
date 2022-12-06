@@ -1,5 +1,8 @@
 from replay.metrics.base_metric import Metric
 
+from pyspark.sql import SparkSession, Column
+from pyspark.sql.column import _to_java_column, _to_seq
+
 
 # pylint: disable=too-few-public-methods
 class Recall(Metric):
@@ -20,3 +23,13 @@ class Recall(Metric):
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         return len(set(pred[:k]) & set(ground_truth)) / len(ground_truth)
+
+    @staticmethod
+    def _get_metric_value_by_user_scala_udf(k, pred, ground_truth) -> Column:
+        sc = SparkSession.getActiveSession().sparkContext
+        _f = (
+            sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.getRecallMetricValue()
+        )
+        return Column(
+            _f.apply(_to_seq(sc, [k, pred, ground_truth], _to_java_column))
+        )
