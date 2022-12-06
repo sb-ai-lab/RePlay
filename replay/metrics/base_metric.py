@@ -12,6 +12,7 @@ from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 from pyspark.sql import Window
 from scipy.stats import norm
+from pyspark.sql import Column
 
 from replay.constants import AnyDataFrame, IntOrList, NumType
 from replay.utils import JobGroup, convert2spark
@@ -117,6 +118,9 @@ class Metric(ABC):
 
     _logger: Optional[logging.Logger] = None
 
+    def __init__(self, use_scala_udf: bool = False) -> None:
+        self._use_scala_udf = use_scala_udf
+
     @property
     def logger(self) -> logging.Logger:
         """
@@ -215,6 +219,10 @@ class Metric(ABC):
         :param k: depth cut-off
         :return: metric distribution for different cut-offs and users
         """
+        if self._use_scala_udf:
+            metric_value_col = self._get_metric_value_by_user_scala_udf(sf.lit(k).alias("k"), "pred", "ground_truth").alias("value")
+            return recs.select("user_idx", metric_value_col)
+
         cur_class = self.__class__
         distribution = recs.rdd.flatMap(
             # pylint: disable=protected-access
@@ -225,6 +233,12 @@ class Metric(ABC):
             f"user_idx {recs.schema['user_idx'].dataType.typeName()}, value double"
         )
         return distribution
+
+    @staticmethod
+    @abstractmethod
+    def _get_metric_value_by_user_scala_udf(k, pred, ground_truth) -> Column:
+        """Returns scala udf that calcs metric for one user as Column
+        """
 
     @staticmethod
     @abstractmethod

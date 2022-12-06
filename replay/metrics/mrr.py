@@ -1,5 +1,8 @@
 from replay.metrics.base_metric import Metric
 
+from pyspark.sql import SparkSession, Column
+from pyspark.sql.column import _to_java_column, _to_seq
+
 
 # pylint: disable=too-few-public-methods
 class MRR(Metric):
@@ -25,3 +28,13 @@ class MRR(Metric):
             if pred[i] in ground_truth:
                 return 1 / (1 + i)
         return 0
+
+    @staticmethod
+    def _get_metric_value_by_user_scala_udf(k, pred, ground_truth) -> Column:
+        sc = SparkSession.getActiveSession().sparkContext
+        _f = (
+            sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.getMRRMetricValue()
+        )
+        return Column(
+            _f.apply(_to_seq(sc, [k, pred, ground_truth], _to_java_column))
+        )
