@@ -673,7 +673,6 @@ class DDPG(TorchRecommender):
     # pylint: disable=arguments-differ
     def train(self, users):
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        rewards = []
         step = 0
 
         for user in tqdm.auto.tqdm(users):
@@ -689,7 +688,6 @@ class DDPG(TorchRecommender):
                 user, memory, reward, _ = self.model.environment.step(
                     action, action_emb, self.replay_buffer
                 )
-                rewards.append(reward)
 
                 if len(self.replay_buffer) > self.batch_size:
                     batch = self._get_batch(step)
