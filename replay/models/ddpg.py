@@ -414,7 +414,6 @@ class DDPG(TorchRecommender):
     min_value: int = -10
     max_value: int = 10
     buffer_size: int = 1000000
-    save_optimizers: bool = True
     _search_space = {
         "noise_sigma": {"type": "uniform", "args": [0.1, 0.6]},
         "noise_theta": {"type": "uniform", "args": [0.1, 0.4]},
@@ -701,10 +700,6 @@ class DDPG(TorchRecommender):
                 step += 1
 
         self._save_model(self.log_dir / "model_final.pt")
-        if self.save_optimizers:
-            DDPG._save_optimizers(
-                self.policy_optimizer, self.value_optimizer, self.log_dir
-            )
 
     def _save_model(self, path: str) -> None:
         self.logger.debug(
@@ -717,6 +712,8 @@ class DDPG(TorchRecommender):
                 "actor": self.model.state_dict(),
                 "critic": self.value_net.state_dict(),
                 "memory": self.model.environment.memory,
+                "policy_optimizer": self.policy_optimizer.state_dict(),
+                "value_optimizer": self.value_optimizer.state_dict(),
             },
             path,
         )
@@ -729,11 +726,8 @@ class DDPG(TorchRecommender):
         self.model.load_state_dict(checkpoint["actor"])
         self.value_net.load_state_dict(checkpoint["critic"])
         self.model.environment.memory = checkpoint["memory"]
+        self.policy_optimizer.load_state_dict(checkpoint["policy_optimizer"])
+        self.value_optimizer.load_state_dict(checkpoint["value_optimizer"])
 
         self._target_update(self.target_value_net, self.value_net, soft_tau=1)
         self._target_update(self.target_model, self.model, soft_tau=1)
-
-    @staticmethod
-    def _save_optimizers(policy_optimizer, value_optimizer, path: str) -> None:
-        torch.save(policy_optimizer, path / "policy_optimizer.pt")
-        torch.save(value_optimizer, path / "value_optimizer.pt")
