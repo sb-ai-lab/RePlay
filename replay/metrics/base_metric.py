@@ -4,9 +4,11 @@ Base classes for quality and diversity metrics.
 import logging
 import operator
 from abc import ABC, abstractmethod
+import os
 from typing import Dict, List, Tuple, Union, Optional
 
 import pandas as pd
+import mlflow
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
@@ -15,7 +17,7 @@ from scipy.stats import norm
 from pyspark.sql import Column
 
 from replay.constants import AnyDataFrame, IntOrList, NumType
-from replay.utils import JobGroup, convert2spark
+from replay.utils import JobGroup, convert2spark, log_exec_timer
 from replay.utils import convert2spark, get_top_k_recs
 
 
@@ -220,10 +222,39 @@ class Metric(ABC):
         :return: metric distribution for different cut-offs and users
         """
         if self._use_scala_udf:
-            metric_value_col = self._get_metric_value_by_user_scala_udf(sf.lit(k).alias("k"), "pred", "ground_truth").alias("value")
-            return recs.select("user_idx", metric_value_col)
+            # Possibly bad approach to define column names for udf call
+            # because we don't know columns ordering
+            # and we don't know exactly what is columns in recs
+            cols = [col for col in recs.columns if col != "user_idx"]
+            metric_value_col = self._get_metric_value_by_user_scala_udf(sf.lit(k).alias("k"), *cols).alias("value") # "pred", "ground_truth"
+            if os.environ.get("MATERIALIZE_METRIC_CALC", "False") == "True":
+                with log_exec_timer(f"{self.__class__.__name__} materialization") as timer, JobGroup(
+                    f"{self.__class__.__name__} materialization", f"{self.__class__.__name__} materialization"
+                ):
+                    distribution = recs.select("user_idx", metric_value_col)
+                    distribution = distribution.cache()
+                    distribution.write.mode("overwrite").format("noop").save()
+                mlflow.log_metric(f"{self.__class__.__name__}_sec", timer.duration)
+                return distribution
+            else:
+                return recs.select("user_idx", metric_value_col)
 
         cur_class = self.__class__
+        if os.environ.get("MATERIALIZE_METRIC_CALC", "False") == "True":
+            with log_exec_timer(f"{self.__class__.__name__} materialization") as timer, JobGroup(
+                f"{self.__class__.__name__} materialization", f"{self.__class__.__name__} materialization"
+            ):
+                distribution = recs.rdd.flatMap(
+                    # pylint: disable=protected-access
+                    lambda x: [
+                        (x[0], float(cur_class._get_metric_value_by_user(k, *x[1:])))
+                    ]
+                ).toDF(
+                    f"user_idx {recs.schema['user_idx'].dataType.typeName()}, value double"
+                )
+                distribution = distribution.cache()
+                distribution.write.mode("overwrite").format("noop").save()
+            mlflow.log_metric(f"{self.__class__.__name__}_sec", timer.duration)
         distribution = recs.rdd.flatMap(
             # pylint: disable=protected-access
             lambda x: [
@@ -360,6 +391,7 @@ class NCISMetric(Metric):
         prev_policy_weights: AnyDataFrame,
         threshold: float = 10.0,
         activation: Optional[str] = None,
+        use_scala_udf: bool = False,
     ):  # pylint: disable=super-init-not-called
         """
         :param prev_policy_weights: historical item of user-item relevance (previous policy values)
@@ -368,6 +400,7 @@ class NCISMetric(Metric):
         :activation: activation function, applied over relevance values.
             "logit"/"sigmoid", "softmax" or None
         """
+        self._use_scala_udf = use_scala_udf
         self.prev_policy_weights = convert2spark(
             prev_policy_weights
         ).withColumnRenamed("relevance", "prev_relevance")
