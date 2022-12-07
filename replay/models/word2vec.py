@@ -240,7 +240,7 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnswMixin):
 
         with JobGroup(
             f"{self.__class__.__name__}._predict_pairs_inner(), _get_user_vectors()",
-            "Model training (inside 2.1)",
+            "Model inference (inside 2.1)",
         ):
             user_vectors = self._get_user_vectors(
                 pairs.select("user_idx").distinct(), log
@@ -249,7 +249,7 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnswMixin):
             # user_vectors.write.mode("overwrite").format("noop").save()
         with JobGroup(
             f"{self.__class__.__name__}._predict_pairs_inner(), pairs_with_vectors",
-            "Model training (inside 2.2.1)",
+            "Model inference (inside 2.2.1)",
         ): 
             pairs_with_vectors = join_with_col_renaming(
                 pairs, user_vectors, on_col_name="user_idx", how="inner"
@@ -257,12 +257,12 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnswMixin):
             pairs_with_vectors = pairs_with_vectors.join(
                 self.vectors, on=sf.col("item_idx") == sf.col("item"), how="inner"
             ).drop("item")
-            pairs_with_vectors = pairs_with_vectors.cache()
-            pairs_with_vectors.write.mode("overwrite").format("noop").save()
+            # pairs_with_vectors = pairs_with_vectors.cache()
+            # pairs_with_vectors.write.mode("overwrite").format("noop").save()
 
         with JobGroup(
             f"{self.__class__.__name__}._predict_pairs_inner(), pairs_with_vectors",
-            "Model training (inside 2.2.3)",
+            "Model inference (inside 2.2.3)",
         ):
             res = pairs_with_vectors.select(
                 "user_idx",
@@ -272,8 +272,8 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnswMixin):
                     + sf.lit(self.rank)
                 ).alias("relevance"),
             )
-            res = res.cache()
-            res.write.mode("overwrite").format("noop").save()
+            # res = res.cache()
+            # res.write.mode("overwrite").format("noop").save()
     
         return res
 

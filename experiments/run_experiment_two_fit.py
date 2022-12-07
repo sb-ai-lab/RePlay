@@ -40,6 +40,8 @@ from replay.utils import get_log_info2
 from replay.filters import filter_by_min_count, filter_out_low_ratings
 from pyspark.conf import SparkConf
 
+from experiment_utils import get_model
+
 
 # VERBOSE_LOGGING_FORMAT = (
 #     "%(asctime)s %(levelname)s %(module)s %(filename)s:%(lineno)d %(message)s"
@@ -47,155 +49,6 @@ from pyspark.conf import SparkConf
 # logging.basicConfig(level=logging.INFO, format=VERBOSE_LOGGING_FORMAT)
 # logger = logging.getLogger("replay")
 logger.setLevel(logging.DEBUG)
-
-def get_model(MODEL: str, SEED: int, spark_app_id: str):
-    if MODEL == "ALS":
-        ALS_RANK = int(os.environ.get("ALS_RANK", 100))
-        num_blocks = int(os.environ.get("NUM_BLOCKS", 10))
-
-        mlflow.log_params({"num_blocks": num_blocks, "ALS_rank": ALS_RANK})
-
-        model = ALSWrap(
-            rank=ALS_RANK,
-            seed=SEED,
-            num_item_blocks=num_blocks,
-            num_user_blocks=num_blocks,
-        )
-
-    elif MODEL == "Explicit_ALS":
-        ALS_RANK = int(os.environ.get("ALS_RANK", 100))
-        mlflow.log_param("ALS_rank", ALS_RANK)
-        model = ALSWrap(rank=ALS_RANK, seed=SEED, implicit_prefs=False)
-    elif MODEL == "ALS_HNSWLIB":
-        ALS_RANK = int(os.environ.get("ALS_RANK", 100))
-        build_index_on = "driver"  # driver executor
-        num_blocks = int(os.environ.get("NUM_BLOCKS", 10))
-        hnswlib_params = {
-            "space": "ip",
-            "M": 16,
-            "efS": 200,
-            "efC": 200,
-            "post": 0,
-            # hdfs://node21.bdcl:9000
-            # "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark_app_id}",
-            "build_index_on": build_index_on,
-        }
-        mlflow.log_params(
-            {
-                "ALS_rank": ALS_RANK,
-                "num_blocks": num_blocks,
-                "build_index_on": build_index_on,
-                "hnswlib_params": hnswlib_params,
-            }
-        )
-        model = ALSWrap(
-            rank=ALS_RANK,
-            seed=SEED,
-            num_item_blocks=num_blocks,
-            num_user_blocks=num_blocks,
-            hnswlib_params=hnswlib_params,
-        )
-    elif MODEL == "SLIM":
-        model = SLIM(seed=SEED)
-    elif MODEL == "SLIM_NMSLIB_HNSW":
-        build_index_on = "executor"  # driver executor
-        nmslib_hnsw_params = {
-            "method": "hnsw",
-            "space": "negdotprod_sparse",  # cosinesimil_sparse negdotprod_sparse
-            "M": 100,
-            "efS": 2000,
-            "efC": 2000,
-            "post": 0,
-            "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark_app_id}",
-            "build_index_on": build_index_on,
-        }
-        mlflow.log_params(
-            {
-                "build_index_on": build_index_on,
-                "nmslib_hnsw_params": nmslib_hnsw_params,
-            }
-        )
-        model = SLIM(seed=SEED, nmslib_hnsw_params=nmslib_hnsw_params)
-    elif MODEL == "ItemKNN":
-        model = ItemKNN(num_neighbours=100)
-    elif MODEL == "ItemKNN_NMSLIB_HNSW":
-        build_index_on = "executor"  # driver executor
-        nmslib_hnsw_params = {
-            "method": "hnsw",
-            "space": "negdotprod_sparse",  # cosinesimil_sparse negdotprod_sparse
-            "M": 100,
-            "efS": 2000,
-            "efC": 2000,
-            "post": 0,
-            "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark_app_id}",
-            "build_index_on": build_index_on,
-        }
-        mlflow.log_params(
-            {
-                "build_index_on": build_index_on,
-                "nmslib_hnsw_params": nmslib_hnsw_params,
-            }
-        )
-        model = ItemKNN(
-            nmslib_hnsw_params=nmslib_hnsw_params
-        )
-    elif MODEL == "LightFM":
-        model = LightFMWrap(random_state=SEED)
-    elif MODEL == "Word2VecRec":
-        # model = Word2VecRec(
-        #     seed=SEED,
-        #     num_partitions=partition_num,
-        # )
-        model = Word2VecRec(seed=SEED)
-    elif MODEL == "Word2VecRec_NMSLIB_HNSW":
-        build_index_on = "executor"  # driver executor
-        nmslib_hnsw_params = {
-            "method": "hnsw",
-            "space": "negdotprod",
-            "M": 100,
-            "efS": 2000,
-            "efC": 2000,
-            "post": 0,
-            # hdfs://node21.bdcl:9000
-            "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark_app_id}",
-            "build_index_on": build_index_on,
-        }
-        mlflow.log_params(
-            {
-                "build_index_on": build_index_on,
-                "nmslib_hnsw_params": nmslib_hnsw_params,
-            }
-        )
-
-        model = Word2VecRec(
-            seed=SEED,
-            nmslib_hnsw_params=nmslib_hnsw_params,
-        )
-    elif MODEL == "PopRec":
-        use_relevance = os.environ.get("USE_RELEVANCE", "False") == "True"
-        model = PopRec(use_relevance=use_relevance)
-        mlflow.log_param("USE_RELEVANCE", use_relevance)
-    elif MODEL == "UserPopRec":
-        model = UserPopRec()
-    elif MODEL == "RandomRec_uniform":
-        model = RandomRec(seed=SEED, distribution="uniform")
-    elif MODEL == "RandomRec_popular_based":
-        model = RandomRec(seed=SEED, distribution="popular_based")
-    elif MODEL == "RandomRec_relevance":
-        model = RandomRec(seed=SEED, distribution="relevance")
-    elif MODEL == "AssociationRulesItemRec":
-        model = AssociationRulesItemRec()
-    elif MODEL == "Wilson":
-        model = Wilson()
-    elif MODEL == "ClusterRec":
-        model = ClusterRec()
-    elif MODEL == "UCB":
-        model = UCB(seed=SEED)
-    else:
-        raise ValueError("Unknown model.")
-
-    return model
-
 
 def main(spark: SparkSession, dataset_name: str):
     spark_conf: SparkConf = spark.sparkContext.getConf()
@@ -322,14 +175,55 @@ def main(spark: SparkSession, dataset_name: str):
                     "/opt/spark_data/replay_datasets/MillionSongDataset/train80.parquet"
                 )
             )
+            # train90 = (
+            #     spark.read.parquet(
+            #         "/opt/spark_data/replay_datasets/MillionSongDataset/train90.parquet"
+            #     )
+            # )
+            # train = (
+            #     spark.read.parquet(
+            #         "/opt/spark_data/replay_datasets/MillionSongDataset/train.parquet"
+            #     )
+            # )
             train_diff80 = (
                 spark.read.parquet(
                     "/opt/spark_data/replay_datasets/MillionSongDataset/train_diff80.parquet"
                 )
             )
+            # train_diff90 = (
+            #     spark.read.parquet(
+            #         "/opt/spark_data/replay_datasets/MillionSongDataset/train_diff90.parquet"
+            #     )
+            # )
+            # train_diff100 = (
+            #     spark.read.parquet(
+            #         "/opt/spark_data/replay_datasets/MillionSongDataset/train_diff100.parquet"
+            #     )
+            # )
             test = (
                 spark.read.parquet(
                     "/opt/spark_data/replay_datasets/MillionSongDataset/test.parquet"
+                )
+            )
+        elif dataset_name == "MillionSongDataset10x":
+            train70 = (
+                spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/MillionSongDataset/train70_10x.parquet"
+                )
+            )
+            train80 = (
+                spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/MillionSongDataset/train80_10x.parquet"
+                )
+            )
+            train_diff80 = (
+                spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/MillionSongDataset/train_diff80_10x.parquet"
+                )
+            )
+            test = (
+                spark.read.parquet(
+                    "/opt/spark_data/replay_datasets/MillionSongDataset/test_10x.parquet"
                 )
             )
         else:
@@ -415,27 +309,23 @@ def main(spark: SparkSession, dataset_name: str):
                     *test_info
                 )
             )
-        mlflow.log_metric("get_log_info_sec", get_log_info2_timer.duration)
-        mlflow.log_param("train_size", train_info[0])
-        mlflow.log_param("train.total_users", train_info[1])
-        mlflow.log_param("train.total_items", train_info[2])
-        mlflow.log_param("test_size", test_info[0])
-        mlflow.log_param("test.total_users", test_info[1])
-        mlflow.log_param("test.total_items", test_info[2])
+        mlflow.log_params({
+            "get_log_info_sec": get_log_info2_timer.duration,
+            "train.total_users": train_info[1],
+            "train.total_items": train_info[2],
+            "train_size": train_info[0],
+            "test_size": test_info[0],
+            "test.total_users": test_info[1],
+            "test.total_items": test_info[2],
+        })
 
         mlflow.log_param("model", MODEL)
         model = get_model(MODEL, SEED, spark.sparkContext.applicationId)
-
-        # kwargs = {}
-        # if isinstance(model, (ClusterRec)):
-        #     kwargs = {"user_features": user_features}
 
         filter_seen_items=True
         if isinstance(model, (UserPopRec)):
             filter_seen_items=False
 
-        # logger.setLevel(logging.DEBUG)
-        # logger.debug("dataset: train70")
         print("\ndataset: train70")
         with log_exec_timer(f"{MODEL} training") as train_timer, JobGroup(
             "Model training", f"{model.__class__.__name__}.fit()"
@@ -463,30 +353,31 @@ def main(spark: SparkSession, dataset_name: str):
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer70_sec", infer_timer.duration)
 
-        with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
-            "Metrics calculation", "e.add_result()"
-        ):
-            e = Experiment(
-                test,
-                {
-                    MAP(): K_list_metrics,
-                    NDCG(): K_list_metrics,
-                    HitRate(): K_list_metrics,
-                },
-            )
-            e.add_result(MODEL, recs)
-        mlflow.log_metric("metrics70_sec", metrics_timer.duration)
-        for k in K_list_metrics:
-            mlflow.log_metric(
-                "NDCG.{}".format(k), e.results.at[MODEL, "NDCG@{}".format(k)]
-            )
-            mlflow.log_metric(
-                "MAP.{}".format(k), e.results.at[MODEL, "MAP@{}".format(k)]
-            )
-            mlflow.log_metric(
-                "HitRate.{}".format(k),
-                e.results.at[MODEL, "HitRate@{}".format(k)],
-            )
+        if not isinstance(model, (AssociationRulesItemRec)):
+            with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
+                "Metrics calculation", "e.add_result()"
+            ):
+                e = Experiment(
+                    test,
+                    {
+                        MAP(): K_list_metrics,
+                        NDCG(): K_list_metrics,
+                        HitRate(): K_list_metrics,
+                    },
+                )
+                e.add_result(MODEL, recs)
+            mlflow.log_metric("metrics70_sec", metrics_timer.duration)
+            for k in K_list_metrics:
+                mlflow.log_metric(
+                    "NDCG.{}".format(k), e.results.at[MODEL, "NDCG@{}".format(k)]
+                )
+                mlflow.log_metric(
+                    "MAP.{}".format(k), e.results.at[MODEL, "MAP@{}".format(k)]
+                )
+                mlflow.log_metric(
+                    "HitRate.{}".format(k),
+                    e.results.at[MODEL, "HitRate@{}".format(k)],
+                )
 
 
         print("\ndataset: train_diff")
@@ -510,7 +401,7 @@ def main(spark: SparkSession, dataset_name: str):
                 recs = model.predict(
                     k=K,
                     users=test.select("user_idx").distinct(),
-                    log=train80, # train_diff80 train80
+                    log=train80,
                     filter_seen_items=filter_seen_items,
                     **kwargs,
                 )
@@ -518,53 +409,67 @@ def main(spark: SparkSession, dataset_name: str):
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer_diff_sec", infer_timer.duration)
 
-        with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
-            "Metrics calculation", "e.add_result()"
-        ):
-            e = Experiment(
-                test,
-                {
-                    MAP(): K_list_metrics,
-                    NDCG(): K_list_metrics,
-                    HitRate(): K_list_metrics,
-                },
-            )
-            e.add_result(MODEL, recs)
-        mlflow.log_metric("metrics_diff_sec", metrics_timer.duration)
-        for k in K_list_metrics:
-            mlflow.log_metric(
-                "NDCG.{}_diff".format(k),
-                e.results.at[MODEL, "NDCG@{}".format(k)],
-            )
-            mlflow.log_metric(
-                "MAP.{}_diff".format(k),
-                e.results.at[MODEL, "MAP@{}".format(k)],
-            )
-            mlflow.log_metric(
-                "HitRate.{}_diff".format(k),
-                e.results.at[MODEL, "HitRate@{}".format(k)],
-            )
+        if not isinstance(model, (AssociationRulesItemRec)):
+            with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
+                "Metrics calculation", "e.add_result()"
+            ):
+                e = Experiment(
+                    test,
+                    {
+                        MAP(): K_list_metrics,
+                        NDCG(): K_list_metrics,
+                        HitRate(): K_list_metrics,
+                    },
+                )
+                e.add_result(MODEL, recs)
+            mlflow.log_metric("metrics_diff_sec", metrics_timer.duration)
+            for k in K_list_metrics:
+                mlflow.log_metric(
+                    "NDCG.{}_diff".format(k),
+                    e.results.at[MODEL, "NDCG@{}".format(k)],
+                )
+                mlflow.log_metric(
+                    "MAP.{}_diff".format(k),
+                    e.results.at[MODEL, "MAP@{}".format(k)],
+                )
+                mlflow.log_metric(
+                    "HitRate.{}_diff".format(k),
+                    e.results.at[MODEL, "HitRate@{}".format(k)],
+                )
 
 
+        # train70 = train70.unpersist(blocking=True)
+        # train70 = None
+        # train_diff80 = train_diff80.unpersist(blocking=True)
+        # train_diff80 = None
+        # unpersist all caches exclude train80
+        for (id, rdd) in spark.sparkContext._jsc.getPersistentRDDs().items():
+            rdd.unpersist()
+            print("Unpersisted {} rdd".format(id))
+        test = test.cache()
+        train80 = train80.cache()
+        train80.write.mode("overwrite").format("noop").save()
+        test.write.mode("overwrite").format("noop").save()
+        
         print("\ndataset: train80")
         del model
-        model = get_model(MODEL, SEED, spark.sparkContext.applicationId)
+        model2 = get_model(MODEL, SEED, spark.sparkContext.applicationId)
         with log_exec_timer(f"{MODEL} training") as train_timer, JobGroup(
-            "Model training", f"{model.__class__.__name__}.fit()"
+            "Model training", f"{model2.__class__.__name__}.fit()"
         ):
-            model.fit(log=train80, **kwargs)
+            model2.fit(log=train80, **kwargs)
         mlflow.log_metric("train80_sec", train_timer.duration)
 
         with log_exec_timer(f"{MODEL} prediction") as infer_timer, JobGroup(
-            "Model inference", f"{model.__class__.__name__}.predict()"
+            "Model inference", f"{model2.__class__.__name__}.predict()"
         ):
-            if isinstance(model, (AssociationRulesItemRec)):
-                recs = model.get_nearest_items(
+            if isinstance(model2, (AssociationRulesItemRec)):
+                recs = model2.get_nearest_items(
                     items=test,
                     k=K,
                 )
             else:
-                recs = model.predict(
+                recs = model2.predict(
                     k=K,
                     users=test.select("user_idx").distinct(),
                     log=train80,
@@ -575,31 +480,35 @@ def main(spark: SparkSession, dataset_name: str):
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer80_sec", infer_timer.duration)
 
-        with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
-            "Metrics calculation", "e.add_result()"
-        ):
-            e = Experiment(
-                test,
-                {
-                    MAP(): K_list_metrics,
-                    NDCG(): K_list_metrics,
-                    HitRate(): K_list_metrics,
-                },
-            )
-            e.add_result(MODEL, recs)
-        mlflow.log_metric("metrics80_sec", metrics_timer.duration)
-        metrics = dict()
-        for k in K_list_metrics:
-            metrics["NDCG.{}_80".format(k)] = e.results.at[
-                MODEL, "NDCG@{}".format(k)
-            ]
-            metrics["MAP.{}_80".format(k)] = e.results.at[
-                MODEL, "MAP@{}".format(k)
-            ]
-            metrics["HitRate.{}_80".format(k)] = e.results.at[
-                MODEL, "HitRate@{}".format(k)
-            ]
-        mlflow.log_metrics(metrics)
+        if not isinstance(model2, (AssociationRulesItemRec)):
+            with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
+                "Metrics calculation", "e.add_result()"
+            ):
+                e = Experiment(
+                    test,
+                    {
+                        MAP(): K_list_metrics,
+                        NDCG(): K_list_metrics,
+                        HitRate(): K_list_metrics,
+                    },
+                )
+                e.add_result(MODEL, recs)
+            mlflow.log_metric("metrics80_sec", metrics_timer.duration)
+            metrics = dict()
+            for k in K_list_metrics:
+                metrics["NDCG.{}_80".format(k)] = e.results.at[
+                    MODEL, "NDCG@{}".format(k)
+                ]
+                metrics["MAP.{}_80".format(k)] = e.results.at[
+                    MODEL, "MAP@{}".format(k)
+                ]
+                metrics["HitRate.{}_80".format(k)] = e.results.at[
+                    MODEL, "HitRate@{}".format(k)
+                ]
+            mlflow.log_metrics(metrics)
+
+
+        
 
         # with log_exec_timer(f"Model saving") as model_save_timer:
         #     # save_indexer(indexer, './indexer_ml1')

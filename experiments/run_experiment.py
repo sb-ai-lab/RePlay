@@ -38,6 +38,8 @@ from replay.utils import get_log_info2
 from replay.filters import filter_by_min_count, filter_out_low_ratings
 from pyspark.conf import SparkConf
 
+from experiment_utils import get_model
+
 
 # VERBOSE_LOGGING_FORMAT = (
 #     "%(asctime)s %(levelname)s %(module)s %(filename)s:%(lineno)d %(message)s"
@@ -57,18 +59,19 @@ def main(spark: SparkSession, dataset_name: str):
             raise Exception("Not enough executors to run experiment!")
 
     K = int(os.environ.get("K", 10))
-    K_list_metrics = [5, 10]
+    K_list_metrics = [10]
     SEED = int(os.environ.get("SEED", 1234))
     MLFLOW_TRACKING_URI = os.environ.get(
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
     MODEL = os.environ.get("MODEL", "ClusterRec_HNSWLIB")
     # PopRec
+    # UserPopRec
     # Word2VecRec Word2VecRec_NMSLIB_HNSW
-    # ALS ALS_NMSLIB_HNSW
+    # ALS ALS_NMSLIB_HNSW ALS_HNSWLIB
     # SLIM SLIM_NMSLIB_HNSW
     # ItemKNN ItemKNN_NMSLIB_HNSW
-    # ClusterRec
+    # ClusterRec ClusterRec_HNSWLIB
 
     if os.environ.get("PARTITION_NUM"):
         partition_num = int(os.environ.get("PARTITION_NUM"))
@@ -143,28 +146,38 @@ def main(spark: SparkSession, dataset_name: str):
 
             # data = pd.read_csv(f"/opt/spark_data/replay_datasets/MillionSongDataset/train_{fraction}.csv")
 
-            if partition_num in {6, 12, 24, 48}:
-                with log_exec_timer(
-                    "Train/test datasets reading to parquet"
-                ) as parquets_read_timer:
-                    train = spark.read.parquet(
-                        f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train_{partition_num}_partition.parquet"
-                    )
-                    test = spark.read.parquet(
-                        f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test_{partition_num}_partition.parquet"
-                    )
+            if fraction == "train_100m_users_1k_items":
+                train = spark.read.parquet(
+                    f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train.parquet"
+                )
+                test = spark.read.parquet(
+                    f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test.parquet"
+                )
+                train = train.repartition(partition_num)
+                test = test.repartition(partition_num)
             else:
-                with log_exec_timer(
-                    "Train/test datasets reading to parquet"
-                ) as parquets_read_timer:
-                    train = spark.read.parquet(
-                        f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train_24_partition.parquet"
-                    )
-                    test = spark.read.parquet(
-                        f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test_24_partition.parquet"
-                    )
-                    train = train.repartition(partition_num)
-                    test = test.repartition(partition_num)
+                if partition_num in {6, 12, 24, 48}:
+                    with log_exec_timer(
+                        "Train/test datasets reading to parquet"
+                    ) as parquets_read_timer:
+                        train = spark.read.parquet(
+                            f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train_{partition_num}_partition.parquet"
+                        )
+                        test = spark.read.parquet(
+                            f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test_{partition_num}_partition.parquet"
+                        )
+                else:
+                    with log_exec_timer(
+                        "Train/test datasets reading to parquet"
+                    ) as parquets_read_timer:
+                        train = spark.read.parquet(
+                            f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train_24_partition.parquet"
+                        )
+                        test = spark.read.parquet(
+                            f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test_24_partition.parquet"
+                        )
+                        train = train.repartition(partition_num)
+                        test = test.repartition(partition_num)
             mlflow.log_metric(
                 "parquets_read_sec", parquets_read_timer.duration
             )
@@ -184,6 +197,7 @@ def main(spark: SparkSession, dataset_name: str):
                 test = spark.read.parquet(
                     "/opt/spark_data/replay_datasets/ml1m_test.parquet"
                 )
+                # user_features = None
                 user_features = spark.read.parquet(
                     "/opt/spark_data/replay_datasets/ml1m_user_features.parquet"
                 )
@@ -322,158 +336,7 @@ def main(spark: SparkSession, dataset_name: str):
         mlflow.log_param("test.total_items", test_info[2])
 
         mlflow.log_param("model", MODEL)
-        if MODEL == "ALS":
-            ALS_RANK = int(os.environ.get("ALS_RANK", 100))
-            num_blocks = int(os.environ.get("NUM_BLOCKS", 10))
-
-            mlflow.log_params({"num_blocks": num_blocks, "ALS_rank": ALS_RANK})
-
-            model = ALSWrap(
-                rank=ALS_RANK,
-                seed=SEED,
-                num_item_blocks=num_blocks,
-                num_user_blocks=num_blocks,
-            )
-
-        elif MODEL == "Explicit_ALS":
-            ALS_RANK = int(os.environ.get("ALS_RANK", 100))
-            mlflow.log_param("ALS_rank", ALS_RANK)
-            model = ALSWrap(rank=ALS_RANK, seed=SEED, implicit_prefs=False)
-        elif MODEL == "ALS_NMSLIB_HNSW":
-            ALS_RANK = int(os.environ.get("ALS_RANK", 100))
-            build_index_on = "driver"  # driver executor
-            num_blocks = int(os.environ.get("NUM_BLOCKS", 10))
-            nmslib_hnsw_params = {
-                "method": "hnsw",
-                "space": "negdotprod",
-                "M": 100,
-                "efS": 2000,
-                "efC": 2000,
-                "post": 0,
-                # "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
-                "build_index_on": build_index_on,
-            }
-            mlflow.log_params(
-                {
-                    "ALS_rank": ALS_RANK,
-                    "num_blocks": num_blocks,
-                    "build_index_on": build_index_on,
-                    "nmslib_hnsw_params": nmslib_hnsw_params,
-                }
-            )
-            model = ALSWrap(
-                rank=ALS_RANK,
-                seed=SEED,
-                num_item_blocks=num_blocks,
-                num_user_blocks=num_blocks,
-                hnswlib_params=nmslib_hnsw_params,
-            )
-        elif MODEL == "SLIM":
-            model = SLIM(seed=SEED)
-        elif MODEL == "SLIM_NMSLIB_HNSW":
-            build_index_on = "executor"  # driver executor
-            nmslib_hnsw_params = {
-                "method": "hnsw",
-                "space": "negdotprod_sparse",  # cosinesimil_sparse negdotprod_sparse
-                "M": 100,
-                "efS": 2000,
-                "efC": 2000,
-                "post": 0,
-                "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
-                "build_index_on": build_index_on,
-            }
-            mlflow.log_params(
-                {
-                    "build_index_on": build_index_on,
-                    "nmslib_hnsw_params": nmslib_hnsw_params,
-                }
-            )
-            model = SLIM(seed=SEED, nmslib_hnsw_params=nmslib_hnsw_params)
-        elif MODEL == "ItemKNN":
-            num_neighbours = int(os.environ.get("NUM_NEIGHBOURS", 10))
-            mlflow.log_param("num_neighbours", num_neighbours)
-            model = ItemKNN(num_neighbours=num_neighbours)
-        elif MODEL == "ItemKNN_NMSLIB_HNSW":
-            build_index_on = "executor"  # driver executor
-            nmslib_hnsw_params = {
-                "method": "hnsw",
-                "space": "negdotprod_sparse_fast",  # cosinesimil_sparse negdotprod_sparse
-                "M": 16,
-                "efS": 200,
-                "efC": 200,
-                "post": 0,
-                "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
-                "build_index_on": build_index_on,
-            }
-            mlflow.log_params(
-                {
-                    "build_index_on": build_index_on,
-                    "nmslib_hnsw_params": nmslib_hnsw_params,
-                }
-            )
-            model = ItemKNN(nmslib_hnsw_params=nmslib_hnsw_params)
-        elif MODEL == "LightFM":
-            model = LightFMWrap(random_state=SEED)
-        elif MODEL == "Word2VecRec":
-            # model = Word2VecRec(
-            #     seed=SEED,
-            #     num_partitions=partition_num,
-            # )
-            model = Word2VecRec(seed=SEED)
-        elif MODEL == "Word2VecRec_NMSLIB_HNSW":
-            build_index_on = "executor"  # driver executor
-            nmslib_hnsw_params = {
-                "method": "hnsw",
-                "space": "negdotprod",
-                "M": 100,
-                "efS": 2000,
-                "efC": 2000,
-                "post": 0,
-                # hdfs://node21.bdcl:9000
-                "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark.sparkContext.applicationId}",
-                "build_index_on": build_index_on,
-            }
-            mlflow.log_params(
-                {
-                    "build_index_on": build_index_on,
-                    "nmslib_hnsw_params": nmslib_hnsw_params,
-                }
-            )
-
-            model = Word2VecRec(
-                seed=SEED,
-                nmslib_hnsw_params=nmslib_hnsw_params,
-            )
-        elif MODEL == "PopRec":
-            model = PopRec()
-        elif MODEL == "UserPopRec":
-            model = UserPopRec()
-        elif MODEL == "RandomRec_uniform":
-            model = RandomRec(seed=SEED, distribution="uniform")
-        elif MODEL == "RandomRec_popular_based":
-            model = RandomRec(seed=SEED, distribution="popular_based")
-        elif MODEL == "AssociationRulesItemRec":
-            model = AssociationRulesItemRec()
-        elif MODEL == "Wilson":
-            model = Wilson()
-        elif MODEL == "ClusterRec":
-            model = ClusterRec()
-        elif MODEL == "ClusterRec_HNSWLIB":
-            build_index_on = "driver"
-            hnswlib_params = {
-                "space": "ip",
-                "M": 16,
-                "efS": 200,
-                "efC": 200,
-                "post": 0,
-                # hdfs://node21.bdcl:9000
-                # "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark_app_id}",
-                "build_index_on": build_index_on,
-            }
-            mlflow.log_param("hnswlib_params", hnswlib_params)
-            model = ClusterRec(hnswlib_params=hnswlib_params)
-        else:
-            raise ValueError("Unknown model.")
+        model = get_model(MODEL, SEED, spark.sparkContext.applicationId)
 
         kwargs = {}
         if isinstance(model, (ClusterRec)):
@@ -524,17 +387,17 @@ def main(spark: SparkSession, dataset_name: str):
                 e.results.at[MODEL, "HitRate@{}".format(k)],
             )
 
-        with log_exec_timer(f"Model saving") as model_save_timer:
-            save(
-                model,
-                path=f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}",  # file://
-                overwrite=True,
-            )
-        mlflow.log_param(
-            "model_save_dir",
-            f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}",
-        )
-        mlflow.log_metric("model_save_sec", model_save_timer.duration)
+        # with log_exec_timer(f"Model saving") as model_save_timer:
+        #     save(
+        #         model,
+        #         path=f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}",  # file://
+        #         overwrite=True,
+        #     )
+        # mlflow.log_param(
+        #     "model_save_dir",
+        #     f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}",
+        # )
+        # mlflow.log_metric("model_save_sec", model_save_timer.duration)
 
         # with log_exec_timer(f"Model loading") as model_load_timer:
         #     # save_indexer(indexer, './indexer_ml1')
@@ -579,7 +442,9 @@ def main(spark: SparkSession, dataset_name: str):
 
 if __name__ == "__main__":
     spark_sess = get_spark_session()
-    dataset = os.environ.get("DATASET", "ml1m")  # ml1m
+    dataset = os.environ.get(
+        "DATASET", "ml1m"
+    )  # ml1m ml1m_1m_users_3_7k_items
     # dataset = "MovieLens__1m"
     # dataset = "MillionSongDataset"
     main(spark=spark_sess, dataset_name=dataset)

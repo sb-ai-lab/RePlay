@@ -31,7 +31,7 @@ logger.setLevel(logging.DEBUG)
 
 
 def main(spark: SparkSession):
-    K = int(os.environ.get("K", 5))
+    K = int(os.environ.get("K", 10))
     SEED = int(os.environ.get("SEED", 1234))
     MLFLOW_TRACKING_URI = os.environ.get(
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"

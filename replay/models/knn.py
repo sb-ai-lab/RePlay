@@ -293,21 +293,21 @@ class ItemKNN(NeighbourRec, NmslibHnswMixin):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         
-        # if self._nmslib_hnsw_params:
+        if self._nmslib_hnsw_params:
 
-        #     params = self._nmslib_hnsw_params
+            params = self._nmslib_hnsw_params
          
-        #     with JobGroup(
-        #         f"{self.__class__.__name__}._predict()",
-        #         "_infer_hnsw_index()",
-        #     ):
-        #         users = users.join(self._user_to_max_items, on="user_idx")
+            with JobGroup(
+                f"{self.__class__.__name__}._predict()",
+                "_infer_hnsw_index()",
+            ):
+                users = users.join(self._user_to_max_items, on="user_idx")
                 
-        #         res = self._infer_hnsw_index(users, "", 
-        #             params, k,
-        #             index_type="sparse")
+                res = self._infer_hnsw_index(users, "", 
+                    params, k,
+                    index_type="sparse")
 
-        #     return res
+            return res
 
         return self._predict_pairs_inner(
             log=log,

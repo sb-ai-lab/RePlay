@@ -25,99 +25,134 @@ def main(spark: SparkSession, dataset_name: str):
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
 
-    schema1 = (
-        StructType()
-        .add("user_idx", StringType(), True)
-        .add("item_idx", StringType(), True)
-        .add("relevance", IntegerType(), True)
-        .add("timestamp", DateType(), True)
-    )
-    schema2 = (
-        StructType()
-        .add("relevance", IntegerType(), True)
-        .add("timestamp", DateType(), True)
-        .add("user_idx", StringType(), True)
-        .add("item_idx", StringType(), True)
-    )
+    if dataset_name == "MillionSongDataset10x":
+        train70 = (
+            spark.read.parquet(
+                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train70_10x.parquet"
+            )
+        )
+        train80 = (
+            spark.read.parquet(
+                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train80_10x.parquet"
+            )
+        )
+        # train90 = (
+        #     spark.read.parquet(
+        #         "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train90_10x.parquet"
+        #     )
+        # )
+        train_diff80 = (
+            spark.read.parquet(
+                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif80_10x.parquet"
+            )
+        )
+        # train_diff90 = (
+        #     spark.read.parquet(
+        #         "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif90_10x.parquet"
+        #     )
+        # )
+        test = (
+            spark.read.parquet(
+                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_test_10x.parquet"
+            )
+        )
+    elif dataset_name == "MillionSongDataset":
+        schema1 = (
+            StructType()
+            .add("user_idx", StringType(), True)
+            .add("item_idx", StringType(), True)
+            .add("relevance", IntegerType(), True)
+            .add("timestamp", DateType(), True)
+        )
+        schema2 = (
+            StructType()
+            .add("relevance", IntegerType(), True)
+            .add("timestamp", DateType(), True)
+            .add("user_idx", StringType(), True)
+            .add("item_idx", StringType(), True)
+        )
 
-    train70 = (
-        spark.read.option("header", True)
-        .format("csv")
-        .schema(schema1)
-        .load(
-            "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train70.csv"
+        train70 = (
+            spark.read.option("header", True)
+            .format("csv")
+            .schema(schema1)
+            .load(
+                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train70.csv"
+            )
         )
-    )
-    train80 = (
-        spark.read.option("header", True)
-        .format("csv")
-        .schema(schema1)
-        .load(
-            "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train80.csv"
+        train80 = (
+            spark.read.option("header", True)
+            .format("csv")
+            .schema(schema1)
+            .load(
+                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train80.csv"
+            )
         )
-    )
-    train90 = (
-        spark.read.option("header", True)
-        .format("csv")
-        .schema(schema1)
-        .load(
-            "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train90.csv"
+        train90 = (
+            spark.read.option("header", True)
+            .format("csv")
+            .schema(schema1)
+            .load(
+                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train90.csv"
+            )
         )
-    )
-    train = (
-        spark.read.option("header", True)
-        .format("csv")
-        .schema(schema1)
-        .load(
-            "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train.csv"
+        train = (
+            spark.read.option("header", True)
+            .format("csv")
+            .schema(schema1)
+            .load(
+                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train.csv"
+            )
         )
-    )
-    train_diff80 = (
-        spark.read.option("header", True)
-        .format("csv")
-        .schema(schema2)
-        .load(
-            "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif80.csv"
+        train_diff80 = (
+            spark.read.option("header", True)
+            .format("csv")
+            .schema(schema2)
+            .load(
+                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif80.csv"
+            )
         )
-    )
-    train_diff90 = (
-        spark.read.option("header", True)
-        .format("csv")
-        .schema(schema2)
-        .load(
-            "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif90.csv"
+        train_diff90 = (
+            spark.read.option("header", True)
+            .format("csv")
+            .schema(schema2)
+            .load(
+                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif90.csv"
+            )
         )
-    )
-    train_diff100 = (
-        spark.read.option("header", True)
-        .format("csv")
-        .schema(schema2)
-        .load(
-            "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif100.csv"
+        train_diff100 = (
+            spark.read.option("header", True)
+            .format("csv")
+            .schema(schema2)
+            .load(
+                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif100.csv"
+            )
         )
-    )
-    test = (
-        spark.read.option("header", True)
-        .format("csv")
-        .schema(schema1)
-        .load(
-            "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/test.csv"
+        test = (
+            spark.read.option("header", True)
+            .format("csv")
+            .schema(schema1)
+            .load(
+                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/test.csv"
+            )
         )
-    )
+    else:
+        ValueError("Unknown dataset.")
 
 
     train70 = train70.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
     train80 = train80.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
-    train90 = train90.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
-    train = train.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
+    # train90 = train90.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
+    # train = train.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
 
     train_diff80 = train_diff80.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
-    train_diff90 = train_diff90.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
-    train_diff100 = train_diff100.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
+    # train_diff90 = train_diff90.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
+    # train_diff100 = train_diff100.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
 
     test = test.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
 
-    log = train.union(test)
+    # log = train.union(test)
+    log = train80.union(test)
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(
@@ -174,12 +209,12 @@ def main(spark: SparkSession, dataset_name: str):
         with log_exec_timer("Indexer transform") as indexer_transform_timer:
             train70 = indexer.transform(df=train70)
             train80 = indexer.transform(df=train80)
-            train90 = indexer.transform(df=train90)
-            train = indexer.transform(df=train)
+            # train90 = indexer.transform(df=train90)
+            # train = indexer.transform(df=train)
 
             train_diff80 = indexer.transform(df=train_diff80)
-            train_diff90 = indexer.transform(df=train_diff90)
-            train_diff100 = indexer.transform(df=train_diff100)
+            # train_diff90 = indexer.transform(df=train_diff90)
+            # train_diff100 = indexer.transform(df=train_diff100)
 
             test = indexer.transform(df=test)
             # log_replay = log_replay.cache()
@@ -190,34 +225,34 @@ def main(spark: SparkSession, dataset_name: str):
 
         test.printSchema()
 
-        mlflow.log_metric("train_num_partitions", train.rdd.getNumPartitions())
+        mlflow.log_metric("train_num_partitions", train80.rdd.getNumPartitions())
         mlflow.log_metric("test_num_partitions", test.rdd.getNumPartitions())
 
         train70.write.mode("overwrite").parquet(
-            f"/opt/spark_data/replay_datasets/MillionSongDataset/train70.parquet"
+            f"/opt/spark_data/replay_datasets/MillionSongDataset/train70_10x.parquet"
         )
         train80.write.mode("overwrite").parquet(
-            f"/opt/spark_data/replay_datasets/MillionSongDataset/train80.parquet"
+            f"/opt/spark_data/replay_datasets/MillionSongDataset/train80_10x.parquet"
         )
-        train90.write.mode("overwrite").parquet(
-            f"/opt/spark_data/replay_datasets/MillionSongDataset/train90.parquet"
-        )
-        train.write.mode("overwrite").parquet(
-            f"/opt/spark_data/replay_datasets/MillionSongDataset/train.parquet"
-        )
+        # train90.write.mode("overwrite").parquet(
+        #     f"/opt/spark_data/replay_datasets/MillionSongDataset/train90.parquet"
+        # )
+        # train.write.mode("overwrite").parquet(
+        #     f"/opt/spark_data/replay_datasets/MillionSongDataset/train.parquet"
+        # )
 
         train_diff80.write.mode("overwrite").parquet(
-            f"/opt/spark_data/replay_datasets/MillionSongDataset/train_diff80.parquet"
+            f"/opt/spark_data/replay_datasets/MillionSongDataset/train_diff80_10x.parquet"
         )
-        train_diff90.write.mode("overwrite").parquet(
-            f"/opt/spark_data/replay_datasets/MillionSongDataset/train_diff90.parquet"
-        )
-        train_diff100.write.mode("overwrite").parquet(
-            f"/opt/spark_data/replay_datasets/MillionSongDataset/train_diff100.parquet"
-        )
+        # train_diff90.write.mode("overwrite").parquet(
+        #     f"/opt/spark_data/replay_datasets/MillionSongDataset/train_diff90.parquet"
+        # )
+        # train_diff100.write.mode("overwrite").parquet(
+        #     f"/opt/spark_data/replay_datasets/MillionSongDataset/train_diff100.parquet"
+        # )
 
         test.write.mode("overwrite").parquet(
-            f"/opt/spark_data/replay_datasets/MillionSongDataset/test.parquet"
+            f"/opt/spark_data/replay_datasets/MillionSongDataset/test_10x.parquet"
         )
 
 
