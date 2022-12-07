@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, Optional
 
 import pandas as pd
@@ -6,6 +7,7 @@ from replay.constants import IntOrList, NumType
 from replay.utils import JobGroup, convert2spark
 from replay.metrics.base_metric import (
     Metric,
+    NCISMetric,
     RecOnlyMetric,
     get_enriched_recommendations,
 )
@@ -92,16 +94,22 @@ class Experiment:
                 else (current_k, max_k)
             )
 
-        with JobGroup("Experiment.add_result()", "get_enriched_recommendations()"):
+        # We materialize here if we want calculate metrics metrialization time
+        # in _get_metric_distribution method
+        if os.environ.get("MATERIALIZE_METRIC_CALC", "False") == "True":
+            with JobGroup("Experiment.add_result()", "get_enriched_recommendations()"):
+                recs = get_enriched_recommendations(pred, self.test, max_k).cache()
+                recs.write.mode("overwrite").format("noop").save()
+        else:
             recs = get_enriched_recommendations(pred, self.test, max_k).cache() 
-            recs.write.mode("overwrite").format("noop").save()
 
         for metric, k_list in sorted(
             self.metrics.items(), key=lambda x: str(x[0])
         ):
             enriched = None
-            if isinstance(metric, RecOnlyMetric):
-                print("Calc metric._get_enriched_recommendations()")
+            # WARN: added 'NCISMetric' as hotfix to provide 'weight' column in dataframe
+            # maybe wrong
+            if isinstance(metric, (RecOnlyMetric, NCISMetric)):
                 enriched = metric._get_enriched_recommendations(
                     pred, self.test, max_k
                 )

@@ -119,4 +119,33 @@ object ScalaPySparkUDFs {
 
     val getRecallMetricValue = udf(_getRecallMetricValue _)
 
+    def getSurprisalMetricValue = udf { (k: Int, weigths: Array[Double]) =>
+        weigths.take(k).sum / k
+    }
+
+    def _getUnexpectednessMetricValue(k: Int, pred: Array[Double], basePred: Array[Double]) : Double = {
+        if (pred.size == 0) {
+            return 0
+        }
+        return 1.0 - ( pred.take(k).toSet.intersect(basePred.take(k).toSet).size.toDouble / k )
+    }
+
+    val getUnexpectednessMetricValue = udf(_getUnexpectednessMetricValue _)
+
+    def _getNCISPrecisionMetricValue(k: Int, pred: Array[Double], predWeights: Array[Double], groundTruth: Array[Double]) : Double = {
+        if (pred.size == 0) {
+            return 0
+        }
+        val length = k.min(pred.size)
+        var sum1 = 0.0
+        for (i <- 0 until length) {
+            if (groundTruth.contains(pred(i))) {
+                sum1 += predWeights(i)
+            }
+        }
+        return sum1 / predWeights.take(k).sum
+    }
+
+    val getNCISPrecisionMetricValue = udf(_getNCISPrecisionMetricValue _)
+
 }
