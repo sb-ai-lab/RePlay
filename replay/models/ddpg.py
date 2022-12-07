@@ -585,20 +585,15 @@ class DDPG(TorchRecommender):
         return batch
 
     # pylint: disable=arguments-differ,arguments-renamed
-    def _run_train_step(
-        self,
-        batch,
-        policy_optimizer,
-        value_optimizer,
-    ):
+    def _run_train_step(self, batch):
         policy_loss, value_loss = self._batch_pass(batch)
 
-        policy_optimizer.zero_grad()
+        self.policy_optimizer.zero_grad()
         policy_loss.backward(retain_graph=True)
-        policy_optimizer.step()
-        value_optimizer.zero_grad()
+        self.policy_optimizer.step()
+        self.value_optimizer.zero_grad()
         value_loss.backward()
-        value_optimizer.step()
+        self.value_optimizer.step()
 
         self._target_update(self.target_value_net, self.value_net)
         self._target_update(self.target_model, self.model)
@@ -662,27 +657,22 @@ class DDPG(TorchRecommender):
         self.model.environment.update_env(matrix=train_matrix)
         users = np.random.permutation(users)
 
-        policy_optimizer = Ranger(
+        self.policy_optimizer = Ranger(
             self.model.parameters(),
             lr=self.policy_lr,
             weight_decay=self.policy_decay,
         )
-        value_optimizer = Ranger(
+        self.value_optimizer = Ranger(
             self.value_net.parameters(),
             lr=self.value_lr,
             weight_decay=self.value_decay,
         )
 
         self.logger.debug("Training DDPG")
-        self.train(policy_optimizer, value_optimizer, users)
+        self.train(users)
 
     # pylint: disable=arguments-differ
-    def train(
-        self,
-        policy_optimizer,
-        value_optimizer,
-        users,
-    ):
+    def train(self, users):
         self.log_dir.mkdir(parents=True, exist_ok=True)
         rewards = []
         step = 0
@@ -704,9 +694,7 @@ class DDPG(TorchRecommender):
 
                 if len(self.replay_buffer) > self.batch_size:
                     batch = self._get_batch(step)
-                    self._run_train_step(
-                        batch, policy_optimizer, value_optimizer
-                    )
+                    self._run_train_step(batch)
 
                 if step % 10000 == 0 and step > 0:
                     self._save_model(self.log_dir / f"model_{step}.pt")
@@ -715,7 +703,7 @@ class DDPG(TorchRecommender):
         self._save_model(self.log_dir / "model_final.pt")
         if self.save_optimizers:
             DDPG._save_optimizers(
-                policy_optimizer, value_optimizer, self.log_dir
+                self.policy_optimizer, self.value_optimizer, self.log_dir
             )
 
     def _save_model(self, path: str) -> None:
