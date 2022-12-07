@@ -4,10 +4,11 @@ from datetime import datetime
 import pytest
 import torch
 import numpy as np
+from pytorch_ranger import Ranger
 
 from replay.constants import LOG_SCHEMA
 from replay.models import DDPG
-from replay.models.ddpg import ActorDRR, OUNoise, ReplayBuffer, to_np
+from replay.models.ddpg import ActorDRR, CriticDRR, OUNoise, ReplayBuffer, to_np
 from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
 
 
@@ -92,6 +93,8 @@ def test_save_load(log, model, user_num=5, item_num=5):
     old_params = [
         param.detach().cpu().numpy() for param in model.model.parameters()
     ]
+    old_policy_optimizer_params = model.policy_optimizer.state_dict()['param_groups'][0]
+    old_value_optimizer_params = model.value_optimizer.state_dict()['param_groups'][0]
     path = find_file_by_pattern(spark_local_dir, pattern)
     assert path is not None
 
@@ -103,12 +106,23 @@ def test_save_load(log, model, user_num=5, item_num=5):
         hidden_dim=16,
         memory_size=5,
     )
+    new_model.value_net = CriticDRR(state_repr_dim = 24, action_emb_dim=8, hidden_dim=8)
     assert len(old_params) == len(list(new_model.model.parameters()))
 
+    new_model.policy_optimizer = Ranger(new_model.model.parameters())
+    new_model.value_optimizer = Ranger(new_model.value_net.parameters())
     new_model._load_model(path)
     for i, parameter in enumerate(new_model.model.parameters()):
         assert np.allclose(
             parameter.detach().cpu().numpy(), old_params[i], atol=1.0e-3,
+        )
+    for param_name, parameter in new_model.policy_optimizer.state_dict()['param_groups'][0].items():
+        assert np.allclose(
+            parameter, old_policy_optimizer_params[param_name], atol=1.0e-3,
+        )
+    for param_name, parameter in new_model.value_optimizer.state_dict()['param_groups'][0].items():
+        assert np.allclose(
+            parameter, old_value_optimizer_params[param_name], atol=1.0e-3,
         )
 
 
