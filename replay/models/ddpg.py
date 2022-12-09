@@ -637,24 +637,8 @@ class DDPG(TorchRecommender):
         self.target_value_net = CriticDRR(
             self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
         )
-
-    def _fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
-        train_matrix, user_num, item_num, users = self._preprocess_log(log)
-        if self.exact_embeddings_size:
-            self.user_num = user_num
-            self.item_num = item_num
-
-        self._init_inner()
         self._target_update(self.target_value_net, self.value_net, soft_tau=1)
         self._target_update(self.target_model, self.model, soft_tau=1)
-
-        self.model.environment.update_env(matrix=train_matrix)
-        users = np.random.permutation(users)
 
         self.policy_optimizer = Ranger(
             self.model.parameters(),
@@ -666,6 +650,22 @@ class DDPG(TorchRecommender):
             lr=self.value_lr,
             weight_decay=self.value_decay,
         )
+
+    def _fit(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> None:
+        train_matrix, user_num, item_num, users = self._preprocess_log(log)
+
+        if self.exact_embeddings_size:
+            self.user_num = user_num
+            self.item_num = item_num
+        self._init_inner()
+
+        self.model.environment.update_env(matrix=train_matrix)
+        users = np.random.permutation(users)
 
         self.logger.debug("Training DDPG")
         self.train(users)
