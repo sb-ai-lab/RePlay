@@ -5,7 +5,6 @@ import pyspark.sql.functions as sf
 import mlflow
 import numpy as np
 
-from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 from pyspark.sql.types import ArrayType, FloatType
@@ -14,6 +13,7 @@ from scipy.sparse import csr_matrix, csc_matrix
 
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.models.hnswlib import HnswlibMixin
+from replay.spark_custom_models.recommendation import ALS, ALSModel
 from replay.session_handler import State
 from replay.utils import JobGroup, list_to_vector_udf, log_exec_timer
 from sklearn.linear_model import Ridge
@@ -288,15 +288,19 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
                     max_seen_in_log if max_seen_in_log is not None else 0
                 )
 
-            with JobGroup(
-                f"{self.__class__.__name__}.model.recommendForUserSubset()",
-                "Model inference (inside 1.4)",
-            ):
-                recs_als = self.model.recommendForUserSubset(
-                    users, k + max_seen
-                )
-                recs_als = recs_als.cache()
-                recs_als.write.mode("overwrite").format("noop").save()
+            # with JobGroup(
+            #     f"{self.__class__.__name__}.model.recommendForUserSubset()",
+            #     "Model inference (inside 1.4)",
+            # ):
+            recs_als = self.model.recommendForUserSubset(
+                users, k + max_seen
+            )
+            # if os.environ.get("filter_by_ALS", "False") == "True":
+            #     recs_als = self.model.recommendItemsForUserItemSubset(
+            #         users, items, k + max_seen
+            #     )
+            # recs_als = recs_als.cache()
+            # recs_als.write.mode("overwrite").format("noop").save()
 
             mlflow.log_metric("als_predict_branch", 1)
             return (
@@ -311,7 +315,37 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
                 .select("user_idx", "item_idx", "relevance")
             )
 
+
         mlflow.log_metric("als_predict_branch", 2)
+        if os.environ.get("USE_NEW_ALS_METHOD", "False") == "True":
+            max_seen = 0
+            if filter_seen_items and log is not None:
+                max_seen_in_log = (
+                    log.join(users, on="user_idx")
+                    .groupBy("user_idx")
+                    .agg(sf.count("user_idx").alias("num_seen"))
+                    .select(sf.max("num_seen"))
+                    .collect()[0][0]
+                )
+                max_seen = (
+                    max_seen_in_log if max_seen_in_log is not None else 0
+                )
+
+            recs_als = self.model.recommendItemsForUserItemSubset(
+                users, items, k + max_seen
+            )
+            return (
+                recs_als.withColumn(
+                    "recommendations", sf.explode("recommendations")
+                )
+                .withColumn("item_idx", sf.col("recommendations.item_idx"))
+                .withColumn(
+                    "relevance",
+                    sf.col("recommendations.rating").cast(DoubleType()),
+                )
+                .select("user_idx", "item_idx", "relevance")
+            )
+
         return self._predict_pairs(
             pairs=users.crossJoin(items).withColumn("relevance", sf.lit(1)),
             log=log,
