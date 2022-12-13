@@ -1,13 +1,10 @@
 import os
-import logging.config
 import time
 
 import mlflow
-import pandas as pd
 from pyspark.sql import SparkSession
 from replay.experiment import Experiment
 from replay.metrics import HitRate, MAP, NDCG
-from replay.model_handler import load, save
 from replay.session_handler import get_spark_session
 from replay.utils import (
     JobGroup,
@@ -16,26 +13,11 @@ from replay.utils import (
 )
 
 from replay.models import (
-    ALSWrap,
-    SLIM,
-    LightFMWrap,
-    ItemKNN,
-    Word2VecRec,
-    PopRec,
-    RandomRec,
     AssociationRulesItemRec,
-    UserPopRec,
-    Wilson,
     ClusterRec,
 )
 from replay.utils import logger
-
-# from rs_datasets import MovieLens, MillionSongDataset
-from pyspark.sql import functions as sf
-
-from replay.splitters import DateSplitter, UserSplitter
 from replay.utils import get_log_info2
-from replay.filters import filter_by_min_count, filter_out_low_ratings
 from pyspark.conf import SparkConf
 
 from experiment_utils import get_model
@@ -59,12 +41,13 @@ def main(spark: SparkSession, dataset_name: str):
             raise Exception("Not enough executors to run experiment!")
 
     K = int(os.environ.get("K", 10))
-    K_list_metrics = [10]
+    K_list_metrics = [5, 10, 50, 100]
     SEED = int(os.environ.get("SEED", 1234))
     MLFLOW_TRACKING_URI = os.environ.get(
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
-    MODEL = os.environ.get("MODEL", "ClusterRec_HNSWLIB")
+    MODEL = os.environ.get("MODEL", "SLIM")
+    # LightFM
     # PopRec
     # UserPopRec
     # Word2VecRec Word2VecRec_NMSLIB_HNSW
@@ -147,14 +130,17 @@ def main(spark: SparkSession, dataset_name: str):
             # data = pd.read_csv(f"/opt/spark_data/replay_datasets/MillionSongDataset/train_{fraction}.csv")
 
             if fraction == "train_100m_users_1k_items":
-                train = spark.read.parquet(
-                    f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train.parquet"
-                )
-                test = spark.read.parquet(
-                    f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test.parquet"
-                )
-                train = train.repartition(partition_num)
-                test = test.repartition(partition_num)
+                with log_exec_timer(
+                    "Train/test datasets reading to parquet"
+                ) as parquets_read_timer:
+                    train = spark.read.parquet(
+                        f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train.parquet"
+                    )
+                    test = spark.read.parquet(
+                        f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test.parquet"
+                    )
+                    train = train.repartition(partition_num)
+                    test = test.repartition(partition_num)
             else:
                 if partition_num in {6, 12, 24, 48}:
                     with log_exec_timer(
@@ -202,6 +188,21 @@ def main(spark: SparkSession, dataset_name: str):
                     "/opt/spark_data/replay_datasets/ml1m_user_features.parquet"
                 )
                 # .select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
+                train = train.repartition(partition_num, "user_idx")
+                test = test.repartition(partition_num, "user_idx")
+            mlflow.log_metric(
+                "parquets_read_sec", parquets_read_timer.duration
+            )
+        elif dataset_name == "ml1m_first_level_default":
+            with log_exec_timer(
+                "Train/test/user_features datasets reading to parquet"
+            ) as parquets_read_timer:
+                train = spark.read.parquet(
+                    "file:///opt/spark_data/replay/experiments/ml1m_first_level_default/train.parquet"
+                )
+                test = spark.read.parquet(
+                    "file:///opt/spark_data/replay/experiments/ml1m_first_level_default/test.parquet"
+                )
                 train = train.repartition(partition_num, "user_idx")
                 test = test.repartition(partition_num, "user_idx")
             mlflow.log_metric(
@@ -351,41 +352,48 @@ def main(spark: SparkSession, dataset_name: str):
         with log_exec_timer(f"{MODEL} prediction") as infer_timer, JobGroup(
             "Model inference", f"{model.__class__.__name__}.predict()"
         ):
-            recs = model.predict(
-                k=K,
-                users=test.select("user_idx").distinct(),
-                log=train,
-                filter_seen_items=True,
-                **kwargs,
-            )
+            if isinstance(model, (AssociationRulesItemRec)):
+                recs = model.get_nearest_items(
+                    items=test,
+                    k=K,
+                )
+            else:
+                recs = model.predict(
+                    k=K,
+                    users=test.select("user_idx").distinct(),
+                    log=train,
+                    filter_seen_items=True,
+                    **kwargs,
+                )
             recs = recs.cache()
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer_sec", infer_timer.duration)
 
-        with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
-            "Metrics calculation", "e.add_result()"
-        ):
-            e = Experiment(
-                test,
-                {
-                    MAP(): K_list_metrics,
-                    NDCG(): K_list_metrics,
-                    HitRate(): K_list_metrics,
-                },
-            )
-            e.add_result(MODEL, recs)
-        mlflow.log_metric("metrics_sec", metrics_timer.duration)
-        for k in K_list_metrics:
-            mlflow.log_metric(
-                "NDCG.{}".format(k), e.results.at[MODEL, "NDCG@{}".format(k)]
-            )
-            mlflow.log_metric(
-                "MAP.{}".format(k), e.results.at[MODEL, "MAP@{}".format(k)]
-            )
-            mlflow.log_metric(
-                "HitRate.{}".format(k),
-                e.results.at[MODEL, "HitRate@{}".format(k)],
-            )
+        if not isinstance(model, (AssociationRulesItemRec)):
+            with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
+                "Metrics calculation", "e.add_result()"
+            ):
+                e = Experiment(
+                    test,
+                    {
+                        MAP(use_scala_udf=True): K_list_metrics,
+                        NDCG(use_scala_udf=True): K_list_metrics,
+                        HitRate(use_scala_udf=True): K_list_metrics,
+                    },
+                )
+                e.add_result(MODEL, recs)
+            mlflow.log_metric("metrics_sec", metrics_timer.duration)
+            for k in K_list_metrics:
+                mlflow.log_metric(
+                    "NDCG.{}".format(k), e.results.at[MODEL, "NDCG@{}".format(k)]
+                )
+                mlflow.log_metric(
+                    "MAP.{}".format(k), e.results.at[MODEL, "MAP@{}".format(k)]
+                )
+                mlflow.log_metric(
+                    "HitRate.{}".format(k),
+                    e.results.at[MODEL, "HitRate@{}".format(k)],
+                )
 
         # with log_exec_timer(f"Model saving") as model_save_timer:
         #     save(

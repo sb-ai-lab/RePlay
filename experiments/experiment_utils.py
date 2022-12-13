@@ -40,16 +40,16 @@ def get_model(MODEL: str, SEED: int, spark_app_id: str):
         model = ALSWrap(rank=ALS_RANK, seed=SEED, implicit_prefs=False)
     elif MODEL == "ALS_HNSWLIB":
         ALS_RANK = int(os.environ.get("ALS_RANK", 100))
-        build_index_on = "driver"  # driver executor
+        build_index_on = "executor"  # driver executor
         num_blocks = int(os.environ.get("NUM_BLOCKS", 10))
         hnswlib_params = {
             "space": "ip",
-            "M": 16,
-            "efS": 200,
-            "efC": 200,
+            "M": 100,
+            "efS": 2000,
+            "efC": 2000,
             "post": 0,
             # hdfs://node21.bdcl:9000
-            # "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark_app_id}",
+            "index_path": f"/opt/spark_data/replay_datasets/hnsw_index_{spark_app_id}",
             "build_index_on": build_index_on,
         }
         mlflow.log_params(
@@ -134,14 +134,17 @@ def get_model(MODEL: str, SEED: int, spark_app_id: str):
             "index_path": f"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark_app_id}",
             "build_index_on": build_index_on,
         }
+        word2vec_rank = int(os.environ.get("WORD2VEC_RANK", 100))
         mlflow.log_params(
             {
                 "build_index_on": build_index_on,
                 "nmslib_hnsw_params": nmslib_hnsw_params,
+                "word2vec_rank": word2vec_rank
             }
         )
 
         model = Word2VecRec(
+            rank=word2vec_rank,
             seed=SEED,
             nmslib_hnsw_params=nmslib_hnsw_params,
         )
@@ -162,7 +165,8 @@ def get_model(MODEL: str, SEED: int, spark_app_id: str):
     elif MODEL == "Wilson":
         model = Wilson()
     elif MODEL == "ClusterRec":
-        model = ClusterRec()
+        num_clusters = int(os.environ.get("num_clusters", "10"))
+        model = ClusterRec(num_clusters=num_clusters)
     elif MODEL == "ClusterRec_HNSWLIB":
         build_index_on = "driver"
         hnswlib_params = {
