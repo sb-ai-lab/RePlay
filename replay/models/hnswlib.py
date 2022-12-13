@@ -36,7 +36,7 @@ class HnswlibIndexFileManager:
     ) -> None:
 
         self._space = index_params["space"]
-        # self._efS = index_params.get("efS")
+        self._efS = index_params.get("efS")
         self._dim = index_dim
         self._index_path = index_path
         self._filesystem = filesystem
@@ -70,9 +70,8 @@ class HnswlibIndexFileManager:
         else:
             self._index.load_index(SparkFiles.get(self._index_filename))
 
-        # if self._efS:
-        #     # self._index.setQueryTimeParams({"efSearch": self._efS})
-        #     self._index.set_ef(self._efS)
+        if self._efS:
+            self._index.set_ef(self._efS)
         return self._index
 
 
