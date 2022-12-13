@@ -436,21 +436,15 @@ class BaseRecommender(ABC):
             how="anti",
         ).drop("user", "item")
 
-        # because relevances are already sorted, we can return the first k values
-        # for every user_idx
-        def get_top_k(iterator):
-            current_user_idx = None
-            n = 0
-            for row in iterator:
-                if row.user_idx == current_user_idx and n <= k:
-                    n += 1
-                    yield row
-                elif row.user_idx != current_user_idx:
-                    current_user_idx = row.user_idx
-                    n = 1
-                    yield row
-
-        recs = recs.rdd.mapPartitions(get_top_k).toDF(["user_idx", "item_idx", "relevance"])
+        # crop recommendations to first k + max_seen items for each user
+        recs = recs.withColumn(
+            "temp_rank",
+            sf.row_number().over(
+                Window.partitionBy("user_idx").orderBy(
+                    sf.col("relevance").desc()
+                )
+            ),
+        ).filter(sf.col("temp_rank") <= sf.lit(k))
 
         return recs
 

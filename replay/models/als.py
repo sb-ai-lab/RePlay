@@ -241,6 +241,48 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
             self.model.itemFactors.unpersist()
             self.model.userFactors.unpersist()
 
+    def _filter_seen(
+        self, recs: DataFrame, log: DataFrame, k: int, users: DataFrame
+    ):
+        """
+        Filter seen items (presented in log) out of the users' recommendations.
+        For each user return from `k` to `k + number of seen by user` recommendations.
+        """
+
+        if not self._hnswlib_params:
+            return Recommender._filter_seen(self, recs, log, k, users)
+
+        users_log = log.join(users, on="user_idx")
+        self._cache_model_temp_view(users_log, "filter_seen_users_log")
+
+        # filter recommendations presented in interactions log
+        recs = recs.join(
+            users_log.withColumnRenamed("item_idx", "item")
+            .withColumnRenamed("user_idx", "user")
+            .select("user", "item"),
+            on=(sf.col("user_idx") == sf.col("user"))
+            & (sf.col("item_idx") == sf.col("item")),
+            how="anti",
+        ).drop("user", "item")
+
+        # because relevances are already sorted, we can return the first k values
+        # for every user_idx
+        def get_top_k(iterator):
+            current_user_idx = None
+            n = 0
+            for row in iterator:
+                if row.user_idx == current_user_idx and n <= k:
+                    n += 1
+                    yield row
+                elif row.user_idx != current_user_idx:
+                    current_user_idx = row.user_idx
+                    n = 1
+                    yield row
+
+        recs = recs.rdd.mapPartitions(get_top_k).toDF(["user_idx", "item_idx", "relevance"])
+
+        return recs
+
     # pylint: disable=too-many-arguments
     def _predict(
         self,
