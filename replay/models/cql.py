@@ -1,6 +1,5 @@
 """
 Using CQL implementation from `d3rlpy` package.
-For 'alpha' version PySpark DataFrame are converted to Pandas
 """
 import io
 import logging
@@ -204,80 +203,6 @@ class CQL(Recommender):
             **params
         )
 
-    @staticmethod
-    def _rate_user_items(
-        model: bytes,
-        user_idx: int,
-        items: np.ndarray,
-    ) -> pd.DataFrame:
-        user_item_pairs = pd.DataFrame({
-            'user_idx': np.repeat(user_idx, len(items)),
-            'item_idx': items
-        })
-        input_batch = torch.from_numpy(
-            user_item_pairs.to_numpy()
-        ).float().cpu()
-
-        with io.BytesIO(model) as buffer:
-            model = torch.jit.load(buffer, map_location=torch.device('cpu'))
-
-        with torch.no_grad():
-            user_item_pairs['relevance'] = model.forward(input_batch).numpy()
-
-        # It doesn't explicitly filter seen items and doesn't return top k items.
-        # Instead, it returns all predictions as is to be filtered further by base methods
-        return user_item_pairs
-
-    # pylint: disable=too-many-arguments
-    def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> DataFrame:
-        available_items = items.toPandas()["item_idx"].values
-        policy_bytes = self.serialize_policy()
-
-        def grouped_map(log_slice: pd.DataFrame) -> pd.DataFrame:
-            return CQL._rate_user_items(
-                model=policy_bytes,
-                user_idx=log_slice["user_idx"][0],
-                items=available_items,
-            )[["user_idx", "item_idx", "relevance"]]
-
-        self.logger.debug("Predict started")
-        return users.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
-
-    def _predict_pairs(
-        self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
-        policy_bytes = self.serialize_policy()
-
-        def grouped_map(user_log: pd.DataFrame) -> pd.DataFrame:
-            return CQL._rate_user_items(
-                model=policy_bytes,
-                user_idx=user_log["user_idx"][0],
-                items=np.array(user_log["item_idx_to_pred"][0]),
-            )[["user_idx", "item_idx", "relevance"]]
-
-        self.logger.debug("Calculate relevance for user-item pairs")
-        return (
-            pairs
-            .groupBy("user_idx")
-            .agg(sf.collect_list("item_idx").alias("item_idx_to_pred"))
-            .join(log.select("user_idx").distinct(), on="user_idx", how="inner")
-            .groupby("user_idx")
-            .applyInPandas(grouped_map, REC_SCHEMA)
-        )
-
     def _fit(
         self,
         log: DataFrame,
@@ -311,7 +236,7 @@ class CQL(Recommender):
         terminals = np.zeros(len(user_logs))
         terminals[user_terminal_idxs] = 1
 
-        # cannot set zero scale as d3rlpy will treat transitions as discrete :/
+        # cannot set zero scale as d3rlpy will treat transitions then as discrete
         assert self.action_randomization_scale > 0
         action_randomization_scale = self.action_randomization_scale
         action_randomization = np.random.randn(len(user_logs)) * action_randomization_scale
@@ -325,6 +250,82 @@ class CQL(Recommender):
             terminals=terminals
         )
         return train_dataset
+
+    @staticmethod
+    def _predict_pairs_inner(
+        model: bytes,
+        user_idx: int,
+        items: np.ndarray,
+    ) -> pd.DataFrame:
+        user_item_pairs = pd.DataFrame({
+            'user_idx': np.repeat(user_idx, len(items)),
+            'item_idx': items
+        })
+        items_batch = torch.from_numpy(
+            user_item_pairs.to_numpy()
+        ).float().cpu()
+
+        # deserialize model
+        with io.BytesIO(model) as buffer:
+            model = torch.jit.load(buffer, map_location=torch.device('cpu'))
+
+        # predict items relevance for the user
+        with torch.no_grad():
+            user_item_pairs['relevance'] = model.forward(items_batch).numpy()
+
+        return user_item_pairs
+
+    # pylint: disable=too-many-arguments
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        available_items = items.toPandas()["item_idx"].values
+        policy_bytes = self.serialize_policy()
+
+        def grouped_map(log_slice: pd.DataFrame) -> pd.DataFrame:
+            return CQL._predict_pairs_inner(
+                model=policy_bytes,
+                user_idx=log_slice["user_idx"][0],
+                items=available_items,
+            )[["user_idx", "item_idx", "relevance"]]
+
+        # predict relevance for all available items and return them as is;
+        # `filter_seen_items` and top `k` params are ignored
+        self.logger.debug("Predict started")
+        return users.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+        policy_bytes = self.serialize_policy()
+
+        def grouped_map(user_log: pd.DataFrame) -> pd.DataFrame:
+            return CQL._predict_pairs_inner(
+                model=policy_bytes,
+                user_idx=user_log["user_idx"][0],
+                items=np.array(user_log["item_idx_to_pred"][0]),
+            )[["user_idx", "item_idx", "relevance"]]
+
+        self.logger.debug("Calculate relevance for user-item pairs")
+        return (
+            pairs
+            .groupBy("user_idx")
+            .agg(sf.collect_list("item_idx").alias("item_idx_to_pred"))
+            .join(log.select("user_idx").distinct(), on="user_idx", how="inner")
+            .groupby("user_idx")
+            .applyInPandas(grouped_map, REC_SCHEMA)
+        )
     
     @property
     def _init_args(self):
@@ -346,9 +347,11 @@ class CQL(Recommender):
 
     @staticmethod
     def assert_omp_single_thread():
+        # pytorch uses multithreading for cpu math operations via OpenMP library
+        # sometimes this leads to failures when OpenMP multithreading is mixed with multiprocessing
         omp_num_threads = os.environ.get('OMP_NUM_THREADS', None)
         if omp_num_threads != '1':
             logging.getLogger("replay").warning(
-                f'Environment variable "OMP_NUM_THREADS" is set to {omp_num_threads}. '
+                f'Environment variable "OMP_NUM_THREADS" is set to "{omp_num_threads}". '
                 'Set it to 1 if CQL prediction process freezes.'
             )
