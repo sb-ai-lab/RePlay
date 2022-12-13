@@ -57,6 +57,29 @@ class ImplicitWrap(Recommender):
         matrix = to_csr(log)
         self.model.fit(matrix)
 
+    @staticmethod
+    def _pd_func(model, items_to_use=None, user_item_data=None, filter_seen_items=False):
+        def predict_by_user_item(pandas_df):
+            user = int(pandas_df["user_idx"].iloc[0])
+            items = items_to_use if items_to_use else pandas_df.item_idx.to_list()
+
+            items_res, rel = model.recommend(
+                userid=user,
+                user_items=user_item_data[user] if filter_seen_items else None,
+                N=len(items),
+                filter_already_liked_items=filter_seen_items,
+                items=items,
+            )
+            return pd.DataFrame(
+                {
+                    "user_idx": [user] * len(items_res),
+                    "item_idx": items_res,
+                    "relevance": rel,
+                }
+            )
+
+        return predict_by_user_item
+
     # pylint: disable=too-many-arguments
     def _predict(
         self,
@@ -68,27 +91,29 @@ class ImplicitWrap(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        def predict_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
-            user = int(pandas_df["user_idx"].iloc[0])
-            ids, rel = model.recommend(
-                userid=user,
-                user_items=user_item_data[user],
-                N=k,
-                filter_already_liked_items=filter_seen_items,
-                items=items_to_use
-            )
-            return pd.DataFrame(
-                {
-                    "user_idx": [user] * len(ids),
-                    "item_idx": ids,
-                    "relevance": rel,
-                }
-            )
+
         items_to_use = items.distinct().toPandas().item_idx.tolist()
         user_item_data = to_csr(log)
         model = self.model
         return (
             users.select("user_idx")
             .groupby("user_idx")
-            .applyInPandas(predict_by_user, REC_SCHEMA)
+            .applyInPandas(self._pd_func(
+                model=model,
+                items_to_use=items_to_use,
+                user_item_data=user_item_data,
+                filter_seen_items=filter_seen_items), REC_SCHEMA)
         )
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+
+        model = self.model
+        return pairs.groupby("user_idx").applyInPandas(
+            self._pd_func(model=model, filter_seen_items=False),
+            REC_SCHEMA)

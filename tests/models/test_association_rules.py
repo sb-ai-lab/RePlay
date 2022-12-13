@@ -4,7 +4,14 @@ import pytest
 from pyspark.sql import functions as sf
 
 from replay.models import AssociationRulesItemRec
-from tests.utils import log, spark, sparkDataFrameEqual
+from tests.utils import (
+    log,
+    spark,
+    sparkDataFrameEqual,
+    sparkDataFrameNotEqual,
+    log,
+    log_to_pred,
+)
 
 
 @pytest.fixture
@@ -14,25 +21,17 @@ def model(log):
     return model
 
 
-def test_predict_raises(log, model):
-    with pytest.raises(
-        NotImplementedError,
-        match=r"item-to-user predict is not implemented for AssociationRulesItemRec,.*",
-    ):
-        model.predict(log, 1)
-
-
 def test_invalid_metric_raises(log, model):
     with pytest.raises(
         ValueError,
-        match=r"Select one of the valid distance metrics: \['lift', 'confidence_gain'\]",
+        match=r"Select one of the valid distance metrics: \['lift', 'confidence', 'confidence_gain'\]",
     ):
         model.get_nearest_items(log.select("item_idx"), k=1, metric="invalid")
 
 
 def test_works(model):
-    assert hasattr(model, "pair_metrics")
-    model.pair_metrics.count()
+    assert hasattr(model, "similarity")
+    model.similarity.count()
 
 
 def check_formulas(count_ant, count_cons, pair_count, num_sessions, test_row):
@@ -51,7 +50,7 @@ def check_formulas(count_ant, count_cons, pair_count, num_sessions, test_row):
 
 
 def test_calculation(model, log):
-    pairs_metrics = model.get_pair_metrics
+    pairs_metrics = model.get_similarity
     # recalculate for item_3 as antecedent and item_2 as consequent
     test_row = pairs_metrics.filter(
         (sf.col("antecedent") == 2) & (sf.col("consequent") == 1)
@@ -70,7 +69,7 @@ def test_calculation_with_weights(model, log):
         min_item_count=1, min_pair_count=1, use_relevance=True
     )
     model.fit(log)
-    pairs_metrics = model.get_pair_metrics
+    pairs_metrics = model.get_similarity
     # recalculate for item_3 as antecedent and item_2 as consequent using relevance values as weight
     test_row = pairs_metrics.filter(
         (sf.col("antecedent") == 2) & (sf.col("consequent") == 1)
@@ -90,11 +89,48 @@ def test_get_nearest_items(model):
     )
 
     assert res.count() == 1
-    assert res.select("neighbour_item_idx").collect()[0][0] == 1
     assert res.select("confidence_gain").collect()[0][0] == 2.0
-    assert res.select("lift").collect()[0][0] == 4 / 3
 
     res = model.get_nearest_items(items=[2], k=10, metric="lift",)
     assert res.count() == 2
 
     model._clear_cache()
+
+
+def test_metric(log, log_to_pred, model):
+    model.fit(log)
+
+    p_pred_metr_from_init_conf = model.predict_pairs(
+        pairs=log_to_pred.select("user_idx", "item_idx"),
+        log=log.unionByName(log_to_pred),
+    )
+
+    model.similarity_metric = "confidence"
+
+    p_pred_metr_from_user_conf = model.predict_pairs(
+        pairs=log_to_pred.select("user_idx", "item_idx"),
+        log=log.unionByName(log_to_pred),
+    )
+
+    sparkDataFrameEqual(
+        p_pred_metr_from_init_conf,
+        p_pred_metr_from_user_conf,
+    )
+
+    model.similarity_metric = "lift"
+
+    p_pred_metr_from_user_lift = model.predict_pairs(
+        pairs=log_to_pred.select("user_idx", "item_idx"),
+        log=log.unionByName(log_to_pred),
+    )
+
+    sparkDataFrameNotEqual(
+        p_pred_metr_from_user_conf,
+        p_pred_metr_from_user_lift
+    )
+
+
+def test_similarity_metric_raises(log, model):
+    with pytest.raises(ValueError, match="Select one of the valid metrics for predict:.*"):
+        model.fit(log)
+        model.similarity_metric = "invalid"

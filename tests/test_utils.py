@@ -12,7 +12,7 @@ import pytest
 
 import replay.session_handler
 from replay import utils
-from tests.utils import spark, sparkDataFrameEqual, long_log_with_features
+from tests.utils import long_log_with_features, spark, sparkDataFrameEqual
 
 datetime = partial(datetime, tzinfo=timezone.utc)
 
@@ -104,8 +104,7 @@ def test_convert():
 
 
 def test_sample_top_k(long_log_with_features):
-    res = utils.sample_k_items(long_log_with_features, 1, seed=123)
-    res.show()
+    res = utils.sample_top_k_recs(long_log_with_features, 1, seed=123)
     assert (
         res.count()
         == long_log_with_features.select("user_idx").distinct().count()
