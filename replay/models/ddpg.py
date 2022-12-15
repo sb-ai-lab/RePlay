@@ -685,7 +685,7 @@ class DDPG(TorchRecommender):
                     action_emb,
                     self.model.environment.available_items,
                 )
-                user, memory, reward, _ = self.model.environment.step(
+                user, memory, _, _ = self.model.environment.step(
                     action, action_emb, self.replay_buffer
                 )
 
