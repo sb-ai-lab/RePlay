@@ -1,5 +1,8 @@
 from replay.metrics.base_metric import Metric
 
+from pyspark.sql import SparkSession, Column
+from pyspark.sql.column import _to_java_column, _to_seq
+
 
 # pylint: disable=too-few-public-methods
 class MAP(Metric):
@@ -28,3 +31,13 @@ class MAP(Metric):
                 tp_cum += 1
                 result += tp_cum / ((i + 1) * max_good)
         return result
+
+    @staticmethod
+    def _get_metric_value_by_user_scala_udf(k, pred, ground_truth) -> Column:
+        sc = SparkSession.getActiveSession().sparkContext
+        _f = (
+            sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.getMAPMetricValue()
+        )
+        return Column(
+            _f.apply(_to_seq(sc, [k, pred, ground_truth], _to_java_column))
+        )
