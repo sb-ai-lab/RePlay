@@ -234,7 +234,7 @@ class Metric(ABC):
                     distribution = recs.select("user_idx", metric_value_col)
                     distribution = distribution.cache()
                     distribution.write.mode("overwrite").format("noop").save()
-                mlflow.log_metric(f"{self.__class__.__name__}_sec", timer.duration)
+                mlflow.log_metric(f"{self.__class__.__name__}.{k}_sec", timer.duration)
                 return distribution
             else:
                 return recs.select("user_idx", metric_value_col)
@@ -254,7 +254,8 @@ class Metric(ABC):
                 )
                 distribution = distribution.cache()
                 distribution.write.mode("overwrite").format("noop").save()
-            mlflow.log_metric(f"{self.__class__.__name__}_sec", timer.duration)
+            mlflow.log_metric(f"{self.__class__.__name__}.{k}_sec", timer.duration)
+            return distribution
         distribution = recs.rdd.flatMap(
             # pylint: disable=protected-access
             lambda x: [

@@ -35,11 +35,11 @@ class NCISPrecision(NCISMetric):
         return sum(np.array(pred_weights)[mask]) / sum(pred_weights[:k])
 
     @staticmethod
-    def _get_metric_value_by_user_scala_udf(k, pred, ground_truth, pred_weights) -> Column:
+    def _get_metric_value_by_user_scala_udf(k, pred, pred_weights, ground_truth) -> Column:
         sc = SparkSession.getActiveSession().sparkContext
         _f = (
             sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.getNCISPrecisionMetricValue()
         )
         return Column(
-            _f.apply(_to_seq(sc, [k, pred, ground_truth, pred_weights], _to_java_column))
+            _f.apply(_to_seq(sc, [k, pred, pred_weights, ground_truth], _to_java_column))
         )

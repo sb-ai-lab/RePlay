@@ -369,6 +369,8 @@ def main(spark: SparkSession, dataset_name: str):
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer_sec", infer_timer.duration)
 
+        # recs.write.mode('overwrite').parquet(f"hdfs://node21.bdcl:9000/tmp/replay/ItemKNN_num_neighbours_10_k_1000_recs_for_metrics_exp.parquet")
+
         if not isinstance(model, (AssociationRulesItemRec)):
             with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
                 "Metrics calculation", "e.add_result()"
