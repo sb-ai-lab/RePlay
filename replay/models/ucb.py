@@ -2,7 +2,7 @@ import joblib
 import math
 
 from os.path import join
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -126,18 +126,21 @@ class UCB(NonPersonalizedRecommender):
 
         self._check_relevance(log)
 
-        items_counts = log.groupby("item_idx").agg(
+        # we save this dataframe for the refit() method
+        self.items_counts_aggr = log.groupby("item_idx").agg(
             sf.sum("relevance").alias("pos"),
             sf.count("relevance").alias("total"),
         )
+        self.items_counts_aggr = self.items_counts_aggr.cache()
 
-        full_count = log.count()
-        items_counts = items_counts.withColumn(
+        # we save this variable for the refit() method
+        self.full_count = log.count()
+        items_counts = self.items_counts_aggr.withColumn(
             "relevance",
             (
                 sf.col("pos") / sf.col("total")
                 + sf.sqrt(
-                    sf.log(sf.lit(self.coef * full_count)) / sf.col("total")
+                    sf.log(sf.lit(self.coef * self.full_count)) / sf.col("total")
                 )
             ),
         )
@@ -145,7 +148,48 @@ class UCB(NonPersonalizedRecommender):
         self.item_popularity = items_counts.drop("pos", "total")
         self.item_popularity.cache().count()
 
-        self.fill = 1 + math.sqrt(math.log(self.coef * full_count))
+        self.fill = 1 + math.sqrt(math.log(self.coef * self.full_count))
+
+    def refit(
+        self,
+        log: DataFrame,
+        previous_log: Optional[Union[str, DataFrame]] = None,
+        merged_log_path: Optional[str] = None,
+    ) -> None:
+        # aggregation new log part
+        items_counts_aggr = log.groupby("item_idx").agg(
+            sf.sum("relevance").alias("pos"),
+            sf.count("relevance").alias("total"),
+        )
+
+        # combine old and new aggregations and aggregate
+        self.items_counts_aggr = (
+            self.items_counts_aggr.union(items_counts_aggr)
+            .groupby("item_idx")
+            .agg(
+                sf.sum("pos").alias("pos"),
+                sf.sum("total").alias("total"),
+            )
+        )
+        self.items_counts_aggr = self.items_counts_aggr.cache()
+
+        # sum old and new log lengths
+        self.full_count += log.count()
+        
+        items_counts = self.items_counts_aggr.withColumn(
+            "relevance",
+            (
+                sf.col("pos") / sf.col("total")
+                + sf.sqrt(
+                    sf.log(sf.lit(self.coef * self.full_count)) / sf.col("total")
+                )
+            ),
+        )
+
+        self.item_popularity = items_counts.drop("pos", "total")
+        self.item_popularity.cache().count()
+
+        self.fill = 1 + math.sqrt(math.log(self.coef * self.full_count))
 
     # pylint: disable=too-many-arguments
     def _predict(

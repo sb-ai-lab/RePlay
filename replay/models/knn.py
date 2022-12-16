@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -164,7 +164,7 @@ class ItemKNN(NeighbourRec, NmslibHnswMixin):
         Calculate item dot products
 
         :param log: DataFrame with interactions, `[user_idx, item_idx, relevance]`
-        :return: similarity matrix `[item_idx_one, item_idx_two, norm1, norm2]`
+        :return: similarity matrix `[item_idx_one, item_idx_two, norm1, norm2, dot_product]`
         """
         if self.weighting:
             log = self._reweight_log(log)
@@ -264,6 +264,21 @@ class ItemKNN(NeighbourRec, NmslibHnswMixin):
                     log.groupBy('user_idx')
                     .agg(sf.count('item_idx').alias('num_items'))
             )
+
+    def refit(
+        self,
+        log: DataFrame,
+        previous_log: Optional[Union[str, DataFrame]] = None,
+        merged_log_path: Optional[str] = None,
+    ) -> None:
+
+        df = log.select("user_idx", "item_idx", "relevance")
+        if not self.use_relevance:
+            df = df.withColumn("relevance", sf.lit(1))
+
+        similarity_matrix = self._get_similarity_refit(df, previous_log)
+        # self.similarity = self._get_k_most_similar(similarity_matrix)
+        # self.similarity.cache().count()
 
 
     # pylint: disable=too-many-arguments
