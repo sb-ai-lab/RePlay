@@ -8,10 +8,12 @@ import pandas as pd
 import scipy.sparse as sp
 import torch
 from pandas import DataFrame
+from pyspark.sql import functions as sf
 from pytorch_ranger import Ranger
 from torch import nn
 
-from replay.models.base_torch_rec import TorchRecommender
+from replay.constants import REC_SCHEMA
+from replay.models.base_torch_rec import Recommender
 
 
 def to_np(tensor: torch.Tensor) -> np.array:
@@ -394,7 +396,7 @@ class StateReprModule(nn.Module):
 
 
 # pylint: disable=too-many-arguments
-class DDPG(TorchRecommender):
+class DDPG(Recommender):
     """
     `Deep Deterministic Policy Gradient
     <https://arxiv.org/pdf/1810.12027.pdf>`_
@@ -461,7 +463,7 @@ class DDPG(TorchRecommender):
             "item_num": self.item_num,
         }
 
-    # pylint: disable=arguments-differ,too-many-locals
+    # pylint: too-many-locals
     def _batch_pass(self, batch) -> Dict[str, Any]:
         user = torch.FloatTensor(batch[0])
         memory = torch.FloatTensor(batch[1])
@@ -487,9 +489,6 @@ class DDPG(TorchRecommender):
         value_loss = (value - expected_value.detach()).squeeze(1).pow(2).mean()
 
         return policy_loss, value_loss
-
-    def _loss(self, **kwargs) -> torch.Tensor:
-        pass
 
     @staticmethod
     # pylint: disable=not-callable
@@ -553,6 +552,72 @@ class DDPG(TorchRecommender):
             cnt=None,
         )
 
+    # pylint: disable=too-many-arguments
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        items_consider_in_pred = items.toPandas()["item_idx"].values
+        items_count = self._item_dim
+        model = self.model.cpu()
+        agg_fn = self._predict_by_user
+
+        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+            return agg_fn(
+                pandas_df, model, items_consider_in_pred, k, items_count
+            )[["user_idx", "item_idx", "relevance"]]
+
+        self.logger.debug("Predict started")
+        # do not apply map on cold users for MultVAE predict
+        join_type = "inner" if str(self) == "MultVAE" else "left"
+        recs = (
+            users.join(log, how=join_type, on="user_idx")
+            .select("user_idx", "item_idx")
+            .groupby("user_idx")
+            .applyInPandas(grouped_map, REC_SCHEMA)
+        )
+        return recs
+
+    def _predict_pairs(
+        self,
+        pairs: DataFrame,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ) -> DataFrame:
+        items_count = self._item_dim
+        model = self.model.cpu()
+        agg_fn = self._predict_by_user_pairs
+        users = pairs.select("user_idx").distinct()
+
+        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+            return agg_fn(pandas_df, model, items_count)[
+                ["user_idx", "item_idx", "relevance"]
+            ]
+
+        self.logger.debug("Calculate relevance for user-item pairs")
+        user_history = (
+            users.join(log, how="inner", on="user_idx")
+            .groupBy("user_idx")
+            .agg(sf.collect_list("item_idx").alias("item_idx_history"))
+        )
+        user_pairs = pairs.groupBy("user_idx").agg(
+            sf.collect_list("item_idx").alias("item_idx_to_pred")
+        )
+        full_df = user_pairs.join(user_history, on="user_idx", how="inner")
+
+        recs = full_df.groupby("user_idx").applyInPandas(
+            grouped_map, REC_SCHEMA
+        )
+
+        return recs
+
     @staticmethod
     def _get_beta(idx, beta_start=0.4, beta_steps=100000):
         return min(1.0, beta_start + idx * (1.0 - beta_start) / beta_steps)
@@ -583,7 +648,6 @@ class DDPG(TorchRecommender):
         batch = self.replay_buffer.sample(self.batch_size, beta)
         return batch
 
-    # pylint: disable=arguments-differ,arguments-renamed
     def _run_train_step(self, batch):
         policy_loss, value_loss = self._batch_pass(batch)
 
@@ -670,7 +734,6 @@ class DDPG(TorchRecommender):
         self.logger.debug("Training DDPG")
         self.train(users)
 
-    # pylint: disable=arguments-differ
     def train(self, users):
         self.log_dir.mkdir(parents=True, exist_ok=True)
         step = 0
