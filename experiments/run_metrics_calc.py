@@ -41,7 +41,7 @@ def main(spark: SparkSession):
         ):
             raise Exception("Not enough executors to run experiment!")
 
-    K_list_metrics = [10]
+    K_list_metrics = [10, 100, 1000]
     MLFLOW_TRACKING_URI = os.environ.get(
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
@@ -74,17 +74,27 @@ def main(spark: SparkSession):
         }
         mlflow.log_params(spark_configs)
 
-        train_path = "/opt/spark_data/replay_datasets/ml1m_train.parquet"
-        train = spark.read.parquet(
-            train_path
-        )
+        # dataset = "ml1m"
+        # train_path = "/opt/spark_data/replay_datasets/ml1m_train.parquet"
+        # train = spark.read.parquet(
+        #     train_path
+        # )
+        # test_path = "/opt/spark_data/replay_datasets/ml1m_test.parquet"
+        # test = spark.read.parquet(
+        #     test_path
+        # )
+        # recs_path = "/home/azamat/projects/RePlay_tmp/recs.parquet"
+        # recs = spark.read.parquet(recs_path)
 
-        test_path = "/opt/spark_data/replay_datasets/ml1m_test.parquet"
-        test = spark.read.parquet(
-            test_path
-        )
-        recs_path = "/home/azamat/projects/RePlay_tmp/recs.parquet"
+        dataset = "MillionSongDataset"
+        train_path = "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/MillionSongDataset/fraction_1.0_train_48_partition.parquet"
+        train = spark.read.parquet(train_path)
+        test_path = "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/MillionSongDataset/fraction_1.0_test_48_partition.parquet"
+        test = spark.read.parquet(test_path)
+        # recs_path = "hdfs://node21.bdcl:9000/tmp/replay/ItemKNN_num_neighbours_10_recs_for_metrics_exp.parquet"
+        recs_path = "hdfs://node21.bdcl:9000/tmp/replay/ItemKNN_num_neighbours_10_k_1000_recs_for_metrics_exp.parquet"
         recs = spark.read.parquet(recs_path)
+
 
         with log_exec_timer("Input datasets caching") as datasets_cache_timer:
             recs = recs.cache()
@@ -95,6 +105,7 @@ def main(spark: SparkSession):
             train.write.mode("overwrite").format("noop").save()
 
         mlflow.log_params({
+            "dataset": dataset,
             "test_size": test.count(),
             "test_path": test_path,
             "train_size": train.count(),

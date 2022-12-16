@@ -123,7 +123,7 @@ object ScalaPySparkUDFs {
         weigths.take(k).sum / k
     }
 
-    def _getUnexpectednessMetricValue(k: Int, pred: Array[Double], basePred: Array[Double]) : Double = {
+    def _getUnexpectednessMetricValue(k: Int, pred: Array[Int], basePred: Array[Int]) : Double = {
         if (pred.size == 0) {
             return 0
         }
@@ -132,7 +132,7 @@ object ScalaPySparkUDFs {
 
     val getUnexpectednessMetricValue = udf(_getUnexpectednessMetricValue _)
 
-    def _getNCISPrecisionMetricValue(k: Int, pred: Array[Double], predWeights: Array[Double], groundTruth: Array[Double]) : Double = {
+    def _getNCISPrecisionMetricValue(k: Int, pred: Array[Int], predWeights: Array[Double], groundTruth: Array[Int]) : Double = {
         if (pred.size == 0) {
             return 0
         }
@@ -140,7 +140,9 @@ object ScalaPySparkUDFs {
         var sum1 = 0.0
         for (i <- 0 until length) {
             if (groundTruth.contains(pred(i))) {
-                sum1 += predWeights(i)
+                if (i < predWeights.size) {
+                    sum1 += predWeights(i)
+                }
             }
         }
         return sum1 / predWeights.take(k).sum

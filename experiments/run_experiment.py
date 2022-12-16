@@ -486,30 +486,33 @@ def main(spark: SparkSession, dataset_name: str):
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer_sec", infer_timer.duration)
 
-        with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
-            "Metrics calculation", "e.add_result()"
-        ):
-            e = Experiment(
-                test,
-                {
-                    MAP(): K_list_metrics,
-                    NDCG(): K_list_metrics,
-                    HitRate(): K_list_metrics,
-                },
-            )
-            e.add_result(MODEL, recs)
-        mlflow.log_metric("metrics_sec", metrics_timer.duration)
-        for k in K_list_metrics:
-            mlflow.log_metric(
-                "NDCG.{}".format(k), e.results.at[MODEL, "NDCG@{}".format(k)]
-            )
-            mlflow.log_metric(
-                "MAP.{}".format(k), e.results.at[MODEL, "MAP@{}".format(k)]
-            )
-            mlflow.log_metric(
-                "HitRate.{}".format(k),
-                e.results.at[MODEL, "HitRate@{}".format(k)],
-            )
+        # recs.write.mode('overwrite').parquet(f"hdfs://node21.bdcl:9000/tmp/replay/ItemKNN_num_neighbours_10_k_1000_recs_for_metrics_exp.parquet")
+
+        if not isinstance(model, (AssociationRulesItemRec)):
+            with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
+                "Metrics calculation", "e.add_result()"
+            ):
+                e = Experiment(
+                    test,
+                    {
+                        MAP(use_scala_udf=True): K_list_metrics,
+                        NDCG(use_scala_udf=True): K_list_metrics,
+                        HitRate(use_scala_udf=True): K_list_metrics,
+                    },
+                )
+                e.add_result(MODEL, recs)
+            mlflow.log_metric("metrics_sec", metrics_timer.duration)
+            for k in K_list_metrics:
+                mlflow.log_metric(
+                    "NDCG.{}".format(k), e.results.at[MODEL, "NDCG@{}".format(k)]
+                )
+                mlflow.log_metric(
+                    "MAP.{}".format(k), e.results.at[MODEL, "MAP@{}".format(k)]
+                )
+                mlflow.log_metric(
+                    "HitRate.{}".format(k),
+                    e.results.at[MODEL, "HitRate@{}".format(k)],
+                )
 
         with log_exec_timer(f"Model saving") as model_save_timer:
             save(
