@@ -421,6 +421,7 @@ class DDPG(Recommender):
         "noise_theta": {"type": "uniform", "args": [0.1, 0.4]},
     }
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         noise_sigma: float = 0.4,
@@ -463,7 +464,7 @@ class DDPG(Recommender):
             "item_num": self.item_num,
         }
 
-    # pylint: too-many-locals
+    # pylint: disable=too-many-locals
     def _batch_pass(self, batch) -> Dict[str, Any]:
         user = torch.FloatTensor(batch[0])
         memory = torch.FloatTensor(batch[1])
@@ -496,7 +497,6 @@ class DDPG(Recommender):
         model,
         user_idx: int,
         items_np: np.ndarray,
-        cnt: Optional[int] = None,
     ) -> DataFrame:
         with torch.no_grad():
             user_batch = torch.LongTensor([user_idx])
@@ -509,13 +509,6 @@ class DDPG(Recommender):
             user_recs, _ = model.get_action(action_emb, items_np, True)
             user_recs = user_recs.squeeze(1)
 
-            if cnt is not None:
-                best_item_idx = (
-                    torch.argsort(user_recs, descending=True)[:cnt]
-                ).numpy()
-                user_recs = user_recs[best_item_idx]
-                items_np = items_np[best_item_idx]
-
             return pd.DataFrame(
                 {
                     "user_idx": user_recs.shape[0] * [user_idx],
@@ -523,34 +516,6 @@ class DDPG(Recommender):
                     "relevance": user_recs,
                 }
             )
-
-    @staticmethod
-    def _predict_by_user(
-        pandas_df: pd.DataFrame,
-        model: nn.Module,
-        items_np: np.ndarray,
-        k: int,
-        item_count: int,
-    ) -> pd.DataFrame:
-        return DDPG._predict_pairs_inner(
-            model=model,
-            user_idx=pandas_df["user_idx"][0],
-            items_np=items_np,
-            cnt=min(len(pandas_df) + k, len(items_np)),
-        )
-
-    @staticmethod
-    def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame,
-        model: nn.Module,
-        item_count: int,
-    ):
-        return DDPG._predict_pairs_inner(
-            model=model,
-            user_idx=pandas_df["user_idx"][0],
-            items_np=np.array(pandas_df["item_idx_to_pred"][0]),
-            cnt=None,
-        )
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -564,13 +529,13 @@ class DDPG(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         items_consider_in_pred = items.toPandas()["item_idx"].values
-        items_count = self._item_dim
         model = self.model.cpu()
-        agg_fn = self._predict_by_user
 
         def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
-            return agg_fn(
-                pandas_df, model, items_consider_in_pred, k, items_count
+            return DDPG._predict_pairs_inner(
+                model=model,
+                user_idx=pandas_df["user_idx"][0],
+                items_np=items_consider_in_pred,
             )[["user_idx", "item_idx", "relevance"]]
 
         self.logger.debug("Predict started")
@@ -591,29 +556,23 @@ class DDPG(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-        items_count = self._item_dim
         model = self.model.cpu()
-        agg_fn = self._predict_by_user_pairs
-        users = pairs.select("user_idx").distinct()
 
         def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
-            return agg_fn(pandas_df, model, items_count)[
-                ["user_idx", "item_idx", "relevance"]
-            ]
+            return DDPG._predict_pairs_inner(
+                model=model,
+                user_idx=pandas_df["user_idx"][0],
+                items_np=np.array(pandas_df["item_idx_to_pred"][0]),
+            )
 
         self.logger.debug("Calculate relevance for user-item pairs")
-        user_history = (
-            users.join(log, how="inner", on="user_idx")
-            .groupBy("user_idx")
-            .agg(sf.collect_list("item_idx").alias("item_idx_history"))
-        )
-        user_pairs = pairs.groupBy("user_idx").agg(
-            sf.collect_list("item_idx").alias("item_idx_to_pred")
-        )
-        full_df = user_pairs.join(user_history, on="user_idx", how="inner")
 
-        recs = full_df.groupby("user_idx").applyInPandas(
-            grouped_map, REC_SCHEMA
+        recs = (
+            pairs.groupBy("user_idx")
+            .agg(sf.collect_list("item_idx").alias("item_idx_to_pred"))
+            .join(log.select("user_idx").distinct(), on="user_idx", how="inner")
+            .groupby("user_idx")
+            .applyInPandas(grouped_map, REC_SCHEMA)
         )
 
         return recs
@@ -734,7 +693,13 @@ class DDPG(Recommender):
         self.logger.debug("Training DDPG")
         self.train(users)
 
-    def train(self, users):
+    def train(self, users: np.array) -> None:
+        """
+        Run training loop
+
+        :param users: array with users for training
+        :return:
+        """
         self.log_dir.mkdir(parents=True, exist_ok=True)
         step = 0
 
