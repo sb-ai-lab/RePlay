@@ -1,8 +1,10 @@
-import os
 import logging.config
+import os
 
 import mlflow
+from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
+
 from replay.experiment import Experiment
 from replay.metrics import HitRate, MAP, NDCG
 from replay.metrics.mrr import MRR
@@ -18,11 +20,6 @@ from replay.utils import (
     getNumberOfAllocatedExecutors,
     log_exec_timer,
 )
-
-from replay.utils import logger
-
-from pyspark.conf import SparkConf
-
 
 VERBOSE_LOGGING_FORMAT = (
     "%(asctime)s %(levelname)s %(module)s %(filename)s:%(lineno)d %(message)s"
@@ -74,29 +71,17 @@ def main(spark: SparkSession):
         }
         mlflow.log_params(spark_configs)
 
-        # dataset = "ml1m"
-        # train_path = "/opt/spark_data/replay_datasets/ml1m_train.parquet"
-        # train = spark.read.parquet(
-        #     train_path
-        # )
-        # test_path = "/opt/spark_data/replay_datasets/ml1m_test.parquet"
-        # test = spark.read.parquet(
-        #     test_path
-        # )
-        # recs_path = "/home/azamat/projects/RePlay_tmp/recs.parquet"
-        # recs = spark.read.parquet(recs_path)
-
         dataset = "MillionSongDataset"
-        train_path = "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/MillionSongDataset/fraction_1.0_train_48_partition.parquet"
+        train_path = "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/MillionSongDataset/" \
+                     "fraction_1.0_train_48_partition.parquet"
         train = spark.read.parquet(train_path)
-        test_path = "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/MillionSongDataset/fraction_1.0_test_48_partition.parquet"
+        test_path = "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/MillionSongDataset/" \
+                    "fraction_1.0_test_48_partition.parquet"
         test = spark.read.parquet(test_path)
-        # recs_path = "hdfs://node21.bdcl:9000/tmp/replay/ItemKNN_num_neighbours_10_recs_for_metrics_exp.parquet"
         recs_path = "hdfs://node21.bdcl:9000/tmp/replay/ItemKNN_num_neighbours_10_k_1000_recs_for_metrics_exp.parquet"
         recs = spark.read.parquet(recs_path)
 
-
-        with log_exec_timer("Input datasets caching") as datasets_cache_timer:
+        with log_exec_timer("Input datasets caching"):
             recs = recs.cache()
             test = test.cache()
             train = train.cache()
@@ -176,9 +161,7 @@ def main(spark: SparkSession):
         mlflow.log_metrics(metrics)
 
 
-
 if __name__ == "__main__":
     spark_sess = get_spark_session()
     main(spark=spark_sess)
-    # time.sleep(100)
     spark_sess.stop()

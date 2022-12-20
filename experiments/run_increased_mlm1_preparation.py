@@ -1,23 +1,16 @@
-import os
 import logging.config
+import os
 
 import mlflow
-import pandas as pd
+from pyspark.ml.feature import StringIndexer
 from pyspark.sql import SparkSession
-from pyspark.ml.feature import StringIndexerModel, StringIndexer
-from replay.model_handler import save_indexer, save_splitter
-from replay.model_handler import load_indexer, load_splitter
 
 from replay.data_preparator import DataPreparator, Indexer
-from replay.session_handler import get_spark_session
-from replay.utils import JobGroup, log_exec_timer
-
-# from rs_datasets import MovieLens, MillionSongDataset
-from pyspark.sql import functions as sf
-
-from replay.splitters import DateSplitter, UserSplitter
-from replay.utils import get_log_info2
 from replay.filters import filter_by_min_count, filter_out_low_ratings
+from replay.session_handler import get_spark_session
+from replay.splitters import DateSplitter
+from replay.utils import get_log_info2
+from replay.utils import log_exec_timer
 
 
 VERBOSE_LOGGING_FORMAT = (

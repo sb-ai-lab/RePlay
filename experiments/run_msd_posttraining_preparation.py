@@ -1,16 +1,14 @@
-import os
 import logging.config
+import os
 
 import mlflow
-import pandas as pd
 from pyspark.sql import SparkSession
+from pyspark.sql import functions as sf
 from pyspark.sql.types import StructType, IntegerType, StringType, DateType
+
 from replay.data_preparator import Indexer
 from replay.session_handler import get_spark_session
 from replay.utils import log_exec_timer
-
-from pyspark.sql import functions as sf
-
 
 VERBOSE_LOGGING_FORMAT = (
     "%(asctime)s %(levelname)s %(module)s %(filename)s:%(lineno)d %(message)s"
@@ -36,21 +34,11 @@ def main(spark: SparkSession, dataset_name: str):
                 "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train80_10x.parquet"
             )
         )
-        # train90 = (
-        #     spark.read.parquet(
-        #         "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train90_10x.parquet"
-        #     )
-        # )
         train_diff80 = (
             spark.read.parquet(
                 "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif80_10x.parquet"
             )
         )
-        # train_diff90 = (
-        #     spark.read.parquet(
-        #         "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif90_10x.parquet"
-        #     )
-        # )
         test = (
             spark.read.parquet(
                 "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_test_10x.parquet"
@@ -88,22 +76,7 @@ def main(spark: SparkSession, dataset_name: str):
                 "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train80.csv"
             )
         )
-        train90 = (
-            spark.read.option("header", True)
-            .format("csv")
-            .schema(schema1)
-            .load(
-                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train90.csv"
-            )
-        )
-        train = (
-            spark.read.option("header", True)
-            .format("csv")
-            .schema(schema1)
-            .load(
-                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train.csv"
-            )
-        )
+
         train_diff80 = (
             spark.read.option("header", True)
             .format("csv")
@@ -112,22 +85,7 @@ def main(spark: SparkSession, dataset_name: str):
                 "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif80.csv"
             )
         )
-        train_diff90 = (
-            spark.read.option("header", True)
-            .format("csv")
-            .schema(schema2)
-            .load(
-                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif90.csv"
-            )
-        )
-        train_diff100 = (
-            spark.read.option("header", True)
-            .format("csv")
-            .schema(schema2)
-            .load(
-                "file:///opt/spark_data/replay_datasets/MillionSongDataset/posttraining/train_dif100.csv"
-            )
-        )
+
         test = (
             spark.read.option("header", True)
             .format("csv")
@@ -137,21 +95,35 @@ def main(spark: SparkSession, dataset_name: str):
             )
         )
     else:
-        ValueError("Unknown dataset.")
+        raise ValueError("Unknown dataset.")
 
+    train70 = train70.select(
+        sf.col("user_idx").alias("user_id"),
+        sf.col("item_idx").alias("item_id"),
+        "relevance",
+        sf.unix_timestamp("timestamp").alias("timestamp")
+    )
+    train80 = train80.select(
+        sf.col("user_idx").alias("user_id"),
+        sf.col("item_idx").alias("item_id"),
+        "relevance",
+        sf.unix_timestamp("timestamp").alias("timestamp")
+    )
 
-    train70 = train70.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
-    train80 = train80.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
-    # train90 = train90.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
-    # train = train.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
+    train_diff80 = train_diff80.select(
+        sf.col("user_idx").alias("user_id"),
+        sf.col("item_idx").alias("item_id"),
+        "relevance",
+        sf.unix_timestamp("timestamp").alias("timestamp")
+    )
 
-    train_diff80 = train_diff80.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
-    # train_diff90 = train_diff90.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
-    # train_diff100 = train_diff100.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
+    test = test.select(
+        sf.col("user_idx").alias("user_id"),
+        sf.col("item_idx").alias("item_id"),
+        "relevance",
+        sf.unix_timestamp("timestamp").alias("timestamp")
+    )
 
-    test = test.select(sf.col("user_idx").alias("user_id"), sf.col("item_idx").alias("item_id"), "relevance", sf.unix_timestamp("timestamp").alias("timestamp"))
-
-    # log = train.union(test)
     log = train80.union(test)
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -209,16 +181,8 @@ def main(spark: SparkSession, dataset_name: str):
         with log_exec_timer("Indexer transform") as indexer_transform_timer:
             train70 = indexer.transform(df=train70)
             train80 = indexer.transform(df=train80)
-            # train90 = indexer.transform(df=train90)
-            # train = indexer.transform(df=train)
-
             train_diff80 = indexer.transform(df=train_diff80)
-            # train_diff90 = indexer.transform(df=train_diff90)
-            # train_diff100 = indexer.transform(df=train_diff100)
-
             test = indexer.transform(df=test)
-            # log_replay = log_replay.cache()
-            # log_replay.write.mode("overwrite").format("noop").save()
         mlflow.log_metric(
             "indexer_transform_sec", indexer_transform_timer.duration
         )
@@ -234,27 +198,14 @@ def main(spark: SparkSession, dataset_name: str):
         train80.write.mode("overwrite").parquet(
             f"/opt/spark_data/replay_datasets/MillionSongDataset/train80_10x.parquet"
         )
-        # train90.write.mode("overwrite").parquet(
-        #     f"/opt/spark_data/replay_datasets/MillionSongDataset/train90.parquet"
-        # )
-        # train.write.mode("overwrite").parquet(
-        #     f"/opt/spark_data/replay_datasets/MillionSongDataset/train.parquet"
-        # )
 
         train_diff80.write.mode("overwrite").parquet(
             f"/opt/spark_data/replay_datasets/MillionSongDataset/train_diff80_10x.parquet"
         )
-        # train_diff90.write.mode("overwrite").parquet(
-        #     f"/opt/spark_data/replay_datasets/MillionSongDataset/train_diff90.parquet"
-        # )
-        # train_diff100.write.mode("overwrite").parquet(
-        #     f"/opt/spark_data/replay_datasets/MillionSongDataset/train_diff100.parquet"
-        # )
 
         test.write.mode("overwrite").parquet(
             f"/opt/spark_data/replay_datasets/MillionSongDataset/test_10x.parquet"
         )
-
 
 
 if __name__ == "__main__":

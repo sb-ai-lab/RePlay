@@ -1,54 +1,30 @@
-import os
 import logging.config
-import time
+import os
 
 import mlflow
-import pandas as pd
+from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, IntegerType, StringType, DateType, LongType
+from pyspark.sql.types import StructType, IntegerType
+
+from experiment_utils import get_model
 from replay.experiment import Experiment
 from replay.metrics import HitRate, MAP, NDCG
-from replay.model_handler import load, save
+from replay.models import (
+    AssociationRulesItemRec,
+    UserPopRec
+)
 from replay.session_handler import get_spark_session
 from replay.utils import (
     JobGroup,
     getNumberOfAllocatedExecutors,
     log_exec_timer,
 )
-
-from replay.models import (
-    ALSWrap,
-    SLIM,
-    LightFMWrap,
-    ItemKNN,
-    Word2VecRec,
-    PopRec,
-    RandomRec,
-    AssociationRulesItemRec,
-    UserPopRec,
-    Wilson,
-    ClusterRec,
-    UCB
-)
+from replay.utils import get_log_info2
 from replay.utils import logger
 
-# from rs_datasets import MovieLens, MillionSongDataset
-from pyspark.sql import functions as sf
 
-from replay.splitters import DateSplitter, UserSplitter
-from replay.utils import get_log_info2
-from replay.filters import filter_by_min_count, filter_out_low_ratings
-from pyspark.conf import SparkConf
-
-from experiment_utils import get_model
-
-
-# VERBOSE_LOGGING_FORMAT = (
-#     "%(asctime)s %(levelname)s %(module)s %(filename)s:%(lineno)d %(message)s"
-# )
-# logging.basicConfig(level=logging.INFO, format=VERBOSE_LOGGING_FORMAT)
-# logger = logging.getLogger("replay")
 logger.setLevel(logging.DEBUG)
+
 
 def main(spark: SparkSession, dataset_name: str):
     spark_conf: SparkConf = spark.sparkContext.getConf()
@@ -88,7 +64,6 @@ def main(spark: SparkSession, dataset_name: str):
     )  # os.environ["EXPERIMENT"]
 
     with mlflow.start_run():
-
         params = {
             "spark.driver.cores": spark_conf.get("spark.driver.cores"),
             "spark.driver.memory": spark_conf.get("spark.driver.memory"),
@@ -125,7 +100,6 @@ def main(spark: SparkSession, dataset_name: str):
                 .format("csv")
                 .schema(schema)
                 .load(
-                    # "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train70.csv"
                     "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train70_ml1m.csv"
                 )
             )
@@ -134,7 +108,6 @@ def main(spark: SparkSession, dataset_name: str):
                 .format("csv")
                 .schema(schema)
                 .load(
-                    # "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train80.csv"
                     "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train80_ml1m.csv"
                 )
             )
@@ -143,7 +116,6 @@ def main(spark: SparkSession, dataset_name: str):
                 .format("csv")
                 .schema(schema)
                 .load(
-                    # "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train_dif80.csv"
                     "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/train_dif80_ml1m.csv"
                 )
             )
@@ -152,19 +124,10 @@ def main(spark: SparkSession, dataset_name: str):
                 .format("csv")
                 .schema(schema)
                 .load(
-                    # "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/test.csv"
                     "file:///opt/spark_data/replay_datasets/MovieLens/posttraining/test_ml1m.csv"
                 )
             )
         elif dataset_name == "MillionSongDataset":
-            # schema = (
-            #     StructType()
-            #     .add("relevance", IntegerType(), True)
-            #     .add("timestamp", DateType(), True)
-            #     .add("user_idx", StringType(), True)
-            #     .add("item_idx", StringType(), True)
-            # )
-
             train70 = (
                 spark.read.parquet(
                     "/opt/spark_data/replay_datasets/MillionSongDataset/train70.parquet"
@@ -175,31 +138,11 @@ def main(spark: SparkSession, dataset_name: str):
                     "/opt/spark_data/replay_datasets/MillionSongDataset/train80.parquet"
                 )
             )
-            # train90 = (
-            #     spark.read.parquet(
-            #         "/opt/spark_data/replay_datasets/MillionSongDataset/train90.parquet"
-            #     )
-            # )
-            # train = (
-            #     spark.read.parquet(
-            #         "/opt/spark_data/replay_datasets/MillionSongDataset/train.parquet"
-            #     )
-            # )
             train_diff80 = (
                 spark.read.parquet(
                     "/opt/spark_data/replay_datasets/MillionSongDataset/train_diff80.parquet"
                 )
             )
-            # train_diff90 = (
-            #     spark.read.parquet(
-            #         "/opt/spark_data/replay_datasets/MillionSongDataset/train_diff90.parquet"
-            #     )
-            # )
-            # train_diff100 = (
-            #     spark.read.parquet(
-            #         "/opt/spark_data/replay_datasets/MillionSongDataset/train_diff100.parquet"
-            #     )
-            # )
             test = (
                 spark.read.parquet(
                     "/opt/spark_data/replay_datasets/MillionSongDataset/test.parquet"
@@ -322,9 +265,9 @@ def main(spark: SparkSession, dataset_name: str):
         mlflow.log_param("model", MODEL)
         model = get_model(MODEL, SEED, spark.sparkContext.applicationId)
 
-        filter_seen_items=True
-        if isinstance(model, (UserPopRec)):
-            filter_seen_items=False
+        filter_seen_items = True
+        if isinstance(model, UserPopRec):
+            filter_seen_items = False
 
         print("\ndataset: train70")
         with log_exec_timer(f"{MODEL} training") as train_timer, JobGroup(
@@ -336,7 +279,7 @@ def main(spark: SparkSession, dataset_name: str):
         with log_exec_timer(f"{MODEL} prediction") as infer_timer, JobGroup(
             "Model inference", f"{model.__class__.__name__}.predict()"
         ):
-            if isinstance(model, (AssociationRulesItemRec)):
+            if isinstance(model, AssociationRulesItemRec):
                 recs = model.get_nearest_items(
                     items=test,
                     k=K,
@@ -353,7 +296,7 @@ def main(spark: SparkSession, dataset_name: str):
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer70_sec", infer_timer.duration)
 
-        if not isinstance(model, (AssociationRulesItemRec)):
+        if not isinstance(model, AssociationRulesItemRec):
             with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
                 "Metrics calculation", "e.add_result()"
             ):
@@ -379,8 +322,8 @@ def main(spark: SparkSession, dataset_name: str):
                     e.results.at[MODEL, "HitRate@{}".format(k)],
                 )
 
-
         print("\ndataset: train_diff")
+
         with log_exec_timer(
             f"{MODEL} training (additional)"
         ) as train_timer, JobGroup(
@@ -392,7 +335,7 @@ def main(spark: SparkSession, dataset_name: str):
         with log_exec_timer(f"{MODEL} prediction") as infer_timer, JobGroup(
             "Model inference", f"{model.__class__.__name__}.predict()"
         ):
-            if isinstance(model, (AssociationRulesItemRec)):
+            if isinstance(model, AssociationRulesItemRec):
                 recs = model.get_nearest_items(
                     items=test,
                     k=K,
@@ -409,7 +352,7 @@ def main(spark: SparkSession, dataset_name: str):
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer_diff_sec", infer_timer.duration)
 
-        if not isinstance(model, (AssociationRulesItemRec)):
+        if not isinstance(model, AssociationRulesItemRec):
             with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
                 "Metrics calculation", "e.add_result()"
             ):
@@ -437,15 +380,10 @@ def main(spark: SparkSession, dataset_name: str):
                     e.results.at[MODEL, "HitRate@{}".format(k)],
                 )
 
-
-        # train70 = train70.unpersist(blocking=True)
-        # train70 = None
-        # train_diff80 = train_diff80.unpersist(blocking=True)
-        # train_diff80 = None
         # unpersist all caches exclude train80
-        for (id, rdd) in spark.sparkContext._jsc.getPersistentRDDs().items():
+        for (_id, rdd) in spark.sparkContext._jsc.getPersistentRDDs().items():
             rdd.unpersist()
-            print("Unpersisted {} rdd".format(id))
+            print("Unpersisted {} rdd".format(_id))
         test = test.cache()
         train80 = train80.cache()
         train80.write.mode("overwrite").format("noop").save()
@@ -463,7 +401,7 @@ def main(spark: SparkSession, dataset_name: str):
         with log_exec_timer(f"{MODEL} prediction") as infer_timer, JobGroup(
             "Model inference", f"{model2.__class__.__name__}.predict()"
         ):
-            if isinstance(model2, (AssociationRulesItemRec)):
+            if isinstance(model2, AssociationRulesItemRec):
                 recs = model2.get_nearest_items(
                     items=test,
                     k=K,
@@ -480,7 +418,7 @@ def main(spark: SparkSession, dataset_name: str):
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer80_sec", infer_timer.duration)
 
-        if not isinstance(model2, (AssociationRulesItemRec)):
+        if not isinstance(model2, AssociationRulesItemRec):
             with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
                 "Metrics calculation", "e.add_result()"
             ):
@@ -506,58 +444,6 @@ def main(spark: SparkSession, dataset_name: str):
                     MODEL, "HitRate@{}".format(k)
                 ]
             mlflow.log_metrics(metrics)
-
-
-        
-
-        # with log_exec_timer(f"Model saving") as model_save_timer:
-        #     # save_indexer(indexer, './indexer_ml1')
-        #     save(
-        #         model,
-        #         path=f"/opt/spark_data/replay_datasets/{MODEL}_{dataset_name}", # file://
-        #         overwrite=True
-        #     )
-        # mlflow.log_metric("model_save_sec", model_save_timer.duration)
-
-        # with log_exec_timer(f"Model loading") as model_load_timer:
-        #     # save_indexer(indexer, './indexer_ml1')
-        #     model_loaded = load(
-        #         path=f"/opt/spark_data/replay_datasets/{MODEL}_{dataset_name}"
-        #     )
-        # mlflow.log_metric("_loaded_model_sec", model_load_timer.duration)
-
-        # with log_exec_timer(f"{MODEL} prediction from loaded model") as infer_loaded_timer:
-        #     recs = model_loaded.predict(
-        #         k=K,
-        #         users=test.select("user_idx").distinct(),
-        #         log=train,
-        #         filter_seen_items=True,
-        #     )
-        #     recs.write.mode("overwrite").format("noop").save()
-        # mlflow.log_metric("_loaded_infer_sec", infer_loaded_timer.duration)
-
-        # with log_exec_timer(f"Metrics calculation for loaded model") as metrics_loaded_timer:
-        #     e = Experiment(
-        #         test,
-        #         {
-        #             MAP(): K_list_metrics,
-        #             NDCG(): K_list_metrics,
-        #             HitRate(): K_list_metrics,
-        #         },
-        #     )
-        #     e.add_result(MODEL, recs)
-        # mlflow.log_metric("_loaded_metrics_sec", metrics_loaded_timer.duration)
-        # for k in K_list_metrics:
-        #     mlflow.log_metric(
-        #         "_loaded_NDCG.{}".format(k), e.results.at[MODEL, "NDCG@{}".format(k)]
-        #     )
-        #     mlflow.log_metric(
-        #         "_loaded_MAP.{}".format(k), e.results.at[MODEL, "MAP@{}".format(k)]
-        #     )
-        #     mlflow.log_metric(
-        #         "_loaded_HitRate.{}".format(k),
-        #         e.results.at[MODEL, "HitRate@{}".format(k)],
-        #     )
 
 
 if __name__ == "__main__":

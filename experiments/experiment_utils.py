@@ -17,6 +17,7 @@ from replay.models import (
     UCB
 )
 
+
 def get_model(MODEL: str, SEED: int, spark_app_id: str):
     """Inits model and return instance
     """

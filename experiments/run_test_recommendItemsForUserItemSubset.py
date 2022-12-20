@@ -1,25 +1,24 @@
 import os
 
 import mlflow
+from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
+
+from experiment_utils import get_model
 from replay.experiment import Experiment
 from replay.metrics import HitRate, MAP, NDCG
+from replay.models import (
+    AssociationRulesItemRec,
+    ClusterRec,
+)
 from replay.session_handler import get_spark_session
 from replay.utils import (
     JobGroup,
     getNumberOfAllocatedExecutors,
     log_exec_timer,
 )
-
-from replay.models import (
-    AssociationRulesItemRec,
-    ClusterRec,
-)
-from replay.utils import logger
 from replay.utils import get_log_info2
-from pyspark.conf import SparkConf
-
-from experiment_utils import get_model
+from replay.utils import logger
 
 
 def main(spark: SparkSession, dataset_name: str):
@@ -103,13 +102,6 @@ def main(spark: SparkSession, dataset_name: str):
             else:
                 fraction = dataset_params[1]
 
-            # data = MillionSongDataset(
-            #     path="/opt/spark_data/replay_datasets/MillionSongDataset"
-            # )
-            # data = pd.concat([data.train, data.test, data.val])
-
-            # data = pd.read_csv(f"/opt/spark_data/replay_datasets/MillionSongDataset/train_{fraction}.csv")
-
             if fraction == "train_100m_users_1k_items":
                 train = spark.read.parquet(
                     f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train.parquet"
@@ -125,20 +117,24 @@ def main(spark: SparkSession, dataset_name: str):
                         "Train/test datasets reading to parquet"
                     ) as parquets_read_timer:
                         train = spark.read.parquet(
-                            f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train_{partition_num}_partition.parquet"
+                            f"/opt/spark_data/replay_datasets/MillionSongDataset/"
+                            f"fraction_{fraction}_train_{partition_num}_partition.parquet"
                         )
                         test = spark.read.parquet(
-                            f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test_{partition_num}_partition.parquet"
+                            f"/opt/spark_data/replay_datasets/MillionSongDataset/"
+                            f"fraction_{fraction}_test_{partition_num}_partition.parquet"
                         )
                 else:
                     with log_exec_timer(
                         "Train/test datasets reading to parquet"
                     ) as parquets_read_timer:
                         train = spark.read.parquet(
-                            f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train_24_partition.parquet"
+                            f"/opt/spark_data/replay_datasets/MillionSongDataset/"
+                            f"fraction_{fraction}_train_24_partition.parquet"
                         )
                         test = spark.read.parquet(
-                            f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test_24_partition.parquet"
+                            f"/opt/spark_data/replay_datasets/MillionSongDataset/"
+                            f"fraction_{fraction}_test_24_partition.parquet"
                         )
                         train = train.repartition(partition_num)
                         test = test.repartition(partition_num)
@@ -146,11 +142,6 @@ def main(spark: SparkSession, dataset_name: str):
                 "parquets_read_sec", parquets_read_timer.duration
             )
 
-            # mapping = {
-            #     "user_id": "user_id",
-            #     "item_id": "item_id",
-            #     "relevance": "play_count",
-            # }
         elif dataset_name == "ml1m":
             with log_exec_timer(
                 "Train/test/user_features datasets reading to parquet"
@@ -161,11 +152,9 @@ def main(spark: SparkSession, dataset_name: str):
                 test = spark.read.parquet(
                     "/opt/spark_data/replay_datasets/ml1m_test.parquet"
                 )
-                # user_features = None
                 user_features = spark.read.parquet(
                     "/opt/spark_data/replay_datasets/ml1m_user_features.parquet"
                 )
-                # .select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
                 train = train.repartition(partition_num, "user_idx")
                 test = test.repartition(partition_num, "user_idx")
             mlflow.log_metric(
@@ -182,9 +171,9 @@ def main(spark: SparkSession, dataset_name: str):
                     "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_test.parquet"
                 )
                 user_features = spark.read.parquet(
-                    "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_user_features.parquet"
+                    "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/"
+                    "ml1m_1m_users_3_7k_items_user_features.parquet"
                 )
-                # .select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
                 print(user_features.printSchema())
                 train = train.repartition(partition_num, "user_idx")
                 test = test.repartition(partition_num, "user_idx")
@@ -204,7 +193,6 @@ def main(spark: SparkSession, dataset_name: str):
                 user_features = spark.read.parquet(
                     "/opt/spark_data/replay_datasets/ml1m_1m_users_37k_items_user_features.parquet"
                 )
-                # .select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
                 print(user_features.printSchema())
                 train = train.repartition(partition_num, "user_idx")
                 test = test.repartition(partition_num, "user_idx")
@@ -232,16 +220,6 @@ def main(spark: SparkSession, dataset_name: str):
                         path=f"/spark-warehouse/bucketed_train_{spark.sparkContext.applicationId}",
                     )
                 )
-
-                # logger.debug(
-                #     f"spark.catalog.listDatabases(): {str(spark.catalog.listDatabases())}"
-                # )
-                # logger.debug(
-                #     f"spark.catalog.currentDatabase(): {spark.catalog.currentDatabase()}"
-                # )
-                # logger.debug(
-                #     f"spark.catalog.listTables('default'): {str(spark.catalog.listTables('default'))}"
-                # )
 
                 train = spark.table(
                     f"bucketed_train_{spark.sparkContext.applicationId}"
@@ -303,7 +281,7 @@ def main(spark: SparkSession, dataset_name: str):
         model = get_model(MODEL, SEED, spark.sparkContext.applicationId)
 
         kwargs = {}
-        if isinstance(model, (ClusterRec)):
+        if isinstance(model, ClusterRec):
             kwargs = {"user_features": user_features}
 
         with log_exec_timer(f"{MODEL} training") as train_timer, JobGroup(
@@ -348,7 +326,7 @@ def main(spark: SparkSession, dataset_name: str):
                 recs.write.mode("overwrite").format("noop").save()
             mlflow.log_metric("predict_filter_sec", infer_timer.duration)
 
-        if not isinstance(model, (AssociationRulesItemRec)):
+        if not isinstance(model, AssociationRulesItemRec):
             with log_exec_timer(f"Metrics calculation") as metrics_timer, JobGroup(
                 "Metrics calculation", "e.add_result()"
             ):
@@ -373,6 +351,7 @@ def main(spark: SparkSession, dataset_name: str):
                     "HitRate.{}".format(k),
                     e.results.at[MODEL, "HitRate@{}".format(k)],
                 )
+
 
 if __name__ == "__main__":
     spark_sess = get_spark_session()

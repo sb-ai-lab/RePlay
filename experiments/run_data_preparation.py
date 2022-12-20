@@ -1,18 +1,16 @@
-import os
 import logging.config
+import os
 
 import mlflow
 import pandas as pd
 from pyspark.sql import SparkSession
+from pyspark.sql import functions as sf
+from rs_datasets import MovieLens, MillionSongDataset
+
 from replay.data_preparator import DataPreparator, Indexer
 from replay.session_handler import get_spark_session
-from replay.utils import JobGroup, log_exec_timer
-
-from rs_datasets import MovieLens, MillionSongDataset
-from pyspark.sql import functions as sf
 from replay.splitters import DateSplitter, UserSplitter
-# from replay.utils import get_log_info2
-
+from replay.utils import log_exec_timer
 
 VERBOSE_LOGGING_FORMAT = (
     "%(asctime)s %(levelname)s %(module)s %(filename)s:%(lineno)d %(message)s"
@@ -24,9 +22,8 @@ logger.setLevel(logging.DEBUG)
 
 def main(spark: SparkSession, dataset_name: str):
     MLFLOW_TRACKING_URI = os.environ.get("MLFLOW_TRACKING_URI", "http://node2.bdcl:8811")
-    # partition_num = int(
-    #     spark.sparkContext.getConf().get("spark.cores.max")
-    # )  # 28
+    dataset_version = None
+    fraction = None
 
     spark_conf = spark.sparkContext.getConf()
 
@@ -38,7 +35,6 @@ def main(spark: SparkSession, dataset_name: str):
         else:
             partition_num = int(spark_conf.get("spark.cores.max"))  # 28
 
-
     if dataset_name.startswith("MovieLens"):
         # name__size__sample pattern
         dataset_params = dataset_name.split("__")
@@ -48,7 +44,6 @@ def main(spark: SparkSession, dataset_name: str):
             dataset_version = dataset_params[1]
         elif len(dataset_params) == 3:
             dataset_version = dataset_params[1]
-            n_samples = int(dataset_params[2])
         else:
             raise ValueError("Too many dataset params.")
         data = MovieLens(
@@ -73,37 +68,28 @@ def main(spark: SparkSession, dataset_name: str):
         else:
             fraction = dataset_params[1]
             if fraction == "train_10x_users":
-                data = spark.read.parquet("file:///opt/spark_data/replay_datasets/MillionSongDataset/train_10x_users.parquet")
+                data = spark.read.parquet(
+                    "file:///opt/spark_data/replay_datasets/MillionSongDataset/train_10x_users.parquet"
+                )
             elif fraction == "train_100m_users_1k_items":
-                data = spark.read.parquet("file:///opt/spark_data/replay_datasets/MillionSongDataset/train_100m_users_1k_items.parquet")
+                data = spark.read.parquet(
+                    "file:///opt/spark_data/replay_datasets/MillionSongDataset/train_100m_users_1k_items.parquet"
+                )
             else:
                 data = pd.read_csv(f"/opt/spark_data/replay_datasets/MillionSongDataset/train_{fraction}.csv")
-
-        # data = MillionSongDataset(
-        #     path="/opt/spark_data/replay_datasets/MillionSongDataset"
-        # )
-        # data = pd.concat([data.train, data.test, data.val])
 
         mapping = {
             "user_id": "user_id",
             "item_id": "item_id",
             "relevance": "play_count",
         }
-    # elif dataset_name == "ml1m":
-    #     data = pd.read_csv("/opt/spark_data/replay_datasets/ml1m_ratings.dat", sep="\t", names=["userId", "item_id", "relevance", "timestamp"])
-    #     mapping = {'user_id': 'userId',
-    #                                   'item_id': 'item_id',
-    #                                   'relevance': 'relevance',
-    #                                   'timestamp': 'timestamp'
-    #                                  }
     else:
         raise ValueError("Unknown dataset.")
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    mlflow.set_experiment(os.environ.get("EXPERIMENT", "Dataset_preparation")) # os.getenv("EXPERIMENT") f"replay-{MODEL}"
+    mlflow.set_experiment(os.environ.get("EXPERIMENT", "Dataset_preparation"))
 
     with mlflow.start_run():
-
         mlflow.log_param(
             "spark.driver.cores",
             spark.sparkContext.getConf().get("spark.driver.cores"),
@@ -141,9 +127,6 @@ def main(spark: SparkSession, dataset_name: str):
         )
 
         mlflow.log_param("dataset", dataset_name)
-        # mlflow.log_param("filter_log", os.getenv("FILTER_LOG") == "True")
-        # mlflow.log_param("seed", SEED)
-        # mlflow.log_param("K", K)
 
         with log_exec_timer("DataPreparator execution") as preparator_timer:
             preparator = DataPreparator()
@@ -158,7 +141,7 @@ def main(spark: SparkSession, dataset_name: str):
             with log_exec_timer("log filtering") as log_filtering_timer:
                 # will consider ratings >= 3 as positive feedback. A positive feedback is treated with relevance = 1
                 only_positives_log = log.filter(
-                    sf.col("relevance") >= 1 # [3 or 1] try set 1
+                    sf.col("relevance") >= 1
                 ).withColumn("relevance", sf.lit(1))
                 only_positives_log = only_positives_log.cache()
                 only_positives_log.write.mode("overwrite").format("noop").save()
@@ -196,7 +179,7 @@ def main(spark: SparkSession, dataset_name: str):
                     drop_cold_users=True,
                 )
             else:
-                ## MillionSongDataset
+                # MillionSongDataset
                 train_spl = UserSplitter(
                     item_test_size=0.2,
                     shuffle=True,
@@ -215,42 +198,29 @@ def main(spark: SparkSession, dataset_name: str):
         mlflow.log_metric("train_num_partitions", train.rdd.getNumPartitions())
         mlflow.log_metric("test_num_partitions", test.rdd.getNumPartitions())
 
-        
         if dataset_name.startswith("MillionSongDataset"):
             with log_exec_timer("Train/test datasets saving to parquet") as parquets_save_timer:
                 # WARN: 'fraction' is not fraction of test or train, it is fraction of input dataset.
-                train.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train.parquet")
-                test.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test.parquet")
+                train.write.mode('overwrite').parquet(
+                    f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train.parquet"
+                )
+                test.write.mode('overwrite').parquet(
+                    f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test.parquet"
+                )
             mlflow.log_metric(f"parquets{partition_num}_write_sec", parquets_save_timer.duration)
-
-            # partition_nums = {6, 12, 24, 48}
-            # if partition_num in partition_nums:
-            #     with log_exec_timer("Train/test datasets saving to parquet") as parquets_save_timer:
-            #         # WARN: 'fraction' is not fraction of test or train, it is fraction of input dataset.
-            #         train.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train_{partition_num}_partition.parquet")
-            #         test.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test_{partition_num}_partition.parquet")
-            #     mlflow.log_metric(f"parquets{partition_num}_write_sec", parquets_save_timer.duration)
-            #     partition_nums.remove(partition_num)
-            # for partition_num in partition_nums:
-            #     with log_exec_timer("Train/test datasets saving to parquet") as parquets_save_timer:
-            #         train1 = train.repartition(partition_num)
-            #         test1 = test.repartition(partition_num)
-            #         # WARN: 'fraction' is not fraction of test or train, it is fraction of input dataset.
-            #         train1.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train_{partition_num}_partition.parquet")
-            #         test1.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test_{partition_num}_partition.parquet")
-            #     mlflow.log_metric(f"parquets{partition_num}_write_sec", parquets_save_timer.duration)
         else:
             with log_exec_timer("Train/test datasets saving to parquet") as parquets_save_timer:
-                train.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/MovieLens/train_{dataset_version}.parquet")
-                test.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/MovieLens/test_{dataset_version}.parquet")
+                train.write.mode('overwrite').parquet(
+                    f"/opt/spark_data/replay_datasets/MovieLens/train_{dataset_version}.parquet"
+                )
+                test.write.mode('overwrite').parquet(
+                    f"/opt/spark_data/replay_datasets/MovieLens/test_{dataset_version}.parquet"
+                )
             mlflow.log_metric(f"parquets{partition_num}_write_sec", parquets_save_timer.duration)
-
 
 
 if __name__ == "__main__":
     spark_sess = get_spark_session()
     dataset = os.getenv("DATASET")
-    # dataset = "MovieLens__1m"
-    # dataset = "MillionSongDataset"
     main(spark=spark_sess, dataset_name=dataset)
     spark_sess.stop()

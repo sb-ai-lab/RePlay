@@ -1,25 +1,17 @@
-import os
 import logging.config
+import os
 
 import mlflow
 import pandas as pd
+from pyspark.ml.feature import StringIndexer
 from pyspark.sql import SparkSession
-from pyspark.ml.feature import StringIndexerModel, StringIndexer
-from replay.model_handler import save_indexer, save_splitter
-from replay.model_handler import load_indexer, load_splitter
-
-# , load_indexer, load
 
 from replay.data_preparator import DataPreparator, Indexer
-from replay.session_handler import get_spark_session
-from replay.utils import JobGroup, log_exec_timer
-
-# from rs_datasets import MovieLens, MillionSongDataset
-from pyspark.sql import functions as sf
-
-from replay.splitters import DateSplitter, UserSplitter
-from replay.utils import get_log_info2
 from replay.filters import filter_by_min_count, filter_out_low_ratings
+from replay.session_handler import get_spark_session
+from replay.splitters import DateSplitter
+from replay.utils import get_log_info2
+from replay.utils import log_exec_timer
 
 
 VERBOSE_LOGGING_FORMAT = (
@@ -107,34 +99,24 @@ def main(spark: SparkSession):
         )
         log_replay = indexer.transform(df=log)
         user_features = indexer.transform(df=user_features)
-        # save_indexer(indexer, path='/tmp/ml1m_indexer', overwrite=True)
-        # loaded_indexer = load_indexer('/tmp/ml1m_indexer')
-        # tmp = loaded_indexer.transform(log)
 
         # Index StringType columns ("gender", "zip_code")
         user_feature_indexer = StringIndexer(
             inputCol="gender", outputCol="gender_idx"
         ).fit(user_features)
-        user_features = user_feature_indexer.transform(user_features).select("user_idx", "gender_idx", "age", "occupation", "zip_code")
+        user_features = user_feature_indexer.transform(user_features)\
+            .select("user_idx", "gender_idx", "age", "occupation", "zip_code")
 
         user_feature_indexer = StringIndexer(
             inputCol="zip_code", outputCol="zip_code_idx"
         ).fit(user_features)
-        user_features = user_feature_indexer.transform(user_features).select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
-
-        
+        user_features = user_feature_indexer.transform(user_features)\
+            .select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
 
         log_replay = log_replay.repartition(partition_num)
         log_replay = log_replay.cache()
         log_replay.write.mode("overwrite").format("noop").save()
-        # splitter = UserSplitter(
-        #     drop_cold_items=True,
-        #     drop_cold_users=True,
-        #     item_test_size=K,
-        #     user_test_size=500,
-        #     seed=SEED,
-        #     shuffle=True,
-        # )
+
         splitter = DateSplitter(
             test_start=0.2,
             drop_cold_items=True,
@@ -142,9 +124,6 @@ def main(spark: SparkSession):
 
         )
         train, test = splitter.split(log_replay)
-        # save_splitter(splitter, path='/tmp/ml1m_splitter', overwrite=True)
-        # loaded_splitter = load_splitter('/tmp/ml1m_splitter')
-        # tmp = loaded_splitter.split(log_replay)
 
         with log_exec_timer("Train/test caching") as train_test_cache_timer:
             train = train.cache()
@@ -185,8 +164,8 @@ def main(spark: SparkSession):
             train.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/ml1m_train.parquet")
             test.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/ml1m_test.parquet")
             user_features.write.mode('overwrite').parquet(f"/opt/spark_data/replay_datasets/ml1m_user_features.parquet")
-        mlflow.log_metric(f"parquets{partition_num}_write_sec", parquets_save_timer.duration)
 
+        mlflow.log_metric(f"parquets{partition_num}_write_sec", parquets_save_timer.duration)
 
 
 if __name__ == "__main__":
