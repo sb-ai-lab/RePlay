@@ -7,6 +7,13 @@ Metrics
 You can also
 :ref:`add new metrics <new-metric>`.
 
+
+Metric call API
+---------------
+.. autoclass:: replay.metrics.Metric
+   :special-members: __call__
+
+
 .. _hit-rate:
 
 HitRate

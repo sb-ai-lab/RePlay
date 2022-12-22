@@ -18,4 +18,4 @@ class Precision(Metric):
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         if len(pred) == 0:
             return 0
-        return len(set(pred[:k]) & set(ground_truth)) / len(pred[:k])
+        return len(set(pred[:k]) & set(ground_truth)) / k

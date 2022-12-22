@@ -1,4 +1,5 @@
 from functools import partial
+from typing import Optional
 
 import numpy as np
 from pyspark.sql import DataFrame
@@ -7,7 +8,11 @@ from pyspark.sql import types as st
 
 from replay.constants import AnyDataFrame
 from replay.utils import convert2spark, get_top_k_recs
-from replay.metrics.base_metric import RecOnlyMetric, sorter
+from replay.metrics.base_metric import (
+    fill_na_with_empty_array,
+    RecOnlyMetric,
+    sorter,
+)
 
 
 # pylint: disable=too-few-public-methods
@@ -63,9 +68,14 @@ class Surprisal(RecOnlyMetric):
         return sum(weigths[:k]) / k
 
     def _get_enriched_recommendations(
-        self, recommendations: DataFrame, ground_truth: DataFrame, max_k: int
+        self,
+        recommendations: DataFrame,
+        ground_truth: DataFrame,
+        max_k: int,
+        ground_truth_users: Optional[AnyDataFrame] = None,
     ) -> DataFrame:
         recommendations = convert2spark(recommendations)
+        ground_truth_users = convert2spark(ground_truth_users)
         recommendations = get_top_k_recs(recommendations, max_k)
         sort_udf = sf.udf(
             partial(sorter, extra_position=2),
@@ -86,9 +96,9 @@ class Surprisal(RecOnlyMetric):
                 ],
             ),
         )
-        return (
+        recommendations = (
             recommendations.join(self.item_weights, on="item_idx", how="left")
-            .fillna(1)
+            .fillna(1.0)
             .groupby("user_idx")
             .agg(
                 sf.collect_list(
@@ -96,5 +106,19 @@ class Surprisal(RecOnlyMetric):
                 ).alias("rel_id_weight")
             )
             .withColumn("pred_rec_weight", sort_udf(sf.col("rel_id_weight")))
-            .select("user_idx", sf.col("pred_rec_weight.rec_weight"))
+            .select(
+                "user_idx",
+                sf.col("pred_rec_weight.rec_weight").alias("rec_weight"),
+            )
         )
+
+        if ground_truth_users is not None:
+            recommendations = fill_na_with_empty_array(
+                recommendations.join(
+                    ground_truth_users, on="user_idx", how="right"
+                ),
+                "rec_weight",
+                self.item_weights.schema["rec_weight"].dataType,
+            )
+
+        return recommendations
