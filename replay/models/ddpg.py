@@ -416,6 +416,7 @@ class DDPG(Recommender):
     min_value: int = -10
     max_value: int = 10
     buffer_size: int = 1000000
+    checkpoint_step: int = 10000
     _search_space = {
         "noise_sigma": {"type": "uniform", "args": [0.1, 0.6]},
         "noise_theta": {"type": "uniform", "args": [0.1, 0.4]},
@@ -719,7 +720,7 @@ class DDPG(Recommender):
                     batch = self._get_batch(step)
                     self._run_train_step(batch)
 
-                if step % 10000 == 0 and step > 0:
+                if step % self.checkpoint_step == 0 and step > 0:
                     self._save_model(self.log_dir / f"model_{step}.pt")
                 step += 1
 
