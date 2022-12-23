@@ -765,7 +765,14 @@ class BaseRecommender(ABC):
         )
 
         if k:
-            pred = get_top_k(pred, "item_idx", k)
+            pred = get_top_k(
+                dataframe=pred,
+                partition_by_col=sf.col("item_idx"),
+                order_by_col=[
+                    sf.col("relevance").desc(),
+                ],
+                k=k,
+            )
 
         if recs_file_path is not None:
             pred.write.parquet(path=recs_file_path, mode="overwrite")
