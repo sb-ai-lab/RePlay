@@ -30,7 +30,7 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.7, <3.10"
 lightfm = "*"
-lightautoml = ">=0.3.1,<0.3.7"
+lightautoml = ">=0.3.1, <0.3.7"
 numpy = ">=1.20.0"
 optuna = "*"
 pandas = "*"
