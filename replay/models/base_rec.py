@@ -765,13 +765,7 @@ class BaseRecommender(ABC):
         )
 
         if k:
-            window_f = Window.partitionBy("user_idx").orderBy("relevance")
-            pred = (
-                pred
-                .withColumn("row_number", sf.row_number().over(window_f))
-                .where(f"row_number <= {k}")
-                .drop("row_number")
-            )
+            pred = get_top_k(pred, "item_idx", k)
 
         if recs_file_path is not None:
             pred.write.parquet(path=recs_file_path, mode="overwrite")
