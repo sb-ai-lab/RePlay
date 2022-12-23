@@ -767,7 +767,7 @@ class BaseRecommender(ABC):
         if k:
             pred = get_top_k(
                 dataframe=pred,
-                partition_by_col=sf.col("item_idx"),
+                partition_by_col=sf.col("user_idx"),
                 order_by_col=[
                     sf.col("relevance").desc(),
                 ],
