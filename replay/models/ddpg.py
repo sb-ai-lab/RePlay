@@ -539,10 +539,8 @@ class DDPG(Recommender):
             )[["user_idx", "item_idx", "relevance"]]
 
         self.logger.debug("Predict started")
-        # do not apply map on cold users for MultVAE predict
-        join_type = "inner" if str(self) == "MultVAE" else "left"
         recs = (
-            users.join(log, how=join_type, on="user_idx")
+            users.join(log, how="left", on="user_idx")
             .select("user_idx", "item_idx")
             .groupby("user_idx")
             .applyInPandas(grouped_map, REC_SCHEMA)
