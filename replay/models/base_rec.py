@@ -729,6 +729,7 @@ class BaseRecommender(ABC):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         recs_file_path: Optional[str] = None,
+        k: Optional[int] = None,
     ) -> Optional[DataFrame]:
         """
         This method
@@ -763,12 +764,22 @@ class BaseRecommender(ABC):
             item_features=item_features,
         )
 
-        if recs_file_path is None:
-            pred.cache().count()
-            return pred
+        if k:
+            pred = get_top_k(
+                dataframe=pred,
+                partition_by_col=sf.col("user_idx"),
+                order_by_col=[
+                    sf.col("relevance").desc(),
+                ],
+                k=k,
+            )
 
-        pred.write.parquet(path=recs_file_path, mode="overwrite")
-        return None
+        if recs_file_path is not None:
+            pred.write.parquet(path=recs_file_path, mode="overwrite")
+            return None
+
+        pred.cache().count()
+        return pred
 
     def _predict_pairs(
         self,
@@ -1145,6 +1156,7 @@ class HybridRecommender(BaseRecommender, ABC):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         recs_file_path: Optional[str] = None,
+        k: Optional[int] = None,
     ) -> Optional[DataFrame]:
         """
         Get recommendations for specific user-item ``pairs``.
@@ -1160,15 +1172,17 @@ class HybridRecommender(BaseRecommender, ABC):
             ``[item_idx , timestamp]`` + feature columns
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
+        :param k: top-k items for each user from pairs.
         :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
             or None if `file_path` is provided
         """
         return self._predict_pairs_wrap(
-            pairs,
-            log,
-            user_features,
-            item_features,
+            pairs=pairs,
+            log=log,
+            user_features=user_features,
+            item_features=item_features,
             recs_file_path=recs_file_path,
+            k=k,
         )
 
     def get_features(
@@ -1247,6 +1261,7 @@ class Recommender(BaseRecommender, ABC):
         pairs: DataFrame,
         log: Optional[DataFrame] = None,
         recs_file_path: Optional[str] = None,
+        k: Optional[int] = None,
     ) -> Optional[DataFrame]:
         """
         Get recommendations for specific user-item ``pairs``.
@@ -1258,11 +1273,15 @@ class Recommender(BaseRecommender, ABC):
             ``[user_idx, item_idx, timestamp, relevance]``
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
+        :param k: top-k items for each user from pairs.
         :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
             or None if `file_path` is provided
         """
         return self._predict_pairs_wrap(
-            pairs, log, None, None, recs_file_path=recs_file_path
+            pairs=pairs,
+            log=log,
+            recs_file_path=recs_file_path,
+            k=k,
         )
 
     # pylint: disable=too-many-arguments
@@ -1384,6 +1403,7 @@ class UserRecommender(BaseRecommender, ABC):
         user_features: DataFrame,
         log: Optional[DataFrame] = None,
         recs_file_path: Optional[str] = None,
+        k: Optional[int] = None,
     ) -> Optional[DataFrame]:
         """
         Get recommendations for specific user-item ``pairs``.
@@ -1397,11 +1417,16 @@ class UserRecommender(BaseRecommender, ABC):
             ``[user_idx, item_idx, timestamp, relevance]``
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
+        :param k: top-k items for each user from pairs.
         :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
             or None if `file_path` is provided
         """
         return self._predict_pairs_wrap(
-            pairs, log, user_features, None, recs_file_path=recs_file_path
+            pairs=pairs,
+            log=log,
+            user_features=user_features,
+            recs_file_path=recs_file_path,
+            k=k,
         )
 
 
@@ -1816,4 +1841,4 @@ class NonPersonalizedRecommender(Recommender, ABC):
             self.item_popularity,
             on="item_idx",
             how="left" if self.add_cold_items else "inner",
-        ).fillna(value=self.fill, subset=["relevance"])
+        ).fillna(value=self.fill, subset=["relevance"]).select("user_idx", "item_idx", "relevance")
