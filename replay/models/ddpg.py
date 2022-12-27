@@ -49,7 +49,9 @@ class ReplayBuffer:
 
     def push(self, user, memory, action, reward, next_user, next_memory, done):
         """Add transition to buffer."""
-        max_priority = self.priorities.max() if self.buffer else 1.0
+        max_priority = (
+            self.priorities.max() if len(self.buffer["user"]) > 0 else 1.0
+        )
 
         if len(self.buffer) < self.capacity:
             self.buffer["user"].append(user)
@@ -74,17 +76,17 @@ class ReplayBuffer:
     # pylint: disable=too-many-locals
     def sample(self, batch_size, beta=0.4):
         """Sample transition from buffer."""
-        if len(self.buffer) == self.capacity:
+        current_buffer_len = len(self.buffer["user"])
+        if current_buffer_len == self.capacity:
             priorities = self.priorities
         else:
             priorities = self.priorities[: self.pos]
 
         probs = priorities ** self.prob_alpha
         probs /= probs.sum()
-        indices = np.random.choice(len(self.buffer["user"]), batch_size, p=probs)
+        indices = np.random.choice(current_buffer_len, batch_size, p=probs)
 
-        total = len(self.buffer)
-        weights = (total * probs[indices]) ** (-beta)
+        weights = (current_buffer_len * probs[indices]) ** (-beta)
         weights /= weights.max()
         weights = np.array(weights, dtype=np.float32)
 
@@ -103,7 +105,7 @@ class ReplayBuffer:
         }
 
     def __len__(self):
-        return len(self.buffer)
+        return len(self.buffer["user"])
 
 
 # pylint: disable=too-many-instance-attributes,too-many-arguments,not-callable
