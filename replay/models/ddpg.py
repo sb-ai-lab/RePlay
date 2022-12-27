@@ -247,6 +247,11 @@ class Env:
     """
 
     matrix: np.array
+    related_items: np.array
+    nonrelated_items: np.array
+    available_items: list
+    user_id: int
+    num_rele: int
 
     def __init__(self, item_num, user_num, memory_size):
         """
@@ -270,12 +275,6 @@ class Env:
         self.user_count = user_num
         self.memory_size = memory_size
         self.memory = np.ones([user_num, memory_size]) * item_num
-
-        self.user_id = 0
-        self.related_items = np.arange(item_num)
-        self.nonrelated_items = np.arange(item_num)
-        self.num_rele = len(self.related_items)
-        self.available_items = list(np.zeros(self.num_rele * 2))
 
     def update_env(self, matrix=None, item_count=None):
         """Update some of Env attributes."""
