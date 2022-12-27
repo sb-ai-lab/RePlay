@@ -5,7 +5,7 @@ import io
 import logging
 import os
 import tempfile
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import d3rlpy.algos.cql as CQL_d3rlpy
 import numpy as np
@@ -15,6 +15,9 @@ from d3rlpy.argument_utility import (
     EncoderArg, QFuncArg, UseGPUArg, ScalerArg, ActionScalerArg,
     RewardScalerArg
 )
+from d3rlpy.base import ImplBase, LearnableBase, _serialize_params
+from d3rlpy.constants import IMPL_NOT_INITIALIZED_ERROR
+from d3rlpy.context import disable_parallel
 from d3rlpy.dataset import MDPDataset
 from d3rlpy.models.optimizers import OptimizerFactory, AdamFactory
 from pyspark.sql import DataFrame, functions as sf
@@ -116,9 +119,12 @@ class CQL(Recommender):
     """
 
     top_k: int
-    action_randomization_scale: float
     n_epochs: int
+    action_randomization_scale: float
     model: CQL_d3rlpy.CQL
+
+    _observation_shape = (1, )
+    _action_size = 1
 
     _search_space = {
         "actor_learning_rate": {"type": "loguniform", "args": [1e-5, 1e-3]},
@@ -132,39 +138,40 @@ class CQL(Recommender):
     }
     
     def __init__(
-        self, *,
-        top_k: int, n_epochs: int = 1,
-        action_randomization_scale: float = 1e-3,
+            self, *,
+            top_k: int,
+            n_epochs: int = 1,
+            action_randomization_scale: float = 1e-3,
 
-        # CQL inner params
-        actor_learning_rate: float = 1e-4,
-        critic_learning_rate: float = 3e-4,
-        temp_learning_rate: float = 1e-4,
-        alpha_learning_rate: float = 1e-4,
-        actor_optim_factory: OptimizerFactory = AdamFactory(),
-        critic_optim_factory: OptimizerFactory = AdamFactory(),
-        temp_optim_factory: OptimizerFactory = AdamFactory(),
-        alpha_optim_factory: OptimizerFactory = AdamFactory(),
-        actor_encoder_factory: EncoderArg = "default",
-        critic_encoder_factory: EncoderArg = "default",
-        q_func_factory: QFuncArg = "mean",
-        batch_size: int = 256,
-        n_frames: int = 1,
-        n_steps: int = 1,
-        gamma: float = 0.99,
-        tau: float = 0.005,
-        n_critics: int = 2,
-        initial_temperature: float = 1.0,
-        initial_alpha: float = 1.0,
-        alpha_threshold: float = 10.0,
-        conservative_weight: float = 5.0,
-        n_action_samples: int = 10,
-        soft_q_backup: bool = False,
-        use_gpu: UseGPUArg = False,
-        scaler: ScalerArg = None,
-        action_scaler: ActionScalerArg = None,
-        reward_scaler: RewardScalerArg = None,
-        **params
+            # CQL inner params
+            actor_learning_rate: float = 1e-4,
+            critic_learning_rate: float = 3e-4,
+            temp_learning_rate: float = 1e-4,
+            alpha_learning_rate: float = 1e-4,
+            actor_optim_factory: OptimizerFactory = AdamFactory(),
+            critic_optim_factory: OptimizerFactory = AdamFactory(),
+            temp_optim_factory: OptimizerFactory = AdamFactory(),
+            alpha_optim_factory: OptimizerFactory = AdamFactory(),
+            actor_encoder_factory: EncoderArg = "default",
+            critic_encoder_factory: EncoderArg = "default",
+            q_func_factory: QFuncArg = "mean",
+            batch_size: int = 256,
+            n_frames: int = 1,
+            n_steps: int = 1,
+            gamma: float = 0.99,
+            tau: float = 0.005,
+            n_critics: int = 2,
+            initial_temperature: float = 1.0,
+            initial_alpha: float = 1.0,
+            alpha_threshold: float = 10.0,
+            conservative_weight: float = 5.0,
+            n_action_samples: int = 10,
+            soft_q_backup: bool = False,
+            use_gpu: UseGPUArg = False,
+            scaler: ScalerArg = None,
+            action_scaler: ActionScalerArg = None,
+            reward_scaler: RewardScalerArg = None,
+            **params
     ):
         super().__init__()
         self.top_k = top_k
@@ -201,6 +208,14 @@ class CQL(Recommender):
             action_scaler=action_scaler,
             reward_scaler=reward_scaler,
             **params
+        )
+
+        # explicitly create the model's algorithm implementation at init stage
+        # despite the lazy on-fit init convention in d3rlpy a) to avoid serialization
+        # complications and b) to make model ready for prediction even before fitting
+        self.model.create_impl(
+            observation_shape=self._observation_shape,
+            action_size=self._action_size
         )
 
     def _fit(
@@ -328,14 +343,48 @@ class CQL(Recommender):
         )
     
     @property
-    def _init_args(self):
+    def _init_args(self) -> Dict[str, Any]:
+        # non-model hyperparams
         args = dict(
             top_k=self.top_k,
             action_randomization_scale=self.action_randomization_scale,
             n_epochs=self.n_epochs,
         )
-        args.update(**self.model.get_params())
+        # model internal hyperparams
+        args.update(**self._get_model_hyperparams(self.model))
         return args
+
+    def _save_model(self, path: str) -> None:
+        self.logger.debug(f'-- Saving model to {path}')
+        self.model.save_model(path)
+
+    def _load_model(self, path: str) -> None:
+        self.logger.debug(f'-- Loading model from {path}')
+        self.model.load_model(path)
+
+    @staticmethod
+    def _get_model_hyperparams(model: LearnableBase) -> Dict[str, Any]:
+        """Get model hyperparams as dictionary.
+
+        NB: The code is taken from a `d3rlpy.LearnableBase.save_params(logger)` method as
+        there's no method to just return such params without saving them.
+        """
+        assert model._impl is not None, IMPL_NOT_INITIALIZED_ERROR
+
+        # get hyperparameters without impl
+        params = {}
+        with disable_parallel():
+            for k, v in model.get_params(deep=False).items():
+                if isinstance(v, (ImplBase, LearnableBase)):
+                    continue
+                params[k] = v
+
+        # save algorithm name
+        params["algorithm"] = model.__class__.__name__
+
+        # serialize objects
+        params = _serialize_params(params)
+        return params
 
     def serialize_policy(self) -> bytes:
         # store using temporary file and immediately read serialized version
