@@ -308,19 +308,19 @@ class Env:
         initial_user = self.user_id
         initial_memory = self.memory[[initial_user], :]
 
-        reward = float(to_np(action)[0] in self.related_items)
+        reward = float(to_np(action[0]) in self.related_items)
         if reward:
             self.memory[self.user_id] = list(
                 self.memory[self.user_id][1:]
             ) + [action]
 
-        self.available_items.remove(to_np(action)[0])
+        self.available_items.remove(to_np(action[0]))
 
         if buffer is not None:
             buffer.push(
                 np.array([initial_user]),
                 np.array(initial_memory),
-                to_np(action_emb)[0],
+                to_np(action_emb[0]),
                 np.array([reward]),
                 np.array([self.user_id]),
                 self.memory[[self.user_id], :],
