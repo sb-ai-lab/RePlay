@@ -41,7 +41,7 @@ class ReplayBuffer:
 
     def push(self, user, memory, action, reward, next_user, next_memory, done):
         """Add transition to buffer."""
-        max_prio = self.priorities.max() if self.buffer else 1.0
+        max_priority = self.priorities.max() if self.buffer else 1.0
 
         if len(self.buffer) < self.capacity:
             self.buffer.append(
@@ -58,18 +58,18 @@ class ReplayBuffer:
                 done,
             )
 
-        self.priorities[self.pos] = max_prio
+        self.priorities[self.pos] = max_priority
         self.pos = (self.pos + 1) % self.capacity
 
     # pylint: disable=too-many-locals
     def sample(self, batch_size, beta=0.4):
         """Sample transition from buffer."""
         if len(self.buffer) == self.capacity:
-            prios = self.priorities
+            priorities = self.priorities
         else:
-            prios = self.priorities[: self.pos]
+            priorities = self.priorities[: self.pos]
 
-        probs = prios ** self.prob_alpha
+        probs = priorities ** self.prob_alpha
         probs /= probs.sum()
 
         indices = np.random.choice(len(self.buffer), batch_size, p=probs)
