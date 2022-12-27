@@ -35,7 +35,15 @@ class ReplayBuffer:
     def __init__(self, capacity: int = 1000000, prob_alpha: float = 0.6):
         self.prob_alpha = prob_alpha
         self.capacity = capacity
-        self.buffer = []
+        self.buffer = {
+            "user": [],
+            "memory": [],
+            "action": [],
+            "reward": [],
+            "next_user": [],
+            "next_memory": [],
+            "done": [],
+        }
         self.pos = 0
         self.priorities = np.zeros((capacity,), dtype=np.float32)
 
@@ -44,19 +52,21 @@ class ReplayBuffer:
         max_priority = self.priorities.max() if self.buffer else 1.0
 
         if len(self.buffer) < self.capacity:
-            self.buffer.append(
-                (user, memory, action, reward, next_user, next_memory, done)
-            )
+            self.buffer["user"].append(user)
+            self.buffer["memory"].append(memory)
+            self.buffer["action"].append(action)
+            self.buffer["reward"].append(reward)
+            self.buffer["next_user"].append(next_user)
+            self.buffer["next_memory"].append(next_memory)
+            self.buffer["done"].append(done)
         else:
-            self.buffer[self.pos] = (
-                user,
-                memory,
-                action,
-                reward,
-                next_user,
-                next_memory,
-                done,
-            )
+            self.buffer["user"][self.pos] = user
+            self.buffer["memory"][self.pos] = memory
+            self.buffer["action"][self.pos] = action
+            self.buffer["reward"][self.pos] = reward
+            self.buffer["next_user"][self.pos] = next_user
+            self.buffer["next_memory"][self.pos] = next_memory
+            self.buffer["done"][self.pos] = done
 
         self.priorities[self.pos] = max_priority
         self.pos = (self.pos + 1) % self.capacity
@@ -71,25 +81,22 @@ class ReplayBuffer:
 
         probs = priorities ** self.prob_alpha
         probs /= probs.sum()
-
         indices = np.random.choice(len(self.buffer), batch_size, p=probs)
-        samples = [self.buffer[idx] for idx in indices]
 
         total = len(self.buffer)
         weights = (total * probs[indices]) ** (-beta)
         weights /= weights.max()
         weights = np.array(weights, dtype=np.float32)
 
-        batch = list(zip(*samples))
-        user = np.concatenate(batch[0])
-        memory = np.concatenate(batch[1])
-        action = batch[2]
-        reward = batch[3]
-        next_user = np.concatenate(batch[4])
-        next_memory = np.concatenate(batch[5])
-        done = batch[6]
-
-        return user, memory, action, reward, next_user, next_memory, done
+        return {
+            "user": np.concatenate(np.array(self.buffer["user"])[indices]),
+            "memory": np.concatenate(np.array(self.buffer["memory"])[indices]),
+            "action": np.array(self.buffer["action"])[indices],
+            "reward": np.array(self.buffer["reward"])[indices],
+            "next_user": np.concatenate(np.array(self.buffer["next_user"])[indices]),
+            "next_memory": np.concatenate(np.array(self.buffer["next_memory"])[indices]),
+            "done": np.array(self.buffer["done"])[indices],
+        }
 
     def __len__(self):
         return len(self.buffer)
@@ -460,14 +467,14 @@ class DDPG(Recommender):
         }
 
     # pylint: disable=too-many-locals
-    def _batch_pass(self, batch) -> Dict[str, Any]:
-        user = torch.FloatTensor(batch[0])
-        memory = torch.FloatTensor(batch[1])
-        action = torch.FloatTensor(batch[2])
-        reward = torch.FloatTensor(batch[3])
-        next_user = torch.FloatTensor(batch[4])
-        next_memory = torch.FloatTensor(batch[5])
-        done = torch.FloatTensor(batch[6])
+    def _batch_pass(self, batch: dict) -> Dict[str, Any]:
+        user = torch.FloatTensor(batch["user"])
+        memory = torch.FloatTensor(batch["memory"])
+        action = torch.FloatTensor(batch["action"])
+        reward = torch.FloatTensor(batch["reward"])
+        next_user = torch.FloatTensor(batch["next_user"])
+        next_memory = torch.FloatTensor(batch["next_memory"])
+        done = torch.FloatTensor(batch["done"])
 
         state = self.model.state_repr(user, memory)
         policy_loss = self.value_net(state, self.model(user, memory))
@@ -595,12 +602,12 @@ class DDPG(Recommender):
 
         return train_matrix, user_num, item_num, appropriate_users
 
-    def _get_batch(self, step=0):
+    def _get_batch(self, step: int = 0) -> dict:
         beta = self._get_beta(step)
         batch = self.replay_buffer.sample(self.batch_size, beta)
         return batch
 
-    def _run_train_step(self, batch):
+    def _run_train_step(self, batch: dict) -> None:
         policy_loss, value_loss = self._batch_pass(batch)
 
         self.policy_optimizer.zero_grad()
