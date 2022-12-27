@@ -310,14 +310,9 @@ class Env:
 
         reward = float(to_np(action)[0] in self.related_items)
         if reward:
-            if len(action) == 1:
-                self.memory[self.user_id] = list(
-                    self.memory[self.user_id][1:]
-                ) + [action]
-            else:
-                self.memory[self.user_id] = list(
-                    self.memory[self.user_id][1:]
-                ) + [action[0]]
+            self.memory[self.user_id] = list(
+                self.memory[self.user_id][1:]
+            ) + [action]
 
         self.available_items.remove(to_np(action)[0])
 
