@@ -125,24 +125,28 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
         "random_rec",
     ],
 )
-def test_predict_pairs_warm_items_only(log, log_to_pred, model):
-    model.fit(log)
+class TestAllModels:
+    def test_predict_pairs_top_k(self, log, log_to_pred, model):
+        model.fit(log)
 
-    pairs_pred_k = model.predict_pairs(
-        pairs=log.select("user_idx", "item_idx"),
-        log=log,
-        k=2,
-    )
+        pairs_pred_k = model.predict_pairs(
+            pairs=log.select("user_idx", "item_idx"),
+            log=log,
+            k=2,
+        )
 
-    pairs_pred = model.predict_pairs(
-        pairs=log.select("user_idx", "item_idx"),
-        log=log,
-        k=None,
-    )
+        pairs_pred = model.predict_pairs(
+            pairs=log.select("user_idx", "item_idx"),
+            log=log,
+            k=None,
+        )
 
-    assert pairs_pred_k.groupBy("user_idx").count().filter(f"count > 2").count() == 0
-    assert pairs_pred.groupBy("user_idx").count().filter(f"count > 2").count() != 0
+        assert pairs_pred_k.groupBy("user_idx").count().filter(f"count > 2").count() == 0
+        assert pairs_pred.groupBy("user_idx").count().filter(f"count > 2").count() != 0
 
+    def test_empty_log(self, log, model):
+        model.fit(log)
+        model.predict(log.limit(0), 1)
 
 @pytest.mark.parametrize(
     "model",
