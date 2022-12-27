@@ -93,8 +93,12 @@ class ReplayBuffer:
             "memory": np.concatenate(np.array(self.buffer["memory"])[indices]),
             "action": np.array(self.buffer["action"])[indices],
             "reward": np.array(self.buffer["reward"])[indices],
-            "next_user": np.concatenate(np.array(self.buffer["next_user"])[indices]),
-            "next_memory": np.concatenate(np.array(self.buffer["next_memory"])[indices]),
+            "next_user": np.concatenate(
+                np.array(self.buffer["next_user"])[indices]
+            ),
+            "next_memory": np.concatenate(
+                np.array(self.buffer["next_memory"])[indices]
+            ),
             "done": np.array(self.buffer["done"])[indices],
         }
 
@@ -317,9 +321,9 @@ class Env:
 
         reward = float(to_np(action[0]) in self.related_items)
         if reward:
-            self.memory[self.user_id] = list(
-                self.memory[self.user_id][1:]
-            ) + [action]
+            self.memory[self.user_id] = list(self.memory[self.user_id][1:]) + [
+                action
+            ]
 
         self.available_items.remove(to_np(action[0]))
 
@@ -417,11 +421,19 @@ class DDPG(Recommender):
     min_value: int = -10
     max_value: int = 10
     buffer_size: int = 1000000
-    checkpoint_step: int = 10000
     _search_space = {
         "noise_sigma": {"type": "uniform", "args": [0.1, 0.6]},
         "noise_theta": {"type": "uniform", "args": [0.1, 0.4]},
     }
+    checkpoint_step: int = 10000
+    replay_buffer: ReplayBuffer
+    ou_noise: OUNoise
+    model: ActorDRR
+    target_model: ActorDRR
+    value_net: CriticDRR
+    target_value_net: CriticDRR
+    policy_optimizer: Ranger
+    value_optimizer: Ranger
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -570,7 +582,9 @@ class DDPG(Recommender):
         recs = (
             pairs.groupBy("user_idx")
             .agg(sf.collect_list("item_idx").alias("item_idx_to_pred"))
-            .join(log.select("user_idx").distinct(), on="user_idx", how="inner")
+            .join(
+                log.select("user_idx").distinct(), on="user_idx", how="inner"
+            )
             .groupby("user_idx")
             .applyInPandas(grouped_map, REC_SCHEMA)
         )
@@ -731,7 +745,7 @@ class DDPG(Recommender):
         self.logger.debug(
             "-- Saving model from file (user_num=%d, item_num=%d)",
             self.user_num,
-            self.item_num
+            self.item_num,
         )
         torch.save(
             {
