@@ -81,7 +81,7 @@ class ReplayBuffer:
 
         probs = priorities ** self.prob_alpha
         probs /= probs.sum()
-        indices = np.random.choice(len(self.buffer), batch_size, p=probs)
+        indices = np.random.choice(len(self.buffer["user"]), batch_size, p=probs)
 
         total = len(self.buffer)
         weights = (total * probs[indices]) ** (-beta)
@@ -643,7 +643,6 @@ class DDPG(Recommender):
                 target_param.data * (1.0 - soft_tau) + param.data * soft_tau
             )
 
-    # pylint: disable=attribute-defined-outside-init
     def _init_inner(self):
         self.replay_buffer = ReplayBuffer(self.buffer_size)
         self.ou_noise = OUNoise(
