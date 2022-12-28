@@ -144,9 +144,10 @@ class TestAllModels:
         assert pairs_pred_k.groupBy("user_idx").count().filter(f"count > 2").count() == 0
         assert pairs_pred.groupBy("user_idx").count().filter(f"count > 2").count() != 0
 
-    def test_empty_log(self, log, model):
+    def test_predict_empty_log(self, log, model):
         model.fit(log)
         model.predict(log.limit(0), 1)
+
 
 @pytest.mark.parametrize(
     "model",

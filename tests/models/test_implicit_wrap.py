@@ -63,7 +63,6 @@ class TestAllImplicitModels:
 
         sparkDataFrameEqual(pairs.select("user_idx","item_idx"), pred.select("user_idx","item_idx"))
 
-
-    def test_empty_log(self, log, model):
+    def test_predict_empty_log(self, log, model):
         model.fit(log)
         model.predict(log.limit(0), 1)
