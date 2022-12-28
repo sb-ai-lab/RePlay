@@ -255,7 +255,8 @@ def take_num_days_of_user_hist(
     return (
         log.withColumn("max_date", sf.max(col(date_col)).over(window))
         .filter(
-            col(date_col).cast(TimestampType()) > col("max_date").cast(TimestampType()) - sf.expr(f"INTERVAL {days} days")
+            col(date_col).cast(TimestampType())
+            > col("max_date").cast(TimestampType()) - sf.expr(f"INTERVAL {days} days")
         )
         .drop("max_date")
     )
@@ -383,7 +384,7 @@ def take_num_days_of_global_hist(
         end_date = sf.lit(start_date).cast(TimestampType()) + sf.expr(
             f"INTERVAL {duration_days} days"
         )
-        return log.filter(col(date_column).cast(TimestampType())     < end_date)
+        return log.filter(col(date_column).cast(TimestampType()) < end_date)
 
     end_date = log.agg(sf.max(date_column)).first()[0]
     start_date = sf.lit(end_date).cast(TimestampType()) - sf.expr(
