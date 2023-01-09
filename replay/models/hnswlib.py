@@ -54,7 +54,7 @@ class HnswlibIndexFileManager:
             if self._filesystem == FileSystem.HDFS:
                 with tempfile.TemporaryDirectory() as temp_path:
                     tmp_file_path = os.path.join(
-                        temp_path, "nmslib_hnsw_index"
+                        temp_path, "hnswlib_index"
                     )
                     source_filesystem = fs.HadoopFileSystem.from_uri(
                         self._hdfs_uri
@@ -86,7 +86,7 @@ class HnswlibMixin:
 
     def _build_hnsw_index(
         self,
-        item_vectors: DataFrame,
+        vectors: DataFrame,
         features_col: str,
         params: Dict[str, Any],
         dim: int,
@@ -96,8 +96,12 @@ class HnswlibMixin:
         """Builds hnsw index and dump it to hdfs or disk.
 
         Args:
-            item_vectors (DataFrame): DataFrame with item vectors
-            params (Dict[str, Any]): hnsw params
+            vectors: DataFrame with vectors. Schema: [{id_col}: int, {features_col}: array<float>]
+            features_col: the name of the column in the `vectors` dataframe that contains features (vectors).
+            params: index params
+            dim: feature (vector) length
+            num_elements: how many elements will be stored in the index
+            id_col: the name of the column in the `vectors` dataframe that contains ids (of vectors)
         """
 
         with JobGroup(
@@ -106,7 +110,7 @@ class HnswlibMixin:
         ):
             if params["build_index_on"] == "executor":
                 # to execution in one executor
-                item_vectors = item_vectors.repartition(1)
+                vectors = vectors.repartition(1)
 
                 filesystem, hdfs_uri, index_path = get_filesystem(
                     params["index_path"]
@@ -122,44 +126,45 @@ class HnswlibMixin:
                         M=params["M"],
                     )
 
+                    # pdf is a pandas dataframe that contains ids and features (vectors)
                     for pdf in iterator:
-                        item_vectors_np = np.squeeze(pdf[features_col].values)
+                        vectors_np = np.squeeze(pdf[features_col].values)
                         if id_col:
                             index.add_items(
-                                np.stack(item_vectors_np), pdf[id_col].values
+                                np.stack(vectors_np), pdf[id_col].values
                             )
                         else:
-                            # ids will be from [0, ..., len(item_vectors_np)]
-                            index.add_items(np.stack(item_vectors_np))
+                            # ids will be from [0, ..., len(vectors_np)]
+                            index.add_items(np.stack(vectors_np))
 
                     if filesystem == FileSystem.HDFS:
-                        temp_path = tempfile.mkdtemp()
-                        tmp_file_path = os.path.join(
-                            temp_path, "nmslib_hnsw_index"
-                        )
-                        index.save_index(tmp_file_path)
+                        with tempfile.TemporaryDirectory() as temp_path:
+                            tmp_file_path = os.path.join(
+                                temp_path, "hnswlib_index"
+                            )
+                            index.save_index(tmp_file_path)
 
-                        destination_filesystem = fs.HadoopFileSystem.from_uri(
-                            hdfs_uri
-                        )
-                        fs.copy_files(
-                            "file://" + tmp_file_path,
-                            index_path,
-                            destination_filesystem=destination_filesystem,
-                        )
-                        # param use_threads=True (?)
+                            destination_filesystem = fs.HadoopFileSystem.from_uri(
+                                hdfs_uri
+                            )
+                            fs.copy_files(
+                                "file://" + tmp_file_path,
+                                index_path,
+                                destination_filesystem=destination_filesystem,
+                            )
+                            # param use_threads=True (?)
                     else:
                         index.save_index(index_path)
 
                     yield pd.DataFrame(data={"_success": 1}, index=[0])
 
                 # builds index on executor and writes it to shared disk or hdfs
-                item_vectors.select("item_idx", features_col).mapInPandas(
+                vectors.select(id_col, features_col).mapInPandas(
                     build_index, "_success int"
-                ).show()
+                ).collect()
             else:
-                item_vectors = item_vectors.toPandas()
-                item_vectors_np = np.squeeze(item_vectors[features_col].values)
+                vectors = vectors.toPandas()
+                vectors_np = np.squeeze(vectors[features_col].values)
 
                 index = hnswlib.Index(space=params["space"], dim=dim)
 
@@ -172,15 +177,15 @@ class HnswlibMixin:
 
                 if id_col:
                     index.add_items(
-                        np.stack(item_vectors_np), item_vectors[id_col].values
+                        np.stack(vectors_np), vectors[id_col].values
                     )
                 else:
-                    index.add_items(np.stack(item_vectors_np))
+                    index.add_items(np.stack(vectors_np))
 
                 # saving index to local temp file and sending it to executors
                 temp_path = tempfile.mkdtemp()
                 tmp_file_path = os.path.join(
-                    temp_path, "nmslib_hnsw_index_" + self.uid
+                    temp_path, "hnswlib_index_" + self.uid
                 )
                 # index.saveIndex(tmp_file_path)
                 index.save_index(tmp_file_path)
@@ -196,7 +201,7 @@ class HnswlibMixin:
         num_elements: int,
     ):
         index = hnswlib.Index(space=params["space"], dim=dim)
-        index_path = SparkFiles.get("nmslib_hnsw_index_" + self.uid)
+        index_path = SparkFiles.get("hnswlib_index_" + self.uid)
         index.load_index(index_path, max_elements=num_elements)
         item_vectors = item_vectors.toPandas()
         item_vectors_np = np.squeeze(item_vectors[features_col].values)
@@ -206,7 +211,7 @@ class HnswlibMixin:
         # saving index to local temp file and sending it to executors
         temp_path = tempfile.mkdtemp()
         tmp_file_path = os.path.join(
-            temp_path, "nmslib_hnsw_index_" + self.uid
+            temp_path, "hnswlib_index_" + self.uid
         )
         index.save_index(tmp_file_path)
         spark = SparkSession.getActiveSession()
@@ -214,7 +219,7 @@ class HnswlibMixin:
 
     def _infer_hnsw_index(
         self,
-        user_vectors: DataFrame,
+        vectors: DataFrame,
         features_col: str,
         params: Dict[str, Any],
         k: int,
@@ -232,7 +237,7 @@ class HnswlibMixin:
             _index_file_manager = HnswlibIndexFileManager(
                 params,
                 index_dim,
-                index_filename="nmslib_hnsw_index_" + self.uid,
+                index_filename="hnswlib_index_" + self.uid,
             )
 
         index_file_manager_broadcast = State().session.sparkContext.broadcast(
@@ -240,12 +245,12 @@ class HnswlibMixin:
         )
 
         return_type = (
-            "user_idx int, item_idx array<int>, distance array<double>"
+            "item_idx array<int>, distance array<double>"
         )
 
         @pandas_udf(return_type)
-        def infer_index(
-            user_ids: pd.Series, vectors: pd.Series, num_items: pd.Series
+        def infer_index( # user_ids: pd.Series,
+            vectors: pd.Series, num_items: pd.Series
         ) -> pd.DataFrame:
             index_file_manager = index_file_manager_broadcast.value
             index = index_file_manager.index
@@ -254,24 +259,15 @@ class HnswlibMixin:
             max_items_to_retrieve = num_items.max()
 
             labels, distances = index.knn_query(
-                np.stack(vectors.values), k=k + max_items_to_retrieve
+                np.stack(vectors.values), k=k + max_items_to_retrieve,
+                num_threads=1
             )
-            # neighbours = index.knnQueryBatch(
-            #     np.stack(vectors.values),
-            #     k=k + max_items_to_retrieve,
-            #     num_threads=1
-            # )
-            # pd_res = pd.DataFrame(
-            #     neighbours, columns=["item_idx", "distance"]
-            # )
+            # TODO: num_threads = 1 ?
+
             # pd_res = pd.DataFrame({'labels': list(labels), 'distances': list(distances)})
             pd_res = pd.DataFrame(
                 {"item_idx": list(labels), "distance": list(distances)}
             )
-
-            # which is better?
-            # pd_res['user_idx'] = user_ids
-            pd_res = pd_res.assign(user_idx=user_ids.values)
 
             return pd_res
 
@@ -279,8 +275,9 @@ class HnswlibMixin:
             "infer_index()",
             "infer_hnsw_index (inside 1)",
         ):
-            res = user_vectors.select(
-                infer_index("user_idx", features_col, "num_items").alias("r")
+            res = vectors.select(
+                "user_idx",
+                infer_index(features_col, "num_items").alias("r")
             )
             # res = res.cache()
             # res.write.mode("overwrite").format("noop").save()
@@ -290,7 +287,7 @@ class HnswlibMixin:
             "infer_hnsw_index (inside 2)",
         ):
             res = res.select(
-                "*",
+                "user_idx",
                 sf.explode(sf.arrays_zip("r.item_idx", "r.distance")).alias(
                     "zip_exp"
                 ),
@@ -302,7 +299,7 @@ class HnswlibMixin:
             distance_field_name: str = fields[1]["name"]
 
             res = res.select(
-                sf.col("r.user_idx").alias("user_idx"),
+                "user_idx",
                 sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx"),
                 (
                     sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")
@@ -313,18 +310,25 @@ class HnswlibMixin:
 
         return res
 
-    def _save_nmslib_hnsw_index(self, path):
+    def _save_hnswlib_index(self, path: str):
         """Method save (copy) index from hdfs (or local) to `path` directory.
-        `path` can be an hdfs path or a local path.
+        `path` can be a hdfs path or a local path.
 
         Args:
-            path (_type_): directory where to dump (copy) the index
+            path (str): directory where to dump (copy) the index
         """
 
-        params = self._nmslib_hnsw_params
+        params = self._hnswlib_params
+
+        if params["build_index_on"] == "executor":
+            index_path = params["index_path"]
+        elif params["build_index_on"] == "driver":
+            index_path = SparkFiles.get("hnswlib_index_" + self.uid)
+        else:
+            raise ValueError("Unknown 'build_index_on' param.")
 
         from_filesystem, from_hdfs_uri, from_path = get_filesystem(
-            params["index_path"]
+            index_path
         )
         to_filesystem, to_hdfs_uri, to_path = get_filesystem(path)
 
@@ -336,7 +340,7 @@ class HnswlibMixin:
                 )
                 fs.copy_files(
                     from_path,
-                    os.path.join(to_path, "nmslib_hnsw_index"),
+                    os.path.join(to_path, "hnswlib_index"),
                     source_filesystem=source_filesystem,
                     destination_filesystem=destination_filesystem,
                 )
@@ -344,7 +348,7 @@ class HnswlibMixin:
                 destination_filesystem = fs.LocalFileSystem()
                 fs.copy_files(
                     from_path,
-                    os.path.join(to_path, "nmslib_hnsw_index"),
+                    os.path.join(to_path, "hnswlib_index"),
                     source_filesystem=source_filesystem,
                     destination_filesystem=destination_filesystem,
                 )
@@ -356,7 +360,7 @@ class HnswlibMixin:
                 )
                 fs.copy_files(
                     from_path,
-                    os.path.join(to_path, "nmslib_hnsw_index"),
+                    os.path.join(to_path, "hnswlib_index"),
                     source_filesystem=source_filesystem,
                     destination_filesystem=destination_filesystem,
                 )
@@ -364,9 +368,50 @@ class HnswlibMixin:
                 destination_filesystem = fs.LocalFileSystem()
                 fs.copy_files(
                     from_path,
-                    os.path.join(to_path, "nmslib_hnsw_index"),
+                    os.path.join(to_path, "hnswlib_index"),
                     source_filesystem=source_filesystem,
                     destination_filesystem=destination_filesystem,
                 )
 
         # param use_threads=True (?)
+
+    def _load_hnswlib_index(self, path: str):
+        """Loads hnsw index from `path` directory to local dir.
+        Index file name is 'hnswlib_index'.
+        And adds index file to the `SparkFiles`.
+        `path` can be a hdfs path or a local path.
+
+
+        Args:
+            path: directory path, where index file is stored
+        """
+        from_filesystem, from_hdfs_uri, from_path = get_filesystem(
+            path + '/hnswlib_index'
+        )
+
+        to_path = tempfile.mkdtemp()
+        to_path = os.path.join(to_path, "hnswlib_index_" + self.uid)
+
+        if from_filesystem == FileSystem.HDFS:
+            source_filesystem = fs.HadoopFileSystem.from_uri(from_hdfs_uri)
+            destination_filesystem = fs.LocalFileSystem()
+            fs.copy_files(
+                from_path,
+                to_path,
+                source_filesystem=source_filesystem,
+                destination_filesystem=destination_filesystem,
+            )
+        else:
+            source_filesystem = fs.LocalFileSystem()
+            destination_filesystem = fs.LocalFileSystem()
+            fs.copy_files(
+                from_path,
+                to_path,
+                source_filesystem=source_filesystem,
+                destination_filesystem=destination_filesystem,
+            )
+
+        spark = SparkSession.getActiveSession()
+        spark.sparkContext.addFile("file://" + to_path)
+
+        self._hnswlib_params["build_index_on"] = "driver"

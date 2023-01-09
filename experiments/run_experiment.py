@@ -7,6 +7,7 @@ from pyspark.sql import SparkSession
 from experiment_utils import get_model
 from replay.experiment import Experiment
 from replay.metrics import HitRate, MAP, NDCG
+from replay.model_handler import save, load
 from replay.models import (
     AssociationRulesItemRec,
     ClusterRec,
@@ -31,12 +32,12 @@ def main(spark: SparkSession, dataset_name: str):
             raise Exception("Not enough executors to run experiment!")
 
     K = int(os.environ.get("K", 10))
-    K_list_metrics = [5, 10, 50, 100]
+    K_list_metrics = [5, 10]
     SEED = int(os.environ.get("SEED", 1234))
     MLFLOW_TRACKING_URI = os.environ.get(
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
     )
-    MODEL = os.environ.get("MODEL", "SLIM")
+    MODEL = os.environ.get("MODEL", "ALS_HNSWLIB")
     # LightFM
     # PopRec
     # UserPopRec
@@ -364,6 +365,67 @@ def main(spark: SparkSession, dataset_name: str):
                     e.results.at[MODEL, "HitRate@{}".format(k)],
                 )
 
+        with log_exec_timer(f"Model saving") as model_save_timer:
+            save(
+                model,
+                path=f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}",  # file://
+                overwrite=True,
+            )
+        mlflow.log_param(
+            "model_save_dir",
+            f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}",
+        )
+        mlflow.log_metric("model_save_sec", model_save_timer.duration)
+
+        with log_exec_timer(f"Model loading") as model_load_timer:
+            model_loaded = load(
+                path=f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}"
+            )
+        mlflow.log_metric("_loaded_model_sec", model_load_timer.duration)
+
+        with log_exec_timer(f"{MODEL} prediction from loaded model") as infer_loaded_timer:
+            if isinstance(model_loaded, AssociationRulesItemRec):
+                recs = model_loaded.get_nearest_items(
+                    items=test,
+                    k=K,
+                )
+            else:
+                recs = model_loaded.predict(
+                    k=K,
+                    users=test.select("user_idx").distinct(),
+                    log=train,
+                    filter_seen_items=True,
+                    **kwargs,
+                )
+            recs = recs.cache()
+            recs.write.mode("overwrite").format("noop").save()
+        mlflow.log_metric("_loaded_infer_sec", infer_loaded_timer.duration)
+
+        if not isinstance(model, AssociationRulesItemRec):
+            with log_exec_timer(f"Metrics calculation for loaded model") as metrics_loaded_timer, JobGroup(
+                "Metrics calculation", "e.add_result()"
+            ):
+                e = Experiment(
+                    test,
+                    {
+                        MAP(use_scala_udf=True): K_list_metrics,
+                        NDCG(use_scala_udf=True): K_list_metrics,
+                        HitRate(use_scala_udf=True): K_list_metrics,
+                    },
+                )
+                e.add_result(MODEL, recs)
+            mlflow.log_metric("_loaded_metrics_sec", metrics_loaded_timer.duration)
+            for k in K_list_metrics:
+                mlflow.log_metric(
+                    "_loaded_NDCG.{}".format(k), e.results.at[MODEL, "NDCG@{}".format(k)]
+                )
+                mlflow.log_metric(
+                    "_loaded_MAP.{}".format(k), e.results.at[MODEL, "MAP@{}".format(k)]
+                )
+                mlflow.log_metric(
+                    "_loaded_HitRate.{}".format(k),
+                    e.results.at[MODEL, "HitRate@{}".format(k)],
+                )
 
 if __name__ == "__main__":
     spark_sess = get_spark_session()

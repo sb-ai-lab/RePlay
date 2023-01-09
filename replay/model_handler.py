@@ -75,7 +75,7 @@ def load(path: str) -> BaseRecommender:
     :return: Restored trained model
     """
     spark = State().session
-    args = spark.read.json(join(path, "init_args.json")).first().asDict()
+    args = spark.read.json(join(path, "init_args.json")).first().asDict(recursive=True)
     name = args["_model_name"]
     del args["_model_name"]
 
