@@ -1,6 +1,8 @@
 import os
 
 import mlflow
+from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame
 
 from replay.models import (
     ALSWrap,
@@ -14,33 +16,39 @@ from replay.models import (
     UserPopRec,
     Wilson,
     ClusterRec,
-    UCB
+    UCB,
 )
+from replay.utils import log_exec_timer
 
 
-def get_model(MODEL: str, SEED: int, spark_app_id: str):
-    """Inits model and return instance
+def get_model(model_name: str, seed: int, spark_app_id: str):
+    """Initializes model and returns an instance of it
+
+    Args:
+        model_name: model name indicating which model to use. For example, `ALS` and `ALS_HNSWLIB`, where second is ALS with the hnsw index.
+        seed: seed
+        spark_app_id: spark application id. used for model artifacts paths.
     """
 
-    if MODEL == "ALS":
-        ALS_RANK = int(os.environ.get("ALS_RANK", 100))
+    if model_name == "ALS":
+        als_rank = int(os.environ.get("ALS_RANK", 100))
         num_blocks = int(os.environ.get("NUM_BLOCKS", 10))
 
-        mlflow.log_params({"num_blocks": num_blocks, "ALS_rank": ALS_RANK})
+        mlflow.log_params({"num_blocks": num_blocks, "ALS_rank": als_rank})
 
         model = ALSWrap(
-            rank=ALS_RANK,
-            seed=SEED,
+            rank=als_rank,
+            seed=seed,
             num_item_blocks=num_blocks,
             num_user_blocks=num_blocks,
         )
 
-    elif MODEL == "Explicit_ALS":
-        ALS_RANK = int(os.environ.get("ALS_RANK", 100))
-        mlflow.log_param("ALS_rank", ALS_RANK)
-        model = ALSWrap(rank=ALS_RANK, seed=SEED, implicit_prefs=False)
-    elif MODEL == "ALS_HNSWLIB":
-        ALS_RANK = int(os.environ.get("ALS_RANK", 100))
+    elif model_name == "Explicit_ALS":
+        als_rank = int(os.environ.get("ALS_RANK", 100))
+        mlflow.log_param("ALS_rank", als_rank)
+        model = ALSWrap(rank=als_rank, seed=seed, implicit_prefs=False)
+    elif model_name == "ALS_HNSWLIB":
+        als_rank = int(os.environ.get("ALS_RANK", 100))
         build_index_on = "executor"  # driver executor
         num_blocks = int(os.environ.get("NUM_BLOCKS", 10))
         hnswlib_params = {
@@ -55,22 +63,51 @@ def get_model(MODEL: str, SEED: int, spark_app_id: str):
         }
         mlflow.log_params(
             {
-                "ALS_rank": ALS_RANK,
+                "ALS_rank": als_rank,
                 "num_blocks": num_blocks,
                 "build_index_on": build_index_on,
                 "hnswlib_params": hnswlib_params,
             }
         )
         model = ALSWrap(
-            rank=ALS_RANK,
-            seed=SEED,
+            rank=als_rank,
+            seed=seed,
             num_item_blocks=num_blocks,
             num_user_blocks=num_blocks,
             hnswlib_params=hnswlib_params,
         )
-    elif MODEL == "SLIM":
-        model = SLIM(seed=SEED)
-    elif MODEL == "SLIM_NMSLIB_HNSW":
+    elif model_name == "ALS_SCANN":
+        als_rank = int(os.environ.get("ALS_RANK", 100))
+        build_index_on = "executor"  # driver executor
+        num_blocks = int(os.environ.get("NUM_BLOCKS", 10))
+        scann_params = {
+            "distance_measure": "dot_product",
+            "num_neighbors": 10,
+            # "efS": 2000,
+            # "efC": 2000,
+            # "post": 0,
+            # hdfs://node21.bdcl:9000
+            "index_path": f"/opt/spark_data/replay_datasets/scann_index_{spark_app_id}",
+            "build_index_on": build_index_on,
+        }
+        mlflow.log_params(
+            {
+                "ALS_rank": als_rank,
+                "num_blocks": num_blocks,
+                "build_index_on": build_index_on,
+                "scann_params": scann_params,
+            }
+        )
+        model = ALSWrap(
+            rank=als_rank,
+            seed=seed,
+            num_item_blocks=num_blocks,
+            num_user_blocks=num_blocks,
+            scann_params=scann_params,
+        )
+    elif model_name == "SLIM":
+        model = SLIM(seed=seed)
+    elif model_name == "SLIM_NMSLIB_HNSW":
         build_index_on = "executor"  # driver executor
         nmslib_hnsw_params = {
             "method": "hnsw",
@@ -88,12 +125,12 @@ def get_model(MODEL: str, SEED: int, spark_app_id: str):
                 "nmslib_hnsw_params": nmslib_hnsw_params,
             }
         )
-        model = SLIM(seed=SEED, nmslib_hnsw_params=nmslib_hnsw_params)
-    elif MODEL == "ItemKNN":
+        model = SLIM(seed=seed, nmslib_hnsw_params=nmslib_hnsw_params)
+    elif model_name == "ItemKNN":
         num_neighbours = int(os.environ.get("NUM_NEIGHBOURS", 10))
         mlflow.log_param("num_neighbours", num_neighbours)
         model = ItemKNN(num_neighbours=num_neighbours)
-    elif MODEL == "ItemKNN_NMSLIB_HNSW":
+    elif model_name == "ItemKNN_NMSLIB_HNSW":
         build_index_on = "executor"  # driver executor
         nmslib_hnsw_params = {
             "method": "hnsw",
@@ -111,18 +148,16 @@ def get_model(MODEL: str, SEED: int, spark_app_id: str):
                 "nmslib_hnsw_params": nmslib_hnsw_params,
             }
         )
-        model = ItemKNN(
-            nmslib_hnsw_params=nmslib_hnsw_params
-        )
-    elif MODEL == "LightFM":
-        model = LightFMWrap(random_state=SEED)
-    elif MODEL == "Word2VecRec":
+        model = ItemKNN(nmslib_hnsw_params=nmslib_hnsw_params)
+    elif model_name == "LightFM":
+        model = LightFMWrap(random_state=seed)
+    elif model_name == "Word2VecRec":
         # model = Word2VecRec(
         #     seed=SEED,
         #     num_partitions=partition_num,
         # )
-        model = Word2VecRec(seed=SEED)
-    elif MODEL == "Word2VecRec_NMSLIB_HNSW":
+        model = Word2VecRec(seed=seed)
+    elif model_name == "Word2VecRec_NMSLIB_HNSW":
         build_index_on = "executor"  # driver executor
         nmslib_hnsw_params = {
             "method": "hnsw",
@@ -140,35 +175,35 @@ def get_model(MODEL: str, SEED: int, spark_app_id: str):
             {
                 "build_index_on": build_index_on,
                 "nmslib_hnsw_params": nmslib_hnsw_params,
-                "word2vec_rank": word2vec_rank
+                "word2vec_rank": word2vec_rank,
             }
         )
 
         model = Word2VecRec(
             rank=word2vec_rank,
-            seed=SEED,
+            seed=seed,
             nmslib_hnsw_params=nmslib_hnsw_params,
         )
-    elif MODEL == "PopRec":
+    elif model_name == "PopRec":
         use_relevance = os.environ.get("USE_RELEVANCE", "False") == "True"
         model = PopRec(use_relevance=use_relevance)
         mlflow.log_param("USE_RELEVANCE", use_relevance)
-    elif MODEL == "UserPopRec":
+    elif model_name == "UserPopRec":
         model = UserPopRec()
-    elif MODEL == "RandomRec_uniform":
-        model = RandomRec(seed=SEED, distribution="uniform")
-    elif MODEL == "RandomRec_popular_based":
-        model = RandomRec(seed=SEED, distribution="popular_based")
-    elif MODEL == "RandomRec_relevance":
-        model = RandomRec(seed=SEED, distribution="relevance")
-    elif MODEL == "AssociationRulesItemRec":
+    elif model_name == "RandomRec_uniform":
+        model = RandomRec(seed=seed, distribution="uniform")
+    elif model_name == "RandomRec_popular_based":
+        model = RandomRec(seed=seed, distribution="popular_based")
+    elif model_name == "RandomRec_relevance":
+        model = RandomRec(seed=seed, distribution="relevance")
+    elif model_name == "AssociationRulesItemRec":
         model = AssociationRulesItemRec()
-    elif MODEL == "Wilson":
+    elif model_name == "Wilson":
         model = Wilson()
-    elif MODEL == "ClusterRec":
+    elif model_name == "ClusterRec":
         num_clusters = int(os.environ.get("num_clusters", "10"))
         model = ClusterRec(num_clusters=num_clusters)
-    elif MODEL == "ClusterRec_HNSWLIB":
+    elif model_name == "ClusterRec_HNSWLIB":
         build_index_on = "driver"
         hnswlib_params = {
             "space": "ip",
@@ -181,9 +216,197 @@ def get_model(MODEL: str, SEED: int, spark_app_id: str):
         }
         mlflow.log_param("hnswlib_params", hnswlib_params)
         model = ClusterRec(hnswlib_params=hnswlib_params)
-    elif MODEL == "UCB":
-        model = UCB(seed=SEED)
+    elif model_name == "UCB":
+        model = UCB(seed=seed)
     else:
         raise ValueError("Unknown model.")
 
     return model
+
+
+def get_datasets(dataset_name, spark: SparkSession, partition_num: int):
+    """
+    Reads prepared datasets from hdfs or disk and returns them.
+
+    Args:
+        dataset_name: Dataset name with size postfix (optional). For example `MovieLens__10m` or `MovieLens__25m`.
+        spark: spark session
+        partition_num: Number of partitions in output dataframes.
+
+    Returns:
+        train: train dataset
+        test: test dataset
+        user_features: dataframe with user features (optional)
+
+    """
+    user_features = None
+    if dataset_name.startswith("MovieLens"):
+        dataset_params = dataset_name.split("__")
+        if len(dataset_params) == 1:
+            dataset_version = "1m"
+        else:
+            dataset_version = dataset_params[1]
+
+        with log_exec_timer(
+            "Train/test datasets reading to parquet"
+        ) as parquets_read_timer:
+            train = spark.read.parquet(  # hdfs://node21.bdcl:9000
+                f"/opt/spark_data/replay_datasets/MovieLens/train_{dataset_version}.parquet"
+            )
+            test = spark.read.parquet(  # hdfs://node21.bdcl:9000
+                f"/opt/spark_data/replay_datasets/MovieLens/test_{dataset_version}.parquet"
+            )
+        train = train.repartition(partition_num)
+        test = test.repartition(partition_num)
+    elif dataset_name.startswith("MillionSongDataset"):
+        # MillionSongDataset__{fraction} pattern
+        dataset_params = dataset_name.split("__")
+        if len(dataset_params) == 1:
+            fraction = "1.0"
+        else:
+            fraction = dataset_params[1]
+
+        if fraction == "train_100m_users_1k_items":
+            with log_exec_timer(
+                "Train/test datasets reading to parquet"
+            ) as parquets_read_timer:
+                train = spark.read.parquet(
+                    f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_train.parquet"
+                )
+                test = spark.read.parquet(
+                    f"/opt/spark_data/replay_datasets/MillionSongDataset/fraction_{fraction}_test.parquet"
+                )
+                train = train.repartition(partition_num)
+                test = test.repartition(partition_num)
+        else:
+            if partition_num in {6, 12, 24, 48}:
+                with log_exec_timer(
+                    "Train/test datasets reading to parquet"
+                ) as parquets_read_timer:
+                    train = spark.read.parquet(
+                        f"/opt/spark_data/replay_datasets/MillionSongDataset/"
+                        f"fraction_{fraction}_train_{partition_num}_partition.parquet"
+                    )
+                    test = spark.read.parquet(
+                        f"/opt/spark_data/replay_datasets/MillionSongDataset/"
+                        f"fraction_{fraction}_test_{partition_num}_partition.parquet"
+                    )
+            else:
+                with log_exec_timer(
+                    "Train/test datasets reading to parquet"
+                ) as parquets_read_timer:
+                    train = spark.read.parquet(
+                        f"/opt/spark_data/replay_datasets/MillionSongDataset/"
+                        f"fraction_{fraction}_train_24_partition.parquet"
+                    )
+                    test = spark.read.parquet(
+                        f"/opt/spark_data/replay_datasets/MillionSongDataset/"
+                        f"fraction_{fraction}_test_24_partition.parquet"
+                    )
+                    train = train.repartition(partition_num)
+                    test = test.repartition(partition_num)
+    elif dataset_name == "ml1m":
+        with log_exec_timer(
+            "Train/test/user_features datasets reading to parquet"
+        ) as parquets_read_timer:
+            train = spark.read.parquet(
+                "/opt/spark_data/replay_datasets/ml1m_train.parquet"
+            )
+            test = spark.read.parquet(
+                "/opt/spark_data/replay_datasets/ml1m_test.parquet"
+            )
+            # user_features = spark.read.parquet(
+            #     "/opt/spark_data/replay_datasets/ml1m_user_features.parquet"
+            # )
+            # .select("user_idx", "gender_idx", "age", "occupation", "zip_code_idx")
+            train = train.repartition(partition_num, "user_idx")
+            test = test.repartition(partition_num, "user_idx")
+    elif dataset_name == "ml1m_first_level_default":
+        with log_exec_timer(
+            "Train/test/user_features datasets reading to parquet"
+        ) as parquets_read_timer:
+            train = spark.read.parquet(
+                "file:///opt/spark_data/replay/experiments/ml1m_first_level_default/train.parquet"
+            )
+            test = spark.read.parquet(
+                "file:///opt/spark_data/replay/experiments/ml1m_first_level_default/test.parquet"
+            )
+            train = train.repartition(partition_num, "user_idx")
+            test = test.repartition(partition_num, "user_idx")
+    elif dataset_name == "ml1m_1m_users_3_7k_items":
+        with log_exec_timer(
+            "Train/test/user_features datasets reading to parquet"
+        ) as parquets_read_timer:
+            train = spark.read.parquet(
+                "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_train.parquet"
+            )
+            test = spark.read.parquet(
+                "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/ml1m_1m_users_3_7k_items_test.parquet"
+            )
+            user_features = spark.read.parquet(
+                "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/"
+                "ml1m_1m_users_3_7k_items_user_features.parquet"
+            )
+            print(user_features.printSchema())
+            train = train.repartition(partition_num, "user_idx")
+            test = test.repartition(partition_num, "user_idx")
+    elif dataset_name == "ml1m_1m_users_37k_items":
+        with log_exec_timer(
+            "Train/test/user_features datasets reading to parquet"
+        ) as parquets_read_timer:
+            train = spark.read.parquet(
+                "/opt/spark_data/replay_datasets/ml1m_1m_users_37k_items_train.parquet"
+            )
+            test = spark.read.parquet(
+                "/opt/spark_data/replay_datasets/ml1m_1m_users_37k_items_test.parquet"
+            )
+            user_features = spark.read.parquet(
+                "/opt/spark_data/replay_datasets/ml1m_1m_users_37k_items_user_features.parquet"
+            )
+            train = train.repartition(partition_num, "user_idx")
+            test = test.repartition(partition_num, "user_idx")
+    else:
+        raise ValueError("Unknown dataset.")
+
+    mlflow.log_metric("parquets_read_sec", parquets_read_timer.duration)
+
+    return train, test, user_features
+
+
+def make_bucketed_df(
+    df: DataFrame,
+    spark: SparkSession,
+    bucketing_key: str,
+    partition_num: int,
+    parquet_name: str,
+):
+    """
+    Makes bucketed dataframe from input dataframe.
+
+    Args:
+        df: input dataframe
+        spark: spark session
+        bucketing_key: bucketing key (also used as sort key)
+        partition_num: number of buckets
+        parquet_name: parquet file name (in 'spark-warehouse') and spark table name
+
+    Returns:
+        bucketed dataframe and bucketing time
+
+    """
+    with log_exec_timer("dataframe bucketing") as bucketing_timer:
+        (
+            df.repartition(partition_num, bucketing_key)
+            .write.mode("overwrite")
+            .bucketBy(partition_num, bucketing_key)
+            .sortBy(bucketing_key)
+            .saveAsTable(
+                parquet_name,
+                format="parquet",
+                path=f"/spark-warehouse/{parquet_name}",
+            )
+        )
+
+        df = spark.table(parquet_name)
+
+    return df, bucketing_timer.duration
