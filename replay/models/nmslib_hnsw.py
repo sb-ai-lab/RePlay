@@ -748,7 +748,7 @@ class NmslibHnswMixin:
 
         return res
 
-    def _save_nmslib_hnsw_index(self, path):
+    def _save_nmslib_hnsw_index(self, path, sparse=False):
         """Method save (copy) index from hdfs (or local) to `path` directory.
         `path` can be an hdfs path or a local path.
 
@@ -758,10 +758,35 @@ class NmslibHnswMixin:
 
         params = self._nmslib_hnsw_params
 
+        if params["build_index_on"] == "executor":
+            index_path = params["index_path"]
+        elif params["build_index_on"] == "driver":
+            index_path = SparkFiles.get("nmslib_hnsw_index" + self.uid)
+        else:
+            raise ValueError("Unknown 'build_index_on' param.")
+
         from_filesystem, from_hdfs_uri, from_path = get_filesystem(
-            params["index_path"]
+            index_path
         )
         to_filesystem, to_hdfs_uri, to_path = get_filesystem(path)
+        print(f"Index file coping from '{from_path}' to '{to_path}'")
+
+        from_paths = []
+        target_paths = []
+        if sparse:
+            from_paths.append(from_path)
+            from_paths.append(from_path + ".dat")
+            print(from_paths)
+            index_file_target_path = os.path.join(to_path, "nmslib_hnsw_index")
+            target_paths.append(index_file_target_path)
+            target_paths.append(index_file_target_path + ".dat")
+            print(target_paths)
+        else:
+            from_paths.append(from_path)
+            print(from_paths)
+            index_file_target_path = os.path.join(to_path, "nmslib_hnsw_index")
+            target_paths.append(index_file_target_path)
+            print(target_paths)
 
         if from_filesystem == FileSystem.HDFS:
             source_filesystem = fs.HadoopFileSystem.from_uri(from_hdfs_uri)
@@ -769,39 +794,102 @@ class NmslibHnswMixin:
                 destination_filesystem = fs.HadoopFileSystem.from_uri(
                     to_hdfs_uri
                 )
-                fs.copy_files(
-                    from_path,
-                    os.path.join(to_path, "nmslib_hnsw_index"),
-                    source_filesystem=source_filesystem,
-                    destination_filesystem=destination_filesystem,
-                )
+                for from_path, target_path in zip(from_paths, target_paths):
+                    fs.copy_files(
+                        from_path,
+                        target_path,
+                        source_filesystem=source_filesystem,
+                        destination_filesystem=destination_filesystem,
+                    )
             else:
                 destination_filesystem = fs.LocalFileSystem()
-                fs.copy_files(
-                    from_path,
-                    os.path.join(to_path, "nmslib_hnsw_index"),
-                    source_filesystem=source_filesystem,
-                    destination_filesystem=destination_filesystem,
-                )
+                for from_path, target_path in zip(from_paths, target_paths):
+                    fs.copy_files(
+                        from_path,
+                        target_path,
+                        source_filesystem=source_filesystem,
+                        destination_filesystem=destination_filesystem,
+                    )
         else:
             source_filesystem = fs.LocalFileSystem()
             if to_filesystem == FileSystem.HDFS:
                 destination_filesystem = fs.HadoopFileSystem.from_uri(
                     to_hdfs_uri
                 )
+                for from_path, target_path in zip(from_paths, target_paths):
+                    fs.copy_files(
+                        from_path,
+                        target_path,
+                        source_filesystem=source_filesystem,
+                        destination_filesystem=destination_filesystem,
+                    )
+            else:
+                destination_filesystem = fs.LocalFileSystem()
+                for from_path, target_path in zip(from_paths, target_paths):
+                    fs.copy_files(
+                        from_path,
+                        target_path,
+                        source_filesystem=source_filesystem,
+                        destination_filesystem=destination_filesystem,
+                    )
+
+        # param use_threads=True (?)
+
+    def _load_nmslib_hnsw_index(self, path: str, sparse=False):
+        """Loads hnsw index from `path` directory to local dir.
+        Index file name is 'hnswlib_index'.
+        And adds index file to the `SparkFiles`.
+        `path` can be a hdfs path or a local path.
+
+
+        Args:
+            path: directory path, where index file is stored
+        """
+        from_filesystem, from_hdfs_uri, from_path = get_filesystem(
+            path + '/nmslib_hnsw_index'
+        )
+
+        to_path = tempfile.mkdtemp()
+        to_path = os.path.join(to_path, "nmslib_hnsw_index_" + self.uid)
+
+        from_paths = []
+        target_paths = []
+        if sparse:
+            from_paths.append(from_path)
+            from_paths.append(from_path + ".dat")
+            print(from_paths)
+            target_paths.append(to_path)
+            target_paths.append(to_path + ".dat")
+            print(target_paths)
+        else:
+            from_paths.append(from_path)
+            print(from_paths)
+            target_paths.append(to_path)
+            print(target_paths)
+
+        if from_filesystem == FileSystem.HDFS:
+            source_filesystem = fs.HadoopFileSystem.from_uri(from_hdfs_uri)
+            destination_filesystem = fs.LocalFileSystem()
+            for from_path, to_path in zip(from_paths, target_paths):
                 fs.copy_files(
                     from_path,
-                    os.path.join(to_path, "nmslib_hnsw_index"),
+                    to_path,
                     source_filesystem=source_filesystem,
                     destination_filesystem=destination_filesystem,
                 )
-            else:
-                destination_filesystem = fs.LocalFileSystem()
+        else:
+            source_filesystem = fs.LocalFileSystem()
+            destination_filesystem = fs.LocalFileSystem()
+            for from_path, to_path in zip(from_paths, target_paths):
                 fs.copy_files(
                     from_path,
-                    os.path.join(to_path, "nmslib_hnsw_index"),
+                    to_path,
                     source_filesystem=source_filesystem,
                     destination_filesystem=destination_filesystem,
                 )
 
-        # param use_threads=True (?)
+        spark = SparkSession.getActiveSession()
+        for target_path in target_paths:
+            spark.sparkContext.addFile("file://" + target_path)
+
+        self._nmslib_hnsw_params["build_index_on"] = "driver"

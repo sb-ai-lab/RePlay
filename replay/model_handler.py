@@ -37,14 +37,15 @@ def save(model: BaseRecommender, path: str, overwrite: bool = False):
     :return:
     """
     spark = State().session
-    
+
+    fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration())
     if not overwrite:
-        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration())
         is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
         if is_exists:
             raise FileExistsError(f"Path '{path}' already exists. Mode is 'overwrite = False'.")
     # list_status = fs.listStatus(spark._jvm.org.apache.hadoop.fs.Path(path))
 
+    fs.mkdirs(spark._jvm.org.apache.hadoop.fs.Path(join(path, "model")))
     model._save_model(join(path, "model"))
 
     init_args = model._init_args

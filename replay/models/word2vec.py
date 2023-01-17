@@ -73,6 +73,9 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnswMixin):
         self._num_partitions = num_partitions
         self._nmslib_hnsw_params = nmslib_hnsw_params
 
+        if self._nmslib_hnsw_params:
+            NmslibHnswMixin.__init__(self)
+
     @property
     def _init_args(self):
         return {
@@ -83,15 +86,16 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnswMixin):
             "step_size": self.step_size,
             "max_iter": self.max_iter,
             "seed": self._seed,
+            "nmslib_hnsw_params": self._nmslib_hnsw_params,
         }
     
     def _save_model(self, path: str):
         if self._nmslib_hnsw_params:
             self._save_nmslib_hnsw_index(path)
-            
-    # def _load_model(self, path: str):
-        # if self._nmslib_hnsw_params:
-            # self._load_nmslib_hnsw_index(path)
+
+    def _load_model(self, path: str):
+        if self._nmslib_hnsw_params:
+            self._load_nmslib_hnsw_index(path)
 
     def _fit(
         self,
@@ -179,11 +183,6 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnswMixin):
             )
 
             self._build_hnsw_index(item_vectors, 'item_vector', self._nmslib_hnsw_params)
-
-            self._user_to_max_items = (
-                    log.groupBy('user_idx')
-                    .agg(sf.count('item_idx').alias('num_items'))
-            )
 
     def _clear_cache(self):
         if hasattr(self, "idf") and hasattr(self, "vectors"):
@@ -317,7 +316,12 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnswMixin):
                 # user_vectors = user_vectors.cache()
                 # user_vectors.write.mode("overwrite").format("noop").save()
 
-            user_vectors = user_vectors.join(self._user_to_max_items, on="user_idx")
+            user_to_max_items = (
+                    log.groupBy('user_idx')
+                    .agg(sf.count('item_idx').alias('num_items'))
+            )
+
+            user_vectors = user_vectors.join(user_to_max_items, on="user_idx")
 
             res = self._infer_hnsw_index(user_vectors, "user_vector", params, k)
 
