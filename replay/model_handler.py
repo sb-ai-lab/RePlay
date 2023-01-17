@@ -96,10 +96,13 @@ def load(path: str) -> BaseRecommender:
         model.arg = extra_args[arg]
 
     df_path = join(path, "dataframes")
-    dataframes = os.listdir(df_path)
-    for name in dataframes:
-        df = spark.read.parquet(join(df_path, name))
-        setattr(model, name, df)
+    fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration())
+    statuses = fs.listStatus(spark._jvm.org.apache.hadoop.fs.Path(df_path))
+    dataframes_paths = [str(f.getPath()) for f in statuses]
+    for dataframe_path in dataframes_paths:
+        df = spark.read.parquet(dataframe_path)
+        attr_name = dataframe_path.split("/")[-1]
+        setattr(model, attr_name, df)
 
     model._load_model(join(path, "model"))
     df = spark.read.parquet(join(path, "study"))
