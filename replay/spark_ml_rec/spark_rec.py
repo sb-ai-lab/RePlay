@@ -1,15 +1,14 @@
-from typing import Optional, overload, Union, List, Tuple, Iterable
+from typing import Optional, Union, Iterable, cast, Tuple
 
-from pyspark.ml import Estimator, Model
-from pyspark.ml._typing import ParamMap, M
+from pyspark.ml._typing import ParamMap
 from pyspark.ml.param import Params, Param, TypeConverters
-from pyspark.ml.util import MLWritable, MLWriter, MLReadable, MLReader, R
 from pyspark.sql import DataFrame
 
 from replay.models import Recommender
+from replay.spark_ml_rec.spark_rec_base import SparkBaseRecModel, SparkBaseRec
 
 
-class SparkRecommenderModelParams(Params):
+class SparkRecModelParams(Params):
     numRecommendations = Param(
         Params._dummy(),
         "numRecommendations",
@@ -32,7 +31,7 @@ class SparkRecommenderModelParams(Params):
     )
 
     def __init__(self):
-        super(SparkRecommenderModelParams, self).__init__()
+        super(SparkRecModelParams, self).__init__()
         self._setDefault(numRecommendations=10, filterSeenItems=True)
 
     def getNumRecommendations(self) -> int:
@@ -41,10 +40,10 @@ class SparkRecommenderModelParams(Params):
         """
         return self.getOrDefault(self.numRecommendations)
 
-    def getFilterSeen(self) -> bool:
+    def getFilterSeenItems(self) -> bool:
         return self.getOrDefault(self.filterSeenItems)
 
-    def getRecsFilePath(self) -> str:
+    def getRecsFilePath(self) -> Optional[str]:
         return self.getOrDefault(self.recsFilePath)
 
     def setNumRecommendations(self, value: int):
@@ -57,45 +56,38 @@ class SparkRecommenderModelParams(Params):
         self.set(self.recsFilePath, value)
 
 
-class SparkRecommenderParams(SparkRecommenderModelParams):
+class SparkRecParams(SparkRecModelParams):
     pass
 
 
-class SparkRecommenderModelWriter(MLWriter):
-    def saveImpl(self, path: str) -> None:
-        super().saveImpl(path)
-
-
-class SparkRecommenderModelReader(MLReader):
-    def load(self, path: str) -> R:
-        return super().load(path)
-
-
-class SparkRecommenderModelWritable(MLWritable):
-    def write(self) -> MLWriter:
-        return super().write()
-
-
-class SparkRecommenderModelReadable(MLReadable):
-    @classmethod
-    def read(cls: Type[R]) -> MLReader[R]:
-        return super().read()
-
-
-class SparkRecommenderModel(Model,
-                            SparkRecommenderModelParams,
-                            SparkRecommenderModelReadable,
-                            SparkRecommenderModelWritable):
-    def __init__(self, model: Recommender):
+class SparkRecModel(SparkBaseRecModel, SparkRecModelParams):
+    def __init__(self,
+                 model: Recommender,
+                 num_recommendations: int = 10,
+                 filter_seen_items: bool = True,
+                 recs_file_path: Optional[str] = None):
         super().__init__()
         self._model = model
+        self.setNumRecommendations(num_recommendations)
+        self.setFilterSeenItems(filter_seen_items)
+        if recs_file_path is not None:
+            self.setRecsFilePath(recs_file_path)
 
     def transform(self, log: DataFrame, params: Optional[ParamMap] = None) -> DataFrame:
         return self._model.predict(
             log=log,
-            k=params.get(self.numRecommendations, self.getNumRecommendations()) if params else self.getNumRecommendations(),
-            filter_seen_items=params.get(self.filterSeenItems, self.getFilterSeen()) if params else self.getFilterSeen(),
-            recs_file_path=params.get(self.recsFilePath, self.getRecsFilePath()) if params else self.getRecsFilePath()
+            k=(
+                params.get(self.numRecommendations, self.getNumRecommendations())
+                if params else self.getNumRecommendations()
+            ),
+            filter_seen_items=(
+                params.get(self.filterSeenItems, self.getFilterSeenItems())
+                if params else self.getFilterSeenItems()
+            ),
+            recs_file_path=(
+                params.get(self.recsFilePath, self.getRecsFilePath())
+                if params else self.getRecsFilePath()
+            )
         )
 
     def predict(
@@ -121,12 +113,14 @@ class SparkRecommenderModel(Model,
         return self._model.get_features(ids)
 
 
-class SparkRecommender(Estimator, SparkRecommenderParams):
+class SparkRec(SparkBaseRec, SparkRecParams):
     def __init__(self, model: Recommender):
         super().__init__()
         self._model = model
 
     def _fit(self, log: DataFrame):
-        model: Recommender = self._model.copy()
+        model = cast(Recommender, self._model.copy())
         model.fit(log)
-        return SparkRecommenderModel(model)
+        return SparkRecModel(
+            model, self.getNumRecommendations(), self.getFilterSeenItems(), self.getRecsFilePath()
+        )

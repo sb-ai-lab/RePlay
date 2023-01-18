@@ -29,7 +29,7 @@ from typing import (
     Union,
     Sequence,
     Set,
-    Tuple,
+    Tuple, TypeVar,
 )
 
 import numpy as np
@@ -77,6 +77,10 @@ class BaseRecommender(ABC):
     _user_dim_size: int
     _item_dim_size: int
     cached_dfs: Optional[Set] = None
+
+    @abstractmethod
+    def copy(self):
+        ...
 
     # pylint: disable=too-many-arguments, too-many-locals, no-member
     def optimize(
