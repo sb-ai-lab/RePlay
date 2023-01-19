@@ -4,7 +4,7 @@ from pyspark.ml._typing import ParamMap
 from pyspark.sql import DataFrame
 
 from replay.models import Recommender
-from replay.spark_ml_rec.spark_rec_base import SparkBaseRecModel, SparkBaseRec
+from replay.spark_ml_rec.spark_base_rec import SparkBaseRecModel, SparkBaseRec
 
 
 class SparkRecModel(SparkBaseRecModel):
