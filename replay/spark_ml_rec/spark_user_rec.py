@@ -6,7 +6,7 @@ from pyspark.ml.param import Param, Params, TypeConverters
 from pyspark.sql import DataFrame
 
 from replay.models.base_rec import UserRecommender
-from replay.spark_ml_rec.spark_rec_base import SparkBaseRec, SparkBaseRecModel
+from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModel
 
 
 class SparkUserRecModelParams(Params):

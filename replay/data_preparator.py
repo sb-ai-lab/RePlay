@@ -9,13 +9,16 @@ by one-hot encoding of some features and deleting the others.
 import logging
 import string
 import json
-from typing import Dict, List, Optional
+from functools import singledispatchmethod
+from typing import Dict, List, Optional, overload, Any
 from os.path import join
 
+from pyspark.ml import Transformer
 from pyspark.ml.feature import StringIndexerModel, IndexToString, StringIndexer
 from pyspark.ml.util import MLWriter, MLWritable, MLReader, MLReadable
 from pyspark.ml import Transformer, Estimator
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.ml.param import Param
 from pyspark.sql import functions as sf
 from pyspark.sql.types import DoubleType, NumericType
 
@@ -414,7 +417,7 @@ class JoinBasedIndexerEstimator(Estimator):
         )
 
 
-class DataPreparator:
+class DataPreparator(Transformer):
     """Transforms data to a library format:
         - read as a spark dataframe/ convert pandas dataframe to spark
         - check for nulls
@@ -625,10 +628,74 @@ class DataPreparator:
                 df = df.withColumnRenamed(in_col, out_col)
         return df
 
+    @overload
+    def transform(self, dataset: DataFrame, params: Optional[Dict[Param, Any]] = None):
+        """
+            :param dataset: DataFrame to process
+            :param params: A dict with settings to be applied for dataset processing
+            :return: processed DataFrame
+        """
+        ...
+
+    # noinspection PyMethodOverriding
+    @overload
+    def transform(self,
+                  columns_mapping: Dict[str, str],
+                  data: Optional[AnyDataFrame],
+                  path: Optional[str],
+                  format_type: Optional[str],
+                  date_format: Optional[str],
+                  reader_kwargs: Optional[Dict]) -> DataFrame:
+        """
+            :param columns_mapping: dictionary mapping "key: column name in input DataFrame".
+                Possible keys: ``[user_id, user_id, timestamp, relevance]``
+                ``columns_mapping`` values specifies the nature of the DataFrame:
+                - if both ``[user_id, item_id]`` are present,
+                  then the dataframe is a log of interactions.
+                  Specify ``timestamp, relevance`` columns in mapping if present.
+                - if ether ``user_id`` or ``item_id`` is present,
+                  then the dataframe is a dataframe of user/item features
+
+            :param data: DataFrame to process
+            :param path: path to data
+            :param format_type: file type, one of ``[csv , parquet , json , table]``
+            :param date_format: format for the ``timestamp`` column
+            :param reader_kwargs: extra arguments passed to
+                ``spark.read.<format>(path, **reader_kwargs)``
+            :return: processed DataFrame
+        """
+        ...
+
+    def transform(self, *args, **kwargs):
+        """
+                   Transforms log, user or item features into a Spark DataFrame
+                   ``[user_id, user_id, timestamp, relevance]``,
+                   ``[user_id, *features]``, or  ``[item_id, *features]``.
+                   Input is either file of ``format_type``
+                   at ``path``, or ``pandas.DataFrame`` or ``spark.DataFrame``.
+                   Transform performs:
+                   - dataframe reading/convert to spark DataFrame format
+                   - check dataframe (nulls, columns_mapping)
+                   - rename columns from mapping to standard names (user_id, user_id, timestamp, relevance)
+                   - for interactions log: create absent columns,
+                   convert ``timestamp`` column to TimestampType and ``relevance`` to DoubleType
+
+
+               """
+        return self._do_transform(*args, **kwargs)
+
+    @singledispatchmethod
+    def _do_transform(self, dataset: DataFrame, params: Optional[Dict[Param, Any]] = None):
+        return super().transform(dataset, params)
+
+    def _transform(self, dataset):
+        return self.transform({"user_id": "user_id"}, data=dataset)
+
     # pylint: disable=too-many-arguments
-    def transform(
+    @_do_transform.register
+    def _(
         self,
-        columns_mapping: Dict[str, str],
+        columns_mapping: dict, #Dict[str, str],
         data: Optional[AnyDataFrame] = None,
         path: Optional[str] = None,
         format_type: Optional[str] = None,
