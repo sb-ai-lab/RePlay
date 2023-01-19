@@ -342,3 +342,48 @@ class Word2VecRec(Recommender, ItemVectorModel, NmslibHnswMixin):
         return self.vectors.withColumnRenamed(
             "vector", "item_vector"
         ).withColumnRenamed("item", "item_idx")
+
+    def _filter_seen(
+        self, recs: DataFrame, log: DataFrame, k: int, users: DataFrame
+    ):
+        """
+        Overridden _filter_seen method from base class.
+        There is an optimization here (see get_top_k) when we use hnsw index.
+
+        Filter seen items (presented in log) out of the users' recommendations.
+        For each user return from `k` to `k + number of seen by user` recommendations.
+        """
+
+        if not self._nmslib_hnsw_params:
+            return Recommender._filter_seen(self, recs, log, k, users)
+
+        users_log = log.join(users, on="user_idx")
+        self._cache_model_temp_view(users_log, "filter_seen_users_log")
+
+        # filter recommendations presented in interactions log
+        recs = recs.join(
+            users_log.withColumnRenamed("item_idx", "item")
+            .withColumnRenamed("user_idx", "user")
+            .select("user", "item"),
+            on=(sf.col("user_idx") == sf.col("user"))
+            & (sf.col("item_idx") == sf.col("item")),
+            how="anti",
+        ).drop("user", "item")
+
+        # because relevances are already sorted,
+        # we can return the first k values for every user_idx
+        def get_top_k(iterator):
+            current_user_idx = None
+            n = 0
+            for row in iterator:
+                if row.user_idx == current_user_idx and n <= k:
+                    n += 1
+                    yield row
+                elif row.user_idx != current_user_idx:
+                    current_user_idx = row.user_idx
+                    n = 1
+                    yield row
+
+        recs = recs.rdd.mapPartitions(get_top_k).toDF(["user_idx", "item_idx", "relevance"])
+
+        return recs

@@ -256,6 +256,9 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         self, recs: DataFrame, log: DataFrame, k: int, users: DataFrame
     ):
         """
+        Overridden _filter_seen method from base class.
+        There is an optimization here (see get_top_k) when we use hnsw index.
+
         Filter seen items (presented in log) out of the users' recommendations.
         For each user return from `k` to `k + number of seen by user` recommendations.
         """
@@ -276,8 +279,8 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
             how="anti",
         ).drop("user", "item")
 
-        # because relevances are already sorted, we can return the first k values
-        # for every user_idx
+        # because relevances are already sorted,
+        # we can return the first k values for every user_idx
         def get_top_k(iterator):
             current_user_idx = None
             n = 0
