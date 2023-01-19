@@ -117,6 +117,12 @@ class HnswlibMixin:
                 )
 
                 def build_index(iterator: Iterator[pd.DataFrame]):
+                    """Builds index on executor and writes it to shared disk or hdfs.
+
+                    Args:
+                        iterator: iterates on dataframes with vectors/features
+
+                    """
                     index = hnswlib.Index(space=params["space"], dim=dim)
 
                     # Initializing index - the maximum number of elements should be known beforehand
@@ -158,10 +164,12 @@ class HnswlibMixin:
 
                     yield pd.DataFrame(data={"_success": 1}, index=[0])
 
-                # builds index on executor and writes it to shared disk or hdfs
+                # Here we perform materialization (`.collect()`) to build the hnsw index.
+                logger.info("Started building the hnsw index")
                 vectors.select(id_col, features_col).mapInPandas(
                     build_index, "_success int"
                 ).collect()
+                logger.info("Finished building the hnsw index")
             else:
                 vectors = vectors.toPandas()
                 vectors_np = np.squeeze(vectors[features_col].values)
