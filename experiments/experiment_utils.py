@@ -184,6 +184,32 @@ def get_model(model_name: str, seed: int, spark_app_id: str):
             seed=seed,
             nmslib_hnsw_params=nmslib_hnsw_params,
         )
+    elif model_name == "Word2VecRec_HNSWLIB":
+        build_index_on = "executor"  # driver executor
+        hnswlib_params = {
+            "space": "ip",
+            "M": 100,
+            "efS": 2000,
+            "efC": 2000,
+            "post": 0,
+            # hdfs://node21.bdcl:9000
+            "index_path": f"/opt/spark_data/replay_datasets/hnswlib_index_{spark_app_id}",
+            "build_index_on": build_index_on,
+        }
+        word2vec_rank = int(os.environ.get("WORD2VEC_RANK", 100))
+        mlflow.log_params(
+            {
+                "build_index_on": build_index_on,
+                "hnswlib_params": hnswlib_params,
+                "word2vec_rank": word2vec_rank,
+            }
+        )
+
+        model = Word2VecRec(
+            rank=word2vec_rank,
+            seed=seed,
+            hnswlib_params=hnswlib_params,
+        )
     elif model_name == "PopRec":
         use_relevance = os.environ.get("USE_RELEVANCE", "False") == "True"
         model = PopRec(use_relevance=use_relevance)

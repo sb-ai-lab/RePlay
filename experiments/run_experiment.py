@@ -36,13 +36,13 @@ def main(spark: SparkSession, dataset_name: str):
     k_list_metrics = [5, 10]
     seed = int(os.environ.get("SEED", 1234))
     mlflow_tracking_uri = os.environ.get(
-        "MLFLOW_TRACKING_URI", "http://node2.bdcl:8811"
+        "MLFLOW_TRACKING_URI", "http://node2.bdcl:8822"
     )
-    model_name = os.environ.get("MODEL", "SLIM_NMSLIB_HNSW")
+    model_name = os.environ.get("MODEL", "Word2VecRec_HNSWLIB")
     # LightFM
     # PopRec
     # UserPopRec
-    # Word2VecRec Word2VecRec_NMSLIB_HNSW
+    # Word2VecRec Word2VecRec_NMSLIB_HNSW Word2VecRec_HNSWLIB
     # ALS ALS_NMSLIB_HNSW ALS_HNSWLIB
     # SLIM SLIM_NMSLIB_HNSW
     # ItemKNN ItemKNN_NMSLIB_HNSW

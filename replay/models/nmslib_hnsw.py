@@ -128,7 +128,7 @@ class NmslibHnswMixin:
         # A unique id for the object.
         self.uid = uuid.uuid4().hex[-12:]
 
-    def _build_hnsw_index(
+    def _build_nmslib_hnsw_index(
         self,
         item_vectors: DataFrame,
         features_col: str,
@@ -546,7 +546,7 @@ class NmslibHnswMixin:
                     "file://" + tmp_file_path + ".dat"
                 )
 
-    def _infer_hnsw_index(
+    def _infer_nmslib_hnsw_index(
         self,
         user_vectors: DataFrame,
         features_col: str,

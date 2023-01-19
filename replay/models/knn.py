@@ -258,7 +258,7 @@ class ItemKNN(NeighbourRec, NmslibHnswMixin):
 
             items_count = log.select(sf.max('item_idx')).first()[0] + 1 
             similarity_df = self.similarity.select("similarity", 'item_idx_one', 'item_idx_two')
-            self._build_hnsw_index(similarity_df, None, self._nmslib_hnsw_params, index_type="sparse", items_count=items_count)
+            self._build_nmslib_hnsw_index(similarity_df, None, self._nmslib_hnsw_params, index_type="sparse", items_count=items_count)
 
             self._user_to_max_items = (
                     log.groupBy('user_idx')
@@ -303,9 +303,9 @@ class ItemKNN(NeighbourRec, NmslibHnswMixin):
             ):
                 users = users.join(self._user_to_max_items, on="user_idx")
                 
-                res = self._infer_hnsw_index(users, "", 
-                    params, k,
-                    index_type="sparse")
+                res = self._infer_nmslib_hnsw_index(users, "",
+                                                    params, k,
+                                                    index_type="sparse")
 
             return res
 
