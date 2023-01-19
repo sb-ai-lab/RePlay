@@ -17,11 +17,23 @@ class SparkUserRecModelParams(Params):
         typeConverter=TypeConverters.toBoolean
     )
 
+    userFeatures = Param(
+        Params._dummy(),
+        "userFeatures",
+        "a dataframe containing user features"
+    )
+
     def getTransientUserFeatures(self) -> bool:
         return self.getOrDefault(self.transientUserFeatures)
 
     def setTransientUserFeatures(self, value: bool):
         return self.set(self.transientUserFeatures, value)
+
+    def getUserFeatures(self) -> DataFrame:
+        return self.getOrDefault(self.userFeatures)
+
+    def setUserFeatures(self, value: DataFrame):
+        self.set(self.userFeatures, value)
 
 
 class SparkUserRecParams(SparkUserRecModelParams):

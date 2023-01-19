@@ -1,13 +1,31 @@
 from typing import Optional, Union, Iterable, cast, Tuple
 
 from pyspark.ml._typing import ParamMap
+from pyspark.ml.param import Param, Params
 from pyspark.sql import DataFrame
 
 from replay.models import Recommender
-from replay.spark_ml_rec.spark_base_rec import SparkBaseRecModel, SparkBaseRec
+from replay.spark_ml_rec.spark_base_rec import SparkBaseRecModel, SparkBaseRec, SparkBaseRecModelParams
 
 
-class SparkRecModel(SparkBaseRecModel):
+class SparkRecModelParams(SparkBaseRecModelParams):
+    users = Param(Params._dummy(), "users", "a dataframe with users to make recommendations for")
+    items = Param(Params._dummy(), "items", "a dataframe with items to make recommendations with")
+
+    def getUsers(self) -> DataFrame:
+        return self.getOrDefault(self.users)
+
+    def setUsers(self, value: DataFrame):
+        self.set(self.users, value)
+
+    def getItems(self) -> DataFrame:
+        return self.getOrDefault(self.items)
+
+    def setItems(self, value: DataFrame):
+        self.set(self.items, value)
+
+
+class SparkRecModel(SparkBaseRecModel, SparkRecModelParams):
     def __init__(self,
                  model: Recommender,
                  num_recommendations: int = 10,

@@ -5,11 +5,12 @@ from pyspark.sql.dataframe import DataFrame
 
 from replay.experiment import Experiment
 from replay.metrics import MAP, NDCG, HitRate
-from replay.spark_ml_rec.spark_base_rec import SparkBaseRec
+from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModelParams
+from replay.spark_ml_rec.spark_rec import SparkRec, SparkRecModel
 from replay.splitters import Splitter
 
 
-class SparkTrainTestSplitter(Estimator):
+class SparkTrainTestSplitter(Estimator, SparkBaseRecModelParams):
     def __init__(self, splitter: Splitter, models: List[SparkBaseRec]):
         super().__init__()
         self._splitter = splitter
@@ -32,14 +33,16 @@ class SparkTrainTestSplitter(Estimator):
 
         self._rec_models = dict()
         for model in self._models:
-            rec_model = model.fit(train)
+            rec_model: SparkRecModel = model.fit(train)
 
             # users = test.select("user_idx").distinct(),
             # log = train,
 
+            # single intreface with many parameters
+            # the wrappers decide for themselves what to call
             recs = rec_model.transform(test, {
-                "k": K,
-                "filter_seen_items": True
+                SparkBaseRecModelParams.numRecommendations: self.getNumRecommendations(),
+                SparkBaseRecModelParams.filterSeenItems: self.getFilterSeenItems()
             })
 
 

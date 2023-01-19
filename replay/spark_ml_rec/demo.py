@@ -5,8 +5,9 @@ from rs_datasets import MovieLens
 from replay.data_preparator import DataPreparator
 from replay.models import Word2VecRec, ALSWrap, ClusterRec
 from replay.spark_ml_rec.data_preparator import SparkIndexer
+from replay.spark_ml_rec.spark_base_rec import SparkBaseRecModelParams
 from replay.spark_ml_rec.spark_rec import SparkRec
-from replay.spark_ml_rec.spark_user_rec import SparkUserRec
+from replay.spark_ml_rec.spark_user_rec import SparkUserRec, SparkUserRecModelParams
 from replay.spark_ml_rec.splitter import SparkTrainTestSplitter
 from replay.splitters import UserSplitter, DateSplitter
 from replay.utils import convert2spark
@@ -43,6 +44,9 @@ rec_model_path = "/tmp/rec_pipe"
 model.write().save(rec_model_path)
 rec_model = PipelineModel.read().load(rec_model_path)
 
-# TODO: is it correct to send such params this way?
-recs = rec_model.transform(log_test, params={"userFeatures": user_features, "k": 100, "filter_seen_items": True})
+recs = rec_model.transform(log_test, params={
+    SparkUserRecModelParams.userFeatures: user_features,
+    SparkBaseRecModelParams.numRecommendations: 100,
+    SparkBaseRecModelParams.filterSeenItems: True
+})
 recs.write.parquet("recs.parquet", mode='overwrite')
