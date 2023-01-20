@@ -45,7 +45,6 @@ class SparkTrainTestSplitter(Estimator, SparkBaseRecModelParams):
                 SparkBaseRecModelParams.filterSeenItems: self.getFilterSeenItems()
             })
 
-
             e.add_result(rec_model.getName(), recs)
             self._rec_models[rec_model.getName()] = rec_model
 
