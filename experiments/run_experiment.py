@@ -5,6 +5,7 @@ from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 
 from experiment_utils import get_model, get_datasets, make_bucketed_df
+from replay.dataframe_bucketizer import DataframeBucketizer
 from replay.experiment import Experiment
 from replay.metrics import HitRate, MAP, NDCG
 from replay.model_handler import save, load
@@ -89,22 +90,18 @@ def main(spark: SparkSession, dataset_name: str):
         use_bucketing = os.environ.get("USE_BUCKETING", "False") == "True"
         mlflow.log_param("USE_BUCKETING", use_bucketing)
         if use_bucketing:
-            train, train_bucketing_time = make_bucketed_df(
-                train,
-                spark,
-                bucketing_key="user_idx",
-                partition_num=partition_num,
-                parquet_name=f"bucketed_train_{spark.sparkContext.applicationId.replace('-', '_')}",
-            )
-            test, test_bucketing_time = make_bucketed_df(
-                test,
-                spark,
-                bucketing_key="user_idx",
-                partition_num=partition_num,
-                parquet_name=f"bucketed_test_{spark.sparkContext.applicationId.replace('-', '_')}",
-            )
+            bucketizer = DataframeBucketizer(bucketing_key="user_idx",
+                                             partition_num=partition_num,
+                                             spark_warehouse_dir=spark_conf.get("spark.sql.warehouse.dir"))
+
+            with log_exec_timer("dataframe bucketing") as bucketing_timer:
+                bucketizer.set_table_name(f"bucketed_train_{spark.sparkContext.applicationId.replace('-', '_')}")
+                train = bucketizer.transform(train)
+
+                bucketizer.set_table_name(f"bucketed_test_{spark.sparkContext.applicationId.replace('-', '_')}")
+                test = bucketizer.transform(test)
             mlflow.log_metric(
-                "bucketing_sec", train_bucketing_time + test_bucketing_time
+                "bucketing_sec", bucketing_timer.duration
             )
 
         with log_exec_timer("Train/test caching") as train_test_cache_timer:
