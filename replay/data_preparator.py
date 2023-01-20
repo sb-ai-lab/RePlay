@@ -18,7 +18,8 @@ from pyspark.ml.feature import StringIndexerModel, IndexToString, StringIndexer
 from pyspark.ml.util import MLWriter, MLWritable, MLReader, MLReadable
 from pyspark.ml import Transformer, Estimator
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.ml.param import Param
+from pyspark.ml.param import Param, Params, TypeConverters
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.types import DoubleType, NumericType
 
@@ -418,6 +419,7 @@ class JoinBasedIndexerEstimator(Estimator):
 
 
 class DataPreparator(Transformer):
+     columnsMapping = Param(Params._dummy(), "columnsMapping", "columns mapping")
     """Transforms data to a library format:
         - read as a spark dataframe/ convert pandas dataframe to spark
         - check for nulls
@@ -479,6 +481,16 @@ class DataPreparator(Transformer):
     """
 
     _logger: Optional[logging.Logger] = None
+
+    def __init__(self, columns_mapping):
+        super().__init__()
+        self.setColumnsMapping(columns_mapping)
+
+    def getColumnsMapping(self):
+        return self.getOrDefault(self.columnsMapping)
+
+    def setColumnsMapping(self, value):
+        self.set(self.columnsMapping, value)
 
     @property
     def logger(self) -> logging.Logger:

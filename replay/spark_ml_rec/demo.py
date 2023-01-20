@@ -1,4 +1,5 @@
 from pyspark.ml import Pipeline, PipelineModel
+from pyspark.ml.feature import SQLTransformer
 from pyspark.sql import SparkSession
 from rs_datasets import MovieLens
 
@@ -8,7 +9,7 @@ from replay.spark_ml_rec.data_preparator import SparkIndexer
 from replay.spark_ml_rec.spark_base_rec import SparkBaseRecModelParams
 from replay.spark_ml_rec.spark_rec import SparkRec
 from replay.spark_ml_rec.spark_user_rec import SparkUserRec, SparkUserRecModelParams
-from replay.spark_ml_rec.splitter import SparkTrainTestSplitter
+from replay.spark_ml_rec.splitter import SparkTrainTestSplitterAndEvaluator
 from replay.splitters import UserSplitter, DateSplitter
 from replay.utils import convert2spark
 
@@ -22,11 +23,10 @@ user_features = convert2spark(ds.users)
 log_train, log_test = DateSplitter(test_start=0.2, date_col="timestamp")
 
 pipe = Pipeline([
-    # TODO: set column mapping
-    DataPreparator(),
+    DataPreparator(columns_mapping={"user_id": "user", "item_id": "item_id", "relevance": "rel"}),
+    SQLTransformer(statement="SELECT user_id AS user_idx, item_id AS item_idx, relevance, timestamp FROM __THIS__"),
     SparkIndexer(),
-    # TODO: optimize, save_all_models
-    SparkTrainTestSplitter(
+    SparkTrainTestSplitterAndEvaluator(
         splitter=UserSplitter(item_test_size=0.2, shuffle=True, drop_cold_users=True, drop_cold_items=True, seed=42),
         models=[
             SparkRec(model=Word2VecRec()),

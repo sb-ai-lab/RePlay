@@ -6,8 +6,6 @@ from pyspark.sql import DataFrame
 
 class DataframeAwareDefaultParamsWriter(DefaultParamsWriter):
     def saveImpl(self, path: str) -> None:
-
-        # TODO: delete dataframe like entities from paramMap
         dfParamsMap = {p: value for p, value in self.instance._paramMap.items() if isinstance(value, DataFrame)}
         self.instance._paramMap = {p: value for p, value in self.instance._paramMap.items() if not isinstance(value, DataFrame)}
         dfDefaultParamMap = {p: value for p, value in self.instance._defaultParamMap.items() if isinstance(value, DataFrame)}
