@@ -58,22 +58,6 @@ def get_spark_session(
     return spark
 
 
-def logger_with_settings() -> logging.Logger:
-    """Set up default logging"""
-    spark_logger = logging.getLogger("py4j")
-    spark_logger.setLevel(logging.WARN)
-    logger = logging.getLogger("replay")
-    formatter = logging.Formatter(
-        "%(asctime)s, %(name)s, %(levelname)s: %(message)s",
-        datefmt="%d-%b-%y %H:%M:%S",
-    )
-    hdlr = logging.StreamHandler()
-    hdlr.setFormatter(formatter)
-    logger.addHandler(hdlr)
-    logger.setLevel(logging.DEBUG)
-    return logger
-
-
 # pylint: disable=too-few-public-methods
 class Borg:
     """
@@ -100,9 +84,6 @@ class State(Borg):
         device: Optional[torch.device] = None,
     ):
         Borg.__init__(self)
-        if not hasattr(self, "logger_set"):
-            self.logger = logger_with_settings()
-            self.logger_set = True
 
         if session is None:
             if not hasattr(self, "session"):
