@@ -1,5 +1,7 @@
 import logging
 import os
+import shutil
+import weakref
 from typing import Any, Dict, Iterator, Optional
 import uuid
 
@@ -192,6 +194,7 @@ class HnswlibMixin:
 
                 # saving index to local temp file and sending it to executors
                 temp_path = tempfile.mkdtemp()
+                weakref.finalize(self, shutil.rmtree, temp_path)
                 tmp_file_path = os.path.join(
                     temp_path, "hnswlib_index_" + self.uid
                 )
@@ -398,6 +401,7 @@ class HnswlibMixin:
         )
 
         to_path = tempfile.mkdtemp()
+        weakref.finalize(self, shutil.rmtree, to_path)
         to_path = os.path.join(to_path, "hnswlib_index_" + self.uid)
 
         if from_filesystem == FileSystem.HDFS:

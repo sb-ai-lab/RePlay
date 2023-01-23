@@ -1,5 +1,7 @@
 import logging
 import os
+import shutil
+import weakref
 from typing import Any, Dict, Optional, Iterator
 import uuid
 
@@ -202,26 +204,26 @@ class NmslibHnswMixin:
                             index.createIndex()
 
                         if filesystem == FileSystem.HDFS:
-                            temp_dir = tempfile.mkdtemp()
-                            tmp_file_path = os.path.join(
-                                temp_dir, INDEX_FILENAME
-                            )
-                            index.saveIndex(tmp_file_path, save_data=True)
+                            with tempfile.TemporaryDirectory() as temp_dir:
+                                tmp_file_path = os.path.join(
+                                    temp_dir, INDEX_FILENAME
+                                )
+                                index.saveIndex(tmp_file_path, save_data=True)
 
-                            destination_filesystem = (
-                                fs.HadoopFileSystem.from_uri(hdfs_uri)
-                            )
-                            fs.copy_files(
-                                "file://" + tmp_file_path,
-                                index_path,
-                                destination_filesystem=destination_filesystem,
-                            )
-                            fs.copy_files(
-                                "file://" + tmp_file_path + ".dat",
-                                index_path + ".dat",
-                                destination_filesystem=destination_filesystem,
-                            )
-                            # param use_threads=True (?)
+                                destination_filesystem = (
+                                    fs.HadoopFileSystem.from_uri(hdfs_uri)
+                                )
+                                fs.copy_files(
+                                    "file://" + tmp_file_path,
+                                    index_path,
+                                    destination_filesystem=destination_filesystem,
+                                )
+                                fs.copy_files(
+                                    "file://" + tmp_file_path + ".dat",
+                                    index_path + ".dat",
+                                    destination_filesystem=destination_filesystem,
+                                )
+                                # param use_threads=True (?)
                         else:
                             index.saveIndex(index_path, save_data=True)
 
@@ -262,21 +264,21 @@ class NmslibHnswMixin:
                             index.createIndex()
 
                         if filesystem == FileSystem.HDFS:
-                            temp_dir = tempfile.mkdtemp()
-                            tmp_file_path = os.path.join(
-                                temp_dir, INDEX_FILENAME
-                            )
-                            index.saveIndex(tmp_file_path)
+                            with tempfile.TemporaryDirectory() as temp_dir:
+                                tmp_file_path = os.path.join(
+                                    temp_dir, INDEX_FILENAME
+                                )
+                                index.saveIndex(tmp_file_path)
 
-                            destination_filesystem = (
-                                fs.HadoopFileSystem.from_uri(hdfs_uri)
-                            )
-                            fs.copy_files(
-                                "file://" + tmp_file_path,
-                                index_path,
-                                destination_filesystem=destination_filesystem,
-                            )
-                            # param use_threads=True (?)
+                                destination_filesystem = (
+                                    fs.HadoopFileSystem.from_uri(hdfs_uri)
+                                )
+                                fs.copy_files(
+                                    "file://" + tmp_file_path,
+                                    index_path,
+                                    destination_filesystem=destination_filesystem,
+                                )
+                                # param use_threads=True (?)
                         else:
                             index.saveIndex(index_path)
 
@@ -325,11 +327,13 @@ class NmslibHnswMixin:
                         index.createIndex()
                     # saving index to local temp file and sending it to executors
                     temp_dir = tempfile.mkdtemp()
+                    weakref.finalize(self, shutil.rmtree, temp_dir)
                     tmp_file_path = os.path.join(
                         temp_dir, f"{INDEX_FILENAME}_{self.uid}"
                     )
                     index.saveIndex(tmp_file_path, save_data=True)
                     spark = SparkSession.getActiveSession()
+                    # for the "sparse" type we need to store two files
                     spark.sparkContext.addFile("file://" + tmp_file_path)
                     spark.sparkContext.addFile(
                         "file://" + tmp_file_path + ".dat"
@@ -363,6 +367,7 @@ class NmslibHnswMixin:
 
                     # saving index to local temp file and sending it to executors
                     temp_dir = tempfile.mkdtemp()
+                    weakref.finalize(self, shutil.rmtree, temp_dir)
                     tmp_file_path = os.path.join(
                         temp_dir, f"{INDEX_FILENAME}_{self.uid}"
                     )
@@ -839,6 +844,7 @@ class NmslibHnswMixin:
         )
 
         to_path = tempfile.mkdtemp()
+        weakref.finalize(self, shutil.rmtree, to_path)
         to_path = os.path.join(to_path, f"{INDEX_FILENAME}_{self.uid}")
 
         from_paths = []
