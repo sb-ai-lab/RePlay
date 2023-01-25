@@ -1,6 +1,4 @@
-# import copy
 import logging
-# import os
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from datetime import datetime
 from enum import Enum
@@ -8,16 +6,12 @@ from enum import Enum
 import numpy as np
 import pandas as pd
 import pyspark.sql.types as st
-# import nmslib
-# import tempfile
 
 from contextlib import contextmanager
-from pyarrow import fs
 from pyspark.sql import SparkSession
 from numpy.random import default_rng
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
-from pyspark.sql.functions import pandas_udf
 from scipy.sparse import csr_matrix
 
 from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
@@ -798,9 +792,9 @@ def JobGroup(group_id: str, description: str):
     sc._jsc.clearJobGroup()
 
 
-def getNumberOfAllocatedExecutors(spark: SparkSession):
+def get_number_of_allocated_executors(spark: SparkSession):
     sc = spark._jsc.sc()
-    return len([executor.host() for executor in sc.statusTracker().getExecutorInfos() ]) -1
+    return len([executor.host() for executor in sc.statusTracker().getExecutorInfos()]) - 1
 
 
 class FileSystem(Enum):

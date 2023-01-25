@@ -4,20 +4,17 @@ Base classes for quality and diversity metrics.
 import logging
 import operator
 from abc import ABC, abstractmethod
-import os
 from typing import Dict, List, Tuple, Union, Optional
 
 import pandas as pd
-import mlflow
+from pyspark.sql import Column
 from pyspark.sql import DataFrame
+from pyspark.sql import Window
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
-from pyspark.sql import Window
 from scipy.stats import norm
-from pyspark.sql import Column
 
 from replay.constants import AnyDataFrame, IntOrList, NumType
-from replay.utils import JobGroup, convert2spark, log_exec_timer
 from replay.utils import convert2spark, get_top_k_recs
 
 
@@ -161,35 +158,25 @@ class Metric(ABC):
         res = {}
         quantile = norm.ppf((1 + alpha) / 2)
         for k in k_list:
-            with JobGroup(
-                "_conf_interval()",
-                "self._get_metric_distribution()",
-            ):
-                distribution = self._get_metric_distribution(recs, k)    
-                distribution = distribution.cache()
-                distribution.write.mode("overwrite").format("noop").save()
-            
-            with JobGroup(
-                "_conf_interval()",
-                "distribution.agg()",
-            ):
-                value = (
-                    distribution.agg(
-                        sf.stddev("value").alias("std"),
-                        sf.count("value").alias("count"),
-                    )
-                    .select(
-                        sf.when(
-                            sf.isnan(sf.col("std")) | sf.col("std").isNull(),
-                            sf.lit(0.0),
-                        )
-                        .otherwise(sf.col("std"))
-                        .cast("float")
-                        .alias("std"),
-                        "count",
-                    )
-                    .first()
+            distribution = self._get_metric_distribution(recs, k)
+
+            value = (
+                distribution.agg(
+                    sf.stddev("value").alias("std"),
+                    sf.count("value").alias("count"),
                 )
+                .select(
+                    sf.when(
+                        sf.isnan(sf.col("std")) | sf.col("std").isNull(),
+                        sf.lit(0.0),
+                    )
+                    .otherwise(sf.col("std"))
+                    .cast("float")
+                    .alias("std"),
+                    "count",
+                )
+                .first()
+            )
             res[k] = quantile * value["std"] / (value["count"] ** 0.5)
         return res
 
@@ -226,36 +213,10 @@ class Metric(ABC):
             # because we don't know columns ordering
             # and we don't know exactly what is columns in recs
             cols = [col for col in recs.columns if col != "user_idx"]
-            metric_value_col = self._get_metric_value_by_user_scala_udf(sf.lit(k).alias("k"), *cols).alias("value") # "pred", "ground_truth"
-            if os.environ.get("MATERIALIZE_METRIC_CALC", "False") == "True":
-                with log_exec_timer(f"{self.__class__.__name__} materialization") as timer, JobGroup(
-                    f"{self.__class__.__name__} materialization", f"{self.__class__.__name__} materialization"
-                ):
-                    distribution = recs.select("user_idx", metric_value_col)
-                    distribution = distribution.cache()
-                    distribution.write.mode("overwrite").format("noop").save()
-                mlflow.log_metric(f"{self.__class__.__name__}.{k}_sec", timer.duration)
-                return distribution
-            else:
-                return recs.select("user_idx", metric_value_col)
+            metric_value_col = self._get_metric_value_by_user_scala_udf(sf.lit(k).alias("k"), *cols).alias("value")
+            return recs.select("user_idx", metric_value_col)
 
         cur_class = self.__class__
-        if os.environ.get("MATERIALIZE_METRIC_CALC", "False") == "True":
-            with log_exec_timer(f"{self.__class__.__name__} materialization") as timer, JobGroup(
-                f"{self.__class__.__name__} materialization", f"{self.__class__.__name__} materialization"
-            ):
-                distribution = recs.rdd.flatMap(
-                    # pylint: disable=protected-access
-                    lambda x: [
-                        (x[0], float(cur_class._get_metric_value_by_user(k, *x[1:])))
-                    ]
-                ).toDF(
-                    f"user_idx {recs.schema['user_idx'].dataType.typeName()}, value double"
-                )
-                distribution = distribution.cache()
-                distribution.write.mode("overwrite").format("noop").save()
-            mlflow.log_metric(f"{self.__class__.__name__}.{k}_sec", timer.duration)
-            return distribution
         distribution = recs.rdd.flatMap(
             # pylint: disable=protected-access
             lambda x: [

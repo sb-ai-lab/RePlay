@@ -1,3 +1,93 @@
+"""
+This script is a Spark application that executes replay recommendation models.
+Parameters sets via environment variables.
+
+launch example:
+    $ export DATASET=MovieLens
+    $ export MODEL=ALS
+    $ export ALS_RANK=100
+    $ export SEED=22
+    $ export K=10
+    $ python experiments/run_experiment.py
+
+or run in one line:
+    $ DATASET=MovieLens MODEL=ALS ALS_RANK=100 SEED=22 K=10 K_LIST_METRICS=5,10 python experiments/run_experiment.py
+
+All params:
+    DATASET: dataset name
+    Available values:
+        MovieLens__100k
+        MovieLens==MovieLens__1m
+        MovieLens__10m
+        MovieLens__20m
+        MovieLens__25m
+        MillionSongDataset
+
+    MODEL: model name
+    Available values:
+        LightFM
+        PopRec
+        UserPopRec
+        ALS
+        Explicit_ALS
+        ALS_HNSWLIB
+        Word2VecRec
+        Word2VecRec_HNSWLIB
+        SLIM
+        SLIM_NMSLIB_HNSW
+        ItemKNN
+        ItemKNN_NMSLIB_HNSW
+        ClusterRec
+        ClusterRec_HNSWLIB
+        RandomRec_uniform
+        RandomRec_popular_based
+        RandomRec_relevance
+        AssociationRulesItemRec
+        Wilson
+        UCB
+
+    SEED: seed
+
+    K: number of desired recommendations per user
+
+    K_LIST_METRICS: List of K values (separated by commas) to calculate metrics. For example, K_LIST_METRICS=5,10.
+    It perform NDCG@5, NDCG@10, MAP@5, MAP@10, HitRate@5 and HitRate@10 calculation.
+
+    NMSLIB_HNSW_PARAMS: nmslib hnsw index params. Double quotes must be used instead of single quotes
+    Example: {"method":"hnsw","space":"negdotprod_sparse_fast","M":100,"efS":2000,"efC":2000,"post":0,"index_path":"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark_app_id}","build_index_on":"executor"}
+
+    HNSWLIB_PARAMS: hnswlib index params. Double quotes must be used instead of single quotes
+    Example: {"space":"ip","M":100,"efS":2000,"efC":2000,"post":0,"index_path":"/opt/spark_data/replay_datasets/hnswlib_index_{spark_app_id}","build_index_on":"executor"}
+
+    ALS_RANK: rank for ALS model, i.e. length of ALS factor vectors
+
+    NUM_BLOCKS: num_item_blocks and num_user_blocks values in ALS model. Default: 10.
+
+    WORD2VEC_RANK: rank of Word2Vec model
+
+    NUM_NEIGHBOURS: ItemKNN param
+
+    NUM_CLUSTERS: number of clusters in Cluster model
+
+    USE_SCALA_UDFS_METRICS: if set to "True", then metrics will be calculated via scala UDFs
+
+    USE_BUCKETING: if set to "True", then train and test dataframes will be bucketed
+
+    DATASETS_DIR: where train and test datasets will be stored
+
+    FORCE_RECREATE_DATASETS: if set to "True", then train and test dataframes will be recreated
+
+    RS_DATASETS_DIR: where files will be downloaded by the rs_datasets package
+
+    FILTER_LOG: if set to "True", the log will be filtered by "relevance" >= 1
+
+    CHECK_NUMBER_OF_ALLOCATED_EXECUTORS: If set to "True", then number of allocated executors will be checked.
+    And if there are not enough executors, then the program will stop.
+
+    PARTITION_NUM: number of partition to repartition test and train dataframes.
+
+"""
+
 import logging
 import os
 
@@ -5,7 +95,14 @@ import mlflow
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 
-from experiment_utils import get_model, get_datasets
+from experiment_utils import (
+    get_model,
+    get_datasets,
+    get_spark_configs_as_dict,
+    check_number_of_allocated_executors,
+    get_partition_num,
+    get_log_info, prepare_datasets,
+)
 from replay.dataframe_bucketizer import DataframeBucketizer
 from replay.experiment import Experiment
 from replay.metrics import HitRate, MAP, NDCG
@@ -17,10 +114,8 @@ from replay.models import (
 from replay.session_handler import get_spark_session
 from replay.utils import (
     JobGroup,
-    getNumberOfAllocatedExecutors,
     log_exec_timer,
 )
-from replay.utils import get_log_info2
 from replay.utils import logger
 
 import warnings
@@ -43,62 +138,35 @@ logger.setLevel(logging.DEBUG)
 def main(spark: SparkSession, dataset_name: str):
     spark_conf: SparkConf = spark.sparkContext.getConf()
 
-    # if enough executors is not allocated in the cluster mode, then we stop the experiment
-    if spark_conf.get("spark.executor.instances"):
-        if getNumberOfAllocatedExecutors(spark) < int(
-            spark_conf.get("spark.executor.instances")
-        ):
-            raise Exception("Not enough executors to run experiment!")
+    check_number_of_allocated_executors(spark)
 
     k = int(os.environ.get("K", 10))
-    k_list_metrics = [5, 10]
+    k_list_metrics = list(map(int, os.environ["K_LIST_METRICS"].split(",")))
     seed = int(os.environ.get("SEED", 1234))
     mlflow_tracking_uri = os.environ.get(
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8822"
     )
-    model_name = os.environ.get("MODEL", "Word2VecRec_HNSWLIB")
-    # LightFM
-    # PopRec
-    # UserPopRec
-    # Word2VecRec Word2VecRec_NMSLIB_HNSW Word2VecRec_HNSWLIB
-    # ALS ALS_NMSLIB_HNSW ALS_HNSWLIB
-    # SLIM SLIM_NMSLIB_HNSW
-    # ItemKNN ItemKNN_NMSLIB_HNSW
-    # ClusterRec ClusterRec_HNSWLIB
+    model_name = os.environ["MODEL"]
 
-    if os.environ.get("PARTITION_NUM"):
-        partition_num = int(os.environ.get("PARTITION_NUM"))
-    else:
-        if spark_conf.get("spark.cores.max") is None:
-            partition_num = os.cpu_count()
-        else:
-            partition_num = int(spark_conf.get("spark.cores.max"))
+    partition_num = get_partition_num(spark_conf)
 
     mlflow.set_tracking_uri(mlflow_tracking_uri)
     mlflow.set_experiment(os.environ.get("EXPERIMENT", "delete"))
 
     with mlflow.start_run():
-        spark_configs = {
-            "spark.driver.cores": spark_conf.get("spark.driver.cores"),
-            "spark.driver.memory": spark_conf.get("spark.driver.memory"),
-            "spark.memory.fraction": spark_conf.get("spark.memory.fraction"),
-            "spark.executor.cores": spark_conf.get("spark.executor.cores"),
-            "spark.executor.memory": spark_conf.get("spark.executor.memory"),
-            "spark.executor.instances": spark_conf.get(
-                "spark.executor.instances"
-            ),
-            "spark.sql.shuffle.partitions": spark_conf.get(
-                "spark.sql.shuffle.partitions"
-            ),
-            "spark.default.parallelism": spark_conf.get(
-                "spark.default.parallelism"
-            ),
-            "spark.applicationId": spark.sparkContext.applicationId,
-            "dataset": dataset_name,
-            "seed": seed,
-            "K": k,
-        }
-        mlflow.log_params(spark_configs)
+
+        params = get_spark_configs_as_dict(spark_conf)
+        params.update(
+            {
+                "spark.applicationId": spark.sparkContext.applicationId,
+                "dataset": dataset_name,
+                "seed": seed,
+                "K": k,
+            }
+        )
+        mlflow.log_params(params)
+
+        prepare_datasets(dataset_name, spark, partition_num)
 
         train, test, user_features = get_datasets(
             dataset_name, spark, partition_num
@@ -107,19 +175,23 @@ def main(spark: SparkSession, dataset_name: str):
         use_bucketing = os.environ.get("USE_BUCKETING", "False") == "True"
         mlflow.log_param("USE_BUCKETING", use_bucketing)
         if use_bucketing:
-            bucketizer = DataframeBucketizer(bucketing_key="user_idx",
-                                             partition_num=partition_num,
-                                             spark_warehouse_dir=spark_conf.get("spark.sql.warehouse.dir"))
+            bucketizer = DataframeBucketizer(
+                bucketing_key="user_idx",
+                partition_num=partition_num,
+                spark_warehouse_dir=spark_conf.get("spark.sql.warehouse.dir"),
+            )
 
             with log_exec_timer("dataframe bucketing") as bucketing_timer:
-                bucketizer.set_table_name(f"bucketed_train_{spark.sparkContext.applicationId.replace('-', '_')}")
+                bucketizer.set_table_name(
+                    f"bucketed_train_{spark.sparkContext.applicationId.replace('-', '_')}"
+                )
                 train = bucketizer.transform(train)
 
-                bucketizer.set_table_name(f"bucketed_test_{spark.sparkContext.applicationId.replace('-', '_')}")
+                bucketizer.set_table_name(
+                    f"bucketed_test_{spark.sparkContext.applicationId.replace('-', '_')}"
+                )
                 test = bucketizer.transform(test)
-            mlflow.log_metric(
-                "bucketing_sec", bucketing_timer.duration
-            )
+            mlflow.log_metric("bucketing_sec", bucketing_timer.duration)
 
         with log_exec_timer("Train/test caching") as train_test_cache_timer:
             train = train.cache()
@@ -133,30 +205,34 @@ def main(spark: SparkSession, dataset_name: str):
         mlflow.log_metric("train_num_partitions", train.rdd.getNumPartitions())
         mlflow.log_metric("test_num_partitions", test.rdd.getNumPartitions())
 
-        with log_exec_timer(
-            "get_log_info2() execution"
-        ) as get_log_info2_timer:
-            train_info = get_log_info2(train)
-            test_info = get_log_info2(test)
-            logger.info(
-                "train info: total lines: {}, total users: {}, total items: {}".format(
-                    *train_info
-                )
+        with log_exec_timer("get_log_info() execution") as get_log_info_timer:
+            (
+                train_rows_count,
+                train_users_count,
+                train_items_count,
+            ) = get_log_info(train)
+            test_rows_count, test_users_count, test_items_count = get_log_info(
+                test
             )
             logger.info(
-                "test info: total lines: {}, total users: {}, total items: {}".format(
-                    *test_info
-                )
+                f"train info: total lines: {train_rows_count}, "
+                f"total users: {train_users_count}, "
+                f"total items: {train_items_count}"
+            )
+            logger.info(
+                f"test info: total lines: {test_rows_count}, "
+                f"total users: {test_users_count}, "
+                f"total items: {test_items_count}"
             )
         mlflow.log_params(
             {
-                "get_log_info_sec": get_log_info2_timer.duration,
-                "train.total_users": train_info[1],
-                "train.total_items": train_info[2],
-                "train_size": train_info[0],
-                "test_size": test_info[0],
-                "test.total_users": test_info[1],
-                "test.total_items": test_info[2],
+                "get_log_info_sec": get_log_info_timer.duration,
+                "train.total_users": train_users_count,
+                "train.total_items": train_items_count,
+                "train_size": train_rows_count,
+                "test_size": test_rows_count,
+                "test.total_users": test_users_count,
+                "test.total_items": test_items_count,
             }
         )
 
@@ -173,7 +249,9 @@ def main(spark: SparkSession, dataset_name: str):
             model.fit(log=train, **kwargs)
         mlflow.log_metric("train_sec", train_timer.duration)
 
-        with log_exec_timer(f"{model_name} prediction") as infer_timer, JobGroup(
+        with log_exec_timer(
+            f"{model_name} prediction"
+        ) as infer_timer, JobGroup(
             "Model inference", f"{model.__class__.__name__}.predict()"
         ):
             if isinstance(model, AssociationRulesItemRec):
@@ -193,6 +271,12 @@ def main(spark: SparkSession, dataset_name: str):
             recs.write.mode("overwrite").format("noop").save()
         mlflow.log_metric("infer_sec", infer_timer.duration)
 
+        if os.environ.get("USE_SCALA_UDFS_METRICS", "False") == "True":
+            use_scala_udf = True
+        else:
+            use_scala_udf = False
+        mlflow.log_param("use_scala_udf", use_scala_udf)
+
         if not isinstance(model, AssociationRulesItemRec):
             with log_exec_timer(
                 f"Metrics calculation"
@@ -202,9 +286,9 @@ def main(spark: SparkSession, dataset_name: str):
                 e = Experiment(
                     test,
                     {
-                        MAP(use_scala_udf=True): k_list_metrics,
-                        NDCG(use_scala_udf=True): k_list_metrics,
-                        HitRate(use_scala_udf=True): k_list_metrics,
+                        MAP(use_scala_udf=use_scala_udf): k_list_metrics,
+                        NDCG(use_scala_udf=use_scala_udf): k_list_metrics,
+                        HitRate(use_scala_udf=use_scala_udf): k_list_metrics,
                     },
                 )
                 e.add_result(model_name, recs)
@@ -269,9 +353,9 @@ def main(spark: SparkSession, dataset_name: str):
                 e = Experiment(
                     test,
                     {
-                        MAP(use_scala_udf=True): k_list_metrics,
-                        NDCG(use_scala_udf=True): k_list_metrics,
-                        HitRate(use_scala_udf=True): k_list_metrics,
+                        MAP(use_scala_udf=use_scala_udf): k_list_metrics,
+                        NDCG(use_scala_udf=use_scala_udf): k_list_metrics,
+                        HitRate(use_scala_udf=use_scala_udf): k_list_metrics,
                     },
                 )
                 e.add_result(model_name, recs)

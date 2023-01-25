@@ -17,7 +17,7 @@ from replay.metrics.unexpectedness import Unexpectedness
 from replay.session_handler import get_spark_session
 from replay.utils import (
     JobGroup,
-    getNumberOfAllocatedExecutors,
+    get_number_of_allocated_executors,
     log_exec_timer,
 )
 
@@ -33,7 +33,7 @@ def main(spark: SparkSession):
     spark_conf: SparkConf = spark.sparkContext.getConf()
 
     if spark_conf.get("spark.executor.instances"):
-        if getNumberOfAllocatedExecutors(spark) < int(
+        if get_number_of_allocated_executors(spark) < int(
             spark_conf.get("spark.executor.instances")
         ):
             raise Exception("Not enough executors to run experiment!")

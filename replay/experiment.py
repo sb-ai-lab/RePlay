@@ -94,22 +94,13 @@ class Experiment:
                 else (current_k, max_k)
             )
 
-        # We materialize here if we want calculate metrics metrialization time
-        # in _get_metric_distribution method
-        if os.environ.get("MATERIALIZE_METRIC_CALC", "False") == "True":
-            with JobGroup("Experiment.add_result()", "get_enriched_recommendations()"):
-                recs = get_enriched_recommendations(pred, self.test, max_k).cache()
-                recs.write.mode("overwrite").format("noop").save()
-        else:
-            recs = get_enriched_recommendations(pred, self.test, max_k).cache() 
+        recs = get_enriched_recommendations(pred, self.test, max_k).cache()
 
         for metric, k_list in sorted(
             self.metrics.items(), key=lambda x: str(x[0])
         ):
             enriched = None
-            # WARN: added 'NCISMetric' as hotfix to provide 'weight' column in dataframe
-            # maybe wrong
-            if isinstance(metric, (RecOnlyMetric, NCISMetric)):
+            if isinstance(metric, RecOnlyMetric):
                 enriched = metric._get_enriched_recommendations(
                     pred, self.test, max_k
                 )

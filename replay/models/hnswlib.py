@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 import weakref
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Dict, Iterator, Optional, Union
 import uuid
 
 import numpy as np
@@ -15,6 +15,8 @@ from pyspark import SparkFiles
 from pyspark.sql import SparkSession
 from pyspark.sql import DataFrame, functions as sf
 from pyspark.sql.functions import pandas_udf
+
+from replay.ann.ann_mixin import ANNMixin
 from replay.session_handler import State
 
 from replay.utils import FileSystem, JobGroup, get_filesystem
@@ -77,10 +79,19 @@ class HnswlibIndexFileManager:
         return self._index
 
 
-class HnswlibMixin:
+class HnswlibMixin(ANNMixin):
     """Mixin that provides methods to build hnswlib index and infer it.
     Also provides methods to saving and loading index to/from disk.
     """
+
+    def _infer_ann_index(self, vectors: DataFrame, features_col: str, params: Dict[str, Union[int, str]], k: int,
+                         index_dim: str = None, index_type: str = None) -> DataFrame:
+        return self._infer_hnsw_index(vectors, features_col, params, k, index_dim)
+
+    def _build_ann_index(self, vectors: DataFrame, features_col: str, params: Dict[str, Union[int, str]],
+                         dim: int = None, num_elements: int = None, id_col: Optional[str] = None,
+                         index_type: str = None, items_count: Optional[int] = None) -> None:
+        self._build_hnsw_index(vectors, features_col, params, dim, num_elements, id_col)
 
     def __init__(self):
         #: A unique id for the object.
@@ -94,7 +105,7 @@ class HnswlibMixin:
         dim: int,
         num_elements: int,
         id_col: Optional[str] = None,
-    ):
+    ) -> None:
         """Builds hnsw index and dump it to hdfs or disk.
 
         Args:
@@ -106,76 +117,21 @@ class HnswlibMixin:
             id_col: the name of the column in the `vectors` dataframe that contains ids (of vectors)
         """
 
-        with JobGroup(
-            f"{self.__class__.__name__}._build_hnsw_index()",
-            "all _build_hnsw_index()",
-        ):
-            if params["build_index_on"] == "executor":
-                # to execution in one executor
-                vectors = vectors.repartition(1)
+        if params["build_index_on"] == "executor":
+            # to execution in one executor
+            vectors = vectors.repartition(1)
 
-                filesystem, hdfs_uri, index_path = get_filesystem(
-                    params["index_path"]
-                )
+            filesystem, hdfs_uri, index_path = get_filesystem(
+                params["index_path"]
+            )
 
-                def build_index(iterator: Iterator[pd.DataFrame]):
-                    """Builds index on executor and writes it to shared disk or hdfs.
+            def build_index(iterator: Iterator[pd.DataFrame]):
+                """Builds index on executor and writes it to shared disk or hdfs.
 
-                    Args:
-                        iterator: iterates on dataframes with vectors/features
+                Args:
+                    iterator: iterates on dataframes with vectors/features
 
-                    """
-                    index = hnswlib.Index(space=params["space"], dim=dim)
-
-                    # Initializing index - the maximum number of elements should be known beforehand
-                    index.init_index(
-                        max_elements=num_elements,
-                        ef_construction=params["efC"],
-                        M=params["M"],
-                    )
-
-                    # pdf is a pandas dataframe that contains ids and features (vectors)
-                    for pdf in iterator:
-                        vectors_np = np.squeeze(pdf[features_col].values)
-                        if id_col:
-                            index.add_items(
-                                np.stack(vectors_np), pdf[id_col].values
-                            )
-                        else:
-                            # ids will be from [0, ..., len(vectors_np)]
-                            index.add_items(np.stack(vectors_np))
-
-                    if filesystem == FileSystem.HDFS:
-                        with tempfile.TemporaryDirectory() as temp_path:
-                            tmp_file_path = os.path.join(
-                                temp_path, "hnswlib_index"
-                            )
-                            index.save_index(tmp_file_path)
-
-                            destination_filesystem = fs.HadoopFileSystem.from_uri(
-                                hdfs_uri
-                            )
-                            fs.copy_files(
-                                "file://" + tmp_file_path,
-                                index_path,
-                                destination_filesystem=destination_filesystem,
-                            )
-                            # param use_threads=True (?)
-                    else:
-                        index.save_index(index_path)
-
-                    yield pd.DataFrame(data={"_success": 1}, index=[0])
-
-                # Here we perform materialization (`.collect()`) to build the hnsw index.
-                logger.info("Started building the hnsw index")
-                vectors.select(id_col, features_col).mapInPandas(
-                    build_index, "_success int"
-                ).collect()
-                logger.info("Finished building the hnsw index")
-            else:
-                vectors = vectors.toPandas()
-                vectors_np = np.squeeze(vectors[features_col].values)
-
+                """
                 index = hnswlib.Index(space=params["space"], dim=dim)
 
                 # Initializing index - the maximum number of elements should be known beforehand
@@ -185,23 +141,74 @@ class HnswlibMixin:
                     M=params["M"],
                 )
 
-                if id_col:
-                    index.add_items(
-                        np.stack(vectors_np), vectors[id_col].values
-                    )
-                else:
-                    index.add_items(np.stack(vectors_np))
+                # pdf is a pandas dataframe that contains ids and features (vectors)
+                for pdf in iterator:
+                    vectors_np = np.squeeze(pdf[features_col].values)
+                    if id_col:
+                        index.add_items(
+                            np.stack(vectors_np), pdf[id_col].values
+                        )
+                    else:
+                        # ids will be from [0, ..., len(vectors_np)]
+                        index.add_items(np.stack(vectors_np))
 
-                # saving index to local temp file and sending it to executors
-                temp_path = tempfile.mkdtemp()
-                weakref.finalize(self, shutil.rmtree, temp_path)
-                tmp_file_path = os.path.join(
-                    temp_path, "hnswlib_index_" + self.uid
+                if filesystem == FileSystem.HDFS:
+                    with tempfile.TemporaryDirectory() as temp_path:
+                        tmp_file_path = os.path.join(
+                            temp_path, "hnswlib_index"
+                        )
+                        index.save_index(tmp_file_path)
+
+                        destination_filesystem = fs.HadoopFileSystem.from_uri(
+                            hdfs_uri
+                        )
+                        fs.copy_files(
+                            "file://" + tmp_file_path,
+                            index_path,
+                            destination_filesystem=destination_filesystem,
+                        )
+                        # param use_threads=True (?)
+                else:
+                    index.save_index(index_path)
+
+                yield pd.DataFrame(data={"_success": 1}, index=[0])
+
+            # Here we perform materialization (`.collect()`) to build the hnsw index.
+            logger.info("Started building the hnsw index")
+            cols = [id_col, features_col] if id_col else [features_col]
+            vectors.select(*cols).mapInPandas(
+                build_index, "_success int"
+            ).collect()
+            logger.info("Finished building the hnsw index")
+        else:
+            vectors = vectors.toPandas()
+            vectors_np = np.squeeze(vectors[features_col].values)
+
+            index = hnswlib.Index(space=params["space"], dim=dim)
+
+            # Initializing index - the maximum number of elements should be known beforehand
+            index.init_index(
+                max_elements=num_elements,
+                ef_construction=params["efC"],
+                M=params["M"],
+            )
+
+            if id_col:
+                index.add_items(
+                    np.stack(vectors_np), vectors[id_col].values
                 )
-                # index.saveIndex(tmp_file_path)
-                index.save_index(tmp_file_path)
-                spark = SparkSession.getActiveSession()
-                spark.sparkContext.addFile("file://" + tmp_file_path)
+            else:
+                index.add_items(np.stack(vectors_np))
+
+            # saving index to local temp file and sending it to executors
+            temp_path = tempfile.mkdtemp()
+            weakref.finalize(self, shutil.rmtree, temp_path)
+            tmp_file_path = os.path.join(
+                temp_path, "hnswlib_index_" + self.uid
+            )
+            index.save_index(tmp_file_path)
+            spark = SparkSession.getActiveSession()
+            spark.sparkContext.addFile("file://" + tmp_file_path)
 
     def _update_hnsw_index(
         self,
@@ -260,7 +267,7 @@ class HnswlibMixin:
         )
 
         @pandas_udf(return_type)
-        def infer_index( # user_ids: pd.Series,
+        def infer_index(
             vectors: pd.Series, num_items: pd.Series
         ) -> pd.DataFrame:
             index_file_manager = index_file_manager_broadcast.value
@@ -282,42 +289,30 @@ class HnswlibMixin:
 
             return pd_res
 
-        with JobGroup(
-            "infer_index()",
-            "infer_hnsw_index (inside 1)",
-        ):
-            res = vectors.select(
-                "user_idx",
-                infer_index(features_col, "num_items").alias("r")
-            )
-            # res = res.cache()
-            # res.write.mode("overwrite").format("noop").save()
+        res = vectors.select(
+            "user_idx",
+            infer_index(features_col, "num_items").alias("r")
+        )
 
-        with JobGroup(
-            "res.withColumn('zip_exp', ...",
-            "infer_hnsw_index (inside 2)",
-        ):
-            res = res.select(
-                "user_idx",
-                sf.explode(sf.arrays_zip("r.item_idx", "r.distance")).alias(
-                    "zip_exp"
-                ),
-            )
+        res = res.select(
+            "user_idx",
+            sf.explode(sf.arrays_zip("r.item_idx", "r.distance")).alias(
+                "zip_exp"
+            ),
+        )
 
-            # Fix arrays_zip random behavior. It can return zip_exp.0 or zip_exp.item_idx in different machines
-            fields = res.schema["zip_exp"].jsonValue()["type"]["fields"]
-            item_idx_field_name: str = fields[0]["name"]
-            distance_field_name: str = fields[1]["name"]
+        # Fix arrays_zip random behavior. It can return zip_exp.0 or zip_exp.item_idx in different machines
+        fields = res.schema["zip_exp"].jsonValue()["type"]["fields"]
+        item_idx_field_name: str = fields[0]["name"]
+        distance_field_name: str = fields[1]["name"]
 
-            res = res.select(
-                "user_idx",
-                sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx"),
-                (
-                    sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")
-                ).alias("relevance"),
-            )
-            # res = res.cache()
-            # res.write.mode("overwrite").format("noop").save()
+        res = res.select(
+            "user_idx",
+            sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx"),
+            (
+                sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")
+            ).alias("relevance"),
+        )
 
         return res
 

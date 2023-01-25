@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -11,12 +11,43 @@ from sklearn.linear_model import ElasticNet
 from replay.models.base_rec import NeighbourRec
 from replay.models.nmslib_hnsw import NmslibHnswMixin
 from replay.session_handler import State
-from replay.utils import JobGroup
 
 
 class SLIM(NeighbourRec, NmslibHnswMixin):
     """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
+
+    def _get_ann_infer_params(self) -> Dict[str, Any]:
+        return {
+            "features_col": "",
+            "params": self._nmslib_hnsw_params,
+            "index_type": "sparse",
+        }
+
+    def _get_vectors_to_infer_ann(self, log: DataFrame, users: DataFrame) -> DataFrame:
+        user_to_max_items = (
+            log.groupBy('user_idx')
+            .agg(sf.count('item_idx').alias('num_items'))
+        )
+        users = users.join(user_to_max_items, on="user_idx")
+        return users
+
+    def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
+        items_count = log.select(sf.max('item_idx')).first()[0] + 1
+        return {
+            "features_col": None,
+            "params": self._nmslib_hnsw_params,
+            "index_type": "sparse",
+            "items_count": items_count,
+        }
+
+    def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
+        similarity_df = self.similarity.select("similarity", 'item_idx_one', 'item_idx_two')
+        return similarity_df
+
+    @property
+    def _use_ann(self) -> bool:
+        return self._nmslib_hnsw_params is not None
 
     _search_space = {
         "beta": {"type": "loguniform", "args": [1e-6, 5]},
@@ -128,11 +159,6 @@ class SLIM(NeighbourRec, NmslibHnswMixin):
             self._interactions_matrix_broadcast = (
                     State().session.sparkContext.broadcast(interactions_matrix.tocsr(copy=False))
             )
-            
-            items_count = log.select(sf.max('item_idx')).first()[0] + 1 
-            similarity_df = self.similarity.select("similarity", 'item_idx_one', 'item_idx_two')
-            self._build_nmslib_hnsw_index(similarity_df, None, self._nmslib_hnsw_params, index_type="sparse", items_count=items_count)
-
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -145,27 +171,6 @@ class SLIM(NeighbourRec, NmslibHnswMixin):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        
-        if self._nmslib_hnsw_params:
-
-            params = self._nmslib_hnsw_params
-         
-            with JobGroup(
-                f"{self.__class__.__name__}._predict()",
-                "_infer_hnsw_index()",
-            ):
-                user_to_max_items = (
-                    log.groupBy('user_idx')
-                    .agg(sf.count('item_idx').alias('num_items'))
-                )
-
-                users = users.join(user_to_max_items, on="user_idx")
-
-                res = self._infer_nmslib_hnsw_index(users, "",
-                                                    params, k,
-                                                    index_type="sparse")
-
-            return res
 
         return self._predict_pairs_inner(
             log=log,
