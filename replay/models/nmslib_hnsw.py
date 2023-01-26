@@ -125,14 +125,33 @@ class NmslibHnswMixin(ANNMixin):
     Also provides methods to saving and loading index to/from disk.
     """
 
-    def _infer_ann_index(self, vectors: DataFrame, features_col: str, params: Dict[str, Union[int, str]], k: int,
-                         index_dim: str = None, index_type: str = None) -> DataFrame:
-        return self._infer_nmslib_hnsw_index(vectors, features_col, params, k, index_type)
+    def _infer_ann_index(
+        self,
+        vectors: DataFrame,
+        features_col: str,
+        params: Dict[str, Union[int, str]],
+        k: int,
+        index_dim: str = None,
+        index_type: str = None,
+    ) -> DataFrame:
+        return self._infer_nmslib_hnsw_index(
+            vectors, features_col, params, k, index_type
+        )
 
-    def _build_ann_index(self, vectors: DataFrame, features_col: str, params: Dict[str, Union[int, str]],
-                         dim: int = None, num_elements: int = None, id_col: Optional[str] = None,
-                         index_type: str = None, items_count: Optional[int] = None) -> None:
-        self._build_nmslib_hnsw_index(vectors, features_col, params, index_type, items_count)
+    def _build_ann_index(
+        self,
+        vectors: DataFrame,
+        features_col: str,
+        params: Dict[str, Union[int, str]],
+        dim: int = None,
+        num_elements: int = None,
+        id_col: Optional[str] = None,
+        index_type: str = None,
+        items_count: Optional[int] = None,
+    ) -> None:
+        self._build_nmslib_hnsw_index(
+            vectors, features_col, params, index_type, items_count
+        )
 
     def _build_nmslib_hnsw_index(
         self,
@@ -149,13 +168,11 @@ class NmslibHnswMixin(ANNMixin):
             params (Dict[str, Any]): hnsw params
         """
 
-        index_params = {}
-        if "M" in params:
-            index_params["M"] = params["M"]
-        if "efC" in params:
-            index_params["efConstruction"] = params["efC"]
-        if "post" in params:
-            index_params["post"] = params["post"]
+        index_params = {
+            "M": params.get("M", 200),
+            "efConstruction": params.get("efC", 20000),
+            "post": params.get("post", 2000),
+        }
 
         if params["build_index_on"] == "executor":
             # to execution in one executor
@@ -195,10 +212,7 @@ class NmslibHnswMixin(ANNMixin):
                         shape=(items_count, items_count),
                     )
                     index.addDataPointBatch(data=sim_matrix_tmp)
-                    if index_params:
-                        index.createIndex(index_params)
-                    else:
-                        index.createIndex()
+                    index.createIndex(index_params)
 
                     if filesystem == FileSystem.HDFS:
                         with tempfile.TemporaryDirectory() as temp_dir:
@@ -207,8 +221,8 @@ class NmslibHnswMixin(ANNMixin):
                             )
                             index.saveIndex(tmp_file_path, save_data=True)
 
-                            destination_filesystem = fs.HadoopFileSystem.from_uri(
-                                hdfs_uri
+                            destination_filesystem = (
+                                fs.HadoopFileSystem.from_uri(hdfs_uri)
                             )
                             fs.copy_files(
                                 "file://" + tmp_file_path,
@@ -246,10 +260,7 @@ class NmslibHnswMixin(ANNMixin):
                             data=np.stack(item_vectors_np),
                             ids=pdf["item_idx"].values,
                         )
-                    if index_params:
-                        index.createIndex(index_params)
-                    else:
-                        index.createIndex()
+                    index.createIndex(index_params)
 
                     if filesystem == FileSystem.HDFS:
                         with tempfile.TemporaryDirectory() as temp_dir:
@@ -258,8 +269,8 @@ class NmslibHnswMixin(ANNMixin):
                             )
                             index.saveIndex(tmp_file_path)
 
-                            destination_filesystem = fs.HadoopFileSystem.from_uri(
-                                hdfs_uri
+                            destination_filesystem = (
+                                fs.HadoopFileSystem.from_uri(hdfs_uri)
                             )
                             fs.copy_files(
                                 "file://" + tmp_file_path,
@@ -302,10 +313,8 @@ class NmslibHnswMixin(ANNMixin):
                     shape=(items_count, items_count),
                 )
                 index.addDataPointBatch(data=sim_matrix)
-                if index_params:
-                    index.createIndex(index_params)
-                else:
-                    index.createIndex()
+                index.createIndex(index_params)
+
                 # saving index to local temp file and sending it to executors
                 temp_dir = tempfile.mkdtemp()
                 weakref.finalize(self, shutil.rmtree, temp_dir)
@@ -330,10 +339,7 @@ class NmslibHnswMixin(ANNMixin):
                     data=np.stack(item_vectors_np),
                     ids=item_vectors["item_idx"].values,
                 )
-                if index_params:
-                    index.createIndex(index_params)
-                else:
-                    index.createIndex()
+                index.createIndex(index_params)
 
                 # saving index to local temp file and sending it to executors
                 temp_dir = tempfile.mkdtemp()
@@ -356,7 +362,9 @@ class NmslibHnswMixin(ANNMixin):
             space=params["space"],
             data_type=nmslib.DataType.DENSE_VECTOR,
         )
-        index_path = SparkFiles.get(f"{INDEX_FILENAME}_{self._spark_index_file_uid}")
+        index_path = SparkFiles.get(
+            f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
+        )
         index.loadIndex(index_path)
         item_vectors = item_vectors.toPandas()
         item_vectors_np = np.squeeze(item_vectors[features_col].values)
@@ -364,21 +372,18 @@ class NmslibHnswMixin(ANNMixin):
             data=np.stack(item_vectors_np),
             ids=item_vectors["id"].values,
         )
-        index_params = {}
-        if "M" in params:
-            index_params["M"] = params["M"]
-        if "efC" in params:
-            index_params["efConstruction"] = params["efC"]
-        if "post" in params:
-            index_params["post"] = params["post"]
-        if index_params:
-            index.createIndex(index_params)
-        else:
-            index.createIndex()
+        index_params = {
+            "M": params.get("M", 200),
+            "efConstruction": params.get("efC", 20000),
+            "post": params.get("post", 2000),
+        }
+        index.createIndex(index_params)
 
         # saving index to local temp file and sending it to executors
         temp_dir = tempfile.mkdtemp()
-        tmp_file_path = os.path.join(temp_dir, f"{INDEX_FILENAME}_{self._spark_index_file_uid}")
+        tmp_file_path = os.path.join(
+            temp_dir, f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
+        )
         index.saveIndex(tmp_file_path)
         spark = SparkSession.getActiveSession()
         spark.sparkContext.addFile("file://" + tmp_file_path)
@@ -518,13 +523,17 @@ class NmslibHnswMixin(ANNMixin):
         if params["build_index_on"] == "executor":
             index_path = params["index_path"]
         elif params["build_index_on"] == "driver":
-            index_path = SparkFiles.get(f"{INDEX_FILENAME}_{self._spark_index_file_uid}")
+            index_path = SparkFiles.get(
+                f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
+            )
         else:
             raise ValueError("Unknown 'build_index_on' param.")
 
         from_filesystem, from_hdfs_uri, from_path = get_filesystem(index_path)
         to_filesystem, to_hdfs_uri, to_path = get_filesystem(path)
-        self.logger.debug(f"Index file coping from '{from_path}' to '{to_path}'")
+        self.logger.debug(
+            f"Index file coping from '{from_path}' to '{to_path}'"
+        )
 
         from_paths = []
         target_paths = []
@@ -573,7 +582,9 @@ class NmslibHnswMixin(ANNMixin):
 
         to_path = tempfile.mkdtemp()
         weakref.finalize(self, shutil.rmtree, to_path)
-        to_path = os.path.join(to_path, f"{INDEX_FILENAME}_{self._spark_index_file_uid}")
+        to_path = os.path.join(
+            to_path, f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
+        )
 
         from_paths = []
         target_paths = []
