@@ -1,4 +1,6 @@
+import uuid
 from abc import abstractmethod
+from functools import cached_property
 from typing import Optional, Dict, Union, Any
 
 from pyspark.sql import DataFrame
@@ -8,6 +10,10 @@ from replay.models.base_rec import BaseRecommender
 
 
 class ANNMixin(BaseRecommender):
+    @cached_property
+    def _spark_index_file_uid(self):
+        return uuid.uuid4().hex[-12:]
+
     @property
     @abstractmethod
     def _use_ann(self) -> bool:

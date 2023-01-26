@@ -1425,7 +1425,10 @@ class UserRecommender(BaseRecommender, ABC):
         )
 
 
-class NeighbourRec(Recommender, ABC):
+from replay.models.nmslib_hnsw import NmslibHnswMixin
+
+
+class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
     """Base class that requires log at prediction time"""
 
     similarity: Optional[DataFrame]

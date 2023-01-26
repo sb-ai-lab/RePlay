@@ -9,11 +9,10 @@ from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
 from replay.models.base_rec import NeighbourRec
-from replay.models.nmslib_hnsw import NmslibHnswMixin
 from replay.session_handler import State
 
 
-class SLIM(NeighbourRec, NmslibHnswMixin):
+class SLIM(NeighbourRec):
     """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
 
@@ -72,9 +71,6 @@ class SLIM(NeighbourRec, NmslibHnswMixin):
         self.lambda_ = lambda_
         self.seed = seed
         self._nmslib_hnsw_params = nmslib_hnsw_params
-
-        if self._nmslib_hnsw_params:
-            NmslibHnswMixin.__init__(self)
 
     @property
     def _init_args(self):
