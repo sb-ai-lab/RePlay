@@ -82,18 +82,27 @@ class CQL(Recommender):
         alpha_learning_rate (float): learning rate for :math:`\alpha`.
         actor_optim_factory (d3rlpy.models.optimizers.OptimizerFactory):
             optimizer factory for the actor.
+            The available options are `[SGD, Adam or RMSprop]`.
         critic_optim_factory (d3rlpy.models.optimizers.OptimizerFactory):
             optimizer factory for the critic.
+            The available options are `[SGD, Adam or RMSprop]`.
         temp_optim_factory (d3rlpy.models.optimizers.OptimizerFactory):
             optimizer factory for the temperature.
+            The available options are `[SGD, Adam or RMSprop]`.
         alpha_optim_factory (d3rlpy.models.optimizers.OptimizerFactory):
             optimizer factory for :math:`\alpha`.
+            The available options are `[SGD, Adam or RMSprop]`.
         actor_encoder_factory (d3rlpy.models.encoders.EncoderFactory or str):
             encoder factory for the actor.
+            The available options are `['pixel', 'dense', 'vector', 'default']`.
+            See d3rlpy.models.encoders.EncoderFactory for details.
         critic_encoder_factory (d3rlpy.models.encoders.EncoderFactory or str):
             encoder factory for the critic.
+            The available options are `['pixel', 'dense', 'vector', 'default']`.
+            See d3rlpy.models.encoders.EncoderFactory for details.
         q_func_factory (d3rlpy.models.q_functions.QFunctionFactory or str):
-            Q function factory.
+            Q function factory. The available options are `['mean', 'qr', 'iqn', 'fqf']`.
+            See d3rlpy.models.q_functions.QFunctionFactory for details.
         batch_size (int): mini-batch size.
         n_frames (int): the number of frames to stack for image observation.
         n_steps (int): N-step TD calculation.
@@ -112,12 +121,11 @@ class CQL(Recommender):
         scaler (d3rlpy.preprocessing.Scaler or str): preprocessor.
             The available options are `['pixel', 'min_max', 'standard']`.
         action_scaler (d3rlpy.preprocessing.ActionScaler or str):
-            action preprocessor. The available options are ``['min_max']``.
+            action preprocessor. The available options are `['min_max']`.
         reward_scaler (d3rlpy.preprocessing.RewardScaler or str):
             reward preprocessor. The available options are
-            ``['clip', 'min_max', 'standard']``.
+            `['clip', 'min_max', 'standard']`.
         impl (d3rlpy.algos.torch.cql_impl.CQLImpl): algorithm implementation.
-
     """
 
     top_k: int
