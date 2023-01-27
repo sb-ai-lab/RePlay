@@ -21,7 +21,7 @@ from d3rlpy.models.encoders import create_encoder_factory
 from d3rlpy.models.optimizers import OptimizerFactory, AdamFactory
 from d3rlpy.models.q_functions import create_q_func_factory
 from d3rlpy.preprocessing import create_scaler, create_action_scaler, create_reward_scaler
-from pyspark.sql import DataFrame, functions as sf
+from pyspark.sql import DataFrame, functions as sf, Window
 
 from replay.constants import REC_SCHEMA
 from replay.models.base_rec import Recommender
@@ -136,6 +136,8 @@ class CQL(Recommender):
     action_randomization_scale: float
     model: CQL_d3rlpy.CQL
 
+    can_predict_cold_users = True
+
     _observation_shape = (2, )
     _action_size = 1
 
@@ -188,6 +190,8 @@ class CQL(Recommender):
     ):
         super().__init__()
         self.top_k = top_k
+        # cannot set zero scale as d3rlpy will treat transitions then as discrete
+        assert action_randomization_scale > 0
         self.action_randomization_scale = action_randomization_scale
         self.n_epochs = n_epochs
         assert_omp_single_thread()
@@ -254,45 +258,41 @@ class CQL(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        train: MDPDataset = self._prepare_data(log)
+        train: MDPDataset = self._prepare_mdp_dataset(log)
         self.model.fit(train, n_epochs=self.n_epochs)
 
-    def _prepare_data(self, log: DataFrame) -> MDPDataset:
-        user_logs = log.toPandas().sort_values(['user_idx', 'timestamp'], ascending=True)
-
+    def _prepare_mdp_dataset(self, log: DataFrame) -> MDPDataset:
         # reward top-K watched movies with 1, the others - with 0
-        user_top_k_idxs = (
-            user_logs
-            .sort_values(['relevance', 'timestamp'], ascending=False)
-            .groupby('user_idx')
-            .head(self.top_k)
-            .index
-        )
-        rewards = np.zeros(len(user_logs))
-        rewards[user_top_k_idxs] = 1.0
+        reward_condition = sf.row_number().over(
+            Window
+            .partitionBy('user_idx')
+            .orderBy([sf.desc('relevance'), sf.desc('timestamp')])
+        ) <= self.top_k
 
         # every user has his own episode (the latest item is defined as terminal)
-        user_terminal_idxs = (
-            user_logs[::-1]
-            .groupby('user_idx')
-            .head(1)
-            .index
+        terminal_condition = sf.row_number().over(
+            Window
+            .partitionBy('user_idx')
+            .orderBy(sf.desc('timestamp'))
+        ) == 1
+
+        user_logs = (
+            log
+            .withColumn("reward", sf.when(reward_condition, sf.lit(1)).otherwise(sf.lit(0)))
+            .withColumn("terminal", sf.when(terminal_condition, sf.lit(1)).otherwise(sf.lit(0)))
+            .withColumn(
+                "action",
+                sf.col("relevance").cast("float") + sf.randn() * self.action_randomization_scale
+            )
+            .orderBy(['user_idx', 'timestamp'], ascending=True)
+            .select(['user_idx', 'item_idx', 'action', 'reward', 'terminal'])
+            .toPandas()
         )
-        terminals = np.zeros(len(user_logs))
-        terminals[user_terminal_idxs] = 1
-
-        # cannot set zero scale as d3rlpy will treat transitions then as discrete
-        assert self.action_randomization_scale > 0
-        action_randomization_scale = self.action_randomization_scale
-        action_randomization = np.random.randn(len(user_logs)) * action_randomization_scale
-
-        actions = user_logs['relevance'].to_numpy().astype(float) + action_randomization
-
         train_dataset = MDPDataset(
             observations=np.array(user_logs[['user_idx', 'item_idx']]),
-            actions=actions[:, None],
-            rewards=rewards,
-            terminals=terminals
+            actions=user_logs['action'].to_numpy()[:, None],
+            rewards=user_logs['reward'].to_numpy(),
+            terminals=user_logs['terminal'].to_numpy()
         )
         return train_dataset
 
