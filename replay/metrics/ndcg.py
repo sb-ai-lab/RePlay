@@ -48,6 +48,8 @@ class NDCG(Metric):
 
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
+        if len(pred) == 0 or len(ground_truth) == 0:
+            return 0.0
         pred_len = min(k, len(pred))
         ground_truth_len = min(k, len(ground_truth))
         denom = [1 / math.log2(i + 2) for i in range(k)]

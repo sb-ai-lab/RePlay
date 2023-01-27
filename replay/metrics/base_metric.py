@@ -10,6 +10,7 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
+from pyspark.sql.types import DataType
 from pyspark.sql import Window
 from scipy.stats import norm
 
@@ -24,13 +25,13 @@ def sorter(
     """
     Sorts a list of tuples and chooses unique objects.
     Sorting is made using relevance values (descending).
-    Unique items from `item_id` column are selected.
+    Unique items from `item_idx` column are selected.
     If `extra_position` is None, only list with ordered items is returned.
     Otherwise two lists are returned, the first is with item_ids
     and the second is with the tuples' elements on 'extra_position', e.g item weight.
 
-    :param items: tuples ``(relevance, item_id, *args)``.
-    :param extra_position: index of the element in tuple to be returned in addition to item_id,
+    :param items: tuples ``(relevance, item_idx, *args)``.
+    :param extra_position: index of the element in tuple to be returned in addition to item_idx,
         if None, only item_ids are returned
     :return: list of unique item_ids sorted by relevance is descending order
         and additional list of corresponding values on `extra_position` if not None
@@ -50,8 +51,59 @@ def sorter(
     return item_ids, extra_values
 
 
+def fill_na_with_empty_array(
+    df: DataFrame, col_name: str, element_type: DataType
+) -> DataFrame:
+    """
+    Fill empty values in array column with empty array of `element_type` values.
+    :param df: dataframe with `col_name` column of ArrayType(`element_type`)
+    :param col_name: name of a column to fill missing values
+    :param element_type: DataType of an array element
+    :return: df with `col_name` na values filled with empty arrays
+    """
+    return df.withColumn(
+        col_name,
+        sf.coalesce(
+            col_name,
+            sf.array().cast(st.ArrayType(element_type)),
+        ),
+    )
+
+
+def preprocess_gt(
+    ground_truth: AnyDataFrame,
+    ground_truth_users: Optional[AnyDataFrame] = None,
+) -> DataFrame:
+    """
+    Preprocess `ground_truth` data before metric calculation
+    :param ground_truth: spark dataframe with columns ``[user_idx, item_idx, relevance]``
+    :param ground_truth_users: spark dataframe with column ``[user_idx]``
+    :return: spark dataframe with columns ``[user_idx, ground_truth]``
+    """
+    ground_truth = convert2spark(ground_truth)
+    ground_truth_users = convert2spark(ground_truth_users)
+
+    true_items_by_users = ground_truth.groupby("user_idx").agg(
+        sf.collect_set("item_idx").alias("ground_truth")
+    )
+    if ground_truth_users is not None:
+        true_items_by_users = true_items_by_users.join(
+            ground_truth_users, on="user_idx", how="right"
+        )
+        true_items_by_users = fill_na_with_empty_array(
+            true_items_by_users,
+            "ground_truth",
+            ground_truth.schema["item_idx"].dataType,
+        )
+
+    return true_items_by_users
+
+
 def get_enriched_recommendations(
-    recommendations: AnyDataFrame, ground_truth: AnyDataFrame, max_k: int
+    recommendations: AnyDataFrame,
+    ground_truth: AnyDataFrame,
+    max_k: int,
+    ground_truth_users: Optional[AnyDataFrame] = None,
 ) -> DataFrame:
     """
     Leave max_k recommendations for each user,
@@ -62,34 +114,29 @@ def get_enriched_recommendations(
     :param ground_truth: test data
     :param max_k: maximal k value to calculate the metric for.
         `max_k` most relevant predictions are left for each user
-    :return:  ``[user_id, pred, ground_truth]``
+    :param ground_truth_users: list of users to consider in metric calculation.
+        if None, only the users from ground_truth are considered.
+    :return:  ``[user_idx, pred, ground_truth]``
     """
     recommendations = convert2spark(recommendations)
-    ground_truth = convert2spark(ground_truth)
-    true_items_by_users = ground_truth.groupby("user_idx").agg(
-        sf.collect_set("item_idx").alias("ground_truth")
-    )
+    # if there are duplicates in recommendations,
+    # we will leave fewer than k recommendations after sort_udf
+    recommendations = get_top_k_recs(recommendations, k=max_k)
     sort_udf = sf.udf(
         sorter,
-        returnType=st.ArrayType(ground_truth.schema["item_idx"].dataType),
+        returnType=st.ArrayType(recommendations.schema["item_idx"].dataType),
     )
 
-    recommendations = get_top_k_recs(recommendations, k=max_k)
-    recommendations = (
+    true_items_by_users = preprocess_gt(ground_truth, ground_truth_users)
+    joined = (
         recommendations.groupby("user_idx")
         .agg(sf.collect_list(sf.struct("relevance", "item_idx")).alias("pred"))
         .select("user_idx", sort_udf(sf.col("pred")).alias("pred"))
         .join(true_items_by_users, how="right", on=["user_idx"])
     )
 
-    return recommendations.withColumn(
-        "pred",
-        sf.coalesce(
-            "pred",
-            sf.array().cast(
-                st.ArrayType(ground_truth.schema["item_idx"].dataType)
-            ),
-        ),
+    return fill_na_with_empty_array(
+        joined, "pred", recommendations.schema["item_idx"].dataType
     )
 
 
@@ -133,19 +180,23 @@ class Metric(ABC):
         recommendations: AnyDataFrame,
         ground_truth: AnyDataFrame,
         k: IntOrList,
+        ground_truth_users: Optional[AnyDataFrame] = None,
     ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: model predictions in a
-            DataFrame ``[user_id, item_id, relevance]``
+            DataFrame ``[user_idx, item_idx, relevance]``
         :param ground_truth: test data
-            ``[user_id, item_id, timestamp, relevance]``
+            ``[user_idx, item_idx, timestamp, relevance]``
         :param k: depth cut-off. Truncates recommendation lists to top-k items.
+        :param ground_truth_users: list of users to consider in metric calculation.
+            if None, only the users from ground_truth are considered.
         :return: metric value
         """
         recs = get_enriched_recommendations(
             recommendations,
             ground_truth,
             max_k=k if isinstance(k, int) else max(k),
+            ground_truth_users=ground_truth_users,
         )
         return self._mean(recs, k)
 
@@ -226,12 +277,14 @@ class Metric(ABC):
         :return: metric value for current user
         """
 
+    # pylint: disable=too-many-arguments
     def user_distribution(
         self,
         log: AnyDataFrame,
         recommendations: AnyDataFrame,
         ground_truth: AnyDataFrame,
         k: IntOrList,
+        ground_truth_users: Optional[AnyDataFrame] = None,
     ) -> pd.DataFrame:
         """
         Get mean value of metric for all users with the same number of ratings.
@@ -240,6 +293,8 @@ class Metric(ABC):
         :param recommendations: prediction DataFrame
         :param ground_truth: test data
         :param k: depth cut-off
+        :param ground_truth_users: list of users to consider in metric calculation.
+            if None, only the users from ground_truth are considered.
         :return: pandas DataFrame
         """
         log = convert2spark(log)
@@ -249,12 +304,14 @@ class Metric(ABC):
                 recommendations,
                 ground_truth,
                 max_k=k if isinstance(k, int) else max(k),
+                ground_truth_users=ground_truth_users,
             )
         else:
             recs = get_enriched_recommendations(
                 recommendations,
                 ground_truth,
                 max_k=k if isinstance(k, int) else max(k),
+                ground_truth_users=ground_truth_users,
             )
         if isinstance(k, int):
             k_list = [k]
@@ -263,7 +320,9 @@ class Metric(ABC):
         res = pd.DataFrame()
         for cut_off in k_list:
             dist = self._get_metric_distribution(recs, cut_off)
-            val = count.join(dist, on="user_idx")
+            val = count.join(dist, on="user_idx", how="right").fillna(
+                0, subset="count"
+            )
             val = (
                 val.groupBy("count")
                 .agg(sf.avg("value").alias("value"))
@@ -290,20 +349,29 @@ class RecOnlyMetric(Metric):
         recommendations: AnyDataFrame,
         ground_truth: Optional[AnyDataFrame],
         max_k: int,
+        ground_truth_users: Optional[AnyDataFrame] = None,
     ) -> DataFrame:
         pass
 
-    def __call__(  # type: ignore
-        self, recommendations: AnyDataFrame, k: IntOrList
+    def __call__(
+        self,
+        recommendations: AnyDataFrame,
+        k: IntOrList,
+        ground_truth_users: Optional[AnyDataFrame] = None,
     ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: predictions of a model,
-            DataFrame  ``[user_id, item_id, relevance]``
+            DataFrame  ``[user_idx, item_idx, relevance]``
         :param k: depth cut-off
+        :param ground_truth_users: list of users to consider in metric calculation.
+            if None, only the users from ground_truth are considered.
         :return: metric value
         """
         recs = self._get_enriched_recommendations(
-            recommendations, None, max_k=k if isinstance(k, int) else max(k)
+            recommendations,
+            None,
+            max_k=k if isinstance(k, int) else max(k),
+            ground_truth_users=ground_truth_users,
         )
         return self._mean(recs, k)
 
@@ -442,6 +510,7 @@ class NCISMetric(Metric):
         recommendations: AnyDataFrame,
         ground_truth: AnyDataFrame,
         max_k: int,
+        ground_truth_users: Optional[AnyDataFrame] = None,
     ) -> DataFrame:
         """
         Merge recommendations and ground truth into a single DataFrame
@@ -451,10 +520,13 @@ class NCISMetric(Metric):
         :param ground_truth: test data
         :param max_k: maximal k value to calculate the metric for.
             `max_k` most relevant predictions are left for each user
-        :return:  ``[user_id, pred, ground_truth]``
+        :param ground_truth_users: list of users to consider in metric calculation.
+            if None, only the users from ground_truth are considered.
+        :return:  ``[user_idx, pred, ground_truth]``
         """
         recommendations = convert2spark(recommendations)
         ground_truth = convert2spark(ground_truth)
+        ground_truth_users = convert2spark(ground_truth_users)
 
         true_items_by_users = ground_truth.groupby("user_idx").agg(
             sf.collect_set("item_idx").alias("ground_truth")
@@ -464,24 +536,22 @@ class NCISMetric(Metric):
         if "user_idx" in self.prev_policy_weights.columns:
             group_on.append("user_idx")
         recommendations = get_top_k_recs(recommendations, k=max_k)
+
         recommendations = recommendations.join(
             self.prev_policy_weights, on=group_on, how="left"
         ).na.fill(0.0, subset=["prev_relevance"])
 
         recommendations = self._reweighing(recommendations)
-        weight_array_type = st.ArrayType(
-            recommendations.schema["weight"].dataType
-        )
-        item_array_type = st.ArrayType(
-            ground_truth.schema["item_idx"].dataType
-        )
+
+        weight_type = recommendations.schema["weight"].dataType
+        item_type = ground_truth.schema["item_idx"].dataType
 
         sort_ids_weights_udf = sf.udf(
             lambda x: sorter(items=x, extra_position=2),
             returnType=st.StructType(
                 [
-                    st.StructField("pred", item_array_type),
-                    st.StructField("weight", weight_array_type),
+                    st.StructField("pred", st.ArrayType(item_type)),
+                    st.StructField("weight", st.ArrayType(weight_type)),
                 ]
             ),
         )
@@ -502,16 +572,17 @@ class NCISMetric(Metric):
                 sf.col("pred_weight.pred"),
                 sf.col("pred_weight.weight"),
             )
-            .join(true_items_by_users, how="right", on=["user_idx"])
         )
+        if ground_truth_users is not None:
+            true_items_by_users = true_items_by_users.join(
+                ground_truth_users, on="user_idx", how="right"
+            )
 
-        return recommendations.withColumn(
-            "pred",
-            sf.coalesce(
-                "pred",
-                sf.array().cast(item_array_type),
-            ),
-        ).withColumn(
+        recommendations = recommendations.join(
+            true_items_by_users, how="right", on=["user_idx"]
+        )
+        return fill_na_with_empty_array(
+            fill_na_with_empty_array(recommendations, "pred", item_type),
             "weight",
-            sf.coalesce("weight", sf.array().cast(weight_array_type)),
+            weight_type,
         )

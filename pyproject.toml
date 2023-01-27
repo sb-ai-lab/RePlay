@@ -1,6 +1,7 @@
 [tool.poetry]
 name = "replay-rec"
 version = "0.10.0"
+license = "Apache-2.0"
 description = "RecSys Library"
 authors = ["AI Lab",
            "Alexey Vasilev",
@@ -11,17 +12,17 @@ authors = ["AI Lab",
            "Alexander Sidorenko",
            "Roza Aysina"]
 readme = "README.md"
-homepage = "https://sberbank-ai-lab.github.io/RePlay/"
-repository = "https://github.com/sberbank-ai-lab/RePlay"
+homepage = "https://sb-ai-lab.github.io/RePlay/"
+repository = "https://github.com/sb-ai-lab/RePlay"
 classifiers = [
-    "Programming Language :: Python :: 3.7",
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
     "Natural Language :: English",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Typing :: Typed"
 ]
 packages = [
     { include = "replay" }
@@ -81,4 +82,5 @@ pyspark-stubs = "*"
 line-length = 79
 
 [build-system]
-build-backend = "poetry.masonry.api"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
