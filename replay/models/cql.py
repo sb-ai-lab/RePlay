@@ -75,6 +75,9 @@ class CQL(Recommender):
           Learning. <https://arxiv.org/abs/2006.04779>`_
 
     Args:
+        top_k (int): the number of top user items to learn predicting.
+        n_epochs (int): the number of epochs to learn.
+        action_randomization_scale (float): the scale of action randomization gaussian noise.
         actor_learning_rate (float): learning rate for policy function.
         critic_learning_rate (float): learning rate for Q functions.
         temp_learning_rate (float):
