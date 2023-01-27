@@ -19,7 +19,10 @@ from d3rlpy.base import ImplBase, LearnableBase, _serialize_params
 from d3rlpy.constants import IMPL_NOT_INITIALIZED_ERROR
 from d3rlpy.context import disable_parallel
 from d3rlpy.dataset import MDPDataset
+from d3rlpy.models.encoders import create_encoder_factory
 from d3rlpy.models.optimizers import OptimizerFactory, AdamFactory
+from d3rlpy.models.q_functions import create_q_func_factory
+from d3rlpy.preprocessing import create_scaler, create_action_scaler, create_reward_scaler
 from pyspark.sql import DataFrame, functions as sf
 
 from replay.constants import REC_SCHEMA
@@ -123,7 +126,7 @@ class CQL(Recommender):
     action_randomization_scale: float
     model: CQL_d3rlpy.CQL
 
-    _observation_shape = (1, )
+    _observation_shape = (2, )
     _action_size = 1
 
     _search_space = {
@@ -138,7 +141,7 @@ class CQL(Recommender):
     }
     
     def __init__(
-            self, *,
+            self,
             top_k: int,
             n_epochs: int = 1,
             action_randomization_scale: float = 1e-3,
@@ -177,7 +180,24 @@ class CQL(Recommender):
         self.top_k = top_k
         self.action_randomization_scale = action_randomization_scale
         self.n_epochs = n_epochs
-        self.assert_omp_single_thread()
+        self._assert_omp_single_thread()
+
+        if isinstance(actor_optim_factory, dict):
+            self.logger.info(f'-- Desiarializing CQL parameters')
+            actor_optim_factory = _deserialize_param('actor_optim_factory', actor_optim_factory)
+            critic_optim_factory = _deserialize_param('critic_optim_factory', critic_optim_factory)
+            temp_optim_factory = _deserialize_param('temp_optim_factory', temp_optim_factory)
+            alpha_optim_factory = _deserialize_param('alpha_optim_factory', alpha_optim_factory)
+            actor_encoder_factory = _deserialize_param(
+                'actor_encoder_factory', actor_encoder_factory
+            )
+            critic_encoder_factory = _deserialize_param(
+                'critic_encoder_factory', critic_encoder_factory
+            )
+            q_func_factory = _deserialize_param('q_func_factory', q_func_factory)
+            scaler = _deserialize_param('scaler', scaler)
+            action_scaler = _deserialize_param('action_scaler', action_scaler)
+            reward_scaler = _deserialize_param('reward_scaler', reward_scaler)
 
         self.model = CQL_d3rlpy.CQL(
             actor_learning_rate=actor_learning_rate,
@@ -302,7 +322,7 @@ class CQL(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         available_items = items.toPandas()["item_idx"].values
-        policy_bytes = self.serialize_policy()
+        policy_bytes = self._serialize_policy()
 
         def grouped_map(log_slice: pd.DataFrame) -> pd.DataFrame:
             return CQL._predict_pairs_inner(
@@ -323,7 +343,7 @@ class CQL(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-        policy_bytes = self.serialize_policy()
+        policy_bytes = self._serialize_policy()
 
         def grouped_map(user_log: pd.DataFrame) -> pd.DataFrame:
             return CQL._predict_pairs_inner(
@@ -355,11 +375,11 @@ class CQL(Recommender):
         return args
 
     def _save_model(self, path: str) -> None:
-        self.logger.debug(f'-- Saving model to {path}')
+        self.logger.info(f'-- Saving model to {path}')
         self.model.save_model(path)
 
     def _load_model(self, path: str) -> None:
-        self.logger.debug(f'-- Loading model from {path}')
+        self.logger.info(f'-- Loading model from {path}')
         self.model.load_model(path)
 
     @staticmethod
@@ -386,7 +406,7 @@ class CQL(Recommender):
         params = _serialize_params(params)
         return params
 
-    def serialize_policy(self) -> bytes:
+    def _serialize_policy(self) -> bytes:
         # store using temporary file and immediately read serialized version
         with tempfile.NamedTemporaryFile(suffix='.pt') as tmp:
             # noinspection PyProtectedMember
@@ -395,7 +415,7 @@ class CQL(Recommender):
                 return policy_file.read()
 
     @staticmethod
-    def assert_omp_single_thread():
+    def _assert_omp_single_thread():
         # pytorch uses multithreading for cpu math operations via OpenMP library
         # sometimes this leads to failures when OpenMP multithreading is mixed with multiprocessing
         omp_num_threads = os.environ.get('OMP_NUM_THREADS', None)
@@ -404,3 +424,23 @@ class CQL(Recommender):
                 f'Environment variable "OMP_NUM_THREADS" is set to "{omp_num_threads}". '
                 'Set it to 1 if CQL prediction process freezes.'
             )
+
+
+def _deserialize_param(name: str, value: Any) -> Any:
+    if not isinstance(value, dict):
+        # not a serialized object
+        return value
+
+    if name == "scaler":
+        value = create_scaler(value["type"], **value["params"])
+    elif name == "action_scaler":
+        value = create_action_scaler(value["type"], **value["params"])
+    elif name == "reward_scaler":
+        value = create_reward_scaler(value["type"], **value["params"])
+    elif "optim_factory" in name:
+        value = OptimizerFactory(**value)
+    elif "encoder_factory" in name:
+        value = create_encoder_factory(value["type"], **value["params"])
+    elif name == "q_func_factory":
+        value = create_q_func_factory(value["type"], **value["params"])
+    return value
