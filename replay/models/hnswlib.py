@@ -333,7 +333,7 @@ class HnswlibMixin(ANNMixin):
             index_path
         )
         to_filesystem, to_hdfs_uri, to_path = get_filesystem(path)
-        self.logger.debug(f"Index file coping from '{from_path}' to '{to_path}'")
+        self.logger.debug(f"Index file coping from '{index_path}' to '{path}'")
 
         if from_filesystem == FileSystem.HDFS:
             source_filesystem = fs.HadoopFileSystem.from_uri(from_hdfs_uri)

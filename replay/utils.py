@@ -213,7 +213,10 @@ def vector_mult(
     """
     return one * two
 
+
 from pyspark.sql.column import _to_java_column, _to_seq
+
+
 def multiply_scala_udf(scalar, vector):
     sc = SparkSession.getActiveSession().sparkContext
     _f = sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.multiplyUDF()
@@ -794,23 +797,31 @@ def JobGroup(group_id: str, description: str):
 
 def get_number_of_allocated_executors(spark: SparkSession):
     sc = spark._jsc.sc()
-    return len([executor.host() for executor in sc.statusTracker().getExecutorInfos()]) - 1
+    return (
+        len(
+            [
+                executor.host()
+                for executor in sc.statusTracker().getExecutorInfos()
+            ]
+        )
+        - 1
+    )
 
 
 class FileSystem(Enum):
     HDFS = 1
     LOCAL = 2
 
-def get_default_fs():
+
+def get_default_fs() -> str:
     spark = SparkSession.getActiveSession()
     hadoop_conf = spark._jsc.hadoopConfiguration()
     default_fs = hadoop_conf.get("fs.defaultFS")
-    logger.debug(
-        f"hadoop_conf.get('fs.defaultFS'): {default_fs}"
-    )
+    logger.debug(f"hadoop_conf.get('fs.defaultFS'): {default_fs}")
     return default_fs
 
-def get_filesystem(path: str) -> Tuple[int, Optional[str], str]:
+
+def get_filesystem(path: str) -> Tuple[FileSystem, Optional[str], str]:
     """Analyzes path and hadoop config and return tuple of `filesystem`,
     `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix).
 
@@ -831,19 +842,24 @@ def get_filesystem(path: str) -> Tuple[int, Optional[str], str]:
         Tuple[int, Optional[str], str]: `filesystem id`,
     `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix)
     """
+    prefix_len = 7  # 'hdfs://' and 'file://' length
     if path.startswith("hdfs://"):
         if path.startswith("hdfs:///"):
             default_fs = get_default_fs()
             if default_fs.startswith("hdfs://"):
                 return FileSystem.HDFS, default_fs, path[7:]
             else:
-                raise Exception(f"Can't get default hdfs uri for path = '{path}'. "
-                    "Specify an explicit path, such as 'hdfs://host:port/dir/file', or set 'fs.defaultFS' in hadoop configuration.")
+                raise Exception(
+                    f"Can't get default hdfs uri for path = '{path}'. "
+                    "Specify an explicit path, such as 'hdfs://host:port/dir/file', "
+                    "or set 'fs.defaultFS' in hadoop configuration."
+                )
         else:
-            hdfs_uri = "hdfs://" + path[7:].split('/', 1)[0]
-            return FileSystem.HDFS, hdfs_uri, path[7+len(hdfs_uri):]
+            hostname = path[prefix_len:].split("/", 1)[0]
+            hdfs_uri = "hdfs://" + hostname
+            return FileSystem.HDFS, hdfs_uri, path[len(hdfs_uri):]
     elif path.startswith("file://"):
-        return FileSystem.LOCAL, None, path[7:]
+        return FileSystem.LOCAL, None, path[prefix_len:]
     else:
         default_fs = get_default_fs()
         if default_fs.startswith("hdfs://"):

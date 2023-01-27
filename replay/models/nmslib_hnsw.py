@@ -532,7 +532,7 @@ class NmslibHnswMixin(ANNMixin):
         from_filesystem, from_hdfs_uri, from_path = get_filesystem(index_path)
         to_filesystem, to_hdfs_uri, to_path = get_filesystem(path)
         self.logger.debug(
-            f"Index file coping from '{from_path}' to '{to_path}'"
+            f"Index file coping from '{index_path}' to '{path}'"
         )
 
         from_paths = []

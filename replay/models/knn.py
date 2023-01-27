@@ -88,7 +88,16 @@ class ItemKNN(NeighbourRec):
             "use_relevance": self.use_relevance,
             "num_neighbours": self.num_neighbours,
             "weighting": self.weighting,
+            "nmslib_hnsw_params": self._nmslib_hnsw_params,
         }
+
+    def _save_model(self, path: str):
+        if self._nmslib_hnsw_params:
+            self._save_nmslib_hnsw_index(path, sparse=True)
+
+    def _load_model(self, path: str):
+        if self._nmslib_hnsw_params:
+            self._load_nmslib_hnsw_index(path, sparse=True)
 
     @staticmethod
     def _shrink(dot_products: DataFrame, shrink: float) -> DataFrame:
