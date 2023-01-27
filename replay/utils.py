@@ -1,3 +1,5 @@
+import logging
+import os
 from typing import Any, List, Optional, Set, Union
 
 import numpy as np
@@ -762,3 +764,18 @@ def sample_top_k_recs(pairs: DataFrame, k: int, seed: int = None):
     recs = pairs.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
 
     return recs
+
+
+def assert_omp_single_thread():
+    """
+    Check that OMP_NUM_THREADS is set to 1 and warn if not.
+
+    PyTorch uses multithreading for cpu math operations via OpenMP library. Sometimes this
+    leads to failures when OpenMP multithreading is mixed with multiprocessing.
+    """
+    omp_num_threads = os.environ.get('OMP_NUM_THREADS', None)
+    if omp_num_threads != '1':
+        logging.getLogger("replay").warning(
+            f'Environment variable "OMP_NUM_THREADS" is set to "{omp_num_threads}". '
+            'Set it to 1 if the working process freezes.'
+        )

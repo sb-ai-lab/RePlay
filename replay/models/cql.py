@@ -2,8 +2,6 @@
 Using CQL implementation from `d3rlpy` package.
 """
 import io
-import logging
-import os
 import tempfile
 from typing import Optional, Dict, Any
 
@@ -27,6 +25,7 @@ from pyspark.sql import DataFrame, functions as sf
 
 from replay.constants import REC_SCHEMA
 from replay.models.base_rec import Recommender
+from replay.utils import assert_omp_single_thread
 
 
 class CQL(Recommender):
@@ -180,7 +179,7 @@ class CQL(Recommender):
         self.top_k = top_k
         self.action_randomization_scale = action_randomization_scale
         self.n_epochs = n_epochs
-        self._assert_omp_single_thread()
+        assert_omp_single_thread()
 
         if isinstance(actor_optim_factory, dict):
             self.logger.info(f'-- Desiarializing CQL parameters')
@@ -413,17 +412,6 @@ class CQL(Recommender):
             self.model._impl.save_policy(tmp.name)
             with open(tmp.name, 'rb') as policy_file:
                 return policy_file.read()
-
-    @staticmethod
-    def _assert_omp_single_thread():
-        # pytorch uses multithreading for cpu math operations via OpenMP library
-        # sometimes this leads to failures when OpenMP multithreading is mixed with multiprocessing
-        omp_num_threads = os.environ.get('OMP_NUM_THREADS', None)
-        if omp_num_threads != '1':
-            logging.getLogger("replay").warning(
-                f'Environment variable "OMP_NUM_THREADS" is set to "{omp_num_threads}". '
-                'Set it to 1 if CQL prediction process freezes.'
-            )
 
 
 def _deserialize_param(name: str, value: Any) -> Any:
