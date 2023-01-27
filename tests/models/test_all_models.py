@@ -20,6 +20,7 @@ from replay.models import (
     Wilson,
     Word2VecRec,
     AssociationRulesItemRec,
+    CQL,
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
 
@@ -47,6 +48,7 @@ SEED = 123
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        CQL(top_k=3, n_epochs=3, batch_size=512),
     ],
     ids=[
         "als",
@@ -58,6 +60,7 @@ SEED = 123
         "slim",
         "word2vec",
         "association_rules",
+        "cql",
     ],
 )
 def test_predict_pairs_warm_items_only(log, log_to_pred, model):
@@ -251,6 +254,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
         RandomRec(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        CQL(top_k=1, n_epochs=3, batch_size=512),
     ],
     ids=[
         "admm_slim",
@@ -263,6 +267,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
         "random_rec",
         "word2vec",
         "association_rules",
+        "cql",
     ],
 )
 def test_predict_new_users(model, long_log_with_features, user_features):
@@ -315,6 +320,7 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        CQL(top_k=3, n_epochs=3, batch_size=512),
     ],
     ids=[
         "als",
@@ -325,6 +331,7 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
         "slim",
         "word2vec",
         "association_rules",
+        "cql",
     ],
 )
 def test_predict_cold_and_new_filter_out(model, long_log_with_features):

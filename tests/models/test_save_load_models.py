@@ -1,5 +1,6 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
 import os
+from functools import partial
 from os.path import dirname, join
 
 import pytest
@@ -57,6 +58,7 @@ def df():
         SLIM,
         UserPopRec,
         LightFMWrap,
+        partial(CQL, top_k=5, n_epochs=1),
     ],
 )
 def test_equal_preds(long_log_with_features, recommender, tmp_path):
