@@ -4,6 +4,7 @@ import time
 import warnings
 from argparse import ArgumentParser
 from math import floor
+from pathlib import Path
 
 import pandas as pd
 import psutil
@@ -15,7 +16,8 @@ from pyspark.sql import functions as sf
 from replay.data_preparator import DataPreparator, Indexer
 from replay.experiment import Experiment
 from replay.metrics import HitRate, NDCG, MAP, MRR, Coverage, Surprisal
-from replay.models import ALSWrap, ItemKNN, LightFMWrap, SLIM, UCB, CQL, Wilson, Recommender
+from replay.model_handler import save, load
+from replay.models import UCB, CQL, Wilson, Recommender, ALSWrap, ItemKNN, LightFMWrap, SLIM
 from replay.session_handler import State, get_spark_session
 from replay.splitters import DateSplitter
 from replay.utils import get_log_info
@@ -23,14 +25,16 @@ from replay.utils import get_log_info
 
 def fit_predict_add_res(
         name: str, model: Recommender, experiment: Experiment,
-        train: pd.DataFrame, top_k: int, test_users: pd.DataFrame
+        train: pd.DataFrame, top_k: int, test_users: pd.DataFrame,
+        predict_only: bool = False
 ):
     """
     Run fit_predict for the `model`, measure time on fit_predict and evaluate metrics
     """
     start_time = time.time()
 
-    model.fit(log=train)
+    if not predict_only:
+        model.fit(log=train)
     fit_time = time.time() - start_time
 
     pred = model.predict(log=train, k=top_k, users=test_users)
@@ -89,6 +93,8 @@ def main():
     ds = args.dataset
     n_epochs: set[int] = set(args.epochs)
 
+    model_path = (Path.home() / 'tmp' / 'recsys').resolve()
+
     spark = get_spark_session(
         spark_memory=floor(psutil.virtual_memory().total / 1024 ** 3 * args.memory),
         shuffle_partitions=floor(os.cpu_count() * args.partitions),
@@ -121,7 +127,7 @@ def main():
         test_start=0.2,
         drop_cold_items=True,
         drop_cold_users=True,
-
+        drop_zero_rel_in_test=True,
     )
     train, test = date_splitter.split(pos_log)
     train.cache(), test.cache()
@@ -176,7 +182,24 @@ def main():
         train_ = train
         if isinstance(model, (Wilson, UCB)):
             train_ = pos_neg_train
-        fit_predict_add_res(name, model, experiment, train=train_, top_k=K, test_users=test_users)
+        fit_predict_add_res(
+            name, model, experiment, train=train_, top_k=K, test_users=test_users
+        )
+        if name == f'CQL_{max(n_epochs)}':
+            save(model, model_path)
+            loaded_model = load(model_path)
+
+            # noinspection PyTypeChecker
+            fit_predict_add_res(
+                name + '_loaded', loaded_model, experiment, train=train_, top_k=K,
+                test_users=test_users, predict_only=True
+            )
+            # noinspection PyTypeChecker
+            fit_predict_add_res(
+                name + '_valid', model, experiment, train=train_, top_k=K, test_users=test_users,
+                predict_only=True
+            )
+
         print(
             experiment.results[[
                 f'NDCG@{K}', f'MRR@{K}', f'Coverage@{K}', 'fit_time'
