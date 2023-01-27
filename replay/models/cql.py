@@ -311,17 +311,11 @@ class CQL(Recommender):
             'user_idx': np.repeat(user_idx, len(items)),
             'item_idx': items
         })
-        items_batch = torch.from_numpy(
-            user_item_pairs.to_numpy()
-        ).float().cpu()
 
-        # deserialize model
-        with io.BytesIO(model) as buffer:
-            model = torch.jit.load(buffer, map_location=torch.device('cpu'))
-
-        # predict items relevance for the user
-        with torch.no_grad():
-            user_item_pairs['relevance'] = model.forward(items_batch).numpy()
+        # deserialize model policy and predict items relevance for the user
+        policy = CQL._deserialize_policy(model)
+        items_batch = user_item_pairs.to_numpy()
+        user_item_pairs['relevance'] = CQL._predict_relevance_with_policy(policy, items_batch)
 
         return user_item_pairs
 
@@ -428,6 +422,19 @@ class CQL(Recommender):
             self.model._impl.save_policy(tmp.name)
             with open(tmp.name, 'rb') as policy_file:
                 return policy_file.read()
+
+    @staticmethod
+    def _deserialize_policy(policy: bytes) -> torch.jit.ScriptModule:
+        with io.BytesIO(policy) as buffer:
+            return torch.jit.load(buffer, map_location=torch.device('cpu'))
+
+    @staticmethod
+    def _predict_relevance_with_policy(
+            policy: torch.jit.ScriptModule, items: np.ndarray
+    ) -> np.ndarray:
+        items = torch.from_numpy(items).float().cpu()
+        with torch.no_grad():
+            return policy.forward(items).numpy()
 
 
 def _deserialize_param(name: str, value: Any) -> Any:
