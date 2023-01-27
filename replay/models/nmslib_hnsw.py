@@ -1,26 +1,24 @@
 import logging
 import os
 import shutil
+import tempfile
 import weakref
 from typing import Any, Dict, Optional, Iterator, Union
-import uuid
 
+import nmslib
 import numpy as np
 import pandas as pd
-import nmslib
-import tempfile
-
 from pyarrow import fs
 from pyspark import SparkFiles
+from pyspark.sql import DataFrame, functions as sf
 from pyspark.sql import SparkSession
-from pyspark.sql import DataFrame, Window, functions as sf
 from pyspark.sql.functions import pandas_udf
 from scipy.sparse import csr_matrix
 
 from replay.ann.ann_mixin import ANNMixin
+from replay.ann.utils import save_index_to_destination_fs
 from replay.session_handler import State
-
-from replay.utils import FileSystem, JobGroup, get_filesystem
+from replay.utils import FileSystem, get_filesystem
 
 logger = logging.getLogger("replay")
 
@@ -215,29 +213,14 @@ class NmslibHnswMixin(ANNMixin):
                     index.addDataPointBatch(data=sim_matrix_tmp)
                     index.createIndex(index_params)
 
-                    if filesystem == FileSystem.HDFS:
-                        with tempfile.TemporaryDirectory() as temp_dir:
-                            tmp_file_path = os.path.join(
-                                temp_dir, INDEX_FILENAME
-                            )
-                            index.saveIndex(tmp_file_path, save_data=True)
-
-                            destination_filesystem = (
-                                fs.HadoopFileSystem.from_uri(hdfs_uri)
-                            )
-                            fs.copy_files(
-                                "file://" + tmp_file_path,
-                                index_path,
-                                destination_filesystem=destination_filesystem,
-                            )
-                            fs.copy_files(
-                                "file://" + tmp_file_path + ".dat",
-                                index_path + ".dat",
-                                destination_filesystem=destination_filesystem,
-                            )
-                            # param use_threads=True (?)
-                    else:
-                        index.saveIndex(index_path, save_data=True)
+                    save_index_to_destination_fs(
+                        index,
+                        sparse=True,
+                        save_index=lambda path: index.saveIndex(path, save_data=True),
+                        filesystem=filesystem,
+                        destination_path=index_path,
+                        hdfs_uri=hdfs_uri,
+                    )
 
                     yield pd.DataFrame(data={"_success": 1}, index=[0])
 
@@ -263,24 +246,14 @@ class NmslibHnswMixin(ANNMixin):
                         )
                     index.createIndex(index_params)
 
-                    if filesystem == FileSystem.HDFS:
-                        with tempfile.TemporaryDirectory() as temp_dir:
-                            tmp_file_path = os.path.join(
-                                temp_dir, INDEX_FILENAME
-                            )
-                            index.saveIndex(tmp_file_path)
-
-                            destination_filesystem = (
-                                fs.HadoopFileSystem.from_uri(hdfs_uri)
-                            )
-                            fs.copy_files(
-                                "file://" + tmp_file_path,
-                                index_path,
-                                destination_filesystem=destination_filesystem,
-                            )
-                            # param use_threads=True (?)
-                    else:
-                        index.saveIndex(index_path)
+                    save_index_to_destination_fs(
+                        index,
+                        sparse=False,
+                        save_index=lambda path: index.saveIndex(path),
+                        filesystem=filesystem,
+                        destination_path=index_path,
+                        hdfs_uri=hdfs_uri,
+                    )
 
                     yield pd.DataFrame(data={"_success": 1}, index=[0])
 

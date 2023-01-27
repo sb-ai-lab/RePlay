@@ -1,25 +1,24 @@
 import logging
 import os
 import shutil
+import tempfile
+import uuid
 import weakref
 from typing import Any, Dict, Iterator, Optional, Union
-import uuid
 
+import hnswlib
 import numpy as np
 import pandas as pd
-import hnswlib
-import tempfile
-
 from pyarrow import fs
 from pyspark import SparkFiles
-from pyspark.sql import SparkSession
 from pyspark.sql import DataFrame, functions as sf
+from pyspark.sql import SparkSession
 from pyspark.sql.functions import pandas_udf
 
 from replay.ann.ann_mixin import ANNMixin
+from replay.ann.utils import save_index_to_destination_fs
 from replay.session_handler import State
-
-from replay.utils import FileSystem, JobGroup, get_filesystem
+from replay.utils import FileSystem, get_filesystem
 
 logger = logging.getLogger("replay")
 
@@ -86,14 +85,34 @@ class HnswlibMixin(ANNMixin):
     Also provides methods to saving and loading index to/from disk.
     """
 
-    def _infer_ann_index(self, vectors: DataFrame, features_col: str, params: Dict[str, Union[int, str]], k: int,
-                         index_dim: str = None, index_type: str = None) -> DataFrame:
-        return self._infer_hnsw_index(vectors, features_col, params, k, index_dim)
+    def _infer_ann_index(
+        self,
+        vectors: DataFrame,
+        features_col: str,
+        params: Dict[str, Union[int, str]],
+        k: int,
+        index_dim: str = None,
+        index_type: str = None,
+        log: DataFrame = None,
+    ) -> DataFrame:
+        return self._infer_hnsw_index(
+            vectors, features_col, params, k, index_dim
+        )
 
-    def _build_ann_index(self, vectors: DataFrame, features_col: str, params: Dict[str, Union[int, str]],
-                         dim: int = None, num_elements: int = None, id_col: Optional[str] = None,
-                         index_type: str = None, items_count: Optional[int] = None) -> None:
-        self._build_hnsw_index(vectors, features_col, params, dim, num_elements, id_col)
+    def _build_ann_index(
+        self,
+        vectors: DataFrame,
+        features_col: str,
+        params: Dict[str, Union[int, str]],
+        dim: int = None,
+        num_elements: int = None,
+        id_col: Optional[str] = None,
+        index_type: str = None,
+        items_count: Optional[int] = None,
+    ) -> None:
+        self._build_hnsw_index(
+            vectors, features_col, params, dim, num_elements, id_col
+        )
 
     def _build_hnsw_index(
         self,
@@ -150,24 +169,14 @@ class HnswlibMixin(ANNMixin):
                         # ids will be from [0, ..., len(vectors_np)]
                         index.add_items(np.stack(vectors_np))
 
-                if filesystem == FileSystem.HDFS:
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        tmp_file_path = os.path.join(
-                            temp_dir, INDEX_FILENAME
-                        )
-                        index.save_index(tmp_file_path)
-
-                        destination_filesystem = fs.HadoopFileSystem.from_uri(
-                            hdfs_uri
-                        )
-                        fs.copy_files(
-                            "file://" + tmp_file_path,
-                            index_path,
-                            destination_filesystem=destination_filesystem,
-                        )
-                        # param use_threads=True (?)
-                else:
-                    index.save_index(index_path)
+                save_index_to_destination_fs(
+                    index,
+                    sparse=False,
+                    save_index=lambda path: index.save_index(path),
+                    filesystem=filesystem,
+                    destination_path=index_path,
+                    hdfs_uri=hdfs_uri,
+                )
 
                 yield pd.DataFrame(data={"_success": 1}, index=[0])
 
