@@ -73,6 +73,7 @@ class ANNMixin(BaseRecommender):
         k: int,
         index_dim: str = None,
         index_type: str = None,
+        log: DataFrame = None
     ) -> DataFrame:
         ...
 
@@ -90,7 +91,7 @@ class ANNMixin(BaseRecommender):
         if self._use_ann:
             vectors = self._get_vectors_to_infer_ann(log, users)
             ann_params = self._get_ann_infer_params()
-            return self._infer_ann_index(vectors, k=k, **ann_params)
+            return self._infer_ann_index(vectors, k=k, log=log, **ann_params)
         else:
             return self._predict(
                 log,

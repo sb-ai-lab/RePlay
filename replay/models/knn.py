@@ -280,17 +280,6 @@ class ItemKNN(NeighbourRec):
         self.similarity = self._get_k_most_similar(similarity_matrix)
         self.similarity.cache().count()
 
-        if self._nmslib_hnsw_params:
-
-            pandas_log = df.select("user_idx", "item_idx", "relevance").toPandas()
-            interactions_matrix = csr_matrix(
-                (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
-                shape=(self._user_dim, self._item_dim),
-            )
-            self._interactions_matrix_broadcast = (
-                    State().session.sparkContext.broadcast(interactions_matrix)
-            )
-
     def refit(
         self,
         log: DataFrame,

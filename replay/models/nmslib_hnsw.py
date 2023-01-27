@@ -133,9 +133,10 @@ class NmslibHnswMixin(ANNMixin):
         k: int,
         index_dim: str = None,
         index_type: str = None,
+        log: DataFrame = None
     ) -> DataFrame:
         return self._infer_nmslib_hnsw_index(
-            vectors, features_col, params, k, index_type
+            vectors, features_col, params, k, index_type, log
         )
 
     def _build_ann_index(
@@ -395,6 +396,7 @@ class NmslibHnswMixin(ANNMixin):
         params: Dict[str, Any],
         k: int,
         index_type: str = None,
+        log: DataFrame = None
     ) -> DataFrame:
 
         if params["build_index_on"] == "executor":
@@ -420,14 +422,18 @@ class NmslibHnswMixin(ANNMixin):
         )
 
         if index_type == "sparse":
-            interactions_matrix_broadcast = self._interactions_matrix_broadcast
+            pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
+            interactions_matrix = csr_matrix(
+                (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
+                shape=(self._user_dim, self._item_dim),
+            )
+
 
             @pandas_udf(return_type)
             def infer_index(
                 user_idx: pd.Series, num_items: pd.Series
             ) -> pd.DataFrame:
                 index_file_manager = index_file_manager_broadcast.value
-                interactions_matrix = interactions_matrix_broadcast.value
 
                 index = index_file_manager.index
 
@@ -591,17 +597,23 @@ class NmslibHnswMixin(ANNMixin):
         if sparse:
             from_paths.append(from_path)
             from_paths.append(from_path + ".dat")
+            print(from_paths)
             target_paths.append(to_path)
             target_paths.append(to_path + ".dat")
+            print(target_paths)
         else:
             from_paths.append(from_path)
+            print(from_paths)
             target_paths.append(to_path)
+            print(target_paths)
 
         if from_filesystem == FileSystem.HDFS:
             source_filesystem = fs.HadoopFileSystem.from_uri(from_hdfs_uri)
         else:
             source_filesystem = fs.LocalFileSystem()
+
         destination_filesystem = fs.LocalFileSystem()
+
         for from_path, to_path in zip(from_paths, target_paths):
             fs.copy_files(
                 from_path,
