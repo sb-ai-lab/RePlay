@@ -54,10 +54,10 @@ All params:
     It perform NDCG@5, NDCG@10, MAP@5, MAP@10, HitRate@5 and HitRate@10 calculation.
 
     NMSLIB_HNSW_PARAMS: nmslib hnsw index params. Double quotes must be used instead of single quotes
-    Example: {"method":"hnsw","space":"negdotprod_sparse_fast","M":100,"efS":2000,"efC":2000,"post":0,"index_path":"/opt/spark_data/replay_datasets/nmslib_hnsw_index_{spark_app_id}","build_index_on":"executor"}
+    Example: {"method":"hnsw","space":"negdotprod_sparse_fast","M":100,"efS":2000,"efC":2000,"post":0,"index_path":"/tmp/nmslib_hnsw_index_{spark_app_id}","build_index_on":"executor"}
 
     HNSWLIB_PARAMS: hnswlib index params. Double quotes must be used instead of single quotes
-    Example: {"space":"ip","M":100,"efS":2000,"efC":2000,"post":0,"index_path":"/opt/spark_data/replay_datasets/hnswlib_index_{spark_app_id}","build_index_on":"executor"}
+    Example: {"space":"ip","M":100,"efS":2000,"efC":2000,"post":0,"index_path":"/tmp/hnswlib_index_{spark_app_id}","build_index_on":"executor"}
 
     ALS_RANK: rank for ALS model, i.e. length of ALS factor vectors
 

@@ -30,6 +30,9 @@ SEED="42"
 # number of desired recommendations per user
 K="10"
 
+#
+K_LIST_METRICS="5,10"
+
 # num_item_blocks and num_user_blocks values in ALS model
 NUM_BLOCKS="10"
 
@@ -50,6 +53,14 @@ WORD2VEC_RANK="100"
 
 # if set to "True", then metrics will be calculated via scala UDFs
 USE_SCALA_UDFS_METRICS="True"
+
+HNSWLIB_PARAMS=\\\{\\\\\\\"space\\\\\\\":\\\\\\\"ip\\\\\\\",\\\\\\\"M\\\\\\\":100,\\\\\\\"efS\\\\\\\":2000,\\\\\\\"efC\\\\\\\":2000,\\\\\\\"post\\\\\\\":0,\\\\\\\"index_path\\\\\\\":\\\\\\\"hdfs://node21.bdcl:9000/tmp/replay/hnswlib_index_\\\{spark_app_id\\\}\\\\\\\",\\\\\\\"build_index_on\\\\\\\":\\\\\\\"executor\\\\\\\"\\\}
+NMSLIB_HNSW_PARAMS=\\\{\\\\\\\"method\\\\\\\":\\\\\\\"hnsw\\\\\\\",\\\\\\\"space\\\\\\\":\\\\\\\"negdotprod_sparse_fast\\\\\\\",\\\\\\\"M\\\\\\\":100,\\\\\\\"efS\\\\\\\":2000,\\\\\\\"efC\\\\\\\":2000,\\\\\\\"post\\\\\\\":0,\\\\\\\"index_path\\\\\\\":\\\\\\\"hdfs://node21.bdcl:9000/tmp/replay/nmslib_hnsw_index_\\\{spark_app_id\\\}\\\\\\\",\\\\\\\"build_index_on\\\\\\\":\\\\\\\"executor\\\\\\\"\\\}
+
+DATASETS_DIR="/opt/spark_data/replay_datasets/"
+RS_DATASETS_DIR="/opt/spark_data/replay_datasets/"
+FORCE_RECREATE_DATASETS="False"
+CHECK_NUMBER_OF_ALLOCATED_EXECUTORS="True"
 
 
 # Dataset name. List of available datasets presented in description of run_experiment.py
@@ -76,16 +87,21 @@ do
                 EXPERIMENT=$EXPERIMENT \
                 SEED=$SEED \
                 K=$K \
+                K_LIST_METRICS=$K_LIST_METRICS \
                 MODEL=$model \
                 ALS_RANK=$ALS_RANK \
                 NUM_NEIGHBOURS=$NUM_NEIGHBOURS \
                 NUM_CLUSTERS=$NUM_CLUSTERS \
                 WORD2VEC_RANK=$WORD2VEC_RANK \
-                ITEMS_FRACTION=$ITEMS_FRACTION \
-                USE_NEW_ALS_METHOD=$USE_NEW_ALS_METHOD \
+                HNSWLIB_PARAMS=$HNSWLIB_PARAMS \
+                NMSLIB_HNSW_PARAMS=$NMSLIB_HNSW_PARAMS \
                 LOG_TO_MLFLOW=True \
                 USE_BUCKETING=$USE_BUCKETING \
                 USE_SCALA_UDFS_METRICS=$USE_SCALA_UDFS_METRICS \
+                DATASETS_DIR=$DATASETS_DIR \
+                RS_DATASETS_DIR=$RS_DATASETS_DIR \
+                FORCE_RECREATE_DATASETS=$FORCE_RECREATE_DATASETS \
+                CHECK_NUMBER_OF_ALLOCATED_EXECUTORS=$CHECK_NUMBER_OF_ALLOCATED_EXECUTORS \
                 NUM_BLOCKS=$NUM_BLOCKS \
                 PARTITION_NUM=$PARTITION_NUM \
                 CORES_MAX=$CORES_MAX \
