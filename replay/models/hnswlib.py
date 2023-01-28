@@ -58,9 +58,7 @@ class HnswlibIndexFileManager:
         if self._index_path:
             if self._filesystem == FileSystem.HDFS:
                 with tempfile.TemporaryDirectory() as temp_path:
-                    tmp_file_path = os.path.join(
-                        temp_path, INDEX_FILENAME
-                    )
+                    tmp_file_path = os.path.join(temp_path, INDEX_FILENAME)
                     source_filesystem = fs.HadoopFileSystem.from_uri(
                         self._hdfs_uri
                     )
@@ -201,9 +199,7 @@ class HnswlibMixin(ANNMixin):
             )
 
             if id_col:
-                index.add_items(
-                    np.stack(vectors_np), vectors[id_col].values
-                )
+                index.add_items(np.stack(vectors_np), vectors[id_col].values)
             else:
                 index.add_items(np.stack(vectors_np))
 
@@ -226,7 +222,9 @@ class HnswlibMixin(ANNMixin):
         num_elements: int,
     ):
         index = hnswlib.Index(space=params["space"], dim=dim)
-        index_path = SparkFiles.get(f"{INDEX_FILENAME}_{self._spark_index_file_uid}")
+        index_path = SparkFiles.get(
+            f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
+        )
         index.load_index(index_path, max_elements=num_elements)
         item_vectors = item_vectors.toPandas()
         item_vectors_np = np.squeeze(item_vectors[features_col].values)
@@ -269,9 +267,7 @@ class HnswlibMixin(ANNMixin):
             _index_file_manager
         )
 
-        return_type = (
-            "item_idx array<int>, distance array<double>"
-        )
+        return_type = "item_idx array<int>, distance array<double>"
 
         @pandas_udf(return_type)
         def infer_index(
@@ -284,8 +280,9 @@ class HnswlibMixin(ANNMixin):
             max_items_to_retrieve = num_items.max()
 
             labels, distances = index.knn_query(
-                np.stack(vectors.values), k=k + max_items_to_retrieve,
-                num_threads=1
+                np.stack(vectors.values),
+                k=k + max_items_to_retrieve,
+                num_threads=1,
             )
 
             pd_res = pd.DataFrame(
@@ -296,28 +293,9 @@ class HnswlibMixin(ANNMixin):
 
         res = vectors.select(
             "user_idx",
-            infer_index(features_col, "num_items").alias("r")
+            infer_index(features_col, "num_items").alias("neighbours"),
         )
-
-        res = res.select(
-            "user_idx",
-            sf.explode(sf.arrays_zip("r.item_idx", "r.distance")).alias(
-                "zip_exp"
-            ),
-        )
-
-        # Fix arrays_zip random behavior. It can return zip_exp.0 or zip_exp.item_idx in different machines
-        fields = res.schema["zip_exp"].jsonValue()["type"]["fields"]
-        item_idx_field_name: str = fields[0]["name"]
-        distance_field_name: str = fields[1]["name"]
-
-        res = res.select(
-            "user_idx",
-            sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx"),
-            (
-                sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")
-            ).alias("relevance"),
-        )
+        res = self._unpack_infer_struct(res)
 
         return res
 
@@ -334,13 +312,13 @@ class HnswlibMixin(ANNMixin):
         if params["build_index_on"] == "executor":
             index_path = params["index_path"]
         elif params["build_index_on"] == "driver":
-            index_path = SparkFiles.get(f"{INDEX_FILENAME}_{self._spark_index_file_uid}")
+            index_path = SparkFiles.get(
+                f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
+            )
         else:
             raise ValueError("Unknown 'build_index_on' param.")
 
-        from_filesystem, from_hdfs_uri, from_path = get_filesystem(
-            index_path
-        )
+        from_filesystem, from_hdfs_uri, from_path = get_filesystem(index_path)
         to_filesystem, to_hdfs_uri, to_path = get_filesystem(path)
         self.logger.debug(f"Index file coping from '{index_path}' to '{path}'")
 
@@ -377,7 +355,9 @@ class HnswlibMixin(ANNMixin):
 
         to_path = tempfile.mkdtemp()
         weakref.finalize(self, shutil.rmtree, to_path)
-        to_path = os.path.join(to_path, f"{INDEX_FILENAME}_{self._spark_index_file_uid}")
+        to_path = os.path.join(
+            to_path, f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
+        )
 
         if from_filesystem == FileSystem.HDFS:
             source_filesystem = fs.HadoopFileSystem.from_uri(from_hdfs_uri)

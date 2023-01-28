@@ -73,7 +73,7 @@ class ANNMixin(BaseRecommender):
         k: int,
         index_dim: str = None,
         index_type: str = None,
-        log: DataFrame = None
+        log: DataFrame = None,
     ) -> DataFrame:
         ...
 
@@ -102,6 +102,48 @@ class ANNMixin(BaseRecommender):
                 item_features,
                 filter_seen_items,
             )
+
+    def _unpack_infer_struct(self, inference_result: DataFrame) -> DataFrame:
+        """Transforms input dataframe.
+        Unpacks and explodes arrays from `neighbours` struct.
+
+        >>> inference_result.printSchema()
+        root
+         |-- user_idx: integer (nullable = true)
+         |-- neighbours: struct (nullable = true)
+         |    |-- item_idx: array (nullable = true)
+         |    |    |-- element: integer (containsNull = true)
+         |    |-- distance: array (nullable = true)
+         |    |    |-- element: double (containsNull = true)
+        >>> self._unpack_infer_struct(inference_result).printSchema()
+        root
+         |-- user_idx: integer (nullable = true)
+         |-- item_idx: integer (nullable = true)
+         |-- relevance: double (nullable = true)
+
+        Args:
+            inference_result: output of infer_index UDF
+        """
+        res = inference_result.select(
+            "user_idx",
+            sf.explode(
+                sf.arrays_zip("neighbours.item_idx", "neighbours.distance")
+            ).alias("zip_exp"),
+        )
+
+        # Fix arrays_zip random behavior. It can return zip_exp.0 or zip_exp.item_idx in different machines
+        fields = res.schema["zip_exp"].jsonValue()["type"]["fields"]
+        item_idx_field_name: str = fields[0]["name"]
+        distance_field_name: str = fields[1]["name"]
+
+        res = res.select(
+            "user_idx",
+            sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx"),
+            (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias(
+                "relevance"
+            ),
+        )
+        return res
 
     def _filter_seen(
         self, recs: DataFrame, log: DataFrame, k: int, users: DataFrame
