@@ -11,14 +11,17 @@ import numpy as np
 import pandas as pd
 from pyarrow import fs
 from pyspark import SparkFiles
-from pyspark.sql import DataFrame, functions as sf
+from pyspark.sql import DataFrame
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import pandas_udf
 
 from replay.ann.ann_mixin import ANNMixin
-from replay.ann.utils import save_index_to_destination_fs
+from replay.ann.utils import (
+    save_index_to_destination_fs,
+    load_index_from_source_fs,
+)
 from replay.session_handler import State
-from replay.utils import FileSystem, get_filesystem
+from replay.utils import FileSystem, get_filesystem, FileInfo
 
 logger = logging.getLogger("replay")
 
@@ -34,19 +37,13 @@ class HnswlibIndexFileManager:
         self,
         index_params,
         index_dim: int,
-        index_path: Optional[str] = None,
-        filesystem: Optional[FileSystem] = None,
-        hdfs_uri: Optional[str] = None,
-        index_filename: Optional[str] = None,
+        index_file: Union[FileInfo, str]
     ) -> None:
 
         self._space = index_params["space"]
         self._efS = index_params.get("efS")
         self._dim = index_dim
-        self._index_path = index_path
-        self._filesystem = filesystem
-        self._hdfs_uri = hdfs_uri
-        self._index_filename = index_filename
+        self._index_file = index_file
         self._index = None
 
     @property
@@ -55,23 +52,14 @@ class HnswlibIndexFileManager:
             return self._index
 
         self._index = hnswlib.Index(space=self._space, dim=self._dim)
-        if self._index_path:
-            if self._filesystem == FileSystem.HDFS:
-                with tempfile.TemporaryDirectory() as temp_path:
-                    tmp_file_path = os.path.join(temp_path, INDEX_FILENAME)
-                    source_filesystem = fs.HadoopFileSystem.from_uri(
-                        self._hdfs_uri
-                    )
-                    fs.copy_files(
-                        self._index_path,
-                        "file://" + tmp_file_path,
-                        source_filesystem=source_filesystem,
-                    )
-                    self._index.load_index(tmp_file_path)
-            else:
-                self._index.load_index(self._index_path)
+        if isinstance(self._index_file, FileInfo):
+            load_index_from_source_fs(
+                sparse=False,
+                load_index=lambda path: self._index.load_index(path),
+                source=self._index_file
+            )
         else:
-            self._index.load_index(SparkFiles.get(self._index_filename))
+            self._index.load_index(SparkFiles.get(self._index_file))
 
         if self._efS:
             self._index.set_ef(self._efS)
@@ -137,9 +125,7 @@ class HnswlibMixin(ANNMixin):
             # to execution in one executor
             vectors = vectors.repartition(1)
 
-            filesystem, hdfs_uri, index_path = get_filesystem(
-                params["index_path"]
-            )
+            target_index_file = get_filesystem(params["index_path"])
 
             def build_index(iterator: Iterator[pd.DataFrame]):
                 """Builds index on executor and writes it to shared disk or hdfs.
@@ -169,12 +155,9 @@ class HnswlibMixin(ANNMixin):
                         index.add_items(np.stack(vectors_np))
 
                 save_index_to_destination_fs(
-                    index,
                     sparse=False,
                     save_index=lambda path: index.save_index(path),
-                    filesystem=filesystem,
-                    destination_path=index_path,
-                    hdfs_uri=hdfs_uri,
+                    target=target_index_file,
                 )
 
                 yield pd.DataFrame(data={"_success": 1}, index=[0])
@@ -252,18 +235,15 @@ class HnswlibMixin(ANNMixin):
     ):
 
         if params["build_index_on"] == "executor":
-            filesystem, hdfs_uri, index_path = get_filesystem(
-                params["index_path"]
-            )
-            _index_file_manager = HnswlibIndexFileManager(
-                params, index_dim, index_path, filesystem, hdfs_uri
-            )
+            index_file = get_filesystem(params["index_path"])
         else:
-            _index_file_manager = HnswlibIndexFileManager(
-                params,
-                index_dim,
-                index_filename=f"{INDEX_FILENAME}_{self._spark_index_file_uid}",
-            )
+            index_file = f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
+
+        _index_file_manager = HnswlibIndexFileManager(
+            params,
+            index_dim,
+            index_file=index_file,
+        )
 
         index_file_manager_broadcast = State().session.sparkContext.broadcast(
             _index_file_manager
@@ -363,22 +343,24 @@ class HnswlibMixin(ANNMixin):
         else:
             raise ValueError("Unknown 'build_index_on' param.")
 
-        from_filesystem, from_hdfs_uri, from_path = get_filesystem(index_path)
-        to_filesystem, to_hdfs_uri, to_path = get_filesystem(path)
+        source = get_filesystem(index_path)
+        target = get_filesystem(path)
         self.logger.debug(f"Index file coping from '{index_path}' to '{path}'")
 
-        if from_filesystem == FileSystem.HDFS:
-            source_filesystem = fs.HadoopFileSystem.from_uri(from_hdfs_uri)
+        if source.filesystem == FileSystem.HDFS:
+            source_filesystem = fs.HadoopFileSystem.from_uri(source.hdfs_uri)
         else:
             source_filesystem = fs.LocalFileSystem()
-        if to_filesystem == FileSystem.HDFS:
-            destination_filesystem = fs.HadoopFileSystem.from_uri(to_hdfs_uri)
+        if target.filesystem == FileSystem.HDFS:
+            destination_filesystem = fs.HadoopFileSystem.from_uri(
+                target.hdfs_uri
+            )
         else:
             destination_filesystem = fs.LocalFileSystem()
 
         fs.copy_files(
-            from_path,
-            os.path.join(to_path, INDEX_FILENAME),
+            source.path,
+            os.path.join(target.path, INDEX_FILENAME),
             source_filesystem=source_filesystem,
             destination_filesystem=destination_filesystem,
         )
@@ -394,29 +376,27 @@ class HnswlibMixin(ANNMixin):
         Args:
             path: directory path, where index file is stored
         """
-        from_filesystem, from_hdfs_uri, from_path = get_filesystem(
-            path + f"/{INDEX_FILENAME}"
+        source = get_filesystem(path + f"/{INDEX_FILENAME}")
+
+        temp_dir = tempfile.mkdtemp()
+        weakref.finalize(self, shutil.rmtree, temp_dir)
+        target_path = os.path.join(
+            temp_dir, f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
         )
 
-        to_path = tempfile.mkdtemp()
-        weakref.finalize(self, shutil.rmtree, to_path)
-        to_path = os.path.join(
-            to_path, f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
-        )
-
-        if from_filesystem == FileSystem.HDFS:
-            source_filesystem = fs.HadoopFileSystem.from_uri(from_hdfs_uri)
+        if source.filesystem == FileSystem.HDFS:
+            source_filesystem = fs.HadoopFileSystem.from_uri(source.hdfs_uri)
         else:
             source_filesystem = fs.LocalFileSystem()
         destination_filesystem = fs.LocalFileSystem()
         fs.copy_files(
-            from_path,
-            to_path,
+            source.path,
+            target_path,
             source_filesystem=source_filesystem,
             destination_filesystem=destination_filesystem,
         )
 
         spark = SparkSession.getActiveSession()
-        spark.sparkContext.addFile("file://" + to_path)
+        spark.sparkContext.addFile("file://" + target_path)
 
         self._hnswlib_params["build_index_on"] = "driver"

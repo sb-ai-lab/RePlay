@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from datetime import datetime
 from enum import Enum
@@ -821,7 +822,14 @@ def get_default_fs() -> str:
     return default_fs
 
 
-def get_filesystem(path: str) -> Tuple[FileSystem, Optional[str], str]:
+@dataclass(frozen=True)
+class FileInfo:
+    path: str
+    filesystem: FileSystem
+    hdfs_uri: str = None
+
+
+def get_filesystem(path: str) -> FileInfo:  # Tuple[FileSystem, Optional[str], str]
     """Analyzes path and hadoop config and return tuple of `filesystem`,
     `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix).
 
@@ -829,11 +837,11 @@ def get_filesystem(path: str) -> Tuple[FileSystem, Optional[str], str]:
 
     >>> path = 'hdfs://node21.bdcl:9000/tmp/file'
     >>> get_filesystem(path)
-    FileSystem.HDFS, 'hdfs://node21.bdcl:9000', '/tmp/file'
+    FileInfo(path='/tmp/file', filesystem=<FileSystem.HDFS: 1>, hdfs_uri='hdfs://node21.bdcl:9000')
     or
     >>> path = 'file:///tmp/file'
     >>> get_filesystem(path)
-    FileSystem.LOCAL, None, '/tmp/file'
+    FileInfo(path='/tmp/file', filesystem=<FileSystem.LOCAL: 2>, hdfs_uri=None)
 
     Args:
         path (str): path to file on hdfs or local disk
@@ -847,7 +855,7 @@ def get_filesystem(path: str) -> Tuple[FileSystem, Optional[str], str]:
         if path.startswith("hdfs:///"):
             default_fs = get_default_fs()
             if default_fs.startswith("hdfs://"):
-                return FileSystem.HDFS, default_fs, path[7:]
+                return FileInfo(path[prefix_len:], FileSystem.HDFS, default_fs)
             else:
                 raise Exception(
                     f"Can't get default hdfs uri for path = '{path}'. "
@@ -857,15 +865,15 @@ def get_filesystem(path: str) -> Tuple[FileSystem, Optional[str], str]:
         else:
             hostname = path[prefix_len:].split("/", 1)[0]
             hdfs_uri = "hdfs://" + hostname
-            return FileSystem.HDFS, hdfs_uri, path[len(hdfs_uri):]
+            return FileInfo(path[len(hdfs_uri):], FileSystem.HDFS, hdfs_uri)
     elif path.startswith("file://"):
-        return FileSystem.LOCAL, None, path[prefix_len:]
+        return FileInfo(path[prefix_len:], FileSystem.LOCAL)
     else:
         default_fs = get_default_fs()
         if default_fs.startswith("hdfs://"):
-            return FileSystem.HDFS, default_fs, path
+            return FileInfo(path, FileSystem.HDFS, default_fs)
         else:
-            return FileSystem.LOCAL, None, path
+            return FileInfo(path, FileSystem.LOCAL)
 
 
 def sample_k_items(pairs: DataFrame, k: int, seed: int = None):
