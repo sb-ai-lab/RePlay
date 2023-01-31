@@ -177,5 +177,7 @@ class ANNMixin(BaseRecommender):
         Overridden _filter_seen method from base class.
         Filtering is not needed for ann methods, because the data is already filtered in udf.
         """
+        if self._use_ann:
+            return recs
 
-        return recs
+        return super()._filter_seen(recs, log, k, users)
