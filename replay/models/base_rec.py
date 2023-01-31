@@ -1579,6 +1579,24 @@ class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
             "item_idx_one", "item_idx_two", "similarity"
         )
 
+    def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
+        items_count = log.select(sf.max("item_idx")).first()[0] + 1
+        return {
+            "features_col": None,
+            "params": self._nmslib_hnsw_params,
+            "index_type": "sparse",
+            "items_count": items_count,
+        }
+
+    def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
+        similarity_df = self.similarity.select(
+            "similarity", "item_idx_one", "item_idx_two"
+        )
+        return similarity_df
+
+    def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
+        return users
+
 
 class NonPersonalizedRecommender(Recommender, ABC):
     """Base class for non-personalized recommenders with popularity statistics."""

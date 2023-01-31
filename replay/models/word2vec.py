@@ -22,24 +22,15 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         return {
             "features_col": "user_vector",
             "params": self._hnswlib_params,
-            "index_dim": self.rank
+            "index_dim": self.rank,
         }
 
-    def _get_vectors_to_infer_ann(self, log: DataFrame, users: DataFrame) -> DataFrame:
+    def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
         user_vectors = self._get_user_vectors(users, log)
         # converts to pandas_udf compatible format
-        user_vectors = (
-            user_vectors
-            .select(
-                "user_idx",
-                vector_to_array("user_vector").alias("user_vector")
-            )
+        user_vectors = user_vectors.select(
+            "user_idx", vector_to_array("user_vector").alias("user_vector")
         )
-        user_to_max_items = (
-            log.groupBy('user_idx')
-            .agg(sf.count('item_idx').alias('num_items'))
-        )
-        user_vectors = user_vectors.join(user_to_max_items, on="user_idx")
         return user_vectors
 
     def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
@@ -125,9 +116,9 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
             "step_size": self.step_size,
             "max_iter": self.max_iter,
             "seed": self._seed,
-            "hnswlib_params": self._hnswlib_params
+            "hnswlib_params": self._hnswlib_params,
         }
-    
+
     def _save_model(self, path: str):
         if self._hnswlib_params:
             self._save_hnswlib_index(path)
@@ -266,7 +257,7 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
                 + sf.lit(self.rank)
             ).alias("relevance"),
         )
-    
+
         return res
 
     # pylint: disable=too-many-arguments

@@ -41,10 +41,26 @@ class ANNMixin(BaseRecommender):
             self._build_ann_index(vectors, **ann_params)
 
     @abstractmethod
-    def _get_vectors_to_infer_ann(
+    def _get_vectors_to_infer_ann_inner(
         self, log: DataFrame, users: DataFrame
     ) -> DataFrame:
         ...
+
+    def _get_vectors_to_infer_ann(
+        self, log: DataFrame, users: DataFrame, filter_seen_items: bool
+    ) -> DataFrame:
+
+        users = self._get_vectors_to_infer_ann_inner(log, users)
+
+        # here we add `seen_item_idxs` to filter the viewed items in UDFs (see infer_index)
+        if filter_seen_items:
+            user_to_max_items = log.groupBy("user_idx").agg(
+                sf.count("item_idx").alias("num_items"),
+                sf.collect_set("item_idx").alias("seen_item_idxs"),
+            )
+            users = users.join(user_to_max_items, on="user_idx")
+
+        return users
 
     @abstractmethod
     def _get_ann_infer_params(self) -> Dict[str, Any]:
@@ -71,6 +87,7 @@ class ANNMixin(BaseRecommender):
         features_col: str,
         params: Dict[str, Union[int, str]],
         k: int,
+        filter_seen_items: bool,
         index_dim: str = None,
         index_type: str = None,
         log: DataFrame = None,
@@ -89,9 +106,17 @@ class ANNMixin(BaseRecommender):
     ) -> DataFrame:
 
         if self._use_ann:
-            vectors = self._get_vectors_to_infer_ann(log, users)
+            vectors = self._get_vectors_to_infer_ann(
+                log, users, filter_seen_items
+            )
             ann_params = self._get_ann_infer_params()
-            return self._infer_ann_index(vectors, k=k, log=log, **ann_params)
+            return self._infer_ann_index(
+                vectors,
+                k=k,
+                filter_seen_items=filter_seen_items,
+                log=log,
+                **ann_params,
+            )
         else:
             return self._predict(
                 log,
@@ -150,44 +175,7 @@ class ANNMixin(BaseRecommender):
     ):
         """
         Overridden _filter_seen method from base class.
-        There is an optimization here (see get_top_k) when we use hnsw index.
-
-        Filter seen items (presented in log) out of the users' recommendations.
-        For each user return from `k` to `k + number of seen by user` recommendations.
+        Filtering is not needed for ann methods, because the data is already filtered in udf.
         """
-
-        if not self._use_ann:
-            return super()._filter_seen(recs, log, k, users)
-
-        users_log = log.join(users, on="user_idx")
-        self._cache_model_temp_view(users_log, "filter_seen_users_log")
-
-        # filter recommendations presented in interactions log
-        recs = recs.join(
-            users_log.withColumnRenamed("item_idx", "item")
-            .withColumnRenamed("user_idx", "user")
-            .select("user", "item"),
-            on=(sf.col("user_idx") == sf.col("user"))
-            & (sf.col("item_idx") == sf.col("item")),
-            how="anti",
-        ).drop("user", "item")
-
-        # because relevances are already sorted,
-        # we can return the first k values for every user_idx
-        def get_top_k(iterator):
-            current_user_idx = None
-            n = 0
-            for row in iterator:
-                if row.user_idx == current_user_idx and n <= k:
-                    n += 1
-                    yield row
-                elif row.user_idx != current_user_idx:
-                    current_user_idx = row.user_idx
-                    n = 1
-                    yield row
-
-        recs = recs.rdd.mapPartitions(get_top_k).toDF(
-            ["user_idx", "item_idx", "relevance"]
-        )
 
         return recs

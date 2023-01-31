@@ -129,12 +129,19 @@ class NmslibHnswMixin(ANNMixin):
         features_col: str,
         params: Dict[str, Union[int, str]],
         k: int,
+        filter_seen_items: bool,
         index_dim: str = None,
         index_type: str = None,
         log: DataFrame = None,
     ) -> DataFrame:
         return self._infer_nmslib_hnsw_index(
-            vectors, features_col, params, k, index_type, log
+            vectors,
+            features_col,
+            params,
+            k,
+            filter_seen_items,
+            index_type,
+            log,
         )
 
     def _build_ann_index(
@@ -370,6 +377,7 @@ class NmslibHnswMixin(ANNMixin):
         features_col: str,
         params: Dict[str, Any],
         k: int,
+        filter_seen_items: bool,
         index_type: str = None,
         log: DataFrame = None,
     ) -> DataFrame:
@@ -406,66 +414,142 @@ class NmslibHnswMixin(ANNMixin):
                 shape=(self._user_dim, self._item_dim),
             )
 
-            @pandas_udf(return_type)
-            def infer_index(
-                user_idx: pd.Series, num_items: pd.Series
-            ) -> pd.DataFrame:
-                index_file_manager = index_file_manager_broadcast.value
+            if filter_seen_items:
 
-                index = index_file_manager.index
+                @pandas_udf(return_type)
+                def infer_index(
+                    user_idx: pd.Series,
+                    num_items: pd.Series,
+                    seen_item_idxs: pd.Series,
+                ) -> pd.DataFrame:
+                    index_file_manager = index_file_manager_broadcast.value
 
-                # max number of items to retrieve per batch
-                max_items_to_retrieve = num_items.max()
+                    index = index_file_manager.index
 
-                # take slice
-                m = interactions_matrix[user_idx.values, :]
-                neighbours = index.knnQueryBatch(
-                    m, k=k + max_items_to_retrieve, num_threads=1
-                )
-                pd_res = pd.DataFrame(
-                    neighbours, columns=["item_idx", "distance"]
-                )
+                    # max number of items to retrieve per batch
+                    max_items_to_retrieve = num_items.max()
 
-                # pd_res looks like
-                # item_idx       distances
-                # [1, 2, 3, ...] [-0.5, -0.3, -0.1, ...]
-                # [1, 3, 4, ...] [-0.1, -0.8, -0.2, ...]
+                    # take slice
+                    m = interactions_matrix[user_idx.values, :]
+                    neighbours = index.knnQueryBatch(
+                        m, k=k + max_items_to_retrieve, num_threads=1
+                    )
 
-                return pd_res
+                    neighbours_filtered = []
+                    for i, (item_idxs, distances) in enumerate(neighbours):
+                        non_seen_item_indexes = ~np.isin(
+                            item_idxs, seen_item_idxs[i], assume_unique=True
+                        )
+                        neighbours_filtered.append(
+                            (
+                                (item_idxs[non_seen_item_indexes])[:k],
+                                (distances[non_seen_item_indexes])[:k],
+                            )
+                        )
+
+                    pd_res = pd.DataFrame(
+                        neighbours_filtered, columns=["item_idx", "distance"]
+                    )
+
+                    # pd_res looks like
+                    # item_idx       distances
+                    # [1, 2, 3, ...] [-0.5, -0.3, -0.1, ...]
+                    # [1, 3, 4, ...] [-0.1, -0.8, -0.2, ...]
+
+                    return pd_res
+
+            else:
+
+                @pandas_udf(return_type)
+                def infer_index(user_idx: pd.Series) -> pd.DataFrame:
+                    index_file_manager = index_file_manager_broadcast.value
+                    index = index_file_manager.index
+
+                    # take slice
+                    m = interactions_matrix[user_idx.values, :]
+                    neighbours = index.knnQueryBatch(m, num_threads=1)
+
+                    pd_res = pd.DataFrame(
+                        neighbours, columns=["item_idx", "distance"]
+                    )
+
+                    # pd_res looks like
+                    # item_idx       distances
+                    # [1, 2, 3, ...] [-0.5, -0.3, -0.1, ...]
+                    # [1, 3, 4, ...] [-0.1, -0.8, -0.2, ...]
+
+                    return pd_res
 
         else:
+            if filter_seen_items:
 
-            @pandas_udf(return_type)
-            def infer_index(
-                vectors: pd.Series, num_items: pd.Series
-            ) -> pd.DataFrame:
-                index_file_manager = index_file_manager_broadcast.value
-                index = index_file_manager.index
+                @pandas_udf(return_type)
+                def infer_index(
+                    vectors: pd.Series,
+                    num_items: pd.Series,
+                    seen_item_idxs: pd.Series,
+                ) -> pd.DataFrame:
+                    index_file_manager = index_file_manager_broadcast.value
+                    index = index_file_manager.index
 
-                # max number of items to retrieve per batch
-                max_items_to_retrieve = num_items.max()
+                    # max number of items to retrieve per batch
+                    max_items_to_retrieve = num_items.max()
 
-                neighbours = index.knnQueryBatch(
-                    np.stack(vectors.values),
-                    k=k + max_items_to_retrieve,
-                    num_threads=1,
-                )
-                pd_res = pd.DataFrame(
-                    neighbours, columns=["item_idx", "distance"]
-                )
+                    neighbours = index.knnQueryBatch(
+                        np.stack(vectors.values),
+                        k=k + max_items_to_retrieve,
+                        num_threads=1,
+                    )
 
-                return pd_res
+                    neighbours_filtered = []
+                    for i, (item_idxs, distances) in enumerate(neighbours):
+                        non_seen_item_indexes = ~np.isin(
+                            item_idxs, seen_item_idxs[i], assume_unique=True
+                        )
+                        neighbours_filtered.append(
+                            (
+                                (item_idxs[non_seen_item_indexes])[:k],
+                                (distances[non_seen_item_indexes])[:k],
+                            )
+                        )
 
+                    pd_res = pd.DataFrame(
+                        neighbours_filtered, columns=["item_idx", "distance"]
+                    )
+
+                    return pd_res
+
+            else:
+
+                @pandas_udf(return_type)
+                def infer_index(vectors: pd.Series) -> pd.DataFrame:
+                    index_file_manager = index_file_manager_broadcast.value
+                    index = index_file_manager.index
+
+                    neighbours = index.knnQueryBatch(
+                        np.stack(vectors.values),
+                        k=k,
+                        num_threads=1,
+                    )
+                    pd_res = pd.DataFrame(
+                        neighbours, columns=["item_idx", "distance"]
+                    )
+
+                    return pd_res
+
+        cols = []
         if index_type == "sparse":
-            res = user_vectors.select(
-                "user_idx",
-                infer_index("user_idx", "num_items").alias("neighbours"),
-            )
+            cols.append("user_idx")
         else:
-            res = user_vectors.select(
-                "user_idx",
-                infer_index(features_col, "num_items").alias("neighbours"),
-            )
+            cols.append(features_col)
+        if filter_seen_items:
+            cols = cols + ["num_items", "seen_item_idxs"]
+
+        res = user_vectors.select(
+            "user_idx",
+            infer_index(*cols).alias("neighbours"),
+        )
+
         res = self._unpack_infer_struct(res)
 
         return res

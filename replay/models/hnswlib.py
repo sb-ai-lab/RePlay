@@ -89,12 +89,13 @@ class HnswlibMixin(ANNMixin):
         features_col: str,
         params: Dict[str, Union[int, str]],
         k: int,
+        filter_seen_items: bool,
         index_dim: str = None,
         index_type: str = None,
         log: DataFrame = None,
     ) -> DataFrame:
         return self._infer_hnsw_index(
-            vectors, features_col, params, k, index_dim
+            vectors, features_col, params, k, filter_seen_items, index_dim
         )
 
     def _build_ann_index(
@@ -246,6 +247,7 @@ class HnswlibMixin(ANNMixin):
         features_col: str,
         params: Dict[str, Any],
         k: int,
+        filter_seen_items: bool,
         index_dim: str = None,
     ):
 
@@ -269,31 +271,74 @@ class HnswlibMixin(ANNMixin):
 
         return_type = "item_idx array<int>, distance array<double>"
 
-        @pandas_udf(return_type)
-        def infer_index(
-            vectors: pd.Series, num_items: pd.Series
-        ) -> pd.DataFrame:
-            index_file_manager = index_file_manager_broadcast.value
-            index = index_file_manager.index
+        if filter_seen_items:
 
-            # max number of items to retrieve per batch
-            max_items_to_retrieve = num_items.max()
+            @pandas_udf(return_type)
+            def infer_index(
+                vectors: pd.Series,
+                num_items: pd.Series,
+                seen_item_idxs: pd.Series,
+            ) -> pd.DataFrame:
+                index_file_manager = index_file_manager_broadcast.value
+                index = index_file_manager.index
 
-            labels, distances = index.knn_query(
-                np.stack(vectors.values),
-                k=k + max_items_to_retrieve,
-                num_threads=1,
-            )
+                # max number of items to retrieve per batch
+                max_items_to_retrieve = num_items.max()
 
-            pd_res = pd.DataFrame(
-                {"item_idx": list(labels), "distance": list(distances)}
-            )
+                labels, distances = index.knn_query(
+                    np.stack(vectors.values),
+                    k=k + max_items_to_retrieve,
+                    num_threads=1,
+                )
 
-            return pd_res
+                filtered_labels = []
+                filtered_distances = []
+                for i, item_idxs in enumerate(labels):
+                    non_seen_item_indexes = ~np.isin(
+                        item_idxs, seen_item_idxs[i], assume_unique=True
+                    )
+                    filtered_labels.append(
+                        (item_idxs[non_seen_item_indexes])[:k]
+                    )
+                    filtered_distances.append(
+                        (distances[i][non_seen_item_indexes])[:k]
+                    )
+
+                pd_res = pd.DataFrame(
+                    {
+                        "item_idx": filtered_labels,
+                        "distance": filtered_distances,
+                    }
+                )
+
+                return pd_res
+
+        else:
+
+            @pandas_udf(return_type)
+            def infer_index(vectors: pd.Series) -> pd.DataFrame:
+                index_file_manager = index_file_manager_broadcast.value
+                index = index_file_manager.index
+
+                labels, distances = index.knn_query(
+                    np.stack(vectors.values),
+                    k=k,
+                    num_threads=1,
+                )
+
+                pd_res = pd.DataFrame(
+                    {"item_idx": list(labels), "distance": list(distances)}
+                )
+
+                return pd_res
+
+        cols = []
+        if filter_seen_items:
+            cols = ["num_items", "seen_item_idxs"]
 
         res = vectors.select(
             "user_idx",
-            infer_index(features_col, "num_items").alias("neighbours"),
+            infer_index(features_col, *cols).alias("neighbours"),
         )
         res = self._unpack_infer_struct(res)
 
