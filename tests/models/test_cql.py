@@ -76,4 +76,4 @@ def test_serialize_deserialize_policy(log: DataFrame):
     # predict user-item relevance with the serialized-then-restored policy
     restored_policy = model._deserialize_policy(model._serialize_policy())
     restored_relevance = model._predict_relevance_with_policy(restored_policy, items_batch)
-    assert pytest.approx(relevance, restored_relevance, abs=1e-5)
+    assert relevance == pytest.approx(restored_relevance, abs=1e-5)
