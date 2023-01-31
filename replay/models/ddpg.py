@@ -91,17 +91,17 @@ class ReplayBuffer:
         weights = np.array(weights, dtype=np.float32)
 
         return {
-            "user": np.concatenate(np.array(self.buffer["user"])[indices]),
-            "memory": np.concatenate(np.array(self.buffer["memory"])[indices]),
-            "action": np.array(self.buffer["action"])[indices],
-            "reward": np.array(self.buffer["reward"])[indices],
+            "user": np.concatenate([self.buffer["user"][i] for i in indices]),
+            "memory": np.concatenate([self.buffer["memory"][i] for i in indices]),
+            "action": np.array([self.buffer["action"][i] for i in indices]),
+            "reward": np.array([self.buffer["reward"][i] for i in indices]),
             "next_user": np.concatenate(
-                np.array(self.buffer["next_user"])[indices]
+                [self.buffer["next_user"][i] for i in indices]
             ),
             "next_memory": np.concatenate(
-                np.array(self.buffer["next_memory"])[indices]
+                [self.buffer["next_memory"][i] for i in indices]
             ),
-            "done": np.array(self.buffer["done"])[indices],
+            "done": np.array([self.buffer["done"][i] for i in indices]),
         }
 
     def __len__(self):
