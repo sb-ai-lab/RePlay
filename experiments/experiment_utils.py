@@ -230,7 +230,7 @@ def prepare_datasets(dataset_name: str, spark: SparkSession, partition_num: int)
 
     fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration())
     is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(train_target_path))
-    if is_exists and os.environ["FORCE_RECREATE_DATASETS"] != "True":
+    if is_exists and os.environ.get("FORCE_RECREATE_DATASETS", "False") != "True":
         print(f"Path '{train_target_path}' already exists and FORCE_RECREATE_DATASETS != True. "
               "Skipping datasets creation.")
         return

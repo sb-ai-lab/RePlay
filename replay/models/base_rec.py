@@ -13,6 +13,7 @@ Base abstract classes:
 """
 import collections
 import joblib
+import os
 import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -1677,10 +1678,10 @@ class NonPersonalizedRecommender(Recommender, ABC):
         return {"item_popularity": self.item_popularity}
 
     def _save_model(self, path: str):
-        joblib.dump({"fill": self.fill}, join(path))
+        joblib.dump({"fill": self.fill}, join(path, "params.dump"))
 
     def _load_model(self, path: str):
-        self.fill = joblib.load(join(path))["fill"]
+        self.fill = joblib.load(join(path, "params.dump"))["fill"]
 
     def _clear_cache(self):
         if hasattr(self, "item_popularity"):

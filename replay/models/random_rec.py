@@ -120,6 +120,7 @@ class RandomRec(NonPersonalizedRecommender):
         seed: Optional[int] = None,
         add_cold_items: bool = True,
         cold_weight: float = 0.5,
+        sample: bool = False
     ):
         """
         :param distribution: recommendation strategy:
@@ -149,6 +150,7 @@ class RandomRec(NonPersonalizedRecommender):
         self.distribution = distribution
         self.alpha = alpha
         self.seed = seed
+        self.sample = sample
         super().__init__(
             add_cold_items=add_cold_items, cold_weight=cold_weight
         )

@@ -80,10 +80,10 @@ class UCB(NonPersonalizedRecommender):
         }
 
     def _save_model(self, path: str):
-        joblib.dump({"fill": self.fill}, join(path))
+        joblib.dump({"fill": self.fill}, join(path, "params.dump"))
 
     def _load_model(self, path: str):
-        self.fill = joblib.load(join(path))["fill"]
+        self.fill = joblib.load(join(path, "params.dump"))["fill"]
 
     # pylint: disable=too-many-arguments
     def optimize(

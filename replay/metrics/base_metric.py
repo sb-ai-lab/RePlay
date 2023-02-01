@@ -165,6 +165,9 @@ class Metric(ABC):
 
     _logger: Optional[logging.Logger] = None
 
+    def __init__(self, use_scala_udf: bool = False) -> None:
+        self._use_scala_udf = use_scala_udf
+
     @property
     def logger(self) -> logging.Logger:
         """

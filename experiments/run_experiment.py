@@ -96,6 +96,7 @@ import os
 import mlflow
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
+from pyspark.sql import functions as sf
 
 from experiment_utils import (
     get_model,
@@ -143,7 +144,7 @@ def main(spark: SparkSession, dataset_name: str):
     check_number_of_allocated_executors(spark)
 
     k = int(os.environ.get("K", 10))
-    k_list_metrics = list(map(int, os.environ["K_LIST_METRICS"].split(",")))
+    k_list_metrics = list(map(int, os.environ.get("K_LIST_METRICS", "5,10,25,100").split(",")))
     seed = int(os.environ.get("SEED", 1234))
     mlflow_tracking_uri = os.environ.get(
         "MLFLOW_TRACKING_URI", "http://node2.bdcl:8822"
@@ -203,6 +204,10 @@ def main(spark: SparkSession, dataset_name: str):
         mlflow.log_metric(
             "train_test_cache_sec", train_test_cache_timer.duration
         )
+
+        if model_name in {"UCB", "Wilson"}:
+            train = train.withColumn("relevance", sf.when(sf.col("relevance") > 0.0, sf.lit(1)).otherwise(sf.lit(0)))
+            test = test.withColumn("relevance", sf.when(sf.col("relevance") > 0.0, sf.lit(1)).otherwise(sf.lit(0)))
 
         mlflow.log_metric("train_num_partitions", train.rdd.getNumPartitions())
         mlflow.log_metric("test_num_partitions", test.rdd.getNumPartitions())
@@ -380,6 +385,6 @@ def main(spark: SparkSession, dataset_name: str):
 
 if __name__ == "__main__":
     spark_sess = get_spark_session()
-    dataset = os.environ.get("DATASET", "ml1m")
+    dataset = os.environ.get("DATASET", "MovieLens_1m")
     main(spark=spark_sess, dataset_name=dataset)
     spark_sess.stop()

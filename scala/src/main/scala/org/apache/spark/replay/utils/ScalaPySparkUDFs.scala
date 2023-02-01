@@ -17,7 +17,6 @@ object ScalaPySparkUDFs {
 
     def _getMAPMetricValue(k: Int, pred: Array[Int], groundTruth: Array[Int]) : Double = {
         val length = k.min(pred.size)
-        val maxGood = k.min(groundTruth.size)
         if (groundTruth.size == 0 || pred.size == 0) {
             return 0
         }
@@ -26,10 +25,10 @@ object ScalaPySparkUDFs {
         for (i <- 0 until length) {
             if (groundTruth.contains(pred(i))) {
                 tpCum += 1
-                result = result + tpCum.toDouble / ((i + 1) * maxGood)
+                result = result + tpCum.toDouble / (i + 1)
             }
         }
-        return result
+        return result / k
     }
 
     val getMAPMetricValue = udf(_getMAPMetricValue _)
@@ -106,7 +105,7 @@ object ScalaPySparkUDFs {
         }
         val length = k.min(pred.size)
         val i = pred.take(length).toSet.intersect(groundTruth.toSet).size
-        return i.toDouble / length
+        return i.toDouble / k
     }
 
     val getPrecisionMetricValue = udf(_getPrecisionMetricValue _)
@@ -133,7 +132,7 @@ object ScalaPySparkUDFs {
     val getUnexpectednessMetricValue = udf(_getUnexpectednessMetricValue _)
 
     def _getNCISPrecisionMetricValue(k: Int, pred: Array[Int], predWeights: Array[Double], groundTruth: Array[Int]) : Double = {
-        if (pred.size == 0) {
+        if (pred.size == 0 || predWeights.size == 0) {
             return 0
         }
         val length = k.min(pred.size)
