@@ -367,22 +367,28 @@ class NmslibHnswMixin(ANNMixin):
         return_type = "item_idx array<int>, distance array<double>"
 
         if index_type == "sparse":
-            pandas_log = log.select(
-                "user_idx", "item_idx", "relevance"
-            ).toPandas()
-            interactions_matrix = csr_matrix(
-                (
-                    pandas_log.relevance,
-                    (pandas_log.user_idx, pandas_log.item_idx),
-                ),
-                shape=(self._user_dim, self._item_dim),
-            )
+
+            #TODO remove
+
+            # pandas_log = log.select(
+            #     "user_idx", "item_idx", "relevance"
+            # ).toPandas()
+            # interactions_matrix = csr_matrix(
+            #     (
+            #         pandas_log.relevance,
+            #         (pandas_log.user_idx, pandas_log.item_idx),
+            #     ),
+            #     shape=(self._user_dim, self._item_dim),
+            # )
 
             if filter_seen_items:
 
                 @pandas_udf(return_type)
                 def infer_index(
                     user_idx: pd.Series,
+                    vector_users: pd.Series,
+                    vector_items: pd.Series,
+                    vector_relevances: pd.Series,
                     num_items: pd.Series,
                     seen_item_idxs: pd.Series,
                 ) -> pd.DataFrame:
@@ -393,8 +399,17 @@ class NmslibHnswMixin(ANNMixin):
                     # max number of items to retrieve per batch
                     max_items_to_retrieve = num_items.max()
 
+                    user_vectors = csr_matrix(
+                                (
+                                    vector_relevances,
+                                    (vector_users, vector_items),
+                                ),
+                                shape=(self._user_dim, self._item_dim),
+                            )
+
                     # take slice
-                    m = interactions_matrix[user_idx.values, :]
+                    m = user_vectors[user_idx.values, :]
+
                     neighbours = index.knnQueryBatch(
                         m, k=k + max_items_to_retrieve, num_threads=1
                     )
@@ -504,6 +519,7 @@ class NmslibHnswMixin(ANNMixin):
         cols = []
         if index_type == "sparse":
             cols.append("user_idx")
+            cols += ["vector_users", "vector_items", "vector_relevances"]
         else:
             cols.append(features_col)
         if filter_seen_items:

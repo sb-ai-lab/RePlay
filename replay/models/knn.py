@@ -1,8 +1,10 @@
 from typing import Optional, Union, Dict, Any
 
+import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
+from pyspark.sql.functions import pandas_udf
 from scipy.sparse import csr_matrix
 
 from replay.models.base_rec import NeighbourRec
@@ -19,6 +21,41 @@ class ItemKNN(NeighbourRec):
             "params": self._nmslib_hnsw_params,
             "index_type": "sparse",
         }
+
+    def _get_vectors_to_infer_ann_inner(
+        self, log: DataFrame, users: DataFrame
+    ) -> DataFrame:
+
+        user_vectors = (
+            log.groupBy("user_idx").agg(
+            sf.collect_list("item_idx").alias("vector_items"), sf.collect_list("relevance")).alias("vector_relevances")
+            .withColumnRenamed("user_idx", "vector_users")
+        )
+
+
+        return user_vectors
+        # @pandas_udf
+        # def get_csr_matrix(
+        #     user_idx: pd.Series,
+        #     item_idx: pd.Series,
+        #     relevance: pd.Series,
+        #     ) -> pd.DataFrame:
+        #
+        #     user_vectors = csr_matrix(
+        #         (
+        #             relevance,
+        #             (user_idx, item_idx),
+        #         ),
+        #         shape=(self._user_dim, self._item_dim),
+        #     )
+        #
+        #     return user_vectors
+        # user_vectors = get_csr_matrix(
+        #     user_vectors.select("user_idx").toPandas().values,
+        #     user_vectors.select("vector_items").toPandas().values,
+        #     user_vectors.select("vector_relevances").toPandas().values
+        # )
+        # return user_vectors
 
     @property
     def _use_ann(self) -> bool:
