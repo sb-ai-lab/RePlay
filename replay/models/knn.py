@@ -28,8 +28,7 @@ class ItemKNN(NeighbourRec):
 
         user_vectors = (
             log.groupBy("user_idx").agg(
-            sf.collect_list("item_idx").alias("vector_items"), sf.collect_list("relevance")).alias("vector_relevances")
-            .withColumnRenamed("user_idx", "vector_users")
+            sf.collect_list("item_idx").alias("vector_items"), sf.collect_list("relevance").alias("vector_relevances"))
         )
 
 

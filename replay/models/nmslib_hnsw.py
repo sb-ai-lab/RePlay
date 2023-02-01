@@ -386,26 +386,28 @@ class NmslibHnswMixin(ANNMixin):
                 @pandas_udf(return_type)
                 def infer_index(
                     user_idx: pd.Series,
-                    vector_users: pd.Series,
                     vector_items: pd.Series,
                     vector_relevances: pd.Series,
                     num_items: pd.Series,
                     seen_item_idxs: pd.Series,
                 ) -> pd.DataFrame:
                     index_file_manager = index_file_manager_broadcast.value
-
                     index = index_file_manager.index
 
                     # max number of items to retrieve per batch
                     max_items_to_retrieve = num_items.max()
+                    exploded_vector_items = vector_items.explode()
 
                     user_vectors = csr_matrix(
                                 (
-                                    vector_relevances,
-                                    (vector_users, vector_items),
+                                    vector_relevances.explode().values.astype(float),
+                                    (pd.DataFrame({'user_idx': user_idx,
+                                                   'items': vector_items}).explode('items')['user_idx'].values.astype(int),
+                                     exploded_vector_items.values.astype(int)),
                                 ),
-                                shape=(self._user_dim, self._item_dim),
+                                shape=(user_idx.max()+1, exploded_vector_items.max()+1),
                             )
+
 
                     # take slice
                     m = user_vectors[user_idx.values, :]
@@ -519,7 +521,7 @@ class NmslibHnswMixin(ANNMixin):
         cols = []
         if index_type == "sparse":
             cols.append("user_idx")
-            cols += ["vector_users", "vector_items", "vector_relevances"]
+            cols += ["vector_items", "vector_relevances"]
         else:
             cols.append(features_col)
         if filter_seen_items:
