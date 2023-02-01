@@ -1,11 +1,8 @@
 from typing import Optional, Union, Dict, Any
 
-import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
-from pyspark.sql.functions import pandas_udf
-from scipy.sparse import csr_matrix
 
 from replay.models.base_rec import NeighbourRec
 from replay.optuna_objective import ItemKNNObjective
@@ -23,38 +20,16 @@ class ItemKNN(NeighbourRec):
         }
 
     def _get_vectors_to_infer_ann_inner(
-        self, log: DataFrame, users: DataFrame
+            self, log: DataFrame, users: DataFrame
     ) -> DataFrame:
 
         user_vectors = (
             log.groupBy("user_idx").agg(
-            sf.collect_list("item_idx").alias("vector_items"), sf.collect_list("relevance").alias("vector_relevances"))
+                sf.collect_list("item_idx").alias("vector_items"),
+                sf.collect_list("relevance").alias("vector_relevances"))
         )
 
-
         return user_vectors
-        # @pandas_udf
-        # def get_csr_matrix(
-        #     user_idx: pd.Series,
-        #     item_idx: pd.Series,
-        #     relevance: pd.Series,
-        #     ) -> pd.DataFrame:
-        #
-        #     user_vectors = csr_matrix(
-        #         (
-        #             relevance,
-        #             (user_idx, item_idx),
-        #         ),
-        #         shape=(self._user_dim, self._item_dim),
-        #     )
-        #
-        #     return user_vectors
-        # user_vectors = get_csr_matrix(
-        #     user_vectors.select("user_idx").toPandas().values,
-        #     user_vectors.select("vector_items").toPandas().values,
-        #     user_vectors.select("vector_relevances").toPandas().values
-        # )
-        # return user_vectors
 
     @property
     def _use_ann(self) -> bool:
@@ -73,12 +48,12 @@ class ItemKNN(NeighbourRec):
     }
 
     def __init__(
-        self,
-        num_neighbours: int = 10,
-        use_relevance: bool = False,
-        shrink: float = 0.0,
-        weighting: str = None,
-        nmslib_hnsw_params: Optional[dict] = None,
+            self,
+            num_neighbours: int = 10,
+            use_relevance: bool = False,
+            shrink: float = 0.0,
+            weighting: str = None,
+            nmslib_hnsw_params: Optional[dict] = None,
     ):
         """
         :param num_neighbours: number of neighbours
@@ -169,11 +144,11 @@ class ItemKNN(NeighbourRec):
             log.withColumn(
                 "relevance",
                 sf.col("relevance") * (self.bm25_k1 + 1) / (
-                    sf.col("relevance") + self.bm25_k1 * (
+                        sf.col("relevance") + self.bm25_k1 * (
                         1 - self.bm25_b + self.bm25_b * (
-                            sf.col("n_users_per_item") / avgdl
-                        )
-                    )
+                        sf.col("n_users_per_item") / avgdl
+                )
+                )
                 )
             )
             .drop("n_users_per_item")
@@ -282,10 +257,10 @@ class ItemKNN(NeighbourRec):
         )
 
     def _fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+            self,
+            log: DataFrame,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None,
     ) -> None:
         df = log.select("user_idx", "item_idx", "relevance")
         if not self.use_relevance:
@@ -296,23 +271,23 @@ class ItemKNN(NeighbourRec):
         self.similarity.cache().count()
 
     def refit(
-        self,
-        log: DataFrame,
-        previous_log: Optional[Union[str, DataFrame]] = None,
-        merged_log_path: Optional[str] = None,
+            self,
+            log: DataFrame,
+            previous_log: Optional[Union[str, DataFrame]] = None,
+            merged_log_path: Optional[str] = None,
     ) -> None:
         pass
 
     # pylint: disable=too-many-arguments
     def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
+            self,
+            log: DataFrame,
+            k: int,
+            users: DataFrame,
+            items: DataFrame,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None,
+            filter_seen_items: bool = True,
     ) -> DataFrame:
 
         return self._predict_pairs_inner(

@@ -24,13 +24,15 @@ class SLIM(NeighbourRec):
         }
 
     def _get_vectors_to_infer_ann_inner(
-        self, log: DataFrame, users: DataFrame
+            self, log: DataFrame, users: DataFrame
     ) -> DataFrame:
 
         user_vectors = (
             log.groupBy("user_idx").agg(
-            sf.collect_list("item_idx").alias("vector_items"), sf.collect_list("relevance").alias("vector_relevances"))
+                sf.collect_list("item_idx").alias("vector_items"),
+                sf.collect_list("relevance").alias("vector_relevances"))
         )
+        return user_vectors
 
     @property
     def _use_ann(self) -> bool:
@@ -42,11 +44,11 @@ class SLIM(NeighbourRec):
     }
 
     def __init__(
-        self,
-        beta: float = 0.01,
-        lambda_: float = 0.01,
-        seed: Optional[int] = None,
-        nmslib_hnsw_params: Optional[dict] = None,
+            self,
+            beta: float = 0.01,
+            lambda_: float = 0.01,
+            seed: Optional[int] = None,
+            nmslib_hnsw_params: Optional[dict] = None,
     ):
         """
         :param beta: l2 regularization
@@ -68,7 +70,7 @@ class SLIM(NeighbourRec):
             "seed": self.seed,
             "nmslib_hnsw_params": self._nmslib_hnsw_params,
         }
-    
+
     def _save_model(self, path: str):
         if self._nmslib_hnsw_params:
             self._save_nmslib_hnsw_index(path, sparse=True)
@@ -78,10 +80,10 @@ class SLIM(NeighbourRec):
             self._load_nmslib_hnsw_index(path, sparse=True)
 
     def _fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+            self,
+            log: DataFrame,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None,
     ) -> None:
         pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
 
@@ -140,14 +142,14 @@ class SLIM(NeighbourRec):
 
     # pylint: disable=too-many-arguments
     def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
+            self,
+            log: DataFrame,
+            k: int,
+            users: DataFrame,
+            items: DataFrame,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None,
+            filter_seen_items: bool = True,
     ) -> DataFrame:
 
         return self._predict_pairs_inner(
@@ -156,6 +158,3 @@ class SLIM(NeighbourRec):
             condition=sf.col("item_idx_two") == sf.col("item_idx_filter"),
             users=users,
         )
-            
-
-

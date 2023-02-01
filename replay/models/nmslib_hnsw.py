@@ -368,19 +368,6 @@ class NmslibHnswMixin(ANNMixin):
 
         if index_type == "sparse":
 
-            #TODO remove
-
-            # pandas_log = log.select(
-            #     "user_idx", "item_idx", "relevance"
-            # ).toPandas()
-            # interactions_matrix = csr_matrix(
-            #     (
-            #         pandas_log.relevance,
-            #         (pandas_log.user_idx, pandas_log.item_idx),
-            #     ),
-            #     shape=(self._user_dim, self._item_dim),
-            # )
-
             if filter_seen_items:
 
                 @pandas_udf(return_type)
@@ -396,8 +383,8 @@ class NmslibHnswMixin(ANNMixin):
 
                     # max number of items to retrieve per batch
                     max_items_to_retrieve = num_items.max()
-                    exploded_vector_items = vector_items.explode()
 
+                    exploded_vector_items = vector_items.explode()
                     user_vectors = csr_matrix(
                                 (
                                     vector_relevances.explode().values.astype(float),
@@ -407,7 +394,6 @@ class NmslibHnswMixin(ANNMixin):
                                 ),
                                 shape=(user_idx.max()+1, exploded_vector_items.max()+1),
                             )
-
 
                     # take slice
                     m = user_vectors[user_idx.values, :]
@@ -442,12 +428,25 @@ class NmslibHnswMixin(ANNMixin):
             else:
 
                 @pandas_udf(return_type)
-                def infer_index(user_idx: pd.Series) -> pd.DataFrame:
+                def infer_index(user_idx: pd.Series,
+                                vector_items: pd.Series,
+                                vector_relevances: pd.Series,) -> pd.DataFrame:
+
                     index_file_manager = index_file_manager_broadcast.value
                     index = index_file_manager.index
 
+                    exploded_vector_items = vector_items.explode()
+                    user_vectors = csr_matrix(
+                        (
+                            vector_relevances.explode().values.astype(float),
+                            (pd.DataFrame({'user_idx': user_idx,
+                                           'items': vector_items}).explode('items')['user_idx'].values.astype(int),
+                             exploded_vector_items.values.astype(int)),
+                        ),
+                        shape=(user_idx.max() + 1, exploded_vector_items.max() + 1),
+                    )
                     # take slice
-                    m = interactions_matrix[user_idx.values, :]
+                    m = user_vectors[user_idx.values, :]
                     neighbours = index.knnQueryBatch(m, num_threads=1)
 
                     pd_res = pd.DataFrame(
@@ -520,8 +519,7 @@ class NmslibHnswMixin(ANNMixin):
 
         cols = []
         if index_type == "sparse":
-            cols.append("user_idx")
-            cols += ["vector_items", "vector_relevances"]
+            cols += ["user_idx", "vector_items", "vector_relevances"]
         else:
             cols.append(features_col)
         if filter_seen_items:
