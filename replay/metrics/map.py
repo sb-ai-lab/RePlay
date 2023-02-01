@@ -21,7 +21,6 @@ class MAP(Metric):
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         length = min(k, len(pred))
-        max_good = min(k, len(ground_truth))
         if len(ground_truth) == 0 or len(pred) == 0:
             return 0
         tp_cum = 0
@@ -29,8 +28,8 @@ class MAP(Metric):
         for i in range(length):
             if pred[i] in ground_truth:
                 tp_cum += 1
-                result += tp_cum / ((i + 1) * max_good)
-        return result
+                result += tp_cum / (i + 1)
+        return result / k
 
     @staticmethod
     def _get_metric_value_by_user_scala_udf(k, pred, ground_truth) -> Column:

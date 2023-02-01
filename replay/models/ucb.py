@@ -37,18 +37,19 @@ class UCB(NonPersonalizedRecommender):
     ... ).toPandas().sort_values(["user_idx","relevance","item_idx"],
     ... ascending=[True,False,True]).reset_index(drop=True)
        user_idx  item_idx  relevance
-    0         1         3   2.442027
-    1         1         2   1.019667
-    2         2         3   2.442027
-    3         2         1   1.519667
-    4         3         3   2.442027
-    5         4         3   2.442027
-    6         4         1   1.519667
+    0         1         3   2.665109
+    1         1         2   1.177410
+    2         2         3   2.665109
+    3         2         1   1.677410
+    4         3         3   2.665109
+    5         4         3   2.665109
+    6         4         1   1.677410
 
     """
 
-    can_predict_cold_items = True
-    fill: float
+    # attributes which are needed for refit method
+    full_count: int
+    items_counts_aggr: DataFrame
 
     def __init__(
         self,
@@ -60,13 +61,15 @@ class UCB(NonPersonalizedRecommender):
         :param exploration_coef: exploration coefficient
         :param sample: flag to choose recommendation strategy.
             If True, items are sampled with a probability proportional
-            to the calculated predicted relevance
+            to the calculated predicted relevance.
+            Could be changed after model training by setting the `sample` attribute.
         :param seed: random seed. Provides reproducibility if fixed
         """
         # pylint: disable=super-init-not-called
         self.coef = exploration_coef
         self.sample = sample
         self.seed = seed
+        super().__init__(add_cold_items=True, cold_weight=1)
 
     @property
     def _init_args(self):
@@ -126,21 +129,20 @@ class UCB(NonPersonalizedRecommender):
 
         self._check_relevance(log)
 
-        # we save this dataframe for the refit() method
-        self.items_counts_aggr = log.groupby("item_idx").agg(
+        items_counts = log.groupby("item_idx").agg(
             sf.sum("relevance").alias("pos"),
             sf.count("relevance").alias("total"),
         )
-        self.items_counts_aggr = self.items_counts_aggr.cache()
-
         # we save this variable for the refit() method
         self.full_count = log.count()
-        items_counts = self.items_counts_aggr.withColumn(
+
+        full_count = log.count()
+        items_counts = items_counts.withColumn(
             "relevance",
             (
                 sf.col("pos") / sf.col("total")
                 + sf.sqrt(
-                    sf.log(sf.lit(self.coef * self.full_count)) / sf.col("total")
+                    sf.log(sf.lit(self.coef * full_count)) / sf.col("total")
                 )
             ),
         )
@@ -148,48 +150,7 @@ class UCB(NonPersonalizedRecommender):
         self.item_popularity = items_counts.drop("pos", "total")
         self.item_popularity.cache().count()
 
-        self.fill = 1 + math.sqrt(math.log(self.coef * self.full_count))
-
-    def refit(
-        self,
-        log: DataFrame,
-        previous_log: Optional[Union[str, DataFrame]] = None,
-        merged_log_path: Optional[str] = None,
-    ) -> None:
-        # aggregation new log part
-        items_counts_aggr = log.groupby("item_idx").agg(
-            sf.sum("relevance").alias("pos"),
-            sf.count("relevance").alias("total"),
-        )
-
-        # combine old and new aggregations and aggregate
-        self.items_counts_aggr = (
-            self.items_counts_aggr.union(items_counts_aggr)
-            .groupby("item_idx")
-            .agg(
-                sf.sum("pos").alias("pos"),
-                sf.sum("total").alias("total"),
-            )
-        )
-        self.items_counts_aggr = self.items_counts_aggr.cache()
-
-        # sum old and new log lengths
-        self.full_count += log.count()
-        
-        items_counts = self.items_counts_aggr.withColumn(
-            "relevance",
-            (
-                sf.col("pos") / sf.col("total")
-                + sf.sqrt(
-                    sf.log(sf.lit(self.coef * self.full_count)) / sf.col("total")
-                )
-            ),
-        )
-
-        self.item_popularity = items_counts.drop("pos", "total")
-        self.item_popularity.cache().count()
-
-        self.fill = 1 + math.sqrt(math.log(self.coef * self.full_count))
+        self.fill = 1 + math.sqrt(math.log(self.coef * full_count))
 
     # pylint: disable=too-many-arguments
     def _predict(

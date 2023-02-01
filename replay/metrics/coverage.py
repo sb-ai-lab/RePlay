@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 from pyspark.sql import Window, DataFrame
 from pyspark.sql import functions as sf
@@ -42,8 +42,15 @@ class Coverage(RecOnlyMetric):
         recommendations: AnyDataFrame,
         ground_truth: AnyDataFrame,
         max_k: int,
+        ground_truth_users: Optional[AnyDataFrame] = None,
     ) -> DataFrame:
-        return convert2spark(recommendations)
+        recommendations = convert2spark(recommendations)
+        if ground_truth_users is not None:
+            ground_truth_users = convert2spark(ground_truth_users)
+            return recommendations.join(
+                ground_truth_users, on="user_idx", how="inner"
+            )
+        return recommendations
 
     def _conf_interval(
         self,

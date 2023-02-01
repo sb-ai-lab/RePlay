@@ -26,10 +26,8 @@ class NCISPrecision(NCISMetric):
 
     @staticmethod
     def _get_metric_value_by_user(k, *args):
-        # WARN: 'pred_weights' and 'ground_truth' are swapped due hotfix
-        # Check this logic! Have influence also to _get_metric_value_by_user_scala_udf
-        pred, pred_weights, ground_truth = args
-        if len(pred) == 0:
+        pred, ground_truth, pred_weights = args
+        if len(pred) == 0 or len(ground_truth) == 0:
             return 0
         mask = np.isin(pred[:k], ground_truth)
         return sum(np.array(pred_weights)[mask]) / sum(pred_weights[:k])

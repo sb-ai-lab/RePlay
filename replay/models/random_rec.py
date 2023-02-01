@@ -60,13 +60,13 @@ class RandomRec(NonPersonalizedRecommender):
     >>> random_pop = RandomRec(distribution="popular_based", alpha=1.0, seed=777)
     >>> random_pop.fit(log)
     >>> random_pop.item_popularity.show()
-    +--------+---------+
-    |item_idx|relevance|
-    +--------+---------+
-    |       1|      2.0|
-    |       2|      3.0|
-    |       3|      4.0|
-    +--------+---------+
+    +--------+------------------+
+    |item_idx|         relevance|
+    +--------+------------------+
+    |       1|0.2222222222222222|
+    |       2|0.3333333333333333|
+    |       3|0.4444444444444444|
+    +--------+------------------+
     <BLANKLINE>
     >>> recs = random_pop.predict(log, 2)
     >>> recs.show()
@@ -103,7 +103,6 @@ class RandomRec(NonPersonalizedRecommender):
     <BLANKLINE>
     """
 
-    can_predict_cold_items = True
     _search_space = {
         "distribution": {
             "type": "categorical",
@@ -113,12 +112,14 @@ class RandomRec(NonPersonalizedRecommender):
     }
     fill: float
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         distribution: str = "uniform",
         alpha: float = 0.0,
         seed: Optional[int] = None,
-        add_cold_items: Optional[bool] = True,
+        add_cold_items: bool = True,
+        cold_weight: float = 0.5,
     ):
         """
         :param distribution: recommendation strategy:
@@ -126,7 +127,18 @@ class RandomRec(NonPersonalizedRecommender):
             "popular_based" - recommend popular items more
         :param alpha: bigger values adjust model towards less popular items
         :param seed: random seed
-        :param add_cold_items: flag to add cold items with minimal probability
+        :param add_cold_items: flag to consider cold items in recommendations building
+            if present in `items` parameter of `predict` method
+            or `pairs` parameter of `predict_pairs` methods.
+            If true, cold items are assigned relevance equals to the less relevant item relevance
+            multiplied by `cold_weight` and may appear among top-K recommendations.
+            Otherwise cold items are filtered out.
+            Could be changed after model training by setting the `add_cold_items` attribute.
+        :param cold_weight: if `add_cold_items` is True,
+            cold items are added with reduced relevance.
+            The relevance for cold items is equal to the relevance
+            of a least relevant item multiplied by a `cold_weight` value.
+            `Cold_weight` value should be in interval (0, 1].
         """
         if distribution not in ("popular_based", "relevance", "uniform"):
             raise ValueError(
@@ -137,7 +149,9 @@ class RandomRec(NonPersonalizedRecommender):
         self.distribution = distribution
         self.alpha = alpha
         self.seed = seed
-        self.add_cold_items = add_cold_items
+        super().__init__(
+            add_cold_items=add_cold_items, cold_weight=cold_weight
+        )
 
     @property
     def _init_args(self):
@@ -146,6 +160,7 @@ class RandomRec(NonPersonalizedRecommender):
             "alpha": self.alpha,
             "seed": self.seed,
             "add_cold_items": self.add_cold_items,
+            "cold_weight": self.cold_weight,
         }
 
     def _load_model(self, path: str):
@@ -163,146 +178,33 @@ class RandomRec(NonPersonalizedRecommender):
     ) -> None:
 
         if self.distribution == "popular_based":
-            # item_idx int, user_idx array<int>
-            self.item_users = log.groupBy("item_idx").agg(
-                sf.collect_set("user_idx").alias("user_idx")
-            )
-            self.item_users = self.item_users.cache()
-
-            self.item_popularity = self.item_users.select(
-                sf.col("item_idx"),
-                (sf.size("user_idx").astype("float") + self.alpha).alias(
-                    "relevance"
-                ),
-            )
-        elif self.distribution == "relevance":
-            self.total_relevance = log.agg(sf.sum("relevance")).first()[0]
-            self.relevance_sums = log.groupBy("item_idx").agg(
-                sf.sum("relevance").alias("relevance")
-            )
-            self.relevance_sums = self.relevance_sums.cache()
-            self.item_popularity = self.relevance_sums.select(
-                "item_idx",
-                (sf.col("relevance") / sf.lit(self.total_relevance)).alias(
-                    "relevance"
-                ),
-            )
-        else:
-            self.item_idxs = log.select("item_idx").distinct()
-            self.item_idxs = self.item_idxs.cache()
-            self.item_popularity = self.item_idxs.withColumn(
-                "relevance", sf.lit(1.0)
-            )
-
-        self.item_popularity.cache().count()
-        self.fill = (
-            self.item_popularity.agg({"relevance": "min"}).first()[0]
-            if self.add_cold_items
-            else 0.0
-        )
-
-    def refit(
-        self,
-        log: DataFrame,
-        previous_log: Optional[Union[str, DataFrame]] = None,
-        merged_log_path: Optional[str] = None,
-    ) -> None:
-        if self.distribution == "popular_based":
-            new_item_idx = (
-                log.select("item_idx", "user_idx")
-                .join(
-                    self.item_users.select("item_idx"),
-                    on=["item_idx"],
-                    how="leftanti",
-                )
-                .distinct()
-            )
-            # item_idx int, user_idx array<int>
-            new_item_users = new_item_idx.groupBy("item_idx").agg(
-                sf.collect_set("user_idx").alias("user_idx")
-            )
-
-            existing_item_idx = log.select("item_idx", "user_idx").join(
-                self.item_users.select("item_idx"),
-                on=["item_idx"],
-                how="inner",
-            )
-            existing_item_groups = existing_item_idx.groupBy("item_idx").agg(
-                sf.collect_set("user_idx").alias("new_user_idx")
-            )
-
-            # item_idx int, user_idx array<int>
-            self.item_users = (
-                self.item_users.alias("a")
-                .join(
-                    existing_item_groups.alias("b"),
-                    on=["item_idx"],
-                    how="left",
-                )
+            self.item_popularity = (
+                log.groupBy("item_idx")
+                .agg(sf.countDistinct("user_idx").alias("user_count"))
                 .select(
-                    "item_idx",
-                    sf.array_union(
-                        "a.user_idx",
-                        sf.coalesce( # converts nulls to empty arrays
-                            "b.new_user_idx", sf.array().cast("array<integer>")
-                        )
-                    ).alias("user_idx"),
+                    sf.col("item_idx"),
+                    (
+                        sf.col("user_count").astype("float")
+                        + sf.lit(self.alpha)
+                    ).alias("relevance"),
                 )
             )
-
-            self.item_users = self.item_users.union(new_item_users)
-            self.item_users = self.item_users.cache()
-
-            self.item_popularity = self.item_users.select(
-                sf.col("item_idx"),
-                (sf.size("user_idx").astype("float") + self.alpha).alias(
-                    "relevance"
-                ),
-            )
         elif self.distribution == "relevance":
-            self.total_relevance += log.agg(sf.sum("relevance")).first()[0]
-            self.relevance_sums = (
-                log.select("item_idx", "relevance")
-                .union(self.relevance_sums)
-                .groupBy("item_idx")
+            self.item_popularity = (
+                log.groupBy("item_idx")
                 .agg(sf.sum("relevance").alias("relevance"))
-            )
-            self.relevance_sums = self.relevance_sums.cache()
-            self.item_popularity = self.relevance_sums.select(
-                "item_idx",
-                (sf.col("relevance") / sf.lit(self.total_relevance)).alias(
-                    "relevance"
-                ),
+                .select("item_idx", "relevance")
             )
         else:
-            self.item_idxs = (
-                log.select("item_idx").union(self.item_idxs).distinct()
+            self.item_popularity = (
+                log.select("item_idx")
+                .distinct()
+                .withColumn("relevance", sf.lit(1.0))
             )
-            self.item_idxs = self.item_idxs.cache()
-            self.item_popularity = self.item_idxs.withColumn(
-                "relevance", sf.lit(1.0)
-            )
-
-        self.item_popularity = self.item_popularity.cache()
-        self.item_popularity.write.mode("overwrite").format("noop").save()
-        self.fill = (
-            self.item_popularity.agg({"relevance": "min"}).first()[0]
-            if self.add_cold_items
-            else 0.0
+        self.item_popularity = self.item_popularity.withColumn(
+            "relevance",
+            sf.col("relevance")
+            / self.item_popularity.agg(sf.sum("relevance")).first()[0],
         )
-
-    # pylint: disable=too-many-arguments
-    def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> DataFrame:
-
-        return self._predict_with_sampling(
-            log, k, users, items, filter_seen_items, self.add_cold_items
-        )
+        self.item_popularity.cache().count()
+        self.fill = self._calc_fill(self.item_popularity, self.cold_weight)

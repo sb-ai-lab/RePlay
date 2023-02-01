@@ -3,13 +3,13 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
-from replay.constants import IntOrList, NumType
+from replay.constants import AnyDataFrame, IntOrList, NumType
 from replay.utils import JobGroup, convert2spark
 from replay.metrics.base_metric import (
+    get_enriched_recommendations,
     Metric,
     NCISMetric,
     RecOnlyMetric,
-    get_enriched_recommendations,
 )
 
 
@@ -31,15 +31,18 @@ class Experiment:
     >>> recs = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [1, 4, 5], "relevance": [5, 4, 5]})
     >>> ex = Experiment(test, {NDCG(): [2, 3], Surprisal(log): 3})
     >>> ex.add_result("baseline", recs)
+    >>> ex.add_result("baseline_gt_users", recs, ground_truth_users=pd.DataFrame({"user_idx": [1, 3]}))
     >>> ex.add_result("model", pred)
     >>> ex.results
-                NDCG@2    NDCG@3  Surprisal@3
-    baseline  0.613147  0.469279     1.000000
-    model     0.386853  0.530721     0.666667
+                         NDCG@2    NDCG@3  Surprisal@3
+    baseline           0.613147  0.469279     1.000000
+    baseline_gt_users  0.306574  0.234639     0.500000
+    model              0.386853  0.530721     0.666667
     >>> ex.compare("baseline")
-               NDCG@2  NDCG@3 Surprisal@3
-    baseline        –       –           –
-    model     -36.91%  13.09%     -33.33%
+                            NDCG@2  NDCG@3 Surprisal@3
+    baseline                 –       –           –
+    baseline_gt_users   -50.0%  -50.0%      -50.0%
+    model              -36.91%  13.09%     -33.33%
     >>> ex = Experiment(test, {Precision(): [3]}, calc_median=True, calc_conf_interval=0.95)
     >>> ex.add_result("baseline", recs)
     >>> ex.add_result("model", pred)
@@ -78,12 +81,19 @@ class Experiment:
         self.calc_median = calc_median
         self.calc_conf_interval = calc_conf_interval
 
-    def add_result(self, name: str, pred: Any) -> None:
+    def add_result(
+        self,
+        name: str,
+        pred: AnyDataFrame,
+        ground_truth_users: Optional[AnyDataFrame] = None,
+    ) -> None:
         """
         Calculate metrics for predictions
 
         :param name: name of the run to store in the resulting DataFrame
         :param pred: model recommendations
+        :param ground_truth_users: list of users to consider in metric calculation.
+            if None, only the users from ground_truth are considered.
         """
 
         max_k = 0
@@ -94,15 +104,16 @@ class Experiment:
                 else (current_k, max_k)
             )
 
-        recs = get_enriched_recommendations(pred, self.test, max_k).cache()
-
+        recs = get_enriched_recommendations(
+            pred, self.test, max_k, ground_truth_users
+        ).cache()
         for metric, k_list in sorted(
             self.metrics.items(), key=lambda x: str(x[0])
         ):
             enriched = None
-            if isinstance(metric, RecOnlyMetric):
+            if isinstance(metric, (RecOnlyMetric, NCISMetric)):
                 enriched = metric._get_enriched_recommendations(
-                    pred, self.test, max_k
+                    pred, self.test, max_k, ground_truth_users
                 )
 
             values, median, conf_interval = self._calculate(

@@ -1,6 +1,4 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-from datetime import datetime
-
 import pytest
 import numpy as np
 
@@ -18,33 +16,23 @@ from replay.models import (
     RandomRec,
     SLIM,
     MultVAE,
+    UCB,
+    Wilson,
     Word2VecRec,
+    AssociationRulesItemRec,
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
 
 from tests.utils import (
     spark,
     log,
+    log_to_pred,
     long_log_with_features,
     user_features,
     sparkDataFrameEqual,
 )
 
 SEED = 123
-
-
-@pytest.fixture
-def log_to_pred(spark):
-    return spark.createDataFrame(
-        data=[
-            [0, 2, datetime(2019, 9, 12), 3.0],
-            [0, 4, datetime(2019, 9, 13), 2.0],
-            [1, 5, datetime(2019, 9, 14), 4.0],
-            [4, 0, datetime(2019, 9, 15), 3.0],
-            [4, 1, datetime(2019, 9, 15), 3.0],
-        ],
-        schema=LOG_SCHEMA,
-    )
 
 
 @pytest.mark.parametrize(
@@ -58,7 +46,7 @@ def log_to_pred(spark):
         NeuroMF(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
-        PopRec(),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
         "als",
@@ -69,10 +57,10 @@ def log_to_pred(spark):
         "neuromf",
         "slim",
         "word2vec",
-        "poprec",
+        "association_rules",
     ],
 )
-def test_predict_pairs_warm_only(log, log_to_pred, model):
+def test_predict_pairs_warm_items_only(log, log_to_pred, model):
     model.fit(log)
     recs = model.predict(
         log.unionByName(log_to_pred),
@@ -111,16 +99,66 @@ def test_predict_pairs_warm_only(log, log_to_pred, model):
 @pytest.mark.parametrize(
     "model",
     [
+        ALSWrap(seed=SEED),
+        ADMMSLIM(seed=SEED),
+        ItemKNN(),
+        LightFMWrap(random_state=SEED),
+        MultVAE(),
+        NeuroMF(),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        PopRec(),
+        RandomRec(seed=SEED),
+    ],
+    ids=[
+        "als",
+        "admm_slim",
+        "knn",
+        "lightfm",
+        "multvae",
+        "neuromf",
+        "slim",
+        "word2vec",
+        "association_rules",
+        "pop_rec",
+        "random_rec",
+    ],
+)
+def test_predict_pairs_warm_items_only(log, log_to_pred, model):
+    model.fit(log)
+
+    pairs_pred_k = model.predict_pairs(
+        pairs=log.select("user_idx", "item_idx"),
+        log=log,
+        k=2,
+    )
+
+    pairs_pred = model.predict_pairs(
+        pairs=log.select("user_idx", "item_idx"),
+        log=log,
+        k=None,
+    )
+
+    assert pairs_pred_k.groupBy("user_idx").count().filter(f"count > 2").count() == 0
+    assert pairs_pred.groupBy("user_idx").count().filter(f"count > 2").count() != 0
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
         ADMMSLIM(seed=SEED),
         ItemKNN(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
         "admm_slim",
         "knn",
         "slim",
         "word2vec",
+        "association_rules",
     ],
 )
 def test_predict_pairs_raises(log, model):
@@ -147,6 +185,15 @@ def test_predict_pairs_raises_pairs_format(log):
         (ADMMSLIM(seed=SEED), None),
         (ItemKNN(), None),
         (SLIM(seed=SEED), None),
+        (AssociationRulesItemRec(min_item_count=1, min_pair_count=0), "lift"),
+        (
+            AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+            "confidence",
+        ),
+        (
+            AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+            "confidence_gain",
+        ),
     ],
     ids=[
         "als_euclidean",
@@ -156,6 +203,9 @@ def test_predict_pairs_raises_pairs_format(log):
         "admm_slim",
         "knn",
         "slim",
+        "association_rules_lift",
+        "association_rules_confidence",
+        "association_rules_confidence_gain",
     ],
 )
 def test_get_nearest_items(log, model, metric):
@@ -248,6 +298,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
         PopRec(),
         RandomRec(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
         "admm_slim",
@@ -259,6 +310,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
         "pop_rec",
         "random_rec",
         "word2vec",
+        "association_rules",
     ],
 )
 def test_predict_new_users(model, long_log_with_features, user_features):
@@ -310,6 +362,7 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
         NeuroMF(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
         "als",
@@ -319,6 +372,7 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
         "neuromf",
         "slim",
         "word2vec",
+        "association_rules",
     ],
 )
 def test_predict_cold_and_new_filter_out(model, long_log_with_features):
@@ -391,3 +445,97 @@ def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
     )
     pred_from_file = spark.read.parquet(path)
     sparkDataFrameEqual(pred_cached, pred_from_file)
+
+
+@pytest.mark.parametrize("add_cold_items", [True, False])
+@pytest.mark.parametrize("predict_cold_only", [True, False])
+@pytest.mark.parametrize(
+    "model",
+    [
+        PopRec(),
+        RandomRec(seed=SEED),
+        Wilson(sample=True),
+        Wilson(sample=False),
+        UCB(sample=True),
+        UCB(sample=False),
+    ],
+    ids=[
+        "pop_rec",
+        "random_uni",
+        "wilson_sample",
+        "wilson",
+        "UCB_sample",
+        "UCB",
+    ],
+)
+def test_add_cold_items_for_nonpersonalized(
+    model, add_cold_items, predict_cold_only, long_log_with_features
+):
+    num_warm = 5
+    # k is greater than the number of warm items to check if
+    # the cold items are presented in prediction
+    k = 6
+    log = (
+        long_log_with_features
+        if not isinstance(model, (Wilson, UCB))
+        else long_log_with_features.withColumn(
+            "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
+        )
+    )
+    train_log = log.filter(sf.col("item_idx") < num_warm)
+    model.fit(train_log)
+    # ucb always adds cold items to prediction
+    if not isinstance(model, UCB):
+        model.add_cold_items = add_cold_items
+
+    items = log.select("item_idx").distinct()
+    if predict_cold_only:
+        items = items.filter(sf.col("item_idx") >= num_warm)
+    pred = model.predict(
+        log=log.filter(sf.col("item_idx") < num_warm),
+        users=[1],
+        items=items,
+        k=k,
+        filter_seen_items=False,
+    )
+
+    if isinstance(model, UCB) or add_cold_items:
+        assert pred.count() == min(k, items.count())
+        if predict_cold_only:
+            assert pred.select(sf.min("item_idx")).collect()[0][0] >= num_warm
+            # for RandomRec relevance of an item is equal to its inverse position in the list
+            if not isinstance(model, RandomRec):
+                assert pred.select("relevance").distinct().count() == 1
+    else:
+        if predict_cold_only:
+            assert pred.count() == 0
+        else:
+            # ucb always adds cold items to prediction
+            assert pred.select(sf.max("item_idx")).collect()[0][0] < num_warm
+            assert pred.count() == min(
+                k,
+                train_log.select("item_idx")
+                .distinct()
+                .join(items, on="item_idx")
+                .count(),
+            )
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ItemKNN(),
+        SLIM(seed=SEED),
+    ],
+    ids=[
+        "knn",
+        "slim",
+    ],
+)
+def test_similarity_metric_raises(log, model):
+    with pytest.raises(
+        ValueError,
+        match="This class does not support changing similarity metrics",
+    ):
+        model.fit(log)
+        model.similarity_metric = "some"

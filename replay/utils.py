@@ -17,6 +17,7 @@ from scipy.sparse import csr_matrix
 
 from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
 from replay.session_handler import State
+from pyspark.sql.column import _to_java_column, _to_seq
 
 # pylint: disable=invalid-name
 
@@ -215,9 +216,6 @@ def vector_mult(
     return one * two
 
 
-from pyspark.sql.column import _to_java_column, _to_seq
-
-
 def multiply_scala_udf(scalar, vector):
     sc = SparkSession.getActiveSession().sparkContext
     _f = sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.multiplyUDF()
@@ -300,39 +298,6 @@ def get_log_info(
             f"total items: {item_cnt}",
         ]
     )
-
-
-def get_log_info2(
-    log: DataFrame, user_col="user_idx", item_col="item_idx"
-) -> Tuple[int, int, int]:
-    """
-    Basic log statistics
-
-    >>> from replay.session_handler import State
-    >>> spark = State().session
-    >>> log = spark.createDataFrame([(1, 2), (3, 4), (5, 2)]).toDF("user_idx", "item_idx")
-    >>> log.show()
-    +--------+--------+
-    |user_idx|item_idx|
-    +--------+--------+
-    |       1|       2|
-    |       3|       4|
-    |       5|       2|
-    +--------+--------+
-    <BLANKLINE>
-    >>> get_log_info2(log)
-    (3, 3, 2)
-
-    :param log: interaction log containing ``user_idx`` and ``item_idx``
-    :param user_col: name of a columns containing users' identificators
-    :param item_col: name of a columns containing items' identificators
-
-    :returns: statistics string
-    """
-    cnt = log.count()
-    user_cnt = log.select(user_col).distinct().count()
-    item_cnt = log.select(item_col).distinct().count()
-    return cnt, user_cnt, item_cnt
 
 
 def get_stats(
@@ -876,11 +841,16 @@ def get_filesystem(path: str) -> FileInfo:  # Tuple[FileSystem, Optional[str], s
             return FileInfo(path, FileSystem.LOCAL)
 
 
-def sample_k_items(pairs: DataFrame, k: int, seed: int = None):
+def sample_top_k_recs(pairs: DataFrame, k: int, seed: int = None):
     """
-    Take dataframe with columns 'user_idx, item_idx, relevance' and
-    returns k items for each user with probability proportional to the relevance score.
-    May be used after getting recommendations with `predict_pairs` method.
+    Sample k items for each user with probability proportional to the relevance score.
+
+    Motivation: sometimes we have a pre-defined list of items for each user
+    and could use `predict_pairs` method of RePlay models to score them.
+    After that we could select top K most relevant items for each user
+    with `replay.utils.get_top_k_recs` or sample them with
+    probabilities proportional to their relevance score
+    with `replay.utils.sample_top_k_recs` to get more diverse recommendations.
 
     :param pairs: spark dataframe with columns ``[user_idx, item_idx, relevance]``
     :param k: number of items for each user to return
@@ -894,7 +864,6 @@ def sample_k_items(pairs: DataFrame, k: int, seed: int = None):
     )
 
     def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
-        # return pandas_df[["user_idx", "item_idx", "relevance"]]
         user_idx = pandas_df["user_idx"][0]
 
         if seed is not None:
