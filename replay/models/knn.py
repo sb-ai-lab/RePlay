@@ -48,12 +48,12 @@ class ItemKNN(NeighbourRec):
     }
 
     def __init__(
-            self,
-            num_neighbours: int = 10,
-            use_relevance: bool = False,
-            shrink: float = 0.0,
-            weighting: str = None,
-            nmslib_hnsw_params: Optional[dict] = None,
+        self,
+        num_neighbours: int = 10,
+        use_relevance: bool = False,
+        shrink: float = 0.0,
+        weighting: str = None,
+        nmslib_hnsw_params: Optional[dict] = None,
     ):
         """
         :param num_neighbours: number of neighbours
@@ -144,11 +144,11 @@ class ItemKNN(NeighbourRec):
             log.withColumn(
                 "relevance",
                 sf.col("relevance") * (self.bm25_k1 + 1) / (
-                        sf.col("relevance") + self.bm25_k1 * (
+                    sf.col("relevance") + self.bm25_k1 * (
                         1 - self.bm25_b + self.bm25_b * (
-                        sf.col("n_users_per_item") / avgdl
-                )
-                )
+                            sf.col("n_users_per_item") / avgdl
+                        )
+                    )
                 )
             )
             .drop("n_users_per_item")
@@ -257,10 +257,10 @@ class ItemKNN(NeighbourRec):
         )
 
     def _fit(
-            self,
-            log: DataFrame,
-            user_features: Optional[DataFrame] = None,
-            item_features: Optional[DataFrame] = None,
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
     ) -> None:
         df = log.select("user_idx", "item_idx", "relevance")
         if not self.use_relevance:
@@ -271,23 +271,23 @@ class ItemKNN(NeighbourRec):
         self.similarity.cache().count()
 
     def refit(
-            self,
-            log: DataFrame,
-            previous_log: Optional[Union[str, DataFrame]] = None,
-            merged_log_path: Optional[str] = None,
+        self,
+        log: DataFrame,
+        previous_log: Optional[Union[str, DataFrame]] = None,
+        merged_log_path: Optional[str] = None,
     ) -> None:
         pass
 
     # pylint: disable=too-many-arguments
     def _predict(
-            self,
-            log: DataFrame,
-            k: int,
-            users: DataFrame,
-            items: DataFrame,
-            user_features: Optional[DataFrame] = None,
-            item_features: Optional[DataFrame] = None,
-            filter_seen_items: bool = True,
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
     ) -> DataFrame:
 
         return self._predict_pairs_inner(

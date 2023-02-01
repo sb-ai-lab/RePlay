@@ -44,11 +44,11 @@ class SLIM(NeighbourRec):
     }
 
     def __init__(
-            self,
-            beta: float = 0.01,
-            lambda_: float = 0.01,
-            seed: Optional[int] = None,
-            nmslib_hnsw_params: Optional[dict] = None,
+        self,
+        beta: float = 0.01,
+        lambda_: float = 0.01,
+        seed: Optional[int] = None,
+        nmslib_hnsw_params: Optional[dict] = None,
     ):
         """
         :param beta: l2 regularization
@@ -80,10 +80,10 @@ class SLIM(NeighbourRec):
             self._load_nmslib_hnsw_index(path, sparse=True)
 
     def _fit(
-            self,
-            log: DataFrame,
-            user_features: Optional[DataFrame] = None,
-            item_features: Optional[DataFrame] = None,
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
     ) -> None:
         pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
 
@@ -142,14 +142,14 @@ class SLIM(NeighbourRec):
 
     # pylint: disable=too-many-arguments
     def _predict(
-            self,
-            log: DataFrame,
-            k: int,
-            users: DataFrame,
-            items: DataFrame,
-            user_features: Optional[DataFrame] = None,
-            item_features: Optional[DataFrame] = None,
-            filter_seen_items: bool = True,
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
     ) -> DataFrame:
 
         return self._predict_pairs_inner(

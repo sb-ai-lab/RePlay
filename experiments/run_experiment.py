@@ -153,7 +153,7 @@ def main(spark: SparkSession, dataset_name: str):
     partition_num = get_partition_num(spark_conf)
 
     mlflow.set_tracking_uri(mlflow_tracking_uri)
-    mlflow.set_experiment(os.environ.get("EXPERIMENT", "delete"))
+    mlflow.set_experiment(os.environ.get("EXPERIMENT", "sparse_local"))
 
     with mlflow.start_run():
 
@@ -168,7 +168,7 @@ def main(spark: SparkSession, dataset_name: str):
         )
         mlflow.log_params(params)
 
-        prepare_datasets(dataset_name, spark, partition_num)
+        # prepare_datasets(dataset_name, spark, partition_num)
 
         train, test, user_features = get_datasets(
             dataset_name, spark, partition_num
@@ -308,74 +308,74 @@ def main(spark: SparkSession, dataset_name: str):
                 ]
             mlflow.log_metrics(metrics)
 
-        with log_exec_timer(f"Model saving") as model_save_timer:
-            save(
-                model,
-                path=f"/tmp/replay/{model_name}_{dataset_name}_{spark.sparkContext.applicationId}",  # file://
-                overwrite=True,
-            )
-        mlflow.log_param(
-            "model_save_dir",
-            f"/tmp/replay/{model_name}_{dataset_name}_{spark.sparkContext.applicationId}",
-        )
-        mlflow.log_metric("model_save_sec", model_save_timer.duration)
-
-        with log_exec_timer(f"Model loading") as model_load_timer:
-            model_loaded = load(
-                path=f"/tmp/replay/{model_name}_{dataset_name}_{spark.sparkContext.applicationId}"
-            )
-        mlflow.log_metric("_loaded_model_sec", model_load_timer.duration)
-
-        with log_exec_timer(
-            f"{model_name} prediction from loaded model"
-        ) as infer_loaded_timer:
-            if isinstance(model_loaded, AssociationRulesItemRec):
-                recs = model_loaded.get_nearest_items(
-                    items=test,
-                    k=k,
-                )
-            else:
-                recs = model_loaded.predict(
-                    k=k,
-                    users=test.select("user_idx").distinct(),
-                    log=train,
-                    filter_seen_items=True,
-                    **kwargs,
-                )
-            recs = recs.cache()
-            recs.write.mode("overwrite").format("noop").save()
-        mlflow.log_metric("_loaded_infer_sec", infer_loaded_timer.duration)
-
-        if not isinstance(model, AssociationRulesItemRec):
-            with log_exec_timer(
-                f"Metrics calculation for loaded model"
-            ) as metrics_loaded_timer, JobGroup(
-                "Metrics calculation", "e.add_result()"
-            ):
-                e = Experiment(
-                    test,
-                    {
-                        MAP(use_scala_udf=use_scala_udf): k_list_metrics,
-                        NDCG(use_scala_udf=use_scala_udf): k_list_metrics,
-                        HitRate(use_scala_udf=use_scala_udf): k_list_metrics,
-                    },
-                )
-                e.add_result(model_name, recs)
-            mlflow.log_metric(
-                "_loaded_metrics_sec", metrics_loaded_timer.duration
-            )
-            metrics = dict()
-            for k in k_list_metrics:
-                metrics["_loaded_NDCG.{}".format(k)] = e.results.at[
-                    model_name, "NDCG@{}".format(k)
-                ]
-                metrics["_loaded_MAP.{}".format(k)] = e.results.at[
-                    model_name, "MAP@{}".format(k)
-                ]
-                metrics["_loaded_HitRate.{}".format(k)] = e.results.at[
-                    model_name, "HitRate@{}".format(k)
-                ]
-            mlflow.log_metrics(metrics)
+        # with log_exec_timer(f"Model saving") as model_save_timer:
+        #     save(
+        #         model,
+        #         path=f"/tmp/replay/{model_name}_{dataset_name}_{spark.sparkContext.applicationId}",  # file://
+        #         overwrite=True,
+        #     )
+        # mlflow.log_param(
+        #     "model_save_dir",
+        #     f"/tmp/replay/{model_name}_{dataset_name}_{spark.sparkContext.applicationId}",
+        # )
+        # mlflow.log_metric("model_save_sec", model_save_timer.duration)
+        #
+        # with log_exec_timer(f"Model loading") as model_load_timer:
+        #     model_loaded = load(
+        #         path=f"/tmp/replay/{model_name}_{dataset_name}_{spark.sparkContext.applicationId}"
+        #     )
+        # mlflow.log_metric("_loaded_model_sec", model_load_timer.duration)
+        #
+        # with log_exec_timer(
+        #     f"{model_name} prediction from loaded model"
+        # ) as infer_loaded_timer:
+        #     if isinstance(model_loaded, AssociationRulesItemRec):
+        #         recs = model_loaded.get_nearest_items(
+        #             items=test,
+        #             k=k,
+        #         )
+        #     else:
+        #         recs = model_loaded.predict(
+        #             k=k,
+        #             users=test.select("user_idx").distinct(),
+        #             log=train,
+        #             filter_seen_items=True,
+        #             **kwargs,
+        #         )
+        #     recs = recs.cache()
+        #     recs.write.mode("overwrite").format("noop").save()
+        # mlflow.log_metric("_loaded_infer_sec", infer_loaded_timer.duration)
+        #
+        # if not isinstance(model, AssociationRulesItemRec):
+        #     with log_exec_timer(
+        #         f"Metrics calculation for loaded model"
+        #     ) as metrics_loaded_timer, JobGroup(
+        #         "Metrics calculation", "e.add_result()"
+        #     ):
+        #         e = Experiment(
+        #             test,
+        #             {
+        #                 MAP(use_scala_udf=use_scala_udf): k_list_metrics,
+        #                 NDCG(use_scala_udf=use_scala_udf): k_list_metrics,
+        #                 HitRate(use_scala_udf=use_scala_udf): k_list_metrics,
+        #             },
+        #         )
+        #         e.add_result(model_name, recs)
+        #     mlflow.log_metric(
+        #         "_loaded_metrics_sec", metrics_loaded_timer.duration
+        #     )
+        #     metrics = dict()
+        #     for k in k_list_metrics:
+        #         metrics["_loaded_NDCG.{}".format(k)] = e.results.at[
+        #             model_name, "NDCG@{}".format(k)
+        #         ]
+        #         metrics["_loaded_MAP.{}".format(k)] = e.results.at[
+        #             model_name, "MAP@{}".format(k)
+        #         ]
+        #         metrics["_loaded_HitRate.{}".format(k)] = e.results.at[
+        #             model_name, "HitRate@{}".format(k)
+        #         ]
+        #     mlflow.log_metrics(metrics)
 
 
 if __name__ == "__main__":
