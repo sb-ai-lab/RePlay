@@ -92,7 +92,9 @@ class ReplayBuffer:
 
         return {
             "user": np.concatenate([self.buffer["user"][i] for i in indices]),
-            "memory": np.concatenate([self.buffer["memory"][i] for i in indices]),
+            "memory": np.concatenate(
+                [self.buffer["memory"][i] for i in indices]
+            ),
             "action": np.array([self.buffer["action"][i] for i in indices]),
             "reward": np.array([self.buffer["reward"][i] for i in indices]),
             "next_user": np.concatenate(
@@ -425,7 +427,7 @@ class DDPG(Recommender):
     buffer_size: int = 1000000
     _search_space = {
         "noise_sigma": {"type": "uniform", "args": [0.1, 0.6]},
-        "noise_theta": {"type": "uniform", "args": [0.1, 0.4]},
+        "noise_theta": {"type": "uniform", "args": [0.05, 0.15]},
     }
     checkpoint_step: int = 10000
     replay_buffer: ReplayBuffer
@@ -440,8 +442,8 @@ class DDPG(Recommender):
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        noise_sigma: float = 0.4,
-        noise_theta: float = 0.1,
+        noise_sigma: float = 0.2,
+        noise_theta: float = 0.05,
         noise_type: str = "ou",
         seed: int = 9,
         user_num: int = 10,
@@ -454,10 +456,10 @@ class DDPG(Recommender):
         :param noise_theta: Ornstein-Uhlenbeck noise theta value
         :param noise_type: type of action noise, one of ["ou", "gauss"]
         :param seed: random seed
-        :param user_num: number of users
-        :param item_num: number of items
+        :param user_num: number of users, specify when using ``exact_embeddings_size``
+        :param item_num: number of items, specify when using ``exact_embeddings_size``
         :param log_dir: dir to save models
-        :exact_embeddings_size: flag whether to use user/item count from data
+        :exact_embeddings_size: flag whether to set user/item_num from training log
         """
         super().__init__()
         np.random.seed(seed)
@@ -466,6 +468,7 @@ class DDPG(Recommender):
         self.noise_theta = noise_theta
         self.noise_sigma = noise_sigma
         self.noise_type = noise_type
+        self.seed = seed
         self.user_num = user_num
         self.item_num = item_num
         self.log_dir = Path(log_dir)
@@ -476,8 +479,12 @@ class DDPG(Recommender):
         return {
             "noise_sigma": self.noise_sigma,
             "noise_theta": self.noise_theta,
+            "noise_type": self.noise_type,
+            "seed": self.seed,
             "user_num": self.user_num,
             "item_num": self.item_num,
+            "log_dir": self.log_dir,
+            "exact_embeddings_size": self.exact_embeddings_size,
         }
 
     # pylint: disable=too-many-locals
@@ -744,7 +751,7 @@ class DDPG(Recommender):
 
     def _save_model(self, path: str) -> None:
         self.logger.debug(
-            "-- Saving model from file (user_num=%d, item_num=%d)",
+            "-- Saving model to file (user_num=%d, item_num=%d)",
             self.user_num,
             self.item_num,
         )
