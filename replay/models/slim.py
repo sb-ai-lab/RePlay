@@ -23,6 +23,15 @@ class SLIM(NeighbourRec):
             "index_type": "sparse",
         }
 
+    def _get_vectors_to_infer_ann_inner(
+        self, log: DataFrame, users: DataFrame
+    ) -> DataFrame:
+
+        user_vectors = (
+            log.groupBy("user_idx").agg(
+            sf.collect_list("item_idx").alias("vector_items"), sf.collect_list("relevance").alias("vector_relevances"))
+        )
+
     @property
     def _use_ann(self) -> bool:
         return self._nmslib_hnsw_params is not None
