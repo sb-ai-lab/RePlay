@@ -18,7 +18,7 @@ import joblib
 import os
 import logging
 from abc import ABC, abstractmethod
-from copy import deepcopy
+from copy import deepcopy, copy
 from os.path import join
 from typing import (
     Any,
@@ -78,9 +78,8 @@ class BaseRecommender(ABC):
     _item_dim_size: int
     cached_dfs: Optional[Set] = None
 
-    @abstractmethod
     def copy(self):
-        ...
+        return copy(self)
 
     # pylint: disable=too-many-arguments, too-many-locals, no-member
     def optimize(

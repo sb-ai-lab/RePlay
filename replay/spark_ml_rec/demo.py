@@ -5,6 +5,7 @@ from rs_datasets import MovieLens
 
 from replay.data_preparator import DataPreparator, JoinBasedIndexerEstimator
 from replay.models import Word2VecRec, ALSWrap, ClusterRec, PopRec
+from replay.session_handler import get_spark_session
 from replay.spark_ml_rec.spark_base_rec import SparkBaseRecModelParams
 from replay.spark_ml_rec.spark_rec import SparkRec
 from replay.spark_ml_rec.spark_user_rec import SparkUserRec, SparkUserRecModelParams
@@ -12,7 +13,7 @@ from replay.spark_ml_rec.splitter import SparkTrainTestSplitterAndEvaluator
 from replay.splitters import UserSplitter, DateSplitter
 from replay.utils import convert2spark
 
-spark = SparkSession.builder.getOrCreate()
+spark = get_spark_session()
 
 ds = MovieLens('100k')
 
@@ -29,7 +30,7 @@ pipe = Pipeline(stages=[
         splitter=UserSplitter(item_test_size=0.2, shuffle=True, drop_cold_users=True, drop_cold_items=True, seed=42),
         models=[
             SparkRec(model=PopRec()),
-            # SparkRec(model=Word2VecRec()),
+            SparkRec(model=Word2VecRec()),
             # SparkRec(model=ALSWrap()),
             # SparkUserRec(model=ClusterRec(), user_features=user_features, transient_user_features=True)
         ]

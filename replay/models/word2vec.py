@@ -106,19 +106,6 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         if self._hnswlib_params:
             HnswlibMixin.__init__(self)
 
-    def copy(self):
-        return Word2VecRec(
-            rank=self.rank,
-            min_count=self.min_count,
-            step_size=self.step_size,
-            max_iter=self.max_iter,
-            window_size=self.window_size,
-            use_idf=self.use_idf,
-            seed=self._seed,
-            num_partitions=self._num_partitions,
-            nmslib_hnsw_params=self._nmslib_hnsw_params
-        )
-
     @property
     def _init_args(self):
         return {
