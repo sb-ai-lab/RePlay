@@ -47,7 +47,7 @@ class SparkRecModel(SparkBaseRecModel, SparkRecModelParams):
 
         self.setPredictMode(predict_mode)
 
-        self._name = name or type(model)
+        self._name = name or type(model).__name__
 
     @property
     def name(self) -> str:

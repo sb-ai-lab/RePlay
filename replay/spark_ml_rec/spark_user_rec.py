@@ -51,7 +51,7 @@ class SparkUserRecModel(SparkBaseRecModel, SparkUserRecParams):
         self._model = model
         self._user_features = user_features
         self.setTransientUserFeatures(transient_user_features)
-        self._name = name or type(model)
+        self._name = name or type(model).__name__
 
     @property
     def name(self) -> str:

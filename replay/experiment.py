@@ -210,5 +210,4 @@ class Experiment:
 
     def best_result(self, metric: str, k: int) -> str:
         df = self.results.reset_index()
-        # TODO: incorrect impl
         return df.iloc[df[f"{metric}@{k}"].argmax()]['index']
