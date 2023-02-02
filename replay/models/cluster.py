@@ -1,19 +1,15 @@
-from typing import Optional, Union
+from typing import Optional
 
-from pyspark.sql import DataFrame
 from pyspark.ml.clustering import KMeans, KMeansModel
 from pyspark.ml.feature import VectorAssembler
-from pyspark.ml.functions import vector_to_array
+from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
-from pyspark.sql.types import ArrayType, DoubleType, StructType, StructField
+
+from replay.models.base_rec import UserRecommender, PartialFitMixin
+from replay.utils import unionify, unpersist_after
 
 
-from replay.models.base_rec import UserRecommender
-from replay.models.hnswlib import HnswlibMixin
-from replay.session_handler import State
-
-
-class ClusterRec(UserRecommender, HnswlibMixin):
+class ClusterRec(UserRecommender, PartialFitMixin):
     """
     Generate recommendations for cold users using k-means clusters
     """
@@ -22,7 +18,6 @@ class ClusterRec(UserRecommender, HnswlibMixin):
     _search_space = {
         "num_clusters": {"type": "int", "args": [2, 20]},
     }
-    item_rel_in_cluster: DataFrame
 
     def __init__(
         self, num_clusters: int = 10, hnswlib_params: Optional[dict] = None
@@ -32,8 +27,10 @@ class ClusterRec(UserRecommender, HnswlibMixin):
         """
         self.num_clusters = num_clusters
         self._hnswlib_params = hnswlib_params
-
-        HnswlibMixin.__init__(self)
+        self.model: Optional[KMeansModel] = None
+        self.users_clusters: Optional[DataFrame] = None
+        self.item_rel_in_cluster: Optional[DataFrame] = None
+        self.item_count_in_cluster: Optional[DataFrame] = None
 
     @property
     def _init_args(self):
@@ -45,91 +42,76 @@ class ClusterRec(UserRecommender, HnswlibMixin):
     def _load_model(self, path: str):
         self.model = KMeansModel.load(path)
 
+    def _get_nearest_items(self, items: DataFrame, metric: Optional[str] = None,
+                           candidates: Optional[DataFrame] = None) -> Optional[DataFrame]:
+        raise NotImplementedError()
+
+    def _fit_partial(self, log: DataFrame, user_features: Optional[DataFrame] = None,) -> None:
+        with unpersist_after(self._dataframes):
+            user_features_vector = self._transform_features(user_features) if user_features is not None else None
+
+            if self.model is None:
+                assert user_features_vector is not None
+                self.model = KMeans().setK(self.num_clusters).setFeaturesCol("features").fit(user_features_vector)
+
+            if user_features_vector is not None:
+                users_clusters = (
+                    self.model
+                        .transform(user_features_vector)
+                        .select("user_idx", sf.col("prediction").alias('cluster'))
+                )
+
+                # update if we make fit_partial instead of just fit
+                self.users_clusters = unionify(users_clusters, self.users_clusters).drop_duplicates(["user_idx"])
+
+            item_count_in_cluster = (
+                log.join(self.users_clusters, on="user_idx", how="left")
+                .groupBy(["cluster", "item_idx"])
+                .agg(sf.count("item_idx").alias("item_count"))
+            )
+
+            # update if we make fit_partial instead of just fit
+            self.item_count_in_cluster = (
+                unionify(item_count_in_cluster, self.item_count_in_cluster)
+                .groupBy(["cluster", "item_idx"])
+                .agg(sf.sum("item_count").alias("item_count"))
+            )
+
+            self.item_rel_in_cluster = self.item_count_in_cluster.withColumn(
+                "relevance", sf.col("item_count") / sf.max("item_count").over(Window.partitionBy("cluster"))
+            ).drop("item_count", "max_count_in_cluster").cache()
+
+            # materialize datasets
+            self.item_rel_in_cluster.count()
+
     def _fit(
         self,
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        kmeans = KMeans().setK(self.num_clusters).setFeaturesCol("features")
-        user_features_vector = self._transform_features(user_features)
-        self.model = kmeans.fit(user_features_vector)
-        self.users_clusters = (
-            self.model.transform(user_features_vector)
-            .select("user_idx", "prediction")
-            .withColumnRenamed("prediction", "cluster")
-        )
+        self._fit_partial(log, user_features)
 
-        log = log.join(self.users_clusters, on="user_idx", how="left")
-        self.item_count_in_cluster = log.groupBy(["cluster", "item_idx"]).agg(
-            sf.count("item_idx").alias("item_count")
-        )
-
-        max_count_per_cluster = self.item_count_in_cluster.groupby(
-            "cluster"
-        ).agg(sf.max("item_count").alias("max_count_in_cluster"))
-        self.item_rel_in_cluster = self.item_count_in_cluster.join(
-            max_count_per_cluster, on="cluster"
-        )
-        self.item_rel_in_cluster = self.item_rel_in_cluster.withColumn(
-            "relevance", sf.col("item_count") / sf.col("max_count_in_cluster")
-        ).drop("item_count", "max_count_in_cluster")
-        self.item_rel_in_cluster.cache().count()
-
-        if self._hnswlib_params:
-            schema = (
-                StructType([StructField("cluster_center", ArrayType(DoubleType(), False), False)])
-            )
-
-            cluster_centers = self.model.clusterCenters()
-            self._index_dim = cluster_centers[0].shape[0]
-            # converts to [([0.5, 0.5],), ([8.5, 8.5],)] format, where
-            # tuple as row
-            # list in tuple as array
-            cluster_centers = list(map(lambda x: tuple([[float(n) for n in x]]), cluster_centers))
-            cluster_centers_df = State().session.createDataFrame(cluster_centers, schema)
-            
-
-            self._build_hnsw_index(cluster_centers_df, features_col='cluster_center', params=self._hnswlib_params, dim=self._index_dim,
-            num_elements=self.num_clusters)
-
-    def refit(
+    def fit_partial(
         self,
         log: DataFrame,
-        previous_log: Optional[Union[str, DataFrame]] = None,
-        merged_log_path: Optional[str] = None,
+        user_features: Optional[DataFrame] = None,
+        previous_log: Optional[DataFrame] = None
     ) -> None:
-
-        log = log.join(self.users_clusters, on="user_idx", how="left")
-        item_count_in_cluster = log.groupBy(["cluster", "item_idx"]).agg(
-            sf.count("item_idx").alias("item_count")
-        )
-
-        self.item_count_in_cluster = (
-            self.item_count_in_cluster.union(item_count_in_cluster)
-            .groupBy(["cluster", "item_idx"])
-            .agg(
-                sf.sum("item_count").alias("item_count"),
-            )
-        )
-
-        max_count_per_cluster = self.item_count_in_cluster.groupby(
-            "cluster"
-        ).agg(sf.max("item_count").alias("max_count_in_cluster"))
-        self.item_rel_in_cluster = self.item_count_in_cluster.join(
-            max_count_per_cluster, on="cluster"
-        )
-        self.item_rel_in_cluster = self.item_rel_in_cluster.withColumn(
-            "relevance", sf.col("item_count") / sf.col("max_count_in_cluster")
-        ).drop("item_count", "max_count_in_cluster")
+        self._fit_partial(log, user_features)
 
     def _clear_cache(self):
-        if hasattr(self, "item_rel_in_cluster"):
-            self.item_rel_in_cluster.unpersist()
+        for df in self._dataframes.values():
+            if df is not None:
+                df.unpersist()
 
     @property
     def _dataframes(self):
-        return {"item_rel_in_cluster": self.item_rel_in_cluster}
+        return {
+            "users_clusters": self.users_clusters,
+            "item_rel_in_cluster": self.item_rel_in_cluster,
+            "item_count_in_cluster": self.item_count_in_cluster
+        }
 
     @staticmethod
     def _transform_features(user_features):
@@ -159,11 +141,6 @@ class ClusterRec(UserRecommender, HnswlibMixin):
         user_features_vector = self._transform_features(
             user_features.join(users, on="user_idx")
         )
-
-        if self._hnswlib_params:
-            vectors = user_features_vector.select("user_idx", vector_to_array("features").alias("features"), sf.lit(0).alias("num_items"))
-            res = self._infer_hnsw_index(vectors, 'features', self._hnswlib_params, 1, self._index_dim)
-            return res.select("user_idx", sf.col("item_idx").alias("cluster"))
 
         return (
             self.model.transform(user_features_vector)

@@ -1,14 +1,14 @@
-import joblib
 import math
-
 from os.path import join
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
+import joblib
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from replay.metrics import Metric, NDCG
 from replay.models.base_rec import NonPersonalizedRecommender
+from replay.utils import unpersist_after, unionify
 
 
 class UCB(NonPersonalizedRecommender):
@@ -69,6 +69,9 @@ class UCB(NonPersonalizedRecommender):
         self.coef = exploration_coef
         self.sample = sample
         self.seed = seed
+        self.items_counts_aggr: Optional[DataFrame] = None
+        self.item_popularity: Optional[DataFrame] = None
+        self.full_count = 0
         super().__init__(add_cold_items=True, cold_weight=1)
 
     @property
@@ -78,6 +81,18 @@ class UCB(NonPersonalizedRecommender):
             "sample": self.sample,
             "seed": self.seed,
         }
+
+    @property
+    def _dataframes(self):
+        return {
+            "items_counts_aggr": self.items_counts_aggr,
+            "item_popularity": self.item_popularity
+        }
+
+    def _clear_cache(self):
+        for df in self._dataframes.values():
+            if df is not None:
+                df.unpersist()
 
     def _save_model(self, path: str):
         joblib.dump({"fill": self.fill}, join(path, "params.dump"))
@@ -120,37 +135,35 @@ class UCB(NonPersonalizedRecommender):
             "which cannot not be directly optimized"
         )
 
-    def _fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
+    def _fit_partial(self,
+                     log: DataFrame,
+                     user_features: Optional[DataFrame] = None,
+                     item_features: Optional[DataFrame] = None,
+                     previous_log: Optional[DataFrame] = None) -> None:
+        with unpersist_after(self._dataframes):
+            self._check_relevance(log)
+            self._check_relevance(previous_log)
 
-        self._check_relevance(log)
+            # we save this dataframe for the refit() method
+            self.items_counts_aggr = unionify(
+                log.select("item_idx", sf.col("relevance").alias("pos"), sf.lit(1).alias("total")),
+                self.items_counts_aggr
+            ).groupby("item_idx").agg(
+                sf.sum("pos").alias("pos"),
+                sf.sum("total").alias("total")
+                # sf.count("relevance").alias("total"),
+            ).cache()
 
-        items_counts = log.groupby("item_idx").agg(
-            sf.sum("relevance").alias("pos"),
-            sf.count("relevance").alias("total"),
-        )
-        # we save this variable for the refit() method
-        self.full_count = log.count()
+            # we save this variable for the refit() method
+            self.full_count += log.count()
+            self.item_popularity = self.items_counts_aggr.withColumn(
+                "relevance",
+                sf.col("pos") / sf.col("total") + sf.sqrt(sf.log(sf.lit(self.coef * self.full_count)) / sf.col("total"))
+            ).drop("pos", "total").cache()
 
-        full_count = log.count()
-        items_counts = items_counts.withColumn(
-            "relevance",
-            (
-                sf.col("pos") / sf.col("total")
-                + sf.sqrt(
-                    sf.log(sf.lit(self.coef * full_count)) / sf.col("total")
-                )
-            ),
-        )
+            self.item_popularity.cache().count()
 
-        self.item_popularity = items_counts.drop("pos", "total")
-        self.item_popularity.cache().count()
-
-        self.fill = 1 + math.sqrt(math.log(self.coef * full_count))
+            self.fill = 1 + math.sqrt(math.log(self.coef * self.full_count))
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -170,8 +183,7 @@ class UCB(NonPersonalizedRecommender):
                 k=k,
                 users=users,
                 items=items,
-                filter_seen_items=filter_seen_items,
-                add_cold_items=True,
+                filter_seen_items=filter_seen_items
             )
         else:
             return self._predict_without_sampling(

@@ -268,6 +268,7 @@ class NmslibHnswMixin(ANNMixin):
                 # saving index to local temp file and sending it to executors
                 temp_dir = tempfile.mkdtemp()
                 weakref.finalize(self, shutil.rmtree, temp_dir)
+                self.__dict__.pop('_spark_index_file_uid', None)
                 tmp_file_path = os.path.join(
                     temp_dir, f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
                 )

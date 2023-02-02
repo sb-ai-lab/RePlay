@@ -17,7 +17,7 @@ from replay.utils import (
     get_number_of_allocated_executors,
     log_exec_timer,
 )
-from replay.utils import get_log_info2
+from experiment_utils import get_log_info
 from replay.utils import logger
 
 
@@ -255,10 +255,10 @@ def main(spark: SparkSession, dataset_name: str):
         mlflow.log_metric("test_num_partitions", test.rdd.getNumPartitions())
 
         with log_exec_timer(
-            "get_log_info2() execution"
-        ) as get_log_info2_timer:
-            train_info = get_log_info2(train)
-            test_info = get_log_info2(test)
+            "get_log_info() execution"
+        ) as get_log_info_timer:
+            train_info = get_log_info(train)
+            test_info = get_log_info(test)
             logger.info(
                 "train info: total lines: {}, total users: {}, total items: {}".format(
                     *train_info
@@ -269,7 +269,7 @@ def main(spark: SparkSession, dataset_name: str):
                     *test_info
                 )
             )
-        mlflow.log_metric("get_log_info_sec", get_log_info2_timer.duration)
+        mlflow.log_metric("get_log_info_sec", get_log_info_timer.duration)
         mlflow.log_param("train_size", train_info[0])
         mlflow.log_param("train.total_users", train_info[1])
         mlflow.log_param("train.total_items", train_info[2])

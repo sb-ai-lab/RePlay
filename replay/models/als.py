@@ -1,11 +1,18 @@
+import os
 from typing import Optional, Tuple, Union, Dict, Any
 
 import numpy as np
 import pyspark.sql.functions as sf
+import mlflow
+import numpy as np
+
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import udf
 from pyspark.sql.types import ArrayType, FloatType
 from pyspark.sql.types import DoubleType
+from pyspark.sql.types import ArrayType, FloatType
+from pyspark.sql.functions import udf
 from scipy.sparse import csr_matrix, csc_matrix
 from sklearn.linear_model import Ridge
 
@@ -130,7 +137,7 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         self.model.itemFactors.count()
         self.model.userFactors.count()
 
-    def refit(self, log: DataFrame, previous_log: Optional[Union[str, DataFrame]] = None, merged_log_path: Optional[str] = None) -> None:
+    def fit_partial(self, log: DataFrame, previous_log: Optional[Union[str, DataFrame]] = None, merged_log_path: Optional[str] = None) -> None:
         new_users = log.select('user_idx').distinct().join(previous_log.select('user_idx').distinct(), how='left_anti', on='user_idx')
         old_items = previous_log.select('item_idx').distinct()
         old_users = previous_log.select('user_idx').distinct()

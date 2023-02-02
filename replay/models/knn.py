@@ -1,15 +1,17 @@
-from typing import Optional, Union, Dict, Any
+from typing import Optional, Dict, Any
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
 
-from replay.models.base_rec import NeighbourRec
+from replay.models.base_rec import NeighbourRec, PartialFitMixin
 from replay.optuna_objective import ItemKNNObjective
-from replay.session_handler import State
+from replay.utils import unionify
+
+import warnings
 
 
-class ItemKNN(NeighbourRec):
+class ItemKNN(NeighbourRec, PartialFitMixin):
     """Item-based ItemKNN with modified cosine similarity measure."""
 
     def _get_ann_infer_params(self) -> Dict[str, Any]:
@@ -58,6 +60,7 @@ class ItemKNN(NeighbourRec):
             raise ValueError(f"weighting must be one of {valid_weightings}")
         self.weighting = weighting
         self._nmslib_hnsw_params = nmslib_hnsw_params
+        self.similarity = None
 
     @property
     def _init_args(self):
@@ -85,14 +88,21 @@ class ItemKNN(NeighbourRec):
             / (sf.col("norm1") * sf.col("norm2") + shrink),
         ).select("item_idx_one", "item_idx_two", "similarity")
 
-    def _get_similarity(self, log: DataFrame) -> DataFrame:
+    def _get_similarity(self, log: DataFrame, previous_log: Optional[DataFrame] = None) -> DataFrame:
         """
         Calculate item similarities
 
         :param log: DataFrame with interactions, `[user_idx, item_idx, relevance]`
         :return: similarity matrix `[item_idx_one, item_idx_two, similarity]`
         """
-        dot_products = self._get_products(log)
+
+        if previous_log is not None:
+            log_part = log
+            log = previous_log
+        else:
+            log_part = None
+
+        dot_products = self._get_products(log, log_part)
         similarity = self._shrink(dot_products, self.shrink)
         return similarity
 
@@ -176,7 +186,7 @@ class ItemKNN(NeighbourRec):
 
         return idf
 
-    def _get_products(self, log: DataFrame) -> DataFrame:
+    def _get_products(self, log: DataFrame, log_part: Optional[DataFrame] = None) -> DataFrame:
         """
         Calculate item dot products
 
@@ -185,11 +195,12 @@ class ItemKNN(NeighbourRec):
         """
         if self.weighting:
             log = self._reweight_log(log)
+            log_part = self._reweight_log(log_part) if log_part is not None else None
 
         left = log.withColumnRenamed(
             "item_idx", "item_idx_one"
         ).withColumnRenamed("relevance", "rel_one")
-        right = log.withColumnRenamed(
+        right = (log_part if log_part is not None else log).withColumnRenamed(
             "item_idx", "item_idx_two"
         ).withColumnRenamed("relevance", "rel_two")
 
@@ -210,9 +221,22 @@ class ItemKNN(NeighbourRec):
         norm1 = item_norms.withColumnRenamed(
             "item_idx", "item_id1"
         ).withColumnRenamed("norm", "norm1")
-        norm2 = item_norms.withColumnRenamed(
-            "item_idx", "item_id2"
-        ).withColumnRenamed("norm", "norm2")
+
+        if log_part is not None:
+            item_norms_part = (
+                log_part.withColumn("relevance", sf.col("relevance") ** 2)
+                .groupBy("item_idx")
+                .agg(sf.sum("relevance").alias("square_norm"))
+                .select(sf.col("item_idx"), sf.sqrt("square_norm").alias("norm"))
+            )
+
+            norm2 = item_norms_part.withColumnRenamed(
+                "item_idx", "item_id2"
+            ).withColumnRenamed("norm", "norm2")
+        else:
+            norm2 = item_norms.withColumnRenamed(
+                "item_idx", "item_id2"
+            ).withColumnRenamed("norm", "norm2")
 
         dot_products = dot_products.join(
             norm1, how="inner", on=sf.col("item_id1") == sf.col("item_idx_one")
@@ -244,27 +268,37 @@ class ItemKNN(NeighbourRec):
             .drop("similarity_order")
         )
 
-    def _fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
-        df = log.select("user_idx", "item_idx", "relevance")
-        if not self.use_relevance:
-            df = df.withColumn("relevance", sf.lit(1))
+    def fit_partial(self, log: DataFrame, previous_log: Optional[DataFrame] = None) -> None:
+        super().fit_partial(log, previous_log)
 
-        similarity_matrix = self._get_similarity(df)
+        if self._use_ann:
+            warnings.warn("ItemKNN fit_partial is used wth 'use_ann' flag. "
+                          "It means full ann index rebuilding for this particular model.", RuntimeWarning)
+            vectors = self._get_vectors_to_build_ann(log)
+            ann_params = self._get_ann_build_params(log)
+            self._build_ann_index(vectors, **ann_params)
+
+    def _fit_partial(
+            self,
+            log: DataFrame,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None,
+            previous_log: Optional[DataFrame] = None) -> None:
+        log = log.select("user_idx", "item_idx", "relevance" if self.use_relevance else sf.lit(1).alias("relevance"))
+
+        # TODO: fit_partial integration with ANN index
+        # TODO: no need for special integration, because you need to rebuild the whole
+        #  index if set of items have been chnaged
+        #  and no need for rebuilding if only user sets have changes
+        similarity_matrix = self._get_similarity(log, previous_log)
+        similarity_matrix = unionify(similarity_matrix, self.similarity)
         self.similarity = self._get_k_most_similar(similarity_matrix)
         self.similarity.cache().count()
 
-    def refit(
-        self,
-        log: DataFrame,
-        previous_log: Optional[Union[str, DataFrame]] = None,
-        merged_log_path: Optional[str] = None,
-    ) -> None:
-        pass
+    def _project_fields(self, log: Optional[DataFrame]):
+        if log is None:
+            return None
+        return log.select("user_idx", "item_idx", "relevance" if self.use_relevance else sf.lit(1))
 
     # pylint: disable=too-many-arguments
     def _predict(

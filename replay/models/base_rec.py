@@ -12,6 +12,8 @@ Base abstract classes:
     with popularity statistics
 """
 import collections
+import pickle
+
 import joblib
 import os
 import logging
@@ -489,6 +491,7 @@ class BaseRecommender(ABC):
         item_data = items or self.fit_items
         items = self._get_ids(item_data, "item_idx")
         items, log = self._filter_cold_for_predict(items, log, "item")
+
         num_items = items.count()
         if num_items < k:
             message = f"k = {k} > number of items = {num_items}"
@@ -1050,6 +1053,38 @@ class ItemVectorModel(BaseRecommender):
         )
 
         return similarity_matrix
+
+
+class PartialFitMixin(BaseRecommender):
+    def fit_partial(self,
+                    log: DataFrame,
+                    previous_log: Optional[DataFrame] = None) -> None:
+        self._fit_partial(log,
+                          user_features=None,
+                          item_features=None,
+                          previous_log=previous_log)
+
+    def _fit(
+            self,
+            log: DataFrame,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None) -> None:
+        self._fit_partial(log, user_features, item_features)
+
+    @abstractmethod
+    def _fit_partial(
+            self,
+            log: DataFrame,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None,
+            previous_log: Optional[DataFrame] = None) -> None:
+        ...
+
+    def _clear_cache(self):
+        super(PartialFitMixin, self)._clear_cache()
+        for df in self._dataframes.values():
+            if df is not None:
+                df.unpersist()
 
 
 # pylint: disable=abstract-method
@@ -1660,7 +1695,7 @@ class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
         return user_vectors
 
 
-class NonPersonalizedRecommender(Recommender, ABC):
+class NonPersonalizedRecommender(Recommender, PartialFitMixin, ABC):
     """Base class for non-personalized recommenders with popularity statistics."""
 
     can_predict_cold_users = True
@@ -1686,10 +1721,21 @@ class NonPersonalizedRecommender(Recommender, ABC):
         return {"item_popularity": self.item_popularity}
 
     def _save_model(self, path: str):
-        joblib.dump({"fill": self.fill}, join(path, "params.dump"))
+        spark = State().session
+        sc = spark.sparkContext
+        # TODO: simplify it and move it to utils
+        # maybe it can just be saved in json
+        pickled_instance = pickle.dumps({"fill": self.fill})
+        Record = collections.namedtuple("Record", ["params"])
+        rdd = sc.parallelize([Record(pickled_instance)])
+        instance_df = rdd.map(lambda rec: Record(bytearray(rec.params))).toDF()
+        instance_df.write.mode("overwrite").parquet(join(path, "params.dump"))
 
     def _load_model(self, path: str):
-        self.fill = joblib.load(join(path, "params.dump"))["fill"]
+        spark = State().session
+        df = spark.read.parquet(join(path, "params.dump"))
+        pickled_instance = df.rdd.map(lambda row: bytes(row.params)).first()
+        self.fill = pickle.loads(pickled_instance)["fill"]
 
     def _clear_cache(self):
         if hasattr(self, "item_popularity"):
@@ -1701,13 +1747,12 @@ class NonPersonalizedRecommender(Recommender, ABC):
         Calculating a fill value a the minimal relevance
         calculated during model training multiplied by weight.
         """
-        return (
-            item_popularity.select(sf.min("relevance")).collect()[0][0]
-            * weight
-        )
+        return item_popularity.select(sf.min("relevance")).first()[0] * weight
 
     @staticmethod
-    def _check_relevance(log: DataFrame):
+    def _check_relevance(log: Optional[DataFrame] = None):
+        if log is None:
+            return
 
         vals = log.select("relevance").where(
             (sf.col("relevance") != 1) & (sf.col("relevance") != 0)
