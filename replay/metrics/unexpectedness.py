@@ -1,5 +1,5 @@
 from typing import Optional
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
@@ -9,6 +9,7 @@ from replay.metrics.base_metric import (
     RecOnlyMetric,
     sorter,
     fill_na_with_empty_array,
+    filter_sort
 )
 
 from pyspark.sql import SparkSession, Column
@@ -70,35 +71,16 @@ class Unexpectedness(RecOnlyMetric):
         recommendations = convert2spark(recommendations)
         ground_truth_users = convert2spark(ground_truth_users)
         base_pred = self.pred
-        sort_udf = sf.udf(
-            sorter,
-            returnType=st.ArrayType(base_pred.schema["item_idx"].dataType),
-        )
+
         # TO DO: preprocess base_recs once in __init__
-        base_recs = (
-            base_pred.groupby("user_idx")
-            .agg(
-                sf.collect_list(sf.struct("relevance", "item_idx")).alias(
-                    "base_pred"
-                )
-            )
-            .select(
-                "user_idx", sort_udf(sf.col("base_pred")).alias("base_pred")
-            )
-        )
+
+        base_recs = filter_sort(base_pred).withColumnRenamed("pred", "base_pred")
+
         # if there are duplicates in recommendations,
         # we will leave fewer than k recommendations after sort_udf
         recommendations = get_top_k_recs(recommendations, k=max_k)
-        recommendations = (
-            recommendations.groupby("user_idx")
-            .agg(
-                sf.collect_list(sf.struct("relevance", "item_idx")).alias(
-                    "pred"
-                )
-            )
-            .select("user_idx", sort_udf(sf.col("pred")).alias("pred"))
-            .join(base_recs, how="right", on=["user_idx"])
-        )
+        recommendations = filter_sort(recommendations)
+        recommendations = recommendations.join(base_recs, how="right", on=["user_idx"])
 
         if ground_truth_users is not None:
             recommendations = recommendations.join(
