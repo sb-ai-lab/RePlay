@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from pyspark.ml import Estimator, Model
-from pyspark.ml._typing import ParamMap
 from pyspark.ml.param import Params, Param, TypeConverters
-from pyspark.ml.util import MLWritable, MLWriter, MLReadable, MLReader, R
+from pyspark.ml.util import MLWritable, MLWriter, MLReadable, MLReader
 from pyspark.sql import DataFrame
+
+
+ParamMap = Dict[str, Any]
 
 
 class SparkRecModelWriter(MLWriter):
@@ -16,7 +18,7 @@ class SparkRecModelWriter(MLWriter):
 
 
 class SparkRecModelReader(MLReader):
-    def load(self, path: str) -> R:
+    def load(self, path: str):
         # TODO: load model
         # TODO: load parameters
         raise NotImplementedError()

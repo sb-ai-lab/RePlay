@@ -3,9 +3,8 @@ from pyspark.ml.feature import SQLTransformer
 from pyspark.sql import SparkSession
 from rs_datasets import MovieLens
 
-from replay.data_preparator import DataPreparator
+from replay.data_preparator import DataPreparator, JoinBasedIndexerEstimator
 from replay.models import Word2VecRec, ALSWrap, ClusterRec
-from replay.spark_ml_rec.data_preparator import SparkIndexer
 from replay.spark_ml_rec.spark_base_rec import SparkBaseRecModelParams
 from replay.spark_ml_rec.spark_rec import SparkRec
 from replay.spark_ml_rec.spark_user_rec import SparkUserRec, SparkUserRecModelParams
@@ -20,12 +19,13 @@ ds = MovieLens('100k')
 log = convert2spark(ds.ratings)
 user_features = convert2spark(ds.users)
 
-log_train, log_test = DateSplitter(test_start=0.2, date_col="timestamp")
+# TODO: rating to relevance
+log_train, log_test = DateSplitter(test_start=0.2).split(log)
 
-pipe = Pipeline([
+pipe = Pipeline(stages=[
     DataPreparator(columns_mapping={"user_id": "user", "item_id": "item_id", "relevance": "rel"}),
     SQLTransformer(statement="SELECT user_id AS user_idx, item_id AS item_idx, relevance, timestamp FROM __THIS__"),
-    SparkIndexer(),
+    JoinBasedIndexerEstimator(),
     SparkTrainTestSplitterAndEvaluator(
         splitter=UserSplitter(item_test_size=0.2, shuffle=True, drop_cold_users=True, drop_cold_items=True, seed=42),
         models=[

@@ -1,12 +1,11 @@
 from typing import overload, cast, Optional, Union, Iterable
 
 from pyspark.ml import Model
-from pyspark.ml._typing import ParamMap
 from pyspark.ml.param import Param, Params, TypeConverters
 from pyspark.sql import DataFrame
 
 from replay.models.base_rec import UserRecommender
-from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModel
+from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModel, ParamMap
 
 
 class SparkUserRecModelParams(Params):

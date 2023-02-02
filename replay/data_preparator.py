@@ -6,20 +6,19 @@ Contains classes for data preparation and categorical features transformation.
 ``ToNumericFeatureTransformer`` leaves only numerical features
 by one-hot encoding of some features and deleting the others.
 """
+import json
 import logging
 import string
-import json
 from functools import singledispatchmethod
-from typing import Dict, List, Optional, overload, Any
 from os.path import join
+from typing import Dict, List, Optional, overload, Any
 
-from pyspark.ml import Transformer
-from pyspark.ml.feature import StringIndexerModel, IndexToString, StringIndexer
-from pyspark.ml.util import MLWriter, MLWritable, MLReader, MLReadable
 from pyspark.ml import Transformer, Estimator
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.ml.param import Param, Params, TypeConverters
+from pyspark.ml.feature import StringIndexerModel, IndexToString, StringIndexer
+from pyspark.ml.param import Param, Params
+from pyspark.ml.util import MLWriter, MLWritable, MLReader, MLReadable
 from pyspark.sql import DataFrame
+from pyspark.sql import SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.types import DoubleType, NumericType
 
@@ -419,7 +418,6 @@ class JoinBasedIndexerEstimator(Estimator):
 
 
 class DataPreparator(Transformer):
-     columnsMapping = Param(Params._dummy(), "columnsMapping", "columns mapping")
     """Transforms data to a library format:
         - read as a spark dataframe/ convert pandas dataframe to spark
         - check for nulls
@@ -479,6 +477,7 @@ class DataPreparator(Transformer):
     <BLANKLINE>
 
     """
+    columnsMapping = Param(Params._dummy(), "columnsMapping", "columns mapping")
 
     _logger: Optional[logging.Logger] = None
 

@@ -386,5 +386,11 @@ def main(spark: SparkSession, dataset_name: str):
 if __name__ == "__main__":
     spark_sess = get_spark_session()
     dataset = os.environ.get("DATASET", "MovieLens_1m")
+    os.environ['DATASETS_DIR'] = "/opt/spark_data/replay_datasets/MovieLens"
+    os.environ['RS_DATASETS_DIR'] = "/opt/spark_data/replay_datasets/MovieLens"
+    os.environ["MODEL"] = "Word2VecRec_HNSWLIB"
+    os.environ["MLFLOW_TRACKING_URI"] = "http://node2.bdcl:8811"
+    os.environ["HNSWLIB_PARAMS"] = '{"space":"ip","M":100,"efS":2000,"efC":2000,"post":0,"index_path":"/tmp/hnswlib_index_{spark_app_id}","build_index_on":"executor"}'
+    os.environ["USE_SCALA_UDFS_METRICS"] = "True"
     main(spark=spark_sess, dataset_name=dataset)
     spark_sess.stop()
