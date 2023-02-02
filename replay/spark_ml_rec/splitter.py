@@ -40,8 +40,8 @@ class SparkTrainTestSplitterAndEvaluator(Estimator, SparkBaseRecModelParams):
                 SparkBaseRecModelParams.filterSeenItems: self.getFilterSeenItems()
             })
 
-            e.add_result(rec_model.getName(), recs)
-            self._rec_models[rec_model.getName()] = rec_model
+            e.add_result(rec_model.name, recs)
+            self._rec_models[rec_model.name] = rec_model
 
-        return self._rec_models[e.best_model()]
+        return self._rec_models[e.best_result()]
 

@@ -5,7 +5,7 @@ from pyspark.ml.param import Param, Params, TypeConverters
 from pyspark.sql import DataFrame
 
 from replay.models.base_rec import UserRecommender
-from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModel, ParamMap
+from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModel
 
 
 class SparkUserRecModelParams(Params):
@@ -44,11 +44,18 @@ class SparkUserRecModel(SparkBaseRecModel, SparkUserRecParams):
     def __init__(self,
                  model: UserRecommender,
                  user_features: DataFrame,
-                 transient_user_features: bool = False):
+                 transient_user_features: bool = False,
+                 name: Optional[str] = None
+                 ):
         super().__init__()
         self._model = model
         self._user_features = user_features
         self.setTransientUserFeatures(transient_user_features)
+        self._name = name or type(model)
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     def getUserFeatures(self) -> DataFrame:
         return self._user_features
@@ -56,32 +63,20 @@ class SparkUserRecModel(SparkBaseRecModel, SparkUserRecParams):
     def setUserFeatures(self, value: DataFrame):
         self._user_features = value
 
-    def _transform_recommendations(self, dataset: DataFrame, params: Optional[ParamMap]) -> DataFrame:
+    def _transform_recommendations(self, dataset: DataFrame) -> DataFrame:
         return self._model.predict(
             user_features=self._user_features,
             log=dataset,
-            k=(
-                params.get(self.numRecommendations, self.getNumRecommendations())
-                if params else self.getNumRecommendations()
-            ),
-            filter_seen_items=(
-                params.get(self.filterSeenItems, self.getFilterSeenItems())
-                if params else self.getFilterSeenItems()
-            ),
-            recs_file_path=(
-                params.get(self.recsFilePath, self.getRecsFilePath())
-                if params else self.getRecsFilePath()
-            )
+            k=self.getNumRecommendations(),
+            filter_seen_items=self.getFilterSeenItems(),
+            recs_file_path=self.getRecsFilePath()
         )
 
-    def _transform_pairs(self, dataset: DataFrame, params: Optional[ParamMap]) -> DataFrame:
+    def _transform_pairs(self, dataset: DataFrame) -> DataFrame:
         return self._model.predict_pairs(
             pairs=dataset,
             user_features=self._user_features,
-            recs_file_path=(
-                params.get(self.recsFilePath, self.getRecsFilePath())
-                if params else self.getRecsFilePath()
-            )
+            recs_file_path=self.getRecsFilePath()
         )
 
     def predict(

@@ -35,7 +35,8 @@ class SparkRecModel(SparkBaseRecModel, SparkRecModelParams):
                  num_recommendations: int = 10,
                  filter_seen_items: bool = True,
                  recs_file_path: Optional[str] = None,
-                 predict_mode: str = "recommendations"):
+                 predict_mode: str = "recommendations",
+                 name: Optional[str] = None):
         super().__init__()
         self._model = model
         self.setNumRecommendations(num_recommendations)
@@ -46,30 +47,24 @@ class SparkRecModel(SparkBaseRecModel, SparkRecModelParams):
 
         self.setPredictMode(predict_mode)
 
-    def _transform_recommendations(self, dataset: DataFrame, params: Optional[ParamMap]) -> DataFrame:
+        self._name = name or type(model)
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def _transform_recommendations(self, dataset: DataFrame) -> DataFrame:
         return self._model.predict(
             log=dataset,
-            k=(
-                params.get(self.numRecommendations, self.getNumRecommendations())
-                if params else self.getNumRecommendations()
-            ),
-            filter_seen_items=(
-                params.get(self.filterSeenItems, self.getFilterSeenItems())
-                if params else self.getFilterSeenItems()
-            ),
-            recs_file_path=(
-                params.get(self.recsFilePath, self.getRecsFilePath())
-                if params else self.getRecsFilePath()
-            )
+            k=self.getNumRecommendations(),
+            filter_seen_items=self.getFilterSeenItems(),
+            recs_file_path=self.getRecsFilePath()
         )
 
-    def _transform_pairs(self, dataset: DataFrame, params: Optional[ParamMap]) -> DataFrame:
+    def _transform_pairs(self, dataset: DataFrame) -> DataFrame:
         return self._model.predict_pairs(
             pairs=dataset,
-            recs_file_path=(
-                params.get(self.recsFilePath, self.getRecsFilePath())
-                if params else self.getRecsFilePath()
-            )
+            recs_file_path=self.getRecsFilePath()
         )
 
     def predict(

@@ -91,6 +91,13 @@ class PopRec(NonPersonalizedRecommender):
                 add_cold_items=add_cold_items, cold_weight=cold_weight
             )
 
+    def copy(self):
+        return PopRec(
+            use_relevance=self.use_relevance,
+            add_cold_items=self.add_cold_items,
+            cold_weight=self.cold_weight
+        )
+
     @property
     def _init_args(self):
         return {

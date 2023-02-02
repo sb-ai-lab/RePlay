@@ -4,7 +4,7 @@ from pyspark.sql import SparkSession
 from rs_datasets import MovieLens
 
 from replay.data_preparator import DataPreparator, JoinBasedIndexerEstimator
-from replay.models import Word2VecRec, ALSWrap, ClusterRec
+from replay.models import Word2VecRec, ALSWrap, ClusterRec, PopRec
 from replay.spark_ml_rec.spark_base_rec import SparkBaseRecModelParams
 from replay.spark_ml_rec.spark_rec import SparkRec
 from replay.spark_ml_rec.spark_user_rec import SparkUserRec, SparkUserRecModelParams
@@ -25,14 +25,15 @@ log_train, log_test = DateSplitter(test_start=0.2).split(log.withColumnRenamed("
 pipe = Pipeline(stages=[
     DataPreparator(columns_mapping={"user_id": "user_id", "item_id": "item_id", "relevance": "relevance"}),
     JoinBasedIndexerEstimator(user_col="user_id", item_col="item_id"),
-    # SparkTrainTestSplitterAndEvaluator(
-    #     splitter=UserSplitter(item_test_size=0.2, shuffle=True, drop_cold_users=True, drop_cold_items=True, seed=42),
-    #     models=[
-    #         SparkRec(model=Word2VecRec()),
-    #         SparkRec(model=ALSWrap()),
-    #         SparkUserRec(model=ClusterRec(), user_features=user_features, transient_user_features=True)
-    #     ]
-    # )
+    SparkTrainTestSplitterAndEvaluator(
+        splitter=UserSplitter(item_test_size=0.2, shuffle=True, drop_cold_users=True, drop_cold_items=True, seed=42),
+        models=[
+            SparkRec(model=PopRec()),
+            # SparkRec(model=Word2VecRec()),
+            # SparkRec(model=ALSWrap()),
+            # SparkUserRec(model=ClusterRec(), user_features=user_features, transient_user_features=True)
+        ]
+    )
 ])
 
 model: PipelineModel = pipe.fit(log_train)

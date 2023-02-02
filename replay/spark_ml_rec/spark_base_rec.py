@@ -10,6 +10,10 @@ from pyspark.sql import DataFrame
 ParamMap = Dict[str, Any]
 
 
+RECOMMENDATIONS_PREDICT_MODE = "recommendations"
+PAIRS_PREDICT_MODE = "pairs"
+
+
 class SparkRecModelWriter(MLWriter):
     def saveImpl(self, path: str) -> None:
         # TODO: save model
@@ -60,14 +64,20 @@ class SparkBaseRecModelParams(Params):
     predictMode = Param(
         Params._dummy(),
         "predictMode",
-        "defines to make recommendations for incoming unique users / items "
-        "or to make relevance estimations for incoming user/item pairs",
+        "Defines how transform method should behave itself: "
+        "mode 'recommendations' means to make recommendations for incoming unique users / items, "
+        "while mode 'pairs' means to make relevance estimations for incoming user/item pairs",
         typeConverter=TypeConverters.toString
     )
 
     def __init__(self):
         super(SparkBaseRecModelParams, self).__init__()
-        self._setDefault(numRecommendations=10, filterSeenItems=True)
+        self._setDefault(
+            numRecommendations=10,
+            filterSeenItems=True,
+            recsFilePath=None,
+            predictMode='recommendations'
+        )
 
     def getNumRecommendations(self) -> int:
         """
@@ -104,20 +114,29 @@ class SparkBaseRecParams(SparkBaseRecModelParams):
 
 
 class SparkBaseRecModel(Model, SparkBaseRecModelParams, SparkRecModelReadable, SparkRecModelWritable, ABC):
-    def transform(self, dataset: DataFrame, params: Optional[ParamMap] = None) -> DataFrame:
-        if self.predictMode == "recommendations":
-            result = self._transform_recommendations(dataset, params)
+    def _transform(self, dataset: DataFrame) -> DataFrame:
+        if self.getPredictMode() == "recommendations":
+            result = self._transform_recommendations(dataset)
+        elif self.getPredictMode() == "pairs":
+            result = self._transform_pairs(dataset)
         else:
-            result = self._transform_pairs(dataset, params)
+            raise ValueError(f"Unsupported predict mode {self.getPredictMode()}. "
+                             f"Only the following values are valid: "
+                             f"{[RECOMMENDATIONS_PREDICT_MODE, PAIRS_PREDICT_MODE]}")
 
         return result
 
     @abstractmethod
-    def _transform_recommendations(self, dataset: DataFrame, params: Optional[ParamMap]) -> DataFrame:
+    def _transform_recommendations(self, dataset: DataFrame) -> DataFrame:
         ...
 
     @abstractmethod
-    def _transform_pairs(self, dataset: DataFrame, params: Optional[ParamMap]) -> DataFrame:
+    def _transform_pairs(self, dataset: DataFrame) -> DataFrame:
+        ...
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
         ...
 
 

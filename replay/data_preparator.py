@@ -370,7 +370,6 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
 
 
 class JoinBasedIndexerEstimator(Estimator):
-
     def __init__(self, user_col="user_id", item_col="item_id"):
         """
         Provide column names for indexer to use
