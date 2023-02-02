@@ -4,6 +4,7 @@ from pyspark.ml.param import Param, Params
 from pyspark.sql import DataFrame
 
 from replay.models import Recommender
+from replay.models.base_rec import BaseRecommender
 from replay.spark_ml_rec.spark_base_rec import (
     SparkBaseRecModel,
     SparkBaseRec,
@@ -31,13 +32,13 @@ class SparkRecModelParams(SparkBaseRecModelParams):
 
 class SparkRecModel(SparkBaseRecModel, SparkRecModelParams):
     def __init__(self,
-                 model: Recommender,
+                 model: Optional[Recommender] = None,
                  num_recommendations: int = 10,
                  filter_seen_items: bool = True,
                  recs_file_path: Optional[str] = None,
                  predict_mode: str = "recommendations",
                  name: Optional[str] = None):
-        super().__init__()
+        super().__init__(name)
         self._model = model
         self.setNumRecommendations(num_recommendations)
         self.setFilterSeenItems(filter_seen_items)
@@ -47,11 +48,9 @@ class SparkRecModel(SparkBaseRecModel, SparkRecModelParams):
 
         self.setPredictMode(predict_mode)
 
-        self._name = name or type(model).__name__
-
     @property
-    def name(self) -> str:
-        return self._name
+    def model(self) -> BaseRecommender:
+        return self._model
 
     def _transform_recommendations(self, dataset: DataFrame) -> DataFrame:
         return self._model.predict(

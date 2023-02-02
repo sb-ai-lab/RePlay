@@ -1,11 +1,16 @@
+import os
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple, cast
 
 from pyspark.ml import Estimator, Model
 from pyspark.ml.param import Params, Param, TypeConverters
-from pyspark.ml.util import MLWritable, MLWriter, MLReadable, MLReader
+from pyspark.ml.util import MLWriter, DefaultParamsWriter, DefaultParamsWritable, \
+    DefaultParamsReader, DefaultParamsReadable
 from pyspark.sql import DataFrame
 
+from replay.model_handler import save, load
+from replay.models.base_rec import BaseRecommender
+from replay.session_handler import State
 
 ParamMap = Dict[str, Any]
 
@@ -14,29 +19,67 @@ RECOMMENDATIONS_PREDICT_MODE = "recommendations"
 PAIRS_PREDICT_MODE = "pairs"
 
 
-class SparkRecModelWriter(MLWriter):
+def _get_class_fullname_and_name(obj) -> Tuple[str, str]:
+    clazz = obj.__class__
+    module = clazz.__module__
+    if module == 'builtins':
+        return clazz.__qualname__
+    return f"{module}.{clazz.__qualname__}", clazz.__qualname__
+
+
+class SparkBaseRecModelWriter(DefaultParamsWriter):
+    def __init__(self, instance):
+        super().__init__(instance)
+
     def saveImpl(self, path: str) -> None:
-        # TODO: save model
-        # TODO: save parameters
-        raise NotImplementedError()
+        super().saveImpl(path)
+
+        spark = State().session
+
+        model = cast('SparkBaseRecModel', self.instance).model
+        clazz, model_name = _get_class_fullname_and_name(model)
+
+        (
+            spark
+            .createDataFrame(data=[{"class_name": clazz, "model_name": model_name}])
+            .write
+            .mode('overwrite' if self.shouldOverwrite else 'error')
+            .json(os.path.join(path, "model_class.json"))
+        )
+
+        save(model, os.path.join(path, f"model_{model_name}"), overwrite=self.shouldOverwrite)
 
 
-class SparkRecModelReader(MLReader):
+class SparkBaseRecModelReader(DefaultParamsReader):
+    def __init__(self, cls):
+        super().__init__(cls)
+
     def load(self, path: str):
-        # TODO: load model
-        # TODO: load parameters
-        raise NotImplementedError()
+        wrapper = cast('SparkBaseRecModel', super().load(path))
+
+        spark = State().session
+        _, model_name = (
+            spark
+            .read
+            .json(os.path.join(path, "model_class.json"))
+            .select("class_name", "model_name")
+            .first()
+        )
+
+        wrapper._model = load(os.path.join(path, f"model_{model_name}"))
+
+        return wrapper
 
 
-class SparkRecModelWritable(MLWritable):
+class SparkBaseRecModelWritable(DefaultParamsWritable):
     def write(self) -> MLWriter:
-        return SparkRecModelWriter()
+        return SparkBaseRecModelWriter(self)
 
 
-class SparkRecModelReadable(MLReadable):
+class SparkBaseRecModelReadable(DefaultParamsReadable):
     @classmethod
-    def read(cls) -> SparkRecModelReader:
-        return SparkRecModelReader()
+    def read(cls) -> SparkBaseRecModelReader:
+        return SparkBaseRecModelReader(cls)
 
 
 class SparkBaseRecModelParams(Params):
@@ -113,7 +156,17 @@ class SparkBaseRecParams(SparkBaseRecModelParams):
     pass
 
 
-class SparkBaseRecModel(Model, SparkBaseRecModelParams, SparkRecModelReadable, SparkRecModelWritable, ABC):
+class SparkBaseRecModel(Model, SparkBaseRecModelParams, SparkBaseRecModelReadable, SparkBaseRecModelWritable, ABC):
+    _model: Optional[BaseRecommender]
+
+    def __init__(self, name: Optional[str] = None):
+        super().__init__()
+        self._name = name
+
+    @property
+    def name(self) -> str:
+        return self._name or type(self._model).__name__
+
     def _transform(self, dataset: DataFrame) -> DataFrame:
         if self.getPredictMode() == "recommendations":
             result = self._transform_recommendations(dataset)
@@ -136,7 +189,7 @@ class SparkBaseRecModel(Model, SparkBaseRecModelParams, SparkRecModelReadable, S
 
     @property
     @abstractmethod
-    def name(self) -> str:
+    def model(self) -> BaseRecommender:
         ...
 
 

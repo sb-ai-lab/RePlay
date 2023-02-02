@@ -4,7 +4,7 @@ from pyspark.ml import Model
 from pyspark.ml.param import Param, Params, TypeConverters
 from pyspark.sql import DataFrame
 
-from replay.models.base_rec import UserRecommender
+from replay.models.base_rec import UserRecommender, BaseRecommender
 from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModel
 
 
@@ -42,20 +42,19 @@ class SparkUserRecParams(SparkUserRecModelParams):
 class SparkUserRecModel(SparkBaseRecModel, SparkUserRecParams):
     # TODO: custom reader and writer required
     def __init__(self,
-                 model: UserRecommender,
-                 user_features: DataFrame,
+                 model: Optional[UserRecommender] = None,
+                 user_features: Optional[DataFrame] = None,
                  transient_user_features: bool = False,
                  name: Optional[str] = None
                  ):
-        super().__init__()
+        super().__init__(name)
         self._model = model
         self._user_features = user_features
         self.setTransientUserFeatures(transient_user_features)
-        self._name = name or type(model).__name__
 
     @property
-    def name(self) -> str:
-        return self._name
+    def model(self) -> BaseRecommender:
+        return self._model
 
     def getUserFeatures(self) -> DataFrame:
         return self._user_features
