@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, overload, Any
 from pyspark.ml import Transformer, Estimator
 from pyspark.ml.feature import StringIndexerModel, IndexToString, StringIndexer
 from pyspark.ml.param import Param, Params
-from pyspark.ml.util import MLWriter, MLWritable, MLReader, MLReadable
+from pyspark.ml.util import MLWriter, MLWritable, MLReader, MLReadable, DefaultParamsWriter, DefaultParamsReader
 from pyspark.sql import DataFrame
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as sf
@@ -193,18 +193,20 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
             inv_indexer.setLabels(new_labels)
 
 
-class JoinIndexerMLWriter(MLWriter):
+# We need to inherit it from DefaultParamsWriter to make it being saved correctly within Pipeline
+class JoinIndexerMLWriter(DefaultParamsWriter):
     """Implements saving the JoinIndexerTransformer instance to disk.
     Used when saving a trained pipeline.
     Implements MLWriter.saveImpl(path) method.
     """
 
     def __init__(self, instance):
-        super().__init__()
+        super().__init__(instance)
         self.instance = instance
 
     def saveImpl(self, path: str) -> None:
-        print(f"Saving {type(self.instance).__name__} to '{path}'")
+        super().saveImpl(path)
+        # print(f"Saving {type(self.instance).__name__} to '{path}'")
 
         spark = SparkSession.getActiveSession()
 
@@ -220,7 +222,6 @@ class JoinIndexerMLWriter(MLWriter):
 class JoinIndexerMLReader(MLReader):
     def load(self, path):
         """Load the ML instance from the input path."""
-
         spark = SparkSession.getActiveSession()
         args = spark.read.json(join(path, "init_args.json")).first().asDict(recursive=True)
         user_col_2_index_map = spark.read.parquet(join(path, "user_col_2_index_map.parquet"))
@@ -251,6 +252,7 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
             update_map_on_transform: bool = False,
             force_broadcast_on_mapping_joins: bool = True
     ):
+        super().__init__()
         self.user_col = user_col
         self.item_col = item_col
         self.user_type = user_type
@@ -417,7 +419,17 @@ class JoinBasedIndexerEstimator(Estimator):
         )
 
 
-class DataPreparator(Transformer):
+class DataPreparatorWriter(DefaultParamsWriter):
+    def __init__(self, instance: 'DataPreparator'):
+        super().__init__(instance)
+
+
+class DataPreparatorReader(DefaultParamsReader):
+    def __init__(self, cls):
+        super().__init__(cls)
+
+
+class DataPreparator(Transformer, MLWritable, MLReadable):
     """Transforms data to a library format:
         - read as a spark dataframe/ convert pandas dataframe to spark
         - check for nulls
@@ -481,7 +493,7 @@ class DataPreparator(Transformer):
 
     _logger: Optional[logging.Logger] = None
 
-    def __init__(self, columns_mapping):
+    def __init__(self, columns_mapping: Optional[Dict[str, str]] = None):
         super().__init__()
         self.setColumnsMapping(columns_mapping)
 
@@ -490,6 +502,13 @@ class DataPreparator(Transformer):
 
     def setColumnsMapping(self, value):
         self.set(self.columnsMapping, value)
+
+    def write(self) -> MLWriter:
+        return DataPreparatorWriter(self)
+
+    @classmethod
+    def read(cls) -> MLReader:
+        return DataPreparatorReader(cls)
 
     @property
     def logger(self) -> logging.Logger:
@@ -700,7 +719,7 @@ class DataPreparator(Transformer):
         return super().transform(dataset, params)
 
     def _transform(self, dataset):
-        return self.transform({"user_id": "user_id"}, data=dataset)
+        return self.transform(self.getColumnsMapping(), data=dataset)
 
     # pylint: disable=too-many-arguments
     @_do_transform.register
