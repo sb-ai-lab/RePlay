@@ -1648,8 +1648,16 @@ class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
         )
         return similarity_df
 
-    def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
-        return users
+    def _get_vectors_to_infer_ann_inner(
+            self, log: DataFrame, users: DataFrame
+    ) -> DataFrame:
+
+        user_vectors = (
+            log.groupBy("user_idx").agg(
+                sf.collect_list("item_idx").alias("vector_items"),
+                sf.collect_list("relevance").alias("vector_relevances"))
+        )
+        return user_vectors
 
 
 class NonPersonalizedRecommender(Recommender, ABC):

@@ -3,7 +3,6 @@ from typing import Optional, Union, Dict, Any
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
-from scipy.sparse import csr_matrix
 
 from replay.models.base_rec import NeighbourRec
 from replay.optuna_objective import ItemKNNObjective

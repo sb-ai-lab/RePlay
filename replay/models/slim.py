@@ -59,7 +59,7 @@ class SLIM(NeighbourRec):
             "seed": self.seed,
             "nmslib_hnsw_params": self._nmslib_hnsw_params,
         }
-    
+
     def _save_model(self, path: str):
         if self._nmslib_hnsw_params:
             self._save_nmslib_hnsw_index(path, sparse=True)
@@ -147,6 +147,3 @@ class SLIM(NeighbourRec):
             condition=sf.col("item_idx_two") == sf.col("item_idx_filter"),
             users=users,
         )
-            
-
-
