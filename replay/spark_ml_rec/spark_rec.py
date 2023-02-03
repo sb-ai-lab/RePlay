@@ -95,7 +95,8 @@ class SparkRec(SparkBaseRec):
         self._model = model
 
     def _fit(self, log: DataFrame):
-        model = cast(Recommender, self._model.copy())
+        # model = cast(Recommender, self._model.copy())
+        model = self._model
         model.fit(log)
         return SparkRecModel(
             model,

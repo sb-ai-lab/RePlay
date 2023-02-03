@@ -1,9 +1,13 @@
+import pprint
+
 from pyspark.ml import Pipeline, PipelineModel
 from pyspark.ml.feature import SQLTransformer
 from pyspark.sql import SparkSession
 from rs_datasets import MovieLens
 
 from replay.data_preparator import DataPreparator, JoinBasedIndexerEstimator
+from replay.experiment import Experiment
+from replay.metrics import MAP, NDCG, HitRate
 from replay.models import Word2VecRec, ALSWrap, ClusterRec, PopRec
 from replay.session_handler import get_spark_session
 from replay.spark_ml_rec.spark_base_rec import SparkBaseRecModelParams
@@ -22,6 +26,7 @@ HNSWLIB_PARAMS = {
     "index_path": "/tmp/hnswlib_index_{spark_app_id}",
     "build_index_on": "executor"
 }
+METRICS_K = [5, 10, 25]
 
 spark = get_spark_session()
 
@@ -43,7 +48,8 @@ pipe = Pipeline(stages=[
             # SparkRec(model=Word2VecRec()),
             # SparkRec(model=ALSWrap(hnswlib_params=HNSWLIB_PARAMS)),
             # SparkUserRec(model=ClusterRec(), user_features=user_features, transient_user_features=True)
-        ]
+        ],
+        metrics_k=METRICS_K
     )
 ])
 
@@ -60,4 +66,29 @@ recs = rec_model.transform(log_test, params={
     SparkBaseRecModelParams.numRecommendations: 100,
     SparkBaseRecModelParams.filterSeenItems: True
 })
-recs.write.parquet("/tmp/recs.parquet", mode='overwrite')
+
+# e = Experiment(
+#     log_test,
+#     {
+#         MAP(): METRICS_K,
+#         NDCG(): METRICS_K,
+#         HitRate(): METRICS_K,
+#     },
+# )
+#
+# e.add_result("best_model", recs)
+#
+# metrics = dict()
+# for k in METRICS_K:
+#     metrics["NDCG.{}".format(k)] = e.results.at[
+#         "best_model", "NDCG@{}".format(k)
+#     ]
+#     metrics["MAP.{}".format(k)] = e.results.at[
+#         "best_model", "MAP@{}".format(k)
+#     ]
+#     metrics["HitRate.{}".format(k)] = e.results.at[
+#         "best_model", "HitRate@{}".format(k)
+#     ]
+#
+# print("Metrics on log_test: ")
+# pprint.pprint(metrics)
