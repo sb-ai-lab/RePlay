@@ -1,18 +1,16 @@
 import logging
 import pprint
-from typing import List, cast, Sequence, Optional
+from typing import List, Sequence, Optional
 
-from pyspark.ml import Estimator, Transformer, Pipeline
+from pyspark.ml import Estimator, Transformer, PipelineModel
 from pyspark.sql.dataframe import DataFrame
 
 from replay.data_preparator import JoinBasedIndexerEstimator
 from replay.experiment import Experiment
 from replay.metrics import MAP, NDCG, HitRate
-from replay.models import Recommender
 from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModelParams, SparkUserItemFeaturesModelParams
 from replay.spark_ml_rec.spark_rec import SparkRecModel
 from replay.splitters import Splitter
-
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +38,7 @@ class SparkTrainTestSplitterAndEvaluator(Estimator, SparkBaseRecModelParams):
         self._item_features = item_features
 
     def _fit(self, log: DataFrame) -> Transformer:
+
         indexer = self._indexer.fit(log)
         log = indexer.transform(log)
 
@@ -59,25 +58,25 @@ class SparkTrainTestSplitterAndEvaluator(Estimator, SparkBaseRecModelParams):
 
         self._rec_models = dict()
         for model in self._models:
-            rec_model: SparkRecModel = model.fit(
-                train,
-                {
-                    SparkUserItemFeaturesModelParams.userFeatures: user_features,
-                    SparkUserItemFeaturesModelParams.itemFeatures: item_features
-                }
-            )
+            paramMap = {}
+
+            if isinstance(model, SparkUserItemFeaturesModelParams):
+                paramMap[model.userFeatures] = user_features
+                paramMap[model.itemFeatures] = item_features
+
+            rec_model: SparkRecModel = model.fit(train, paramMap)
             # single interface with many parameters
             # the wrappers decide for themselves what to call
             recs = rec_model.transform(train, params={
-                SparkBaseRecModelParams.numRecommendations: self.getNumRecommendations(),
-                SparkBaseRecModelParams.filterSeenItems: self.getFilterSeenItems()
+                rec_model.numRecommendations: self.getNumRecommendations(),
+                rec_model.filterSeenItems: self.getFilterSeenItems()
             })
 
             e.add_result(rec_model.name, recs)
             self._rec_models[rec_model.name] = rec_model
             self._log_metrics(rec_model.name, e)
 
-        return Pipeline(stages=[
+        return PipelineModel(stages=[
             indexer,
             self._rec_models[e.best_result(metric=self._choose_best_by_metric, k=self._choose_best_by_metric_k)]
         ])

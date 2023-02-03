@@ -11,12 +11,11 @@ class DataframeAwareDefaultParamsWriter(DefaultParamsWriter):
         dfDefaultParamMap = {p: value for p, value in self.instance._defaultParamMap.items() if isinstance(value, DataFrame)}
         self.instance._defaultParamMap = {p: value for p, value in self.instance._defaultParamMap.items() if not isinstance(value, DataFrame)}
 
-        params_path = os.path.join(path, "params")
         dfs_path = os.path.join(path, "dataframes_params")
         default_dfs_path = os.path.join(path, "dataframes_default_params")
 
         # save what is left
-        super().saveImpl(params_path)
+        super().saveImpl(path)
 
         for p, df in dfParamsMap.items():
             df_path = os.path.join(dfs_path, p.name)

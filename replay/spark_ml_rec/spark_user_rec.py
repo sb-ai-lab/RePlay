@@ -16,22 +16,16 @@ class SparkUserRecModel(SparkBaseRecModel, SparkUserItemFeaturesModelParams):
                  ):
         super().__init__(name)
         self._model = model
-        self._user_features = user_features
+        self.setUserFeatures(user_features)
         self.setTransientUserFeatures(transient_user_features)
 
     @property
     def model(self) -> BaseRecommender:
         return self._model
 
-    def getUserFeatures(self) -> DataFrame:
-        return self._user_features
-
-    def setUserFeatures(self, value: DataFrame):
-        self._user_features = value
-
     def _transform_recommendations(self, dataset: DataFrame) -> DataFrame:
         return self._model.predict(
-            user_features=self._user_features,
+            user_features=self.getUserFeatures(),
             log=dataset,
             k=self.getNumRecommendations(),
             filter_seen_items=self.getFilterSeenItems(),
@@ -41,7 +35,7 @@ class SparkUserRecModel(SparkBaseRecModel, SparkUserItemFeaturesModelParams):
     def _transform_pairs(self, dataset: DataFrame) -> DataFrame:
         return self._model.predict_pairs(
             pairs=dataset,
-            user_features=self._user_features,
+            user_features=self.getUserFeatures(),
             recs_file_path=self.getRecsFilePath()
         )
 
@@ -82,7 +76,7 @@ class SparkUserRec(SparkBaseRec, SparkUserItemFeaturesModelParams):
         model.fit(log, user_features=user_features)
         return SparkUserRecModel(
             model,
-            self._user_features,
+            user_features,
             self.getTransientUserFeatures()
         )
 
