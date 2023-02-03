@@ -56,10 +56,19 @@ All params:
     NMSLIB_HNSW_PARAMS: nmslib hnsw index params. Double quotes must be used instead of single quotes
     Example: {"method":"hnsw","space":"negdotprod_sparse_fast","M":100,"efS":2000,"efC":2000,"post":0,
     "index_path":"/tmp/nmslib_hnsw_index_{spark_app_id}","build_index_on":"executor"}
+    The "space" parameter described on the page https://github.com/nmslib/nmslib/blob/master/manual/spaces.md.
+    Parameters "M", "efS" and "efC" are described at  https://github.com/nmslib/nmslib/blob/master/manual/methods.md#graph-based-search-methods-sw-graph-and-hnsw.
+    The "build_index_on" parameter specifies whether the index will be built on the "driver" or "executor".
+    If "build_index_on"="executor" then "index_path" must be specified.
+    "index_path" determines where the built index should be stored. "index_path" can be a path in hdfs.
+    If "build_index_on"="driver", then the index built on the driver will be passed to the executors via the `SparkContext.addFile` mechanism.
 
     HNSWLIB_PARAMS: hnswlib index params. Double quotes must be used instead of single quotes
     Example: {"space":"ip","M":100,"efS":2000,"efC":2000,"post":0,
     "index_path":"/tmp/hnswlib_index_{spark_app_id}","build_index_on":"executor"}
+    The "space" parameter described on the page https://github.com/nmslib/hnswlib/blob/master/README.md#supported-distances
+    Parameters "M", "efS" and "efC" are described at https://github.com/nmslib/hnswlib/blob/master/ALGO_PARAMS.md
+    Parameters "build_index_on" and "index_path" are the same as for NMSLIB_HNSW_PARAMS
 
     ALS_RANK: rank for ALS model, i.e. length of ALS factor vectors
 

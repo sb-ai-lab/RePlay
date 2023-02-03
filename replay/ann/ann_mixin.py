@@ -10,13 +10,25 @@ from replay.models.base_rec import BaseRecommender
 
 
 class ANNMixin(BaseRecommender):
+    """
+    This class overrides the `_fit_wrap` and `_inner_predict_wrap` methods of the base class,
+    adding an index construction in the `_fit_wrap` step and an index inference in the `_inner_predict_wrap` step.
+    """
+
     @cached_property
-    def _spark_index_file_uid(self):
+    def _spark_index_file_uid(self) -> str:
+        """
+        Cached property that returns the uuid for the index file name.
+        The unique name is needed to store the index file in `SparkFiles` without conflicts with other index files.
+        """
         return uuid.uuid4().hex[-12:]
 
     @property
     @abstractmethod
     def _use_ann(self) -> bool:
+        """
+        Property that determines whether the ANN (index) is used.
+        """
         ...
 
     @abstractmethod
