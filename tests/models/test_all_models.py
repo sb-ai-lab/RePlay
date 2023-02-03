@@ -125,13 +125,13 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
         "random_rec",
     ],
 )
-def test_predict_pairs_warm_items_only(log, log_to_pred, model):
+def test_predict_pairs_k(log, model):
     model.fit(log)
 
     pairs_pred_k = model.predict_pairs(
         pairs=log.select("user_idx", "item_idx"),
         log=log,
-        k=2,
+        k=1,
     )
 
     pairs_pred = model.predict_pairs(
@@ -140,8 +140,21 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
         k=None,
     )
 
-    assert pairs_pred_k.groupBy("user_idx").count().filter(f"count > 2").count() == 0
-    assert pairs_pred.groupBy("user_idx").count().filter(f"count > 2").count() != 0
+    assert (
+        pairs_pred_k.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        == 0
+    )
+
+    assert (
+        pairs_pred.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        > 0
+    )
 
 
 @pytest.mark.parametrize(
@@ -239,27 +252,20 @@ def test_get_nearest_items(log, model, metric):
     )
 
 
-def test_nearest_items_raises(log):
-    model = PopRec()
+@pytest.mark.parametrize("metric", ["absent", None])
+def test_nearest_items_raises(log, metric):
+    model = AssociationRulesItemRec()
     model.fit(log.filter(sf.col("item_idx") != 3))
     with pytest.raises(
-        ValueError, match=r"Distance metric is required to get nearest items.*"
+        ValueError, match=r"Select one of the valid distance metrics.*"
     ):
-        model.get_nearest_items(items=[0, 1], k=2, metric=None)
-
+        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
+    model = ALSWrap()
+    model.fit(log)
     with pytest.raises(
-        ValueError,
-        match=r"Use models with attribute 'can_predict_item_to_item' set to True.*",
+        ValueError, match=r"Select one of the valid distance metrics.*"
     ):
-        model.get_nearest_items(items=[0, 1], k=2, metric="cosine_similarity")
-
-        with pytest.raises(
-            ValueError,
-            match=r"Use models with attribute 'can_predict_item_to_item' set to True.*",
-        ):
-            model.get_nearest_items(
-                items=[0, 1], k=2, metric="cosine_similarity"
-            )
+        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
 
 
 def test_filter_seen(log):
