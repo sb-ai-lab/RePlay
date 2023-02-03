@@ -109,7 +109,7 @@ class SparkUserRec(SparkBaseRec, SparkUserRecParams):
 
     def _do_fit(self, log: DataFrame, user_features: DataFrame):
         model = cast(UserRecommender, self._model.copy())
-        model.fit(log, user_features=self._user_features)
+        model.fit(log, user_features=user_features)
         return SparkUserRecModel(
             model,
             self._user_features,
@@ -118,12 +118,3 @@ class SparkUserRec(SparkBaseRec, SparkUserRecParams):
 
     def _fit(self, log: DataFrame):
         return self._do_fit(log, user_features=self._user_features)
-
-    # TODO: fix this warning
-    @overload
-    def fit(
-            self,
-            log: DataFrame,
-            user_features: DataFrame,
-    ) -> Model:
-        return self._do_fit(log, user_features)

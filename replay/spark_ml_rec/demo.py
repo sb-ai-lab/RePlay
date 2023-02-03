@@ -13,6 +13,16 @@ from replay.spark_ml_rec.splitter import SparkTrainTestSplitterAndEvaluator
 from replay.splitters import UserSplitter, DateSplitter
 from replay.utils import convert2spark
 
+HNSWLIB_PARAMS = {
+    "space": "ip",
+    "M": 100,
+    "efS": 2000,
+    "efC": 2000,
+    "post": 0,
+    "index_path": "/tmp/hnswlib_index_{spark_app_id}",
+    "build_index_on": "executor"
+}
+
 spark = get_spark_session()
 
 ds = MovieLens('100k')
@@ -30,8 +40,8 @@ pipe = Pipeline(stages=[
         splitter=UserSplitter(item_test_size=0.2, shuffle=True, drop_cold_users=True, drop_cold_items=True, seed=42),
         models=[
             SparkRec(model=PopRec()),
-            SparkRec(model=Word2VecRec()),
-            # SparkRec(model=ALSWrap()),
+            # SparkRec(model=Word2VecRec()),
+            # SparkRec(model=ALSWrap(hnswlib_params=HNSWLIB_PARAMS)),
             # SparkUserRec(model=ClusterRec(), user_features=user_features, transient_user_features=True)
         ]
     )
