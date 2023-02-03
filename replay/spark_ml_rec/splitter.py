@@ -1,11 +1,11 @@
 import logging
 import pprint
-from typing import List, Sequence, Optional
+from typing import List, Sequence, Optional, Union
 
-from pyspark.ml import Estimator, Transformer, PipelineModel
+from pyspark.ml import Estimator, Transformer, PipelineModel, Pipeline
 from pyspark.sql.dataframe import DataFrame
 
-from replay.data_preparator import JoinBasedIndexerEstimator
+from replay.data_preparator import JoinBasedIndexerEstimator, JoinBasedIndexerTransformer
 from replay.experiment import Experiment
 from replay.metrics import MAP, NDCG, HitRate
 from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModelParams, SparkUserItemFeaturesModelParams
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class SparkTrainTestSplitterAndEvaluator(Estimator, SparkBaseRecModelParams):
     def __init__(self,
-                 indexer: JoinBasedIndexerEstimator,
+                 indexer: Union[JoinBasedIndexerEstimator, JoinBasedIndexerTransformer],
                  splitter: Splitter,
                  models: List[SparkBaseRec],
                  bucketize: bool = True,
@@ -38,8 +38,7 @@ class SparkTrainTestSplitterAndEvaluator(Estimator, SparkBaseRecModelParams):
         self._item_features = item_features
 
     def _fit(self, log: DataFrame) -> Transformer:
-
-        indexer = self._indexer.fit(log)
+        indexer = Pipeline(stages=[self._indexer]).fit(log)
         log = indexer.transform(log)
 
         user_features = indexer.transform(self._user_features) if self._user_features is not None else None
@@ -94,5 +93,5 @@ class SparkTrainTestSplitterAndEvaluator(Estimator, SparkBaseRecModelParams):
                 model_name, "HitRate@{}".format(k)
             ]
 
-        print("Metrics: ")
+        print(f"Metrics for {model_name}: ")
         pprint.pprint(metrics)

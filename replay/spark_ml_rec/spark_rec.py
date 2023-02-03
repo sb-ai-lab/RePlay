@@ -1,4 +1,4 @@
-from typing import Optional, Union, Iterable, cast, Tuple
+from typing import Optional, Union, Iterable, Tuple
 
 from pyspark.ml.param import Param, Params
 from pyspark.sql import DataFrame
@@ -8,8 +8,7 @@ from replay.models.base_rec import BaseRecommender
 from replay.spark_ml_rec.spark_base_rec import (
     SparkBaseRecModel,
     SparkBaseRec,
-    SparkBaseRecModelParams,
-    ParamMap
+    SparkBaseRecModelParams
 )
 
 
