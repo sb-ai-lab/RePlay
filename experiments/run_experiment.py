@@ -38,7 +38,6 @@ All params:
         ItemKNN
         ItemKNN_NMSLIB_HNSW
         ClusterRec
-        ClusterRec_HNSWLIB
         RandomRec_uniform
         RandomRec_popular_based
         RandomRec_relevance

@@ -6,16 +6,19 @@ Contains classes for data preparation and categorical features transformation.
 ``ToNumericFeatureTransformer`` leaves only numerical features
 by one-hot encoding of some features and deleting the others.
 """
+import json
 import logging
 import string
-import json
-from typing import Dict, List, Optional
+from functools import singledispatchmethod
 from os.path import join
+from typing import Dict, List, Optional, overload, Any
 
-from pyspark.ml.feature import StringIndexerModel, IndexToString, StringIndexer
-from pyspark.ml.util import MLWriter, MLWritable, MLReader, MLReadable
 from pyspark.ml import Transformer, Estimator
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.ml.feature import StringIndexerModel, IndexToString, StringIndexer
+from pyspark.ml.param import Param, Params
+from pyspark.ml.util import MLWriter, MLWritable, MLReader, MLReadable, DefaultParamsWriter, DefaultParamsReader
+from pyspark.sql import DataFrame
+from pyspark.sql import SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.types import DoubleType, NumericType
 
@@ -190,18 +193,20 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
             inv_indexer.setLabels(new_labels)
 
 
-class JoinIndexerMLWriter(MLWriter):
+# We need to inherit it from DefaultParamsWriter to make it being saved correctly within Pipeline
+class JoinIndexerMLWriter(DefaultParamsWriter):
     """Implements saving the JoinIndexerTransformer instance to disk.
     Used when saving a trained pipeline.
     Implements MLWriter.saveImpl(path) method.
     """
 
     def __init__(self, instance):
-        super().__init__()
+        super().__init__(instance)
         self.instance = instance
 
     def saveImpl(self, path: str) -> None:
-        print(f"Saving {type(self.instance).__name__} to '{path}'")
+        super().saveImpl(path)
+        # print(f"Saving {type(self.instance).__name__} to '{path}'")
 
         spark = SparkSession.getActiveSession()
 
@@ -217,7 +222,6 @@ class JoinIndexerMLWriter(MLWriter):
 class JoinIndexerMLReader(MLReader):
     def load(self, path):
         """Load the ML instance from the input path."""
-
         spark = SparkSession.getActiveSession()
         args = spark.read.json(join(path, "init_args.json")).first().asDict(recursive=True)
         user_col_2_index_map = spark.read.parquet(join(path, "user_col_2_index_map.parquet"))
@@ -248,6 +252,7 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
             update_map_on_transform: bool = False,
             force_broadcast_on_mapping_joins: bool = True
     ):
+        super().__init__()
         self.user_col = user_col
         self.item_col = item_col
         self.user_type = user_type
@@ -365,7 +370,6 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
 
 
 class JoinBasedIndexerEstimator(Estimator):
-
     def __init__(self, user_col="user_id", item_col="item_id"):
         """
         Provide column names for indexer to use
@@ -414,7 +418,17 @@ class JoinBasedIndexerEstimator(Estimator):
         )
 
 
-class DataPreparator:
+class DataPreparatorWriter(DefaultParamsWriter):
+    def __init__(self, instance: 'DataPreparator'):
+        super().__init__(instance)
+
+
+class DataPreparatorReader(DefaultParamsReader):
+    def __init__(self, cls):
+        super().__init__(cls)
+
+
+class DataPreparator(Transformer, MLWritable, MLReadable):
     """Transforms data to a library format:
         - read as a spark dataframe/ convert pandas dataframe to spark
         - check for nulls
@@ -474,8 +488,26 @@ class DataPreparator:
     <BLANKLINE>
 
     """
+    columnsMapping = Param(Params._dummy(), "columnsMapping", "columns mapping")
 
     _logger: Optional[logging.Logger] = None
+
+    def __init__(self, columns_mapping: Optional[Dict[str, str]] = None):
+        super().__init__()
+        self.setColumnsMapping(columns_mapping)
+
+    def getColumnsMapping(self):
+        return self.getOrDefault(self.columnsMapping)
+
+    def setColumnsMapping(self, value):
+        self.set(self.columnsMapping, value)
+
+    def write(self) -> MLWriter:
+        return DataPreparatorWriter(self)
+
+    @classmethod
+    def read(cls) -> MLReader:
+        return DataPreparatorReader(cls)
 
     @property
     def logger(self) -> logging.Logger:
@@ -625,10 +657,74 @@ class DataPreparator:
                 df = df.withColumnRenamed(in_col, out_col)
         return df
 
+    @overload
+    def transform(self, dataset: DataFrame, params: Optional[Dict[Param, Any]] = None):
+        """
+            :param dataset: DataFrame to process
+            :param params: A dict with settings to be applied for dataset processing
+            :return: processed DataFrame
+        """
+        ...
+
+    # noinspection PyMethodOverriding
+    @overload
+    def transform(self,
+                  columns_mapping: Dict[str, str],
+                  data: Optional[AnyDataFrame],
+                  path: Optional[str],
+                  format_type: Optional[str],
+                  date_format: Optional[str],
+                  reader_kwargs: Optional[Dict]) -> DataFrame:
+        """
+            :param columns_mapping: dictionary mapping "key: column name in input DataFrame".
+                Possible keys: ``[user_id, user_id, timestamp, relevance]``
+                ``columns_mapping`` values specifies the nature of the DataFrame:
+                - if both ``[user_id, item_id]`` are present,
+                  then the dataframe is a log of interactions.
+                  Specify ``timestamp, relevance`` columns in mapping if present.
+                - if ether ``user_id`` or ``item_id`` is present,
+                  then the dataframe is a dataframe of user/item features
+
+            :param data: DataFrame to process
+            :param path: path to data
+            :param format_type: file type, one of ``[csv , parquet , json , table]``
+            :param date_format: format for the ``timestamp`` column
+            :param reader_kwargs: extra arguments passed to
+                ``spark.read.<format>(path, **reader_kwargs)``
+            :return: processed DataFrame
+        """
+        ...
+
+    def transform(self, *args, **kwargs):
+        """
+                   Transforms log, user or item features into a Spark DataFrame
+                   ``[user_id, user_id, timestamp, relevance]``,
+                   ``[user_id, *features]``, or  ``[item_id, *features]``.
+                   Input is either file of ``format_type``
+                   at ``path``, or ``pandas.DataFrame`` or ``spark.DataFrame``.
+                   Transform performs:
+                   - dataframe reading/convert to spark DataFrame format
+                   - check dataframe (nulls, columns_mapping)
+                   - rename columns from mapping to standard names (user_id, user_id, timestamp, relevance)
+                   - for interactions log: create absent columns,
+                   convert ``timestamp`` column to TimestampType and ``relevance`` to DoubleType
+
+
+               """
+        return self._do_transform(*args, **kwargs)
+
+    @singledispatchmethod
+    def _do_transform(self, dataset: DataFrame, params: Optional[Dict[Param, Any]] = None):
+        return super().transform(dataset, params)
+
+    def _transform(self, dataset):
+        return self.transform(self.getColumnsMapping(), data=dataset)
+
     # pylint: disable=too-many-arguments
-    def transform(
+    @_do_transform.register
+    def _(
         self,
-        columns_mapping: Dict[str, str],
+        columns_mapping: dict, #Dict[str, str],
         data: Optional[AnyDataFrame] = None,
         path: Optional[str] = None,
         format_type: Optional[str] = None,

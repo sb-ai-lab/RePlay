@@ -18,7 +18,7 @@ import joblib
 import os
 import logging
 from abc import ABC, abstractmethod
-from copy import deepcopy
+from copy import deepcopy, copy
 from os.path import join
 from typing import (
     Any,
@@ -29,7 +29,7 @@ from typing import (
     Union,
     Sequence,
     Set,
-    Tuple,
+    Tuple, TypeVar,
 )
 
 import numpy as np
@@ -77,6 +77,9 @@ class BaseRecommender(ABC):
     _user_dim_size: int
     _item_dim_size: int
     cached_dfs: Optional[Set] = None
+
+    def copy(self):
+        return copy(self)
 
     # pylint: disable=too-many-arguments, too-many-locals, no-member
     def optimize(
