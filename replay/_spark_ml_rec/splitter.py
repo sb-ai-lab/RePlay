@@ -8,8 +8,8 @@ from pyspark.sql.dataframe import DataFrame
 from replay.data_preparator import JoinBasedIndexerEstimator, JoinBasedIndexerTransformer
 from replay.experiment import Experiment
 from replay.metrics import MAP, NDCG, HitRate
-from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModelParams, SparkUserItemFeaturesModelParams
-from replay.spark_ml_rec.spark_rec import SparkRecModel
+from replay._spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModelParams, SparkUserItemFeaturesModelParams
+from replay._spark_ml_rec.spark_rec import SparkRecModel
 from replay.splitters import Splitter
 
 logger = logging.getLogger(__name__)

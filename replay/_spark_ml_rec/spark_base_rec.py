@@ -11,7 +11,7 @@ from pyspark.sql import DataFrame
 from replay.model_handler import save, load
 from replay.models.base_rec import BaseRecommender
 from replay.session_handler import State
-from replay.spark_ml_rec.writer_reader import DataframeAwareDefaultParamsWriter
+from replay._spark_ml_rec.writer_reader import DataframeAwareDefaultParamsWriter
 
 ParamMap = Dict[str, Any]
 

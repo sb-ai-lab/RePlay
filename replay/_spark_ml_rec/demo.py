@@ -7,11 +7,11 @@ from rs_datasets import MovieLens
 from replay.data_preparator import DataPreparator, JoinBasedIndexerEstimator
 from replay.models import ClusterRec, PopRec
 from replay.session_handler import get_spark_session
-from replay.spark_ml_rec.spark_base_rec import SparkUserItemFeaturesModelParams, \
+from replay._spark_ml_rec.spark_base_rec import SparkUserItemFeaturesModelParams, \
     SparkBaseRecModel
-from replay.spark_ml_rec.spark_rec import SparkRec
-from replay.spark_ml_rec.spark_user_rec import SparkUserRec
-from replay.spark_ml_rec.splitter import SparkTrainTestSplitterAndEvaluator
+from replay._spark_ml_rec.spark_rec import SparkRec
+from replay._spark_ml_rec.spark_user_rec import SparkUserRec
+from replay._spark_ml_rec.splitter import SparkTrainTestSplitterAndEvaluator
 from replay.splitters import UserSplitter
 from replay.utils import convert2spark
 

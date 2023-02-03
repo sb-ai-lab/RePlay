@@ -3,7 +3,7 @@ from typing import cast, Optional, Union, Iterable
 from pyspark.sql import DataFrame
 
 from replay.models.base_rec import UserRecommender, BaseRecommender
-from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModel, SparkUserItemFeaturesModelParams
+from replay._spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModel, SparkUserItemFeaturesModelParams
 
 
 class SparkUserRecModel(SparkBaseRecModel, SparkUserItemFeaturesModelParams):

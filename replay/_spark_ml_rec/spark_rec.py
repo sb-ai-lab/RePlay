@@ -5,7 +5,7 @@ from pyspark.sql import DataFrame
 
 from replay.models import Recommender
 from replay.models.base_rec import BaseRecommender
-from replay.spark_ml_rec.spark_base_rec import (
+from replay._spark_ml_rec.spark_base_rec import (
     SparkBaseRecModel,
     SparkBaseRec,
     SparkBaseRecModelParams
