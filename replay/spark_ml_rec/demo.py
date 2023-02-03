@@ -53,25 +53,21 @@ user_features.count()
 
 log_train, log_test = DateSplitter(test_start=0.2).split(log.withColumnRenamed("rating", "relevance"))
 
-pipe = Pipeline(stages=[
-    DataPreparator(columns_mapping={"user_id": "user_id", "item_id": "item_id", "relevance": "relevance"}),
-    SparkTrainTestSplitterAndEvaluator(
-        indexer=JoinBasedIndexerEstimator(user_col="user_id", item_col="item_id"),
-        splitter=UserSplitter(item_test_size=0.2, shuffle=True, drop_cold_users=True, drop_cold_items=True, seed=42),
-        models=[
-            # SparkRec(model=PopRec()),
-            # SparkRec(model=Word2VecRec()),
-            # SparkRec(model=ALSWrap(hnswlib_params=HNSWLIB_PARAMS)),
-            SparkUserRec(model=ClusterRec(), transient_user_features=True)
-        ],
-        metrics_k=METRICS_K,
-        user_features=user_features
-    )
-])
+dp = DataPreparator(columns_mapping={"user_id": "user_id", "item_id": "item_id", "relevance": "relevance"})
+ttsplitter = SparkTrainTestSplitterAndEvaluator(
+    indexer=JoinBasedIndexerEstimator(user_col="user_id", item_col="item_id"),
+    splitter=UserSplitter(item_test_size=0.2, shuffle=True, drop_cold_users=True, drop_cold_items=True, seed=42),
+    models=[
+        # SparkRec(model=PopRec()),
+        # SparkRec(model=Word2VecRec()),
+        # SparkRec(model=ALSWrap(hnswlib_params=HNSWLIB_PARAMS)),
+        SparkUserRec(model=ClusterRec(), transient_user_features=True)
+    ],
+    metrics_k=METRICS_K,
+    user_features=user_features
+)
 
-model: PipelineModel = pipe.fit(log_train)
-
-# TODO: extract final params and extract study from optimize
+model = Pipeline(stages=[dp, ttsplitter]).fit(log_train)
 
 rec_model_path = "/tmp/rec_pipe"
 model.write().overwrite().save(rec_model_path)
