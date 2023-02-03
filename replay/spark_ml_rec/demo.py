@@ -10,9 +10,9 @@ from replay.experiment import Experiment
 from replay.metrics import MAP, NDCG, HitRate
 from replay.models import Word2VecRec, ALSWrap, ClusterRec, PopRec
 from replay.session_handler import get_spark_session
-from replay.spark_ml_rec.spark_base_rec import SparkBaseRecModelParams
+from replay.spark_ml_rec.spark_base_rec import SparkBaseRecModelParams, SparkUserItemFeaturesModelParams
 from replay.spark_ml_rec.spark_rec import SparkRec
-from replay.spark_ml_rec.spark_user_rec import SparkUserRec, SparkUserRecModelParams
+from replay.spark_ml_rec.spark_user_rec import SparkUserRec
 from replay.spark_ml_rec.splitter import SparkTrainTestSplitterAndEvaluator
 from replay.splitters import UserSplitter, DateSplitter
 from replay.utils import convert2spark
@@ -40,16 +40,17 @@ log_train, log_test = DateSplitter(test_start=0.2).split(log.withColumnRenamed("
 
 pipe = Pipeline(stages=[
     DataPreparator(columns_mapping={"user_id": "user_id", "item_id": "item_id", "relevance": "relevance"}),
-    JoinBasedIndexerEstimator(user_col="user_id", item_col="item_id"),
     SparkTrainTestSplitterAndEvaluator(
+        indexer=JoinBasedIndexerEstimator(user_col="user_id", item_col="item_id"),
         splitter=UserSplitter(item_test_size=0.2, shuffle=True, drop_cold_users=True, drop_cold_items=True, seed=42),
         models=[
-            SparkRec(model=PopRec()),
+            # SparkRec(model=PopRec()),
             # SparkRec(model=Word2VecRec()),
             # SparkRec(model=ALSWrap(hnswlib_params=HNSWLIB_PARAMS)),
-            # SparkUserRec(model=ClusterRec(), user_features=user_features, transient_user_features=True)
+            SparkUserRec(model=ClusterRec(), user_features=user_features, transient_user_features=True)
         ],
-        metrics_k=METRICS_K
+        metrics_k=METRICS_K,
+
     )
 ])
 
@@ -61,8 +62,8 @@ rec_model_path = "/tmp/rec_pipe"
 model.write().overwrite().save(rec_model_path)
 rec_model = PipelineModel.load(rec_model_path)
 
-recs = rec_model.transform(log_test, params={
-    SparkUserRecModelParams.userFeatures: user_features,
+recs = rec_model.transform(log_train, params={
+    SparkUserItemFeaturesModelParams.userFeatures: user_features,
     SparkBaseRecModelParams.numRecommendations: 100,
     SparkBaseRecModelParams.filterSeenItems: True
 })

@@ -195,3 +195,55 @@ class SparkBaseRecModel(Model, SparkBaseRecModelParams, SparkBaseRecModelReadabl
 
 class SparkBaseRec(Estimator, SparkBaseRecParams, ABC):
     ...
+
+
+class SparkUserItemFeaturesModelParams(Params):
+    transientUserFeatures = Param(
+        Params._dummy(),
+        "transientUserFeatures",
+        "whatever or not to save the dataframe with user features",
+        typeConverter=TypeConverters.toBoolean
+    )
+
+    userFeatures = Param(
+        Params._dummy(),
+        "userFeatures",
+        "a dataframe containing user features"
+    )
+
+    transientItemFeatures = Param(
+        Params._dummy(),
+        "transientItemFeatures",
+        "whatever or not to save the dataframe with user features",
+        typeConverter=TypeConverters.toBoolean
+    )
+
+    itemFeatures = Param(
+        Params._dummy(),
+        "itemFeatures",
+        "a dataframe containing user features"
+    )
+
+    def getTransientUserFeatures(self) -> bool:
+        return self.getOrDefault(self.transientUserFeatures)
+
+    def setTransientUserFeatures(self, value: bool):
+        self.set(self.transientUserFeatures, value)
+
+    def getTransientItemFeatures(self) -> bool:
+        return self.getOrDefault(self.transientItemFeatures)
+
+    def setTransientItemFeatures(self, value: bool):
+        self.set(self.transientItemFeatures, value)
+
+    def getUserFeatures(self) -> DataFrame:
+        return self.getOrDefault(self.userFeatures)
+
+    def setUserFeatures(self, value: DataFrame):
+        self.set(self.userFeatures, value)
+
+    def getItemFeatures(self) -> DataFrame:
+        return self.getOrDefault(self.itemFeatures)
+
+    def setItemFeatures(self, value: DataFrame):
+        self.set(self.itemFeatures, value)

@@ -1,45 +1,12 @@
-from typing import overload, cast, Optional, Union, Iterable
+from typing import cast, Optional, Union, Iterable
 
-from pyspark.ml import Model
-from pyspark.ml.param import Param, Params, TypeConverters
 from pyspark.sql import DataFrame
 
 from replay.models.base_rec import UserRecommender, BaseRecommender
-from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModel
+from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModel, SparkUserItemFeaturesModelParams
 
 
-class SparkUserRecModelParams(Params):
-    transientUserFeatures = Param(
-        Params._dummy(),
-        "transientUserFeatures",
-        "whatever or not to save the dataframe with user features",
-        typeConverter=TypeConverters.toBoolean
-    )
-
-    userFeatures = Param(
-        Params._dummy(),
-        "userFeatures",
-        "a dataframe containing user features"
-    )
-
-    def getTransientUserFeatures(self) -> bool:
-        return self.getOrDefault(self.transientUserFeatures)
-
-    def setTransientUserFeatures(self, value: bool):
-        return self.set(self.transientUserFeatures, value)
-
-    def getUserFeatures(self) -> DataFrame:
-        return self.getOrDefault(self.userFeatures)
-
-    def setUserFeatures(self, value: DataFrame):
-        self.set(self.userFeatures, value)
-
-
-class SparkUserRecParams(SparkUserRecModelParams):
-    pass
-
-
-class SparkUserRecModel(SparkBaseRecModel, SparkUserRecParams):
+class SparkUserRecModel(SparkBaseRecModel, SparkUserItemFeaturesModelParams):
     # TODO: custom reader and writer required
     def __init__(self,
                  model: Optional[UserRecommender] = None,
@@ -100,11 +67,14 @@ class SparkUserRecModel(SparkBaseRecModel, SparkUserRecParams):
         return self._model.predict_pairs(pairs, user_features, log, recs_file_path)
 
 
-class SparkUserRec(SparkBaseRec, SparkUserRecParams):
-    def __init__(self, model: UserRecommender, user_features: DataFrame, transient_user_features: bool = False):
+class SparkUserRec(SparkBaseRec, SparkUserItemFeaturesModelParams):
+    def __init__(self,
+                 model: Optional[UserRecommender] = None,
+                 user_features: Optional[DataFrame] = None,
+                 transient_user_features: bool = False):
         super().__init__()
         self._model = model
-        self._user_features = user_features
+        self.setUserFeatures(user_features)
         self.setTransientUserFeatures(transient_user_features)
 
     def _do_fit(self, log: DataFrame, user_features: DataFrame):
@@ -117,4 +87,6 @@ class SparkUserRec(SparkBaseRec, SparkUserRecParams):
         )
 
     def _fit(self, log: DataFrame):
-        return self._do_fit(log, user_features=self._user_features)
+        if self.getUserFeatures() is None:
+            raise ValueError("userFeatures must be set")
+        return self._do_fit(log, user_features=self.getUserFeatures())

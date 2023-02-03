@@ -1,14 +1,15 @@
 import logging
 import pprint
-from typing import List, cast, Sequence
+from typing import List, cast, Sequence, Optional
 
-from pyspark.ml import Estimator, Transformer
+from pyspark.ml import Estimator, Transformer, Pipeline
 from pyspark.sql.dataframe import DataFrame
 
+from replay.data_preparator import JoinBasedIndexerEstimator
 from replay.experiment import Experiment
 from replay.metrics import MAP, NDCG, HitRate
 from replay.models import Recommender
-from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModelParams
+from replay.spark_ml_rec.spark_base_rec import SparkBaseRec, SparkBaseRecModelParams, SparkUserItemFeaturesModelParams
 from replay.spark_ml_rec.spark_rec import SparkRecModel
 from replay.splitters import Splitter
 
@@ -18,21 +19,33 @@ logger = logging.getLogger(__name__)
 
 class SparkTrainTestSplitterAndEvaluator(Estimator, SparkBaseRecModelParams):
     def __init__(self,
+                 indexer: JoinBasedIndexerEstimator,
                  splitter: Splitter,
                  models: List[SparkBaseRec],
                  bucketize: bool = True,
                  metrics_k: Sequence[int] = (5, 10, 25),
                  choose_best_by_metric: str = "NDCG",
-                 choose_best_by_metric_k: int = 10):
+                 choose_best_by_metric_k: int = 10,
+                 user_features: Optional[DataFrame] = None,
+                 item_features: Optional[DataFrame] = None):
         super().__init__()
+        self._indexer = indexer
         self._splitter = splitter
         self._models = models
         self._bucketize = bucketize
         self._choose_best_by_metric = choose_best_by_metric
         self._choose_best_by_metric_k = choose_best_by_metric_k
         self._metrics_k = metrics_k
+        self._user_features = user_features
+        self._item_features = item_features
 
     def _fit(self, log: DataFrame) -> Transformer:
+        indexer = self._indexer.fit(log)
+        log = indexer.transform(log)
+
+        user_features = indexer.transform(self._user_features) if self._user_features is not None else None
+        item_features = indexer.transform(self._item_features) if self._item_features is not None else None
+
         train, test = self._splitter.split(log)
 
         e = Experiment(
@@ -46,7 +59,13 @@ class SparkTrainTestSplitterAndEvaluator(Estimator, SparkBaseRecModelParams):
 
         self._rec_models = dict()
         for model in self._models:
-            rec_model: SparkRecModel = model.fit(train)
+            rec_model: SparkRecModel = model.fit(
+                train,
+                {
+                    SparkUserItemFeaturesModelParams.userFeatures: user_features,
+                    SparkUserItemFeaturesModelParams.itemFeatures: item_features
+                }
+            )
             # single interface with many parameters
             # the wrappers decide for themselves what to call
             recs = rec_model.transform(train, params={
@@ -58,7 +77,10 @@ class SparkTrainTestSplitterAndEvaluator(Estimator, SparkBaseRecModelParams):
             self._rec_models[rec_model.name] = rec_model
             self._log_metrics(rec_model.name, e)
 
-        return self._rec_models[e.best_result(metric=self._choose_best_by_metric, k=self._choose_best_by_metric_k)]
+        return Pipeline(stages=[
+            indexer,
+            self._rec_models[e.best_result(metric=self._choose_best_by_metric, k=self._choose_best_by_metric_k)]
+        ])
 
     def _log_metrics(self, model_name: str, e: Experiment):
         metrics = dict()
