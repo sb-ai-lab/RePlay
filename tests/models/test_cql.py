@@ -1,6 +1,6 @@
 # pylint: disable-all
 import numpy as np
-import pytest
+from pytest import approx
 from pyspark.sql import DataFrame
 
 from replay.constants import LOG_SCHEMA
@@ -13,7 +13,7 @@ def test_data_preparation(log: DataFrame):
     model = CQL(top_k=1, n_epochs=1, action_randomization_scale=1e-9)
     mdp_dataset = model._prepare_mdp_dataset(log)
 
-    # consider only users [0, 1] as the rest has non-deterministic log order
+    # we test only users {0, 1} as for the rest log has non-deterministic order (see log dates)
     gt_observations = np.array([
         [0, 0], [0, 2], [0, 1],
         [1, 3], [1, 0],
@@ -31,49 +31,60 @@ def test_data_preparation(log: DataFrame):
         0, 1,
     ])
     n = 5
-    assert np.array_equal(mdp_dataset.observations[:n], gt_observations)
-    # takes into account action randomization noise
-    assert np.all(np.abs(mdp_dataset.actions[:n].flatten() - gt_actions) < 1e-2)
-    assert np.array_equal(mdp_dataset.rewards[:n], gt_rewards)
-    assert np.array_equal(mdp_dataset.terminals[:n], gt_terminals)
+
+    # as we do not guarantee and require that MDP preparation should keep ints as ints
+    # and keeps floats exactly the same, we use approx for all equality checks
+    assert mdp_dataset.observations[:n] == approx(gt_observations)
+    # larger approx to take into account action randomization noise added to the MDP actions
+    assert mdp_dataset.actions[:n].flatten() == approx(gt_actions, abs=1e-2)
+    assert mdp_dataset.rewards[:n] == approx(gt_rewards)
+    assert mdp_dataset.terminals[:n] == approx(gt_terminals)
 
 
-def test_works_predict(log: DataFrame):
-    """Test fit/predict works, and that the model correctly filters out seen items."""
+def test_predict_filters_out_seen_items(log: DataFrame):
+    """Test that fit/predict works, and that the model correctly filters out seen items."""
     model = CQL(top_k=1, n_epochs=1)
     model.fit(log)
     recs = model.predict(log, k=1).toPandas()
+
+    # for asserted users we know which items are not in the training set,
+    # so check that one of them is recommended
     assert recs.loc[recs["user_idx"] == 0, "item_idx"].iloc[0] == 3
     assert recs.loc[recs["user_idx"] == 1, "item_idx"].iloc[0] in [1, 2]
     assert recs.loc[recs["user_idx"] == 2, "item_idx"].iloc[0] == 3
 
 
-def test_works_predict_pairs(log: DataFrame):
-    """Test fit/predict_pairs works, and that the model outputs correct number of items."""
+def test_recommend_correct_number_of_items(log: DataFrame):
+    """Test that fit/predict_pairs works, and that the model outputs correct number of items."""
     top_k = 3
     model = CQL(top_k=top_k, n_epochs=1)
     model.fit(log)
-    user_item_pairs = log.select("user_idx", "item_idx")
-    recs = model.predict_pairs(user_item_pairs, log, k=top_k).toPandas()
+
+    train_user_item_pairs = log.select("user_idx", "item_idx")
+    recs = model.predict_pairs(train_user_item_pairs, log, k=top_k).toPandas()
+
+    # we know how many items are in the training set for each user, just check this number
     assert np.count_nonzero(recs["user_idx"] == 0) == 3
     assert np.count_nonzero(recs["user_idx"] == 1) == 2
     assert np.count_nonzero(recs["user_idx"] == 2) == 3
 
 
 def test_serialize_deserialize_policy(log: DataFrame):
-    """Test that serializing and deserializing the policy does not change predictions."""
+    """Test that serializing and deserializing the policy does not change relevance predictions."""
     model = CQL(top_k=1, n_epochs=1)
     model.fit(log)
 
-    items_batch = np.array([
-        [0, 0], [0, 2], [0, 1],
-        [1, 3], [1, 0],
+    # arbitrary batch of user-item pairs as we test exact relevance for each one
+    user_item_batch = np.array([
+        [0, 0], [0, 1], [0, 2], [0, 3],
+        [1, 0], [1, 1], [1, 2], [1, 3],
     ])
 
     # predict user-item relevance with the original model
-    relevance = model.model.predict(items_batch)
+    relevance = model.model.predict(user_item_batch)
 
     # predict user-item relevance with the serialized-then-restored policy
     restored_policy = model._deserialize_policy(model._serialize_policy())
-    restored_relevance = model._predict_relevance_with_policy(restored_policy, items_batch)
-    assert relevance == pytest.approx(restored_relevance, abs=1e-5)
+    restored_relevance = model._predict_relevance_with_policy(restored_policy, user_item_batch)
+
+    assert restored_relevance == approx(relevance)
