@@ -156,6 +156,7 @@ def test_predict_pairs_k(log, model):
         > 0
     )
 
+
 @pytest.mark.parametrize(
     "model",
     [
