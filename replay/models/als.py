@@ -85,8 +85,6 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         self._num_user_blocks = num_user_blocks
         self._hnswlib_params = hnswlib_params
 
-        HnswlibMixin.__init__(self)
-
     @property
     def _init_args(self):
         return {

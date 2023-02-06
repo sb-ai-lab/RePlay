@@ -100,6 +100,7 @@ All params:
 
 import logging
 import os
+from importlib.metadata import version
 
 import mlflow
 from pyspark.conf import SparkConf
@@ -170,6 +171,7 @@ def main(spark: SparkSession, dataset_name: str):
         params.update(
             {
                 "spark.applicationId": spark.sparkContext.applicationId,
+                "pyspark": version('pyspark'),
                 "dataset": dataset_name,
                 "seed": seed,
                 "K": k,

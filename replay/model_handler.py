@@ -1,12 +1,8 @@
 # pylint: disable=wildcard-import,invalid-name,unused-wildcard-import,unspecified-encoding
-import os
 import json
-import pickle
+import os
 import shutil
 from inspect import getfullargspec
-from collections import namedtuple
-
-import joblib
 from os.path import exists, join
 
 import pyspark.sql.types as st
@@ -17,6 +13,7 @@ from replay.models import *
 from replay.models.base_rec import BaseRecommender
 from replay.session_handler import State
 from replay.splitters import *
+from replay.utils import save_picklable_to_parquet, load_pickled_from_parquet
 
 
 def prepare_dir(path):
@@ -43,7 +40,6 @@ def save(model: BaseRecommender, path: str, overwrite: bool = False):
         is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
         if is_exists:
             raise FileExistsError(f"Path '{path}' already exists. Mode is 'overwrite = False'.")
-    # list_status = fs.listStatus(spark._jvm.org.apache.hadoop.fs.Path(path))
 
     fs.mkdirs(spark._jvm.org.apache.hadoop.fs.Path(join(path, "model")))
     model._save_model(join(path, "model"))
@@ -62,11 +58,7 @@ def save(model: BaseRecommender, path: str, overwrite: bool = False):
     model.fit_users.write.mode("overwrite").parquet(join(df_path, "fit_users"))
     model.fit_items.write.mode("overwrite").parquet(join(df_path, "fit_items"))
 
-    pickled_instance = pickle.dumps(model.study)
-    Record = namedtuple("Record", ["study"])
-    rdd = sc.parallelize([Record(pickled_instance)])
-    instance_df = rdd.map(lambda rec: Record(bytearray(rec.study))).toDF()
-    instance_df.write.mode("overwrite").parquet(join(path, "study"))
+    save_picklable_to_parquet(model.study, join(path, "study"))
 
 
 def load(path: str) -> BaseRecommender:
@@ -106,9 +98,7 @@ def load(path: str) -> BaseRecommender:
         setattr(model, attr_name, df)
 
     model._load_model(join(path, "model"))
-    df = spark.read.parquet(join(path, "study"))
-    pickled_instance = df.rdd.map(lambda row: bytes(row.study)).first()
-    model.study = pickle.loads(pickled_instance)
+    model.study = load_pickled_from_parquet(join(path, "study"))
 
     return model
 

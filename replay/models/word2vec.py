@@ -103,9 +103,6 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         self._num_partitions = num_partitions
         self._hnswlib_params = hnswlib_params
 
-        if self._hnswlib_params:
-            HnswlibMixin.__init__(self)
-
     @property
     def _init_args(self):
         return {
