@@ -62,7 +62,6 @@ class BaseRecommender(ABC):
     _logger: Optional[logging.Logger] = None
     can_predict_cold_users: bool = False
     can_predict_cold_items: bool = False
-    can_predict_item_to_item: bool = False
     _search_space: Optional[
         Dict[str, Union[str, Sequence[Union[str, int, float]]]]
     ] = None
@@ -848,44 +847,6 @@ class BaseRecommender(ABC):
         )
         return None, None
 
-    def get_nearest_items(
-        self,
-        items: Union[DataFrame, Iterable],
-        k: int,
-        metric: Optional[str] = "cosine_similarity",
-        candidates: Optional[Union[DataFrame, Iterable]] = None,
-    ) -> Optional[DataFrame]:
-        """
-        Get k most similar items be the `metric` for each of the `items`.
-
-        :param items: spark dataframe or list of item ids to find neighbors
-        :param k: number of neighbors
-        :param metric: 'euclidean_distance_sim', 'cosine_similarity', 'dot_product'
-        :param candidates: spark dataframe or list of items
-            to consider as similar, e.g. popular/new items. If None,
-            all items presented during model training are used.
-        :return: dataframe with the most similar items an distance,
-            where bigger value means greater similarity.
-            spark-dataframe with columns ``[item_idx, neighbour_item_idx, similarity]``
-        """
-        if metric is None:
-            raise ValueError(
-                f"Distance metric is required to get nearest items with "
-                f"{self} model"
-            )
-
-        if self.can_predict_item_to_item:
-            return self._get_nearest_items_wrap(
-                items=items,
-                k=k,
-                metric=metric,
-                candidates=candidates,
-            )
-
-        raise ValueError(
-            "Use models with attribute 'can_predict_item_to_item' set to True to get nearest items"
-        )
-
     def _get_nearest_items_wrap(
         self,
         items: Union[DataFrame, Iterable],
@@ -956,6 +917,11 @@ class ItemVectorModel(BaseRecommender):
     """Parent for models generating items' vector representations"""
 
     can_predict_item_to_item: bool = True
+    item_to_item_metrics: List[str] = [
+        "euclidean_distance_sim",
+        "cosine_similarity",
+        "dot_product",
+    ]
 
     @abstractmethod
     def _get_item_vectors(self) -> DataFrame:
@@ -963,6 +929,39 @@ class ItemVectorModel(BaseRecommender):
         Return dataframe with items' vectors as a
             spark dataframe with columns ``[item_idx, item_vector]``
         """
+
+    def get_nearest_items(
+        self,
+        items: Union[DataFrame, Iterable],
+        k: int,
+        metric: Optional[str] = "cosine_similarity",
+        candidates: Optional[Union[DataFrame, Iterable]] = None,
+    ) -> Optional[DataFrame]:
+        """
+        Get k most similar items be the `metric` for each of the `items`.
+
+        :param items: spark dataframe or list of item ids to find neighbors
+        :param k: number of neighbors
+        :param metric: 'euclidean_distance_sim', 'cosine_similarity', 'dot_product'
+        :param candidates: spark dataframe or list of items
+            to consider as similar, e.g. popular/new items. If None,
+            all items presented during model training are used.
+        :return: dataframe with the most similar items,
+            where bigger value means greater similarity.
+            spark-dataframe with columns ``[item_idx, neighbour_item_idx, similarity]``
+        """
+        if metric not in self.item_to_item_metrics:
+            raise ValueError(
+                f"Select one of the valid distance metrics: "
+                f"{self.item_to_item_metrics}"
+            )
+
+        return self._get_nearest_items_wrap(
+            items=items,
+            k=k,
+            metric=metric,
+            candidates=candidates,
+        )
 
     def _get_nearest_items(
         self,
@@ -986,11 +985,6 @@ class ItemVectorModel(BaseRecommender):
             dist_function = vector_euclidean_distance_similarity
         elif metric == "dot_product":
             dist_function = vector_dot
-        elif metric != "cosine_similarity":
-            raise NotImplementedError(
-                f"{metric} metric is not implemented, valid metrics are "
-                "'euclidean_distance_sim', 'cosine_similarity', 'dot_product'"
-            )
 
         items_vectors = self._get_item_vectors()
         left_part = (
@@ -1456,7 +1450,9 @@ class NeighbourRec(Recommender, ABC):
     @similarity_metric.setter
     def similarity_metric(self, value):
         if not self.can_change_metric:
-            raise ValueError("This class does not support changing similarity metrics")
+            raise ValueError(
+                "This class does not support changing similarity metrics"
+            )
         if value not in self.item_to_item_metrics:
             raise ValueError(
                 f"Select one of the valid metrics for predict: "
@@ -1605,7 +1601,9 @@ class NeighbourRec(Recommender, ABC):
             )
 
         return similarity_filtered.select(
-            "item_idx_one", "item_idx_two", "similarity" if metric is None else metric
+            "item_idx_one",
+            "item_idx_two",
+            "similarity" if metric is None else metric,
         )
 
 
@@ -1837,8 +1835,12 @@ class NonPersonalizedRecommender(Recommender, ABC):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-        return pairs.join(
-            self.item_popularity,
-            on="item_idx",
-            how="left" if self.add_cold_items else "inner",
-        ).fillna(value=self.fill, subset=["relevance"]).select("user_idx", "item_idx", "relevance")
+        return (
+            pairs.join(
+                self.item_popularity,
+                on="item_idx",
+                how="left" if self.add_cold_items else "inner",
+            )
+            .fillna(value=self.fill, subset=["relevance"])
+            .select("user_idx", "item_idx", "relevance")
+        )

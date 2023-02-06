@@ -69,6 +69,7 @@ class AssociationRulesItemRec(NeighbourRec):
     if you want to apply time smoothing and treat old sessions as less important.
     In this case all items in sessions should have the same relevance.
     """
+
     can_predict_item_to_item = True
     item_to_item_metrics: List[str] = ["lift", "confidence", "confidence_gain"]
     similarity: DataFrame
@@ -78,7 +79,10 @@ class AssociationRulesItemRec(NeighbourRec):
         "min_pair_count": {"type": "int", "args": [3, 10]},
         "num_neighbours": {"type": "int", "args": [300, 2000]},
         "use_relevance": {"type": "categorical", "args": [True, False]},
-        "similarity_metric": {"type": "categorical", "args": ["confidence", "lift"]},
+        "similarity_metric": {
+            "type": "categorical",
+            "args": ["confidence", "lift"],
+        },
     }
 
     # pylint: disable=too-many-arguments,
@@ -326,14 +330,9 @@ class AssociationRulesItemRec(NeighbourRec):
                 on="item_idx_two",
             )
 
-        return (
-            pairs_to_consider
-            .join(
-                sf.broadcast(
-                    items.withColumnRenamed("item_idx", "item_idx_one")
-                ),
-                on="item_idx_one",
-            )
+        return pairs_to_consider.join(
+            sf.broadcast(items.withColumnRenamed("item_idx", "item_idx_one")),
+            on="item_idx_one",
         )
 
     @property
