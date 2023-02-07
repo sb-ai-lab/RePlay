@@ -117,3 +117,11 @@ def test_sample_top_k(long_log_with_features):
         )
     )
     assert test_rel.selectExpr("any(wrong_rel)").collect()[0][0] is False
+
+
+@pytest.mark.parametrize("array", [None, [1, 2, 2, 3]])
+def test_get_unique_entities(spark, array):
+    log = spark.createDataFrame(data=[[1], [2], [3]], schema=["test"])
+    assert sorted(
+        list(utils.get_unique_entities(array or log, "test").toPandas()["test"])
+    ) == [1, 2, 3]
