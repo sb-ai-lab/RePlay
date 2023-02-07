@@ -8,7 +8,7 @@ from replay.filters import filter_by_min_count
 from replay.metrics import Metric, NDCG
 from replay.models import PopRec
 from replay.models.base_rec import BaseRecommender
-from replay.utils import fallback
+from replay.utils import fallback, get_unique_entities
 
 
 class Fallback(BaseRecommender):
@@ -94,7 +94,7 @@ class Fallback(BaseRecommender):
             ``[user_idx, item_idx, relevance]``
         """
         users = users or log or user_features or self.fit_users
-        users = self._get_ids(users, "user_idx")
+        users = get_unique_entities(users, "user_idx")
         hot_data = filter_by_min_count(log, self.threshold, "user_idx")
         hot_users = hot_data.select("user_idx").distinct()
         hot_users = hot_users.join(self.hot_users, on="user_idx")
