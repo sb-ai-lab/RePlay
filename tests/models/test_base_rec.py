@@ -40,14 +40,6 @@ def model():
     return DerivedRec()
 
 
-@pytest.mark.parametrize("array", [None, [1, 2, 2, 3]])
-def test_extract_if_needed(spark, model, array):
-    log = spark.createDataFrame(data=[[1], [2], [3]], schema=["test"])
-    assert sorted(
-        list(model._get_ids(array or log, "test").toPandas()["test"])
-    ) == [1, 2, 3]
-
-
 def test_users_count(model, log):
     with pytest.raises(AttributeError):
         model._user_dim

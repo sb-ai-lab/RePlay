@@ -59,15 +59,41 @@ class PopRec(NonPersonalizedRecommender):
 
     """
 
-    def __init__(self, use_relevance: bool = False):
+    sample: bool = False
+
+    def __init__(
+        self,
+        use_relevance: bool = False,
+        add_cold_items: bool = True,
+        cold_weight: float = 0.5,
+    ):
         """
         :param use_relevance: flag to use relevance values as is or to treat them as 1
+        :param add_cold_items: flag to consider cold items in recommendations building
+            if present in `items` parameter of `predict` method
+            or `pairs` parameter of `predict_pairs` methods.
+            If true, cold items are assigned relevance equals to the less relevant item relevance
+            multiplied by cold_weight and may appear among top-K recommendations.
+            Otherwise cold items are filtered out.
+            Could be changed after model training by setting the `add_cold_items` attribute.
+        : param cold_weight: if `add_cold_items` is True,
+            cold items are added with reduced relevance.
+            The relevance for cold items is equal to the relevance
+            of a least relevant item multiplied by a `cold_weight` value.
+            `Cold_weight` value should be in interval (0, 1].
         """
         self.use_relevance = use_relevance
+        super().__init__(
+            add_cold_items=add_cold_items, cold_weight=cold_weight
+        )
 
     @property
     def _init_args(self):
-        return {"use_relevance": self.use_relevance}
+        return {
+            "use_relevance": self.use_relevance,
+            "add_cold_items": self.add_cold_items,
+            "cold_weight": self.cold_weight,
+        }
 
     def _fit(
         self,
@@ -76,49 +102,17 @@ class PopRec(NonPersonalizedRecommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
 
+        agg_func = sf.countDistinct("user_idx").alias("relevance")
         if self.use_relevance:
-            self.item_popularity = (
-                log.groupBy("item_idx")
-                .agg(sf.sum("relevance").alias("relevance"))
-                .withColumn(
-                    "relevance", sf.col("relevance") / sf.lit(self.users_count)
-                )
-            )
-        else:
-            self.item_popularity = (
-                log.groupBy("item_idx")
-                .agg(sf.countDistinct("user_idx").alias("user_count"))
-                .select(
-                    "item_idx",
-                    (sf.col("user_count") / sf.lit(self.users_count)).alias(
-                        "relevance"
-                    ),
-                )
-            )
-        self.item_popularity.cache().count()
+            agg_func = sf.sum("relevance").alias("relevance")
 
-    # pylint: disable=too-many-arguments
-    def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> DataFrame:
-
-        return self._predict_without_sampling(
-            log, k, users, items, filter_seen_items
+        self.item_popularity = (
+            log.groupBy("item_idx")
+            .agg(agg_func)
+            .withColumn(
+                "relevance", sf.col("relevance") / sf.lit(self.users_count)
+            )
         )
 
-    def _predict_pairs(
-        self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
-
-        return pairs.join(self.item_popularity, on="item_idx", how="inner")
+        self.item_popularity.cache().count()
+        self.fill = self._calc_fill(self.item_popularity, self.cold_weight)

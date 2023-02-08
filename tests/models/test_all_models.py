@@ -16,6 +16,8 @@ from replay.models import (
     RandomRec,
     SLIM,
     MultVAE,
+    UCB,
+    Wilson,
     Word2VecRec,
     DDPG,
     AssociationRulesItemRec,
@@ -45,7 +47,6 @@ SEED = 123
         NeuroMF(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
-        PopRec(),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
@@ -57,11 +58,10 @@ SEED = 123
         "neuromf",
         "slim",
         "word2vec",
-        "poprec",
-        "association_rules"
+        "association_rules",
     ],
 )
-def test_predict_pairs_warm_only(log, log_to_pred, model):
+def test_predict_pairs_warm_items_only(log, log_to_pred, model):
     model.fit(log)
     recs = model.predict(
         log.unionByName(log_to_pred),
@@ -94,6 +94,67 @@ def test_predict_pairs_warm_only(log, log_to_pred, model):
     assert np.allclose(
         recs_joined.select("relevance").toPandas().to_numpy(),
         recs_joined.select("pairs_relevance").toPandas().to_numpy(),
+    )
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ALSWrap(seed=SEED),
+        ADMMSLIM(seed=SEED),
+        ItemKNN(),
+        LightFMWrap(random_state=SEED),
+        MultVAE(),
+        NeuroMF(),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        PopRec(),
+        RandomRec(seed=SEED),
+    ],
+    ids=[
+        "als",
+        "admm_slim",
+        "knn",
+        "lightfm",
+        "multvae",
+        "neuromf",
+        "slim",
+        "word2vec",
+        "association_rules",
+        "pop_rec",
+        "random_rec",
+    ],
+)
+def test_predict_pairs_k(log, model):
+    model.fit(log)
+
+    pairs_pred_k = model.predict_pairs(
+        pairs=log.select("user_idx", "item_idx"),
+        log=log,
+        k=1,
+    )
+
+    pairs_pred = model.predict_pairs(
+        pairs=log.select("user_idx", "item_idx"),
+        log=log,
+        k=None,
+    )
+
+    assert (
+        pairs_pred_k.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        == 0
+    )
+
+    assert (
+        pairs_pred.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        > 0
     )
 
 
@@ -139,8 +200,14 @@ def test_predict_pairs_raises_pairs_format(log):
         (ItemKNN(), None),
         (SLIM(seed=SEED), None),
         (AssociationRulesItemRec(min_item_count=1, min_pair_count=0), "lift"),
-        (AssociationRulesItemRec(min_item_count=1, min_pair_count=0), "confidence"),
-        (AssociationRulesItemRec(min_item_count=1, min_pair_count=0), "confidence_gain"),
+        (
+            AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+            "confidence",
+        ),
+        (
+            AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+            "confidence_gain",
+        ),
     ],
     ids=[
         "als_euclidean",
@@ -186,27 +253,20 @@ def test_get_nearest_items(log, model, metric):
     )
 
 
-def test_nearest_items_raises(log):
-    model = PopRec()
+@pytest.mark.parametrize("metric", ["absent", None])
+def test_nearest_items_raises(log, metric):
+    model = AssociationRulesItemRec()
     model.fit(log.filter(sf.col("item_idx") != 3))
     with pytest.raises(
-        ValueError, match=r"Distance metric is required to get nearest items.*"
+        ValueError, match=r"Select one of the valid distance metrics.*"
     ):
-        model.get_nearest_items(items=[0, 1], k=2, metric=None)
-
+        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
+    model = ALSWrap()
+    model.fit(log)
     with pytest.raises(
-        ValueError,
-        match=r"Use models with attribute 'can_predict_item_to_item' set to True.*",
+        ValueError, match=r"Select one of the valid distance metrics.*"
     ):
-        model.get_nearest_items(items=[0, 1], k=2, metric="cosine_similarity")
-
-        with pytest.raises(
-            ValueError,
-            match=r"Use models with attribute 'can_predict_item_to_item' set to True.*",
-        ):
-            model.get_nearest_items(
-                items=[0, 1], k=2, metric="cosine_similarity"
-            )
+        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
 
 
 def test_filter_seen(log):
@@ -398,6 +458,80 @@ def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
     sparkDataFrameEqual(pred_cached, pred_from_file)
 
 
+@pytest.mark.parametrize("add_cold_items", [True, False])
+@pytest.mark.parametrize("predict_cold_only", [True, False])
+@pytest.mark.parametrize(
+    "model",
+    [
+        PopRec(),
+        RandomRec(seed=SEED),
+        Wilson(sample=True),
+        Wilson(sample=False),
+        UCB(sample=True),
+        UCB(sample=False),
+    ],
+    ids=[
+        "pop_rec",
+        "random_uni",
+        "wilson_sample",
+        "wilson",
+        "UCB_sample",
+        "UCB",
+    ],
+)
+def test_add_cold_items_for_nonpersonalized(
+    model, add_cold_items, predict_cold_only, long_log_with_features
+):
+    num_warm = 5
+    # k is greater than the number of warm items to check if
+    # the cold items are presented in prediction
+    k = 6
+    log = (
+        long_log_with_features
+        if not isinstance(model, (Wilson, UCB))
+        else long_log_with_features.withColumn(
+            "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
+        )
+    )
+    train_log = log.filter(sf.col("item_idx") < num_warm)
+    model.fit(train_log)
+    # ucb always adds cold items to prediction
+    if not isinstance(model, UCB):
+        model.add_cold_items = add_cold_items
+
+    items = log.select("item_idx").distinct()
+    if predict_cold_only:
+        items = items.filter(sf.col("item_idx") >= num_warm)
+    pred = model.predict(
+        log=log.filter(sf.col("item_idx") < num_warm),
+        users=[1],
+        items=items,
+        k=k,
+        filter_seen_items=False,
+    )
+
+    if isinstance(model, UCB) or add_cold_items:
+        assert pred.count() == min(k, items.count())
+        if predict_cold_only:
+            assert pred.select(sf.min("item_idx")).collect()[0][0] >= num_warm
+            # for RandomRec relevance of an item is equal to its inverse position in the list
+            if not isinstance(model, RandomRec):
+                assert pred.select("relevance").distinct().count() == 1
+    else:
+        if predict_cold_only:
+            assert pred.count() == 0
+        else:
+            # ucb always adds cold items to prediction
+            assert pred.select(sf.max("item_idx")).collect()[0][0] < num_warm
+            assert pred.count() == min(
+                k,
+                train_log.select("item_idx")
+                .distinct()
+                .join(items, on="item_idx")
+                .count(),
+            )
+
+
 @pytest.mark.parametrize(
     "model",
     [
@@ -410,6 +544,9 @@ def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
     ],
 )
 def test_similarity_metric_raises(log, model):
-    with pytest.raises(ValueError, match="This class does not support changing similarity metrics"):
+    with pytest.raises(
+        ValueError,
+        match="This class does not support changing similarity metrics",
+    ):
         model.fit(log)
         model.similarity_metric = "some"
