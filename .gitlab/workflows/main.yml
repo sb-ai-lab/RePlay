@@ -1,20 +1,28 @@
-image: replay/ci-image:0.0.1
+image: replay/ci-image:0.0.2
 
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_PIPELINE_SOURCE == "schedule"
 
-.job_template: &job_configuration
-  before_script:
-    - poetry config virtualenvs.in-project true
-    - poetry install
-    - source .venv/bin/activate
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
-cache:
-  key: $CI_COMMIT_REF_NAME
+.setup_venv: &setup_venv
+  - python -m venv venv
+  - source ./venv/bin/activate
+  - pip install -q --upgrade pip wheel poetry lightfm
+
+.install_replay: &install_replay
+  before_script:
+    - *setup_venv
+    - poetry install
+
+cache: &global_cache
+  key: ${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}
   paths:
     - ./venv/
+    - .cache/pip
   policy: pull
 
 stages:
@@ -25,40 +33,42 @@ stages:
 resolve-job:
   stage: resolve
   cache:
-    key: $CI_COMMIT_REF_NAME
-    paths:
-      - ./venv/
-    policy: pull-push
+    <<: *global_cache
+    policy: push
   script:
-    - poetry config virtualenvs.in-project true
+    - *setup_venv
+    - poetry --version
+    - pip --version
     - poetry lock
     - poetry install
+    - pip list > ${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}_dependencies.txt
   artifacts:
     paths:
       - poetry.lock
+      - ${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}_dependencies.txt
     expire_in: 2 week
 
 pylint-job:
-  <<: *job_configuration
+  <<: *install_replay
   stage: code_quality
   script:
     - pylint --rcfile=.pylintrc replay
 
 pycodestyle-job:
-  <<: *job_configuration
+  <<: *install_replay
   stage: code_quality
   script:
     - pycodestyle --ignore=E203,E231,E501,W503,W605 --max-doc-length=160 replay tests
 
 sphinx-job:
-  <<: *job_configuration
+  <<: *install_replay
   stage: code_quality
   script:
     - cd docs
     - make clean html
 
 test-job:
-  <<: *job_configuration
+  <<: *install_replay
   stage: test
   script:
     - pytest --cov=replay --cov-report=term-missing --doctest-modules replay --cov-fail-under=93 tests
