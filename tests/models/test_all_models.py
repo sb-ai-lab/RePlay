@@ -19,6 +19,7 @@ from replay.models import (
     UCB,
     Wilson,
     Word2VecRec,
+    DDPG,
     AssociationRulesItemRec,
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
@@ -402,11 +403,13 @@ def test_predict_cold_and_new_filter_out(model, long_log_with_features):
         PopRec(),
         ALSWrap(rank=2, seed=SEED),
         ItemKNN(),
+        DDPG(seed=SEED, user_num=6, item_num=6),
     ],
     ids=[
         "pop_rec",
         "als",
         "knn",
+        "ddpg",
     ],
 )
 def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
@@ -436,11 +439,13 @@ def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
         PopRec(),
         ALSWrap(rank=2, seed=SEED),
         ItemKNN(),
+        DDPG(seed=SEED, user_num=6, item_num=6),
     ],
     ids=[
         "pop_rec",
         "als",
         "knn",
+        "ddpg",
     ],
 )
 def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
