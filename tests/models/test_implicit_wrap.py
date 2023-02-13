@@ -63,6 +63,10 @@ def test_predict_pairs(model, log, log_in_pred):
     pairs = log.select("user_idx","item_idx").filter(sf.col("user_idx") == 2)
     model.fit(log)
     pred = model.predict_pairs(pairs, log if log_in_pred else None)
+    pred_top_k = model.predict_pairs(pairs, log if log_in_pred else None, k=2)
 
     assert pred.select("user_idx").distinct().count() == 1
+    assert pred_top_k.groupBy("user_idx").count().filter(f"count > 2").count() == 0
+    assert pred.groupBy("user_idx").count().filter(f"count > 2").count() != 0
+
     sparkDataFrameEqual(pairs.select("user_idx","item_idx"), pred.select("user_idx","item_idx"))

@@ -1,6 +1,8 @@
-FROM openjdk:11-bullseye
+FROM eclipse-temurin:11.0.17_8-jre
 
-RUN apt-get update && apt-get install -y python3.9 python3.9-venv python3.9-dev build-essential
+RUN apt-get update
+RUN apt-get install -y software-properties-common && add-apt-repository ppa:deadsnakes/ppa
+RUN apt-get install -y python3.9 python3.9-venv python3.9-dev build-essential
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3.9 get-pip.py
 RUN ln -s /usr/bin/pip3 /usr/bin/pip && \
     ln -s /usr/bin/python3.9 /usr/bin/python
