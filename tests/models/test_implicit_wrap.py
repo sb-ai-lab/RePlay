@@ -70,3 +70,16 @@ def test_predict_pairs(model, log, log_in_pred):
     assert pred.groupBy("user_idx").count().filter(f"count > 2").count() != 0
 
     sparkDataFrameEqual(pairs.select("user_idx","item_idx"), pred.select("user_idx","item_idx"))
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ImplicitWrap(implicit.als.AlternatingLeastSquares()),
+        ImplicitWrap(implicit.bpr.BayesianPersonalizedRanking()),
+        ImplicitWrap(implicit.lmf.LogisticMatrixFactorization()),
+    ]
+)
+def test_predict_empty_log(log, model):
+    model.fit(log)
+    model.predict(log.limit(0), 1)

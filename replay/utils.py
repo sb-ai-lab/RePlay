@@ -377,6 +377,15 @@ def to_csr(
     :param item_count: number of columns in resulting matrix
     """
     pandas_df = log.select("user_idx", "item_idx", "relevance").toPandas()
+    if pandas_df.empty:
+        return csr_matrix(
+            (
+                [],
+                ([],[]),
+            ),
+            shape=(0, 0),
+        )
+
     row_count = int(
         user_count
         if user_count is not None

@@ -161,6 +161,40 @@ def test_predict_pairs_k(log, model):
 @pytest.mark.parametrize(
     "model",
     [
+        ALSWrap(seed=SEED),
+        ADMMSLIM(seed=SEED),
+        ItemKNN(),
+        LightFMWrap(random_state=SEED),
+        MultVAE(),
+        NeuroMF(),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        PopRec(),
+        RandomRec(seed=SEED),
+    ],
+    ids=[
+        "als",
+        "admm_slim",
+        "knn",
+        "lightfm",
+        "multvae",
+        "neuromf",
+        "slim",
+        "word2vec",
+        "association_rules",
+        "pop_rec",
+        "random_rec",
+    ],
+)
+def test_predict_empty_log(log, model):
+    model.fit(log)
+    model.predict(log.limit(0), 1)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
         ADMMSLIM(seed=SEED),
         ItemKNN(),
         SLIM(seed=SEED),
