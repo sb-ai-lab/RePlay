@@ -19,6 +19,7 @@ from replay.models import (
     UCB,
     Wilson,
     Word2VecRec,
+    DDPG,
     AssociationRulesItemRec,
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
@@ -155,6 +156,40 @@ def test_predict_pairs_k(log, model):
         .count()
         > 0
     )
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ALSWrap(seed=SEED),
+        ADMMSLIM(seed=SEED),
+        ItemKNN(),
+        LightFMWrap(random_state=SEED),
+        MultVAE(),
+        NeuroMF(),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        PopRec(),
+        RandomRec(seed=SEED),
+    ],
+    ids=[
+        "als",
+        "admm_slim",
+        "knn",
+        "lightfm",
+        "multvae",
+        "neuromf",
+        "slim",
+        "word2vec",
+        "association_rules",
+        "pop_rec",
+        "random_rec",
+    ],
+)
+def test_predict_empty_log(log, model):
+    model.fit(log)
+    model.predict(log.limit(0), 1)
 
 
 @pytest.mark.parametrize(
@@ -402,11 +437,13 @@ def test_predict_cold_and_new_filter_out(model, long_log_with_features):
         PopRec(),
         ALSWrap(rank=2, seed=SEED),
         ItemKNN(),
+        DDPG(seed=SEED, user_num=6, item_num=6),
     ],
     ids=[
         "pop_rec",
         "als",
         "knn",
+        "ddpg",
     ],
 )
 def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
@@ -436,11 +473,13 @@ def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
         PopRec(),
         ALSWrap(rank=2, seed=SEED),
         ItemKNN(),
+        DDPG(seed=SEED, user_num=6, item_num=6),
     ],
     ids=[
         "pop_rec",
         "als",
         "knn",
+        "ddpg",
     ],
 )
 def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
