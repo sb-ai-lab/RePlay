@@ -7,11 +7,12 @@ import pyspark.sql.types as st
 
 from numpy.random import default_rng
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
-from pyspark.sql import Column, DataFrame, Window, functions as sf
+from pyspark.sql import SparkSession, Column, DataFrame, Window, functions as sf
 from scipy.sparse import csr_matrix
 
 from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
 from replay.session_handler import State
+from pyspark.sql.column import _to_java_column, _to_seq
 
 # pylint: disable=invalid-name
 
@@ -206,6 +207,20 @@ def vector_mult(
     :returns: result
     """
     return one * two
+
+
+def multiply_scala_udf(scalar, vector):
+    """Multiplies a scalar by a vector
+
+    Args:
+        scalar: column with scalars
+        vector: column with vectors
+
+    Returns: column expression
+    """
+    sc = SparkSession.getActiveSession().sparkContext
+    _f = sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.multiplyUDF()
+    return Column(_f.apply(_to_seq(sc, [scalar, vector], _to_java_column)))
 
 
 @sf.udf(returnType=st.ArrayType(st.DoubleType()))

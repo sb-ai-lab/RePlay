@@ -29,7 +29,7 @@ lib/
 lib64
 parts/
 sdist/
-src/
+src/*
 var/
 wheels/
 pip-wheel-metadata/
@@ -145,7 +145,26 @@ data/
 pyvenv.cfg
 *~
 tmp/
-docs/_build/
 *.DS_Store
 */catboost_info
+
+# Spark files
+metastore_db/
+
 .vscode
+
+# VSCode scala exstention files
+.metals
+.bloop
+.bsp
+
+# meld
+*.orig
+
+# supplementary files
+rsync-repo.sh
+requirements.txt
+airflow.yaml
+
+# temporary
+experiments/tests
