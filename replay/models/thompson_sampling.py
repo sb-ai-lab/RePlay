@@ -10,7 +10,11 @@ from replay.models.base_rec import NonPersonalizedRecommender
 class ThompsonSampling(NonPersonalizedRecommender):
     """
     Thompson Sampling recommender.
-
+ 
+    Bandit model with `efficient exploration-exploitation balance
+    <https://proceedings.neurips.cc/paper/2011/file/e53a0a2978c28872a4505bdb51db06dc-Paper.pdf>`_. 
+    The reward probability of each of the K arms is modeled by a Beta distribution
+    which is updated after an arm is selected. The initial prior distribution is Beta(1,1).
     """
     def __init__(
         self,
