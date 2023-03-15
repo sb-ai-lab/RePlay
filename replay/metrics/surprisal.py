@@ -14,6 +14,9 @@ from replay.metrics.base_metric import (
     sorter,
 )
 
+from pyspark.sql import SparkSession, Column
+from pyspark.sql.column import _to_java_column, _to_seq
+
 
 # pylint: disable=too-few-public-methods
 class Surprisal(RecOnlyMetric):
@@ -46,13 +49,15 @@ class Surprisal(RecOnlyMetric):
     """
 
     def __init__(
-        self, log: AnyDataFrame
+        self, log: AnyDataFrame,
+        use_scala_udf: bool = False
     ):  # pylint: disable=super-init-not-called
         """
         Here we calculate self-information for each item
 
         :param log: historical data
         """
+        self._use_scala_udf = use_scala_udf
         self.log = convert2spark(log)
         n_users = self.log.select("user_idx").distinct().count()  # type: ignore
         self.item_weights = self.log.groupby("item_idx").agg(
@@ -66,6 +71,16 @@ class Surprisal(RecOnlyMetric):
     def _get_metric_value_by_user(k, *args):
         weigths = args[0]
         return sum(weigths[:k]) / k
+
+    @staticmethod
+    def _get_metric_value_by_user_scala_udf(k, weigths) -> Column:
+        sc = SparkSession.getActiveSession().sparkContext
+        _f = (
+            sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.getSurprisalMetricValue()
+        )
+        return Column(
+            _f.apply(_to_seq(sc, [k, weigths], _to_java_column))
+        )
 
     def _get_enriched_recommendations(
         self,

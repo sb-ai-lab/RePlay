@@ -2,6 +2,9 @@ import numpy as np
 
 from replay.metrics.base_metric import NCISMetric
 
+from pyspark.sql import SparkSession, Column
+from pyspark.sql.column import _to_java_column, _to_seq
+
 
 # pylint: disable=too-few-public-methods
 class NCISPrecision(NCISMetric):
@@ -28,3 +31,13 @@ class NCISPrecision(NCISMetric):
             return 0
         mask = np.isin(pred[:k], ground_truth)
         return sum(np.array(pred_weights)[mask]) / sum(pred_weights[:k])
+
+    @staticmethod
+    def _get_metric_value_by_user_scala_udf(k, pred, pred_weights, ground_truth) -> Column:
+        sc = SparkSession.getActiveSession().sparkContext
+        _f = (
+            sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.getNCISPrecisionMetricValue()
+        )
+        return Column(
+            _f.apply(_to_seq(sc, [k, pred, pred_weights, ground_truth], _to_java_column))
+        )
