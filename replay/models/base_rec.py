@@ -50,7 +50,6 @@ from replay.utils import (
     filter_cold,
     get_unique_entities,
     get_top_k,
-    get_top_k_recs,
     return_recs,
     vector_euclidean_distance_similarity,
     vector_dot,
@@ -457,33 +456,6 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         """
         users_log = log.join(users, on="user_idx")
         self._cache_model_temp_view(users_log, "filter_seen_users_log")
-        num_seen = users_log.groupBy("user_idx").agg(
-            sf.count("item_idx").alias("seen_count")
-        )
-        self._cache_model_temp_view(num_seen, "filter_seen_num_seen")
-
-        # count maximal number of items seen by users
-        max_seen = 0
-        if num_seen.count() > 0:
-            max_seen = num_seen.select(sf.max("seen_count")).collect()[0][0]
-
-        # crop recommendations to first k + max_seen items for each user
-        recs = recs.withColumn(
-            "temp_rank",
-            sf.row_number().over(
-                Window.partitionBy("user_idx").orderBy(
-                    sf.col("relevance").desc()
-                )
-            ),
-        ).filter(sf.col("temp_rank") <= sf.lit(max_seen + k))
-
-        # leave k + number of items seen by user recommendations in recs
-        recs = (
-            recs.join(num_seen, on="user_idx", how="left")
-            .fillna(0)
-            .filter(sf.col("temp_rank") <= sf.col("seen_count") + sf.lit(k))
-            .drop("temp_rank", "seen_count")
-        )
 
         # filter recommendations presented in interactions log
         recs = recs.join(
@@ -494,6 +466,16 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             & (sf.col("item_idx") == sf.col("item")),
             how="anti",
         ).drop("user", "item")
+
+        # crop recommendations to first k + max_seen items for each user
+        recs = recs.withColumn(
+            "temp_rank",
+            sf.row_number().over(
+                Window.partitionBy("user_idx").orderBy(
+                    sf.col("relevance").desc()
+                )
+            ),
+        ).filter(sf.col("temp_rank") <= sf.lit(k))
 
         return recs
 
@@ -556,10 +538,6 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         )
         if filter_seen_items and log:
             recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
-
-        recs = get_top_k_recs(recs, k=k).select(
-            "user_idx", "item_idx", "relevance"
-        )
 
         output = return_recs(recs, recs_file_path)
         self._clear_model_temp_view("filter_seen_users_log")
