@@ -1,6 +1,6 @@
 from typing import Dict, Optional, Union
 
-from pyspark.sql import Window, DataFrame
+from pyspark.sql import Window, DataFrame, Column
 from pyspark.sql import functions as sf
 
 from replay.constants import AnyDataFrame, IntOrList, NumType
@@ -34,6 +34,10 @@ class Coverage(RecOnlyMetric):
     @staticmethod
     def _get_metric_value_by_user(k, *args):
         # not averaged by users
+        pass
+
+    @staticmethod
+    def _get_metric_value_by_user_scala_udf(k, pred, ground_truth) -> Column:
         pass
 
     # pylint: disable=no-self-use

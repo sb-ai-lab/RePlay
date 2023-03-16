@@ -12,7 +12,7 @@ import pyspark.sql.functions as sf
 from pyspark.sql.types import (
     IntegerType,
     StructField,
-    StructType,
+    StructType, ArrayType, DoubleType,
 )
 
 from replay.constants import LOG_SCHEMA, REC_SCHEMA
@@ -180,12 +180,20 @@ def test_pred_is_bigger(quality_metrics, one_user, two_users):
     "gt_users, result",
     [(False, {3: 2 / 3, 1: 1 / 3}), (True, {3: 1 / 4, 1: 0 / 3})],
 )
-def test_hit_rate_at_k(recs, true, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(
-        HitRate()(recs, true, [3, 1], users),
-        result,
-    )
+class TestHitRate:
+    def test_hit_rate_at_k(self, recs, true, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(
+            HitRate()(recs, true, [3, 1], users),
+            result,
+        )
+
+    def test_hit_rate_at_k_scala(self, recs, true, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(
+            HitRate(use_scala_udf=True)(recs, true, [3, 1], users),
+            result,
+        )
 
 
 def test_hit_rate_at_k_old(recs, true, true_users):
@@ -195,6 +203,17 @@ def test_hit_rate_at_k_old(recs, true, true_users):
     )
     assertDictAlmostEqual(
         HitRate()(recs, true, [3, 1], true_users),
+        {3: 1 / 4, 1: 0 / 3},
+    )
+
+
+def test_hit_rate_at_k_old_scala(recs, true, true_users):
+    assertDictAlmostEqual(
+        HitRate(use_scala_udf=True)(recs, true, [3, 1]),
+        {3: 2 / 3, 1: 1 / 3},
+    )
+    assertDictAlmostEqual(
+        HitRate(use_scala_udf=True)(recs, true, [3, 1], true_users),
         {3: 1 / 4, 1: 0 / 3},
     )
 
@@ -251,9 +270,14 @@ def test_item_dist(log, recs):
         ),
     ],
 )
-def test_ndcg_at_k(recs, true, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(NDCG()(recs, true, [1, 3], users), result)
+class TestNDCG:
+    def test_ndcg_at_k(self, recs, true, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(NDCG()(recs, true, [1, 3], users), result)
+
+    def test_ndcg_at_k_scala(self, recs, true, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(NDCG(use_scala_udf=True)(recs, true, [1, 3], users), result)
 
 
 @pytest.mark.parametrize(
@@ -263,12 +287,20 @@ def test_ndcg_at_k(recs, true, true_users, gt_users, result):
         (True, {3: 1 / 4 * 1 / 3, 1: 0 / 4}),
     ],
 )
-def test_precision_at_k(recs, true, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(
-        Precision()(recs, true, [1, 3], users),
-        result,
-    )
+class TestPrecision:
+    def test_precision_at_k(self, recs, true, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(
+            Precision()(recs, true, [1, 3], users),
+            result,
+        )
+
+    def test_precision_at_k_scala(self, recs, true, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(
+            Precision(use_scala_udf=True)(recs, true, [1, 3], users),
+            result,
+        )
 
 
 @pytest.mark.parametrize(
@@ -281,12 +313,20 @@ def test_precision_at_k(recs, true, true_users, gt_users, result):
         (True, {1: 0 / 4, 3: 1 / 2 * 1 / 3 * 1 / 4}),
     ],
 )
-def test_map_at_k(recs, true, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(
-        MAP()(recs, true, [1, 3], users),
-        result,
-    )
+class TestMap:
+    def test_map_at_k(self, recs, true, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(
+            MAP()(recs, true, [1, 3], users),
+            result,
+        )
+
+    def test_map_at_k_scala(self, recs, true, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(
+            MAP(use_scala_udf=True)(recs, true, [1, 3], users),
+            result,
+        )
 
 
 @pytest.mark.parametrize(
@@ -296,12 +336,20 @@ def test_map_at_k(recs, true, true_users, gt_users, result):
         (True, {1: 0 / 4, 3: 1 / 2 * 1 / 4}),
     ],
 )
-def test_recall_at_k(recs, true, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(
-        Recall()(recs, true, [1, 3], users),
-        result,
-    )
+class TestRecall:
+    def test_recall_at_k(self, recs, true, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(
+            Recall()(recs, true, [1, 3], users),
+            result,
+        )
+
+    def test_recall_at_k_scala(self, recs, true, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(
+            Recall(use_scala_udf=True)(recs, true, [1, 3], users),
+            result,
+        )
 
 
 @pytest.mark.parametrize(
@@ -320,12 +368,20 @@ def test_recall_at_k(recs, true, true_users, gt_users, result):
         ),
     ],
 )
-def test_surprisal_at_k(true, recs, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(
-        Surprisal(true)(recs, [1, 3], ground_truth_users=users),
-        result,
-    )
+class TestSurprisal:
+    def test_surprisal_at_k(self, true, recs, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(
+            Surprisal(true)(recs, [1, 3], ground_truth_users=users),
+            result,
+        )
+
+    def test_surprisal_at_k_scala(self, true, recs, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(
+            Surprisal(true, use_scala_udf=True)(recs, [1, 3], ground_truth_users=users),
+            result,
+        )
 
 
 def test_unexpectedness_at_k_by_user():
@@ -340,12 +396,20 @@ def test_unexpectedness_at_k_by_user():
         (True, {1: 1 / 2, 3: (2 / 3 + 1) / 4}),
     ],
 )
-def test_unexpectedness_at_k(true, recs, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(
-        Unexpectedness(true)(recs, [1, 3], ground_truth_users=users),
-        result,
-    )
+class TestUnexpectedness:
+    def test_unexpectedness_at_k(self, true, recs, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(
+            Unexpectedness(true)(recs, [1, 3], ground_truth_users=users),
+            result,
+        )
+
+    def test_unexpectedness_at_k(self, true, recs, true_users, gt_users, result):
+        users = true_users if gt_users else None
+        assertDictAlmostEqual(
+            Unexpectedness(true, use_scala_udf=True)(recs, [1, 3], ground_truth_users=users),
+            result,
+        )
 
 
 def test_coverage(true, recs, empty_recs):
@@ -508,3 +572,28 @@ def test_ncis_precision(prev_relevance):
         ncis_precision._get_metric_value_by_user(4, [1], [1, 5, 4], [100]) == 1
     )
     assert ncis_precision._get_metric_value_by_user(4, [1], [], [1]) == 0
+
+
+def test_ncis_precision_scala(spark, prev_relevance):
+    ncis_precision = NCISPrecision(prev_policy_weights=prev_relevance)
+    df = spark.createDataFrame(
+        [(4, [1, 0, 4], [0, 5, 4], [20.0, 5.0, 15.0]),
+         (4, [], [0, 5, 4], []),
+         (4, [1], [0, 5, 4], [100.0]),
+         (4, [1], [1, 5, 4], [100.0]),
+         (4, [1], [], [1.0])],
+        StructType([
+            StructField("k", IntegerType(), True),
+            StructField("pred", ArrayType(IntegerType()), True),
+            StructField("ground_truth", ArrayType(IntegerType()), True),
+            StructField("pred_weights", ArrayType(DoubleType()), True),
+        ])
+    )
+    metric_values = df.select(ncis_precision._get_metric_value_by_user_scala_udf(
+        sf.col("k"), sf.col("pred"), sf.col("pred_weights"), sf.col("ground_truth")
+    )).collect()
+    assert (metric_values[0][0] == 0.5)
+    assert (metric_values[1][0] == 0)
+    assert (metric_values[2][0] == 0)
+    assert (metric_values[3][0] == 1)
+    assert (metric_values[4][0] == 0)
