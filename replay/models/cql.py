@@ -3,7 +3,6 @@ Using CQL implementation from `d3rlpy` package.
 """
 import io
 import tempfile
-import time
 from typing import Optional, Dict, Any
 
 import d3rlpy.algos.cql as CQL_d3rlpy
@@ -156,6 +155,7 @@ class CQL(Recommender):
     def __init__(
             self,
             top_k: int,
+            mdp_preparator,
             n_epochs: int = 1,
             action_randomization_scale: float = 1e-3,
 
@@ -195,6 +195,7 @@ class CQL(Recommender):
         assert action_randomization_scale > 0
         self.action_randomization_scale = action_randomization_scale
         self.n_epochs = n_epochs
+        self.mdp_preparator = mdp_preparator
         assert_omp_single_thread()
 
         if isinstance(actor_optim_factory, dict):
@@ -259,11 +260,7 @@ class CQL(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        start_time = time.time()
-        train: MDPDataset = self._prepare_mdp_dataset(log)
-        prepare_time = time.time() - start_time
-        self.logger.info(f'-- Preparing dataset took {prepare_time:.2f} seconds')
-
+        train: MDPDataset = self.mdp_preparator.prepare(log)
         self.model.fit(train, n_epochs=self.n_epochs)
 
     def _prepare_mdp_dataset(self, log: DataFrame) -> MDPDataset:
