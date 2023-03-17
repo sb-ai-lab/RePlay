@@ -4,6 +4,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from replay.models.base_rec import NonPersonalizedRecommender
+from replay.utils import unpersist_after, unionify
 
 
 class RandomRec(NonPersonalizedRecommender):
@@ -93,13 +94,13 @@ class RandomRec(NonPersonalizedRecommender):
     >>> random_pop = RandomRec(seed=555)
     >>> random_pop.fit(log)
     >>> random_pop.item_popularity.show()
-    +--------+------------------+
-    |item_idx|         relevance|
-    +--------+------------------+
-    |       1|0.3333333333333333|
-    |       2|0.3333333333333333|
-    |       3|0.3333333333333333|
-    +--------+------------------+
+    +--------+---------+
+    |item_idx|relevance|
+    +--------+---------+
+    |       1|      1.0|
+    |       2|      1.0|
+    |       3|      1.0|
+    +--------+---------+
     <BLANKLINE>
     """
 
@@ -110,7 +111,7 @@ class RandomRec(NonPersonalizedRecommender):
         },
         "alpha": {"type": "uniform", "args": [-0.5, 100]},
     }
-    sample: bool = True
+    fill: float
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -120,6 +121,7 @@ class RandomRec(NonPersonalizedRecommender):
         seed: Optional[int] = None,
         add_cold_items: bool = True,
         cold_weight: float = 0.5,
+        sample: bool = False
     ):
         """
         :param distribution: recommendation strategy:
@@ -149,6 +151,10 @@ class RandomRec(NonPersonalizedRecommender):
         self.distribution = distribution
         self.alpha = alpha
         self.seed = seed
+        self.total_relevance = 0.0
+        self.relevance_sums: Optional[DataFrame] = None
+        self.item_popularity: Optional[DataFrame] = None
+        self.sample = sample
         super().__init__(
             add_cold_items=add_cold_items, cold_weight=cold_weight
         )
@@ -163,40 +169,63 @@ class RandomRec(NonPersonalizedRecommender):
             "cold_weight": self.cold_weight,
         }
 
-    def _fit(
-        self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> None:
-        if self.distribution == "popular_based":
-            self.item_popularity = (
-                log.groupBy("item_idx")
-                .agg(sf.countDistinct("user_idx").alias("user_count"))
-                .select(
-                    sf.col("item_idx"),
-                    (
-                        sf.col("user_count").astype("float")
-                        + sf.lit(self.alpha)
-                    ).alias("relevance"),
-                )
-            )
-        elif self.distribution == "relevance":
-            self.item_popularity = (
-                log.groupBy("item_idx")
-                .agg(sf.sum("relevance").alias("relevance"))
-                .select("item_idx", "relevance")
-            )
+    @property
+    def _dataframes(self):
+        return {
+            "item_popularity": self.item_popularity,
+            "relevance_sums": self.relevance_sums
+        }
+
+    def _clear_cache(self):
+        for df in self._dataframes.values():
+            if df is not None:
+                df.unpersist()
+
+    def _load_model(self, path: str):
+        if self.add_cold_items:
+            fill = self.item_popularity.agg({"relevance": "min"}).first()[0]
         else:
-            self.item_popularity = (
-                log.select("item_idx")
-                .distinct()
-                .withColumn("relevance", sf.lit(1.0))
+            fill = 0
+        self.fill = fill
+
+    def _fit_partial(self,
+                     log: DataFrame,
+                     user_features: Optional[DataFrame] = None,
+                     item_features: Optional[DataFrame] = None,
+                     previous_log: Optional[DataFrame] = None) -> None:
+        with unpersist_after(self._dataframes):
+            if self.distribution == "popular_based":
+                # storing the intermediate aggregate (e.g. agg result) is
+                # almost as costly as storing the whole previous
+                # due to amount of unique pairs in previous_log should approximately equal
+                # to the number of entries in previous_log at all
+                item_popularity = (
+                    unionify(log, previous_log)
+                    .groupBy("item_idx")
+                    .agg(sf.countDistinct("user_idx").alias("user_count"))
+                    .select(
+                        "item_idx",
+                        (sf.col("user_count").astype("float") + sf.lit(self.alpha)).alias("relevance")
+                    )
+                )
+            elif self.distribution == "relevance":
+                self.relevance_sums = (
+                    unionify(log.select("item_idx", "relevance"), self.relevance_sums)
+                    .groupBy("item_idx")
+                    .agg(sf.sum("relevance").alias("relevance"))
+                    .cache()
+                )
+                item_popularity = self.relevance_sums
+            else:
+                item_popularity = unionify(
+                    log.select("item_idx", sf.lit(1.0).alias("relevance")),
+                    self.item_popularity
+                ).drop_duplicates(["item_idx"])
+
+            self.item_popularity = item_popularity.select(
+                    "item_idx",
+                    (sf.col("relevance") / item_popularity.agg(sf.sum("relevance")).first()[0]).alias("relevance")
             )
-        self.item_popularity = self.item_popularity.withColumn(
-            "relevance",
-            sf.col("relevance")
-            / self.item_popularity.agg(sf.sum("relevance")).first()[0],
-        )
-        self.item_popularity.cache().count()
-        self.fill = self._calc_fill(self.item_popularity, self.cold_weight)
+
+            self.item_popularity.cache().count()
+            self.fill = self._calc_fill(self.item_popularity, self.cold_weight)

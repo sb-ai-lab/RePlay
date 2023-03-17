@@ -1,16 +1,16 @@
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, List, Optional, Union, Dict, Any
 
 import numpy as np
-
 import pyspark.sql.functions as sf
 
 from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
 
-from replay.models.base_rec import NeighbourRec
+from replay.models.base_rec import NeighbourRec, PartialFitMixin
+from replay.utils import unpersist_after, unionify
 
 
-class AssociationRulesItemRec(NeighbourRec):
+class AssociationRulesItemRec(NeighbourRec, PartialFitMixin):
     """
     Item-to-item recommender based on association rules.
     Calculate pairs confidence, lift and confidence_gain defined as
@@ -72,7 +72,7 @@ class AssociationRulesItemRec(NeighbourRec):
 
     can_predict_item_to_item = True
     item_to_item_metrics: List[str] = ["lift", "confidence", "confidence_gain"]
-    similarity: DataFrame
+    similarity: Optional[DataFrame] = None
     can_change_metric = True
     _search_space = {
         "min_item_count": {"type": "int", "args": [3, 10]},
@@ -117,6 +117,8 @@ class AssociationRulesItemRec(NeighbourRec):
         self.num_neighbours = num_neighbours
         self.use_relevance = use_relevance
         self.similarity_metric = similarity_metric
+        self.items_aggr: Optional[DataFrame] = None
+        self.session_col_unique_vals: Optional[DataFrame] = None
 
     @property
     def _init_args(self):
@@ -129,141 +131,191 @@ class AssociationRulesItemRec(NeighbourRec):
             "similarity_metric": self.similarity_metric,
         }
 
-    def _fit(
+    def _fit_partial(
         self,
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
+        previous_log: Optional[DataFrame] = None,
     ) -> None:
         """
         1) Filter log items by ``min_item_count`` threshold
         2) Calculate items support, pairs confidence, lift and confidence_gain defined as
             confidence(a, b)/confidence(!a, b).
         """
-        log = (
-            log.withColumn(
-                "relevance",
-                sf.col("relevance") if self.use_relevance else sf.lit(1),
+        with unpersist_after(self._dataframes):
+            log = (
+                log.withColumn(
+                    "relevance",
+                    sf.col("relevance") if self.use_relevance else sf.lit(1),
+                )
+                .select(self.session_col, "item_idx", "relevance")
+                .distinct()
             )
-            .select(self.session_col, "item_idx", "relevance")
-            .distinct()
-        )
-        num_sessions = log.select(self.session_col).distinct().count()
+            if previous_log:
+                previous_log = (
+                    previous_log.withColumn(
+                        "relevance",
+                        sf.col("relevance") if self.use_relevance else sf.lit(1),
+                    )
+                    .select(self.session_col, "item_idx", "relevance")
+                    .distinct()
+                )
+            self.session_col_unique_vals = unionify(
+                log.select(self.session_col), self.session_col_unique_vals
+            ).distinct()
+            self.session_col_unique_vals = self.session_col_unique_vals.cache()
+            num_sessions = self.session_col_unique_vals.count()
 
-        frequent_items_cached = (
-            log.groupBy("item_idx")
-            .agg(
+            items_aggr = log.groupby("item_idx").agg(
                 sf.count("item_idx").alias("item_count"),
                 sf.sum("relevance").alias("item_relevance"),
             )
-            .filter(sf.col("item_count") >= self.min_item_count)
-            .drop("item_count")
-        ).cache()
 
-        frequent_items_log = log.join(
-            frequent_items_cached.select("item_idx"), on="item_idx"
-        )
-
-        frequent_item_pairs = (
-            frequent_items_log.withColumnRenamed("item_idx", "antecedent")
-            .withColumnRenamed("relevance", "antecedent_rel")
-            .join(
-                frequent_items_log.withColumnRenamed(
-                    self.session_col, self.session_col + "_cons"
+            self.items_aggr = (
+                unionify(items_aggr, self.items_aggr)
+                .groupBy("item_idx")
+                .agg(
+                    sf.sum("item_count").alias("item_count"),
+                    sf.sum("item_relevance").alias("item_relevance"),
                 )
-                .withColumnRenamed("item_idx", "consequent")
-                .withColumnRenamed("relevance", "consequent_rel"),
-                on=[
-                    sf.col(self.session_col)
-                    == sf.col(self.session_col + "_cons"),
-                    sf.col("antecedent") < sf.col("consequent"),
-                ],
+            ).cache()
+
+            frequent_items_cached = (
+                self.items_aggr.filter(
+                    sf.col("item_count") >= self.min_item_count
+                ).drop("item_count")
+            ).cache()
+
+            frequent_items_log = unionify(log, previous_log).join(
+                frequent_items_cached.select("item_idx"), on="item_idx"
             )
-            # taking minimal relevance of item for pair
-            .withColumn(
-                "relevance",
-                sf.least(sf.col("consequent_rel"), sf.col("antecedent_rel")),
-            )
-            .drop(
-                self.session_col + "_cons", "consequent_rel", "antecedent_rel"
-            )
-        )
 
-        pairs_count = (
-            frequent_item_pairs.groupBy("antecedent", "consequent")
-            .agg(
-                sf.count("consequent").alias("pair_count"),
-                sf.sum("relevance").alias("pair_relevance"),
-            )
-            .filter(sf.col("pair_count") >= self.min_pair_count)
-        ).drop("pair_count")
-
-        pairs_metrics = pairs_count.unionByName(
-            pairs_count.select(
-                sf.col("consequent").alias("antecedent"),
-                sf.col("antecedent").alias("consequent"),
-                sf.col("pair_relevance"),
-            )
-        )
-
-        pairs_metrics = pairs_metrics.join(
-            frequent_items_cached.withColumnRenamed(
-                "item_relevance", "antecedent_relevance"
-            ),
-            on=[sf.col("antecedent") == sf.col("item_idx")],
-        ).drop("item_idx")
-
-        pairs_metrics = pairs_metrics.join(
-            frequent_items_cached.withColumnRenamed(
-                "item_relevance", "consequent_relevance"
-            ),
-            on=[sf.col("consequent") == sf.col("item_idx")],
-        ).drop("item_idx")
-
-        pairs_metrics = pairs_metrics.withColumn(
-            "confidence",
-            sf.col("pair_relevance") / sf.col("antecedent_relevance"),
-        ).withColumn(
-            "lift",
-            num_sessions
-            * sf.col("confidence")
-            / sf.col("consequent_relevance"),
-        )
-
-        if self.num_neighbours is not None:
-            pairs_metrics = (
-                pairs_metrics.withColumn(
-                    "similarity_order",
-                    sf.row_number().over(
-                        Window.partitionBy("antecedent").orderBy(
-                            sf.col("lift").desc(),
-                            sf.col("consequent").desc(),
-                        )
+            frequent_item_pairs = (
+                frequent_items_log.withColumnRenamed("item_idx", "antecedent")
+                .withColumnRenamed("relevance", "antecedent_rel")
+                .join(
+                    frequent_items_log.withColumnRenamed(
+                        self.session_col, self.session_col + "_cons"
+                    )
+                    .withColumnRenamed("item_idx", "consequent")
+                    .withColumnRenamed("relevance", "consequent_rel"),
+                    on=[
+                        sf.col(self.session_col)
+                        == sf.col(self.session_col + "_cons"),
+                        sf.col("antecedent") < sf.col("consequent"),
+                    ],
+                )
+                # taking minimal relevance of item for pair
+                .withColumn(
+                    "relevance",
+                    sf.least(
+                        sf.col("consequent_rel"), sf.col("antecedent_rel")
                     ),
                 )
-                .filter(sf.col("similarity_order") <= self.num_neighbours)
-                .drop("similarity_order")
+                .drop(
+                    self.session_col + "_cons",
+                    "consequent_rel",
+                    "antecedent_rel",
+                )
             )
 
-        self.similarity = pairs_metrics.withColumn(
-            "confidence_gain",
-            sf.when(
-                sf.col("consequent_relevance") - sf.col("pair_relevance") == 0,
-                sf.lit(np.inf),
-            ).otherwise(
-                sf.col("confidence")
-                * (num_sessions - sf.col("antecedent_relevance"))
-                / (sf.col("consequent_relevance") - sf.col("pair_relevance"))
-            ),
-        ).select(
-            sf.col("antecedent").alias("item_idx_one"),
-            sf.col("consequent").alias("item_idx_two"),
-            "confidence",
-            "lift",
-            "confidence_gain",
+            pairs_count = (
+                frequent_item_pairs.groupBy("antecedent", "consequent")
+                .agg(
+                    sf.count("consequent").alias("pair_count"),
+                    sf.sum("relevance").alias("pair_relevance"),
+                )
+                .filter(sf.col("pair_count") >= self.min_pair_count)
+            ).drop("pair_count")
+
+            pairs_metrics = pairs_count.unionByName(
+                pairs_count.select(
+                    sf.col("consequent").alias("antecedent"),
+                    sf.col("antecedent").alias("consequent"),
+                    sf.col("pair_relevance"),
+                )
+            )
+
+            pairs_metrics = pairs_metrics.join(
+                frequent_items_cached.withColumnRenamed(
+                    "item_relevance", "antecedent_relevance"
+                ),
+                on=[sf.col("antecedent") == sf.col("item_idx")],
+            ).drop("item_idx")
+
+            pairs_metrics = pairs_metrics.join(
+                frequent_items_cached.withColumnRenamed(
+                    "item_relevance", "consequent_relevance"
+                ),
+                on=[sf.col("consequent") == sf.col("item_idx")],
+            ).drop("item_idx")
+
+            pairs_metrics = pairs_metrics.withColumn(
+                "confidence",
+                sf.col("pair_relevance") / sf.col("antecedent_relevance"),
+            ).withColumn(
+                "lift",
+                num_sessions
+                * sf.col("confidence")
+                / sf.col("consequent_relevance"),
+            )
+
+            if self.num_neighbours is not None:
+                pairs_metrics = (
+                    pairs_metrics.withColumn(
+                        "similarity_order",
+                        sf.row_number().over(
+                            Window.partitionBy("antecedent").orderBy(
+                                sf.col("lift").desc(),
+                                sf.col("consequent").desc(),
+                            )
+                        ),
+                    )
+                    .filter(sf.col("similarity_order") <= self.num_neighbours)
+                    .drop("similarity_order")
+                )
+
+            self.similarity = pairs_metrics.withColumn(
+                "confidence_gain",
+                sf.when(
+                    sf.col("consequent_relevance") - sf.col("pair_relevance")
+                    == 0,
+                    sf.lit(np.inf),
+                ).otherwise(
+                    sf.col("confidence")
+                    * (num_sessions - sf.col("antecedent_relevance"))
+                    / (
+                        sf.col("consequent_relevance")
+                        - sf.col("pair_relevance")
+                    )
+                ),
+            ).select(
+                sf.col("antecedent").alias("item_idx_one"),
+                sf.col("consequent").alias("item_idx_two"),
+                "confidence",
+                "lift",
+                "confidence_gain",
+            )
+
+            self.similarity.cache().count()
+            frequent_items_cached.unpersist()
+
+    # pylint: disable=too-many-arguments
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> None:
+        raise NotImplementedError(
+            f"item-to-user predict is not implemented for {self}, "
+            f"use get_nearest_items method to get item-to-item recommendations"
         )
-        self.similarity.cache().count()
-        frequent_items_cached.unpersist()
 
     @property
     def get_similarity(self):
@@ -337,4 +389,15 @@ class AssociationRulesItemRec(NeighbourRec):
 
     @property
     def _dataframes(self):
-        return {"similarity": self.similarity}
+        return {
+            "similarity": self.similarity,
+            "items_aggr": self.items_aggr,
+            "session_col_unique_vals": self.session_col_unique_vals,
+        }
+
+    @property
+    def _use_ann(self) -> bool:
+        return False
+
+    def _get_ann_infer_params(self) -> Dict[str, Any]:
+        pass
