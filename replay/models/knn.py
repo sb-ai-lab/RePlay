@@ -313,3 +313,27 @@ class ItemKNN(NeighbourRec, PartialFitMixin):
         similarity_matrix = unionify(similarity_matrix, self.similarity)
         self.similarity = self._get_k_most_similar(similarity_matrix)
         self.similarity.cache().count()
+
+    def _project_fields(self, log: Optional[DataFrame]):
+        if log is None:
+            return None
+        return log.select("user_idx", "item_idx", "relevance" if self.use_relevance else sf.lit(1))
+
+    # pylint: disable=too-many-arguments
+    def _predict(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+
+        return self._predict_pairs_inner(
+            log=log,
+            filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
+            condition=sf.col("item_idx_two") == sf.col("item_idx_filter"),
+            users=users,
+        )
