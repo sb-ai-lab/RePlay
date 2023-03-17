@@ -1,9 +1,10 @@
+import os
 from typing import Any, Dict, Optional
 
 import pandas as pd
 
 from replay.constants import AnyDataFrame, IntOrList, NumType
-from replay.utils import convert2spark
+from replay.utils import JobGroup, convert2spark
 from replay.metrics.base_metric import (
     get_enriched_recommendations,
     Metric,
@@ -94,6 +95,7 @@ class Experiment:
         :param ground_truth_users: list of users to consider in metric calculation.
             if None, only the users from ground_truth are considered.
         """
+
         max_k = 0
         for current_k in self.metrics.values():
             max_k = max(
@@ -113,6 +115,7 @@ class Experiment:
                 enriched = metric._get_enriched_recommendations(
                     pred, self.test, max_k, ground_truth_users
                 )
+
             values, median, conf_interval = self._calculate(
                 metric, enriched or recs, k_list
             )
@@ -204,3 +207,7 @@ class Experiment:
             else:
                 data_frame.loc[name] = ["–"] * len(baseline)
         return data_frame
+
+    def best_result(self, metric: str, k: int) -> str:
+        df = self.results.reset_index()
+        return df.iloc[df[f"{metric}@{k}"].argmax()]['index']

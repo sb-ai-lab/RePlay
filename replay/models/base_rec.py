@@ -15,7 +15,7 @@ Base abstract classes:
 import joblib
 import logging
 from abc import ABC, abstractmethod
-from copy import deepcopy
+from copy import deepcopy, copy
 from os.path import join
 from typing import (
     Any,
@@ -164,6 +164,9 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
     _num_items: int
     _user_dim_size: int
     _item_dim_size: int
+
+    def copy(self):
+        return copy(self)
 
     # pylint: disable=too-many-arguments, too-many-locals, no-member
     def optimize(
