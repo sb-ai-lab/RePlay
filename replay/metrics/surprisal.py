@@ -1,21 +1,19 @@
 from functools import partial
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
+from pyspark.sql import Column
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
 from replay.constants import AnyDataFrame
-from replay.utils import convert2spark, get_top_k_recs
 from replay.metrics.base_metric import (
     fill_na_with_empty_array,
     RecOnlyMetric,
     sorter,
 )
-
-from pyspark.sql import SparkSession, Column
-from pyspark.sql.column import _to_java_column, _to_seq
+from replay.utils import convert2spark, get_top_k_recs
 
 
 # pylint: disable=too-few-public-methods
@@ -73,14 +71,11 @@ class Surprisal(RecOnlyMetric):
         return sum(weigths[:k]) / k
 
     @staticmethod
-    def _get_metric_value_by_user_scala_udf(k, weigths) -> Column:
-        sc = SparkSession.getActiveSession().sparkContext
-        _f = (
-            sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.getSurprisalMetricValue()
-        )
-        return Column(
-            _f.apply(_to_seq(sc, [k, weigths], _to_java_column))
-        )
+    def _get_metric_value_by_user_scala_udf(
+            k: Union[str, Column],
+            weigths: Union[str, Column]
+    ) -> Column:
+        return RecOnlyMetric.get_scala_udf('getSurprisalMetricValue', [k, weigths])
 
     def _get_enriched_recommendations(
         self,

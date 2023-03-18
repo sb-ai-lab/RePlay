@@ -404,7 +404,7 @@ class TestUnexpectedness:
             result,
         )
 
-    def test_unexpectedness_at_k(self, true, recs, true_users, gt_users, result):
+    def test_unexpectedness_at_k_scala(self, true, recs, true_users, gt_users, result):
         users = true_users if gt_users else None
         assertDictAlmostEqual(
             Unexpectedness(true, use_scala_udf=True)(recs, [1, 3], ground_truth_users=users),
@@ -589,9 +589,9 @@ def test_ncis_precision_scala(spark, prev_relevance):
             StructField("pred_weights", ArrayType(DoubleType()), True),
         ])
     )
-    metric_values = df.select(ncis_precision._get_metric_value_by_user_scala_udf(
-        sf.col("k"), sf.col("pred"), sf.col("pred_weights"), sf.col("ground_truth")
-    )).collect()
+    metric_values = df.select(
+        ncis_precision._get_metric_value_by_user_scala_udf("k", "pred", "pred_weights", "ground_truth")
+    ).collect()
     assert (metric_values[0][0] == 0.5)
     assert (metric_values[1][0] == 0)
     assert (metric_values[2][0] == 0)

@@ -7,12 +7,13 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple, Union, Optional
 
 import pandas as pd
-from pyspark.sql import Column
+from pyspark.sql import Column, SparkSession
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 from pyspark.sql.types import DataType
 from pyspark.sql import Window
+from pyspark.sql.column import _to_java_column, _to_seq
 from scipy.stats import norm
 
 from replay.constants import AnyDataFrame, IntOrList, NumType
@@ -279,7 +280,11 @@ class Metric(ABC):
 
     @staticmethod
     @abstractmethod
-    def _get_metric_value_by_user_scala_udf(k, pred, ground_truth) -> Column:
+    def _get_metric_value_by_user_scala_udf(
+            k: Union[str, Column],
+            pred: Union[str, Column],
+            ground_truth: Union[str, Column]
+    ) -> Column:
         """Returns scala udf that calcs metric for one user as Column
         """
 
@@ -351,6 +356,14 @@ class Metric(ABC):
             res = res.append(val, ignore_index=True)
         return res
 
+    @staticmethod
+    def get_scala_udf(udf_name: str, params: List) -> Column:
+        sc = SparkSession.getActiveSession().sparkContext
+        scala_udf = getattr(sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs, udf_name)
+        _f = scala_udf()
+        return Column(
+            _f.apply(_to_seq(sc, params, _to_java_column))
+        )
 
 # pylint: disable=too-few-public-methods
 class RecOnlyMetric(Metric):

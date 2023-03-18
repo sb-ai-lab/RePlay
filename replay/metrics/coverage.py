@@ -37,7 +37,11 @@ class Coverage(RecOnlyMetric):
         pass
 
     @staticmethod
-    def _get_metric_value_by_user_scala_udf(k, pred, ground_truth) -> Column:
+    def _get_metric_value_by_user_scala_udf(
+            k: Union[str, Column],
+            pred: Union[str, Column],
+            ground_truth: Union[str, Column]
+    ) -> Column:
         pass
 
     # pylint: disable=no-self-use

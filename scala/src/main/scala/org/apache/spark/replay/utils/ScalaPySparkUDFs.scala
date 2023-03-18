@@ -36,10 +36,12 @@ object ScalaPySparkUDFs {
 
     val getHitRateMetricValue: UserDefinedFunction = udf(_getHitRateMetricValue _)
 
-    def getNDCGMetricValue: UserDefinedFunction = udf { (k: Int, pred: Array[Int], groundTruth: Array[Int]) =>
+    private def _getNDCGMetricValue(k: Int, pred: Array[Int], groundTruth: Array[Int]) : Double = {
+        if (pred.length == 0 || groundTruth.length == 0)
+            return 0
         val length = k.min(pred.length)
         val groundTruthLen = k.min(groundTruth.length)
-        val denom:Array[Double] = (0 until k map(x => 1.0/log2(x + 2))).toArray
+        val denom: Array[Double] = (0 until k map(x => 1.0/log2(x + 2))).toArray
         var dcg = 0.0
         for (i <- 0 until length) {
             if (groundTruth.contains(pred(i))) {
@@ -50,8 +52,10 @@ object ScalaPySparkUDFs {
         for (i <- 0 until groundTruthLen) {
             idcg += denom(i)
         }
-        dcg / idcg    
+        dcg / idcg
     }
+
+    val getNDCGMetricValue: UserDefinedFunction = udf(_getNDCGMetricValue _)
 
     private def _getRocAucMetricValue(k: Int, pred: Array[Int], groundTruth: Array[Int]) : Double = {
         val length = k.min(pred.length)
@@ -102,6 +106,9 @@ object ScalaPySparkUDFs {
     val getPrecisionMetricValue: UserDefinedFunction = udf(_getPrecisionMetricValue _)
 
     private def _getRecallMetricValue(k: Int, pred: Array[Int], groundTruth: Array[Int]) : Double = {
+        if (groundTruth.length == 0) {
+            return 0
+        }
         val length = k.min(pred.length)
         val i = pred.take(length).toSet.intersect(groundTruth.toSet).size
         i.toDouble / groundTruth.length

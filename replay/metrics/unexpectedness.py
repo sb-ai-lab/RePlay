@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
@@ -11,8 +11,7 @@ from replay.metrics.base_metric import (
     fill_na_with_empty_array,
 )
 
-from pyspark.sql import SparkSession, Column
-from pyspark.sql.column import _to_java_column, _to_seq
+from pyspark.sql import Column
 
 
 # pylint: disable=too-few-public-methods
@@ -51,14 +50,12 @@ class Unexpectedness(RecOnlyMetric):
         return 1.0 - len(set(pred[:k]) & set(base_pred[:k])) / k
 
     @staticmethod
-    def _get_metric_value_by_user_scala_udf(k, pred, base_pred) -> Column:
-        sc = SparkSession.getActiveSession().sparkContext
-        _f = (
-            sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.getUnexpectednessMetricValue()
-        )
-        return Column(
-            _f.apply(_to_seq(sc, [k, pred, base_pred], _to_java_column))
-        )
+    def _get_metric_value_by_user_scala_udf(
+            k: Union[str, Column],
+            pred: Union[str, Column],
+            base_pred: Union[str, Column]
+    ) -> Column:
+        return RecOnlyMetric.get_scala_udf('getUnexpectednessMetricValue', [k, pred, base_pred])
 
     def _get_enriched_recommendations(
         self,
