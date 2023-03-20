@@ -1,3 +1,5 @@
+from typing import Any, Iterable, List, Optional, Set, Tuple, Union
+
 import collections
 import logging
 import os
@@ -13,19 +15,16 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import numpy as np
 import pandas as pd
 import pyspark.sql.types as st
+
 from numpy.random import default_rng
 from pyarrow import fs
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
-from pyspark.sql import Column, DataFrame, Window, functions as sf
-from pyspark.sql import SparkSession
-# noinspection PyUnresolvedReferences
-from pyspark.sql.column import _to_java_column, _to_seq
-# noinspection PyUnresolvedReferences
-from pyspark.sql.column import _to_java_column, _to_seq
+from pyspark.sql import SparkSession, Column, DataFrame, Window, functions as sf
 from scipy.sparse import csr_matrix
 
 from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
 from replay.session_handler import State
+from pyspark.sql.column import _to_java_column, _to_seq
 
 # pylint: disable=invalid-name
 
@@ -249,6 +248,14 @@ def vector_mult(
 
 
 def multiply_scala_udf(scalar, vector):
+    """Multiplies a scalar by a vector
+
+    Args:
+        scalar: column with scalars
+        vector: column with vectors
+
+    Returns: column expression
+    """
     sc = SparkSession.getActiveSession().sparkContext
     _f = sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.multiplyUDF()
     return Column(_f.apply(_to_seq(sc, [scalar, vector], _to_java_column)))
@@ -423,6 +430,15 @@ def to_csr(
     :param item_count: number of columns in resulting matrix
     """
     pandas_df = log.select("user_idx", "item_idx", "relevance").toPandas()
+    if pandas_df.empty:
+        return csr_matrix(
+            (
+                [],
+                ([],[]),
+            ),
+            shape=(0, 0),
+        )
+
     row_count = int(
         user_count
         if user_count is not None
@@ -939,6 +955,81 @@ def sample_top_k_recs(pairs: DataFrame, k: int, seed: int = None):
     recs = pairs.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
 
     return recs
+
+
+def filter_cold(
+    df: Optional[DataFrame],
+    warm_df: DataFrame,
+    col_name: str,
+) -> Tuple[int, Optional[DataFrame]]:
+    """
+    Filter out new user/item ids absent in `warm_df`.
+    Return number of new users/items and filtered dataframe.
+
+    :param df: spark dataframe with columns ``[`col_name`, ...]``
+    :param warm_df: spark dataframe with column ``[`col_name`]``,
+        containing ids of `warm` users/items
+    :param col_name: name of a column
+    :return:  filtered spark dataframe columns ``[`col_name`, ...]``
+    """
+    if df is None:
+        return 0, df
+
+    num_cold = (
+        df.select(col_name)
+        .distinct()
+        .join(warm_df, on=col_name, how="anti")
+        .count()
+    )
+
+    if num_cold == 0:
+        return 0, df
+
+    return num_cold, df.join(
+        warm_df.select(col_name), on=col_name, how="inner"
+    )
+
+
+def get_unique_entities(
+    df: Union[Iterable, DataFrame],
+    column: str,
+) -> DataFrame:
+    """
+    Get unique values from ``df`` and put them into dataframe with column ``column``.
+    :param df: spark dataframe with ``column`` or python iterable
+    :param column: name of a column
+    :return:  spark dataframe with column ``[`column`]``
+    """
+    spark = State().session
+    if isinstance(df, DataFrame):
+        unique = df.select(column).distinct()
+    elif isinstance(df, collections.abc.Iterable):
+        unique = spark.createDataFrame(
+            data=pd.DataFrame(pd.unique(list(df)), columns=[column])
+        )
+    else:
+        raise ValueError(f"Wrong type {type(df)}")
+    return unique
+
+
+def return_recs(
+    recs: DataFrame, recs_file_path: Optional[str] = None
+) -> Optional[DataFrame]:
+    """
+    Save dataframe `recs` to `recs_file_path` if presents otherwise cache
+    and materialize the dataframe.
+
+    :param recs: dataframe with recommendations
+    :param recs_file_path: absolute path to save recommendations as a parquet file.
+    :return: cached and materialized dataframe `recs` if `recs_file_path` is provided otherwise None
+    """
+    if recs_file_path is None:
+        output = recs.cache()
+        output.count()
+        return output
+
+    recs.write.parquet(path=recs_file_path, mode="overwrite")
+    return None
 
 
 def unionify(df: DataFrame, df_2: Optional[DataFrame] = None) -> DataFrame:
