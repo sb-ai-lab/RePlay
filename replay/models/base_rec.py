@@ -545,7 +545,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             message = f"k = {k} > number of items = {num_items}"
             self.logger.debug(message)
 
-        recs = self._predict(
+        recs = self._inner_predict_wrap(
             log,
             k,
             users,
@@ -630,6 +630,48 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :return: recommendation dataframe
             ``[user_idx, item_idx, relevance]``
         """
+
+    def _inner_predict_wrap(
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> DataFrame:
+        """
+        Inner method that wrap _predict method. Can be overwritten.
+
+        :param log: historical log of interactions
+            ``[user_idx, item_idx, timestamp, relevance]``
+        :param k: number of recommendations for each user
+        :param users: users to create recommendations for
+            dataframe containing ``[user_idx]`` or ``array-like``;
+            if ``None``, recommend to all users from ``log``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_idx]`` or ``array-like``;
+            if ``None``, take all items from ``log``.
+            If it contains new items, ``relevance`` for them will be ``0``.
+        :param user_features: user features
+            ``[user_idx , timestamp]`` + feature columns
+        :param item_features: item features
+            ``[item_idx , timestamp]`` + feature columns
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :return: recommendation dataframe
+            ``[user_idx, item_idx, relevance]``
+        """
+
+        return self._predict(
+            log,
+            k,
+            users,
+            items,
+            user_features,
+            item_features,
+            filter_seen_items,
+        )
 
     def _get_fit_counts(self, entity: str) -> int:
         if not hasattr(self, f"_num_{entity}s"):
@@ -1406,7 +1448,10 @@ class UserRecommender(BaseRecommender, ABC):
         )
 
 
-class NeighbourRec(Recommender, ABC):
+from replay.models.nmslib_hnsw import NmslibHnswMixin
+
+
+class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
     """Base class that requires log at prediction time"""
 
     similarity: Optional[DataFrame]
@@ -1588,6 +1633,31 @@ class NeighbourRec(Recommender, ABC):
             "similarity" if metric is None else metric,
         )
 
+    def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
+        items_count = log.select(sf.max("item_idx")).first()[0] + 1
+        return {
+            "features_col": None,
+            "params": self._nmslib_hnsw_params,
+            "index_type": "sparse",
+            "items_count": items_count,
+        }
+
+    def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
+        similarity_df = self.similarity.select(
+            "similarity", "item_idx_one", "item_idx_two"
+        )
+        return similarity_df
+
+    def _get_vectors_to_infer_ann_inner(
+            self, log: DataFrame, users: DataFrame
+    ) -> DataFrame:
+
+        user_vectors = (
+            log.groupBy("user_idx").agg(
+                sf.collect_list("item_idx").alias("vector_items"),
+                sf.collect_list("relevance").alias("vector_relevances"))
+        )
+        return user_vectors
 
 class NonPersonalizedRecommender(Recommender, ABC):
     """Base class for non-personalized recommenders with popularity statistics."""

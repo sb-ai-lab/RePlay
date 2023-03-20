@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 
 import pyspark.sql.functions as sf
 
@@ -7,13 +7,45 @@ from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
 from replay.models.base_rec import Recommender, ItemVectorModel
+from replay.models.hnswlib import HnswlibMixin
 from replay.utils import list_to_vector_udf
 
 
-class ALSWrap(Recommender, ItemVectorModel):
+class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
+
+    def _get_ann_infer_params(self) -> Dict[str, Any]:
+        return {
+            "features_col": "user_factors",
+            "params": self._hnswlib_params,
+            "index_dim": self.rank,
+        }
+
+    def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
+        user_vectors, _ = self.get_features(users)
+        return user_vectors
+
+    def _get_ann_build_params(self, log: DataFrame):
+        self.num_elements = log.select("item_idx").distinct().count()
+        return {
+            "features_col": "item_factors",
+            "params": self._hnswlib_params,
+            "dim": self.rank,
+            "num_elements": self.num_elements,
+            "id_col": "item_idx",
+        }
+
+    def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
+        item_vectors, _ = self.get_features(
+            log.select("item_idx").distinct()
+        )
+        return item_vectors
+
+    @property
+    def _use_ann(self) -> bool:
+        return self._hnswlib_params is not None
 
     _seed: Optional[int] = None
     _search_space = {
@@ -27,6 +59,7 @@ class ALSWrap(Recommender, ItemVectorModel):
         seed: Optional[int] = None,
         num_item_blocks: Optional[int] = None,
         num_user_blocks: Optional[int] = None,
+        hnswlib_params: Optional[dict] = None,
     ):
         """
         :param rank: hidden dimension for the approximate matrix
@@ -38,6 +71,7 @@ class ALSWrap(Recommender, ItemVectorModel):
         self._seed = seed
         self._num_item_blocks = num_item_blocks
         self._num_user_blocks = num_user_blocks
+        self._hnswlib_params = hnswlib_params
 
     @property
     def _init_args(self):
@@ -45,15 +79,22 @@ class ALSWrap(Recommender, ItemVectorModel):
             "rank": self.rank,
             "implicit_prefs": self.implicit_prefs,
             "seed": self._seed,
+            "hnswlib_params": self._hnswlib_params
         }
 
     def _save_model(self, path: str):
         self.model.write().overwrite().save(path)
 
+        if self._hnswlib_params:
+            self._save_hnswlib_index(path)
+
     def _load_model(self, path: str):
         self.model = ALSModel.load(path)
         self.model.itemFactors.cache()
         self.model.userFactors.cache()
+
+        if self._hnswlib_params:
+            self._load_hnswlib_index(path)
 
     def _fit(
         self,
