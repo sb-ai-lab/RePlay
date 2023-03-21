@@ -1,5 +1,3 @@
-from typing import Any, Iterable, List, Optional, Set, Tuple, Union
-
 import collections
 import logging
 import os
@@ -11,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Iterable
 
 import numpy as np
 import pandas as pd
@@ -860,73 +859,6 @@ class FileInfo:
     hdfs_uri: str = None
 
 
-def get_filesystem(path: str) -> FileInfo:  # Tuple[FileSystem, Optional[str], str]
-    """Analyzes path and hadoop config and return tuple of `filesystem`,
-    `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix).
-
-    For example:
-
-    >>> path = 'hdfs://node21.bdcl:9000/tmp/file'
-    >>> get_filesystem(path)
-    FileInfo(path='/tmp/file', filesystem=<FileSystem.HDFS: 1>, hdfs_uri='hdfs://node21.bdcl:9000')
-    or
-    >>> path = 'file:///tmp/file'
-    >>> get_filesystem(path)
-    FileInfo(path='/tmp/file', filesystem=<FileSystem.LOCAL: 2>, hdfs_uri=None)
-
-    Args:
-        path (str): path to file on hdfs or local disk
-
-    Returns:
-        Tuple[int, Optional[str], str]: `filesystem id`,
-    `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix)
-    """
-    prefix_len = 7  # 'hdfs://' and 'file://' length
-    if path.startswith("hdfs://"):
-        if path.startswith("hdfs:///"):
-            default_fs = get_default_fs()
-            if default_fs.startswith("hdfs://"):
-                return FileInfo(path[prefix_len:], FileSystem.HDFS, default_fs)
-            else:
-                raise Exception(
-                    f"Can't get default hdfs uri for path = '{path}'. "
-                    "Specify an explicit path, such as 'hdfs://host:port/dir/file', "
-                    "or set 'fs.defaultFS' in hadoop configuration."
-                )
-        else:
-            hostname = path[prefix_len:].split("/", 1)[0]
-            hdfs_uri = "hdfs://" + hostname
-            return FileInfo(path[len(hdfs_uri):], FileSystem.HDFS, hdfs_uri)
-    elif path.startswith("file://"):
-        return FileInfo(path[prefix_len:], FileSystem.LOCAL)
-    else:
-        default_fs = get_default_fs()
-        if default_fs.startswith("hdfs://"):
-            return FileInfo(path, FileSystem.HDFS, default_fs)
-        else:
-            return FileInfo(path, FileSystem.LOCAL)
-
-
-class FileSystem(Enum):
-    HDFS = 1
-    LOCAL = 2
-
-
-def get_default_fs() -> str:
-    spark = SparkSession.getActiveSession()
-    hadoop_conf = spark._jsc.hadoopConfiguration()
-    default_fs = hadoop_conf.get("fs.defaultFS")
-    logger.debug(f"hadoop_conf.get('fs.defaultFS'): {default_fs}")
-    return default_fs
-
-
-@dataclass(frozen=True)
-class FileInfo:
-    path: str
-    filesystem: FileSystem
-    hdfs_uri: str = None
-
-
 def get_filesystem(path: str) -> FileInfo:
     """Analyzes path and hadoop config and return tuple of `filesystem`,
     `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix).
@@ -1228,6 +1160,7 @@ def load_transformer(path: str):
     clazz = get_class_by_name(metadata_row["classname"])
     instance = clazz.load(os.path.join(path, "transformer"), spark)
     return instance
+
 
 def save_picklable_to_parquet(obj: Any, path: str) -> None:
     """

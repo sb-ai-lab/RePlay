@@ -168,6 +168,7 @@ class TwoStagesScenario(HybridRecommender):
         item_cat_features_list: Optional[List] = None,
         custom_features_processor: HistoryBasedFeaturesProcessor = None,
         seed: int = 123,
+        use_presplited_data: bool = False
     ) -> None:
         """
         :param train_splitter: splitter to get ``first_level_train`` and ``second_level_train``.
@@ -189,6 +190,7 @@ class TwoStagesScenario(HybridRecommender):
 
         """
         self.train_splitter = train_splitter
+        self.use_presplited_data = use_presplited_data
         self.cached_list = []
 
         self.first_level_models = (
@@ -461,7 +463,22 @@ class TwoStagesScenario(HybridRecommender):
 
     def _split_data(self, log: DataFrame) -> Tuple[DataFrame, DataFrame]:
         """Write statistics"""
-        first_level_train, second_level_train = self.train_splitter.split(log)
+        if self.use_presplited_data:
+            logger.debug("Using prespited data!")
+            first_level_train = log.sql_ctx.sparkSession.read.parquet(
+                "hdfs://node21.bdcl:9000"
+                # "/opt/spark_data/replay/experiments/netflix_first_level_80_20/first_level_train.parquet"
+                "/opt/spark_data/replay/experiments/msd_first_level_80_20/first_level_train.parquet"
+                # "/opt/spark_data/replay/experiments/ml25m_first_level_80_20/first_level_train.parquet"
+            )
+            second_level_train = log.sql_ctx.sparkSession.read.parquet(
+                "hdfs://node21.bdcl:9000"
+                # "/opt/spark_data/replay/experiments/netflix_first_level_80_20/second_level_positives.parquet"
+                "/opt/spark_data/replay/experiments/msd_first_level_80_20/second_level_positives.parquet"
+                # "/opt/spark_data/replay/experiments/ml25m_first_level_80_20/second_level_positives.parquet"
+            )
+        else:
+            first_level_train, second_level_train = self.train_splitter.split(log)
         logger.info("Log info: %s", get_log_info(log))
         logger.info(
             "first_level_train info: %s", get_log_info(first_level_train)
