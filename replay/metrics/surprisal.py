@@ -7,10 +7,7 @@ from pyspark.sql import types as st
 
 from replay.constants import AnyDataFrame
 from replay.utils import convert2spark, get_top_k_recs
-from replay.metrics.base_metric import (
-    fill_na_with_empty_array,
-    RecOnlyMetric
-)
+from replay.metrics.base_metric import fill_na_with_empty_array, RecOnlyMetric
 
 
 # pylint: disable=too-few-public-methods
@@ -77,8 +74,15 @@ class Surprisal(RecOnlyMetric):
         recommendations = get_top_k_recs(recommendations, max_k)
 
         recommendations = (
-            recommendations.withColumn("_num", sf.row_number().over(
-                Window.partitionBy("user_idx", "item_idx").orderBy("relevance"))).where(sf.col("_num") == 1)
+            recommendations.withColumn(
+                "_num",
+                sf.row_number().over(
+                    Window.partitionBy("user_idx", "item_idx").orderBy(
+                        "relevance"
+                    )
+                ),
+            )
+            .where(sf.col("_num") == 1)
             .drop("_num")
             .join(self.item_weights, on="item_idx", how="left")
             .fillna(1)
@@ -88,9 +92,14 @@ class Surprisal(RecOnlyMetric):
                     sf.struct("relevance", "item_idx", "rec_weight")
                 ).alias("rel_id_weight")
             )
-            .withColumn('pred_rec_weight', sf.reverse(sf.array_sort('rel_id_weight')))
+            .withColumn(
+                "pred_rec_weight", sf.reverse(sf.array_sort("rel_id_weight"))
+            )
             .select("user_idx", sf.col("pred_rec_weight.rec_weight"))
-            .withColumn("rec_weight", sf.col("rec_weight").cast(st.ArrayType(st.DoubleType(), True)))
+            .withColumn(
+                "rec_weight",
+                sf.col("rec_weight").cast(st.ArrayType(st.DoubleType(), True)),
+            )
         )
         if ground_truth_users is not None:
             recommendations = fill_na_with_empty_array(
