@@ -54,7 +54,7 @@ def save(model: BaseRecommender, path: str, overwrite: bool = False):
     df_path = join(path, "dataframes")
     for name, df in dataframes.items():
         if df is not None:
-            df.write.parquet(join(df_path, name))
+            df.write.mode("overwrite").parquet(join(df_path, name))
 
     if hasattr(model, "fit_users"):
         model.fit_users.write.mode("overwrite").parquet(join(df_path, "fit_users"))
