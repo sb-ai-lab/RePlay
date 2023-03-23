@@ -4,6 +4,8 @@ import json
 import shutil
 from inspect import getfullargspec
 from os.path import exists, join
+from pathlib import Path
+from typing import Union
 
 import pyspark.sql.types as st
 from pyspark.ml.feature import StringIndexerModel, IndexToString
@@ -43,7 +45,9 @@ def get_list_of_paths(spark: SparkSession, dir_path: str):
     return [str(f.getPath()) for f in statuses]
 
 
-def save(model: BaseRecommender, path: str, overwrite: bool = False):
+def save(
+    model: BaseRecommender, path: Union[str, Path], overwrite: bool = False
+):
     """
     Save fitted model to disk as a folder
 
@@ -51,6 +55,9 @@ def save(model: BaseRecommender, path: str, overwrite: bool = False):
     :param path: destination where model files will be stored
     :return:
     """
+    if isinstance(path, Path):
+        path = str(path)
+
     spark = State().session
 
     fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(
