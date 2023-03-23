@@ -12,7 +12,6 @@ Base abstract classes:
     with popularity statistics
 """
 
-import joblib
 import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -53,7 +52,7 @@ from replay.utils import (
     get_top_k_recs,
     return_recs,
     vector_euclidean_distance_similarity,
-    vector_dot,
+    vector_dot, save_picklable_to_parquet, load_pickled_from_parquet,
 )
 
 

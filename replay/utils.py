@@ -869,7 +869,8 @@ def save_picklable_to_parquet(obj: Any, path: str) -> None:
 
 def load_pickled_from_parquet(path: str) -> Any:
     """
-    Function loads object from disk or hdfs, what was dumped via `save_picklable_to_parquet` function.
+    Function loads object from disk or hdfs,
+    what was dumped via `save_picklable_to_parquet` function.
 
     Args:
         path: source path
