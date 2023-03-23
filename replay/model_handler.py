@@ -77,7 +77,9 @@ def save(
     init_args["_model_name"] = str(model)
     sc = spark.sparkContext
     df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
-    df.coalesce(1).write.mode("overwrite").json(join(path, "init_args.json"))
+    df.coalesce(1).write.mode("overwrite").option(
+        "ignoreNullFields", "false"
+    ).json(join(path, "init_args.json"))
 
     dataframes = model._dataframes
     df_path = join(path, "dataframes")
