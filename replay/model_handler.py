@@ -1,9 +1,7 @@
 # pylint: disable=wildcard-import,invalid-name,unused-wildcard-import,unspecified-encoding
-import os
 import json
-import shutil
 from inspect import getfullargspec
-from os.path import exists, join
+from os.path import join
 from pathlib import Path
 from typing import Union
 
@@ -17,15 +15,6 @@ from replay.models.base_rec import BaseRecommender
 from replay.session_handler import State
 from replay.splitters import *
 from replay.utils import save_picklable_to_parquet, load_pickled_from_parquet
-
-
-def prepare_dir(path):
-    """
-    Create empty `path` dir
-    """
-    if exists(path):
-        shutil.rmtree(path)
-    os.makedirs(path)
 
 
 def get_fs(spark: SparkSession):
@@ -81,7 +70,6 @@ def save(
                 f"Path '{path}' already exists. Mode is 'overwrite = False'."
             )
 
-    fs.mkdirs(spark._jvm.org.apache.hadoop.fs.Path(join(path, "model")))
     model._save_model(join(path, "model"))
 
     init_args = model._init_args
@@ -158,7 +146,9 @@ def load(path: str) -> BaseRecommender:
     return model
 
 
-def save_indexer(indexer: Indexer, path: Union[str, Path], overwrite: bool = False):
+def save_indexer(
+    indexer: Indexer, path: Union[str, Path], overwrite: bool = False
+):
     """
     Save fitted indexer to disk as a folder
 
@@ -171,9 +161,7 @@ def save_indexer(indexer: Indexer, path: Union[str, Path], overwrite: bool = Fal
     spark = State().session
 
     if not overwrite:
-        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(
-            spark._jsc.hadoopConfiguration()
-        )
+        fs = get_fs(spark)
         is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
         if is_exists:
             raise FileExistsError(
