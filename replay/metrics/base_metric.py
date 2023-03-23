@@ -264,7 +264,9 @@ class Metric(ABC):
             # because we don't know columns ordering
             # and we don't know exactly what is columns in recs
             cols = [col for col in recs.columns if col != "user_idx"]
-            metric_value_col = self._get_metric_value_by_user_scala_udf(sf.lit(k).alias("k"), *cols).alias("value")
+            metric_value_col = self._get_metric_value_by_user_scala_udf(
+                sf.lit(k).alias("k"), *cols
+            ).alias("value")
             return recs.select("user_idx", metric_value_col)
 
         cur_class = self.__class__
@@ -281,12 +283,11 @@ class Metric(ABC):
     @staticmethod
     @abstractmethod
     def _get_metric_value_by_user_scala_udf(
-            k: Union[str, Column],
-            pred: Union[str, Column],
-            ground_truth: Union[str, Column]
+        k: Union[str, Column],
+        pred: Union[str, Column],
+        ground_truth: Union[str, Column],
     ) -> Column:
-        """Returns scala udf that calcs metric for one user as Column
-        """
+        """Returns scala udf that calcs metric for one user as Column"""
 
     @staticmethod
     @abstractmethod
@@ -358,12 +359,23 @@ class Metric(ABC):
 
     @staticmethod
     def get_scala_udf(udf_name: str, params: List) -> Column:
-        sc = SparkSession.getActiveSession().sparkContext
-        scala_udf = getattr(sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs, udf_name)
-        _f = scala_udf()
-        return Column(
-            _f.apply(_to_seq(sc, params, _to_java_column))
+        """Returns expression of calling scala UDF as column
+
+        Args:
+            udf_name: UDF name from 'org.apache.spark.replay.utils.ScalaPySparkUDFs'
+            params: list of UDF params in right order
+
+        Returns: column expression
+
+        """
+        sc = (  # pylint: disable=invalid-name
+            SparkSession.getActiveSession().sparkContext
         )
+        scala_udf = getattr(
+            sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs, udf_name
+        )()
+        return Column(scala_udf.apply(_to_seq(sc, params, _to_java_column)))
+
 
 # pylint: disable=too-few-public-methods
 class RecOnlyMetric(Metric):
