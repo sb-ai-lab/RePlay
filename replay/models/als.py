@@ -20,6 +20,7 @@ class ALSWrap(Recommender, ItemVectorModel):
         "rank": {"type": "loguniform_int", "args": [8, 256]},
     }
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         rank: int = 10,
