@@ -1,19 +1,17 @@
-from typing import Any, Iterable, List, Optional, Set, Tuple, Union
-
 import collections
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from enum import Enum
+from typing import Any, List, Optional, Set, Tuple, Union
+from typing import Iterable
 
 import numpy as np
 import pandas as pd
 import pyspark.sql.types as st
-
-from pyspark.sql import SparkSession
 from numpy.random import default_rng
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
+from pyspark.sql import SparkSession
 from scipy.sparse import csr_matrix
 
 from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
@@ -389,7 +387,7 @@ def to_csr(
         return csr_matrix(
             (
                 [],
-                ([],[]),
+                ([], []),
             ),
             shape=(0, 0),
         )
@@ -733,20 +731,22 @@ def drop_temp_view(temp_view_name: str) -> None:
 
 
 class FileSystem(Enum):
+    """File system types"""
     HDFS = 1
     LOCAL = 2
 
 
 def get_default_fs() -> str:
+    """Returns hadoop `fs.defaultFS` property value"""
     spark = SparkSession.getActiveSession()
     hadoop_conf = spark._jsc.hadoopConfiguration()
     default_fs = hadoop_conf.get("fs.defaultFS")
-    logger.debug(f"hadoop_conf.get('fs.defaultFS'): {default_fs}")
     return default_fs
 
 
 @dataclass(frozen=True)
 class FileInfo:
+    """File meta-information: filesystem, path and hdfs_uri (optional)"""
     path: str
     filesystem: FileSystem
     hdfs_uri: str = None
@@ -761,10 +761,22 @@ def get_filesystem(path: str) -> FileInfo:
     >>> path = 'hdfs://node21.bdcl:9000/tmp/file'
     >>> get_filesystem(path)
     FileInfo(path='/tmp/file', filesystem=<FileSystem.HDFS: 1>, hdfs_uri='hdfs://node21.bdcl:9000')
-    or
+
     >>> path = 'file:///tmp/file'
     >>> get_filesystem(path)
     FileInfo(path='/tmp/file', filesystem=<FileSystem.LOCAL: 2>, hdfs_uri=None)
+
+    >>> spark = SparkSession.builder.master("local[1]").getOrCreate()
+    >>> path = '/tmp/file'
+    >>> get_filesystem(path)
+    FileInfo(path='/tmp/file', filesystem=<FileSystem.LOCAL: 2>, hdfs_uri=None)
+
+    >>> spark = SparkSession.builder.master("local[1]").getOrCreate()
+    >>> spark.sparkContext._jsc.hadoopConfiguration().set('fs.defaultFS', 'hdfs://node21.bdcl:9000')
+    >>> path = '/tmp/file'
+    >>> get_filesystem(path)
+    FileInfo(path='/tmp/file', filesystem=<FileSystem.HDFS: 1>, hdfs_uri='hdfs://node21.bdcl:9000')
+
 
     Args:
         path (str): path to file on hdfs or local disk
@@ -788,7 +800,7 @@ def get_filesystem(path: str) -> FileInfo:
         else:
             hostname = path[prefix_len:].split("/", 1)[0]
             hdfs_uri = "hdfs://" + hostname
-            return FileInfo(path[len(hdfs_uri):], FileSystem.HDFS, hdfs_uri)
+            return FileInfo(path[len(hdfs_uri) :], FileSystem.HDFS, hdfs_uri)
     elif path.startswith("file://"):
         return FileInfo(path[prefix_len:], FileSystem.LOCAL)
     else:
