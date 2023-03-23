@@ -28,6 +28,21 @@ def prepare_dir(path):
     os.makedirs(path)
 
 
+def get_fs(spark: SparkSession):
+    """Gets `org.apache.hadoop.fs.FileSystem` instance from JVM gateway
+
+    Args:
+        spark: spark session
+
+    Returns:
+
+    """
+    fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(
+        spark._jsc.hadoopConfiguration()
+    )
+    return fs
+
+
 def get_list_of_paths(spark: SparkSession, dir_path: str):
     """Returns list of paths to files in the `dir_path`
 
@@ -38,9 +53,7 @@ def get_list_of_paths(spark: SparkSession, dir_path: str):
     Returns: list of paths to files
 
     """
-    fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(
-        spark._jsc.hadoopConfiguration()
-    )
+    fs = get_fs(spark)
     statuses = fs.listStatus(spark._jvm.org.apache.hadoop.fs.Path(dir_path))
     return [str(f.getPath()) for f in statuses]
 
@@ -60,9 +73,7 @@ def save(
 
     spark = State().session
 
-    fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(
-        spark._jsc.hadoopConfiguration()
-    )
+    fs = get_fs(spark)
     if not overwrite:
         is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
         if is_exists:
@@ -137,18 +148,26 @@ def load(path: str) -> BaseRecommender:
         setattr(model, attr_name, df)
 
     model._load_model(join(path, "model"))
-    model.study = load_pickled_from_parquet(join(path, "study"))
+    fs = get_fs(spark)
+    model.study = (
+        load_pickled_from_parquet(join(path, "study"))
+        if fs.exists(spark._jvm.org.apache.hadoop.fs.Path(join(path, "study")))
+        else None
+    )
 
     return model
 
 
-def save_indexer(indexer: Indexer, path: str, overwrite: bool = False):
+def save_indexer(indexer: Indexer, path: Union[str, Path], overwrite: bool = False):
     """
     Save fitted indexer to disk as a folder
 
     :param indexer: Trained indexer
     :param path: destination where indexer files will be stored
     """
+    if isinstance(path, Path):
+        path = str(path)
+
     spark = State().session
 
     if not overwrite:
