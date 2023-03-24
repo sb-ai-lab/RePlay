@@ -16,6 +16,7 @@ from replay.model_handler import save, load
 from replay.models import *
 from replay.utils import convert2spark
 from tests.utils import long_log_with_features, sparkDataFrameEqual, spark
+from tests.models.test_cat_pop_rec import cat_tree, cat_log, requested_cats
 
 
 @pytest.fixture
@@ -125,6 +126,17 @@ def test_cluster(long_log_with_features, user_features, tmp_path):
     save(model, path)
     loaded_model = load(path)
     new_pred = loaded_model.predict(user_features, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+def test_cat_poprec(cat_tree, cat_log, requested_cats, tmp_path):
+    path = (tmp_path / "cat_poprec").resolve()
+    model = CatPopRec(cat_tree=cat_tree)
+    model.fit(cat_log)
+    base_pred = model.predict(requested_cats, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(requested_cats, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 

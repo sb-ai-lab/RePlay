@@ -23,11 +23,11 @@ ___________________
     "Cluster Recommender", "PySpark"
     "Neural Matrix Factorization", "Python CPU/GPU"
     "MultVAE", "Python CPU/GPU"
+    "DDPG", "Python CPU"
     "ADMM SLIM", "Python CPU"
-    "Обертка Implicit", "Python CPU"
-    "Обертка LightFM", "Python CPU"
+    "Wrapper for implicit", "Python CPU"
+    "Wrapper for LightFM", "Python CPU"
     "RL-based CQL Recommender", "PySpark"
-
 
 To get more info on how to choose base model, please see this  :doc:`page </pages/useful_data/algorithm_selection>`.
 
@@ -252,6 +252,11 @@ Denoising AutoEncoder.
 
 
 .. autoclass:: replay.models.MultVAE
+    :special-members: __init__
+
+DDPG
+```````````````````````````
+.. autoclass:: replay.models.DDPG
     :special-members: __init__
 
 

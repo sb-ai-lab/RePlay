@@ -20,6 +20,7 @@ from replay.models import (
     UCB,
     Wilson,
     Word2VecRec,
+    DDPG,
     AssociationRulesItemRec,
     CQL,
 )
@@ -129,13 +130,13 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
         "random_rec",
     ],
 )
-def test_predict_pairs_warm_items_only(log, log_to_pred, model):
+def test_predict_pairs_k(log, model):
     model.fit(log)
 
     pairs_pred_k = model.predict_pairs(
         pairs=log.select("user_idx", "item_idx"),
         log=log,
-        k=2,
+        k=1,
     )
 
     pairs_pred = model.predict_pairs(
@@ -144,8 +145,55 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
         k=None,
     )
 
-    assert pairs_pred_k.groupBy("user_idx").count().filter(f"count > 2").count() == 0
-    assert pairs_pred.groupBy("user_idx").count().filter(f"count > 2").count() != 0
+    assert (
+        pairs_pred_k.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        == 0
+    )
+
+    assert (
+        pairs_pred.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        > 0
+    )
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ALSWrap(seed=SEED),
+        ADMMSLIM(seed=SEED),
+        ItemKNN(),
+        LightFMWrap(random_state=SEED),
+        MultVAE(),
+        NeuroMF(),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        PopRec(),
+        RandomRec(seed=SEED),
+    ],
+    ids=[
+        "als",
+        "admm_slim",
+        "knn",
+        "lightfm",
+        "multvae",
+        "neuromf",
+        "slim",
+        "word2vec",
+        "association_rules",
+        "pop_rec",
+        "random_rec",
+    ],
+)
+def test_predict_empty_log(log, model):
+    model.fit(log)
+    model.predict(log.limit(0), 1)
 
 
 @pytest.mark.parametrize(
@@ -243,27 +291,20 @@ def test_get_nearest_items(log, model, metric):
     )
 
 
-def test_nearest_items_raises(log):
-    model = PopRec()
+@pytest.mark.parametrize("metric", ["absent", None])
+def test_nearest_items_raises(log, metric):
+    model = AssociationRulesItemRec()
     model.fit(log.filter(sf.col("item_idx") != 3))
     with pytest.raises(
-        ValueError, match=r"Distance metric is required to get nearest items.*"
+        ValueError, match=r"Select one of the valid distance metrics.*"
     ):
-        model.get_nearest_items(items=[0, 1], k=2, metric=None)
-
+        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
+    model = ALSWrap()
+    model.fit(log)
     with pytest.raises(
-        ValueError,
-        match=r"Use models with attribute 'can_predict_item_to_item' set to True.*",
+        ValueError, match=r"Select one of the valid distance metrics.*"
     ):
-        model.get_nearest_items(items=[0, 1], k=2, metric="cosine_similarity")
-
-        with pytest.raises(
-            ValueError,
-            match=r"Use models with attribute 'can_predict_item_to_item' set to True.*",
-        ):
-            model.get_nearest_items(
-                items=[0, 1], k=2, metric="cosine_similarity"
-            )
+        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
 
 
 def test_filter_seen(log):
@@ -404,11 +445,13 @@ def test_predict_cold_and_new_filter_out(model, long_log_with_features):
         PopRec(),
         ALSWrap(rank=2, seed=SEED),
         ItemKNN(),
+        DDPG(seed=SEED, user_num=6, item_num=6),
     ],
     ids=[
         "pop_rec",
         "als",
         "knn",
+        "ddpg",
     ],
 )
 def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
@@ -438,11 +481,13 @@ def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
         PopRec(),
         ALSWrap(rank=2, seed=SEED),
         ItemKNN(),
+        DDPG(seed=SEED, user_num=6, item_num=6),
     ],
     ids=[
         "pop_rec",
         "als",
         "knn",
+        "ddpg",
     ],
 )
 def test_predict_to_file(spark, model, long_log_with_features, tmp_path):

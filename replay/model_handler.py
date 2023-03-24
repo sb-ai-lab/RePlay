@@ -47,10 +47,13 @@ def save(model: BaseRecommender, path: str):
     os.makedirs(df_path)
     for name, df in dataframes.items():
         df.write.parquet(join(df_path, name))
-    model.fit_users.write.parquet(join(df_path, "fit_users"))
-    model.fit_items.write.parquet(join(df_path, "fit_items"))
 
-    joblib.dump(model.study, join(path, "study"))
+    if hasattr(model, "fit_users"):
+        model.fit_users.write.parquet(join(df_path, "fit_users"))
+    if hasattr(model, "fit_items"):
+        model.fit_items.write.parquet(join(df_path, "fit_items"))
+    if hasattr(model, "study"):
+        joblib.dump(model.study, join(path, "study"))
 
 
 def load(path: str) -> BaseRecommender:
@@ -88,7 +91,11 @@ def load(path: str) -> BaseRecommender:
         setattr(model, name, df)
 
     model._load_model(join(path, "model"))
-    model.study = joblib.load(join(path, "study"))
+    model.study = (
+        joblib.load(join(path, "study"))
+        if os.path.exists(join(path, "study"))
+        else None
+    )
     return model
 
 
