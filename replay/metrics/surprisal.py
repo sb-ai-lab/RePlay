@@ -1,8 +1,7 @@
 from functools import partial
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
-from pyspark.sql import Column
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
@@ -46,6 +45,8 @@ class Surprisal(RecOnlyMetric):
         Surprisal@K = \\frac {\sum_{i=1}^{N}Surprisal@K(i)}{N}
     """
 
+    _scala_udf_name = "getSurprisalMetricValue"
+
     def __init__(
         self, log: AnyDataFrame,
         use_scala_udf: bool = False
@@ -69,13 +70,6 @@ class Surprisal(RecOnlyMetric):
     def _get_metric_value_by_user(k, *args):
         weigths = args[0]
         return sum(weigths[:k]) / k
-
-    @staticmethod
-    def _get_metric_value_by_user_scala_udf(
-            k: Union[str, Column],
-            weigths: Union[str, Column]
-    ) -> Column:
-        return RecOnlyMetric.get_scala_udf('getSurprisalMetricValue', [k, weigths])
 
     def _get_enriched_recommendations(
         self,

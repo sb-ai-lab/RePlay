@@ -1,10 +1,6 @@
-from typing import Union
-
 import numpy as np
 
 from replay.metrics.base_metric import NCISMetric
-
-from pyspark.sql import Column
 
 
 # pylint: disable=too-few-public-methods
@@ -25,6 +21,8 @@ class NCISPrecision(NCISMetric):
         Source: arxiv.org/abs/1801.07030
     """
 
+    _scala_udf_name = "getNCISPrecisionMetricValue"
+
     @staticmethod
     def _get_metric_value_by_user(k, *args):
         pred, ground_truth, pred_weights = args
@@ -32,12 +30,3 @@ class NCISPrecision(NCISMetric):
             return 0
         mask = np.isin(pred[:k], ground_truth)
         return sum(np.array(pred_weights)[mask]) / sum(pred_weights[:k])
-
-    @staticmethod
-    def _get_metric_value_by_user_scala_udf(
-            k: Union[str, Column],
-            pred: Union[str, Column],
-            pred_weights: Union[str, Column],
-            ground_truth: Union[str, Column]
-    ) -> Column:
-        return NCISPrecision.get_scala_udf('getNCISPrecisionMetricValue', [k, pred, pred_weights, ground_truth])

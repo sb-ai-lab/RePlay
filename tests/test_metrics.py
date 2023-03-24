@@ -534,7 +534,9 @@ def test_ncis_precision_scala(spark, prev_relevance):
         ])
     )
     metric_values = df.select(
-        ncis_precision._get_metric_value_by_user_scala_udf("k", "pred", "pred_weights", "ground_truth")
+        ncis_precision.get_scala_udf(
+            ncis_precision.scala_udf_name, ["k", "pred", "pred_weights", "ground_truth"]
+        )
     ).collect()
     assert (metric_values[0][0] == 0.5)
     assert (metric_values[1][0] == 0)

@@ -1,8 +1,4 @@
-from typing import Union
-
 from replay.metrics.base_metric import Metric
-
-from pyspark.sql import Column
 
 
 # pylint: disable=too-few-public-methods
@@ -18,16 +14,10 @@ class Precision(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- indicator function showing that user :math:`i` interacted with item :math:`j`"""
 
+    _scala_udf_name = "getPrecisionMetricValue"
+
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         if len(pred) == 0:
             return 0
         return len(set(pred[:k]) & set(ground_truth)) / k
-
-    @staticmethod
-    def _get_metric_value_by_user_scala_udf(
-            k: Union[str, Column],
-            pred: Union[str, Column],
-            ground_truth: Union[str, Column]
-    ) -> Column:
-        return Metric.get_scala_udf('getPrecisionMetricValue', [k, pred, ground_truth])

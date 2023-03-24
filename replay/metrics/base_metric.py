@@ -164,6 +164,7 @@ class Metric(ABC):
     """Base metric class"""
 
     _logger: Optional[logging.Logger] = None
+    _scala_udf_name: Optional[str] = None
 
     def __init__(self, use_scala_udf: bool = False) -> None:
         self._use_scala_udf = use_scala_udf
@@ -176,6 +177,14 @@ class Metric(ABC):
         if self._logger is None:
             self._logger = logging.getLogger("replay")
         return self._logger
+
+    @property
+    def scala_udf_name(self) -> str:
+        """Returns UDF name from `org.apache.spark.replay.utils.ScalaPySparkUDFs`"""
+        if self._scala_udf_name:
+            return self._scala_udf_name
+        else:
+            raise NotImplementedError(f"Scala UDF not implemented for {type(self).__name__} class!")
 
     def __str__(self):
         return type(self).__name__
@@ -261,11 +270,11 @@ class Metric(ABC):
         """
         if self._use_scala_udf:
             # Possibly bad approach to define column names for udf call
-            # because we don't know columns ordering
+            # because we don't know columns ordering,
             # and we don't know exactly what is columns in recs
             cols = [col for col in recs.columns if col != "user_idx"]
-            metric_value_col = self._get_metric_value_by_user_scala_udf(
-                sf.lit(k).alias("k"), *cols
+            metric_value_col = self.get_scala_udf(
+                self.scala_udf_name, [sf.lit(k).alias("k"), *cols]
             ).alias("value")
             return recs.select("user_idx", metric_value_col)
 
@@ -279,15 +288,6 @@ class Metric(ABC):
             f"user_idx {recs.schema['user_idx'].dataType.typeName()}, value double"
         )
         return distribution
-
-    @staticmethod
-    @abstractmethod
-    def _get_metric_value_by_user_scala_udf(
-        k: Union[str, Column],
-        pred: Union[str, Column],
-        ground_truth: Union[str, Column],
-    ) -> Column:
-        """Returns scala udf that calcs metric for one user as Column"""
 
     @staticmethod
     @abstractmethod

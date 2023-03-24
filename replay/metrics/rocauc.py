@@ -1,8 +1,4 @@
-from typing import Union
-
 from replay.metrics.base_metric import Metric
-
-from pyspark.sql import Column
 
 
 # pylint: disable=too-few-public-methods
@@ -44,6 +40,8 @@ class RocAuc(Metric):
 
     """
 
+    _scala_udf_name = "getRocAucMetricValue"
+
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         length = min(k, len(pred))
@@ -62,11 +60,3 @@ class RocAuc(Metric):
         if fp_cum == 0:
             return 1
         return 1 - fp_cum / (fp_cur * (length - fp_cur))
-
-    @staticmethod
-    def _get_metric_value_by_user_scala_udf(
-            k: Union[str, Column],
-            pred: Union[str, Column],
-            ground_truth: Union[str, Column]
-    ) -> Column:
-        return Metric.get_scala_udf('getRocAucMetricValue', [k, pred, ground_truth])

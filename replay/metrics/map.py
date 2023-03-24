@@ -1,8 +1,4 @@
-from typing import Union
-
 from replay.metrics.base_metric import Metric
-
-from pyspark.sql import Column
 
 
 # pylint: disable=too-few-public-methods
@@ -19,6 +15,8 @@ class MAP(Metric):
     :math:`\\mathbb{1}_{r_{ij}}` -- indicator function showing if user :math:`i` interacted with item :math:`j`
     """
 
+    _scala_udf_name = "getMAPMetricValue"
+
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         length = min(k, len(pred))
@@ -31,11 +29,3 @@ class MAP(Metric):
                 tp_cum += 1
                 result += tp_cum / (i + 1)
         return result / k
-
-    @staticmethod
-    def _get_metric_value_by_user_scala_udf(
-            k: Union[str, Column],
-            pred: Union[str, Column],
-            ground_truth: Union[str, Column]
-    ) -> Column:
-        return Metric.get_scala_udf('getMAPMetricValue', [k, pred, ground_truth])
