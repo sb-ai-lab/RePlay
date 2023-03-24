@@ -15,6 +15,7 @@ from pyspark.sql import functions as sf
 
 from replay.data_preparator import DataPreparator, Indexer
 from replay.experiment import Experiment
+from replay.mdp_dataset_builder import MdpDatasetBuilder
 from replay.metrics import HitRate, NDCG, MAP, MRR, Coverage, Surprisal
 from replay.model_handler import save, load
 from replay.models import UCB, CQL, Wilson, Recommender, ALSWrap, ItemKNN, LightFMWrap, SLIM
@@ -156,9 +157,9 @@ def main():
 
     algorithms = {
         f'CQL_{e}': CQL(
-            use_gpu=use_gpu, top_k=K, n_epochs=e,
-            action_randomization_scale=args.action_randomization_scale,
-            batch_size=512
+            use_gpu=use_gpu,
+            mdp_dataset_builder=MdpDatasetBuilder(K, args.action_randomization_scale),
+            n_epochs=e,
         )
         for e in n_epochs
     }

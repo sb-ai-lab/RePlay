@@ -21,9 +21,10 @@ from d3rlpy.models.encoders import create_encoder_factory
 from d3rlpy.models.optimizers import OptimizerFactory, AdamFactory
 from d3rlpy.models.q_functions import create_q_func_factory
 from d3rlpy.preprocessing import create_scaler, create_action_scaler, create_reward_scaler
-from pyspark.sql import DataFrame, functions as sf, Window
+from pyspark.sql import DataFrame, functions as sf
 
 from replay.constants import REC_SCHEMA
+from replay.mdp_dataset_builder import MdpDatasetBuilder
 from replay.models.base_rec import Recommender
 from replay.utils import assert_omp_single_thread
 
@@ -131,9 +132,8 @@ class CQL(Recommender):
         impl (d3rlpy.algos.torch.cql_impl.CQLImpl): algorithm implementation.
     """
 
-    top_k: int
     n_epochs: int
-    action_randomization_scale: float
+    mdp_dataset_builder: MdpDatasetBuilder
     model: CQL_d3rlpy.CQL
 
     can_predict_cold_users = True
@@ -145,7 +145,6 @@ class CQL(Recommender):
         "actor_learning_rate": {"type": "loguniform", "args": [1e-5, 1e-3]},
         "critic_learning_rate": {"type": "loguniform", "args": [3e-5, 3e-4]},
         "n_epochs": {"type": "int", "args": [3, 20]},
-        "action_randomization_scale": {"type": "loguniform", "args": [1e-3, 1e-1]},
         "temp_learning_rate": {"type": "loguniform", "args": [1e-5, 1e-3]},
         "alpha_learning_rate": {"type": "loguniform", "args": [1e-5, 1e-3]},
         "gamma": {"type": "loguniform", "args": [0.9, 0.999]},
@@ -154,10 +153,8 @@ class CQL(Recommender):
     
     def __init__(
             self,
-            top_k: int,
-            mdp_preparator,
+            mdp_dataset_builder: MdpDatasetBuilder,
             n_epochs: int = 1,
-            action_randomization_scale: float = 1e-3,
 
             # CQL inner params
             actor_learning_rate: float = 1e-4,
@@ -171,7 +168,7 @@ class CQL(Recommender):
             actor_encoder_factory: EncoderArg = "default",
             critic_encoder_factory: EncoderArg = "default",
             q_func_factory: QFuncArg = "mean",
-            batch_size: int = 256,
+            batch_size: int = 64,
             n_frames: int = 1,
             n_steps: int = 1,
             gamma: float = 0.99,
@@ -190,12 +187,7 @@ class CQL(Recommender):
             **params
     ):
         super().__init__()
-        self.top_k = top_k
-        # cannot set zero scale as d3rlpy will treat transitions then as discrete
-        assert action_randomization_scale > 0
-        self.action_randomization_scale = action_randomization_scale
         self.n_epochs = n_epochs
-        self.mdp_preparator = mdp_preparator
         assert_omp_single_thread()
 
         if isinstance(actor_optim_factory, dict):
@@ -214,6 +206,10 @@ class CQL(Recommender):
             scaler = _deserialize_param('scaler', scaler)
             action_scaler = _deserialize_param('action_scaler', action_scaler)
             reward_scaler = _deserialize_param('reward_scaler', reward_scaler)
+            # non-model params
+            mdp_dataset_builder = _deserialize_param('mdp_dataset_builder', mdp_dataset_builder)
+
+        self.mdp_dataset_builder = mdp_dataset_builder
 
         self.model = CQL_d3rlpy.CQL(
             actor_learning_rate=actor_learning_rate,
@@ -260,43 +256,8 @@ class CQL(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        train: MDPDataset = self.mdp_preparator.prepare(log)
+        train: MDPDataset = self.mdp_dataset_builder.build(log)
         self.model.fit(train, n_epochs=self.n_epochs)
-
-    def _prepare_mdp_dataset(self, log: DataFrame) -> MDPDataset:
-        # reward top-K watched movies with 1, the others - with 0
-        reward_condition = sf.row_number().over(
-            Window
-            .partitionBy('user_idx')
-            .orderBy([sf.desc('relevance'), sf.desc('timestamp')])
-        ) <= self.top_k
-
-        # every user has his own episode (the latest item is defined as terminal)
-        terminal_condition = sf.row_number().over(
-            Window
-            .partitionBy('user_idx')
-            .orderBy(sf.desc('timestamp'))
-        ) == 1
-
-        user_logs = (
-            log
-            .withColumn("reward", sf.when(reward_condition, sf.lit(1)).otherwise(sf.lit(0)))
-            .withColumn("terminal", sf.when(terminal_condition, sf.lit(1)).otherwise(sf.lit(0)))
-            .withColumn(
-                "action",
-                sf.col("relevance").cast("float") + sf.randn() * self.action_randomization_scale
-            )
-            .orderBy(['user_idx', 'timestamp'], ascending=True)
-            .select(['user_idx', 'item_idx', 'action', 'reward', 'terminal'])
-            .toPandas()
-        )
-        train_dataset = MDPDataset(
-            observations=np.array(user_logs[['user_idx', 'item_idx']]),
-            actions=user_logs['action'].to_numpy()[:, None],
-            rewards=user_logs['reward'].to_numpy(),
-            terminals=user_logs['terminal'].to_numpy()
-        )
-        return train_dataset
 
     @staticmethod
     def _predict_pairs_inner(
@@ -372,12 +333,11 @@ class CQL(Recommender):
     def _init_args(self) -> Dict[str, Any]:
         # non-model hyperparams
         args = dict(
-            top_k=self.top_k,
-            action_randomization_scale=self.action_randomization_scale,
             n_epochs=self.n_epochs,
+            mdp_dataset_builder=self.mdp_dataset_builder.init_args(),
         )
         # model internal hyperparams
-        args.update(**self._get_model_hyperparams(self.model))
+        args |= self._get_model_hyperparams(self.model)
         return args
 
     def _save_model(self, path: str) -> None:
@@ -451,4 +411,6 @@ def _deserialize_param(name: str, value: Any) -> Any:
         value = create_encoder_factory(value["type"], **value["params"])
     elif name == "q_func_factory":
         value = create_q_func_factory(value["type"], **value["params"])
+    elif name == "mdp_dataset_builder":
+        value = MdpDatasetBuilder(**value)
     return value
