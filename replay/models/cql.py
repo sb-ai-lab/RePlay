@@ -76,9 +76,8 @@ class CQL(Recommender):
           Learning. <https://arxiv.org/abs/2006.04779>`_
 
     Args:
-        top_k (int): the number of top user items to learn predicting.
         n_epochs (int): the number of epochs to learn.
-        action_randomization_scale (float): the scale of action randomization gaussian noise.
+        mdp_dataset_builder (MdpDatasetBuilder): the MDP dataset builder from users' log.
         actor_learning_rate (float): learning rate for policy function.
         critic_learning_rate (float): learning rate for Q functions.
         temp_learning_rate (float):
@@ -111,7 +110,7 @@ class CQL(Recommender):
         n_frames (int): the number of frames to stack for image observation.
         n_steps (int): N-step TD calculation.
         gamma (float): discount factor.
-        tau (float): target network synchronization coefficiency.
+        tau (float): target network synchronization coefficient.
         n_critics (int): the number of Q functions for ensemble.
         initial_temperature (float): initial temperature value.
         initial_alpha (float): initial :math:`\alpha` value.

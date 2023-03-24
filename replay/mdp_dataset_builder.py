@@ -9,6 +9,15 @@ timer = timeit.default_timer
 
 
 class MdpDatasetBuilder:
+    r"""
+    Markov Decision Process Dataset builder.
+    This class transforms datasets with user logs, which is natural for recommender systems,
+    to datasets consisting of users' decision-making session logs, which is natural for RL methods.
+
+    Args:
+        top_k (int): the number of top user items to learn predicting.
+        action_randomization_scale (float): the scale of action randomization gaussian noise.
+    """
     logger: logging.Logger
     top_k: int
     action_randomization_scale: float
@@ -21,6 +30,8 @@ class MdpDatasetBuilder:
         self.action_randomization_scale = action_randomization_scale
 
     def build(self, log: DataFrame) -> MDPDataset:
+        """Builds and returns MDP dataset from users' log."""
+
         start_time = timer()
         # reward top-K watched movies with 1, the others - with 0
         reward_condition = sf.row_number().over(
