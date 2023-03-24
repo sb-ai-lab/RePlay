@@ -382,7 +382,7 @@ class RecOnlyMetric(Metric):
     """Base class for metrics that do not need holdout data"""
 
     @abstractmethod
-    def __init__(self, log: AnyDataFrame, *args, **kwargs):
+    def __init__(self, log: AnyDataFrame, *args, **kwargs):  # pylint: disable=super-init-not-called
         pass
 
     # pylint: disable=no-self-use
