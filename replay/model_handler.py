@@ -70,6 +70,7 @@ def save(
                 f"Path '{path}' already exists. Mode is 'overwrite = False'."
             )
 
+    fs.mkdirs(spark._jvm.org.apache.hadoop.fs.Path(path))
     model._save_model(join(path, "model"))
 
     init_args = model._init_args
