@@ -858,7 +858,7 @@ def save_picklable_to_parquet(obj: Any, path: str) -> None:
         obj: object to be saved
         path: path to dump
     """
-    sc = SparkSession.getActiveSession().sparkContext
+    sc = State().session.sparkContext
     # We can use `RDD.saveAsPickleFile`, but it has no "overwrite" parameter
     pickled_instance = pickle.dumps(obj)
     Record = collections.namedtuple("Record", ["data"])
@@ -878,7 +878,7 @@ def load_pickled_from_parquet(path: str) -> Any:
     Returns: unpickled object
 
     """
-    spark = SparkSession.getActiveSession()
+    spark = State().session
     df = spark.read.parquet(path)
     pickled_instance = df.rdd.map(lambda row: bytes(row.data)).first()
     return pickle.loads(pickled_instance)
