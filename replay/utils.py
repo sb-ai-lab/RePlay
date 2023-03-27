@@ -8,7 +8,7 @@ import pyspark.sql.types as st
 
 from numpy.random import default_rng
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
-from pyspark.sql import SparkSession, Column, DataFrame, Window, functions as sf
+from pyspark.sql import Column, DataFrame, Window, functions as sf
 from scipy.sparse import csr_matrix
 
 from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
