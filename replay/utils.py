@@ -1,11 +1,10 @@
+import collections
 import pickle
 from typing import Any, Iterable, List, Optional, Set, Tuple, Union
 
-import collections
 import numpy as np
 import pandas as pd
 import pyspark.sql.types as st
-
 from numpy.random import default_rng
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
 from pyspark.sql import Column, DataFrame, Window, functions as sf
@@ -13,6 +12,7 @@ from scipy.sparse import csr_matrix
 
 from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
 from replay.session_handler import State
+
 
 # pylint: disable=invalid-name
 
@@ -854,10 +854,11 @@ def save_picklable_to_parquet(obj: Any, path: str) -> None:
     """
     Function dumps object to disk or hdfs in parquet format.
 
-    Args:
-        obj: object to be saved
-        path: path to dump
+    :param obj: object to be saved
+    :param path: path to dump
+    :return:
     """
+
     sc = State().session.sparkContext
     # We can use `RDD.saveAsPickleFile`, but it has no "overwrite" parameter
     pickled_instance = pickle.dumps(obj)
@@ -872,11 +873,8 @@ def load_pickled_from_parquet(path: str) -> Any:
     Function loads object from disk or hdfs,
     what was dumped via `save_picklable_to_parquet` function.
 
-    Args:
-        path: source path
-
-    Returns: unpickled object
-
+    :param path: source path
+    :return: unpickled object
     """
     spark = State().session
     df = spark.read.parquet(path)

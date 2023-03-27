@@ -18,13 +18,11 @@ from replay.utils import save_picklable_to_parquet, load_pickled_from_parquet
 
 
 def get_fs(spark: SparkSession):
-    """Gets `org.apache.hadoop.fs.FileSystem` instance from JVM gateway
+    """
+    Gets `org.apache.hadoop.fs.FileSystem` instance from JVM gateway
 
-    Args:
-        spark: spark session
-
-    Returns:
-
+    :param spark: spark session
+    :return:
     """
     fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(
         spark._jsc.hadoopConfiguration()
@@ -33,14 +31,12 @@ def get_fs(spark: SparkSession):
 
 
 def get_list_of_paths(spark: SparkSession, dir_path: str):
-    """Returns list of paths to files in the `dir_path`
+    """
+    Returns list of paths to files in the `dir_path`
 
-    Args:
-        spark: spark session
-        dir_path: path to dir in hdfs or local disk
-
-    Returns: list of paths to files
-
+    :param spark: spark session
+    :param dir_path: path to dir in hdfs or local disk
+    :return: list of paths to files
     """
     fs = get_fs(spark)
     statuses = fs.listStatus(spark._jvm.org.apache.hadoop.fs.Path(dir_path))
