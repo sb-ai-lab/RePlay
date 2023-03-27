@@ -8,11 +8,11 @@ import pyspark.sql.types as st
 from numpy.random import default_rng
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
 from pyspark.sql import SparkSession, Column, DataFrame, Window, functions as sf
+from pyspark.sql.column import _to_java_column, _to_seq
 from scipy.sparse import csr_matrix
 
 from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
 from replay.session_handler import State
-from pyspark.sql.column import _to_java_column, _to_seq
 
 # pylint: disable=invalid-name
 
