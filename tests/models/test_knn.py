@@ -45,6 +45,20 @@ def model():
 
 
 @pytest.fixture
+def model_with_ann():
+    nmslib_hnsw_params = {
+        "method": "hnsw",
+        "space": "negdotprod_sparse",
+        "M": 10,
+        "efS": 200,
+        "efC": 200,
+        "post": 0,
+        "build_index_on": "driver",
+    }
+    return ItemKNN(1, weighting=None, nmslib_hnsw_params=nmslib_hnsw_params)
+
+
+@pytest.fixture
 def tf_idf_model():
     model = ItemKNN(1, weighting="tf_idf")
     return model
@@ -118,3 +132,20 @@ def test_weighting_raises(log, tf_idf_model):
     with pytest.raises(ValueError, match="weighting must be one of .*"):
         tf_idf_model.weighting = " "
         log = tf_idf_model._reweight_log(log)
+
+
+def test_ann_predict(log, model, model_with_ann):
+    model.fit(log)
+    recs1 = model.predict(log, k=1)
+    recs1.show()
+    model_with_ann.fit(log)
+    recs2 = model_with_ann.predict(log, k=1)
+    recs2.show()
+    recs1 = recs1.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+    recs2 = recs2.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+    assert recs1.user_idx.equals(recs2.user_idx)
+    assert recs1.item_idx.equals(recs2.item_idx)

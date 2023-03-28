@@ -18,6 +18,24 @@ def model():
     return model
 
 
+@pytest.fixture
+def model_with_ann():
+    model = ALSWrap(
+        rank=2,
+        implicit_prefs=False,
+        seed=42,
+        hnswlib_params={
+            "space": "ip",
+            "M": 100,
+            "efS": 2000,
+            "efC": 2000,
+            "post": 0,
+            "build_index_on": "driver",
+        },
+    )
+    return model
+
+
 def test_works(log, model):
     try:
         pred = model.fit_predict(log, k=1)
@@ -65,3 +83,20 @@ def test_enrich_with_features(log, model):
         [row_dict["_if_1"], row_dict["_if_1"] * row_dict["_uf_1"]],
         [-2.938199281692505, 0],
     )
+
+
+def test_ann_predict(log, model, model_with_ann):
+    model.fit(log)
+    recs1 = model.predict(log, k=1)
+    recs1.show()
+    model_with_ann.fit(log)
+    recs2 = model_with_ann.predict(log, k=1)
+    recs2.show()
+    recs1 = recs1.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+    recs2 = recs2.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+    assert recs1.user_idx.equals(recs2.user_idx)
+    assert recs1.item_idx.equals(recs2.item_idx)

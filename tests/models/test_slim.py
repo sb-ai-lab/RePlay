@@ -12,6 +12,20 @@ def model():
     return SLIM(0.0, 0.01, seed=42)
 
 
+@pytest.fixture
+def model_with_ann():
+    nmslib_hnsw_params = {
+        "method": "hnsw",
+        "space": "negdotprod_sparse",
+        "M": 10,
+        "efS": 200,
+        "efC": 200,
+        "post": 0,
+        "build_index_on": "driver",
+    }
+    return SLIM(0.0, 0.01, seed=42, nmslib_hnsw_params=nmslib_hnsw_params)
+
+
 def test_fit(log, model):
     model.fit(log)
     assert np.allclose(
@@ -40,6 +54,23 @@ def test_predict(log, model):
         .relevance,
         [0.4955047, 0.12860215, 0.60048005, 0.12860215],
     )
+
+
+def test_ann_predict(log, model, model_with_ann):
+    model.fit(log)
+    recs1 = model.predict(log, k=1)
+    recs1.show()
+    model_with_ann.fit(log)
+    recs2 = model_with_ann.predict(log, k=1)
+    recs2.show()
+    recs1 = recs1.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+    recs2 = recs2.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+    assert recs1.user_idx.equals(recs2.user_idx)
+    assert recs1.item_idx.equals(recs2.item_idx)
 
 
 @pytest.mark.parametrize(
