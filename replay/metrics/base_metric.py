@@ -359,14 +359,12 @@ class Metric(ABC):
 
     @staticmethod
     def get_scala_udf(udf_name: str, params: List) -> Column:
-        """Returns expression of calling scala UDF as column
+        """
+        Returns expression of calling scala UDF as column
 
-        Args:
-            udf_name: UDF name from 'org.apache.spark.replay.utils.ScalaPySparkUDFs'
-            params: list of UDF params in right order
-
-        Returns: column expression
-
+        :param udf_name: UDF name from `org.apache.spark.replay.utils.ScalaPySparkUDFs`
+        :param params: list of UDF params in right order
+        :return: column expression
         """
         sc = (  # pylint: disable=invalid-name
             SparkSession.getActiveSession().sparkContext
