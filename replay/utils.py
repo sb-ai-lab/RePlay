@@ -210,13 +210,12 @@ def vector_mult(
 
 
 def multiply_scala_udf(scalar, vector):
-    """Multiplies a scalar by a vector
+    """
+    Multiplies a scalar by a vector
 
-    Args:
-        scalar: column with scalars
-        vector: column with vectors
-
-    Returns: column expression
+    :param scalar: column with scalars
+    :param vector: column with vectors
+    :return: column expression
     """
     sc = SparkSession.getActiveSession().sparkContext
     _f = sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.multiplyUDF()
