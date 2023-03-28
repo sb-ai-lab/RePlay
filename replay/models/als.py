@@ -33,6 +33,12 @@ class ALSWrap(Recommender, ItemVectorModel):
         :param rank: hidden dimension for the approximate matrix
         :param implicit_prefs: flag to use implicit feedback
         :param seed: random seed
+        :param num_item_blocks: number of blocks the items will be partitioned into in order
+            to parallelize computation.
+            if None then will be init with number of partitions of log.
+        :param num_user_blocks: number of blocks the users will be partitioned into in order
+            to parallelize computation.
+            if None then will be init with number of partitions of log.
         """
         self.rank = rank
         self.implicit_prefs = implicit_prefs
