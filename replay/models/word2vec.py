@@ -1,20 +1,63 @@
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from pyspark.ml.feature import Word2Vec
+from pyspark.ml.functions import vector_to_array
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 from pyspark.ml.stat import Summarizer
 
 from replay.models.base_rec import Recommender, ItemVectorModel
+from replay.models.hnswlib import HnswlibMixin
 from replay.utils import vector_dot, vector_mult, join_with_col_renaming
 
 
 # pylint: disable=too-many-instance-attributes
-class Word2VecRec(Recommender, ItemVectorModel):
+class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
     """
     Trains word2vec model where items ar treated as words and users as sentences.
     """
+
+    def _get_ann_infer_params(self) -> Dict[str, Any]:
+        return {
+            "features_col": "user_vector",
+            "params": self._hnswlib_params,
+            "index_dim": self.rank,
+        }
+
+    def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
+        user_vectors = self._get_user_vectors(users, log)
+        # converts to pandas_udf compatible format
+        user_vectors = user_vectors.select(
+            "user_idx", vector_to_array("user_vector").alias("user_vector")
+        )
+        return user_vectors
+
+    def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
+        self.num_elements = log.select("item_idx").distinct().count()
+        self.logger.debug(f"index 'num_elements' = {self.num_elements}")
+        return {
+            "features_col": "item_vector",
+            "params": self._hnswlib_params,
+            "dim": self.rank,
+            "num_elements": self.num_elements,
+            "id_col": "item_idx"
+        }
+
+    def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
+        item_vectors = self._get_item_vectors()
+        item_vectors = (
+            item_vectors
+            .select(
+                "item_idx",
+                vector_to_array("item_vector").alias("item_vector")
+            )
+        )
+        return item_vectors
+
+    @property
+    def _use_ann(self) -> bool:
+        return self._hnswlib_params is not None
 
     idf: DataFrame
     vectors: DataFrame
@@ -36,6 +79,7 @@ class Word2VecRec(Recommender, ItemVectorModel):
         window_size: int = 1,
         use_idf: bool = False,
         seed: Optional[int] = None,
+        hnswlib_params: Optional[dict] = None,
     ):
         """
         :param rank: embedding size
@@ -55,6 +99,7 @@ class Word2VecRec(Recommender, ItemVectorModel):
         self.step_size = step_size
         self.max_iter = max_iter
         self._seed = seed
+        self._hnswlib_params = hnswlib_params
 
     @property
     def _init_args(self):
@@ -66,7 +111,16 @@ class Word2VecRec(Recommender, ItemVectorModel):
             "step_size": self.step_size,
             "max_iter": self.max_iter,
             "seed": self._seed,
+            "hnswlib_params": self._hnswlib_params,
         }
+
+    def _save_model(self, path: str):
+        if self._hnswlib_params:
+            self._save_hnswlib_index(path)
+
+    def _load_model(self, path: str):
+        if self._hnswlib_params:
+            self._load_hnswlib_index(path)
 
     def _fit(
         self,
