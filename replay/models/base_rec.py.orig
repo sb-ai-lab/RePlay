@@ -11,11 +11,14 @@ Base abstract classes:
 - NonPersonalizedRecommender - base class for non-personalized recommenders
     with popularity statistics
 """
+import collections
+import pickle
 
 import joblib
+import os
 import logging
 from abc import ABC, abstractmethod
-from copy import deepcopy
+from copy import deepcopy, copy
 from os.path import join
 from typing import (
     Any,
@@ -26,7 +29,7 @@ from typing import (
     Union,
     Sequence,
     Set,
-    Tuple,
+    Tuple, TypeVar,
 )
 
 import numpy as np
@@ -47,112 +50,21 @@ from replay.utils import (
     convert2spark,
     cosine_similarity,
     drop_temp_view,
-    filter_cold,
-    get_unique_entities,
     get_top_k,
-    get_top_k_recs,
-    return_recs,
     vector_euclidean_distance_similarity,
     vector_dot,
 )
 
 
-# pylint: disable=too-few-public-methods
-class IsSavable(ABC):
-    """
-    Common methods and attributes for saving and loading RePlay models
-    """
-
-    @property
-    @abstractmethod
-    def _init_args(self):
-        """
-        Dictionary of the model attributes passed during model initialization.
-        Used for model saving and loading
-        """
-
-    @property
-    def _dataframes(self):
-        """
-        Dictionary of the model dataframes required for inference.
-        Used for model saving and loading
-        """
-        return {}
-
-    def _save_model(self, path: str):
-        pass
-
-    def _load_model(self, path: str):
-        pass
-
-
-class RecommenderCommons:
-    """
-    Common methods and attributes of RePlay models for caching, setting parameters and logging
-    """
-
-    _logger: Optional[logging.Logger] = None
-    cached_dfs: Optional[Set] = None
-
-    def set_params(self, **params: Dict[str, Any]) -> None:
-        """
-        Set model parameters
-
-        :param params: dictionary param name - param value
-        :return:
-        """
-        for param, value in params.items():
-            setattr(self, param, value)
-        self._clear_cache()
-
-    def _clear_cache(self):
-        """
-        Clear spark cache
-        """
-
-    def __str__(self):
-        return type(self).__name__
-
-    @property
-    def logger(self) -> logging.Logger:
-        """
-        :returns: get library logger
-        """
-        if self._logger is None:
-            self._logger = logging.getLogger("replay")
-        return self._logger
-
-    def _cache_model_temp_view(self, df: DataFrame, df_name: str) -> None:
-        """
-        Create Spark SQL temporary view for df, cache it and add temp view name to self.cached_dfs.
-        Temp view name is : "id_<python object id>_model_<RePlay model name>_<df_name>"
-        """
-        full_name = f"id_{id(self)}_model_{str(self)}_{df_name}"
-        cache_temp_view(df, full_name)
-
-        if self.cached_dfs is None:
-            self.cached_dfs = set()
-        self.cached_dfs.add(full_name)
-
-    def _clear_model_temp_view(self, df_name: str) -> None:
-        """
-        Uncache and drop Spark SQL temporary view and remove from self.cached_dfs
-        Temp view to replace will be constructed as
-        "id_<python object id>_model_<RePlay model name>_<df_name>"
-        """
-        full_name = f"id_{id(self)}_model_{str(self)}_{df_name}"
-        drop_temp_view(full_name)
-        if self.cached_dfs is not None:
-            self.cached_dfs.discard(full_name)
-
-
 # pylint: disable=too-many-instance-attributes
-class BaseRecommender(RecommenderCommons, IsSavable, ABC):
+class BaseRecommender(ABC):
     """Base recommender"""
 
     model: Any
+    _logger: Optional[logging.Logger] = None
     can_predict_cold_users: bool = False
     can_predict_cold_items: bool = False
+    can_predict_item_to_item: bool = False
     _search_space: Optional[
         Dict[str, Union[str, Sequence[Union[str, int, float]]]]
     ] = None
@@ -164,6 +76,10 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
     _num_items: int
     _user_dim_size: int
     _item_dim_size: int
+    cached_dfs: Optional[Set] = None
+
+    def copy(self):
+        return copy(self)
 
     # pylint: disable=too-many-arguments, too-many-locals, no-member
     def optimize(
@@ -179,7 +95,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         new_study: bool = True,
     ) -> Optional[Dict[str, Any]]:
         """
-        Searches the best parameters with optuna.
+        Searches best parameters with optuna.
 
         :param train: train data
         :param test: test data
@@ -228,6 +144,14 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         best_params = self.study.best_params
         self.set_params(**best_params)
         return best_params
+
+    @property
+    @abstractmethod
+    def _init_args(self):
+        """
+        Dictionary of the model attributes passed during model initialization.
+        Used for model saving and loading
+        """
 
     def _init_params_in_search_space(self, search_space):
         """Check if model params are inside search space"""
@@ -354,6 +278,16 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         )
         return split_data
 
+    @property
+    def _dataframes(self):
+        return {}
+
+    def _save_model(self, path: str):
+        pass
+
+    def _load_model(self, path: str):
+        pass
+
     @staticmethod
     def _train_test_features(
         train: DataFrame,
@@ -382,6 +316,20 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             features_train = None
             features_test = None
         return features_train, features_test
+
+    def set_params(self, **params: Dict[str, Any]) -> None:
+        """
+        Set model parameters
+
+        :param params: dictionary param name - param value
+        :return:
+        """
+        for param, value in params.items():
+            setattr(self, param, value)
+        self._clear_cache()
+
+    def __str__(self):
+        return type(self).__name__
 
     def _fit_wrap(
         self,
@@ -448,6 +396,29 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :return:
         """
 
+    def _cache_model_temp_view(self, df: DataFrame, df_name: str) -> None:
+        """
+        Create Spark SQL temporary view for df, cache it and add temp view name to self.cached_dfs.
+        Temp view name is : "id_<python object id>_model_<RePlay model name>_<df_name>"
+        """
+        full_name = f"id_{id(self)}_model_{str(self)}_{df_name}"
+        cache_temp_view(df, full_name)
+
+        if self.cached_dfs is None:
+            self.cached_dfs = set()
+        self.cached_dfs.add(full_name)
+
+    def _clear_model_temp_view(self, df_name: str) -> None:
+        """
+        Uncache and drop Spark SQL temporary view and remove from self.cached_dfs
+        Temp view to replace will be constructed as
+        "id_<python object id>_model_<RePlay model name>_<df_name>"
+        """
+        full_name = f"id_{id(self)}_model_{str(self)}_{df_name}"
+        drop_temp_view(full_name)
+        if self.cached_dfs is not None:
+            self.cached_dfs.discard(full_name)
+
     def _filter_seen(
         self, recs: DataFrame, log: DataFrame, k: int, users: DataFrame
     ):
@@ -457,33 +428,6 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         """
         users_log = log.join(users, on="user_idx")
         self._cache_model_temp_view(users_log, "filter_seen_users_log")
-        num_seen = users_log.groupBy("user_idx").agg(
-            sf.count("item_idx").alias("seen_count")
-        )
-        self._cache_model_temp_view(num_seen, "filter_seen_num_seen")
-
-        # count maximal number of items seen by users
-        max_seen = 0
-        if num_seen.count() > 0:
-            max_seen = num_seen.select(sf.max("seen_count")).collect()[0][0]
-
-        # crop recommendations to first k + max_seen items for each user
-        recs = recs.withColumn(
-            "temp_rank",
-            sf.row_number().over(
-                Window.partitionBy("user_idx").orderBy(
-                    sf.col("relevance").desc()
-                )
-            ),
-        ).filter(sf.col("temp_rank") <= sf.lit(max_seen + k))
-
-        # leave k + number of items seen by user recommendations in recs
-        recs = (
-            recs.join(num_seen, on="user_idx", how="left")
-            .fillna(0)
-            .filter(sf.col("temp_rank") <= sf.col("seen_count") + sf.lit(k))
-            .drop("temp_rank", "seen_count")
-        )
 
         # filter recommendations presented in interactions log
         recs = recs.join(
@@ -494,6 +438,35 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             & (sf.col("item_idx") == sf.col("item")),
             how="anti",
         ).drop("user", "item")
+
+<<<<<<< HEAD
+        # crop recommendations to first k + max_seen items for each user
+        recs = recs.withColumn(
+            "temp_rank",
+            sf.row_number().over(
+                Window.partitionBy("user_idx").orderBy(
+                    sf.col("relevance").desc()
+                )
+            ),
+        ).filter(sf.col("temp_rank") <= sf.lit(k))
+=======
+        # because relevances are already sorted, we can return the first k values
+        # for every user_idx
+        def get_top_k(iterator):
+            current_user_idx = None
+            n = 0
+            for row in iterator:
+                if row.user_idx == current_user_idx and n <= k:
+                    n += 1
+                    yield row
+                elif row.user_idx != current_user_idx:
+                    current_user_idx = row.user_idx
+                    n = 1
+                    yield row
+
+        # recs = recs.rdd.mapPartitions(get_top_k).toDF(["user_idx", "item_idx", "relevance"])
+        recs = recs.rdd.mapPartitions(get_top_k).toDF()
+>>>>>>> 519a569 (passing tests)
 
         return recs
 
@@ -534,12 +507,13 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         """
         self.logger.debug("Starting predict %s", type(self).__name__)
         user_data = users or log or user_features or self.fit_users
-        users = get_unique_entities(user_data, "user_idx")
+        users = self._get_ids(user_data, "user_idx")
         users, log = self._filter_cold_for_predict(users, log, "user")
 
         item_data = items or self.fit_items
-        items = get_unique_entities(item_data, "item_idx")
+        items = self._get_ids(item_data, "item_idx")
         items, log = self._filter_cold_for_predict(items, log, "item")
+
         num_items = items.count()
         if num_items < k:
             message = f"k = {k} > number of items = {num_items}"
@@ -554,47 +528,83 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             item_features,
             filter_seen_items,
         )
+
         if filter_seen_items and log:
             recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
+        
+        output = None
+        if recs_file_path is not None:
+            recs.write.parquet(path=recs_file_path, mode="overwrite")
+        else:
+            output = recs.cache()
+            output.count()
 
-        recs = get_top_k_recs(recs, k=k).select(
-            "user_idx", "item_idx", "relevance"
-        )
-
-        output = return_recs(recs, recs_file_path)
         self._clear_model_temp_view("filter_seen_users_log")
         self._clear_model_temp_view("filter_seen_num_seen")
         return output
 
+    @staticmethod
+    def _get_ids(
+        log: Union[Iterable, DataFrame],
+        column: str,
+    ) -> DataFrame:
+        """
+        Get unique values from ``array`` and put them into dataframe with column ``column``.
+        """
+        spark = State().session
+        if isinstance(log, DataFrame):
+            unique = log.select(column).distinct()
+        elif isinstance(log, collections.abc.Iterable):
+            unique = spark.createDataFrame(
+                data=pd.DataFrame(pd.unique(list(log)), columns=[column])
+            )
+        else:
+            raise ValueError(f"Wrong type {type(log)}")
+        return unique
+
+    def _filter_cold(
+        self, df: Optional[DataFrame], entity: str, suffix: str = "idx"
+    ) -> Tuple[int, Optional[DataFrame]]:
+        """
+        Filter out new ids if the model cannot predict cold users/items.
+        Return number of new users/items and filtered dataframe.
+        """
+        if getattr(self, f"can_predict_cold_{entity}s") or df is None:
+            return 0, df
+
+        col_name = f"{entity}_{suffix}"
+        num_cold = (
+            df.select(col_name)
+            .distinct()
+            .join(getattr(self, f"fit_{entity}s"), on=col_name, how="anti")
+            .count()
+        )
+        if num_cold == 0:
+            return 0, df
+
+        return num_cold, df.join(
+            getattr(self, f"fit_{entity}s"), on=col_name, how="inner"
+        )
+
     def _filter_cold_for_predict(
         self,
         main_df: DataFrame,
-        log_df: Optional[DataFrame],
+        log_df: DataFrame,
         entity: str,
         suffix: str = "idx",
     ):
         """
-        Filter out cold entities (users/items) from the `main_df` and `log_df`
-        if the model does not predict cold.
+        Filter out cold entities (users/items) from the `main_df` and `log_df`.
         Warn if cold entities are present in the `main_df`.
         """
-        if getattr(self, f"can_predict_cold_{entity}s"):
-            return main_df, log_df
-
-        fit_entities = getattr(self, f"fit_{entity}s")
-
-        num_new, main_df = filter_cold(
-            main_df, fit_entities, col_name=f"{entity}_{suffix}"
-        )
+        num_new, main_df = self._filter_cold(main_df, entity, suffix)
         if num_new > 0:
             self.logger.info(
                 "%s model can't predict cold %ss, they will be ignored",
                 self,
                 entity,
             )
-        _, log_df = filter_cold(
-            log_df, fit_entities, col_name=f"{entity}_{suffix}"
-        )
+        _, log_df = self._filter_cold(log_df, entity, suffix)
         return main_df, log_df
 
     # pylint: disable=too-many-arguments
@@ -673,6 +683,15 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             filter_seen_items,
         )
 
+    @property
+    def logger(self) -> logging.Logger:
+        """
+        :returns: get library logger
+        """
+        if self._logger is None:
+            self._logger = logging.getLogger("replay")
+        return self._logger
+
     def _get_fit_counts(self, entity: str) -> int:
         if not hasattr(self, f"_num_{entity}s"):
             setattr(
@@ -744,6 +763,11 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             filter_seen_items,
             recs_file_path=recs_file_path,
         )
+
+    def _clear_cache(self):
+        """
+        Clear spark cache
+        """
 
     def _predict_pairs_wrap(
         self,
@@ -871,6 +895,44 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         )
         return None, None
 
+    def get_nearest_items(
+        self,
+        items: Union[DataFrame, Iterable],
+        k: int,
+        metric: Optional[str] = "cosine_similarity",
+        candidates: Optional[Union[DataFrame, Iterable]] = None,
+    ) -> Optional[DataFrame]:
+        """
+        Get k most similar items be the `metric` for each of the `items`.
+
+        :param items: spark dataframe or list of item ids to find neighbors
+        :param k: number of neighbors
+        :param metric: 'euclidean_distance_sim', 'cosine_similarity', 'dot_product'
+        :param candidates: spark dataframe or list of items
+            to consider as similar, e.g. popular/new items. If None,
+            all items presented during model training are used.
+        :return: dataframe with the most similar items an distance,
+            where bigger value means greater similarity.
+            spark-dataframe with columns ``[item_idx, neighbour_item_idx, similarity]``
+        """
+        if metric is None:
+            raise ValueError(
+                f"Distance metric is required to get nearest items with "
+                f"{self} model"
+            )
+
+        if self.can_predict_item_to_item:
+            return self._get_nearest_items_wrap(
+                items=items,
+                k=k,
+                metric=metric,
+                candidates=candidates,
+            )
+
+        raise ValueError(
+            "Use models with attribute 'can_predict_item_to_item' set to True to get nearest items"
+        )
+
     def _get_nearest_items_wrap(
         self,
         items: Union[DataFrame, Iterable],
@@ -881,9 +943,9 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         """
         Convert indexes and leave top-k nearest items for each item in `items`.
         """
-        items = get_unique_entities(items, "item_idx")
+        items = self._get_ids(items, "item_idx")
         if candidates is not None:
-            candidates = get_unique_entities(candidates, "item_idx")
+            candidates = self._get_ids(candidates, "item_idx")
 
         nearest_items_to_filter = self._get_nearest_items(
             items=items,
@@ -941,11 +1003,6 @@ class ItemVectorModel(BaseRecommender):
     """Parent for models generating items' vector representations"""
 
     can_predict_item_to_item: bool = True
-    item_to_item_metrics: List[str] = [
-        "euclidean_distance_sim",
-        "cosine_similarity",
-        "dot_product",
-    ]
 
     @abstractmethod
     def _get_item_vectors(self) -> DataFrame:
@@ -953,39 +1010,6 @@ class ItemVectorModel(BaseRecommender):
         Return dataframe with items' vectors as a
             spark dataframe with columns ``[item_idx, item_vector]``
         """
-
-    def get_nearest_items(
-        self,
-        items: Union[DataFrame, Iterable],
-        k: int,
-        metric: Optional[str] = "cosine_similarity",
-        candidates: Optional[Union[DataFrame, Iterable]] = None,
-    ) -> Optional[DataFrame]:
-        """
-        Get k most similar items be the `metric` for each of the `items`.
-
-        :param items: spark dataframe or list of item ids to find neighbors
-        :param k: number of neighbors
-        :param metric: 'euclidean_distance_sim', 'cosine_similarity', 'dot_product'
-        :param candidates: spark dataframe or list of items
-            to consider as similar, e.g. popular/new items. If None,
-            all items presented during model training are used.
-        :return: dataframe with the most similar items,
-            where bigger value means greater similarity.
-            spark-dataframe with columns ``[item_idx, neighbour_item_idx, similarity]``
-        """
-        if metric not in self.item_to_item_metrics:
-            raise ValueError(
-                f"Select one of the valid distance metrics: "
-                f"{self.item_to_item_metrics}"
-            )
-
-        return self._get_nearest_items_wrap(
-            items=items,
-            k=k,
-            metric=metric,
-            candidates=candidates,
-        )
 
     def _get_nearest_items(
         self,
@@ -1009,6 +1033,11 @@ class ItemVectorModel(BaseRecommender):
             dist_function = vector_euclidean_distance_similarity
         elif metric == "dot_product":
             dist_function = vector_dot
+        elif metric != "cosine_similarity":
+            raise NotImplementedError(
+                f"{metric} metric is not implemented, valid metrics are "
+                "'euclidean_distance_sim', 'cosine_similarity', 'dot_product'"
+            )
 
         items_vectors = self._get_item_vectors()
         left_part = (
@@ -1046,6 +1075,38 @@ class ItemVectorModel(BaseRecommender):
         )
 
         return similarity_matrix
+
+
+class PartialFitMixin(BaseRecommender):
+    def fit_partial(self,
+                    log: DataFrame,
+                    previous_log: Optional[DataFrame] = None) -> None:
+        self._fit_partial(log,
+                          user_features=None,
+                          item_features=None,
+                          previous_log=previous_log)
+
+    def _fit(
+            self,
+            log: DataFrame,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None) -> None:
+        self._fit_partial(log, user_features, item_features)
+
+    @abstractmethod
+    def _fit_partial(
+            self,
+            log: DataFrame,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None,
+            previous_log: Optional[DataFrame] = None) -> None:
+        ...
+
+    def _clear_cache(self):
+        super(PartialFitMixin, self)._clear_cache()
+        for df in self._dataframes.values():
+            if df is not None:
+                df.unpersist()
 
 
 # pylint: disable=abstract-method
@@ -1477,9 +1538,7 @@ class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
     @similarity_metric.setter
     def similarity_metric(self, value):
         if not self.can_change_metric:
-            raise ValueError(
-                "This class does not support changing similarity metrics"
-            )
+            raise ValueError("This class does not support changing similarity metrics")
         if value not in self.item_to_item_metrics:
             raise ValueError(
                 f"Select one of the valid metrics for predict: "
@@ -1628,9 +1687,7 @@ class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
             )
 
         return similarity_filtered.select(
-            "item_idx_one",
-            "item_idx_two",
-            "similarity" if metric is None else metric,
+            "item_idx_one", "item_idx_two", "similarity" if metric is None else metric
         )
 
     def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
@@ -1659,7 +1716,8 @@ class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
         )
         return user_vectors
 
-class NonPersonalizedRecommender(Recommender, ABC):
+
+class NonPersonalizedRecommender(Recommender, PartialFitMixin, ABC):
     """Base class for non-personalized recommenders with popularity statistics."""
 
     can_predict_cold_users = True
@@ -1685,10 +1743,21 @@ class NonPersonalizedRecommender(Recommender, ABC):
         return {"item_popularity": self.item_popularity}
 
     def _save_model(self, path: str):
-        joblib.dump({"fill": self.fill}, join(path))
+        spark = State().session
+        sc = spark.sparkContext
+        # TODO: simplify it and move it to utils
+        # maybe it can just be saved in json
+        pickled_instance = pickle.dumps({"fill": self.fill})
+        Record = collections.namedtuple("Record", ["params"])
+        rdd = sc.parallelize([Record(pickled_instance)])
+        instance_df = rdd.map(lambda rec: Record(bytearray(rec.params))).toDF()
+        instance_df.write.mode("overwrite").parquet(join(path, "params.dump"))
 
     def _load_model(self, path: str):
-        self.fill = joblib.load(join(path))["fill"]
+        spark = State().session
+        df = spark.read.parquet(join(path, "params.dump"))
+        pickled_instance = df.rdd.map(lambda row: bytes(row.params)).first()
+        self.fill = pickle.loads(pickled_instance)["fill"]
 
     def _clear_cache(self):
         if hasattr(self, "item_popularity"):
@@ -1700,13 +1769,12 @@ class NonPersonalizedRecommender(Recommender, ABC):
         Calculating a fill value a the minimal relevance
         calculated during model training multiplied by weight.
         """
-        return (
-            item_popularity.select(sf.min("relevance")).collect()[0][0]
-            * weight
-        )
+        return item_popularity.select(sf.min("relevance")).first()[0] * weight
 
     @staticmethod
-    def _check_relevance(log: DataFrame):
+    def _check_relevance(log: Optional[DataFrame] = None):
+        if log is None:
+            return
 
         vals = log.select("relevance").where(
             (sf.col("relevance") != 1) & (sf.col("relevance") != 0)
@@ -1887,12 +1955,8 @@ class NonPersonalizedRecommender(Recommender, ABC):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-        return (
-            pairs.join(
-                self.item_popularity,
-                on="item_idx",
-                how="left" if self.add_cold_items else "inner",
-            )
-            .fillna(value=self.fill, subset=["relevance"])
-            .select("user_idx", "item_idx", "relevance")
-        )
+        return pairs.join(
+            self.item_popularity,
+            on="item_idx",
+            how="left" if self.add_cold_items else "inner",
+        ).fillna(value=self.fill, subset=["relevance"]).select("user_idx", "item_idx", "relevance")

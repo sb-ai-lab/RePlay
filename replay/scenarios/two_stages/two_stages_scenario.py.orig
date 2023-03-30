@@ -1,6 +1,4 @@
 # pylint: disable=too-many-lines
-import functools
-import logging
 import os
 import pickle
 from collections.abc import Iterable
@@ -15,22 +13,25 @@ from replay.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.metrics import Metric, Precision
 from replay.models import ALSWrap, RandomRec, PopRec
 from replay.models.base_rec import BaseRecommender, HybridRecommender
+<<<<<<< HEAD
 from replay.scenarios.two_stages.reranker import LamaWrap
-from replay.scenarios.two_stages.slama_reranker import SlamaWrap
+=======
+from replay.scenarios.two_stages.reranker import LamaWrap, ReRanker
+
+>>>>>>> feature/two_stage_preset
 from replay.session_handler import State
 from replay.splitters import Splitter, UserSplitter
 from replay.utils import (
     array_mult,
     cache_if_exists,
+    fallback,
     get_log_info,
     get_top_k_recs,
+    horizontal_explode,
     join_or_return,
     join_with_col_renaming,
-    unpersist_if_exists, create_folder, save_transformer, do_path_exists, load_transformer, list_folder, JobGroup,
-    cache_and_materialize_if_in_debug, JobGroupWithMetrics,
+    unpersist_if_exists, create_folder, save_transformer, do_path_exists, load_transformer, list_folder,
 )
-
-logger = logging.getLogger("replay")
 
 
 # pylint: disable=too-many-locals, too-many-arguments
@@ -74,6 +75,7 @@ def get_first_level_model_features(
         on="item_idx",
     )
 
+    factors_to_explode = []
     if user_factors is not None:
         pairs_with_features = pairs_with_features.withColumn(
             "user_factors",
@@ -82,6 +84,7 @@ def get_first_level_model_features(
                 sf.array([sf.lit(0.0)] * user_vector_len),
             ),
         )
+        factors_to_explode.append(("user_factors", "uf"))
 
     if item_factors is not None:
         pairs_with_features = pairs_with_features.withColumn(
@@ -91,6 +94,7 @@ def get_first_level_model_features(
                 sf.array([sf.lit(0.0)] * item_vector_len),
             ),
         )
+        factors_to_explode.append(("item_factors", "if"))
 
     if model.__str__() == "LightFMWrap":
         pairs_with_features = (
@@ -107,6 +111,17 @@ def get_first_level_model_features(
         pairs_with_features = pairs_with_features.withColumn(
             "factors_mult",
             array_mult(sf.col("item_factors"), sf.col("user_factors")),
+        )
+        factors_to_explode.append(("factors_mult", "fm"))
+
+    for col_name, feature_prefix in factors_to_explode:
+        col_set = set(pairs_with_features.columns)
+        col_set.remove(col_name)
+        pairs_with_features = horizontal_explode(
+            data_frame=pairs_with_features,
+            column_to_explode=col_name,
+            other_columns=[sf.col(column) for column in sorted(list(col_set))],
+            prefix=f"{prefix}_{feature_prefix}",
         )
 
     return pairs_with_features
@@ -158,7 +173,7 @@ class TwoStagesScenario(HybridRecommender):
         ] = ALSWrap(rank=128),
         fallback_model: Optional[BaseRecommender] = PopRec(),
         use_first_level_models_feat: Union[List[bool], bool] = False,
-        second_model_type: str = "lama",
+        second_model: Optional[ReRanker] = None,
         second_model_params: Optional[Union[Dict, str]] = None,
         second_model_config_path: Optional[str] = None,
         num_negatives: int = 100,
@@ -167,7 +182,7 @@ class TwoStagesScenario(HybridRecommender):
         user_cat_features_list: Optional[List] = None,
         item_cat_features_list: Optional[List] = None,
         custom_features_processor: HistoryBasedFeaturesProcessor = None,
-        seed: int = 123
+        seed: int = 123,
     ) -> None:
         """
         :param train_splitter: splitter to get ``first_level_train`` and ``second_level_train``.
@@ -176,6 +191,7 @@ class TwoStagesScenario(HybridRecommender):
         :param fallback_model: model used to fill missing recommendations at first level models
         :param use_first_level_models_feat: flag or a list of flags to use
             features created by first level models
+        :
         :param second_model_params: TabularAutoML parameters
         :param second_model_config_path: path to config file for TabularAutoML
         :param num_negatives: number of negative examples used during train
@@ -226,16 +242,14 @@ class TwoStagesScenario(HybridRecommender):
 
             self.use_first_level_models_feat = use_first_level_models_feat
 
-        if second_model_type == "lama":
+        assert (second_model is not None) != (second_model_params or second_model_config_path), \
+            "Either second_model should be defined or params for second models"
+        if second_model:
+            self.second_stage_model = second_model
+        else:
             self.second_stage_model = LamaWrap(
                 params=second_model_params, config_path=second_model_config_path
             )
-        elif second_model_type == "slama":
-            self.second_stage_model = SlamaWrap(
-                params=second_model_params, config_path=second_model_config_path
-            )
-        else:
-            raise Exception(f"Unsupported second model type: {second_model_type}")
 
         self.num_negatives = num_negatives
         if negatives_type not in ["random", "first_level"]:
@@ -255,8 +269,6 @@ class TwoStagesScenario(HybridRecommender):
         )
         self.seed = seed
 
-        self._job_group_id = ""
-
     # TO DO: add save/load for scenarios
     @property
     def _init_args(self):
@@ -265,7 +277,7 @@ class TwoStagesScenario(HybridRecommender):
     def _save_model(self, path: str):
         from replay.model_handler import save
         spark = State().session
-        create_folder(path, exists_ok=True)
+        create_folder(path)
 
         # save features
         if self.first_level_user_features_transformer is not None:
@@ -323,13 +335,13 @@ class TwoStagesScenario(HybridRecommender):
 
         # load transformers for features
         comp_path = os.path.join(path, "first_level_user_features_transformer")
-        first_level_user_features_transformer = load_transformer(comp_path) if do_path_exists(comp_path) else None #TODO: check why this dir exists if user_features=None
+        first_level_user_features_transformer = load_transformer(comp_path) if do_path_exists(comp_path) else None
 
         comp_path = os.path.join(path, "first_level_item_features_transformer")
-        first_level_item_features_transformer = load_transformer(comp_path) if do_path_exists(comp_path) else None #TODO same
+        first_level_item_features_transformer = load_transformer(comp_path) if do_path_exists(comp_path) else None
 
         comp_path = os.path.join(path, "features_processor")
-        features_processor = load_transformer(comp_path) if do_path_exists(comp_path) else None # TODO same
+        features_processor = load_transformer(comp_path) if do_path_exists(comp_path) else None
 
         # load first level models
         first_level_models_path = os.path.join(path, "first_level_models")
@@ -351,8 +363,7 @@ class TwoStagesScenario(HybridRecommender):
 
         # load second stage model
         comp_path = os.path.join(path, "second_stage_model")
-        # second_stage_model = load_transformer(comp_path) if do_path_exists(comp_path) else None # TODO: fix it
-        second_stage_model = None
+        second_stage_model = load_transformer(comp_path) if do_path_exists(comp_path) else None
 
         self.__dict__.update({
             **data,
@@ -395,19 +406,31 @@ class TwoStagesScenario(HybridRecommender):
             self.first_level_user_features_transformer.transform(user_features)
         )
 
+        pairs = log_to_add_features.select("user_idx", "item_idx")
         for idx, model in enumerate(self.first_level_models):
+            current_pred = self._predict_pairs_with_first_level_model(
+                model=model,
+                log=log_for_first_level_models,
+                pairs=pairs,
+                user_features=first_level_user_features_cached,
+                item_features=first_level_item_features_cached,
+            ).withColumnRenamed("relevance", f"rel_{idx}_{model}")
+            full_second_level_train = full_second_level_train.join(
+                sf.broadcast(current_pred),
+                on=["user_idx", "item_idx"],
+                how="left",
+            )
+
             if self.use_first_level_models_feat[idx]:
                 features = get_first_level_model_features(
                     model=model,
-                    pairs=full_second_level_train.select("user_idx", "item_idx"),
+                    pairs=full_second_level_train.select(
+                        "user_idx", "item_idx"
+                    ),
                     user_features=first_level_user_features_cached,
                     item_features=first_level_item_features_cached,
                     prefix=f"m_{idx}",
                 )
-
-                with JobGroup(self._job_group_id, f"features_caching_{type(self).__name__}") as job_desc:
-                    cache_and_materialize_if_in_debug(features, job_desc)
-
                 full_second_level_train = join_with_col_renaming(
                     left=full_second_level_train,
                     right=features,
@@ -418,7 +441,9 @@ class TwoStagesScenario(HybridRecommender):
         unpersist_if_exists(first_level_user_features_cached)
         unpersist_if_exists(first_level_item_features_cached)
 
-        full_second_level_train_cached = full_second_level_train.fillna(0)
+        full_second_level_train_cached = full_second_level_train.fillna(
+            0
+        ).cache()
 
         self.logger.info("Adding features from the dataset")
         full_second_level_train = join_or_return(
@@ -435,38 +460,32 @@ class TwoStagesScenario(HybridRecommender):
         )
 
         if self.use_generated_features:
-            with JobGroupWithMetrics(self._job_group_id, "fitting_the_feature_processor"):
-                if not self.features_processor.fitted:
-                    # PERF - preventing potential losing time on repeated expensive computations
-                    full_second_level_train = full_second_level_train.cache()
-                    self.cached_list.append(full_second_level_train)
-
-                    self.features_processor.fit(
-                        log=log_for_first_level_models,
-                        user_features=user_features,
-                        item_features=item_features,
-                    )
-
-                self.logger.info("Adding generated features")
-                full_second_level_train = self.features_processor.transform(
-                    log=full_second_level_train
+            if not self.features_processor.fitted:
+                self.features_processor.fit(
+                    log=log_for_first_level_models,
+                    user_features=user_features,
+                    item_features=item_features,
                 )
+            self.logger.info("Adding generated features")
+            full_second_level_train = self.features_processor.transform(
+                log=full_second_level_train
+            )
 
         self.logger.info(
             "Columns at second level: %s",
             " ".join(full_second_level_train.columns),
         )
-
+        full_second_level_train_cached.unpersist()
         return full_second_level_train
 
     def _split_data(self, log: DataFrame) -> Tuple[DataFrame, DataFrame]:
         """Write statistics"""
         first_level_train, second_level_train = self.train_splitter.split(log)
-        logger.info("Log info: %s", get_log_info(log))
-        logger.info(
+        State().logger.debug("Log info: %s", get_log_info(log))
+        State().logger.debug(
             "first_level_train info: %s", get_log_info(first_level_train)
         )
-        logger.info(
+        State().logger.debug(
             "second_level_train info: %s", get_log_info(second_level_train)
         )
         return first_level_train, second_level_train
@@ -487,8 +506,7 @@ class TwoStagesScenario(HybridRecommender):
         user_features: DataFrame,
         item_features: DataFrame,
         log_to_filter: DataFrame,
-        prediction_label: str = ''
-    ) -> DataFrame:
+    ):
         """
         Filter users and items using can_predict_cold_items and can_predict_cold_users, and predict
         """
@@ -516,29 +534,23 @@ class TwoStagesScenario(HybridRecommender):
         ).cache()
         max_positives_to_filter = 0
 
-        with JobGroupWithMetrics(self._job_group_id, "calculating_max_positives_to_filter"):
-            if log_to_filter_cached.count() > 0:
-                max_positives_to_filter = (
-                    log_to_filter_cached.groupBy("user_idx")
-                    .agg(sf.count("item_idx").alias("num_positives"))
-                    .select(sf.max("num_positives"))
-                    .collect()[0][0]
-                )
-
-        with JobGroupWithMetrics(__file__, f"{type(model).__name__}._{prediction_label}_predict") as job_desc:
-            pred = model._inner_predict_wrap(
-                log,
-                k=k + max_positives_to_filter,
-                users=users,
-                items=items,
-                user_features=user_features,
-                item_features=item_features,
-                filter_seen_items=False,
+        if log_to_filter_cached.count() > 0:
+            max_positives_to_filter = (
+                log_to_filter_cached.groupBy("user_idx")
+                .agg(sf.count("item_idx").alias("num_positives"))
+                .select(sf.max("num_positives"))
+                .collect()[0][0]
             )
-            cache_and_materialize_if_in_debug(pred, job_desc)
 
-        logger.info(f"{type(model).__name__} prediction: {pred}")
-        logger.info(f"Length of {type(model).__name__} prediction: {pred.count()}")
+        pred = model._predict(
+            log,
+            k=k + max_positives_to_filter,
+            users=users,
+            items=items,
+            user_features=user_features,
+            item_features=item_features,
+            filter_seen_items=False,
+        )
 
         pred = pred.join(
             log_to_filter_cached.select("user_idx", "item_idx"),
@@ -546,9 +558,7 @@ class TwoStagesScenario(HybridRecommender):
             how="anti",
         ).drop("user", "item")
 
-        # PERF - preventing potential losing time on repeated expensive computations
-        pred = pred.cache()
-        self.cached_list.extend([pred, log_to_filter_cached])
+        log_to_filter_cached.unpersist()
 
         return get_top_k_recs(pred, k)
 
@@ -598,7 +608,6 @@ class TwoStagesScenario(HybridRecommender):
         user_features: DataFrame,
         item_features: DataFrame,
         log_to_filter: DataFrame,
-        prediction_label: str = ''
     ) -> DataFrame:
         """
         Combining the base model predictions with the fallback model
@@ -606,130 +615,20 @@ class TwoStagesScenario(HybridRecommender):
         """
         passed_arguments = locals()
         passed_arguments.pop("self")
+        candidates = self._predict_with_first_level_model(**passed_arguments)
 
-        with JobGroupWithMetrics(self._job_group_id, f"{type(self).__name__}._predict_with_first_level_model"):
-            candidates = self._predict_with_first_level_model(**passed_arguments)
+        if self.fallback_model is not None:
+            passed_arguments.pop("model")
+            fallback_candidates = self._predict_with_first_level_model(
+                model=self.fallback_model, **passed_arguments
+            )
 
-            candidates = candidates.cache()
-            candidates.write.mode("overwrite").format("noop").save()
-            self.cached_list.append(candidates)
-
-        # TODO: temporary commenting
-        # if self.fallback_model is not None:
-        #     passed_arguments.pop("model")
-        #     with JobGroup("fit", "fallback candidates"):
-        #         fallback_candidates = self._predict_with_first_level_model(
-        #             model=self.fallback_model, **passed_arguments
-        #         )
-        #         fallback_candidates = fallback_candidates.cache()
-        #
-        #     with JobGroup("fit", "fallback"):
-        #         # TODO: PERF - no cache and repeated computations for candidate and fallback_candidates?
-        #         candidates = fallback(
-        #             base=candidates,
-        #             fill=fallback_candidates,
-        #             k=self.num_negatives,
-        #         )
+            candidates = fallback(
+                base=candidates,
+                fill=fallback_candidates,
+                k=self.num_negatives,
+            )
         return candidates
-
-    def _combine(
-            self,
-            log: DataFrame,
-            k: int,
-            users: DataFrame,
-            items: DataFrame,
-            user_features: DataFrame,
-            item_features: DataFrame,
-            log_to_filter: DataFrame,
-            mode: str,
-            model_names: List[str] = None,
-            prediction_label: str = ''
-    ) -> DataFrame:
-
-        partial_dfs = []
-
-        for idx, model in enumerate(self.first_level_models):
-            with JobGroupWithMetrics(self._job_group_id, f"{type(model).__name__}._predict_with_first_level_model"):
-                candidates = self._predict_with_first_level_model(
-                    model=model,
-                    log=log,
-                    k=k,
-                    users=users,
-                    items=items,
-                    user_features=user_features,
-                    item_features=item_features,
-                    log_to_filter=log_to_filter,
-                    prediction_label=prediction_label
-                ).withColumnRenamed("relevance", f"rel_{idx}_{model}")
-
-                # we need this caching if mpairs will be counted later in this method
-                candidates = candidates.cache()
-                candidates.write.mode("overwrite").format("noop").save()
-                self.cached_list.append(candidates)
-
-                partial_dfs.append(candidates)
-
-        if mode == 'union':
-            required_pairs = (
-                functools.reduce(
-                    lambda acc, x: acc.unionByName(x),
-                    (df.select('user_idx', 'item_idx') for df in partial_dfs)
-                ).distinct()
-            )
-        else:
-            # "leading_<model_name>"
-            leading_model_name = mode.split('_')[-1]
-            required_pairs = (
-                partial_dfs[model_names.index(leading_model_name)]
-                .select('user_idx', 'item_idx')
-                .distinct()
-            )
-
-        logger.info("Selecting missing pairs")
-
-        missing_pairs = [
-            required_pairs.join(df, on=['user_idx', 'item_idx'], how='anti').select('user_idx', 'item_idx').distinct()
-            for df in partial_dfs
-        ]
-
-        def get_rel_col(df: DataFrame) -> str:
-            logger.info(f"columns: {str(df.columns)}")
-            rel_col = [c for c in df.columns if c.startswith('rel_')][0]
-            return rel_col
-
-        def make_missing_predictions(model: BaseRecommender, mpairs: DataFrame, partial_df: DataFrame) -> DataFrame:
-
-            mpairs = mpairs.cache()
-
-            if mpairs.count() == 0:
-                mpairs.unpersist()
-                return partial_df
-
-            current_pred = model._predict_pairs(
-                mpairs,
-                log=log,
-                user_features=user_features,
-                item_features=item_features
-            ).withColumnRenamed('relevance', get_rel_col(partial_df))
-
-            mpairs.unpersist()
-            return partial_df.unionByName(current_pred.select(*partial_df.columns))
-
-        logger.info("Making missing predictions")
-        extended_train_dfs = [
-            make_missing_predictions(model, mpairs, partial_df)
-            for model, mpairs, partial_df in zip(self.first_level_models, missing_pairs, partial_dfs)
-        ]
-
-        # we apply left here because some algorithms like itemknn cannot predict beyond their inbuilt top
-        combined_df = functools.reduce(
-            lambda acc, x: acc.join(x, on=['user_idx', 'item_idx'], how='left'),
-            extended_train_dfs
-        )
-
-        logger.info("Combination completed.")
-
-        return combined_df
 
     # pylint: disable=too-many-locals,too-many-statements
     def _fit(
@@ -738,13 +637,13 @@ class TwoStagesScenario(HybridRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        self._job_group_id = "2stage_fit"
 
         self.cached_list = []
 
-        # 1. Split train data between first and second levels
-        self.logger.info("Data splitting")
+        self.logger.info("Data split")
         first_level_train, second_level_positive = self._split_data(log)
+        # second_level_positive = second_level_positive
+        # .join(first_level_train.select("user_idx"), on="user_idx", how="left")
 
         self.first_level_item_len = (
             first_level_train.select("item_idx").distinct().count()
@@ -760,7 +659,6 @@ class TwoStagesScenario(HybridRecommender):
             [log, first_level_train, second_level_positive]
         )
 
-        # 2. Transform user and item features if applicable
         if user_features is not None:
             user_features.cache()
             self.cached_list.append(user_features)
@@ -769,13 +667,11 @@ class TwoStagesScenario(HybridRecommender):
             item_features.cache()
             self.cached_list.append(item_features)
 
-        with JobGroupWithMetrics(self._job_group_id, "item_features_transformer"):
-            if not self.first_level_item_features_transformer.fitted:
-                self.first_level_item_features_transformer.fit(item_features)
+        if not self.first_level_item_features_transformer.fitted:
+            self.first_level_item_features_transformer.fit(item_features)
 
-        with JobGroupWithMetrics(self._job_group_id, "user_features_transformer"):
-            if not self.first_level_user_features_transformer.fitted:
-                self.first_level_user_features_transformer.fit(user_features)
+        if not self.first_level_user_features_transformer.fitted:
+            self.first_level_user_features_transformer.fit(user_features)
 
         first_level_item_features = cache_if_exists(
             self.first_level_item_features_transformer.transform(item_features)
@@ -790,19 +686,17 @@ class TwoStagesScenario(HybridRecommender):
         first_level_item_features = first_level_item_features.filter(sf.col("item_idx") < self.first_level_item_len) \
             if first_level_item_features is not None else None
 
-        # 3. Fit first level models
-        logger.info(f"first_level_train: {str(first_level_train.columns)}")
+        for base_model in [
+            *self.first_level_models,
+            self.random_model,
+            self.fallback_model,
+        ]:
+            base_model._fit_wrap(
+                log=first_level_train,
+                user_features=first_level_user_features,
+                item_features=first_level_item_features,
+            )
 
-        for base_model in [*self.first_level_models, self.random_model, self.fallback_model]:
-            with JobGroupWithMetrics(self._job_group_id, f"{type(base_model).__name__}._fit_wrap"):
-                base_model._fit_wrap(
-                    log=first_level_train,
-                    user_features=first_level_user_features,
-                    item_features=first_level_item_features,
-                )
-
-        # 4. Generate negative examples
-        # by making predictions with first level models and combining them into final recommendation lists
         self.logger.info("Generate negative examples")
         negatives_source = (
             self.first_level_models[0]
@@ -810,87 +704,60 @@ class TwoStagesScenario(HybridRecommender):
             else self.random_model
         )
 
-        with JobGroupWithMetrics(self._job_group_id, f"{type(self).__name__}._combine"):
-            first_level_candidates = self._combine(
-                    log=first_level_train,
-                    k=self.num_negatives,
-                    users=log.select("user_idx").distinct(),
-                    items=log.select("item_idx").distinct(),
-                    user_features=first_level_user_features,
-                    item_features=first_level_item_features,
-                    log_to_filter=first_level_train,
-                    mode="union",
-                    prediction_label='1'
-            )
-
-            # may be skipped due to join caching in the end
-            first_level_candidates = first_level_candidates.cache()
-            first_level_candidates.write.mode('overwrite').format('noop').save()
-            self.cached_list.append(first_level_candidates)
-
-        logger.info(f"first_level_candidates.columns: {str(first_level_candidates.columns)}")
+        first_level_candidates = self._get_first_level_candidates(
+            model=negatives_source,
+            log=first_level_train,
+            k=self.num_negatives,
+            users=log.select("user_idx").distinct(),
+            items=log.select("item_idx").distinct(),
+            user_features=first_level_user_features,
+            item_features=first_level_item_features,
+            log_to_filter=first_level_train,
+        ).select("user_idx", "item_idx")
 
         unpersist_if_exists(first_level_user_features)
         unpersist_if_exists(first_level_item_features)
 
-        # 5. Create user/ item pairs for the train dataset of the second level (no features except relevance)
-        self.logger.info("Creating train dataset for second level")
+        self.logger.info("Crate train dataset for second level")
 
         second_level_train = (
             first_level_candidates.join(
                 second_level_positive.select(
                     "user_idx", "item_idx"
-                ).withColumn("target", sf.lit(1)),
+                ).withColumn("target", sf.lit(1.0)),
                 on=["user_idx", "item_idx"],
                 how="left",
-            ).fillna(0, subset="target")
+            ).fillna(0.0, subset="target")
         ).cache()
 
         self.cached_list.append(second_level_train)
 
-        # Apply negative sampling to balance postive / negative combination in the resulting train dataset
-        neg = second_level_train.filter(second_level_train.target == 0)
-        pos = second_level_train.filter(second_level_train.target == 1)
-        neg_new = neg.sample(fraction=10 * pos.count() / neg.count())
-        second_level_train = pos.union(neg_new)
+        self.logger.info(
+            "Distribution of classes in second-level train dataset:/n %s",
+            (
+                second_level_train.groupBy("target")
+                .agg(sf.count(sf.col("target")).alias("count_for_class"))
+                .take(2)
+            ),
+        )
 
-        with JobGroupWithMetrics(self._job_group_id, "inferring_class_distribution"):
-            self.logger.info(
-                "Distribution of classes in second-level train dataset:\n %s",
-                (
-                    second_level_train.groupBy("target")
-                    .agg(sf.count(sf.col("target")).alias("count_for_class"))
-                    .take(2)
-                ),
-            )
-
-        # 6. Fill the second level train dataset with user/item features and features of the first level models
-        with JobGroupWithMetrics(self._job_group_id, "feature_processor_fit"):
-            if not self.features_processor.fitted:
-                self.features_processor.fit(
-                    log=first_level_train,
-                    user_features=user_features,
-                    item_features=item_features,
-                )
-
-        self.logger.info("Adding features to second-level train dataset")
-
-        with JobGroupWithMetrics(self._job_group_id, "_add_features_for_second_level"):
-            second_level_train_to_convert = self._add_features_for_second_level(
-                log_to_add_features=second_level_train,
-                log_for_first_level_models=first_level_train,
+        if not self.features_processor.fitted:
+            self.features_processor.fit(
+                log=first_level_train,
                 user_features=user_features,
                 item_features=item_features,
-            ).cache()
+            )
+
+        self.logger.info("Adding features to second-level train dataset")
+        second_level_train_to_convert = self._add_features_for_second_level(
+            log_to_add_features=second_level_train,
+            log_for_first_level_models=first_level_train,
+            user_features=user_features,
+            item_features=item_features,
+        ).cache()
 
         self.cached_list.append(second_level_train_to_convert)
-
-        # 7. Fit the second level model
-        logger.info(f"Fitting {type(self.second_stage_model).__name__} on {second_level_train_to_convert}")
-        # second_level_train_to_convert.write.parquet("hdfs://node21.bdcl:9000/tmp/second_level_train_to_convert.parquet")
-        with JobGroupWithMetrics(self._job_group_id, f"{type(self.second_stage_model).__name__}_fitting"):
-            self.second_stage_model.fit(second_level_train_to_convert)
-
+        self.second_stage_model.fit(second_level_train_to_convert)
         for dataframe in self.cached_list:
             unpersist_if_exists(dataframe)
 
@@ -905,11 +772,8 @@ class TwoStagesScenario(HybridRecommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        self._job_group_id = "2stage_predict"
-        self.cached_list = []
 
-        # 1. Transform user and item features if applicable
-        logger.debug(msg="Generating candidates to rerank")
+        State().logger.debug(msg="Generating candidates to rerank")
 
         first_level_user_features = cache_if_exists(
             self.first_level_user_features_transformer.transform(user_features)
@@ -918,64 +782,35 @@ class TwoStagesScenario(HybridRecommender):
             self.first_level_item_features_transformer.transform(item_features)
         )
 
-        # 2. Create user/ item pairs for the train dataset of the second level (no features except relevance)
-        # by making predictions with first level models and combining them into final recommendation lists
-        with JobGroupWithMetrics(self._job_group_id, f"{type(self).__name__}._combine"):
-            candidates = self._combine(
-                    log=log,
-                    k=self.num_negatives,
-                    users=users,
-                    items=items,
-                    user_features=first_level_user_features,
-                    item_features=first_level_item_features,
-                    log_to_filter=log,
-                    mode="union",
-                    prediction_label='2'
-            )
+        candidates = self._get_first_level_candidates(
+            model=self.first_level_models[0],
+            log=log,
+            k=self.num_negatives,
+            users=users,
+            items=items,
+            user_features=first_level_user_features,
+            item_features=first_level_item_features,
+            log_to_filter=log,
+        ).select("user_idx", "item_idx")
 
-            # PERF - preventing potential losing time on repeated expensive computations
-            # may be removed after testing
-            candidates_cached = candidates.cache()
-            candidates_cached.write.mode('overwrite').format('noop').save()
-            self.cached_list.append(candidates_cached)
-
-        logger.info(f"2candidates.columns: {candidates.columns}")
-
+        candidates_cached = candidates.cache()
         unpersist_if_exists(first_level_user_features)
         unpersist_if_exists(first_level_item_features)
-
-        # 3. Fill the second level recommendations dataset with user/item features
-        # and features of the first level models
-
         self.logger.info("Adding features")
-        with JobGroupWithMetrics(self._job_group_id, "_add_features_for_second_level"):
-            candidates_features = self._add_features_for_second_level(
-                log_to_add_features=candidates_cached,
-                log_for_first_level_models=log,
-                user_features=user_features,
-                item_features=item_features,
-            )
-
-        logger.info(f"rel_ columns in candidates_features: {[x for x in candidates_features.columns if 'rel_' in x]}")
-
-        # PERF - preventing potential losing time on repeated expensive computations
-        candidates_features = candidates_features.cache()
-        self.cached_list.extend([candidates_features, candidates_cached])
-
-        with JobGroupWithMetrics(self._job_group_id, "candidates_features info logging"):
-            self.logger.info(
-                "Generated %s candidates for %s users",
-                candidates_features.count(),
-                candidates_features.select("user_idx").distinct().count(),
-            )
-
-        # 4. Rerank recommendations with the second level model and produce final version of recommendations
-        with JobGroupWithMetrics(self._job_group_id, f"{type(self.second_stage_model).__name__}_predict"):
-            predictions = self.second_stage_model.predict(data=candidates_features, k=k)
-
-        logger.info(f"predictions.columns: {predictions.columns}")
-
-        return predictions
+        candidates_features = self._add_features_for_second_level(
+            log_to_add_features=candidates_cached,
+            log_for_first_level_models=log,
+            user_features=user_features,
+            item_features=item_features,
+        )
+        candidates_features.cache()
+        candidates_cached.unpersist()
+        self.logger.info(
+            "Generated %s candidates for %s users",
+            candidates_features.count(),
+            candidates_features.select("user_idx").distinct().count(),
+        )
+        return self.second_stage_model.predict(data=candidates_features, k=k)
 
     def fit_predict(
         self,
@@ -1129,7 +964,3 @@ class TwoStagesScenario(HybridRecommender):
         unpersist_if_exists(first_level_item_features)
         unpersist_if_exists(first_level_user_features)
         return params_found, fallback_params
-
-    def _get_nearest_items(self, items: DataFrame, metric: Optional[str] = None,
-                           candidates: Optional[DataFrame] = None) -> Optional[DataFrame]:
-        raise NotImplementedError("Unsupported method")

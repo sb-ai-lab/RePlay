@@ -7,24 +7,42 @@ Contains classes for users' and items' features generation based on interactions
 ``HistoryBasedFeaturesProcessor`` applies LogStatFeaturesProcessor
     and ConditionalPopularityProcessor as a pipeline.
 """
-
+import os
+import pickle
 from typing import Dict, Optional, List
 
 import pyspark.sql.functions as sf
 
 from datetime import datetime
-from pyspark.sql import DataFrame
-from pyspark.sql.types import TimestampType
+
+from pyarrow import fs
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.types import TimestampType, StructType, StructField, StringType
 
 from replay.utils import (
     join_or_return,
     join_with_col_renaming,
-    unpersist_if_exists,
+    unpersist_if_exists, get_filesystem, create_folder, AbleToSaveAndLoad, do_path_exists, save_transformer,
+    load_transformer,
 )
 
 
-class EmptyFeatureProcessor:
+class EmptyFeatureProcessor(AbleToSaveAndLoad):
     """Do not perform any transformations on the dataframe"""
+
+    @classmethod
+    def load(cls, path: str, spark: Optional[SparkSession] = None):
+        spark = spark or cls._get_spark_session()
+        row = spark.read.parquet(path).first().asDict()
+        cls._validate_classname(row["classname"])
+        return EmptyFeatureProcessor()
+
+    def save(self, path: str, overwrite: bool = False, spark: Optional[SparkSession] = None):
+        spark = spark or self._get_spark_session()
+        spark.createDataFrame([{"data": '', "classname": self.get_classname()}]).write.parquet(
+            path,
+            mode='overwrite' if overwrite else 'error'
+        )
 
     def fit(self, log: DataFrame, features: Optional[DataFrame]) -> None:
         """
@@ -67,6 +85,28 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
     calc_relevance_based: bool = False
     user_log_features: Optional[DataFrame] = None
     item_log_features: Optional[DataFrame] = None
+
+    @classmethod
+    def load(cls, path: str, spark: Optional[SparkSession] = None):
+        spark = spark or cls._get_spark_session()
+
+        row = spark.read.parquet(os.path.join(path, "data.parquet")).first().asDict()
+
+        if row["has_user_log_features"]:
+            user_log_features = spark.read.parquet(os.path.join(path, "user_log_features.parquet"))
+        else:
+            user_log_features = None
+
+        if row["has_item_log_features"]:
+            item_log_features = spark.read.parquet(os.path.join(path, "item_log_features.parquet"))
+        else:
+            item_log_features = None
+
+        processor = pickle.loads(row["data"])
+        processor.user_log_features = user_log_features
+        processor.item_log_features = item_log_features
+
+        return processor
 
     def _create_log_aggregates(self, agg_col: str = "user_idx") -> List:
         """
@@ -345,6 +385,35 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
 
         return joined
 
+    def save(self, path: str, overwrite: bool = False, spark: Optional[SparkSession] = None):
+        create_folder(path, delete_if_exists=overwrite)
+
+        if self.user_log_features is not None:
+            self.user_log_features.write.parquet(os.path.join(path, "user_log_features.parquet"))
+
+        if self.item_log_features is not None:
+            self.item_log_features.write.parquet(os.path.join(path, "item_log_features.parquet"))
+
+        spark = spark or self._get_spark_session()
+
+        user_log_features = self.user_log_features
+        item_log_features = self.item_log_features
+        self.user_log_features = None
+        self.item_log_features = None
+
+        data = pickle.dumps(self)
+        self.user_log_features = user_log_features
+        self.item_log_features = item_log_features
+
+        df = spark.createDataFrame([{
+            "data": data,
+            "classname": self.get_classname(),
+            "has_user_log_features": self.user_log_features is not None,
+            "has_item_log_features": self.item_log_features is not None
+        }])
+
+        df.write.parquet(os.path.join(path, "data.parquet"))
+
     def __del__(self):
         unpersist_if_exists(self.user_log_features)
         unpersist_if_exists(self.item_log_features)
@@ -359,6 +428,25 @@ class ConditionalPopularityProcessor(EmptyFeatureProcessor):
 
     conditional_pop_dict: Optional[Dict[str, DataFrame]]
     entity_name: str
+
+    @classmethod
+    def load(cls, path: str, spark: Optional[SparkSession] = None):
+        spark = spark or cls._get_spark_session()
+
+        row = spark.read.parquet(os.path.join(path, "data.parquet")).first().asDict()
+
+        if row["has_conditional_pop_dict"]:
+            dfs_folder = os.path.join(path, "conditional_pop_dict")
+            conditional_pop_dict = dict()
+            for i, key in enumerate(row["key_order"]):
+                conditional_pop_dict[key] = spark.read.parquet(os.path.join(dfs_folder, f"{i}"))
+        else:
+            conditional_pop_dict = None
+
+        transformer = pickle.loads(row["data"])
+        transformer.conditional_pop_dict = conditional_pop_dict
+
+        return transformer
 
     def __init__(
         self,
@@ -445,13 +533,39 @@ class ConditionalPopularityProcessor(EmptyFeatureProcessor):
             joined = joined.fillna({f"{self.entity_name[0]}_pop_by_{key}": 0})
         return joined
 
+    def save(self, path: str, overwrite: bool = False, spark: Optional[SparkSession] = None):
+        spark = spark or self._get_spark_session()
+        create_folder(path, delete_if_exists=overwrite)
+
+        conditional_pop_dict = self.conditional_pop_dict
+        self.conditional_pop_dict = None
+        data = pickle.dumps(self)
+        self.conditional_pop_dict = conditional_pop_dict
+
+        if self.conditional_pop_dict is not None:
+            dfs_folder = os.path.join(path, "conditional_pop_dict")
+            create_folder(dfs_folder)
+            key_order = []
+            for i, (key, df) in enumerate(self.conditional_pop_dict.items()):
+                key_order.append(key)
+                df.write.parquet(os.path.join(dfs_folder, f"{i}"))
+        else:
+            key_order = []
+
+        spark.createDataFrame([{
+            "classname": self.get_classname(),
+            "data": data,
+            "key_order": key_order,
+            "has_conditional_pop_dict": self.conditional_pop_dict is not None
+        }]).write.parquet(os.path.join(path, "data.parquet"))
+
     def __del__(self):
         for df in self.conditional_pop_dict.values():
             unpersist_if_exists(df)
 
 
 # pylint: disable=too-many-instance-attributes, too-many-arguments
-class HistoryBasedFeaturesProcessor:
+class HistoryBasedFeaturesProcessor(AbleToSaveAndLoad):
     """
     Calculate user and item features based on interactions history (log).
     calculated features includes numbers of interactions, rating and timestamp distribution features
@@ -464,6 +578,27 @@ class HistoryBasedFeaturesProcessor:
     log_processor = EmptyFeatureProcessor()
     user_cond_pop_proc = EmptyFeatureProcessor()
     item_cond_pop_proc = EmptyFeatureProcessor()
+
+    @classmethod
+    def load(cls, path: str, spark: Optional[SparkSession] = None):
+        spark = spark or cls._get_spark_session()
+
+        row = spark.read.parquet(os.path.join(path, "data.parquet")).first().asDict()
+
+        log_processor = load_transformer(os.path.join(path, "log_processor")) \
+            if row["has_log_processor"] else None
+        user_cond_pop_proc = load_transformer(os.path.join(path, "user_cond_pop_proc")) \
+            if row["has_user_cond_pop_proc"] else None
+
+        item_cond_pop_proc = load_transformer(os.path.join(path, "item_cond_pop_proc")) \
+            if row["has_item_cond_pop_proc"] else None
+
+        transformer = pickle.loads(row["data"])
+        transformer.log_processor = log_processor
+        transformer.user_cond_pop_proc = user_cond_pop_proc
+        transformer.item_cond_pop_proc = item_cond_pop_proc
+
+        return transformer
 
     def __init__(
         self,
@@ -533,3 +668,35 @@ class HistoryBasedFeaturesProcessor:
         joined = self.item_cond_pop_proc.transform(joined)
 
         return joined
+
+    def save(self, path: str, overwrite: bool = False, spark: Optional[SparkSession] = None):
+        spark = spark or self._get_spark_session()
+        create_folder(path, delete_if_exists=overwrite)
+
+        log_processor = self.log_processor
+        user_cond_pop_proc = self.user_cond_pop_proc
+        item_cond_pop_proc = self.item_cond_pop_proc
+        self.log_processor = None
+        self.user_cond_pop_proc = None
+        self.item_cond_pop_proc = None
+        data = pickle.dumps(self)
+        self.log_processor = log_processor
+        self.user_cond_pop_proc = user_cond_pop_proc
+        self.item_cond_pop_proc = item_cond_pop_proc
+
+        if self.log_processor is not None:
+            save_transformer(self.log_processor, os.path.join(path, "log_processor"))
+
+        if self.user_cond_pop_proc is not None:
+            save_transformer(self.user_cond_pop_proc, os.path.join(path, "user_cond_pop_proc"))
+
+        if self.item_cond_pop_proc is not None:
+            save_transformer(self.item_cond_pop_proc, os.path.join(path, "item_cond_pop_proc"))
+
+        spark.createDataFrame([{
+            "classname": self.get_classname(),
+            "data": data,
+            "has_log_processor": self.log_processor is not None,
+            "has_user_cond_pop_proc": self.user_cond_pop_proc is not None,
+            "has_item_cond_pop_proc": self.item_cond_pop_proc is not None
+        }]).write.parquet(os.path.join(path, "data.parquet"))

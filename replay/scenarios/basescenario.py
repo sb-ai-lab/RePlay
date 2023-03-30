@@ -9,7 +9,7 @@ from replay.constants import AnyDataFrame
 from replay.filters import filter_by_min_count
 from replay.metrics import Metric, NDCG
 from replay.models.base_rec import BaseRecommender
-from replay.utils import convert2spark, get_unique_entities
+from replay.utils import convert2spark
 
 
 class BaseScenario(BaseRecommender):
@@ -78,7 +78,7 @@ class BaseScenario(BaseRecommender):
         """
         log = convert2spark(log)
         users = users or log or user_features or self.fit_users
-        users = get_unique_entities(users, "user_idx")
+        users = self._get_ids(users, "user_idx")
         hot_data = filter_by_min_count(log, self.threshold, "user_idx")
         hot_users = hot_data.select("user_idx").distinct()
         if not self.can_predict_cold_users:
