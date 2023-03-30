@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple, Union, Optional
 
 import pandas as pd
-from pyspark.sql import Column, SparkSession
+from pyspark.sql import Column
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
@@ -17,6 +17,7 @@ from pyspark.sql.column import _to_java_column, _to_seq
 from scipy.stats import norm
 
 from replay.constants import AnyDataFrame, IntOrList, NumType
+from replay.session_handler import State
 from replay.utils import convert2spark, get_top_k_recs
 
 
@@ -269,12 +270,8 @@ class Metric(ABC):
         :return: metric distribution for different cut-offs and users
         """
         if self._use_scala_udf:
-            # Possibly bad approach to define column names for udf call
-            # because we don't know columns ordering,
-            # and we don't know exactly what is columns in recs
-            cols = [col for col in recs.columns if col != "user_idx"]
             metric_value_col = self.get_scala_udf(
-                self.scala_udf_name, [sf.lit(k).alias("k"), *cols]
+                self.scala_udf_name, [sf.lit(k).alias("k"), *recs.columns[1:]]
             ).alias("value")
             return recs.select("user_idx", metric_value_col)
 
@@ -366,9 +363,7 @@ class Metric(ABC):
         :param params: list of UDF params in right order
         :return: column expression
         """
-        sc = (  # pylint: disable=invalid-name
-            SparkSession.getActiveSession().sparkContext
-        )
+        sc = State().session.sparkContext  # pylint: disable=invalid-name
         scala_udf = getattr(
             sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs, udf_name
         )()
