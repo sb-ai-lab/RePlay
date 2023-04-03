@@ -1,7 +1,9 @@
 from pyspark.ml import Transformer
 from pyspark.ml.param import TypeConverters, Params, Param
 from pyspark.ml.util import DefaultParamsWritable, DefaultParamsReadable
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
+
+from replay.session_handler import State
 
 
 class DataframeBucketizer(Transformer, DefaultParamsWritable, DefaultParamsReadable):
@@ -52,6 +54,22 @@ class DataframeBucketizer(Transformer, DefaultParamsWritable, DefaultParamsReada
         self.set(self.tableName, table_name)
         self.set(self.sparkWarehouseDir, spark_warehouse_dir)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.remove_parquet()
+
+    def remove_parquet(self):
+        spark = State().session
+        spark_warehouse_dir = self.getOrDefault(self.sparkWarehouseDir)
+        table_name = self.getOrDefault(self.tableName)
+        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration())
+        fs_path = spark._jvm.org.apache.hadoop.fs.Path(f"{spark_warehouse_dir}/{table_name}")
+        is_exists = fs.exists(fs_path)
+        if is_exists:
+            fs.delete(fs_path, True)
+
     def set_table_name(self, table_name: str):
         self.set(self.tableName, table_name)
 
@@ -76,6 +94,6 @@ class DataframeBucketizer(Transformer, DefaultParamsWritable, DefaultParamsReada
             )
         )
 
-        spark = SparkSession.getActiveSession()
+        spark = State().session
 
         return spark.table(table_name)

@@ -18,7 +18,6 @@ from pyspark.ml.feature import StringIndexerModel, IndexToString, StringIndexer
 from pyspark.ml.param import Param, Params
 from pyspark.ml.util import MLWriter, MLWritable, MLReader, MLReadable, DefaultParamsWriter, DefaultParamsReader
 from pyspark.sql import DataFrame
-from pyspark.sql import SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.types import DoubleType, NumericType
 
@@ -208,7 +207,7 @@ class JoinIndexerMLWriter(DefaultParamsWriter):
         super().saveImpl(path)
         # print(f"Saving {type(self.instance).__name__} to '{path}'")
 
-        spark = SparkSession.getActiveSession()
+        spark = State().session
 
         init_args = self.instance._init_args
         sc = spark.sparkContext
@@ -222,7 +221,7 @@ class JoinIndexerMLWriter(DefaultParamsWriter):
 class JoinIndexerMLReader(MLReader):
     def load(self, path):
         """Load the ML instance from the input path."""
-        spark = SparkSession.getActiveSession()
+        spark = State().session
         args = spark.read.json(join(path, "init_args.json")).first().asDict(recursive=True)
         user_col_2_index_map = spark.read.parquet(join(path, "user_col_2_index_map.parquet"))
         item_col_2_index_map = spark.read.parquet(join(path, "item_col_2_index_map.parquet"))
@@ -387,7 +386,7 @@ class JoinBasedIndexerEstimator(Estimator):
             .zipWithIndex()
         )
 
-        spark = SparkSession.getActiveSession()
+        spark = State().session
         _map = spark.createDataFrame(uid_rdd, [col_name, idx_col_name])
         return _map
 
