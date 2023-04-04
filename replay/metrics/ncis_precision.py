@@ -21,6 +21,8 @@ class NCISPrecision(NCISMetric):
         Source: arxiv.org/abs/1801.07030
     """
 
+    _scala_udf_name = "getNCISPrecisionMetricValue"
+
     @staticmethod
     def _get_metric_value_by_user(k, *args):
         pred, ground_truth, pred_weights = args
