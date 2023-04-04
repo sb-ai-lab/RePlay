@@ -24,6 +24,9 @@ def get_spark_session(
         70% of RAM by default.
     :param shuffle_partitions: number of partitions for Spark; triple CPU count by default
     """
+    if os.environ.get("SCRIPT_ENV", None) == "cluster":
+        return SparkSession.builder.getOrCreate()
+
     os.environ["PYSPARK_PYTHON"] = sys.executable
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
