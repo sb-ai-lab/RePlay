@@ -6,8 +6,6 @@ version := "0.1"
 
 scalaVersion := "2.12.15"
 
-// idePackagePrefix := Some("org.apache.spark.ml.feature.lightautoml")
-
 resolvers ++= Seq(
   ("Confluent" at "http://packages.confluent.io/maven")
         .withAllowInsecureProtocol(true)
