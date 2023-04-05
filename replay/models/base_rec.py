@@ -12,7 +12,6 @@ Base abstract classes:
     with popularity statistics
 """
 
-import joblib
 import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -53,7 +52,7 @@ from replay.utils import (
     get_top_k_recs,
     return_recs,
     vector_euclidean_distance_similarity,
-    vector_dot,
+    vector_dot, save_picklable_to_parquet, load_pickled_from_parquet,
 )
 
 
@@ -1615,10 +1614,10 @@ class NonPersonalizedRecommender(Recommender, ABC):
         return {"item_popularity": self.item_popularity}
 
     def _save_model(self, path: str):
-        joblib.dump({"fill": self.fill}, join(path))
+        save_picklable_to_parquet(self.fill, join(path, "params.dump"))
 
     def _load_model(self, path: str):
-        self.fill = joblib.load(join(path))["fill"]
+        self.fill = load_pickled_from_parquet(join(path, "params.dump"))
 
     def _clear_cache(self):
         if hasattr(self, "item_popularity"):
