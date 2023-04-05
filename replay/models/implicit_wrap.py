@@ -1,11 +1,11 @@
+from os.path import join
 from typing import Optional
 
-import joblib
 import pandas as pd
 from pyspark.sql import DataFrame
 
 from replay.models.base_rec import Recommender
-from replay.utils import to_csr
+from replay.utils import to_csr, save_picklable_to_parquet, load_pickled_from_parquet
 from replay.constants import REC_SCHEMA
 
 
@@ -43,10 +43,10 @@ class ImplicitWrap(Recommender):
         return {"model": None}
 
     def _save_model(self, path: str):
-        joblib.dump(self.model, path)
+        save_picklable_to_parquet(self.model, join(path, "model"))
 
     def _load_model(self, path: str):
-        self.model = joblib.load(path)
+        self.model = load_pickled_from_parquet(join(path, "model"))
 
     def _fit(
         self,
