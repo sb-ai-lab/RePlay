@@ -1695,10 +1695,16 @@ class NonPersonalizedRecommender(Recommender, ABC):
         )
 
         if filter_seen_items and log is not None:
-            user_to_num_items = log.groupBy("user_idx").agg(
-                sf.countDistinct("item_idx").alias("num_items")
+            user_to_num_items = (
+                log.join(users, on="user_idx")
+                .groupBy("user_idx")
+                .agg(sf.countDistinct("item_idx").alias("num_items"))
             )
-            users = users.join(user_to_num_items, on="user_idx")
+            users = users.join(user_to_num_items, on="user_idx", how="left")
+            users = users.fillna(0, "num_items")
+            # 'selected_item_popularity' truncation by k + max_seen
+            selected_item_popularity = selected_item_popularity\
+                .filter(sf.col("rank") <= k + users.select(sf.max("num_items")).collect()[0][0])
             return users.join(
                 selected_item_popularity, on=(sf.col("rank") <= k + sf.col("num_items")), how="left"
             )
