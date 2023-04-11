@@ -40,6 +40,8 @@ class RocAuc(Metric):
 
     """
 
+    _scala_udf_name = "getRocAucMetricValue"
+
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         length = min(k, len(pred))

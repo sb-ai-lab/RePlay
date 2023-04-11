@@ -7,12 +7,12 @@ from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
 from replay.constants import AnyDataFrame
-from replay.utils import convert2spark, get_top_k_recs
 from replay.metrics.base_metric import (
     fill_na_with_empty_array,
     RecOnlyMetric,
     sorter,
 )
+from replay.utils import convert2spark, get_top_k_recs
 
 
 # pylint: disable=too-few-public-methods
@@ -45,14 +45,18 @@ class Surprisal(RecOnlyMetric):
         Surprisal@K = \\frac {\sum_{i=1}^{N}Surprisal@K(i)}{N}
     """
 
+    _scala_udf_name = "getSurprisalMetricValue"
+
     def __init__(
-        self, log: AnyDataFrame
+        self, log: AnyDataFrame,
+        use_scala_udf: bool = False
     ):  # pylint: disable=super-init-not-called
         """
         Here we calculate self-information for each item
 
         :param log: historical data
         """
+        self._use_scala_udf = use_scala_udf
         self.log = convert2spark(log)
         n_users = self.log.select("user_idx").distinct().count()  # type: ignore
         self.item_weights = self.log.groupby("item_idx").agg(

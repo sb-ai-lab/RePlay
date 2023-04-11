@@ -19,6 +19,8 @@ class MRR(Metric):
     1.0
     """
 
+    _scala_udf_name = "getMRRMetricValue"
+
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         for i in range(min(k, len(pred))):
