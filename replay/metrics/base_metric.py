@@ -3,7 +3,7 @@ Base classes for quality and diversity metrics.
 """
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Union, Optional
+from typing import Dict, List, Union, Optional
 
 import pandas as pd
 from pyspark.sql import Column
