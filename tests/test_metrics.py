@@ -18,7 +18,7 @@ from pyspark.sql.types import (
 from replay.constants import LOG_SCHEMA, REC_SCHEMA
 from replay.metrics import *
 from replay.distributions import item_distribution
-from replay.metrics.base_metric import get_enriched_recommendations, sorter
+from replay.metrics.base_metric import get_enriched_recommendations
 
 from tests.utils import (
     assert_allclose,
@@ -413,17 +413,6 @@ def test_duplicate_recs(quality_metrics, duplicate_recs, recs, true):
             metric(k=4, recommendations=recs, ground_truth=true),
             err_msg=str(metric),
         )
-
-
-def test_sorter():
-    result = sorter(((1, 2), (2, 3), (3, 2)))
-    assert result == [2, 3]
-
-
-def test_sorter_index():
-    ids, weights = sorter(((1, 2, 3), (2, 3, 4), (3, 3, 5)), extra_position=2)
-    assert ids == [3, 2]
-    assert weights == [5, 3]
 
 
 def test_ncis_raises(prev_relevance):

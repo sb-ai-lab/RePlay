@@ -2,9 +2,8 @@
 Base classes for quality and diversity metrics.
 """
 import logging
-import operator
 from abc import ABC, abstractmethod
-from typing import Dict, List, Tuple, Union, Optional
+from typing import Dict, Union, Optional
 
 import pandas as pd
 from pyspark.sql import DataFrame
@@ -16,39 +15,6 @@ from scipy.stats import norm
 
 from replay.constants import AnyDataFrame, IntOrList, NumType
 from replay.utils import convert2spark, get_top_k_recs
-
-
-# pylint: disable=no-member
-def sorter(
-    items: Tuple[Tuple], extra_position=None
-) -> Union[List, Tuple[List, List]]:
-    """
-    Sorts a list of tuples and chooses unique objects.
-    Sorting is made using relevance values (descending).
-    Unique items from `item_idx` column are selected.
-    If `extra_position` is None, only list with ordered items is returned.
-    Otherwise two lists are returned, the first is with item_ids
-    and the second is with the tuples' elements on 'extra_position', e.g item weight.
-
-    :param items: tuples ``(relevance, item_idx, *args)``.
-    :param extra_position: index of the element in tuple to be returned in addition to item_idx,
-        if None, only item_ids are returned
-    :return: list of unique item_ids sorted by relevance is descending order
-        and additional list of corresponding values on `extra_position` if not None
-    """
-    res = sorted(items, key=operator.itemgetter(0), reverse=True)
-    set_res = set()
-    item_ids = []
-    extra_values = []
-    for item in res:
-        if item[1] not in set_res:
-            set_res.add(item[1])
-            item_ids.append(item[1])
-            if extra_position is not None:
-                extra_values.append(item[extra_position])
-    if extra_position is None:
-        return item_ids
-    return item_ids, extra_values
 
 
 def fill_na_with_empty_array(
@@ -108,7 +74,7 @@ def filter_sort(recommendations: AnyDataFrame) -> DataFrame:
         recommendations.withColumn(
             "_num",
             sf.row_number().over(
-                Window.partitionBy("user_idx", "item_idx").orderBy("relevance")
+                Window.partitionBy("user_idx", "item_idx").orderBy(sf.col("relevance").desc())
             ),
         )
         .where(sf.col("_num") == 1)
