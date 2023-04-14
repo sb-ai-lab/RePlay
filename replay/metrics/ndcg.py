@@ -46,6 +46,8 @@ class NDCG(Metric):
     0.5
     """
 
+    _scala_udf_name = "getNDCGMetricValue"
+
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         if len(pred) == 0 or len(ground_truth) == 0:

@@ -14,6 +14,8 @@ class Precision(Metric):
 
     :math:`\\mathbb{1}_{r_{ij}}` -- indicator function showing that user :math:`i` interacted with item :math:`j`"""
 
+    _scala_udf_name = "getPrecisionMetricValue"
+
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         if len(pred) == 0:
