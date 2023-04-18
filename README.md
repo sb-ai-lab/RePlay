@@ -119,4 +119,4 @@ metrics.add_result("knn", recs)
 <a name="contributing"></a>
 ## Contributing to RePlay
 
-For more details visit [development section in docs](https://sb-ai-lab.github.io/RePlay/pages/installation.html#development)
+We welcome community contributions. For details please check our [contributing guidelines](CONTRIBUTING.md).
