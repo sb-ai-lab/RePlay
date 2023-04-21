@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 
+/*
+ * Modifications copyright (c) 2023 Azamat G.
+ */
+
 package org.apache.spark.ml.recommendation.replay
 
 import java.{util => ju}

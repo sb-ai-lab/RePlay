@@ -15,6 +15,10 @@
 # limitations under the License.
 #
 
+#
+# Modifications copyright (c) 2023 Azamat G.
+#
+
 import sys
 
 from pyspark import since, keyword_only
