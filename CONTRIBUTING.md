@@ -1,22 +1,70 @@
-# How to Contribute
+# Table of contents
+
+- [Contributing to RePlay](#contributing-to-replay)
+- [Codebase structure](#codebase-structure)
+- [Developing RePlay](#developing-replay)
+- [Writing Documentation](#writing-documentation)
+- [Style Guide](#style-guide)
+- [Versioning](#versioning)
+- [Release Process](#release-process)
+
+## Contributing to RePlay
+
 We welcome community contributions to RePlay. You can:
 
 - Submit your changes directly with a [pull request](https://github.com/sb-ai-lab/RePlay/pulls).
 - Log a bug or make a feature request with an [issue](https://github.com/sb-ai-lab/RePlay/issues).
 
-Refer to our guidelines on [pull requests](#pull-requests) and [development](#development) before you proceed.
+Refer to our guidelines on [pull requests](#pull-requests) and [development](#developing-replay) before you proceed.
 
-## Development
+## Codebase structure
+
+To be defined.
+
+## Developing RePlay
 
 Development of any feature is organized in separate branches with naming conventions:
 - *feature/feature_name* - regular feature.
 - *release/vX.Y.Z* - release branch (for details see [versioning][#versioning]).
 
+### Installation 
+
+If you are installing from the source, you will need Python 3.8-3.10.
+
+1. Install poetry using [the poetry installation guide](https://python-poetry.org/docs/#installation). 
+
+2. Clone the project to your own local machine:
+
+    ```bash
+    git clone git@github.com:sb-ai-lab/RePlay.git
+    cd RePlay
+    ```
+3. **Optional**: specify python for poetry
+
+    ```bash
+    poetry env use PYTHON_PATH
+    ```
+
+4. Install RePlay:
+
+    ```bash
+    poetry install
+    ```
+
+After that, there is virtual environment, where you can test and implement your own code.
+So, you don't need to rebuild the full project every time.
+Each change in the code will be reflected in the library inside the environment.
+
+### Style Guide
+
+We follow [the standard python PEP8](https://www.python.org/dev/peps/pep-0008/) conventions for style.
+
+### How to add a new model
 How to add a new model is described [here](https://sb-ai-lab.github.io/RePlay/pages/installation.html#adding-new-model).
 
 When you're done with your feature development please create [pull request](#pull-requests).
 
-## Pull Requests
+### Pull Requests
 
 To contribute your changes directly to the repository, do the following:
 - Cover your code by [unit tests](https://github.com/sb-ai-lab/RePlay/tree/main/tests). 
@@ -26,7 +74,7 @@ To contribute your changes directly to the repository, do the following:
 
 Public CI is enabled for the repository. Your PR should pass all of our checks. We will review your contribution and, if any additional fixes or modifications are necessary, we may give some feedback to guide you. When accepted, your pull request will be merged into our GitHub* repository.
 
-## Documentation Guidelines
+## Writing Documentation
 
 RePlay uses `Sphinx` for inline comments in public header files that are used to build the API reference and the Developer Guide. See [RePlay documentation](https://sb-ai-lab.github.io/RePlay/index.html) for reference.
 
