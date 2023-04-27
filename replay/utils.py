@@ -1,19 +1,21 @@
+import collections
+import pickle
 import logging
 import os
 from typing import Any, Iterable, List, Optional, Set, Tuple, Union
 
-import collections
 import numpy as np
 import pandas as pd
 import pyspark.sql.types as st
-
 from numpy.random import default_rng
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
-from pyspark.sql import Column, DataFrame, Window, functions as sf
+from pyspark.sql import SparkSession, Column, DataFrame, Window, functions as sf
+from pyspark.sql.column import _to_java_column, _to_seq
 from scipy.sparse import csr_matrix
 
 from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
 from replay.session_handler import State
+
 
 # pylint: disable=invalid-name
 
@@ -208,6 +210,19 @@ def vector_mult(
     :returns: result
     """
     return one * two
+
+
+def multiply_scala_udf(scalar, vector):
+    """
+    Multiplies a scalar by a vector
+
+    :param scalar: column with scalars
+    :param vector: column with vectors
+    :return: column expression
+    """
+    sc = SparkSession.getActiveSession().sparkContext
+    _f = sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.multiplyUDF()
+    return Column(_f.apply(_to_seq(sc, [scalar, vector], _to_java_column)))
 
 
 @sf.udf(returnType=st.ArrayType(st.DoubleType()))
@@ -849,6 +864,38 @@ def return_recs(
 
     recs.write.parquet(path=recs_file_path, mode="overwrite")
     return None
+
+
+def save_picklable_to_parquet(obj: Any, path: str) -> None:
+    """
+    Function dumps object to disk or hdfs in parquet format.
+
+    :param obj: object to be saved
+    :param path: path to dump
+    :return:
+    """
+
+    sc = State().session.sparkContext
+    # We can use `RDD.saveAsPickleFile`, but it has no "overwrite" parameter
+    pickled_instance = pickle.dumps(obj)
+    Record = collections.namedtuple("Record", ["data"])
+    rdd = sc.parallelize([Record(pickled_instance)])
+    instance_df = rdd.map(lambda rec: Record(bytearray(rec.data))).toDF()
+    instance_df.write.mode("overwrite").parquet(path)
+
+
+def load_pickled_from_parquet(path: str) -> Any:
+    """
+    Function loads object from disk or hdfs,
+    what was dumped via `save_picklable_to_parquet` function.
+
+    :param path: source path
+    :return: unpickled object
+    """
+    spark = State().session
+    df = spark.read.parquet(path)
+    pickled_instance = df.rdd.map(lambda row: bytes(row.data)).first()
+    return pickle.loads(pickled_instance)
 
 
 def assert_omp_single_thread():
