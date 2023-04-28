@@ -81,7 +81,8 @@ If you are installing from the source, you will need Python 3.8-3.10.
     ```bash
     pip install -U pip wheel
     pip install -U requests pypandoc cython optuna poetry
-    poetry install
+    poetry build
+    pip install --force-reinstall dist/replay_rec-0.10.0-py3-none-any.whl
     ```
 
 After that, there is virtual environment, where you can test and implement your own code.
