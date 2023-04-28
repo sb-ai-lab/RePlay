@@ -2,13 +2,16 @@
 Using CQL implementation from `d3rlpy` package.
 """
 import io
+import logging
 import tempfile
+import timeit
 from typing import Optional, Dict, Any
 
 import d3rlpy.algos.cql as CQL_d3rlpy
 import numpy as np
 import pandas as pd
 import torch
+from d3rlpy.algos.torch import CQLImpl
 from d3rlpy.argument_utility import (
     EncoderArg, QFuncArg, UseGPUArg, ScalerArg, ActionScalerArg,
     RewardScalerArg
@@ -21,12 +24,14 @@ from d3rlpy.models.encoders import create_encoder_factory
 from d3rlpy.models.optimizers import OptimizerFactory, AdamFactory
 from d3rlpy.models.q_functions import create_q_func_factory
 from d3rlpy.preprocessing import create_scaler, create_action_scaler, create_reward_scaler
-from pyspark.sql import DataFrame, functions as sf
+from pyspark.sql import DataFrame, functions as sf, Window
 
 from replay.constants import REC_SCHEMA
-from replay.mdp_dataset_builder import MdpDatasetBuilder
 from replay.models.base_rec import Recommender
 from replay.utils import assert_omp_single_thread
+
+
+timer = timeit.default_timer
 
 
 class CQL(Recommender):
@@ -132,7 +137,7 @@ class CQL(Recommender):
     """
 
     n_epochs: int
-    mdp_dataset_builder: MdpDatasetBuilder
+    mdp_dataset_builder: 'MdpDatasetBuilder'
     model: CQL_d3rlpy.CQL
 
     can_predict_cold_users = True
@@ -152,7 +157,7 @@ class CQL(Recommender):
     
     def __init__(
             self,
-            mdp_dataset_builder: MdpDatasetBuilder,
+            mdp_dataset_builder: 'MdpDatasetBuilder',
             n_epochs: int = 1,
 
             # CQL inner params
@@ -183,6 +188,7 @@ class CQL(Recommender):
             scaler: ScalerArg = None,
             action_scaler: ActionScalerArg = None,
             reward_scaler: RewardScalerArg = None,
+            impl: Optional[CQLImpl] = None,
             **params
     ):
         super().__init__()
@@ -238,6 +244,7 @@ class CQL(Recommender):
             scaler=scaler,
             action_scaler=action_scaler,
             reward_scaler=reward_scaler,
+            impl=impl,
             **params
         )
 
@@ -255,8 +262,8 @@ class CQL(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        train: MDPDataset = self.mdp_dataset_builder.build(log)
-        self.model.fit(train, n_epochs=self.n_epochs)
+        mdp_dataset: MDPDataset = self.mdp_dataset_builder.build(log)
+        self.model.fit(mdp_dataset, n_epochs=self.n_epochs)
 
     @staticmethod
     def _predict_pairs_inner(
@@ -336,7 +343,7 @@ class CQL(Recommender):
             mdp_dataset_builder=self.mdp_dataset_builder.init_args(),
         )
         # model internal hyperparams
-        args |= self._get_model_hyperparams(self.model)
+        args |= self._get_model_hyperparams()
         return args
 
     def _save_model(self, path: str) -> None:
@@ -347,25 +354,24 @@ class CQL(Recommender):
         self.logger.info(f'-- Loading model from {path}')
         self.model.load_model(path)
 
-    @staticmethod
-    def _get_model_hyperparams(model: LearnableBase) -> Dict[str, Any]:
+    def _get_model_hyperparams(self) -> Dict[str, Any]:
         """Get model hyperparams as dictionary.
 
         NB: The code is taken from a `d3rlpy.LearnableBase.save_params(logger)` method as
         there's no method to just return such params without saving them.
         """
-        assert model._impl is not None, IMPL_NOT_INITIALIZED_ERROR
+        assert self.model._impl is not None, IMPL_NOT_INITIALIZED_ERROR
 
         # get hyperparameters without impl
         params = {}
         with disable_parallel():
-            for k, v in model.get_params(deep=False).items():
+            for k, v in self.model.get_params(deep=False).items():
                 if isinstance(v, (ImplBase, LearnableBase)):
                     continue
                 params[k] = v
 
         # save algorithm name
-        params["algorithm"] = model.__class__.__name__
+        params["algorithm"] = self.model.__class__.__name__
 
         # serialize objects
         params = _serialize_params(params)
@@ -413,3 +419,72 @@ def _deserialize_param(name: str, value: Any) -> Any:
     elif name == "mdp_dataset_builder":
         value = MdpDatasetBuilder(**value)
     return value
+
+
+class MdpDatasetBuilder:
+    r"""
+    Markov Decision Process Dataset builder.
+    This class transforms datasets with user logs, which is natural for recommender systems,
+    to datasets consisting of users' decision-making session logs, which is natural for RL methods.
+
+    Args:
+        top_k (int): the number of top user items to learn predicting.
+        action_randomization_scale (float): the scale of action randomization gaussian noise.
+    """
+    logger: logging.Logger
+    top_k: int
+    action_randomization_scale: float
+
+    def __init__(self, top_k: int, action_randomization_scale: float = 1e-3):
+        self.logger = logging.getLogger("replay")
+        self.top_k = top_k
+        # cannot set zero scale as then d3rlpy will treat transitions as discrete
+        assert action_randomization_scale > 0
+        self.action_randomization_scale = action_randomization_scale
+
+    def build(self, log: DataFrame) -> MDPDataset:
+        """Builds and returns MDP dataset from users' log."""
+
+        start_time = timer()
+        # reward top-K watched movies with 1, the others - with 0
+        reward_condition = sf.row_number().over(
+            Window
+            .partitionBy('user_idx')
+            .orderBy([sf.desc('relevance'), sf.desc('timestamp')])
+        ) <= self.top_k
+
+        # every user has his own episode (the latest item is defined as terminal)
+        terminal_condition = sf.row_number().over(
+            Window
+            .partitionBy('user_idx')
+            .orderBy(sf.desc('timestamp'))
+        ) == 1
+
+        user_logs = (
+            log
+            .withColumn("reward", sf.when(reward_condition, sf.lit(1)).otherwise(sf.lit(0)))
+            .withColumn("terminal", sf.when(terminal_condition, sf.lit(1)).otherwise(sf.lit(0)))
+            .withColumn(
+                "action",
+                sf.col("relevance").cast("float") + sf.randn() * self.action_randomization_scale
+            )
+            .orderBy(['user_idx', 'timestamp'], ascending=True)
+            .select(['user_idx', 'item_idx', 'action', 'reward', 'terminal'])
+            .toPandas()
+        )
+        train_dataset = MDPDataset(
+            observations=np.array(user_logs[['user_idx', 'item_idx']]),
+            actions=user_logs['action'].to_numpy()[:, None],
+            rewards=user_logs['reward'].to_numpy(),
+            terminals=user_logs['terminal'].to_numpy()
+        )
+
+        prepare_time = timer() - start_time
+        self.logger.info(f'-- Building MDP dataset took {prepare_time:.2f} seconds')
+        return train_dataset
+
+    def init_args(self):
+        return dict(
+            top_k=self.top_k,
+            action_randomization_scale=self.action_randomization_scale
+        )

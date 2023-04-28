@@ -5,7 +5,7 @@ import numpy as np
 from pyspark.sql import functions as sf
 
 from replay.constants import LOG_SCHEMA
-from replay.mdp_dataset_builder import MdpDatasetBuilder
+from replay.models.cql import MdpDatasetBuilder
 from replay.models import (
     ALSWrap,
     ADMMSLIM,

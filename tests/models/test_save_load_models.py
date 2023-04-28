@@ -11,7 +11,7 @@ from pyspark.sql import functions as sf
 
 import replay
 from replay.data_preparator import Indexer
-from replay.mdp_dataset_builder import MdpDatasetBuilder
+from replay.models.cql import MdpDatasetBuilder
 from replay.model_handler import save, load
 from replay.models import *
 from replay.utils import convert2spark
