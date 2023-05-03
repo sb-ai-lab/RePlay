@@ -14,10 +14,22 @@ from typing import Dict, List, Optional
 
 from pyspark.ml import Transformer, Estimator
 from pyspark.ml.feature import StringIndexerModel, IndexToString, StringIndexer
-from pyspark.ml.util import MLWriter, MLWritable, MLReader, MLReadable, DefaultParamsWriter
+from pyspark.ml.util import (
+    MLWriter,
+    MLWritable,
+    MLReader,
+    MLReadable,
+    DefaultParamsWriter,
+)
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-from pyspark.sql.types import DoubleType, NumericType
+from pyspark.sql.types import (
+    DoubleType,
+    NumericType,
+    StructField,
+    StructType,
+    IntegerType,
+)
 
 from replay.constants import AnyDataFrame
 from replay.session_handler import State
@@ -235,7 +247,6 @@ class JoinIndexerMLReader(MLReader):
             item_col=args["item_col"],
             item_type=args["item_type"],
             item_col_2_index_map=item_col_2_index_map,
-
         )
 
         return indexer
@@ -249,15 +260,15 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
 
     # pylint: disable=too-many-arguments
     def __init__(
-            self,
-            user_col: str,
-            item_col: str,
-            user_type: str,
-            item_type: str,
-            user_col_2_index_map: DataFrame,
-            item_col_2_index_map: DataFrame,
-            update_map_on_transform: bool = False,
-            force_broadcast_on_mapping_joins: bool = True
+        self,
+        user_col: str,
+        item_col: str,
+        user_type: str,
+        item_type: str,
+        user_col_2_index_map: DataFrame,
+        item_col_2_index_map: DataFrame,
+        update_map_on_transform: bool = False,
+        force_broadcast_on_mapping_joins: bool = True,
     ):
         super().__init__()
         self.user_col = user_col
@@ -336,7 +347,6 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
         self.user_col_2_index_map = self.user_col_2_index_map.union(new_users_map)
 
     def _transform(self, dataset: DataFrame) -> DataFrame:
-
         if self.update_map_on_transform:
             self._update_maps(dataset)
 
@@ -363,14 +373,18 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
         """
         if "item_idx" in df.columns:
             remaining_cols = df.drop("item_idx").columns
-            df = df.join(self._get_item_mapping(), on="item_idx", how="left").select(
-                sf.col(self.item_col).cast(self.item_type).alias(self.item_col),
+            df = df.join(
+                self._get_item_mapping(), on="item_idx", how="left"
+            ).select(
+                self.item_col,
                 *remaining_cols,
             )
         if "user_idx" in df.columns:
             remaining_cols = df.drop("user_idx").columns
-            df = df.join(self._get_user_mapping(), on="user_idx", how="left").select(
-                sf.col(self.user_col).cast(self.user_type).alias(self.user_col),
+            df = df.join(
+                self._get_user_mapping(), on="user_idx", how="left"
+            ).select(
+                self.user_col,
                 *remaining_cols,
             )
         return df
@@ -403,14 +417,20 @@ class JoinBasedIndexerEstimator(Estimator):
         :return: DataFrame with map "col_name" -> "idx_col_name"
         """
         uid_rdd = (
-            df.select(col_name).distinct()
+            df.select(col_name)
+            .distinct()
             .rdd.map(lambda x: x[col_name])
             .zipWithIndex()
         )
 
-        spark = State().session
-        _map = spark.createDataFrame(uid_rdd, [col_name, idx_col_name])
-        return _map
+        return uid_rdd.toDF(
+            StructType(
+                [
+                    df.schema[col_name],
+                    StructField(idx_col_name, IntegerType(), False),
+                ]
+            )
+        )
 
     def _fit(self, dataset: DataFrame) -> Transformer:
         """
