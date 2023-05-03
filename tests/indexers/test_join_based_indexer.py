@@ -3,7 +3,10 @@
 import pytest
 from pyspark.sql import functions as sf
 
-from replay.data_preparator import JoinBasedIndexerEstimator
+from replay.data_preparator import (
+    JoinBasedIndexerEstimator,
+    JoinBasedIndexerTransformer,
+)
 from tests.utils import spark
 
 
@@ -14,11 +17,9 @@ def log(spark):
     ).toDF("user_id", "item_id")
 
 
-def test_join_based_indexer(spark, log):
-    log.show()
+def test_join_based_indexer(spark, log, tmp_path):
     indexer = JoinBasedIndexerEstimator().fit(log)
     indexed_df = indexer.transform(log)
-    indexed_df.show()
     assert (
         "user_idx" in indexed_df.columns and "item_idx" in indexed_df.columns
     )
@@ -72,7 +73,6 @@ def test_join_based_indexer(spark, log):
     new_log = log.union(new_log_part)
 
     new_indexed_df = indexer.transform(new_log)
-    new_indexed_df.show()
 
     # check that the number of unique users and items remains the same
     assert (
@@ -100,7 +100,6 @@ def test_join_based_indexer(spark, log):
     indexed_new_log_part_df = new_indexed_df.join(
         indexed_df, on=["user_idx", "item_idx"], how="left_anti"
     )
-    indexed_new_log_part_df.show()
     assert (
         indexed_new_log_part_df.select("user_idx").distinct().count()
         == new_log_part.select("user_id").distinct().count()
@@ -108,4 +107,13 @@ def test_join_based_indexer(spark, log):
     assert (
         indexed_new_log_part_df.select("item_idx").distinct().count()
         == new_log_part.select("item_id").distinct().count()
+    )
+
+    path = (tmp_path / "indexer").resolve()
+    indexer.save(path)
+    loaded_indexer = JoinBasedIndexerTransformer.load(path)
+    indexed_df2 = loaded_indexer.transform(log)
+    assert (
+        indexed_df.sort(["user_idx", "item_idx"]).collect()
+        == indexed_df2.sort(["user_idx", "item_idx"]).collect()
     )
