@@ -337,14 +337,14 @@ class CQL(Recommender):
     
     @property
     def _init_args(self) -> Dict[str, Any]:
-        # non-model hyperparams
-        args = dict(
+        return dict(
+            # non-model hyperparams
             n_epochs=self.n_epochs,
             mdp_dataset_builder=self.mdp_dataset_builder.init_args(),
+
+            # model internal hyperparams
+            **self._get_model_hyperparams()
         )
-        # model internal hyperparams
-        args |= self._get_model_hyperparams()
-        return args
 
     def _save_model(self, path: str) -> None:
         self.logger.info(f'-- Saving model to {path}')
