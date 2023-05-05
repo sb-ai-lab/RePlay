@@ -1703,8 +1703,9 @@ class NonPersonalizedRecommender(Recommender, ABC):
             users = users.join(user_to_num_items, on="user_idx", how="left")
             users = users.fillna(0, "num_items")
             # 'selected_item_popularity' truncation by k + max_seen
+            max_seen = users.select(sf.coalesce(sf.max("num_items"), sf.lit(0))).collect()[0][0]
             selected_item_popularity = selected_item_popularity\
-                .filter(sf.col("rank") <= k + users.select(sf.max("num_items")).collect()[0][0])
+                .filter(sf.col("rank") <= k + max_seen)
             return users.join(
                 selected_item_popularity, on=(sf.col("rank") <= k + sf.col("num_items")), how="left"
             )
