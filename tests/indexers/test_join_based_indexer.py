@@ -17,7 +17,7 @@ def log(spark):
     ).toDF("user_id", "item_id")
 
 
-def test_join_based_indexer(spark, log, tmp_path):
+def test_indexer(spark, log, tmp_path):
     indexer = JoinBasedIndexerEstimator().fit(log)
     indexed_df = indexer.transform(log)
     assert (
@@ -32,6 +32,11 @@ def test_join_based_indexer(spark, log, tmp_path):
         ][0]
         == 0
     )
+
+
+def test_inverse_transform(spark, log):
+    indexer = JoinBasedIndexerEstimator().fit(log)
+    indexed_df = indexer.transform(log)
 
     # inverse indexing
     df_with_primary_indexes = indexer.inverse_transform(indexed_df)
@@ -63,8 +68,10 @@ def test_join_based_indexer(spark, log, tmp_path):
     )
     assert expected_unique_item_ids == actual_unique_item_ids
 
-    # check indexing new user-items
-    indexer.set_update_map_on_transform(True)
+
+def test_update_map_on_transform(spark, log):
+    indexer = JoinBasedIndexerEstimator().fit(log)
+    indexed_df = indexer.transform(log)
 
     # add new user and two new items
     new_log_part = spark.createDataFrame([(100, 1), (100, 2)]).toDF(
@@ -72,6 +79,7 @@ def test_join_based_indexer(spark, log, tmp_path):
     )
     new_log = log.union(new_log_part)
 
+    # check indexing new user-items
     new_indexed_df = indexer.transform(new_log)
 
     # check that the number of unique users and items remains the same
@@ -109,11 +117,17 @@ def test_join_based_indexer(spark, log, tmp_path):
         == new_log_part.select("item_id").distinct().count()
     )
 
+
+def test_save_load(spark, log, tmp_path):
+    indexer = JoinBasedIndexerEstimator().fit(log)
+    indexed_df_expected = indexer.transform(log)
+
     path = (tmp_path / "indexer").resolve()
     indexer.save(path)
     loaded_indexer = JoinBasedIndexerTransformer.load(path)
-    indexed_df2 = loaded_indexer.transform(log)
+
+    indexed_df_actual = loaded_indexer.transform(log)
     assert (
-        indexed_df.sort(["user_idx", "item_idx"]).collect()
-        == indexed_df2.sort(["user_idx", "item_idx"]).collect()
+        indexed_df_expected.sort(["user_idx", "item_idx"]).collect()
+        == indexed_df_actual.sort(["user_idx", "item_idx"]).collect()
     )

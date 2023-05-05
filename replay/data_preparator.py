@@ -267,7 +267,7 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
         item_type: str,
         user_col_2_index_map: DataFrame,
         item_col_2_index_map: DataFrame,
-        update_map_on_transform: bool = False,
+        update_map_on_transform: bool = True,
         force_broadcast_on_mapping_joins: bool = True,
     ):
         super().__init__()
