@@ -6,14 +6,30 @@ Contains classes for data preparation and categorical features transformation.
 ``ToNumericFeatureTransformer`` leaves only numerical features
 by one-hot encoding of some features and deleting the others.
 """
+import json
 import logging
 import string
+from os.path import join
 from typing import Dict, List, Optional
 
+from pyspark.ml import Transformer, Estimator
 from pyspark.ml.feature import StringIndexerModel, IndexToString, StringIndexer
+from pyspark.ml.util import (
+    MLWriter,
+    MLWritable,
+    MLReader,
+    MLReadable,
+    DefaultParamsWriter,
+)
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-from pyspark.sql.types import DoubleType, NumericType
+from pyspark.sql.types import (
+    DoubleType,
+    NumericType,
+    StructField,
+    StructType,
+    IntegerType,
+)
 
 from replay.constants import AnyDataFrame
 from replay.session_handler import State
@@ -184,6 +200,263 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
                 ),
             )
             inv_indexer.setLabels(new_labels)
+
+
+# We need to inherit it from DefaultParamsWriter to make it being saved correctly within Pipeline
+class JoinIndexerMLWriter(DefaultParamsWriter):
+    """Implements saving the JoinIndexerTransformer instance to disk.
+    Used when saving a trained pipeline.
+    Implements MLWriter.saveImpl(path) method.
+    """
+
+    def __init__(self, instance):
+        super().__init__(instance)
+        self.instance = instance
+
+    def saveImpl(self, path: str) -> None:
+        super().saveImpl(path)
+
+        spark = State().session
+
+        init_args = self.instance._init_args
+        sc = spark.sparkContext  # pylint: disable=invalid-name
+        df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
+        df.coalesce(1).write.mode("overwrite").json(join(path, "init_args.json"))
+
+        self.instance.user_col_2_index_map.write.mode("overwrite")\
+            .save(join(path, "user_col_2_index_map.parquet"))
+        self.instance.item_col_2_index_map.write.mode("overwrite")\
+            .save(join(path, "item_col_2_index_map.parquet"))
+
+
+class JoinIndexerMLReader(MLReader):
+    """Implements reading the JoinIndexerTransformer instance from disk.
+    Used when loading a trained pipeline.
+    """
+    def load(self, path):
+        """Load the ML instance from the input path."""
+        spark = State().session
+        args = spark.read.json(join(path, "init_args.json")).first().asDict(recursive=True)
+        user_col_2_index_map = spark.read.parquet(join(path, "user_col_2_index_map.parquet"))
+        item_col_2_index_map = spark.read.parquet(join(path, "item_col_2_index_map.parquet"))
+
+        indexer = JoinBasedIndexerTransformer(
+            user_col=args["user_col"],
+            user_type=args["user_type"],
+            user_col_2_index_map=user_col_2_index_map,
+            item_col=args["item_col"],
+            item_type=args["item_type"],
+            item_col_2_index_map=item_col_2_index_map,
+        )
+
+        return indexer
+
+
+# pylint: disable=too-many-instance-attributes
+class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
+    """
+    JoinBasedIndexer, that index user column and item column in input dataframe
+    """
+
+    # pylint: disable=too-many-arguments
+    def __init__(
+        self,
+        user_col: str,
+        item_col: str,
+        user_type: str,
+        item_type: str,
+        user_col_2_index_map: DataFrame,
+        item_col_2_index_map: DataFrame,
+        update_map_on_transform: bool = True,
+        force_broadcast_on_mapping_joins: bool = True,
+    ):
+        super().__init__()
+        self.user_col = user_col
+        self.item_col = item_col
+        self.user_type = user_type
+        self.item_type = item_type
+        self.user_col_2_index_map = user_col_2_index_map
+        self.item_col_2_index_map = item_col_2_index_map
+        self.update_map_on_transform = update_map_on_transform
+        self.force_broadcast_on_mapping_joins = force_broadcast_on_mapping_joins
+
+    @property
+    def _init_args(self):
+        return {
+            "user_col": self.user_col,
+            "item_col": self.item_col,
+            "user_type": self.user_type,
+            "item_type": self.item_type,
+            "update_map_on_transform": self.update_map_on_transform,
+            "force_broadcast_on_mapping_joins": self.force_broadcast_on_mapping_joins
+        }
+
+    def set_update_map_on_transform(self, value: bool):
+        """Sets 'update_map_on_transform' flag"""
+        self.update_map_on_transform = value
+
+    def set_force_broadcast_on_mapping_joins(self, value: bool):
+        """Sets 'force_broadcast_on_mapping_joins' flag"""
+        self.force_broadcast_on_mapping_joins = value
+
+    def _get_item_mapping(self) -> DataFrame:
+        if self.force_broadcast_on_mapping_joins:
+            mapping = sf.broadcast(self.item_col_2_index_map)
+        else:
+            mapping = self.item_col_2_index_map
+        return mapping
+
+    def _get_user_mapping(self) -> DataFrame:
+        if self.force_broadcast_on_mapping_joins:
+            mapping = sf.broadcast(self.user_col_2_index_map)
+        else:
+            mapping = self.user_col_2_index_map
+        return mapping
+
+    def write(self) -> MLWriter:
+        """Returns MLWriter instance that can save the Transformer instance."""
+        return JoinIndexerMLWriter(self)
+
+    @classmethod
+    def read(cls):
+        """Returns an MLReader instance for this class."""
+        return JoinIndexerMLReader()
+
+    def _update_maps(self, df: DataFrame):
+
+        new_items = (
+            df.join(self._get_item_mapping(), on=self.item_col, how="left_anti")
+            .select(self.item_col).distinct()
+        )
+        prev_item_count = self.item_col_2_index_map.count()
+        new_items_map = (
+            JoinBasedIndexerEstimator.get_map(new_items, self.item_col, "item_idx")
+            .select(self.item_col, (sf.col("item_idx") + prev_item_count).alias("item_idx"))
+        )
+        self.item_col_2_index_map = self.item_col_2_index_map.union(new_items_map)
+
+        new_users = (
+            df.join(self._get_user_mapping(), on=self.user_col, how="left_anti")
+            .select(self.user_col).distinct()
+        )
+        prev_user_count = self.user_col_2_index_map.count()
+        new_users_map = (
+            JoinBasedIndexerEstimator.get_map(new_users, self.user_col, "user_idx")
+            .select(self.user_col, (sf.col("user_idx") + prev_user_count).alias("user_idx"))
+        )
+        self.user_col_2_index_map = self.user_col_2_index_map.union(new_users_map)
+
+    def _transform(self, dataset: DataFrame) -> DataFrame:
+        if self.update_map_on_transform:
+            self._update_maps(dataset)
+
+        if self.item_col in dataset.columns:
+            remaining_cols = dataset.drop(self.item_col).columns
+            dataset = dataset.join(self._get_item_mapping(), on=self.item_col, how="left").select(
+                sf.col("item_idx").cast("int").alias("item_idx"),
+                *remaining_cols,
+            )
+        if self.user_col in dataset.columns:
+            remaining_cols = dataset.drop(self.user_col).columns
+            dataset = dataset.join(self._get_user_mapping(), on=self.user_col, how="left").select(
+                sf.col("user_idx").cast("int").alias("user_idx"),
+                *remaining_cols,
+            )
+        return dataset
+
+    def inverse_transform(self, df: DataFrame) -> DataFrame:
+        """
+        Convert DataFrame to the initial indexes.
+
+        :param df: DataFrame with numerical ``user_idx/item_idx`` columns
+        :return: DataFrame with original user/item columns
+        """
+        if "item_idx" in df.columns:
+            remaining_cols = df.drop("item_idx").columns
+            df = df.join(
+                self._get_item_mapping(), on="item_idx", how="left"
+            ).select(
+                self.item_col,
+                *remaining_cols,
+            )
+        if "user_idx" in df.columns:
+            remaining_cols = df.drop("user_idx").columns
+            df = df.join(
+                self._get_user_mapping(), on="user_idx", how="left"
+            ).select(
+                self.user_col,
+                *remaining_cols,
+            )
+        return df
+
+
+class JoinBasedIndexerEstimator(Estimator):
+    """
+    Estimator that produces JoinBasedIndexerTransformer
+    """
+
+    # pylint: disable=super-init-not-called
+    def __init__(self, user_col="user_id", item_col="item_id"):
+        """
+        Provide column names for indexer to use
+        """
+        self.user_col = user_col
+        self.item_col = item_col
+        self.user_col_2_index_map = None
+        self.item_col_2_index_map = None
+        self.user_type = None
+        self.item_type = None
+
+    @staticmethod
+    def get_map(df: DataFrame, col_name: str, idx_col_name: str) -> DataFrame:
+        """Creates indexes [0, .., k] for values from `col_name` column.
+
+        :param df: input dataframe
+        :param col_name: column name from `df` that need to index
+        :param idx_col_name: column name with indexes
+        :return: DataFrame with map "col_name" -> "idx_col_name"
+        """
+        uid_rdd = (
+            df.select(col_name)
+            .distinct()
+            .rdd.map(lambda x: x[col_name])
+            .zipWithIndex()
+        )
+
+        return uid_rdd.toDF(
+            StructType(
+                [
+                    df.schema[col_name],
+                    StructField(idx_col_name, IntegerType(), False),
+                ]
+            )
+        )
+
+    def _fit(self, dataset: DataFrame) -> Transformer:
+        """
+        Creates indexers to map raw id to numerical idx so that spark can handle them.
+        :param df: DataFrame containing user column and item column
+        :return:
+        """
+
+        self.user_col_2_index_map = self.get_map(dataset, self.user_col, "user_idx")
+        self.item_col_2_index_map = self.get_map(dataset, self.item_col, "item_idx")
+
+        self.user_type = dataset.schema[
+            self.user_col
+        ].dataType
+        self.item_type = dataset.schema[
+            self.item_col
+        ].dataType
+
+        return JoinBasedIndexerTransformer(
+            user_col=self.user_col,
+            user_type=str(self.user_type),
+            item_col=self.item_col,
+            item_type=str(self.item_type),
+            user_col_2_index_map=self.user_col_2_index_map,
+            item_col_2_index_map=self.item_col_2_index_map
+        )
 
 
 class DataPreparator:

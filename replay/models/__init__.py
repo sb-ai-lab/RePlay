@@ -27,3 +27,4 @@ from replay.models.word2vec import Word2VecRec
 from replay.models.cluster import ClusterRec
 from replay.models.cat_pop_rec import CatPopRec
 from replay.models.ucb import UCB
+from replay.models.thompson_sampling import ThompsonSampling

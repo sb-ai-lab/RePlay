@@ -1,15 +1,16 @@
 from typing import Optional
+
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
 from replay.constants import AnyDataFrame
-from replay.utils import convert2spark, get_top_k_recs
 from replay.metrics.base_metric import (
     RecOnlyMetric,
     sorter,
     fill_na_with_empty_array,
 )
+from replay.utils import convert2spark, get_top_k_recs
 
 
 # pylint: disable=too-few-public-methods
@@ -29,12 +30,16 @@ class Unexpectedness(RecOnlyMetric):
     0.67
     """
 
+    _scala_udf_name = "getUnexpectednessMetricValue"
+
     def __init__(
-        self, pred: AnyDataFrame
+        self, pred: AnyDataFrame,
+        use_scala_udf: bool = False
     ):  # pylint: disable=super-init-not-called
         """
         :param pred: model predictions
         """
+        self._use_scala_udf = use_scala_udf
         self.pred = convert2spark(pred)
 
     @staticmethod

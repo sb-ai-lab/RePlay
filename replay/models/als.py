@@ -52,21 +52,32 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         "rank": {"type": "loguniform_int", "args": [8, 256]},
     }
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         rank: int = 10,
         implicit_prefs: bool = True,
         seed: Optional[int] = None,
+        num_item_blocks: Optional[int] = None,
+        num_user_blocks: Optional[int] = None,
         hnswlib_params: Optional[dict] = None,
     ):
         """
         :param rank: hidden dimension for the approximate matrix
         :param implicit_prefs: flag to use implicit feedback
         :param seed: random seed
+        :param num_item_blocks: number of blocks the items will be partitioned into in order
+            to parallelize computation.
+            if None then will be init with number of partitions of log.
+        :param num_user_blocks: number of blocks the users will be partitioned into in order
+            to parallelize computation.
+            if None then will be init with number of partitions of log.
         """
         self.rank = rank
         self.implicit_prefs = implicit_prefs
         self._seed = seed
+        self._num_item_blocks = num_item_blocks
+        self._num_user_blocks = num_user_blocks
         self._hnswlib_params = hnswlib_params
 
     @property
@@ -98,8 +109,15 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
+        if self._num_item_blocks is None:
+            self._num_item_blocks = log.rdd.getNumPartitions()
+        if self._num_user_blocks is None:
+            self._num_user_blocks = log.rdd.getNumPartitions()
+
         self.model = ALS(
             rank=self.rank,
+            numItemBlocks=self._num_item_blocks,
+            numUserBlocks=self._num_user_blocks,
             userCol="user_idx",
             itemCol="item_idx",
             ratingCol="relevance",

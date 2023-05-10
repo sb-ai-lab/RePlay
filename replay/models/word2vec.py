@@ -9,7 +9,7 @@ from pyspark.ml.stat import Summarizer
 
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.models.hnswlib import HnswlibMixin
-from replay.utils import vector_dot, vector_mult, join_with_col_renaming
+from replay.utils import vector_dot, multiply_scala_udf, join_with_col_renaming
 
 
 # pylint: disable=too-many-instance-attributes
@@ -79,6 +79,7 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         window_size: int = 1,
         use_idf: bool = False,
         seed: Optional[int] = None,
+        num_partitions: Optional[int] = None,
         hnswlib_params: Optional[dict] = None,
     ):
         """
@@ -99,6 +100,7 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         self.step_size = step_size
         self.max_iter = max_iter
         self._seed = seed
+        self._num_partitions = num_partitions
         self._hnswlib_params = hnswlib_params
 
     @property
@@ -160,9 +162,13 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
 
         self.logger.debug("Model training")
 
+        if self._num_partitions is None:
+            self._num_partitions = log_by_users.rdd.getNumPartitions()
+
         word_2_vec = Word2Vec(
             vectorSize=self.rank,
             minCount=self.min_count,
+            numPartitions=self._num_partitions,
             stepSize=self.step_size,
             maxIter=self.max_iter,
             inputCol="items",
@@ -205,7 +211,7 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
             res, self.idf, on_col_name="item_idx", how="inner"
         )
         res = res.join(
-            self.vectors,
+            self.vectors.hint("broadcast"),
             how="inner",
             on=sf.col("item_idx") == sf.col("item"),
         ).drop("item")
@@ -213,7 +219,7 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
             res.groupby("user_idx")
             .agg(
                 Summarizer.mean(
-                    vector_mult(sf.col("idf"), sf.col("vector"))
+                    multiply_scala_udf(sf.col("idf"), sf.col("vector"))
                 ).alias("user_vector")
             )
             .select("user_idx", "user_vector")
