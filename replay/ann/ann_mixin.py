@@ -1,6 +1,6 @@
 import uuid
 from abc import abstractmethod
-from functools import cached_property
+from cached_property import cached_property
 from typing import Optional, Dict, Union, Any
 
 from pyspark.sql import DataFrame
