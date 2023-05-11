@@ -1446,6 +1446,7 @@ class UserRecommender(BaseRecommender, ABC):
             k=k,
         )
 
+
 # pylint: disable=wrong-import-position
 from replay.models.nmslib_hnsw import NmslibHnswMixin  # noqa
 
