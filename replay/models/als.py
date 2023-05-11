@@ -11,6 +11,7 @@ from replay.models.hnswlib import HnswlibMixin
 from replay.utils import list_to_vector_udf
 
 
+# pylint: disable=too-many-instance-attributes, too-many-ancestors
 class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
@@ -79,6 +80,7 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         self._num_item_blocks = num_item_blocks
         self._num_user_blocks = num_user_blocks
         self._hnswlib_params = hnswlib_params
+        self.num_elements = None
 
     @property
     def _init_args(self):

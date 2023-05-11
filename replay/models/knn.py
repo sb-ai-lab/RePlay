@@ -8,6 +8,7 @@ from replay.models.base_rec import NeighbourRec
 from replay.optuna_objective import ItemKNNObjective
 
 
+# pylint: disable=too-many-ancestors
 class ItemKNN(NeighbourRec):
     """Item-based ItemKNN with modified cosine similarity measure."""
 
@@ -34,7 +35,7 @@ class ItemKNN(NeighbourRec):
         "weighting": {"type": "categorical", "args": [None, "tf_idf", "bm25"]}
     }
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         num_neighbours: int = 10,
         use_relevance: bool = False,
@@ -54,14 +55,17 @@ class ItemKNN(NeighbourRec):
             ...}
             The reasonable range of values for M parameter is 5-100,
             for efC and eFS is 100-2000.
-            Increasing these values improves the prediction quality but increases index_time and inference_time too.
+            Increasing these values improves the prediction quality
+            but increases index_time and inference_time too.
             We recommend using these settings:
             - M=16, efC=200 and efS=200 for simple datasets like MovieLens.
             - M=50, efC=1000 and efS=1000 for average quality with an average prediction time.
             - M=75, efC=2000 and efS=2000 for the highest quality with a long prediction time.
 
-            note: choosing these parameters depends on the dataset and quality/time tradeoff
-            note: while reducing parameter values the highest range metrics like Metric@1000 suffer first
+            note: choosing these parameters depends on the dataset
+            and quality/time tradeoff
+            note: while reducing parameter values the highest range metrics
+            like Metric@1000 suffer first
             note: even in a case with a long training time,
             profit from ann could be obtained while inference will be used multiple times
 

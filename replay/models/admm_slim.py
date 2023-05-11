@@ -65,7 +65,7 @@ def _main_iteration(
     )
 
 
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes, too-many-ancestors
 class ADMMSLIM(NeighbourRec):
     """`ADMM SLIM: Sparse Recommendations for Many Users
     <http://www.cs.columbia.edu/~jebara/papers/wsdm20_ADMM.pdf>`_

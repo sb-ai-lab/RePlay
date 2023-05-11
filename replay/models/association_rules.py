@@ -10,6 +10,7 @@ from pyspark.sql.window import Window
 from replay.models.base_rec import NeighbourRec
 
 
+# pylint: disable=too-many-ancestors
 class AssociationRulesItemRec(NeighbourRec):
     """
     Item-to-item recommender based on association rules.

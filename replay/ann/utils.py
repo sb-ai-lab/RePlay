@@ -1,6 +1,6 @@
 import os
 import tempfile
-from typing import Optional, Callable
+from typing import Callable
 
 from pyarrow import fs
 
@@ -12,6 +12,15 @@ def save_index_to_destination_fs(
     save_index: Callable[[str], None],
     target: FileInfo,
 ):
+    """
+    Function saves `index` to destination filesystem (local disk or hdfs).
+    If destination filesystem is HDFS then `index` dumps to temporary path in local disk,
+    and then copies to HDFS.
+    :param sparse: flag, index is sparse or not.
+    :param save_index: lambda expression that dumps index to local disk.
+    :param target: destination filesystem properties.
+    :return:
+    """
 
     if target.filesystem == FileSystem.HDFS:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -47,6 +56,14 @@ def load_index_from_source_fs(
     load_index: Callable[[str], None],
     source: FileInfo,
 ):
+    """
+    Function loads `index` from source filesystem (local disk or hdfs).
+    This function loads `index` that was saved via `save_index_to_destination_fs`.
+    :param sparse: flag, index is sparse or not.
+    :param load_index: lambda expression that loads index from local disk.
+    :param source: source filesystem properties.
+    :return:
+    """
     if source.filesystem == FileSystem.HDFS:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file_path = os.path.join(temp_dir, "index")

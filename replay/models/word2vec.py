@@ -12,7 +12,7 @@ from replay.models.hnswlib import HnswlibMixin
 from replay.utils import vector_dot, multiply_scala_udf, join_with_col_renaming
 
 
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes, too-many-ancestors
 class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
     """
     Trains word2vec model where items ar treated as words and users as sentences.
@@ -35,7 +35,7 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
 
     def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
         self.num_elements = log.select("item_idx").distinct().count()
-        self.logger.debug(f"index 'num_elements' = {self.num_elements}")
+        self.logger.debug("index 'num_elements' = %s", self.num_elements)
         return {
             "features_col": "item_vector",
             "params": self._hnswlib_params,
@@ -102,6 +102,7 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         self._seed = seed
         self._num_partitions = num_partitions
         self._hnswlib_params = hnswlib_params
+        self.num_elements = None
 
     @property
     def _init_args(self):

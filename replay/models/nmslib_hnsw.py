@@ -28,6 +28,7 @@ logger = logging.getLogger("replay")
 INDEX_FILENAME = "nmslib_hnsw_index"
 
 
+# pylint: disable=too-few-public-methods
 class NmslibIndexFileManager:
     """Loads index from hdfs, local disk or SparkFiles dir and keep it in a memory.
     Instance of `NmslibIndexFileManager` broadcasts to executors and is used in pandas_udf.
@@ -42,21 +43,26 @@ class NmslibIndexFileManager:
 
         self._method = index_params["method"]
         self._space = index_params["space"]
-        self._efS = index_params.get("efS")
+        self._ef_s = index_params.get("efS")
         self._index_type = index_type
         self._index_file = index_file
         self._index = None
 
     @property
     def index(self):
+        """Loads `nmslib hnsw` index from local disk, hdfs or spark files directory and returns it.
+        Loads the index only on the first call, then the loaded index is used.
+
+        :return: `hnswlib` index
+        """
         if self._index:
             return self._index
 
         if self._index_type == "sparse":
-            self._index = nmslib.init(
+            self._index = nmslib.init(  # pylint: disable=c-extension-no-member
                 method=self._method,
                 space=self._space,
-                data_type=nmslib.DataType.SPARSE_VECTOR,
+                data_type=nmslib.DataType.SPARSE_VECTOR,  # pylint: disable=c-extension-no-member
             )
             if isinstance(self._index_file, FileInfo):
                 load_index_from_source_fs(
@@ -71,22 +77,22 @@ class NmslibIndexFileManager:
                     SparkFiles.get(self._index_file), load_data=True
                 )
         else:
-            self._index = nmslib.init(
+            self._index = nmslib.init(  # pylint: disable=c-extension-no-member
                 method=self._method,
                 space=self._space,
-                data_type=nmslib.DataType.DENSE_VECTOR,
+                data_type=nmslib.DataType.DENSE_VECTOR,  # pylint: disable=c-extension-no-member
             )
             if isinstance(self._index_file, FileInfo):
                 load_index_from_source_fs(
                     sparse=False,
-                    load_index=lambda path: self._index.loadIndex(path),
+                    load_index=lambda path: self._index.loadIndex(path),  # pylint: disable=unnecessary-lambda
                     source=self._index_file
                 )
             else:
                 self._index.loadIndex(SparkFiles.get(self._index_file))
 
-        if self._efS:
-            self._index.setQueryTimeParams({"efSearch": self._efS})
+        if self._ef_s:
+            self._index.setQueryTimeParams({"efSearch": self._ef_s})
         return self._index
 
 
@@ -95,7 +101,7 @@ class NmslibHnswMixin(ANNMixin):
     Also provides methods to saving and loading index to/from disk.
     """
 
-    def _infer_ann_index(
+    def _infer_ann_index(  # pylint: disable=too-many-arguments
         self,
         vectors: DataFrame,
         features_col: str,
@@ -116,7 +122,7 @@ class NmslibHnswMixin(ANNMixin):
             log,
         )
 
-    def _build_ann_index(
+    def _build_ann_index(  # pylint: disable=too-many-arguments
         self,
         vectors: DataFrame,
         features_col: str,
@@ -131,7 +137,7 @@ class NmslibHnswMixin(ANNMixin):
             vectors, features_col, params, index_type, items_count
         )
 
-    def _build_nmslib_hnsw_index(
+    def _build_nmslib_hnsw_index(  # pylint: disable=too-many-arguments, too-many-locals, too-many-statements
         self,
         item_vectors: DataFrame,
         features_col: str,
@@ -167,10 +173,10 @@ class NmslibHnswMixin(ANNMixin):
                         iterator: iterates on dataframes with vectors/features
 
                     """
-                    index = nmslib.init(
+                    index = nmslib.init(  # pylint: disable=c-extension-no-member
                         method=params["method"],
                         space=params["space"],
-                        data_type=nmslib.DataType.SPARSE_VECTOR,
+                        data_type=nmslib.DataType.SPARSE_VECTOR,  # pylint: disable=c-extension-no-member
                     )
 
                     pdfs = []
@@ -180,7 +186,8 @@ class NmslibHnswMixin(ANNMixin):
                     pdf = pd.concat(pdfs, copy=False)
 
                     # We collect all iterator values into one dataframe,
-                    # because we cannot guarantee that `pdf` will contain rows with the same `item_idx_two`.
+                    # because we cannot guarantee that `pdf` will contain rows
+                    # with the same `item_idx_two`.
                     # And therefore we cannot call the `addDataPointBatch` iteratively.
                     data = pdf["similarity"].values
                     row_ind = pdf["item_idx_two"].values
@@ -212,10 +219,10 @@ class NmslibHnswMixin(ANNMixin):
                         iterator: iterates on dataframes with vectors/features
 
                     """
-                    index = nmslib.init(
+                    index = nmslib.init(    # pylint: disable=c-extension-no-member
                         method=params["method"],
                         space=params["space"],
-                        data_type=nmslib.DataType.DENSE_VECTOR,
+                        data_type=nmslib.DataType.DENSE_VECTOR,  # pylint: disable=c-extension-no-member
                     )
                     for pdf in iterator:
                         item_vectors_np = np.squeeze(pdf[features_col].values)
@@ -227,7 +234,7 @@ class NmslibHnswMixin(ANNMixin):
 
                     save_index_to_destination_fs(
                         sparse=False,
-                        save_index=lambda path: index.saveIndex(path),
+                        save_index=lambda path: index.saveIndex(path),  # pylint: disable=unnecessary-lambda
                         target=target_index_file,
                     )
 
@@ -248,10 +255,10 @@ class NmslibHnswMixin(ANNMixin):
             if index_type == "sparse":
                 item_vectors = item_vectors.toPandas()
 
-                index = nmslib.init(
+                index = nmslib.init(  # pylint: disable=c-extension-no-member
                     method=params["method"],
                     space=params["space"],
-                    data_type=nmslib.DataType.SPARSE_VECTOR,
+                    data_type=nmslib.DataType.SPARSE_VECTOR,  # pylint: disable=c-extension-no-member
                 )
 
                 data = item_vectors["similarity"].values
@@ -281,10 +288,10 @@ class NmslibHnswMixin(ANNMixin):
             else:
                 item_vectors = item_vectors.toPandas()
                 item_vectors_np = np.squeeze(item_vectors[features_col].values)
-                index = nmslib.init(
+                index = nmslib.init(  # pylint: disable=c-extension-no-member
                     method=params["method"],
                     space=params["space"],
-                    data_type=nmslib.DataType.DENSE_VECTOR,
+                    data_type=nmslib.DataType.DENSE_VECTOR,  # pylint: disable=c-extension-no-member
                 )
                 index.addDataPointBatch(
                     data=np.stack(item_vectors_np),
@@ -308,10 +315,10 @@ class NmslibHnswMixin(ANNMixin):
         features_col: str,
         params: Dict[str, Any],
     ):
-        index = nmslib.init(
+        index = nmslib.init(    # pylint: disable=c-extension-no-member
             method=params["method"],
             space=params["space"],
-            data_type=nmslib.DataType.DENSE_VECTOR,
+            data_type=nmslib.DataType.DENSE_VECTOR,  # pylint: disable=c-extension-no-member
         )
         index_path = SparkFiles.get(
             f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
@@ -339,7 +346,7 @@ class NmslibHnswMixin(ANNMixin):
         spark = SparkSession.getActiveSession()
         spark.sparkContext.addFile("file://" + tmp_file_path)
 
-    def _infer_nmslib_hnsw_index(
+    def _infer_nmslib_hnsw_index(  # pylint: disable=too-many-arguments, too-many-locals
         self,
         user_vectors: DataFrame,
         features_col: str,
@@ -347,7 +354,7 @@ class NmslibHnswMixin(ANNMixin):
         k: int,
         filter_seen_items: bool,
         index_type: str = None,
-        log: DataFrame = None,
+        log: DataFrame = None,  # pylint: disable=unused-argument
     ) -> DataFrame:
 
         if params["build_index_on"] == "executor":
@@ -378,16 +385,16 @@ class NmslibHnswMixin(ANNMixin):
                 return csr_matrix(
                     (
                         vector_relevances.explode().values.astype(float),
-                        (user_idx.repeat(vector_items.apply(lambda x: len(x))).values,
+                        (user_idx.repeat(vector_items.apply(lambda x: len(x))).values,  # pylint: disable=unnecessary-lambda
                          vector_items.explode().values.astype(int)),
                     ),
-                    shape=(user_idx.max() + 1, vector_items.apply(lambda x: max(x)).max() + 1),
+                    shape=(user_idx.max() + 1, vector_items.apply(lambda x: max(x)).max() + 1),  # pylint: disable=unnecessary-lambda
                 )
 
             if filter_seen_items:
 
                 @pandas_udf(return_type)
-                def infer_index(
+                def infer_index(  # pylint: disable=too-many-locals
                     user_idx: pd.Series,
                     vector_items: pd.Series,
                     vector_relevances: pd.Series,
@@ -402,11 +409,10 @@ class NmslibHnswMixin(ANNMixin):
 
                     user_vectors = get_csr_matrix(user_idx, vector_items, vector_relevances)
 
-                    # take slice
-                    m = user_vectors[user_idx.values, :]
-
                     neighbours = index.knnQueryBatch(
-                        m, k=k + max_items_to_retrieve, num_threads=1
+                        user_vectors[user_idx.values, :],
+                        k=k + max_items_to_retrieve,
+                        num_threads=1
                     )
 
                     neighbours_filtered = []
@@ -443,9 +449,10 @@ class NmslibHnswMixin(ANNMixin):
                     index = index_file_manager.index
 
                     user_vectors = get_csr_matrix(user_idx, vector_items, vector_relevances)
-                    # take slice
-                    m = user_vectors[user_idx.values, :]
-                    neighbours = index.knnQueryBatch(m, num_threads=1)
+                    neighbours = index.knnQueryBatch(
+                        user_vectors[user_idx.values, :],
+                        num_threads=1
+                    )
 
                     pd_res = pd.DataFrame(
                         neighbours, columns=["item_idx", "distance"]
@@ -553,7 +560,7 @@ class NmslibHnswMixin(ANNMixin):
 
         source = get_filesystem(index_path)
         target = get_filesystem(path)
-        self.logger.debug(f"Index file coping from '{index_path}' to '{path}'")
+        self.logger.debug("Index file coping from '%s' to '%s'", index_path, path)
 
         source_paths = []
         target_paths = []

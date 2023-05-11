@@ -17,7 +17,7 @@ class ANNMixin(BaseRecommender):
     """
 
     @cached_property
-    def _spark_index_file_uid(self) -> str:
+    def _spark_index_file_uid(self) -> str:  # pylint: disable=no-self-use
         """
         Cached property that returns the uuid for the index file name.
         The unique name is needed to store the index file in `SparkFiles`

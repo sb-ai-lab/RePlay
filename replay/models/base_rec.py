@@ -1446,8 +1446,8 @@ class UserRecommender(BaseRecommender, ABC):
             k=k,
         )
 
-
-from replay.models.nmslib_hnsw import NmslibHnswMixin
+# pylint: disable=wrong-import-position
+from replay.models.nmslib_hnsw import NmslibHnswMixin  # noqa
 
 
 class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
@@ -1657,6 +1657,7 @@ class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
                 sf.collect_list("relevance").alias("vector_relevances"))
         )
         return user_vectors
+
 
 class NonPersonalizedRecommender(Recommender, ABC):
     """Base class for non-personalized recommenders with popularity statistics."""

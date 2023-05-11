@@ -28,6 +28,7 @@ logger = logging.getLogger("replay")
 INDEX_FILENAME = "hnswlib_index"
 
 
+# pylint: disable=too-few-public-methods
 class HnswlibIndexFileManager:
     """Loads index from hdfs, local disk or SparkFiles dir and keep it in a memory.
     Instance of `HnswlibIndexFileManager` broadcasts to executors and is used in pandas_udf.
@@ -41,28 +42,33 @@ class HnswlibIndexFileManager:
     ) -> None:
 
         self._space = index_params["space"]
-        self._efS = index_params.get("efS")
+        self._ef_s = index_params.get("efS")
         self._dim = index_dim
         self._index_file = index_file
         self._index = None
 
     @property
     def index(self):
+        """Loads `hnswlib` index from local disk, hdfs or spark files directory and returns it.
+        Loads the index only on the first call, then the loaded index is used.
+
+        :return: `hnswlib` index
+        """
         if self._index:
             return self._index
 
-        self._index = hnswlib.Index(space=self._space, dim=self._dim)
+        self._index = hnswlib.Index(space=self._space, dim=self._dim)  # pylint: disable=c-extension-no-member
         if isinstance(self._index_file, FileInfo):
             load_index_from_source_fs(
                 sparse=False,
-                load_index=lambda path: self._index.load_index(path),
+                load_index=lambda path: self._index.load_index(path),  # pylint: disable=unnecessary-lambda
                 source=self._index_file
             )
         else:
             self._index.load_index(SparkFiles.get(self._index_file))
 
-        if self._efS:
-            self._index.set_ef(self._efS)
+        if self._ef_s:
+            self._index.set_ef(self._ef_s)
         return self._index
 
 
@@ -71,7 +77,7 @@ class HnswlibMixin(ANNMixin):
     Also provides methods to saving and loading index to/from disk.
     """
 
-    def _infer_ann_index(
+    def _infer_ann_index(  # pylint: disable=too-many-arguments
         self,
         vectors: DataFrame,
         features_col: str,
@@ -86,7 +92,7 @@ class HnswlibMixin(ANNMixin):
             vectors, features_col, params, k, filter_seen_items, index_dim
         )
 
-    def _build_ann_index(
+    def _build_ann_index(  # pylint: disable=too-many-arguments
         self,
         vectors: DataFrame,
         features_col: str,
@@ -101,7 +107,7 @@ class HnswlibMixin(ANNMixin):
             vectors, features_col, params, dim, num_elements, id_col
         )
 
-    def _build_hnsw_index(
+    def _build_hnsw_index(  # pylint: disable=too-many-arguments
         self,
         vectors: DataFrame,
         features_col: str,
@@ -114,7 +120,8 @@ class HnswlibMixin(ANNMixin):
 
         Args:
             vectors: DataFrame with vectors. Schema: [{id_col}: int, {features_col}: array<float>]
-            features_col: the name of the column in the `vectors` dataframe that contains features (vectors).
+            features_col: the name of the column in the `vectors` dataframe
+            that contains features (vectors).
             params: index params
             dim: feature (vector) length
             num_elements: how many elements will be stored in the index
@@ -134,7 +141,7 @@ class HnswlibMixin(ANNMixin):
                     iterator: iterates on dataframes with vectors/features
 
                 """
-                index = hnswlib.Index(space=params["space"], dim=dim)
+                index = hnswlib.Index(space=params["space"], dim=dim)  # pylint: disable=c-extension-no-member
 
                 # Initializing index - the maximum number of elements should be known beforehand
                 index.init_index(
@@ -156,7 +163,7 @@ class HnswlibMixin(ANNMixin):
 
                 save_index_to_destination_fs(
                     sparse=False,
-                    save_index=lambda path: index.save_index(path),
+                    save_index=lambda path: index.save_index(path),  # pylint: disable=unnecessary-lambda
                     target=target_index_file,
                 )
 
@@ -173,7 +180,7 @@ class HnswlibMixin(ANNMixin):
             vectors = vectors.toPandas()
             vectors_np = np.squeeze(vectors[features_col].values)
 
-            index = hnswlib.Index(space=params["space"], dim=dim)
+            index = hnswlib.Index(space=params["space"], dim=dim)  # pylint: disable=c-extension-no-member
 
             # Initializing index - the maximum number of elements should be known beforehand
             index.init_index(
@@ -197,7 +204,7 @@ class HnswlibMixin(ANNMixin):
             spark = SparkSession.getActiveSession()
             spark.sparkContext.addFile("file://" + tmp_file_path)
 
-    def _update_hnsw_index(
+    def _update_hnsw_index(  # pylint: disable=too-many-arguments
         self,
         item_vectors: DataFrame,
         features_col: str,
@@ -205,7 +212,7 @@ class HnswlibMixin(ANNMixin):
         dim: int,
         num_elements: int,
     ):
-        index = hnswlib.Index(space=params["space"], dim=dim)
+        index = hnswlib.Index(space=params["space"], dim=dim)  # pylint: disable=c-extension-no-member
         index_path = SparkFiles.get(
             f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
         )
@@ -224,7 +231,7 @@ class HnswlibMixin(ANNMixin):
         spark = SparkSession.getActiveSession()
         spark.sparkContext.addFile("file://" + tmp_file_path)
 
-    def _infer_hnsw_index(
+    def _infer_hnsw_index(  # pylint: disable=too-many-arguments
         self,
         vectors: DataFrame,
         features_col: str,
@@ -345,7 +352,7 @@ class HnswlibMixin(ANNMixin):
 
         source = get_filesystem(index_path)
         target = get_filesystem(path)
-        self.logger.debug(f"Index file coping from '{index_path}' to '{path}'")
+        self.logger.debug("Index file coping from '%s' to '%s'", index_path, path)
 
         if source.filesystem == FileSystem.HDFS:
             source_filesystem = fs.HadoopFileSystem.from_uri(source.hdfs_uri)
