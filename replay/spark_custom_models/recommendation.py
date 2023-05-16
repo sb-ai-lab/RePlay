@@ -71,15 +71,15 @@ class _ALSModelParams(HasPredictionCol, HasBlockSize):
     .. versionadded:: 3.0.0
     """
 
-    userCol = Param(Params._dummy(), "userCol", "column name for user ids. Ids must be within " +
-                    "the integer value range.", typeConverter=TypeConverters.toString)
-    itemCol = Param(Params._dummy(), "itemCol", "column name for item ids. Ids must be within " +
-                    "the integer value range.", typeConverter=TypeConverters.toString)
-    coldStartStrategy = Param(Params._dummy(), "coldStartStrategy", "strategy for dealing with " +
-                              "unknown or new users/items at prediction time. This may be useful " +
-                              "in cross-validation or production scenarios, for handling " +
-                              "user/item ids the model has not seen in the training data. " +
-                              "Supported values: 'nan', 'drop'.",
+    userCol = Param(Params._dummy(), "userCol", "column name for user ids. Ids must be within "
+                    + "the integer value range.", typeConverter=TypeConverters.toString)
+    itemCol = Param(Params._dummy(), "itemCol", "column name for item ids. Ids must be within "
+                    + "the integer value range.", typeConverter=TypeConverters.toString)
+    coldStartStrategy = Param(Params._dummy(), "coldStartStrategy", "strategy for dealing with "
+                              + "unknown or new users/items at prediction time. This may be useful "
+                              + "in cross-validation or production scenarios, for handling "
+                              + "user/item ids the model has not seen in the training data. "
+                              + "Supported values: 'nan', 'drop'.",
                               typeConverter=TypeConverters.toString)
 
     def __init__(self, *args):
