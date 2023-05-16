@@ -9,7 +9,7 @@ from replay.ann.entities.hnswlib_param import HnswlibParam
 from replay.ann.index_builders.base_hnsw_index_builder import (
     BaseHnswIndexBuilder,
 )
-from replay.ann.utils import save_index_to_destination_fs
+from replay.ann.utils import save_index_to_destination_fs, init_hnswlib_index
 from replay.utils import get_filesystem
 
 logger = logging.getLogger("replay")
@@ -21,7 +21,7 @@ class ExecutorHnswlibIndexBuilder(BaseHnswIndexBuilder):
     and save it to hdfs or shared disk.
     """
 
-    def build_index(
+    def _build_index(
         self,
         vectors: DataFrame,
         features_col: str,
@@ -40,7 +40,7 @@ class ExecutorHnswlibIndexBuilder(BaseHnswIndexBuilder):
                 iterator: iterates on dataframes with vectors/features
 
             """
-            index = BaseHnswIndexBuilder.init_index(params)
+            index = init_hnswlib_index(params)
 
             # pdf is a pandas dataframe that contains ids and features (vectors)
             for pdf in iterator:
@@ -62,12 +62,10 @@ class ExecutorHnswlibIndexBuilder(BaseHnswIndexBuilder):
             yield pd.DataFrame(data={"_success": 1}, index=[0])
 
         # Here we perform materialization (`.collect()`) to build the hnsw index.
-        logger.info("Started building the hnsw index")
         cols = [id_col, features_col] if id_col else [features_col]
         vectors.select(*cols).mapInPandas(
             build_index_udf, "_success int"
         ).collect()
-        logger.info("Finished building the hnsw index")
 
         # return target_index_file
         return None

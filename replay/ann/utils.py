@@ -2,8 +2,12 @@ import os
 import tempfile
 from typing import Callable
 
+import hnswlib
+import nmslib
 from pyarrow import fs
 
+from replay.ann.entities.hnswlib_param import HnswlibParam
+from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
 from replay.utils import FileSystem, FileInfo
 
 
@@ -87,3 +91,40 @@ def load_index_from_source_fs(
             load_index(temp_file_path)
     elif source.filesystem == FileSystem.LOCAL:
         load_index(source.path)
+
+
+def init_hnswlib_index(params: HnswlibParam):
+    """
+    Inits and returns hnswlib index
+
+    :param params: `HnswlibParam`
+    :return: `hnswlib` index
+    """
+    index = hnswlib.Index(  # pylint: disable=c-extension-no-member
+        space=params.space, dim=params.dim
+    )
+
+    # Initializing index - the maximum number of elements should be known beforehand
+    index.init_index(
+        max_elements=params.max_elements,
+        ef_construction=params.efC,
+        M=params.M,
+    )
+
+    return index
+
+
+def init_nmslib_index(params: NmslibHnswParam):
+    """
+    Inits and returns nmslib index
+
+    :param params: `NmslibHnswParam`
+    :return: `nmslib` index
+    """
+    index = nmslib.init(  # pylint: disable=c-extension-no-member
+        method=params.method,
+        space=params.space,
+        data_type=nmslib.DataType.SPARSE_VECTOR,  # pylint: disable=c-extension-no-member
+    )
+
+    return index

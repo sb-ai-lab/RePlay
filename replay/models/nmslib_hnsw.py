@@ -3,9 +3,8 @@ import os
 import shutil
 import tempfile
 import weakref
-from typing import Optional, Iterator
+from typing import Optional
 
-import nmslib
 import numpy as np
 import pandas as pd
 from pyarrow import fs
@@ -17,10 +16,9 @@ from scipy.sparse import csr_matrix
 
 from replay.ann.ann_mixin import ANNMixin
 from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
+from replay.ann.index_builders.executor_nmslib_index_builder import ExecutorNmslibIndexBuilder
 from replay.ann.index_file_managers.nmslib_index_file_manager import NmslibIndexFileManager
-from replay.ann.utils import (
-    save_index_to_destination_fs,
-)
 from replay.session_handler import State
 from replay.utils import FileSystem, get_filesystem
 
@@ -33,6 +31,8 @@ class NmslibHnswMixin(ANNMixin):
     """Mixin that provides methods to build nmslib hnsw index and infer it.
     Also provides methods to saving and loading index to/from disk.
     """
+
+    _nmslib_hnsw_params: Optional[NmslibHnswParam] = None
 
     def _infer_ann_index(  # pylint: disable=too-many-arguments
         self,
@@ -57,117 +57,24 @@ class NmslibHnswMixin(ANNMixin):
         id_col: Optional[str] = None,
         items_count: Optional[int] = None,
     ) -> None:
-        self._build_nmslib_hnsw_index(
-            vectors, params, items_count
-        )
-
-    def _build_nmslib_hnsw_index(  # pylint: disable=too-many-locals, too-many-statements
-        self,
-        item_vectors: DataFrame,
-        params: NmslibHnswParam,
-        items_count: Optional[int] = None,
-    ) -> None:
         """Builds hnsw index and dump it to hdfs or disk.
 
         Args:
-            item_vectors (DataFrame): DataFrame with item vectors
-            params (Dict[str, Any]): hnsw params
+            vectors (DataFrame): DataFrame with item vectors to build index.
+            params (Dict[str, Any]): index params
         """
-
-        index_params = {
-            "M": params.M,
-            "efConstruction": params.efC,
-            "post": params.post,
-        }
-
         if params.build_index_on == "executor":
-            # to execution in one executor
-            item_vectors = item_vectors.repartition(1)
-
-            target_index_file = get_filesystem(params.index_path)
-
-            def build_index(iterator: Iterator[pd.DataFrame]):
-                """Builds index on executor and writes it to shared disk or hdfs.
-
-                Args:
-                    iterator: iterates on dataframes with vectors/features
-
-                """
-                index = nmslib.init(  # pylint: disable=c-extension-no-member
-                    method=params.method,
-                    space=params.space,
-                    data_type=nmslib.DataType.SPARSE_VECTOR,  # pylint: disable=c-extension-no-member
-                )
-
-                pdfs = []
-                for pdf in iterator:
-                    pdfs.append(pdf)
-
-                pdf = pd.concat(pdfs, copy=False)
-
-                # We collect all iterator values into one dataframe,
-                # because we cannot guarantee that `pdf` will contain rows
-                # with the same `item_idx_two`.
-                # And therefore we cannot call the `addDataPointBatch` iteratively.
-                data = pdf["similarity"].values
-                row_ind = pdf["item_idx_two"].values
-                col_ind = pdf["item_idx_one"].values
-
-                sim_matrix_tmp = csr_matrix(
-                    (data, (row_ind, col_ind)),
-                    shape=(items_count, items_count),
-                )
-                index.addDataPointBatch(data=sim_matrix_tmp)
-                index.createIndex(index_params)
-
-                save_index_to_destination_fs(
-                    sparse=True,
-                    save_index=lambda path: index.saveIndex(
-                        path, save_data=True
-                    ),
-                    target=target_index_file,
-                )
-
-                yield pd.DataFrame(data={"_success": 1}, index=[0])
-
-            # Here we perform materialization (`.collect()`) to build the hnsw index.
-            logger.info("Started building the hnsw index")
-            item_vectors.select(
-                "similarity", "item_idx_one", "item_idx_two"
-            ).mapInPandas(build_index, "_success int").collect()
-            logger.info("Finished building the hnsw index")
+            index_builder = ExecutorNmslibIndexBuilder()
         else:
-            item_vectors = item_vectors.toPandas()
-
-            index = nmslib.init(  # pylint: disable=c-extension-no-member
-                method=params.method,
-                space=params.space,
-                data_type=nmslib.DataType.SPARSE_VECTOR,  # pylint: disable=c-extension-no-member
-            )
-
-            data = item_vectors["similarity"].values
-            row_ind = item_vectors["item_idx_two"].values
-            col_ind = item_vectors["item_idx_one"].values
-
-            sim_matrix = csr_matrix(
-                (data, (row_ind, col_ind)),
-                shape=(items_count, items_count),
-            )
-            index.addDataPointBatch(data=sim_matrix)
-            index.createIndex(index_params)
-
-            # saving index to local temp file and sending it to executors
-            temp_dir = tempfile.mkdtemp()
-            weakref.finalize(self, shutil.rmtree, temp_dir)
             self.__dict__.pop('_spark_index_file_uid', None)
-            tmp_file_path = os.path.join(
-                temp_dir, f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
+            index_builder = DriverNmslibIndexBuilder(
+                index_file_name=f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
             )
-            index.saveIndex(tmp_file_path, save_data=True)
-            spark = SparkSession.getActiveSession()
-            # for the "sparse" type we need to store two files
-            spark.sparkContext.addFile("file://" + tmp_file_path)
-            spark.sparkContext.addFile("file://" + tmp_file_path + ".dat")
+        temp_index_file_info = index_builder.build_index(
+            vectors, features_col, params, id_col
+        )
+        if temp_index_file_info:
+            weakref.finalize(self, shutil.rmtree, temp_index_file_info.path)
 
     def _infer_nmslib_hnsw_index(  # pylint: disable=too-many-locals
         self,

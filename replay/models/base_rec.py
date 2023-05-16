@@ -1634,11 +1634,10 @@ class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
         )
 
     def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
-        items_count = log.select(sf.max("item_idx")).first()[0] + 1
+        self._nmslib_hnsw_params.items_count = log.select(sf.max("item_idx")).first()[0] + 1
         return {
             "features_col": None,
             "params": self._nmslib_hnsw_params,
-            "items_count": items_count,
         }
 
     def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:

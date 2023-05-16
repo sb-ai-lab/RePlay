@@ -10,6 +10,7 @@ from replay.ann.entities.hnswlib_param import HnswlibParam
 from replay.ann.index_builders.base_hnsw_index_builder import (
     BaseHnswIndexBuilder,
 )
+from replay.ann.utils import init_hnswlib_index
 from replay.utils import FileInfo, FileSystem
 
 logger = logging.getLogger("replay")
@@ -24,7 +25,7 @@ class DriverHnswlibIndexBuilder(BaseHnswIndexBuilder):
     def __init__(self, index_file_name: str):
         self._index_file_name = index_file_name
 
-    def build_index(
+    def _build_index(
         self,
         vectors: DataFrame,
         features_col: str,
@@ -34,7 +35,7 @@ class DriverHnswlibIndexBuilder(BaseHnswIndexBuilder):
         vectors = vectors.toPandas()
         vectors_np = np.squeeze(vectors[features_col].values)
 
-        index = BaseHnswIndexBuilder.init_index(params)
+        index = init_hnswlib_index(params)
 
         if id_col:
             index.add_items(np.stack(vectors_np), vectors[id_col].values)
