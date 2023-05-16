@@ -219,7 +219,8 @@ class ANNMixin(BaseRecommender):
         """Transforms input dataframe.
         Unpacks and explodes arrays from `neighbours` struct.
 
-        >>> inference_result.printSchema()
+        >>>
+        >> inference_result.printSchema()
         root
          |-- user_idx: integer (nullable = true)
          |-- neighbours: struct (nullable = true)
@@ -227,7 +228,7 @@ class ANNMixin(BaseRecommender):
          |    |    |-- element: integer (containsNull = true)
          |    |-- distance: array (nullable = true)
          |    |    |-- element: double (containsNull = true)
-        >>> ANNMixin._unpack_infer_struct(inference_result).printSchema()
+        >> ANNMixin._unpack_infer_struct(inference_result).printSchema()
         root
          |-- user_idx: integer (nullable = true)
          |-- item_idx: integer (nullable = true)

@@ -782,11 +782,14 @@ def get_filesystem(path: str) -> FileInfo:
     >>> get_filesystem(path)
     FileInfo(path='/tmp/file', filesystem=<FileSystem.LOCAL: 2>, hdfs_uri=None)
 
-    >>> spark = SparkSession.builder.master("local[1]").getOrCreate()
+    >>> spark = SparkSession.builder.master("local[1]").getOrCreate().newSession()
     >>> spark.sparkContext._jsc.hadoopConfiguration().set('fs.defaultFS', 'hdfs://node21.bdcl:9000')
     >>> path = '/tmp/file'
     >>> get_filesystem(path)
     FileInfo(path='/tmp/file', filesystem=<FileSystem.HDFS: 1>, hdfs_uri='hdfs://node21.bdcl:9000')
+
+    Return fs.defaultFS value because the current session may be used in another test
+    >>> spark.sparkContext._jsc.hadoopConfiguration().set('fs.defaultFS', 'file:///')
 
 
     Args:

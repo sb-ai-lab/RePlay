@@ -19,15 +19,19 @@ class NmslibHnswParam(BaseHnswParam):
                         post=0,\
                         build_index_on='driver'\
         )
+    NmslibHnswParam(M=10, efC=200, post=0, efS=200, build_index_on='driver', index_path=None, space='negdotprod_sparse', items_count=None)
+
     or
+
     >>> NmslibHnswParam(space='negdotprod_sparse',\
                         M=10,\
                         efS=200,\
                         efC=200,\
                         post=0,\
-                        build_index_on='executor'\
+                        build_index_on='executor',\
                         index_path="/tmp/nmslib_hnsw_index"\
         )
+    NmslibHnswParam(M=10, efC=200, post=0, efS=200, build_index_on='executor', index_path='/tmp/nmslib_hnsw_index', space='negdotprod_sparse', items_count=None)
 
     The reasonable range of values for M parameter is 5-100,
     for efC and eFS is 100-2000.

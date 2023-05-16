@@ -18,15 +18,19 @@ class HnswlibParam(BaseHnswParam):
                      efS=2000,\
                      build_index_on="driver"\
         )
+    HnswlibParam(M=100, efC=200, post=0, efS=2000, build_index_on='driver', index_path=None, space='ip', dim=None, max_elements=None)
+
     or
+
     >>> HnswlibParam(space="ip",\
                      M=100,\
                      efC=200,\
                      post=0,\
                      efS=2000,\
-                     build_index_on="executor"\
+                     build_index_on="executor",\
                      index_path="/tmp/hnswlib_index"\
         )
+    HnswlibParam(M=100, efC=200, post=0, efS=2000, build_index_on='executor', index_path='/tmp/hnswlib_index', space='ip', dim=None, max_elements=None)
 
     The "space" parameter described on the page https://github.com/nmslib/hnswlib/blob/master/README.md#supported-distances
     Parameters "M", "efS" and "efC" are described at https://github.com/nmslib/hnswlib/blob/master/ALGO_PARAMS.md
