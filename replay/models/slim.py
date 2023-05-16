@@ -7,6 +7,7 @@ from pyspark.sql import types as st
 from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
+from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
 from replay.models.base_rec import NeighbourRec
 from replay.session_handler import State
 
@@ -18,9 +19,8 @@ class SLIM(NeighbourRec):
 
     def _get_ann_infer_params(self) -> Dict[str, Any]:
         return {
-            "features_col": "",
+            "features_col": None,
             "params": self._nmslib_hnsw_params,
-            "index_type": "sparse",
         }
 
     @property
@@ -37,33 +37,14 @@ class SLIM(NeighbourRec):
         beta: float = 0.01,
         lambda_: float = 0.01,
         seed: Optional[int] = None,
-        nmslib_hnsw_params: Optional[dict] = None,
+        nmslib_hnsw_params: Optional[NmslibHnswParam] = None,
     ):
         """
         :param beta: l2 regularization
         :param lambda_: l1 regularization
         :param seed: random seed
-        :param nmslib_hnsw_params: parameters for nmslib-hnsw methods:
-            {"method":"hnsw",
-            "space":"negdotprod_sparse_fast",
-            "M":16,"efS":200,"efC":200,
-            ...}
-            The reasonable range of values for M parameter is 5-100,
-            for efC and eFS is 100-2000.
-            Increasing these values improves the prediction quality
-            but increases index_time and inference_time too.
-            We recommend using these settings:
-            - M=16, efC=200 and efS=200 for simple datasets like MovieLens.
-            - M=50, efC=1000 and efS=1000 for average quality with an average prediction time.
-            - M=75, efC=2000 and efS=2000 for the highest quality with a long prediction time.
-
-            note: choosing these parameters depends on the dataset and quality/time tradeoff
-            note: while reducing parameter values the highest range metrics
-            like Metric@1000 suffer first
-            note: even in a case with a long training time,
-            profit from ann could be obtained while inference will be used multiple times
-
-            for more details see https://github.com/nmslib/nmslib/blob/master/manual/methods.md
+        :param nmslib_hnsw_params:`NmslibHnswParam` instance, parameters for nmslib-hnsw methods.
+            If not set, then ann will not be used.
         """
         if beta < 0 or lambda_ <= 0:
             raise ValueError("Invalid regularization parameters")

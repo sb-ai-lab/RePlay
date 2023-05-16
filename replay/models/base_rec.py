@@ -1638,7 +1638,6 @@ class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
         return {
             "features_col": None,
             "params": self._nmslib_hnsw_params,
-            "index_type": "sparse",
             "items_count": items_count,
         }
 

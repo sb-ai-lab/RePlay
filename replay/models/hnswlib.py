@@ -2,9 +2,8 @@ import logging
 import os
 import shutil
 import tempfile
-import uuid
 import weakref
-from typing import Any, Dict, Iterator, Optional, Union
+from typing import Iterator, Optional
 
 import hnswlib
 import numpy as np
@@ -16,60 +15,17 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import pandas_udf
 
 from replay.ann.ann_mixin import ANNMixin
+from replay.ann.entities.hnswlib_param import HnswlibParam
+from replay.ann.index_file_managers.hnswlib_index_file_manager import HnswlibIndexFileManager
 from replay.ann.utils import (
     save_index_to_destination_fs,
-    load_index_from_source_fs,
 )
 from replay.session_handler import State
-from replay.utils import FileSystem, get_filesystem, FileInfo
+from replay.utils import FileSystem, get_filesystem
 
 logger = logging.getLogger("replay")
 
 INDEX_FILENAME = "hnswlib_index"
-
-
-# pylint: disable=too-few-public-methods
-class HnswlibIndexFileManager:
-    """Loads index from hdfs, local disk or SparkFiles dir and keep it in a memory.
-    Instance of `HnswlibIndexFileManager` broadcasts to executors and is used in pandas_udf.
-    """
-
-    def __init__(
-        self,
-        index_params,
-        index_dim: int,
-        index_file: Union[FileInfo, str]
-    ) -> None:
-
-        self._space = index_params["space"]
-        self._ef_s = index_params.get("efS")
-        self._dim = index_dim
-        self._index_file = index_file
-        self._index = None
-
-    @property
-    def index(self):
-        """Loads `hnswlib` index from local disk, hdfs or spark files directory and returns it.
-        Loads the index only on the first call, then the loaded index is used.
-
-        :return: `hnswlib` index
-        """
-        if self._index:
-            return self._index
-
-        self._index = hnswlib.Index(space=self._space, dim=self._dim)  # pylint: disable=c-extension-no-member
-        if isinstance(self._index_file, FileInfo):
-            load_index_from_source_fs(
-                sparse=False,
-                load_index=lambda path: self._index.load_index(path),  # pylint: disable=unnecessary-lambda
-                source=self._index_file
-            )
-        else:
-            self._index.load_index(SparkFiles.get(self._index_file))
-
-        if self._ef_s:
-            self._index.set_ef(self._ef_s)
-        return self._index
 
 
 class HnswlibMixin(ANNMixin):
@@ -81,39 +37,31 @@ class HnswlibMixin(ANNMixin):
         self,
         vectors: DataFrame,
         features_col: str,
-        params: Dict[str, Union[int, str]],
+        params: HnswlibParam,
         k: int,
         filter_seen_items: bool,
-        index_dim: str = None,
-        index_type: str = None,
-        log: DataFrame = None,
     ) -> DataFrame:
         return self._infer_hnsw_index(
-            vectors, features_col, params, k, filter_seen_items, index_dim
+            vectors, features_col, params, k, filter_seen_items
         )
 
     def _build_ann_index(  # pylint: disable=too-many-arguments
         self,
         vectors: DataFrame,
         features_col: str,
-        params: Dict[str, Union[int, str]],
-        dim: int = None,
-        num_elements: int = None,
+        params: HnswlibParam,
         id_col: Optional[str] = None,
-        index_type: str = None,
         items_count: Optional[int] = None,
     ) -> None:
         self._build_hnsw_index(
-            vectors, features_col, params, dim, num_elements, id_col
+            vectors, features_col, params, id_col
         )
 
     def _build_hnsw_index(  # pylint: disable=too-many-arguments
         self,
         vectors: DataFrame,
         features_col: str,
-        params: Dict[str, Any],
-        dim: int,
-        num_elements: int,
+        params: HnswlibParam,
         id_col: Optional[str] = None,
     ) -> None:
         """Builds hnsw index and dump it to hdfs or disk.
@@ -128,11 +76,11 @@ class HnswlibMixin(ANNMixin):
             id_col: the name of the column in the `vectors` dataframe that contains ids (of vectors)
         """
 
-        if params["build_index_on"] == "executor":
+        if params.build_index_on == "executor":
             # to execution in one executor
             vectors = vectors.repartition(1)
 
-            target_index_file = get_filesystem(params["index_path"])
+            target_index_file = get_filesystem(params.index_path)
 
             def build_index(iterator: Iterator[pd.DataFrame]):
                 """Builds index on executor and writes it to shared disk or hdfs.
@@ -141,13 +89,13 @@ class HnswlibMixin(ANNMixin):
                     iterator: iterates on dataframes with vectors/features
 
                 """
-                index = hnswlib.Index(space=params["space"], dim=dim)  # pylint: disable=c-extension-no-member
+                index = hnswlib.Index(space=params.space, dim=params.dim)  # pylint: disable=c-extension-no-member
 
                 # Initializing index - the maximum number of elements should be known beforehand
                 index.init_index(
-                    max_elements=num_elements,
-                    ef_construction=params["efC"],
-                    M=params["M"],
+                    max_elements=params.max_elements,
+                    ef_construction=params.efC,
+                    M=params.M,
                 )
 
                 # pdf is a pandas dataframe that contains ids and features (vectors)
@@ -180,13 +128,13 @@ class HnswlibMixin(ANNMixin):
             vectors = vectors.toPandas()
             vectors_np = np.squeeze(vectors[features_col].values)
 
-            index = hnswlib.Index(space=params["space"], dim=dim)  # pylint: disable=c-extension-no-member
+            index = hnswlib.Index(space=params.space, dim=params.dim)  # pylint: disable=c-extension-no-member
 
             # Initializing index - the maximum number of elements should be known beforehand
             index.init_index(
-                max_elements=num_elements,
-                ef_construction=params["efC"],
-                M=params["M"],
+                max_elements=params.max_elements,
+                ef_construction=params.efC,
+                M=params.M,
             )
 
             if id_col:
@@ -204,51 +152,22 @@ class HnswlibMixin(ANNMixin):
             spark = SparkSession.getActiveSession()
             spark.sparkContext.addFile("file://" + tmp_file_path)
 
-    def _update_hnsw_index(  # pylint: disable=too-many-arguments
-        self,
-        item_vectors: DataFrame,
-        features_col: str,
-        params: Dict[str, Any],
-        dim: int,
-        num_elements: int,
-    ):
-        index = hnswlib.Index(space=params["space"], dim=dim)  # pylint: disable=c-extension-no-member
-        index_path = SparkFiles.get(
-            f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
-        )
-        index.load_index(index_path, max_elements=num_elements)
-        item_vectors = item_vectors.toPandas()
-        item_vectors_np = np.squeeze(item_vectors[features_col].values)
-        index.add_items(np.stack(item_vectors_np), item_vectors["id"].values)
-
-        self._spark_index_file_uid = uuid.uuid4().hex[-12:]
-        # saving index to local temp file and sending it to executors
-        temp_dir = tempfile.mkdtemp()
-        tmp_file_path = os.path.join(
-            temp_dir, f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
-        )
-        index.save_index(tmp_file_path)
-        spark = SparkSession.getActiveSession()
-        spark.sparkContext.addFile("file://" + tmp_file_path)
-
     def _infer_hnsw_index(  # pylint: disable=too-many-arguments
         self,
         vectors: DataFrame,
         features_col: str,
-        params: Dict[str, Any],
+        params: HnswlibParam,
         k: int,
         filter_seen_items: bool,
-        index_dim: str = None,
     ):
 
-        if params["build_index_on"] == "executor":
-            index_file = get_filesystem(params["index_path"])
+        if params.build_index_on == "executor":
+            index_file = get_filesystem(params.index_path)
         else:
             index_file = f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
 
         _index_file_manager = HnswlibIndexFileManager(
             params,
-            index_dim,
             index_file=index_file,
         )
 

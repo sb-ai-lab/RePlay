@@ -4,6 +4,7 @@ from datetime import datetime
 import pytest
 import numpy as np
 
+from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
 from replay.constants import LOG_SCHEMA
 from replay.models import ItemKNN
 from tests.utils import spark
@@ -46,15 +47,13 @@ def model():
 
 @pytest.fixture
 def model_with_ann():
-    nmslib_hnsw_params = {
-        "method": "hnsw",
-        "space": "negdotprod_sparse",
-        "M": 10,
-        "efS": 200,
-        "efC": 200,
-        "post": 0,
-        "build_index_on": "driver",
-    }
+    nmslib_hnsw_params = NmslibHnswParam(
+        space="negdotprod_sparse",
+        M=10,
+        efS=200,
+        efC=200,
+        post=0,
+    )
     return ItemKNN(1, weighting=None, nmslib_hnsw_params=nmslib_hnsw_params)
 
 
@@ -79,15 +78,9 @@ def test_works(log, model):
 
 def test_tf_idf(weighting_log, tf_idf_model):
     idf = tf_idf_model._get_idf(weighting_log).toPandas()
-    assert np.allclose(
-        idf[idf["user_idx"] == 1]["idf"], np.log1p(2 / 1)
-    )
-    assert np.allclose(
-        idf[idf["user_idx"] == 0]["idf"], np.log1p(2 / 2)
-    )
-    assert np.allclose(
-        idf[idf["user_idx"] == 2]["idf"], np.log1p(2 / 2)
-    )
+    assert np.allclose(idf[idf["user_idx"] == 1]["idf"], np.log1p(2 / 1))
+    assert np.allclose(idf[idf["user_idx"] == 0]["idf"], np.log1p(2 / 2))
+    assert np.allclose(idf[idf["user_idx"] == 2]["idf"], np.log1p(2 / 2))
 
     tf_idf_model.fit(weighting_log)
     recs = tf_idf_model.predict(weighting_log, k=1, users=[0, 1]).toPandas()
@@ -137,10 +130,10 @@ def test_weighting_raises(log, tf_idf_model):
 def test_ann_predict(log, model, model_with_ann):
     model.fit(log)
     recs1 = model.predict(log, k=1)
-    recs1.show()
+
     model_with_ann.fit(log)
     recs2 = model_with_ann.predict(log, k=1)
-    recs2.show()
+
     recs1 = recs1.toPandas().sort_values(
         ["user_idx", "item_idx"], ascending=False
     )

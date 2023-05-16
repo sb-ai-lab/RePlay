@@ -6,6 +6,7 @@ from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
+from replay.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.models.hnswlib import HnswlibMixin
 from replay.utils import list_to_vector_udf
@@ -18,10 +19,10 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
     """
 
     def _get_ann_infer_params(self) -> Dict[str, Any]:
+        self._hnswlib_params.dim = self.rank
         return {
             "features_col": "user_factors",
             "params": self._hnswlib_params,
-            "index_dim": self.rank,
         }
 
     def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
@@ -29,12 +30,11 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         return user_vectors
 
     def _get_ann_build_params(self, log: DataFrame):
-        self.num_elements = log.select("item_idx").distinct().count()
+        self._hnswlib_params.dim = self.rank
+        self._hnswlib_params.max_elements = log.select("item_idx").distinct().count()
         return {
             "features_col": "item_factors",
             "params": self._hnswlib_params,
-            "dim": self.rank,
-            "num_elements": self.num_elements,
             "id_col": "item_idx",
         }
 
@@ -61,7 +61,7 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         seed: Optional[int] = None,
         num_item_blocks: Optional[int] = None,
         num_user_blocks: Optional[int] = None,
-        hnswlib_params: Optional[dict] = None,
+        hnswlib_params: Optional[HnswlibParam] = None,
     ):
         """
         :param rank: hidden dimension for the approximate matrix

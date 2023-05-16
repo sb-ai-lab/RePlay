@@ -792,8 +792,7 @@ def get_filesystem(path: str) -> FileInfo:
     Args:
         path (str): path to file on hdfs or local disk
 
-    Returns:
-        Tuple[int, Optional[str], str]: `filesystem id`,
+    Returns: FileInfo instance: `filesystem id`,
     `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix)
     """
     prefix_len = 7  # 'hdfs://' and 'file://' length

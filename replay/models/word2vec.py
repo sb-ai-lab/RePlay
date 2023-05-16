@@ -7,6 +7,7 @@ from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 from pyspark.ml.stat import Summarizer
 
+from replay.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.models.hnswlib import HnswlibMixin
 from replay.utils import vector_dot, multiply_scala_udf, join_with_col_renaming
@@ -19,10 +20,10 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
     """
 
     def _get_ann_infer_params(self) -> Dict[str, Any]:
+        self._hnswlib_params.dim = self.rank
         return {
             "features_col": "user_vector",
             "params": self._hnswlib_params,
-            "index_dim": self.rank,
         }
 
     def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
@@ -34,13 +35,12 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         return user_vectors
 
     def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
-        self.num_elements = log.select("item_idx").distinct().count()
+        self._hnswlib_params.max_elements = log.select("item_idx").distinct().count()
+        self._hnswlib_params.dim = self.rank
         self.logger.debug("index 'num_elements' = %s", self.num_elements)
         return {
             "features_col": "item_vector",
             "params": self._hnswlib_params,
-            "dim": self.rank,
-            "num_elements": self.num_elements,
             "id_col": "item_idx"
         }
 
@@ -80,7 +80,7 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         use_idf: bool = False,
         seed: Optional[int] = None,
         num_partitions: Optional[int] = None,
-        hnswlib_params: Optional[dict] = None,
+        hnswlib_params: Optional[HnswlibParam] = None,
     ):
         """
         :param rank: embedding size

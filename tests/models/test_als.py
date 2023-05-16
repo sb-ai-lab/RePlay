@@ -4,6 +4,7 @@ import numpy as np
 
 from pyspark.sql import functions as sf
 
+from replay.ann.entities.hnswlib_param import HnswlibParam
 from replay.models import ALSWrap
 from replay.scenarios.two_stages.two_stages_scenario import (
     get_first_level_model_features,
@@ -19,19 +20,22 @@ def model():
 
 
 @pytest.fixture
-def model_with_ann():
+def model_with_ann(tmp_path):
+    index_path = str((tmp_path / "nmslib_index"))
     model = ALSWrap(
         rank=2,
         implicit_prefs=False,
         seed=42,
-        hnswlib_params={
-            "space": "ip",
-            "M": 100,
-            "efS": 2000,
-            "efC": 2000,
-            "post": 0,
-            "build_index_on": "driver",
-        },
+        hnswlib_params=HnswlibParam(
+            space="ip",
+            M=100,
+            efC=2000,
+            post=0,
+            efS=2000,
+            # build_index_on="driver"
+            build_index_on="executor",
+            index_path=index_path
+        )
     )
     return model
 
@@ -88,10 +92,10 @@ def test_enrich_with_features(log, model):
 def test_ann_predict(log, model, model_with_ann):
     model.fit(log)
     recs1 = model.predict(log, k=1)
-    recs1.show()
+
     model_with_ann.fit(log)
     recs2 = model_with_ann.predict(log, k=1)
-    recs2.show()
+
     recs1 = recs1.toPandas().sort_values(
         ["user_idx", "item_idx"], ascending=False
     )

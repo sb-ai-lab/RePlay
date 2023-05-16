@@ -58,8 +58,6 @@ class ANNMixin(BaseRecommender):
             "id_col": "item_idx",
             "features_col": "item_factors",
             "params": self._hnswlib_params,
-            "dim": 100,
-            "num_elements": 10_000,
         }
 
         """
@@ -136,8 +134,7 @@ class ANNMixin(BaseRecommender):
 
         Returns: Dictionary with arguments to infer index. For example: {
             "features_col": "user_vector",
-            "params": self._hnswlib_params,
-            "index_dim": self.rank,
+            "params": self._hnsw_params,
         }
 
         """
@@ -148,10 +145,7 @@ class ANNMixin(BaseRecommender):
         vectors: DataFrame,
         features_col: str,
         params: Dict[str, Union[int, str]],
-        dim: int = None,
-        num_elements: int = None,
         id_col: Optional[str] = None,
-        index_type: str = None,
         items_count: Optional[int] = None,
     ) -> None:
         """The method implements the construction of the ANN index.
@@ -161,13 +155,8 @@ class ANNMixin(BaseRecommender):
             features_col: Name of column from `vectors` dataframe
                 that contains vectors to build index
             params: Index params
-            dim: length of vectors from `vectors` dataframe
-            num_elements: if `index_type` != "sparse" then
-                number of elements that will be stored in the index
             id_col: Name of column that contains identifiers of vectors.
                 None if `vectors` dataframe have no id column.
-            index_type: "sparse" or "dense".
-                If None then `index_type`="dense".
             items_count: if `index_type` == "sparse" then
                 `items_count` is dimension of sparse matrix, else None
 
@@ -181,9 +170,6 @@ class ANNMixin(BaseRecommender):
         params: Dict[str, Union[int, str]],
         k: int,
         filter_seen_items: bool,
-        index_dim: str = None,
-        index_type: str = None,
-        log: DataFrame = None,
     ) -> DataFrame:
         """The method implements the inference of the ANN index.
 
@@ -193,10 +179,6 @@ class ANNMixin(BaseRecommender):
             params: Index params
             k: Desired number of neighbour vectors for vectors from `vectors` dataframe
             filter_seen_items: flag to filter seen items before output
-            index_dim: Dimension of vectors in index
-            index_type: "sparse" or "dense".
-                If None then `index_type`="dense".
-            log: DataFrame with interactions
 
         Returns: DataFrame[user_idx int, item_idx int, relevance double]
 
@@ -222,7 +204,6 @@ class ANNMixin(BaseRecommender):
                 vectors,
                 k=k,
                 filter_seen_items=filter_seen_items,
-                log=log,
                 **ann_params,
             )
         else:
@@ -249,7 +230,7 @@ class ANNMixin(BaseRecommender):
          |    |    |-- element: integer (containsNull = true)
          |    |-- distance: array (nullable = true)
          |    |    |-- element: double (containsNull = true)
-        >>> self._unpack_infer_struct(inference_result).printSchema()
+        >>> ANNMixin._unpack_infer_struct(inference_result).printSchema()
         root
          |-- user_idx: integer (nullable = true)
          |-- item_idx: integer (nullable = true)
