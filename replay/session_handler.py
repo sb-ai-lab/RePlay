@@ -24,6 +24,9 @@ def get_spark_session(
         70% of RAM by default.
     :param shuffle_partitions: number of partitions for Spark; triple CPU count by default
     """
+    if os.environ.get("SCRIPT_ENV", None) == "cluster":
+        return SparkSession.builder.getOrCreate()
+
     os.environ["PYSPARK_PYTHON"] = sys.executable
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
@@ -39,6 +42,7 @@ def get_spark_session(
             "spark.driver.extraJavaOptions",
             "-Dio.netty.tryReflectionSetAccessible=true",
         )
+        .config("spark.jars", os.environ.get("REPLAY_JAR_PATH", "jars/replay_2.12-0.1.jar"))
         .config("spark.sql.shuffle.partitions", str(shuffle_partitions))
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
         .config("spark.driver.maxResultSize", "4g")

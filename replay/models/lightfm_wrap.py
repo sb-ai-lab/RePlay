@@ -2,7 +2,6 @@ import os
 from os.path import join
 from typing import Optional, Tuple
 
-import joblib
 import numpy as np
 import pandas as pd
 import pyspark.sql.functions as sf
@@ -14,7 +13,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 from replay.constants import REC_SCHEMA
 from replay.models.base_rec import HybridRecommender
-from replay.utils import to_csr, check_numeric
+from replay.utils import to_csr, check_numeric, save_picklable_to_parquet, load_pickled_from_parquet
 from replay.session_handler import State
 
 
@@ -55,15 +54,14 @@ class LightFMWrap(HybridRecommender):
         }
 
     def _save_model(self, path: str):
-        os.makedirs(path)
-        joblib.dump(self.model, join(path, "model"))
-        joblib.dump(self.user_feat_scaler, join(path, "user_feat_scaler"))
-        joblib.dump(self.item_feat_scaler, join(path, "item_feat_scaler"))
+        save_picklable_to_parquet(self.model, join(path, "model"))
+        save_picklable_to_parquet(self.user_feat_scaler, join(path, "user_feat_scaler"))
+        save_picklable_to_parquet(self.item_feat_scaler, join(path, "item_feat_scaler"))
 
     def _load_model(self, path: str):
-        self.model = joblib.load(join(path, "model"))
-        self.user_feat_scaler = joblib.load(join(path, "user_feat_scaler"))
-        self.item_feat_scaler = joblib.load(join(path, "item_feat_scaler"))
+        self.model = load_pickled_from_parquet(join(path, "model"))
+        self.user_feat_scaler = load_pickled_from_parquet(join(path, "user_feat_scaler"))
+        self.item_feat_scaler = load_pickled_from_parquet(join(path, "item_feat_scaler"))
 
     def _feature_table_to_csr(
         self,

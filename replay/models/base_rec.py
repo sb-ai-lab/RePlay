@@ -12,7 +12,6 @@ Base abstract classes:
     with popularity statistics
 """
 
-import joblib
 import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -53,7 +52,7 @@ from replay.utils import (
     get_top_k_recs,
     return_recs,
     vector_euclidean_distance_similarity,
-    vector_dot,
+    vector_dot, save_picklable_to_parquet, load_pickled_from_parquet,
 )
 
 
@@ -1615,10 +1614,10 @@ class NonPersonalizedRecommender(Recommender, ABC):
         return {"item_popularity": self.item_popularity}
 
     def _save_model(self, path: str):
-        joblib.dump({"fill": self.fill}, join(path))
+        save_picklable_to_parquet(self.fill, join(path, "params.dump"))
 
     def _load_model(self, path: str):
-        self.fill = joblib.load(join(path))["fill"]
+        self.fill = load_pickled_from_parquet(join(path, "params.dump"))
 
     def _clear_cache(self):
         if hasattr(self, "item_popularity"):
@@ -1695,14 +1694,24 @@ class NonPersonalizedRecommender(Recommender, ABC):
             ),
         )
 
-        max_hist_len = (
-            self._calc_max_hist_len(log, users)
-            if filter_seen_items and log is not None
-            else 0
-        )
+        if filter_seen_items and log is not None:
+            user_to_num_items = (
+                log.join(users, on="user_idx")
+                .groupBy("user_idx")
+                .agg(sf.countDistinct("item_idx").alias("num_items"))
+            )
+            users = users.join(user_to_num_items, on="user_idx", how="left")
+            users = users.fillna(0, "num_items")
+            # 'selected_item_popularity' truncation by k + max_seen
+            max_seen = users.select(sf.coalesce(sf.max("num_items"), sf.lit(0))).collect()[0][0]
+            selected_item_popularity = selected_item_popularity\
+                .filter(sf.col("rank") <= k + max_seen)
+            return users.join(
+                selected_item_popularity, on=(sf.col("rank") <= k + sf.col("num_items")), how="left"
+            )
 
         return users.crossJoin(
-            selected_item_popularity.filter(sf.col("rank") <= k + max_hist_len)
+            selected_item_popularity.filter(sf.col("rank") <= k)
         ).drop("rank")
 
     def _predict_with_sampling(
