@@ -1,9 +1,11 @@
 from dataclasses import dataclass
-from typing import Literal, Optional, ClassVar
+from typing import Literal, ClassVar
+
+from replay.ann.entities.base_hnsw_param import BaseHnswParam
 
 
 @dataclass
-class NmslibHnswParam:
+class NmslibHnswParam(BaseHnswParam):
     """
     Parameters for nmslib-hnsw methods.
 
@@ -49,10 +51,6 @@ class NmslibHnswParam:
     For more details see https://github.com/nmslib/nmslib/blob/master/manual/methods.md.
     """
 
-    # Example: {"method":"hnsw","space":"negdotprod_sparse_fast",
-    # "M":100,"efS":2000,"efC":2000,"post":0,
-    #     "index_path":"/tmp/nmslib_hnsw_index_{spark_app_id}",
-    #     "build_index_on":"executor"}
     space: Literal[
         "cosinesimil_sparse",
         "cosinesimil_sparse_fast",
@@ -60,18 +58,6 @@ class NmslibHnswParam:
         "negdotprod_sparse_fast",
         "angulardist_sparse",
         "angulardist_sparse_fast",
-    ]
-    M: int = 200
-    efC: int = 20000
-    post: int = 0
-    efS: Optional[int] = None
-    build_index_on: Literal["driver", "executor"] = "driver"
-    index_path: Optional[str] = None
+    ] = "negdotprod_sparse_fast"
 
     method: ClassVar[str] = "hnsw"
-
-    def __post_init__(self):
-        if self.build_index_on == "executor":
-            assert (
-                self.index_path
-            ), 'if build_index_on == "executor" then index_path must be set!'

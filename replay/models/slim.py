@@ -43,7 +43,7 @@ class SLIM(NeighbourRec):
         :param beta: l2 regularization
         :param lambda_: l1 regularization
         :param seed: random seed
-        :param nmslib_hnsw_params:`NmslibHnswParam` instance, parameters for nmslib-hnsw methods.
+        :param nmslib_hnsw_params: `NmslibHnswParam` instance, parameters for nmslib-hnsw methods.
             If not set, then ann will not be used.
         """
         if beta < 0 or lambda_ <= 0:

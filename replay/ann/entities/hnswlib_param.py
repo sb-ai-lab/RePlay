@@ -1,9 +1,11 @@
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import Literal
+
+from replay.ann.entities.base_hnsw_param import BaseHnswParam
 
 
 @dataclass
-class HnswlibParam:
+class HnswlibParam(BaseHnswParam):
     """
     Parameters for hnswlib methods.
 
@@ -51,19 +53,7 @@ class HnswlibParam:
     """
 
     space: Literal["l2", "ip", "cosine"] = "ip"
-    M: int = 200
-    efC: int = 20000
-    post: int = 0
-    efS: Optional[int] = None
-    build_index_on: Literal["driver", "executor"] = "driver"
-    index_path: Optional[str] = None
     # Dimension of vectors in index
     dim: int = field(default=None, init=False)
     # Max number of elements that will be stored in the index
     max_elements: int = field(default=None, init=False)
-
-    def __post_init__(self):
-        if self.build_index_on == "executor":
-            assert (
-                self.index_path
-            ), 'if build_index_on == "executor" then index_path must be set!'
