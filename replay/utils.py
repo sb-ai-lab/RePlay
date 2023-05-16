@@ -764,7 +764,7 @@ class FileInfo:
 
 
 def get_filesystem(path: str) -> FileInfo:
-    """Analyzes path and hadoop config and return tuple of `filesystem`,
+    """Analyzes path and hadoop config and return `FileInfo` instance with `filesystem`,
     `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix).
 
     For example:

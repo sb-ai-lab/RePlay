@@ -32,9 +32,9 @@ def model_with_ann(tmp_path):
             efC=2000,
             post=0,
             efS=2000,
-            # build_index_on="driver"
-            build_index_on="executor",
-            index_path=index_path
+            build_index_on="driver"
+            # build_index_on="executor",
+            # index_path=index_path
         )
     )
     return model

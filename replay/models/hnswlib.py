@@ -3,9 +3,8 @@ import os
 import shutil
 import tempfile
 import weakref
-from typing import Iterator, Optional
+from typing import Optional
 
-import hnswlib
 import numpy as np
 import pandas as pd
 from pyarrow import fs
@@ -16,9 +15,14 @@ from pyspark.sql.functions import pandas_udf
 
 from replay.ann.ann_mixin import ANNMixin
 from replay.ann.entities.hnswlib_param import HnswlibParam
-from replay.ann.index_file_managers.hnswlib_index_file_manager import HnswlibIndexFileManager
-from replay.ann.utils import (
-    save_index_to_destination_fs,
+from replay.ann.index_builders.driver_hnswlib_index_builder import (
+    DriverHnswlibIndexBuilder,
+)
+from replay.ann.index_builders.executor_hnswlib_index_builder import (
+    ExecutorHnswlibIndexBuilder,
+)
+from replay.ann.index_file_managers.hnswlib_index_file_manager import (
+    HnswlibIndexFileManager,
 )
 from replay.session_handler import State
 from replay.utils import FileSystem, get_filesystem
@@ -53,104 +57,28 @@ class HnswlibMixin(ANNMixin):
         id_col: Optional[str] = None,
         items_count: Optional[int] = None,
     ) -> None:
-        self._build_hnsw_index(
-            vectors, features_col, params, id_col
-        )
-
-    def _build_hnsw_index(  # pylint: disable=too-many-arguments
-        self,
-        vectors: DataFrame,
-        features_col: str,
-        params: HnswlibParam,
-        id_col: Optional[str] = None,
-    ) -> None:
-        """Builds hnsw index and dump it to hdfs or disk.
+        """Builds hnsw index and dump it to hdfs or shared disk,
+        or sends it to executors through SparkContext.addFile().
 
         Args:
             vectors: DataFrame with vectors. Schema: [{id_col}: int, {features_col}: array<float>]
             features_col: the name of the column in the `vectors` dataframe
             that contains features (vectors).
             params: index params
-            dim: feature (vector) length
-            num_elements: how many elements will be stored in the index
             id_col: the name of the column in the `vectors` dataframe that contains ids (of vectors)
         """
 
         if params.build_index_on == "executor":
-            # to execution in one executor
-            vectors = vectors.repartition(1)
-
-            target_index_file = get_filesystem(params.index_path)
-
-            def build_index(iterator: Iterator[pd.DataFrame]):
-                """Builds index on executor and writes it to shared disk or hdfs.
-
-                Args:
-                    iterator: iterates on dataframes with vectors/features
-
-                """
-                index = hnswlib.Index(space=params.space, dim=params.dim)  # pylint: disable=c-extension-no-member
-
-                # Initializing index - the maximum number of elements should be known beforehand
-                index.init_index(
-                    max_elements=params.max_elements,
-                    ef_construction=params.efC,
-                    M=params.M,
-                )
-
-                # pdf is a pandas dataframe that contains ids and features (vectors)
-                for pdf in iterator:
-                    vectors_np = np.squeeze(pdf[features_col].values)
-                    if id_col:
-                        index.add_items(
-                            np.stack(vectors_np), pdf[id_col].values
-                        )
-                    else:
-                        # ids will be from [0, ..., len(vectors_np)]
-                        index.add_items(np.stack(vectors_np))
-
-                save_index_to_destination_fs(
-                    sparse=False,
-                    save_index=lambda path: index.save_index(path),  # pylint: disable=unnecessary-lambda
-                    target=target_index_file,
-                )
-
-                yield pd.DataFrame(data={"_success": 1}, index=[0])
-
-            # Here we perform materialization (`.collect()`) to build the hnsw index.
-            logger.info("Started building the hnsw index")
-            cols = [id_col, features_col] if id_col else [features_col]
-            vectors.select(*cols).mapInPandas(
-                build_index, "_success int"
-            ).collect()
-            logger.info("Finished building the hnsw index")
+            index_builder = ExecutorHnswlibIndexBuilder()
         else:
-            vectors = vectors.toPandas()
-            vectors_np = np.squeeze(vectors[features_col].values)
-
-            index = hnswlib.Index(space=params.space, dim=params.dim)  # pylint: disable=c-extension-no-member
-
-            # Initializing index - the maximum number of elements should be known beforehand
-            index.init_index(
-                max_elements=params.max_elements,
-                ef_construction=params.efC,
-                M=params.M,
+            index_builder = DriverHnswlibIndexBuilder(
+                index_file_name=f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
             )
-
-            if id_col:
-                index.add_items(np.stack(vectors_np), vectors[id_col].values)
-            else:
-                index.add_items(np.stack(vectors_np))
-
-            # saving index to local temp file and sending it to executors
-            temp_dir = tempfile.mkdtemp()
-            weakref.finalize(self, shutil.rmtree, temp_dir)
-            tmp_file_path = os.path.join(
-                temp_dir, f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
-            )
-            index.save_index(tmp_file_path)
-            spark = SparkSession.getActiveSession()
-            spark.sparkContext.addFile("file://" + tmp_file_path)
+        temp_index_file_info = index_builder.build_index(
+            vectors, features_col, params, id_col
+        )
+        if temp_index_file_info:
+            weakref.finalize(self, shutil.rmtree, temp_index_file_info.path)
 
     def _infer_hnsw_index(  # pylint: disable=too-many-arguments
         self,
@@ -160,7 +88,6 @@ class HnswlibMixin(ANNMixin):
         k: int,
         filter_seen_items: bool,
     ):
-
         if params.build_index_on == "executor":
             index_file = get_filesystem(params.index_path)
         else:
@@ -271,7 +198,9 @@ class HnswlibMixin(ANNMixin):
 
         source = get_filesystem(index_path)
         target = get_filesystem(path)
-        self.logger.debug("Index file coping from '%s' to '%s'", index_path, path)
+        self.logger.debug(
+            "Index file coping from '%s' to '%s'", index_path, path
+        )
 
         if source.filesystem == FileSystem.HDFS:
             source_filesystem = fs.HadoopFileSystem.from_uri(source.hdfs_uri)
