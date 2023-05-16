@@ -55,7 +55,6 @@ class NmslibHnswMixin(ANNMixin):
         features_col: str,
         params: NmslibHnswParam,
         id_col: Optional[str] = None,
-        items_count: Optional[int] = None,
     ) -> None:
         """Builds hnsw index and dump it to hdfs or disk.
 

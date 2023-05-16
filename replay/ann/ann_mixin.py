@@ -146,7 +146,6 @@ class ANNMixin(BaseRecommender):
         features_col: str,
         params: Dict[str, Union[int, str]],
         id_col: Optional[str] = None,
-        items_count: Optional[int] = None,
     ) -> None:
         """The method implements the construction of the ANN index.
 
@@ -157,8 +156,6 @@ class ANNMixin(BaseRecommender):
             params: Index params
             id_col: Name of column that contains identifiers of vectors.
                 None if `vectors` dataframe have no id column.
-            items_count: if `index_type` == "sparse" then
-                `items_count` is dimension of sparse matrix, else None
 
         """
 

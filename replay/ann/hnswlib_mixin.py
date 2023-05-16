@@ -55,7 +55,6 @@ class HnswlibMixin(ANNMixin):
         features_col: str,
         params: HnswlibParam,
         id_col: Optional[str] = None,
-        items_count: Optional[int] = None,
     ) -> None:
         """Builds hnsw index and dump it to hdfs or shared disk,
         or sends it to executors through SparkContext.addFile().
