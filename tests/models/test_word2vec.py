@@ -97,4 +97,3 @@ def test_ann_predict(log2, model, model_with_ann):
     )
     assert recs1.user_idx.equals(recs2.user_idx)
     assert recs1.item_idx.equals(recs2.item_idx)
-

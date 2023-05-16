@@ -3,7 +3,7 @@ import os
 import shutil
 import tempfile
 import weakref
-from typing import Dict, Optional, Iterator
+from typing import Optional, Iterator
 
 import nmslib
 import numpy as np
@@ -38,7 +38,7 @@ class NmslibHnswMixin(ANNMixin):
         self,
         vectors: DataFrame,
         features_col: str,
-        params: NmslibHnswParam,  # Dict[str, Union[int, str]],
+        params: NmslibHnswParam,
         k: int,
         filter_seen_items: bool,
     ) -> DataFrame:
@@ -53,19 +53,18 @@ class NmslibHnswMixin(ANNMixin):
         self,
         vectors: DataFrame,
         features_col: str,
-        params: NmslibHnswParam,  # Dict[str, Union[int, str]],
+        params: NmslibHnswParam,
         id_col: Optional[str] = None,
         items_count: Optional[int] = None,
     ) -> None:
         self._build_nmslib_hnsw_index(
-            vectors, features_col, params, items_count
+            vectors, params, items_count
         )
 
-    def _build_nmslib_hnsw_index(  # pylint: disable=too-many-arguments, too-many-locals, too-many-statements
+    def _build_nmslib_hnsw_index(  # pylint: disable=too-many-locals, too-many-statements
         self,
         item_vectors: DataFrame,
-        features_col: str,
-        params: NmslibHnswParam,  # Dict[str, Any]
+        params: NmslibHnswParam,
         items_count: Optional[int] = None,
     ) -> None:
         """Builds hnsw index and dump it to hdfs or disk.
@@ -170,10 +169,10 @@ class NmslibHnswMixin(ANNMixin):
             spark.sparkContext.addFile("file://" + tmp_file_path)
             spark.sparkContext.addFile("file://" + tmp_file_path + ".dat")
 
-    def _infer_nmslib_hnsw_index(  # pylint: disable=too-many-arguments, too-many-locals
+    def _infer_nmslib_hnsw_index(  # pylint: disable=too-many-locals
         self,
         user_vectors: DataFrame,
-        params: NmslibHnswParam, # Dict[str, Any],
+        params: NmslibHnswParam,
         k: int,
         filter_seen_items: bool,
     ) -> DataFrame:
