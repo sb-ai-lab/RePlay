@@ -11,7 +11,7 @@ from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
 from replay.models.base_neighbour_rec import NeighbourRec
 
 
-# pylint: disable=too-many-ancestors
+# pylint: disable=too-many-ancestors, too-many-instance-attributes
 class AssociationRulesItemRec(NeighbourRec):
     """
     Item-to-item recommender based on association rules.

@@ -140,7 +140,7 @@ class ANNMixin(BaseRecommender):
         """
 
     @abstractmethod
-    def _build_ann_index(  # pylint: disable=too-many-arguments
+    def _build_ann_index(
         self,
         vectors: DataFrame,
         features_col: str,
