@@ -9,7 +9,7 @@ from pyspark.ml.stat import Summarizer
 
 from replay.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.models.hnswlib import HnswlibMixin
+from replay.ann.hnswlib_mixin import HnswlibMixin
 from replay.utils import vector_dot, multiply_scala_udf, join_with_col_renaming
 
 

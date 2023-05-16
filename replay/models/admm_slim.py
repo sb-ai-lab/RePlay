@@ -6,7 +6,7 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from scipy.sparse import coo_matrix, csr_matrix
 
-from replay.models.base_rec import NeighbourRec
+from replay.models.base_neighbour_rec import NeighbourRec
 from replay.session_handler import State
 
 

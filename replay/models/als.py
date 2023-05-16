@@ -8,7 +8,7 @@ from pyspark.sql.types import DoubleType
 
 from replay.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.models.hnswlib import HnswlibMixin
+from replay.ann.hnswlib_mixin import HnswlibMixin
 from replay.utils import list_to_vector_udf
 
 

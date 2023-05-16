@@ -8,7 +8,7 @@ from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
 from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.models.base_rec import NeighbourRec
+from replay.models.base_neighbour_rec import NeighbourRec
 from replay.session_handler import State
 
 

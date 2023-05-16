@@ -5,7 +5,7 @@ from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
 
 from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.models.base_rec import NeighbourRec
+from replay.models.base_neighbour_rec import NeighbourRec
 from replay.optuna_objective import ItemKNNObjective
 
 

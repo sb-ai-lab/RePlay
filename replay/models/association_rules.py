@@ -7,7 +7,7 @@ import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
 
-from replay.models.base_rec import NeighbourRec
+from replay.models.base_neighbour_rec import NeighbourRec
 
 
 # pylint: disable=too-many-ancestors
