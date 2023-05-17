@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import weakref
+from abc import ABC
 from typing import Optional
 
 import numpy as np
@@ -27,7 +28,7 @@ logger = logging.getLogger("replay")
 INDEX_FILENAME = "nmslib_hnsw_index"
 
 
-class NmslibHnswMixin(ANNMixin):
+class NmslibHnswMixin(ANNMixin, ABC):
     """Mixin that provides methods to build nmslib hnsw index and infer it.
     Also provides methods to saving and loading index to/from disk.
     """
@@ -305,4 +306,4 @@ class NmslibHnswMixin(ANNMixin):
         for target_path in target_paths:
             spark.sparkContext.addFile("file://" + target_path)
 
-        self._nmslib_hnsw_params["build_index_on"] = "driver"
+        self._nmslib_hnsw_params.build_index_on = "driver"

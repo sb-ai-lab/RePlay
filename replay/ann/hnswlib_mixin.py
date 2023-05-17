@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import weakref
+from abc import ABC
 from typing import Optional
 
 import numpy as np
@@ -32,10 +33,12 @@ logger = logging.getLogger("replay")
 INDEX_FILENAME = "hnswlib_index"
 
 
-class HnswlibMixin(ANNMixin):
+class HnswlibMixin(ANNMixin, ABC):
     """Mixin that provides methods to build hnswlib index and infer it.
     Also provides methods to saving and loading index to/from disk.
     """
+
+    _hnswlib_params: Optional[HnswlibParam] = None
 
     def _infer_ann_index(  # pylint: disable=too-many-arguments
         self,
@@ -224,7 +227,7 @@ class HnswlibMixin(ANNMixin):
         """Loads hnsw index from `path` directory to local dir.
         Index file name is 'hnswlib_index'.
         And adds index file to the `SparkFiles`.
-        `path` can be a hdfs path or a local path.
+        `path` can be an hdfs path or a local path.
 
 
         Args:
@@ -253,4 +256,4 @@ class HnswlibMixin(ANNMixin):
         spark = SparkSession.getActiveSession()
         spark.sparkContext.addFile("file://" + target_path)
 
-        self._hnswlib_params["build_index_on"] = "driver"
+        self._hnswlib_params.build_index_on = "driver"
