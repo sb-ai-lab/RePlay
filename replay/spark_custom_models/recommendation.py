@@ -265,73 +265,74 @@ class ALS(JavaEstimator, _ALSParams, JavaMLWritable, JavaMLReadable):
 
     Examples
     --------
-    >>> df = spark.createDataFrame(
+    >>>
+    >> df = spark.createDataFrame(
     ...     [(0, 0, 4.0), (0, 1, 2.0), (1, 1, 3.0), (1, 2, 4.0), (2, 1, 1.0), (2, 2, 5.0)],
     ...     ["user", "item", "rating"])
-    >>> als = ALS(rank=10, seed=0)
-    >>> als.setMaxIter(5)
+    >> als = ALS(rank=10, seed=0)
+    >> als.setMaxIter(5)
     ALS...
-    >>> als.getMaxIter()
+    >> als.getMaxIter()
     5
-    >>> als.setRegParam(0.1)
+    >> als.setRegParam(0.1)
     ALS...
-    >>> als.getRegParam()
+    >> als.getRegParam()
     0.1
-    >>> als.clear(als.regParam)
-    >>> model = als.fit(df)
-    >>> model.getBlockSize()
+    >> als.clear(als.regParam)
+    >> model = als.fit(df)
+    >> model.getBlockSize()
     4096
-    >>> model.getUserCol()
+    >> model.getUserCol()
     'user'
-    >>> model.setUserCol("user")
+    >> model.setUserCol("user")
     ALSModel...
-    >>> model.getItemCol()
+    >> model.getItemCol()
     'item'
-    >>> model.setPredictionCol("newPrediction")
+    >> model.setPredictionCol("newPrediction")
     ALS...
-    >>> model.rank
+    >> model.rank
     10
-    >>> model.userFactors.orderBy("id").collect()
+    >> model.userFactors.orderBy("id").collect()
     [Row(id=0, features=[...]), Row(id=1, ...), Row(id=2, ...)]
-    >>> test = spark.createDataFrame([(0, 2), (1, 0), (2, 0)], ["user", "item"])
-    >>> predictions = sorted(model.transform(test).collect(), key=lambda r: r[0])
-    >>> predictions[0]
+    >> test = spark.createDataFrame([(0, 2), (1, 0), (2, 0)], ["user", "item"])
+    >> predictions = sorted(model.transform(test).collect(), key=lambda r: r[0])
+    >> predictions[0]
     Row(user=0, item=2, newPrediction=0.692910...)
-    >>> predictions[1]
+    >> predictions[1]
     Row(user=1, item=0, newPrediction=3.473569...)
-    >>> predictions[2]
+    >> predictions[2]
     Row(user=2, item=0, newPrediction=-0.899198...)
-    >>> user_recs = model.recommendForAllUsers(3)
-    >>> user_recs.where(user_recs.user == 0)\
+    >> user_recs = model.recommendForAllUsers(3)
+    >> user_recs.where(user_recs.user == 0)\
         .select("recommendations.item", "recommendations.rating").collect()
     [Row(item=[0, 1, 2], rating=[3.910..., 1.997..., 0.692...])]
-    >>> item_recs = model.recommendForAllItems(3)
-    >>> item_recs.where(item_recs.item == 2)\
+    >> item_recs = model.recommendForAllItems(3)
+    >> item_recs.where(item_recs.item == 2)\
         .select("recommendations.user", "recommendations.rating").collect()
     [Row(user=[2, 1, 0], rating=[4.892..., 3.991..., 0.692...])]
-    >>> user_subset = df.where(df.user == 2)
-    >>> user_subset_recs = model.recommendForUserSubset(user_subset, 3)
-    >>> user_subset_recs.select("recommendations.item", "recommendations.rating").first()
+    >> user_subset = df.where(df.user == 2)
+    >> user_subset_recs = model.recommendForUserSubset(user_subset, 3)
+    >> user_subset_recs.select("recommendations.item", "recommendations.rating").first()
     Row(item=[2, 1, 0], rating=[4.892..., 1.076..., -0.899...])
-    >>> item_subset = df.where(df.item == 0)
-    >>> item_subset_recs = model.recommendForItemSubset(item_subset, 3)
-    >>> item_subset_recs.select("recommendations.user", "recommendations.rating").first()
+    >> item_subset = df.where(df.item == 0)
+    >> item_subset_recs = model.recommendForItemSubset(item_subset, 3)
+    >> item_subset_recs.select("recommendations.user", "recommendations.rating").first()
     Row(user=[0, 1, 2], rating=[3.910..., 3.473..., -0.899...])
-    >>> als_path = temp_path + "/als"
-    >>> als.save(als_path)
-    >>> als2 = ALS.load(als_path)
-    >>> als.getMaxIter()
+    >> als_path = temp_path + "/als"
+    >> als.save(als_path)
+    >> als2 = ALS.load(als_path)
+    >> als.getMaxIter()
     5
-    >>> model_path = temp_path + "/als_model"
-    >>> model.save(model_path)
-    >>> model2 = ALSModel.load(model_path)
-    >>> model.rank == model2.rank
+    >> model_path = temp_path + "/als_model"
+    >> model.save(model_path)
+    >> model2 = ALSModel.load(model_path)
+    >> model.rank == model2.rank
     True
-    >>> sorted(model.userFactors.collect()) == sorted(model2.userFactors.collect())
+    >> sorted(model.userFactors.collect()) == sorted(model2.userFactors.collect())
     True
-    >>> sorted(model.itemFactors.collect()) == sorted(model2.itemFactors.collect())
+    >> sorted(model.itemFactors.collect()) == sorted(model2.itemFactors.collect())
     True
-    >>> model.transform(test).take(1) == model2.transform(test).take(1)
+    >> model.transform(test).take(1) == model2.transform(test).take(1)
     True
     """
 
