@@ -2,11 +2,11 @@ from typing import Optional, Tuple
 
 import pyspark.sql.functions as sf
 
-from replay.spark_custom_models.recommendation import ALS, ALSModel
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
 from replay.models.base_rec import Recommender, ItemVectorModel
+from replay.spark_custom_models.recommendation import ALS, ALSModel
 from replay.utils import list_to_vector_udf
 
 
@@ -132,11 +132,6 @@ class ALSWrap(Recommender, ItemVectorModel):
                 sf.col("recommendations.rating").cast(DoubleType()),
             )
             .select("user_idx", "item_idx", "relevance")
-        )
-
-        return self._predict_pairs(
-            pairs=users.crossJoin(items).withColumn("relevance", sf.lit(1)),
-            log=log,
         )
 
     def _predict_pairs(

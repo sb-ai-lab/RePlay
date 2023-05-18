@@ -19,6 +19,8 @@
 # Modifications copyright (c) 2023 Azamat G.
 #
 
+# pylint: skip-file
+
 import sys
 
 from pyspark import since, keyword_only
