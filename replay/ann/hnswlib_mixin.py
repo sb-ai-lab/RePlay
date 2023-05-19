@@ -189,9 +189,9 @@ class HnswlibMixin(ANNMixin, ABC):
 
         params = self._hnswlib_params
 
-        if params["build_index_on"] == "executor":
-            index_path = params["index_path"]
-        elif params["build_index_on"] == "driver":
+        if params.build_index_on == "executor":
+            index_path = params.index_path
+        elif params.build_index_on == "driver":
             index_path = SparkFiles.get(
                 f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
             )
@@ -200,7 +200,7 @@ class HnswlibMixin(ANNMixin, ABC):
 
         source = get_filesystem(index_path)
         target = get_filesystem(path)
-        self.logger.debug(
+        logger.debug(
             "Index file coping from '%s' to '%s'", index_path, path
         )
 

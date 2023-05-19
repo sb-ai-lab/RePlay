@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -41,7 +41,7 @@ class ItemKNN(NeighbourRec):
         use_relevance: bool = False,
         shrink: float = 0.0,
         weighting: str = None,
-        nmslib_hnsw_params: Optional[NmslibHnswParam] = None,
+        nmslib_hnsw_params: Optional[Union[NmslibHnswParam, Dict]] = None,
     ):
         """
         :param num_neighbours: number of neighbours
@@ -59,7 +59,12 @@ class ItemKNN(NeighbourRec):
         if weighting not in valid_weightings:
             raise ValueError(f"weighting must be one of {valid_weightings}")
         self.weighting = weighting
-        self._nmslib_hnsw_params = nmslib_hnsw_params
+        if isinstance(nmslib_hnsw_params, dict):
+            self._nmslib_hnsw_params = NmslibHnswParam(**nmslib_hnsw_params)
+        elif isinstance(nmslib_hnsw_params, (NmslibHnswParam, type(None))):
+            self._nmslib_hnsw_params = nmslib_hnsw_params
+        else:
+            raise ValueError("hnswlib_params")
 
     @property
     def _init_args(self):
@@ -68,7 +73,7 @@ class ItemKNN(NeighbourRec):
             "use_relevance": self.use_relevance,
             "num_neighbours": self.num_neighbours,
             "weighting": self.weighting,
-            "nmslib_hnsw_params": self._nmslib_hnsw_params,
+            "nmslib_hnsw_params": self._nmslib_hnsw_params.init_params_as_dict(),
         }
 
     def _save_model(self, path: str):

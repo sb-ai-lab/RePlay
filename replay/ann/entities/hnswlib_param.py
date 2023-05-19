@@ -61,3 +61,7 @@ class HnswlibParam(BaseHnswParam):
     dim: int = field(default=None, init=False)
     # Max number of elements that will be stored in the index
     max_elements: int = field(default=None, init=False)
+
+    def init_params_as_dict(self):
+        # union dicts
+        return dict(super().init_params_as_dict(), **{"space": self.space})

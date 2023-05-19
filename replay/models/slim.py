@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 
 import numpy as np
 import pandas as pd
@@ -37,7 +37,7 @@ class SLIM(NeighbourRec):
         beta: float = 0.01,
         lambda_: float = 0.01,
         seed: Optional[int] = None,
-        nmslib_hnsw_params: Optional[NmslibHnswParam] = None,
+        nmslib_hnsw_params: Optional[Union[NmslibHnswParam, Dict]] = None,
     ):
         """
         :param beta: l2 regularization
@@ -51,7 +51,12 @@ class SLIM(NeighbourRec):
         self.beta = beta
         self.lambda_ = lambda_
         self.seed = seed
-        self._nmslib_hnsw_params = nmslib_hnsw_params
+        if isinstance(nmslib_hnsw_params, dict):
+            self._nmslib_hnsw_params = NmslibHnswParam(**nmslib_hnsw_params)
+        elif isinstance(nmslib_hnsw_params, (NmslibHnswParam, type(None))):
+            self._nmslib_hnsw_params = nmslib_hnsw_params
+        else:
+            raise ValueError("hnswlib_params")
 
     @property
     def _init_args(self):
@@ -59,7 +64,7 @@ class SLIM(NeighbourRec):
             "beta": self.beta,
             "lambda_": self.lambda_,
             "seed": self.seed,
-            "nmslib_hnsw_params": self._nmslib_hnsw_params,
+            "nmslib_hnsw_params": self._nmslib_hnsw_params.init_params_as_dict(),
         }
 
     def _save_model(self, path: str):

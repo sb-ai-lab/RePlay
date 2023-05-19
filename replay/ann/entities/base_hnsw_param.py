@@ -21,3 +21,11 @@ class BaseHnswParam:
             assert (
                 self.index_path
             ), 'if build_index_on == "executor" then index_path must be set!'
+
+    def init_params_as_dict(self):
+        return {
+            "M": self.M,
+            "efC": self.efC,
+            "post": self.post,
+            "efS": self.efS,
+        }

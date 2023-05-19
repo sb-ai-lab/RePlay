@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 
 from pyspark.ml.feature import Word2Vec
 from pyspark.ml.functions import vector_to_array
@@ -80,7 +80,7 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         use_idf: bool = False,
         seed: Optional[int] = None,
         num_partitions: Optional[int] = None,
-        hnswlib_params: Optional[HnswlibParam] = None,
+        hnswlib_params: Optional[Union[HnswlibParam, Dict]] = None,
     ):
         """
         :param rank: embedding size
@@ -101,7 +101,12 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         self.max_iter = max_iter
         self._seed = seed
         self._num_partitions = num_partitions
-        self._hnswlib_params = hnswlib_params
+        if isinstance(hnswlib_params, dict):
+            self._hnswlib_params = HnswlibParam(**hnswlib_params)
+        elif isinstance(hnswlib_params, (HnswlibParam, type(None))):
+            self._hnswlib_params = hnswlib_params
+        else:
+            raise ValueError("hnswlib_params")
         self.num_elements = None
 
     @property
@@ -114,7 +119,7 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
             "step_size": self.step_size,
             "max_iter": self.max_iter,
             "seed": self._seed,
-            "hnswlib_params": self._hnswlib_params,
+            "hnswlib_params": self._hnswlib_params.init_params_as_dict(),
         }
 
     def _save_model(self, path: str):

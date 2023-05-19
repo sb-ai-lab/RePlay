@@ -1,14 +1,13 @@
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any, Union
 
 import pyspark.sql.functions as sf
-
 from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
 from replay.ann.entities.hnswlib_param import HnswlibParam
-from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.ann.hnswlib_mixin import HnswlibMixin
+from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.utils import list_to_vector_udf
 
 
@@ -61,7 +60,7 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         seed: Optional[int] = None,
         num_item_blocks: Optional[int] = None,
         num_user_blocks: Optional[int] = None,
-        hnswlib_params: Optional[HnswlibParam] = None,
+        hnswlib_params: Optional[Union[HnswlibParam, Dict]] = None,
     ):
         """
         :param rank: hidden dimension for the approximate matrix
@@ -79,7 +78,12 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         self._seed = seed
         self._num_item_blocks = num_item_blocks
         self._num_user_blocks = num_user_blocks
-        self._hnswlib_params = hnswlib_params
+        if isinstance(hnswlib_params, dict):
+            self._hnswlib_params = HnswlibParam(**hnswlib_params)
+        elif isinstance(hnswlib_params, (HnswlibParam, type(None))):
+            self._hnswlib_params = hnswlib_params
+        else:
+            raise ValueError("hnswlib_params")
         self.num_elements = None
 
     @property
@@ -88,7 +92,7 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
             "rank": self.rank,
             "implicit_prefs": self.implicit_prefs,
             "seed": self._seed,
-            "hnswlib_params": self._hnswlib_params
+            "hnswlib_params": self._hnswlib_params.init_params_as_dict()
         }
 
     def _save_model(self, path: str):
