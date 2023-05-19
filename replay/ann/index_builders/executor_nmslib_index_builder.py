@@ -71,6 +71,7 @@ class ExecutorNmslibIndexBuilder(BaseHnswIndexBuilder):
 
             save_index_to_destination_fs(
                 sparse=True,
+                # save_data=True https://github.com/nmslib/nmslib/issues/300
                 save_index=lambda path: index.saveIndex(path, save_data=True),
                 target=target_index_file,
             )

@@ -78,11 +78,11 @@ class ItemKNN(NeighbourRec):
 
     def _save_model(self, path: str):
         if self._nmslib_hnsw_params:
-            self._save_nmslib_hnsw_index(path, sparse=True)
+            self._save_nmslib_hnsw_index(path)
 
     def _load_model(self, path: str):
         if self._nmslib_hnsw_params:
-            self._load_nmslib_hnsw_index(path, sparse=True)
+            self._load_nmslib_hnsw_index(path)
 
     @staticmethod
     def _shrink(dot_products: DataFrame, shrink: float) -> DataFrame:

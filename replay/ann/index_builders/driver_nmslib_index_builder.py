@@ -55,9 +55,8 @@ class DriverNmslibIndexBuilder(BaseHnswIndexBuilder):
 
         # saving index to local temp file and sending it to executors
         temp_dir = tempfile.mkdtemp()
-        # weakref.finalize(self, shutil.rmtree, temp_dir)
-        # self.__dict__.pop('_spark_index_file_uid', None)
         tmp_file_path = os.path.join(temp_dir, self._index_file_name)
+        # save_data=True https://github.com/nmslib/nmslib/issues/300
         index.saveIndex(tmp_file_path, save_data=True)
         spark = SparkSession.getActiveSession()
         # for the "sparse" type we need to store two files

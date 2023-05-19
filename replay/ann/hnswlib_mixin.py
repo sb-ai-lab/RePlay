@@ -1,17 +1,12 @@
 import logging
-import os
 import shutil
-import tempfile
 import weakref
 from abc import ABC
 from typing import Optional
 
 import numpy as np
 import pandas as pd
-from pyarrow import fs
-from pyspark import SparkFiles
 from pyspark.sql import DataFrame
-from pyspark.sql import SparkSession
 from pyspark.sql.functions import pandas_udf
 
 from replay.ann.ann_mixin import ANNMixin
@@ -26,11 +21,9 @@ from replay.ann.index_file_managers.hnswlib_index_file_manager import (
     HnswlibIndexFileManager,
 )
 from replay.session_handler import State
-from replay.utils import FileSystem, get_filesystem
+from replay.utils import get_filesystem
 
 logger = logging.getLogger("replay")
-
-INDEX_FILENAME = "hnswlib_index"
 
 
 class HnswlibMixin(ANNMixin, ABC):
@@ -39,6 +32,7 @@ class HnswlibMixin(ANNMixin, ABC):
     """
 
     _hnswlib_params: Optional[HnswlibParam] = None
+    INDEX_FILENAME = "hnswlib_index"
 
     def _infer_ann_index(  # pylint: disable=too-many-arguments
         self,
@@ -74,7 +68,7 @@ class HnswlibMixin(ANNMixin, ABC):
             index_builder = ExecutorHnswlibIndexBuilder()
         else:
             index_builder = DriverHnswlibIndexBuilder(
-                index_file_name=f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
+                index_file_name=f"{self.INDEX_FILENAME}_{self._spark_index_file_uid}"
             )
         temp_index_file_info = index_builder.build_index(
             vectors, features_col, params, id_col
@@ -93,7 +87,7 @@ class HnswlibMixin(ANNMixin, ABC):
         if params.build_index_on == "executor":
             index_file = get_filesystem(params.index_path)
         else:
-            index_file = f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
+            index_file = f"{self.INDEX_FILENAME}_{self._spark_index_file_uid}"
 
         _index_file_manager = HnswlibIndexFileManager(
             params,
@@ -187,41 +181,7 @@ class HnswlibMixin(ANNMixin, ABC):
             path (str): directory where to dump (copy) the index
         """
 
-        params = self._hnswlib_params
-
-        if params.build_index_on == "executor":
-            index_path = params.index_path
-        elif params.build_index_on == "driver":
-            index_path = SparkFiles.get(
-                f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
-            )
-        else:
-            raise ValueError("Unknown 'build_index_on' param.")
-
-        source = get_filesystem(index_path)
-        target = get_filesystem(path)
-        logger.debug(
-            "Index file coping from '%s' to '%s'", index_path, path
-        )
-
-        if source.filesystem == FileSystem.HDFS:
-            source_filesystem = fs.HadoopFileSystem.from_uri(source.hdfs_uri)
-        else:
-            source_filesystem = fs.LocalFileSystem()
-        if target.filesystem == FileSystem.HDFS:
-            destination_filesystem = fs.HadoopFileSystem.from_uri(
-                target.hdfs_uri
-            )
-        else:
-            destination_filesystem = fs.LocalFileSystem()
-
-        fs.copy_files(
-            source.path,
-            os.path.join(target.path, INDEX_FILENAME),
-            source_filesystem=source_filesystem,
-            destination_filesystem=destination_filesystem,
-        )
-        # param use_threads=True (?)
+        self._save_index_files(path, self._hnswlib_params)
 
     def _load_hnswlib_index(self, path: str):
         """Loads hnsw index from `path` directory to local dir.
@@ -233,27 +193,5 @@ class HnswlibMixin(ANNMixin, ABC):
         Args:
             path: directory path, where index file is stored
         """
-        source = get_filesystem(path + f"/{INDEX_FILENAME}")
 
-        temp_dir = tempfile.mkdtemp()
-        weakref.finalize(self, shutil.rmtree, temp_dir)
-        target_path = os.path.join(
-            temp_dir, f"{INDEX_FILENAME}_{self._spark_index_file_uid}"
-        )
-
-        if source.filesystem == FileSystem.HDFS:
-            source_filesystem = fs.HadoopFileSystem.from_uri(source.hdfs_uri)
-        else:
-            source_filesystem = fs.LocalFileSystem()
-        destination_filesystem = fs.LocalFileSystem()
-        fs.copy_files(
-            source.path,
-            target_path,
-            source_filesystem=source_filesystem,
-            destination_filesystem=destination_filesystem,
-        )
-
-        spark = SparkSession.getActiveSession()
-        spark.sparkContext.addFile("file://" + target_path)
-
-        self._hnswlib_params.build_index_on = "driver"
+        self._load_index(path, self._hnswlib_params)
