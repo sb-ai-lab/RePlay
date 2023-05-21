@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -7,7 +7,7 @@ from pyspark.sql import types as st
 from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
-from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_neighbour_rec import NeighbourRec
 from replay.session_handler import State
 
@@ -20,12 +20,8 @@ class SLIM(NeighbourRec):
     def _get_ann_infer_params(self) -> Dict[str, Any]:
         return {
             "features_col": None,
-            "params": self._nmslib_hnsw_params,
+            # "params": self._nmslib_hnsw_params,
         }
-
-    @property
-    def _use_ann(self) -> bool:
-        return self._nmslib_hnsw_params is not None
 
     _search_space = {
         "beta": {"type": "loguniform", "args": [1e-6, 5]},
@@ -37,7 +33,8 @@ class SLIM(NeighbourRec):
         beta: float = 0.01,
         lambda_: float = 0.01,
         seed: Optional[int] = None,
-        nmslib_hnsw_params: Optional[Union[NmslibHnswParam, Dict]] = None,
+        # nmslib_hnsw_params: Optional[Union[NmslibHnswParam, Dict]] = None,
+        index_builder: Optional[IndexBuilder] = None,
     ):
         """
         :param beta: l2 regularization
@@ -51,12 +48,7 @@ class SLIM(NeighbourRec):
         self.beta = beta
         self.lambda_ = lambda_
         self.seed = seed
-        if isinstance(nmslib_hnsw_params, dict):
-            self._nmslib_hnsw_params = NmslibHnswParam(**nmslib_hnsw_params)
-        elif isinstance(nmslib_hnsw_params, (NmslibHnswParam, type(None))):
-            self._nmslib_hnsw_params = nmslib_hnsw_params
-        else:
-            raise ValueError("hnswlib_params")
+        self.index_builder = index_builder
 
     @property
     def _init_args(self):
@@ -64,7 +56,6 @@ class SLIM(NeighbourRec):
             "beta": self.beta,
             "lambda_": self.lambda_,
             "seed": self.seed,
-            "nmslib_hnsw_params": self._nmslib_hnsw_params.init_params_as_dict(),
         }
 
     def _save_model(self, path: str):

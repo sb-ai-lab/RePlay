@@ -78,10 +78,6 @@ class AssociationRulesItemRec(NeighbourRec):
             "params": self._nmslib_hnsw_params,
         }
 
-    @property
-    def _use_ann(self) -> bool:
-        return self._nmslib_hnsw_params is not None
-
     can_predict_item_to_item = True
     item_to_item_metrics: List[str] = ["lift", "confidence", "confidence_gain"]
     similarity: DataFrame

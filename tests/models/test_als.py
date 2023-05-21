@@ -5,6 +5,12 @@ import numpy as np
 from pyspark.sql import functions as sf
 
 from replay.ann.entities.hnswlib_param import HnswlibParam
+from replay.ann.index_builders.executor_hnswlib_index_builder import (
+    ExecutorHnswlibIndexBuilder,
+)
+from replay.ann.index_stores.shared_disk_index_store import (
+    SharedDiskIndexStore,
+)
 from replay.models import ALSWrap
 from replay.scenarios.two_stages.two_stages_scenario import (
     get_first_level_model_features,
@@ -21,21 +27,22 @@ def model():
 
 @pytest.fixture
 def model_with_ann(tmp_path):
-    index_path = str((tmp_path / "nmslib_index"))
     model = ALSWrap(
         rank=2,
         implicit_prefs=False,
         seed=42,
-        hnswlib_params=HnswlibParam(
-            space="ip",
-            M=100,
-            efC=2000,
-            post=0,
-            efS=2000,
-            build_index_on="driver"
-            # build_index_on="executor",
-            # index_path=index_path
-        )
+        index_builder=ExecutorHnswlibIndexBuilder(
+            index_params=HnswlibParam(
+                space="ip",
+                M=100,
+                efC=2000,
+                post=0,
+                efS=2000,
+            ),
+            index_store=SharedDiskIndexStore(
+                warehouse_dir=str(tmp_path), index_dir="hnswlib_index"
+            ),
+        ),
     )
     return model
 

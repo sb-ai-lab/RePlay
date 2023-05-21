@@ -1,12 +1,12 @@
-from typing import Optional, Tuple, Dict, Any, Union
+from typing import Optional, Tuple, Dict, Any
 
 import pyspark.sql.functions as sf
 from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
-from replay.ann.entities.hnswlib_param import HnswlibParam
 from replay.ann.hnswlib_mixin import HnswlibMixin
+from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.utils import list_to_vector_udf
 
@@ -18,10 +18,10 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
     """
 
     def _get_ann_infer_params(self) -> Dict[str, Any]:
-        self._hnswlib_params.dim = self.rank
+        self.index_builder.index_params.dim = self.rank
         return {
             "features_col": "user_factors",
-            "params": self._hnswlib_params,
+            # "params": self._hnswlib_params,
         }
 
     def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
@@ -29,12 +29,11 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         return user_vectors
 
     def _get_ann_build_params(self, log: DataFrame):
-        self._hnswlib_params.dim = self.rank
-        self._hnswlib_params.max_elements = log.select("item_idx").distinct().count()
+        self.index_builder.index_params.dim = self.rank
+        self.index_builder.index_params.max_elements = log.select("item_idx").distinct().count()
         return {
             "features_col": "item_factors",
-            "params": self._hnswlib_params,
-            "id_col": "item_idx",
+            "ids_col": "item_idx",
         }
 
     def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
@@ -42,10 +41,6 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
             log.select("item_idx").distinct()
         )
         return item_vectors
-
-    @property
-    def _use_ann(self) -> bool:
-        return self._hnswlib_params is not None
 
     _seed: Optional[int] = None
     _search_space = {
@@ -60,7 +55,7 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         seed: Optional[int] = None,
         num_item_blocks: Optional[int] = None,
         num_user_blocks: Optional[int] = None,
-        hnswlib_params: Optional[Union[HnswlibParam, Dict]] = None,
+        index_builder: Optional[IndexBuilder] = None,
     ):
         """
         :param rank: hidden dimension for the approximate matrix
@@ -78,12 +73,7 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         self._seed = seed
         self._num_item_blocks = num_item_blocks
         self._num_user_blocks = num_user_blocks
-        if isinstance(hnswlib_params, dict):
-            self._hnswlib_params = HnswlibParam(**hnswlib_params)
-        elif isinstance(hnswlib_params, (HnswlibParam, type(None))):
-            self._hnswlib_params = hnswlib_params
-        else:
-            raise ValueError("hnswlib_params")
+        self.index_builder = index_builder
         self.num_elements = None
 
     @property
@@ -92,7 +82,6 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
             "rank": self.rank,
             "implicit_prefs": self.implicit_prefs,
             "seed": self._seed,
-            "hnswlib_params": self._hnswlib_params.init_params_as_dict()
         }
 
     def _save_model(self, path: str):

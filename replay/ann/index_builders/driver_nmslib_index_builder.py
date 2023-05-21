@@ -1,46 +1,48 @@
 import logging
-import os
-import tempfile
 from typing import Optional
 
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from scipy.sparse import csr_matrix
 
-from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.ann.index_builders.base_hnsw_index_builder import (
-    BaseHnswIndexBuilder,
+from replay.ann.index_builders.base_index_builder import IndexBuilder
+from replay.ann.index_inferers.base_inferer import IndexInferer
+from replay.ann.index_inferers.nmslib_filter_index_inferer import (
+    NmslibFilterIndexInferer,
 )
-from replay.ann.utils import init_nmslib_index
-from replay.utils import FileInfo, FileSystem
+from replay.ann.index_inferers.nmslib_index_inferer import NmslibIndexInferer
+from replay.ann.utils import create_nmslib_index_instance
 
 logger = logging.getLogger("replay")
 
 
-class DriverNmslibIndexBuilder(BaseHnswIndexBuilder):
+class DriverNmslibIndexBuilder(IndexBuilder):
     """
-    Builder that build nmslib hnsw index on driver
-    and sends it to executors through `SparkContext.addFile()`
+    Builder that builds nmslib hnsw index on driver.
     """
 
-    def __init__(self, index_file_name: str):
-        self._index_file_name = index_file_name
+    def produce_inferer(self, filter_seen_items: bool) -> IndexInferer:
+        if filter_seen_items:
+            return NmslibFilterIndexInferer(
+                self.index_params, self.index_store
+            )
+        else:
+            return NmslibIndexInferer(self.index_params, self.index_store)
 
-    def _build_index(
+    def build_index(
         self,
         vectors: DataFrame,
         features_col: str,
-        params: NmslibHnswParam,
-        id_col: Optional[str] = None,
+        ids_col: Optional[str] = None,
     ):
         index_params = {
-            "M": params.M,
-            "efConstruction": params.efC,
-            "post": params.post,
+            "M": self.index_params.M,
+            "efConstruction": self.index_params.efC,
+            "post": self.index_params.post,
         }
 
         vectors = vectors.toPandas()
 
-        index = init_nmslib_index(params)
+        index = create_nmslib_index_instance(self.index_params)
 
         data = vectors["similarity"].values
         row_ind = vectors["item_idx_two"].values
@@ -48,19 +50,16 @@ class DriverNmslibIndexBuilder(BaseHnswIndexBuilder):
 
         sim_matrix = csr_matrix(
             (data, (row_ind, col_ind)),
-            shape=(params.items_count, params.items_count),
+            shape=(
+                self.index_params.items_count,
+                self.index_params.items_count,
+            ),
         )
         index.addDataPointBatch(data=sim_matrix)
         index.createIndex(index_params)
 
-        # saving index to local temp file and sending it to executors
-        temp_dir = tempfile.mkdtemp()
-        tmp_file_path = os.path.join(temp_dir, self._index_file_name)
-        # save_data=True https://github.com/nmslib/nmslib/issues/300
-        index.saveIndex(tmp_file_path, save_data=True)
-        spark = SparkSession.getActiveSession()
-        # for the "sparse" type we need to store two files
-        spark.sparkContext.addFile("file://" + tmp_file_path)
-        spark.sparkContext.addFile("file://" + tmp_file_path + ".dat")
-
-        return FileInfo(path=temp_dir, filesystem=FileSystem.LOCAL)
+        self.index_store.save_to_store(
+            lambda path: index.saveIndex(
+                path, save_data=True
+            )  # pylint: disable=unnecessary-lambda)
+        )

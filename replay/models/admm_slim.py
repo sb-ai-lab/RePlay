@@ -81,10 +81,6 @@ class ADMMSLIM(NeighbourRec):
             "params": self._nmslib_hnsw_params,
         }
 
-    @property
-    def _use_ann(self) -> bool:
-        return self._nmslib_hnsw_params is not None
-
     rho: float
     threshold: float = 5
     multiplicator: float = 2

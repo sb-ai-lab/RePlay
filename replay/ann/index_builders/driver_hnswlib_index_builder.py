@@ -1,52 +1,49 @@
 import logging
-import os
-import tempfile
 from typing import Optional
 
 import numpy as np
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 
-from replay.ann.entities.hnswlib_param import HnswlibParam
-from replay.ann.index_builders.base_hnsw_index_builder import (
-    BaseHnswIndexBuilder,
+from replay.ann.index_builders.base_index_builder import IndexBuilder
+from replay.ann.index_inferers.base_inferer import IndexInferer
+from replay.ann.index_inferers.hnswlib_filter_index_inferer import (
+    HnswlibFilterIndexInferer,
 )
-from replay.ann.utils import init_hnswlib_index
-from replay.utils import FileInfo, FileSystem
+from replay.ann.index_inferers.hnswlib_index_inferer import HnswlibIndexInferer
+from replay.ann.utils import create_hnswlib_index_instance
 
 logger = logging.getLogger("replay")
 
 
-class DriverHnswlibIndexBuilder(BaseHnswIndexBuilder):
+class DriverHnswlibIndexBuilder(IndexBuilder):
     """
-    Builder that build hnswlib index on driver
-    and sends it to executors through `SparkContext.addFile()`
+    Builder that builds hnswlib index on driver.
     """
 
-    def __init__(self, index_file_name: str):
-        self._index_file_name = index_file_name
+    def produce_inferer(self, filter_seen_items: bool) -> IndexInferer:
+        if filter_seen_items:
+            return HnswlibFilterIndexInferer(
+                self.index_params, self.index_store
+            )
+        else:
+            return HnswlibIndexInferer(self.index_params, self.index_store)
 
-    def _build_index(
+    def build_index(
         self,
         vectors: DataFrame,
         features_col: str,
-        params: HnswlibParam,
-        id_col: Optional[str] = None,
+        ids_col: Optional[str] = None,
     ):
         vectors = vectors.toPandas()
         vectors_np = np.squeeze(vectors[features_col].values)
 
-        index = init_hnswlib_index(params)
+        index = create_hnswlib_index_instance(self.index_params, init=True)
 
-        if id_col:
-            index.add_items(np.stack(vectors_np), vectors[id_col].values)
+        if ids_col:
+            index.add_items(np.stack(vectors_np), vectors[ids_col].values)
         else:
             index.add_items(np.stack(vectors_np))
 
-        # saving index to local temp file and sending it to executors
-        temp_dir = tempfile.mkdtemp()
-        tmp_file_path = os.path.join(temp_dir, self._index_file_name)
-        index.save_index(tmp_file_path)
-        spark = SparkSession.getActiveSession()
-        spark.sparkContext.addFile("file://" + tmp_file_path)
-
-        return FileInfo(path=temp_dir, filesystem=FileSystem.LOCAL)
+        self.index_store.save_to_store(
+            lambda path: index.save_index(path)
+        )  # pylint: disable=unnecessary-lambda)

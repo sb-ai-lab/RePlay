@@ -6,6 +6,8 @@ import numpy as np
 from pyspark.sql import functions as sf
 
 from replay.ann.entities.hnswlib_param import HnswlibParam
+from replay.ann.index_builders.executor_hnswlib_index_builder import ExecutorHnswlibIndexBuilder
+from replay.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
 from replay.constants import LOG_SCHEMA
 from replay.models import Word2VecRec
 from replay.utils import vector_dot
@@ -38,17 +40,20 @@ def model():
 
 @pytest.fixture
 def model_with_ann(tmp_path):
-    index_path = str((tmp_path / "nmslib_index"))
     model = Word2VecRec(
         rank=1, window_size=1, use_idf=True, seed=42, min_count=0,
-        hnswlib_params=HnswlibParam(
-            space="l2",
-            M=100,
-            efC=2000,
-            post=0,
-            efS=2000,
-            build_index_on="executor",
-            index_path=index_path
+        index_builder=ExecutorHnswlibIndexBuilder(
+            index_params=HnswlibParam(
+                space="l2",
+                M=100,
+                efC=2000,
+                post=0,
+                efS=2000,
+            ),
+            index_store=SharedDiskIndexStore(
+                warehouse_dir=str(tmp_path),
+                index_dir="hnswlib_index"
+            )
         )
     )
     return model

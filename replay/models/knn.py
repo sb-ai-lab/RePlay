@@ -1,10 +1,10 @@
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
 
-from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_neighbour_rec import NeighbourRec
 from replay.optuna_objective import ItemKNNObjective
 
@@ -16,12 +16,8 @@ class ItemKNN(NeighbourRec):
     def _get_ann_infer_params(self) -> Dict[str, Any]:
         return {
             "features_col": None,
-            "params": self._nmslib_hnsw_params,
+            # "params": self._nmslib_hnsw_params,
         }
-
-    @property
-    def _use_ann(self) -> bool:
-        return self._nmslib_hnsw_params is not None
 
     all_items: Optional[DataFrame]
     dot_products: Optional[DataFrame]
@@ -41,7 +37,8 @@ class ItemKNN(NeighbourRec):
         use_relevance: bool = False,
         shrink: float = 0.0,
         weighting: str = None,
-        nmslib_hnsw_params: Optional[Union[NmslibHnswParam, Dict]] = None,
+        # nmslib_hnsw_params: Optional[Union[NmslibHnswParam, Dict]] = None,
+        index_builder: Optional[IndexBuilder] = None,
     ):
         """
         :param num_neighbours: number of neighbours
@@ -59,12 +56,7 @@ class ItemKNN(NeighbourRec):
         if weighting not in valid_weightings:
             raise ValueError(f"weighting must be one of {valid_weightings}")
         self.weighting = weighting
-        if isinstance(nmslib_hnsw_params, dict):
-            self._nmslib_hnsw_params = NmslibHnswParam(**nmslib_hnsw_params)
-        elif isinstance(nmslib_hnsw_params, (NmslibHnswParam, type(None))):
-            self._nmslib_hnsw_params = nmslib_hnsw_params
-        else:
-            raise ValueError("hnswlib_params")
+        self.index_builder = index_builder
 
     @property
     def _init_args(self):
@@ -73,7 +65,6 @@ class ItemKNN(NeighbourRec):
             "use_relevance": self.use_relevance,
             "num_neighbours": self.num_neighbours,
             "weighting": self.weighting,
-            "nmslib_hnsw_params": self._nmslib_hnsw_params.init_params_as_dict(),
         }
 
     def _save_model(self, path: str):

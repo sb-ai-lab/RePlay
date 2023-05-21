@@ -5,6 +5,8 @@ import pytest
 import numpy as np
 
 from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
+from replay.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
 from replay.constants import LOG_SCHEMA
 from replay.models import ItemKNN
 from tests.utils import spark
@@ -46,7 +48,7 @@ def model():
 
 
 @pytest.fixture
-def model_with_ann():
+def model_with_ann(tmp_path):
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
         M=10,
@@ -54,7 +56,15 @@ def model_with_ann():
         efC=200,
         post=0,
     )
-    return ItemKNN(1, weighting=None, nmslib_hnsw_params=nmslib_hnsw_params)
+    return ItemKNN(1, weighting=None,
+                   index_builder=DriverNmslibIndexBuilder(
+                       index_params=nmslib_hnsw_params,
+                       index_store=SharedDiskIndexStore(
+                           warehouse_dir=str(tmp_path),
+                           index_dir="nmslib_hnsw_index"
+                       )
+                   )
+                   )
 
 
 @pytest.fixture

@@ -5,7 +5,7 @@ import tempfile
 import uuid
 import weakref
 from abc import abstractmethod
-from typing import Optional, Dict, Union, Any, Tuple
+from typing import Optional, Dict, Any, Tuple
 
 from cached_property import cached_property
 from pyarrow import fs
@@ -14,6 +14,7 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 
 from replay.ann.entities.base_hnsw_param import BaseHnswParam
+from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_rec import BaseRecommender
 from replay.utils import get_filesystem, FileSystem
 
@@ -28,6 +29,7 @@ class ANNMixin(BaseRecommender):
     """
 
     INDEX_FILENAME = "index"
+    index_builder: Optional[IndexBuilder] = None
 
     @cached_property
     def _spark_index_file_uid(self) -> str:  # pylint: disable=no-self-use
@@ -39,13 +41,13 @@ class ANNMixin(BaseRecommender):
         return uuid.uuid4().hex[-12:]
 
     @property
-    @abstractmethod
     def _use_ann(self) -> bool:
         """
         Property that determines whether the ANN (index) is used.
         If `True`, then the index will be built (at the `fit` stage)
         and index will be inferred (at the `predict` stage).
         """
+        return self.index_builder is not None
 
     @abstractmethod
     def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
@@ -70,7 +72,7 @@ class ANNMixin(BaseRecommender):
         Returns: Dictionary with arguments to build index. For example: {
             "id_col": "item_idx",
             "features_col": "item_factors",
-            "params": self._hnswlib_params,
+            ...
         }
 
         """
@@ -97,7 +99,7 @@ class ANNMixin(BaseRecommender):
         if self._use_ann:
             vectors = self._get_vectors_to_build_ann(log)
             ann_params = self._get_ann_build_params(log)
-            self._build_ann_index(vectors, **ann_params)
+            self.index_builder.build_index(vectors, **ann_params)
 
     @abstractmethod
     def _get_vectors_to_infer_ann_inner(
@@ -130,7 +132,7 @@ class ANNMixin(BaseRecommender):
         """
         users = self._get_vectors_to_infer_ann_inner(log, users)
 
-        # here we add `seen_item_idxs` to filter the viewed items in UDFs (see infer_index)
+        # here we add `seen_item_idxs` to filter the viewed items in UDFs (see infer_index_udf)
         if filter_seen_items:
             user_to_max_items = log.groupBy("user_idx").agg(
                 sf.count("item_idx").alias("num_items"),
@@ -147,50 +149,8 @@ class ANNMixin(BaseRecommender):
 
         Returns: Dictionary with arguments to infer index. For example: {
             "features_col": "user_vector",
-            "params": self._hnsw_params,
+            ...
         }
-
-        """
-
-    @abstractmethod
-    def _build_ann_index(
-        self,
-        vectors: DataFrame,
-        features_col: str,
-        params: Dict[str, Union[int, str]],
-        id_col: Optional[str] = None,
-    ) -> None:
-        """The method implements the construction of the ANN index.
-
-        Args:
-            vectors: DataFrame with vectors to build index
-            features_col: Name of column from `vectors` dataframe
-                that contains vectors to build index
-            params: Index params
-            id_col: Name of column that contains identifiers of vectors.
-                None if `vectors` dataframe have no id column.
-
-        """
-
-    @abstractmethod
-    def _infer_ann_index(  # pylint: disable=too-many-arguments
-        self,
-        vectors: DataFrame,
-        features_col: str,
-        params: Dict[str, Union[int, str]],
-        k: int,
-        filter_seen_items: bool,
-    ) -> DataFrame:
-        """The method implements the inference of the ANN index.
-
-        Args:
-            vectors: Dataframe that contains vectors to inference
-            features_col: Column name from `vectors` dataframe that contains vectors to inference
-            params: Index params
-            k: Desired number of neighbour vectors for vectors from `vectors` dataframe
-            filter_seen_items: flag to filter seen items before output
-
-        Returns: DataFrame[user_idx int, item_idx int, relevance double]
 
         """
 
@@ -210,12 +170,8 @@ class ANNMixin(BaseRecommender):
                 log, users, filter_seen_items
             )
             ann_params = self._get_ann_infer_params()
-            return self._infer_ann_index(
-                vectors,
-                k=k,
-                filter_seen_items=filter_seen_items,
-                **ann_params,
-            )
+            inferer = self.index_builder.produce_inferer(filter_seen_items)
+            return inferer.infer(vectors, ann_params["features_col"], k)
         else:
             return self._predict(
                 log,
@@ -226,51 +182,6 @@ class ANNMixin(BaseRecommender):
                 item_features,
                 filter_seen_items,
             )
-
-    @staticmethod
-    def _unpack_infer_struct(inference_result: DataFrame) -> DataFrame:
-        """Transforms input dataframe.
-        Unpacks and explodes arrays from `neighbours` struct.
-
-        >>>
-        >> inference_result.printSchema()
-        root
-         |-- user_idx: integer (nullable = true)
-         |-- neighbours: struct (nullable = true)
-         |    |-- item_idx: array (nullable = true)
-         |    |    |-- element: integer (containsNull = true)
-         |    |-- distance: array (nullable = true)
-         |    |    |-- element: double (containsNull = true)
-        >> ANNMixin._unpack_infer_struct(inference_result).printSchema()
-        root
-         |-- user_idx: integer (nullable = true)
-         |-- item_idx: integer (nullable = true)
-         |-- relevance: double (nullable = true)
-
-        Args:
-            inference_result: output of infer_index UDF
-        """
-        res = inference_result.select(
-            "user_idx",
-            sf.explode(
-                sf.arrays_zip("neighbours.item_idx", "neighbours.distance")
-            ).alias("zip_exp"),
-        )
-
-        # Fix arrays_zip random behavior.
-        # It can return zip_exp.0 or zip_exp.item_idx in different machines.
-        fields = res.schema["zip_exp"].jsonValue()["type"]["fields"]
-        item_idx_field_name: str = fields[0]["name"]
-        distance_field_name: str = fields[1]["name"]
-
-        res = res.select(
-            "user_idx",
-            sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx"),
-            (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias(
-                "relevance"
-            ),
-        )
-        return res
 
     def _filter_seen(
         self, recs: DataFrame, log: DataFrame, k: int, users: DataFrame

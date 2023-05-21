@@ -93,30 +93,34 @@ def load_index_from_source_fs(
         load_index(source.path)
 
 
-def init_hnswlib_index(params: HnswlibParam):
+def create_hnswlib_index_instance(params: HnswlibParam, init: bool = False):
     """
-    Inits and returns hnswlib index
+    Creates and returns hnswlib index
 
     :param params: `HnswlibParam`
-    :return: `hnswlib` index
+    :param init: If `True` it will call the `init_index` method on the index.
+        Used when we want to create a new index.
+        If `False` then the index will be used to load index data from a file.
+    :return: `hnswlib` index instance
     """
     index = hnswlib.Index(  # pylint: disable=c-extension-no-member
         space=params.space, dim=params.dim
     )
 
-    # Initializing index - the maximum number of elements should be known beforehand
-    index.init_index(
-        max_elements=params.max_elements,
-        ef_construction=params.efC,
-        M=params.M,
-    )
+    if init:
+        # Initializing index - the maximum number of elements should be known beforehand
+        index.init_index(
+            max_elements=params.max_elements,
+            ef_construction=params.efC,
+            M=params.M,
+        )
 
     return index
 
 
-def init_nmslib_index(params: NmslibHnswParam):
+def create_nmslib_index_instance(params: NmslibHnswParam):
     """
-    Inits and returns nmslib index
+    Creates and returns nmslib index
 
     :param params: `NmslibHnswParam`
     :return: `nmslib` index

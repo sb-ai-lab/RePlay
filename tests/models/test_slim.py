@@ -4,6 +4,12 @@ import pytest
 import numpy as np
 
 from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.ann.index_builders.executor_nmslib_index_builder import (
+    ExecutorNmslibIndexBuilder,
+)
+from replay.ann.index_stores.shared_disk_index_store import (
+    SharedDiskIndexStore,
+)
 from replay.models import SLIM
 from tests.utils import log, spark
 
@@ -15,17 +21,24 @@ def model():
 
 @pytest.fixture
 def model_with_ann(tmp_path):
-    index_path = str((tmp_path / "nmslib_index").resolve())
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
         M=10,
         efS=200,
         efC=200,
         post=0,
-        build_index_on="executor",
-        index_path=index_path,
     )
-    return SLIM(0.0, 0.01, seed=42, nmslib_hnsw_params=nmslib_hnsw_params)
+    return SLIM(
+        0.0,
+        0.01,
+        seed=42,
+        index_builder=ExecutorNmslibIndexBuilder(
+            index_params=nmslib_hnsw_params,
+            index_store=SharedDiskIndexStore(
+                warehouse_dir=str(tmp_path), index_dir="nmslib_hnsw_index"
+            ),
+        ),
+    )
 
 
 def test_fit(log, model):

@@ -5,39 +5,49 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from scipy.sparse import csr_matrix
 
-from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.ann.index_builders.base_hnsw_index_builder import (
-    BaseHnswIndexBuilder,
+from replay.ann.index_builders.base_index_builder import IndexBuilder
+from replay.ann.index_inferers.base_inferer import IndexInferer
+from replay.ann.index_inferers.nmslib_filter_index_inferer import (
+    NmslibFilterIndexInferer,
 )
-from replay.ann.utils import save_index_to_destination_fs, init_nmslib_index
-from replay.utils import get_filesystem
+from replay.ann.index_inferers.nmslib_index_inferer import NmslibIndexInferer
+from replay.ann.utils import (
+    create_nmslib_index_instance,
+)
 
 logger = logging.getLogger("replay")
 
 
-class ExecutorNmslibIndexBuilder(BaseHnswIndexBuilder):
+class ExecutorNmslibIndexBuilder(IndexBuilder):
     """
-    Builder that build nmslib hnsw index on one executor
-    and save it to hdfs or shared disk.
+    Builder that build nmslib hnsw index on one executor.
     """
 
-    def _build_index(
+    def produce_inferer(self, filter_seen_items: bool) -> IndexInferer:
+        if filter_seen_items:
+            return NmslibFilterIndexInferer(
+                self.index_params, self.index_store
+            )
+        else:
+            return NmslibIndexInferer(self.index_params, self.index_store)
+
+    def build_index(
         self,
         vectors: DataFrame,
         features_col: str,
-        params: NmslibHnswParam,
-        id_col: Optional[str] = None,
+        ids_col: Optional[str] = None,
     ):
         index_params = {
-            "M": params.M,
-            "efConstruction": params.efC,
-            "post": params.post,
+            "M": self.index_params.M,
+            "efConstruction": self.index_params.efC,
+            "post": self.index_params.post,
         }
 
         # to execution in one executor
         vectors = vectors.repartition(1)
 
-        target_index_file = get_filesystem(params.index_path)
+        _index_store = self.index_store
+        _index_params = self.index_params
 
         def build_index_udf(iterator: Iterator[pd.DataFrame]):
             """Builds index on executor and writes it to shared disk or hdfs.
@@ -46,7 +56,7 @@ class ExecutorNmslibIndexBuilder(BaseHnswIndexBuilder):
                 iterator: iterates on dataframes with vectors/features
 
             """
-            index = init_nmslib_index(params)
+            index = create_nmslib_index_instance(_index_params)
 
             pdfs = []
             for pdf in iterator:
@@ -64,17 +74,17 @@ class ExecutorNmslibIndexBuilder(BaseHnswIndexBuilder):
 
             sim_matrix_tmp = csr_matrix(
                 (data, (row_ind, col_ind)),
-                shape=(params.items_count, params.items_count),
+                shape=(
+                    self.index_params.items_count,
+                    self.index_params.items_count,
+                ),
             )
             index.addDataPointBatch(data=sim_matrix_tmp)
             index.createIndex(index_params)
 
-            save_index_to_destination_fs(
-                sparse=True,
-                # save_data=True https://github.com/nmslib/nmslib/issues/300
-                save_index=lambda path: index.saveIndex(path, save_data=True),
-                target=target_index_file,
-            )
+            _index_store.save_to_store(
+                lambda path: index.saveIndex(path, save_data=True)
+            )  # pylint: disable=unnecessary-lambda)
 
             yield pd.DataFrame(data={"_success": 1}, index=[0])
 
@@ -82,6 +92,3 @@ class ExecutorNmslibIndexBuilder(BaseHnswIndexBuilder):
         vectors.select(
             "similarity", "item_idx_one", "item_idx_two"
         ).mapInPandas(build_index_udf, "_success int").collect()
-
-        # return target_index_file
-        return None
