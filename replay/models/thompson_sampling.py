@@ -49,10 +49,16 @@ class ThompsonSampling(NonPersonalizedRecommender):
         )
 
         self.item_popularity = num_positive.join(
-            num_negative, how="inner", on="item_idx"
-        )
+            num_negative, how="outer", on="item_idx"
+        ).na.fill(value=0)
 
         self.item_popularity = self.item_popularity.withColumn(
+            "positive",
+            sf.col("positive") + sf.lit(1)
+        ).withColumn(
+            "negative",
+            sf.col("negative") + sf.lit(1)
+        ).withColumn(
             "relevance",
             sf.udf(np.random.beta, "double")("positive", "negative")
         ).drop("positive", "negative")
