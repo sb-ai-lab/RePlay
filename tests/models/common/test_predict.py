@@ -23,7 +23,14 @@ from replay.models import (
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
 
-from tests.utils import sparkDataFrameEqual
+from tests.utils import (
+    spark,
+    log,
+    log_to_pred,
+    long_log_with_features,
+    user_features,
+    sparkDataFrameEqual,
+)
 
 SEED = 123
 

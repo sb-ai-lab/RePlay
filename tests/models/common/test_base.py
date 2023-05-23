@@ -6,16 +6,34 @@ from pyspark.sql import functions as sf
 
 from replay.constants import LOG_SCHEMA
 from replay.models import (
-    ALSWrap,
     ADMMSLIM,
+    ALSWrap,
+    AssociationRulesItemRec,
     ItemKNN,
     PopRec,
     SLIM,
     Word2VecRec,
-    AssociationRulesItemRec,
 )
+from tests.utils import spark, log
+
 
 SEED = 123
+
+
+def test_filter_seen(log):
+    model = PopRec()
+    # filter seen works with empty log to filter (cold_user)
+    model.fit(log.filter(sf.col("user_idx") != 0))
+    pred = model.predict(log=log, users=[3], k=5)
+    assert pred.count() == 2
+
+    # filter seen works with log not presented during training (for user1)
+    pred = model.predict(log=log, users=[0], k=5)
+    assert pred.count() == 1
+
+    # filter seen turns off
+    pred = model.predict(log=log, users=[0], k=5, filter_seen_items=False)
+    assert pred.count() == 4
 
 
 # for NeighbourRec and ItemVectorModel
@@ -97,22 +115,6 @@ def test_nearest_items_raises(log, metric):
         ValueError, match=r"Select one of the valid distance metrics.*"
     ):
         model.get_nearest_items(items=[0, 1], k=2, metric=metric)
-
-
-def test_filter_seen(log):
-    model = PopRec()
-    # filter seen works with empty log to filter (cold_user)
-    model.fit(log.filter(sf.col("user_idx") != 0))
-    pred = model.predict(log=log, users=[3], k=5)
-    assert pred.count() == 2
-
-    # filter seen works with log not presented during training (for user1)
-    pred = model.predict(log=log, users=[0], k=5)
-    assert pred.count() == 1
-
-    # filter seen turns off
-    pred = model.predict(log=log, users=[0], k=5, filter_seen_items=False)
-    assert pred.count() == 4
 
 
 @pytest.mark.parametrize(
