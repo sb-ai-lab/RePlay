@@ -7,7 +7,7 @@ from statsmodels.stats.proportion import proportion_confint
 
 from replay.models import Wilson
 from replay.utils import convert2spark
-from tests.utils import log, spark, sparkDataFrameEqual
+from tests.utils import log, pos_neg_log, spark, sparkDataFrameEqual
 
 
 @pytest.fixture
@@ -16,17 +16,14 @@ def model():
     return model
 
 
-def test_works(log, model):
-    log = log.withColumn(
-        "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
-    )
-    model.fit(log)
+def test_works(pos_neg_log, model):
+    model.fit(pos_neg_log)
     model.item_popularity.count()
 
 
-def calc_wilson_interval(log):
+def calc_wilson_interval(pos_neg_log):
     data_frame = (
-        log.groupby("item_idx")
+        pos_neg_log.groupby("item_idx")
         .agg(
             sf.sum("relevance").alias("pos"),
             sf.count("relevance").alias("total"),
@@ -42,21 +39,15 @@ def calc_wilson_interval(log):
     return convert2spark(data_frame)
 
 
-def test_calculation(log, model):
-    log = log.withColumn(
-        "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
-    )
-    model.fit(log)
-    stat_wilson = calc_wilson_interval(log)
+def test_calculation(pos_neg_log, model):
+    model.fit(pos_neg_log)
+    stat_wilson = calc_wilson_interval(pos_neg_log)
     sparkDataFrameEqual(model.item_popularity, stat_wilson)
 
 
-def test_predict(log, model):
-    log = log.withColumn(
-        "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
-    )
-    model.fit(log)
-    recs = model.predict(log, k=1, users=[1, 0], items=[3, 2])
+def test_predict(pos_neg_log, model):
+    model.fit(pos_neg_log)
+    recs = model.predict(pos_neg_log, k=1, users=[1, 0], items=[3, 2])
     assert recs.count() == 2
     assert (
         recs.select(

@@ -11,6 +11,7 @@ import pytest
 from numpy.testing import assert_allclose
 from pyspark.ml.linalg import DenseVector
 from pyspark.sql import DataFrame
+from pyspark.sql import functions as sf
 
 from replay.constants import REC_SCHEMA, LOG_SCHEMA
 from replay.session_handler import get_spark_session
@@ -57,6 +58,13 @@ def log2(spark):
 
 
 @pytest.fixture
+def pos_neg_log2(log2):
+    return log2.withColumn(
+        "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
+    )
+
+
+@pytest.fixture
 def log(spark):
     return spark.createDataFrame(
         data=[
@@ -73,6 +81,13 @@ def log(spark):
             [3, 0, datetime(2019, 8, 26), 1.0],
         ],
         schema=LOG_SCHEMA,
+    )
+
+
+@pytest.fixture
+def pos_neg_log(log):
+    return log.withColumn(
+        "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
     )
 
 

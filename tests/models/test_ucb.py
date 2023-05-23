@@ -4,34 +4,28 @@ import pytest
 from pyspark.sql import functions as sf
 
 from replay.models import UCB
-from tests.utils import log, log2, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
+from tests.utils import (
+    log,
+    log2,
+    pos_neg_log,
+    pos_neg_log2,
+    spark,
+    sparkDataFrameEqual,
+    sparkDataFrameNotEqual
+)
 
 
 @pytest.fixture
-def log_ucb(log):
-    return log.withColumn(
-        "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
-    )
-
-
-@pytest.fixture
-def log_ucb2(log2):
-    return log2.withColumn(
-        "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
-    )
-
-
-@pytest.fixture
-def fitted_model(log_ucb):
+def fitted_model(pos_neg_log):
     model = UCB()
-    model.fit(log_ucb)
+    model.fit(pos_neg_log)
     return model
 
 
-def test_popularity_matrix(fitted_model, log_ucb):
+def test_popularity_matrix(fitted_model, pos_neg_log):
     assert (
         fitted_model.item_popularity.count()
-        == log_ucb.select("item_idx").distinct().count()
+        == pos_neg_log.select("item_idx").distinct().count()
     )
     fitted_model.item_popularity.show()
 
@@ -44,11 +38,11 @@ def test_popularity_matrix(fitted_model, log_ucb):
         "sample_not_fixed",
     ],
 )
-def test_predict_empty_log(fitted_model, log_ucb, sample, seed):
+def test_predict_empty_log(fitted_model, pos_neg_log, sample, seed):
     fitted_model.seed = seed
     fitted_model.sample = sample
 
-    users = log_ucb.select("user_idx").distinct()
+    users = pos_neg_log.select("user_idx").distinct()
     pred = fitted_model.predict(
         log=None, users=users, items=list(range(10)), k=1
     )
@@ -64,7 +58,7 @@ def test_predict_empty_log(fitted_model, log_ucb, sample, seed):
         "sample_fixed",
     ],
 )
-def test_predict(fitted_model, log_ucb, sample, seed):
+def test_predict(fitted_model, pos_neg_log, sample, seed):
     # fixed seed provides reproducibility (the same prediction every time),
     # non-fixed provides diversity (predictions differ every time)
     fitted_model.seed = seed
@@ -77,26 +71,26 @@ def test_predict(fitted_model, log_ucb, sample, seed):
     )
 
     # add more items to get more randomness
-    pred = fitted_model.predict(log_ucb, items=list(range(10)), k=1)
+    pred = fitted_model.predict(pos_neg_log, items=list(range(10)), k=1)
     pred_checkpoint = pred.localCheckpoint()
     pred.unpersist()
 
     # predictions are equal/non-equal after model re-fit
-    fitted_model.fit(log_ucb)
+    fitted_model.fit(pos_neg_log)
 
     pred_after_refit = fitted_model.predict(
-        log_ucb, items=list(range(10)), k=1
+        pos_neg_log, items=list(range(10)), k=1
     )
     equality_check(pred_checkpoint, pred_after_refit)
 
     # predictions are equal/non-equal when call `predict repeatedly`
     pred_after_refit_checkpoint = pred_after_refit.localCheckpoint()
     pred_after_refit.unpersist()
-    pred_repeat = fitted_model.predict(log_ucb, items=list(range(10)), k=1)
+    pred_repeat = fitted_model.predict(pos_neg_log, items=list(range(10)), k=1)
     equality_check(pred_after_refit_checkpoint, pred_repeat)
 
 
-def test_refit(fitted_model, log_ucb, log_ucb2):
+def test_refit(fitted_model, pos_neg_log, pos_neg_log2):
 
     fitted_model.seed = 123
     fitted_model.sample = True
@@ -107,14 +101,14 @@ def test_refit(fitted_model, log_ucb, log_ucb2):
         else sparkDataFrameEqual
     )
 
-    fitted_model.refit(log_ucb2)
+    fitted_model.refit(pos_neg_log2)
     pred_after_refit = fitted_model.predict(
-        log_ucb, items=list(range(10)), k=1
+        pos_neg_log, items=list(range(10)), k=1
     )
 
-    fitted_model.fit(log_ucb.union(log_ucb2))
+    fitted_model.fit(pos_neg_log.union(pos_neg_log2))
     pred_after_full_fit = fitted_model.predict(
-        log_ucb, items=list(range(10)), k=1
+        pos_neg_log, items=list(range(10)), k=1
     )
 
     # predictions are equal/non-equal after model refit and full fit on all log
