@@ -16,11 +16,6 @@ def model():
     return model
 
 
-def test_works(pos_neg_log, model):
-    model.fit(pos_neg_log)
-    model.item_popularity.count()
-
-
 def calc_wilson_interval(pos_neg_log):
     data_frame = (
         pos_neg_log.groupby("item_idx")

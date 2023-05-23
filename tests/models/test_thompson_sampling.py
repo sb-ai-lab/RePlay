@@ -21,11 +21,6 @@ def fitted_model(pos_neg_log, model):
     return model
 
 
-def test_works(pos_neg_log, model):
-    model.fit(pos_neg_log)
-    model.item_popularity.count()
-
-
 @pytest.mark.parametrize(
     "sample,seed",
     [(False, None), (True, None)],

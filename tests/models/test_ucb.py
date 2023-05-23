@@ -22,14 +22,6 @@ def fitted_model(pos_neg_log):
     return model
 
 
-def test_popularity_matrix(fitted_model, pos_neg_log):
-    assert (
-        fitted_model.item_popularity.count()
-        == pos_neg_log.select("item_idx").distinct().count()
-    )
-    fitted_model.item_popularity.show()
-
-
 @pytest.mark.parametrize(
     "sample,seed",
     [(False, None), (True, None)],

@@ -12,9 +12,12 @@ from replay.models import (
     ItemKNN,
     PopRec,
     SLIM,
+    ThompsonSampling,
+    UCB,
+    Wilson,
     Word2VecRec,
 )
-from tests.utils import spark, log
+from tests.utils import log, pos_neg_log, spark
 
 
 SEED = 123
@@ -135,3 +138,27 @@ def test_similarity_metric_raises(log, model):
     ):
         model.fit(log)
         model.similarity_metric = "some"
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        PopRec(),
+        ThompsonSampling(),
+        UCB(),
+        Wilson(),
+    ],
+    ids=[
+        "pop_rec",
+        "thompson",
+        "UCB",
+        "wilson",
+    ],
+)
+def test_item_popularity(model, pos_neg_log):
+    model.fit(pos_neg_log)
+    assert (
+        model.item_popularity.count()
+        == pos_neg_log.select("item_idx").distinct().count()
+    )
+    model.item_popularity.count()
