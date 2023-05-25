@@ -15,7 +15,7 @@ from replay.models.ddpg import (
     ReplayBuffer,
     to_np,
 )
-from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
+from tests.utils import del_files_by_pattern, find_file_by_pattern, log, spark
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -24,32 +24,6 @@ def fix_seeds():
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     np.random.seed(0)
-
-
-@pytest.fixture
-def log(spark):
-    date = datetime(2019, 1, 1)
-    return spark.createDataFrame(
-        data=[
-            (0, 0, date, 1.0),
-            (0, 1, date, 1.0),
-            (0, 2, date, 1.0),
-            (1, 0, date, 1.0),
-            (1, 1, date, 1.0),
-            (0, 0, date, 1.0),
-            (0, 1, date, 1.0),
-            (0, 2, date, 1.0),
-            (1, 0, date, 1.0),
-            (1, 1, date, 1.0),
-            (0, 0, date, 1.0),
-            (0, 1, date, 1.0),
-            (0, 2, date, 1.0),
-            (1, 0, date, 1.0),
-            (1, 1, date, 1.0),
-            (2, 3, date, 1.0),
-        ],
-        schema=LOG_SCHEMA,
-    )
 
 
 @pytest.fixture

@@ -30,6 +30,7 @@ from tests.utils import (
     long_log_with_features,
     user_features,
     sparkDataFrameEqual,
+    sparkDataFrameNotEqual,
 )
 
 SEED = 123
@@ -334,30 +335,20 @@ def test_predict_cold_and_new_filter_out(model, long_log_with_features):
 
 
 @pytest.mark.parametrize(
-    "model",
+    "seed",
     [
-        PopRec(),
-        ALSWrap(rank=2, seed=SEED),
-        ItemKNN(),
-        DDPG(seed=SEED, user_num=6, item_num=6),
+        None,
+        SEED,
     ],
     ids=[
-        "pop_rec",
-        "als",
-        "knn",
-        "ddpg",
+        "no_seed",
+        "seed",
     ],
 )
-def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
+def test_predict_pairs_to_file(spark, seed, long_log_with_features, tmp_path):
     path = str((tmp_path / "pred.parquet").resolve().absolute())
+    model = RandomRec(seed=seed)
     model.fit(long_log_with_features)
-    model.predict_pairs(
-        log=long_log_with_features,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
-            "user_idx", "item_idx"
-        ),
-        recs_file_path=path,
-    )
     pred_cached = model.predict_pairs(
         log=long_log_with_features,
         pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
@@ -366,32 +357,33 @@ def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
         recs_file_path=None,
     )
     pred_from_file = spark.read.parquet(path)
-    sparkDataFrameEqual(pred_cached, pred_from_file)
+    if model.seed is not None:
+        sparkDataFrameEqual(pred_cached, pred_from_file)
+    else:
+        sparkDataFrameNotEqual(pred_cached, pred_from_file)
 
 
 @pytest.mark.parametrize(
-    "model",
+    "seed",
     [
-        PopRec(),
-        ALSWrap(rank=2, seed=SEED),
-        ItemKNN(),
-        DDPG(seed=SEED, user_num=6, item_num=6),
+        None,
+        SEED,
     ],
     ids=[
-        "pop_rec",
-        "als",
-        "knn",
-        "ddpg",
+        "no_seed",
+        "seed",
     ],
 )
-def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
+def test_predict_to_file(spark, seed, log, tmp_path):
     path = str((tmp_path / "pred.parquet").resolve().absolute())
-    model.fit_predict(long_log_with_features, k=10, recs_file_path=path)
-    pred_cached = model.predict(
-        long_log_with_features, k=10, recs_file_path=None
-    )
+    model = RandomRec(seed=seed)
+    model.fit_predict(log, k=10, recs_file_path=path)
+    pred_cached = model.predict(log, k=10, recs_file_path=None)
     pred_from_file = spark.read.parquet(path)
-    sparkDataFrameEqual(pred_cached, pred_from_file)
+    if model.seed is not None:
+        sparkDataFrameEqual(pred_cached, pred_from_file)
+    else:
+        sparkDataFrameNotEqual(pred_cached, pred_from_file)
 
 
 @pytest.mark.parametrize("add_cold_items", [True, False])

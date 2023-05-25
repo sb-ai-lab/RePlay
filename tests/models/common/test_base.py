@@ -17,10 +17,7 @@ from replay.models import (
     Wilson,
     Word2VecRec,
 )
-from tests.utils import log, pos_neg_log, spark
-
-
-SEED = 123
+from tests.utils import log, pos_neg_log, SEED, spark
 
 
 def test_filter_seen(log):

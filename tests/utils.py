@@ -17,6 +17,9 @@ from replay.constants import REC_SCHEMA, LOG_SCHEMA
 from replay.session_handler import get_spark_session
 
 
+SEED = 123
+
+
 def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
     assert set(d1.keys()) == set(d2.keys())
     for key in d1:

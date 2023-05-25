@@ -4,15 +4,21 @@ import pytest
 from pyspark.sql import functions as sf
 
 from replay.models import RandomRec
-from tests.utils import log, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
+from tests.utils import (
+    log,
+    SEED,
+    spark,
+    sparkDataFrameEqual,
+    sparkDataFrameNotEqual
+)
 
 
 @pytest.fixture(
     params=[
-        {"seed": 123},
+        {"seed": SEED},
         {},
-        {"distribution": "popular_based", "seed": 123},
-        {"distribution": "relevance", "seed": 123},
+        {"distribution": "popular_based", "seed": SEED},
+        {"distribution": "relevance", "seed": SEED},
     ],
     ids=[
         "uniform_seed",

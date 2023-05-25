@@ -15,12 +15,6 @@ def model():
     return model
 
 
-@pytest.fixture
-def fitted_model(pos_neg_log, model):
-    model.fit(pos_neg_log)
-    return model
-
-
 @pytest.mark.parametrize(
     "sample,seed",
     [(False, None), (True, None)],
@@ -29,12 +23,13 @@ def fitted_model(pos_neg_log, model):
         "sample_not_fixed",
     ],
 )
-def test_predict_empty_log(fitted_model, pos_neg_log, sample, seed):
-    fitted_model.seed = seed
-    fitted_model.sample = sample
+def test_predict_empty_log(model, pos_neg_log, sample, seed):
+    model.fit(pos_neg_log)
+    model.seed = seed
+    model.sample = sample
 
     users = pos_neg_log.select("user_idx").distinct()
-    pred = fitted_model.predict(
+    pred = model.predict(
         log=None, users=users, items=list(range(10)), k=1
     )
     assert pred.count() == users.count()
