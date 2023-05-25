@@ -62,6 +62,11 @@ def log2(spark):
 
 @pytest.fixture
 def pos_neg_log2(log2):
+    """
+    Log with both relevance binarized to {0, 1}.
+
+    Mainly used in bandit models (ThompsonSampling, UCB, etc).
+    """
     return log2.withColumn(
         "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
     )
@@ -89,6 +94,11 @@ def log(spark):
 
 @pytest.fixture
 def pos_neg_log(log):
+    """
+    Log with both relevance binarized to {0, 1}.
+
+    Mainly used in bandit models (ThompsonSampling, UCB, etc).
+    """
     return log.withColumn(
         "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
     )
@@ -141,6 +151,16 @@ def user_features(spark):
 
 
 @pytest.fixture
+def numeric_user_features(spark):
+    """
+    Mainly used in LightFMWrap.
+    """
+    return spark.createDataFrame(
+        [(0, 2.0, 5.0), (1, 0.0, -5.0), (4, 4.0, 3.0)]
+    ).toDF("user_idx", "user_feature_1", "user_feature_2")
+
+
+@pytest.fixture
 def item_features(spark):
     return spark.createDataFrame(
         [
@@ -152,6 +172,16 @@ def item_features(spark):
             (5, 0.0, "mouse", "yellow"),
         ]
     ).toDF("item_idx", "iq", "class", "color")
+
+
+@pytest.fixture
+def numeric_item_features(spark):
+    """
+    Mainly used in LightFMWrap.
+    """
+    return spark.createDataFrame([(0, 4.0, 5.0), (1, 5.0, 4.0)]).toDF(
+        "item_idx", "item_feature_1", "item_feature_2"
+    )
 
 
 def unify_dataframe(data_frame: DataFrame):

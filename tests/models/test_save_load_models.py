@@ -13,7 +13,7 @@ from replay.data_preparator import Indexer
 from replay.model_handler import save, load
 from replay.models import *
 from replay.utils import convert2spark
-from tests.utils import long_log_with_features, sparkDataFrameEqual, spark
+from tests.utils import long_log_with_features, numeric_user_features, sparkDataFrameEqual, spark
 from tests.models.test_cat_pop_rec import cat_tree, cat_log, requested_cats
 
 
@@ -22,13 +22,6 @@ def log_unary(long_log_with_features):
     return long_log_with_features.withColumn(
         "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
     )
-
-
-@pytest.fixture
-def user_features(spark):
-    return spark.createDataFrame(
-        [(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)]
-    ).toDF("user_idx", "age", "mood", "gender")
 
 
 @pytest.fixture
@@ -115,14 +108,14 @@ def test_implicit(long_log_with_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
-def test_cluster(long_log_with_features, user_features, tmp_path):
+def test_cluster(long_log_with_features, numeric_user_features, tmp_path):
     path = (tmp_path / "cluster").resolve()
     model = ClusterRec()
-    model.fit(long_log_with_features, user_features)
-    base_pred = model.predict(user_features, 5)
+    model.fit(long_log_with_features, numeric_user_features)
+    base_pred = model.predict(numeric_user_features, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(user_features, 5)
+    new_pred = loaded_model.predict(numeric_user_features, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
