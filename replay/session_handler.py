@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 import psutil
 import torch
 from pyspark.sql import SparkSession
+from importlib.metadata import version
 
 
 def get_spark_session(
@@ -30,6 +31,19 @@ def get_spark_session(
     os.environ["PYSPARK_PYTHON"] = sys.executable
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
+    if os.environ.get("REPLAY_JAR_PATH"):
+        path_to_replay_jar = os.environ.get("REPLAY_JAR_PATH")
+    else:
+        if version('pyspark').startswith("3.1"):
+            path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.1.jar"
+        elif version('pyspark').startswith("3.2"):
+            path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.2.jar"
+        else:
+            path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.1.jar"
+            logging.warning("Replay ALS model support only spark 3.1 and 3.2! "
+                            "Replay will use 'jars/replay_2.12-0.1_spark_3.1.jar' in 'spark.jars' property.")
+            # raise Exception("Replay support only spark 3.1 and 3.2!")
+
     if spark_memory is None:
         spark_memory = floor(psutil.virtual_memory().total / 1024**3 * 0.7)
     if shuffle_partitions is None:
@@ -42,7 +56,7 @@ def get_spark_session(
             "spark.driver.extraJavaOptions",
             "-Dio.netty.tryReflectionSetAccessible=true",
         )
-        .config("spark.jars", os.environ.get("REPLAY_JAR_PATH", "jars/replay_2.12-0.1.jar"))
+        .config("spark.jars", path_to_replay_jar)
         .config("spark.sql.shuffle.partitions", str(shuffle_partitions))
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
         .config("spark.driver.maxResultSize", "4g")
