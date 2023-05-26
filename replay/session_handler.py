@@ -34,16 +34,20 @@ def get_spark_session(
     if os.environ.get("REPLAY_JAR_PATH"):
         path_to_replay_jar = os.environ.get("REPLAY_JAR_PATH")
     else:
-        if version('pyspark').startswith("3.1"):
+        if version("pyspark").startswith("3.1"):
             path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.1.jar"
-        elif version('pyspark').startswith("3.2") or version('pyspark').startswith("3.3"):
+        elif version("pyspark").startswith("3.2") or version(
+            "pyspark"
+        ).startswith("3.3"):
             path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.2.jar"
-        elif version('pyspark').startswith("3.4"):
+        elif version("pyspark").startswith("3.4"):
             path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.4.jar"
         else:
             path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.1.jar"
-            logging.warning("Replay ALS model support only spark 3.1-3.4 versions! "
-                            "Replay will use 'jars/replay_2.12-0.1_spark_3.1.jar' in 'spark.jars' property.")
+            logging.warning(
+                "Replay ALS model support only spark 3.1-3.4 versions! "
+                "Replay will use 'jars/replay_2.12-0.1_spark_3.1.jar' in 'spark.jars' property."
+            )
 
     if spark_memory is None:
         spark_memory = floor(psutil.virtual_memory().total / 1024**3 * 0.7)
