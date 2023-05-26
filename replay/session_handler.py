@@ -10,8 +10,8 @@ from typing import Any, Dict, Optional
 
 import psutil
 import torch
+from pyspark import __version__ as pyspark_version
 from pyspark.sql import SparkSession
-from importlib.metadata import version
 
 
 def get_spark_session(
@@ -34,13 +34,13 @@ def get_spark_session(
     if os.environ.get("REPLAY_JAR_PATH"):
         path_to_replay_jar = os.environ.get("REPLAY_JAR_PATH")
     else:
-        if version("pyspark").startswith("3.1"):
+        if pyspark_version.startswith("3.1"):
             path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.1.jar"
-        elif version("pyspark").startswith("3.2") or version(
-            "pyspark"
-        ).startswith("3.3"):
+        elif pyspark_version.startswith("3.2") or pyspark_version.startswith(
+            "3.3"
+        ):
             path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.2.jar"
-        elif version("pyspark").startswith("3.4"):
+        elif pyspark_version.startswith("3.4"):
             path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.4.jar"
         else:
             path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.1.jar"
