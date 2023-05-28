@@ -111,8 +111,8 @@ def create_hnswlib_index_instance(params: HnswlibParam, init: bool = False):
         # Initializing index - the maximum number of elements should be known beforehand
         index.init_index(
             max_elements=params.max_elements,
-            ef_construction=params.efC,
-            M=params.M,
+            ef_construction=params.ef_c,
+            M=params.m,
         )
 
     return index

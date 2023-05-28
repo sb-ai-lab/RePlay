@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from typing import Optional
-from typing_extensions import Literal
 
 
 @dataclass
@@ -9,23 +8,25 @@ class BaseHnswParam:
     Base hnsw params.
     """
 
-    M: int = 200
-    efC: int = 20000
+    space: str
+    m: int = 200  # pylint: disable=invalid-name
+    ef_c: int = 20000
     post: int = 0
-    efS: Optional[int] = None
-    build_index_on: Literal["driver", "executor"] = "driver"
-    index_path: Optional[str] = None
+    ef_s: Optional[int] = None
 
-    def __post_init__(self):
-        if self.build_index_on == "executor":
-            assert (
-                self.index_path
-            ), 'if build_index_on == "executor" then index_path must be set!'
-
-    def init_params_as_dict(self):
+    def init_meta_as_dict(self) -> dict:
+        """
+        Returns meta-information for class instance initialization. Used to save the entity to disk.
+        :return: dictionary with init meta.
+        """
         return {
-            "M": self.M,
-            "efC": self.efC,
-            "post": self.post,
-            "efS": self.efS,
+            "module": type(self).__module__,
+            "class": type(self).__name__,
+            "init_args": {
+                "space": self.space,
+                "m": self.m,
+                "ef_c": self.ef_c,
+                "post": self.post,
+                "ef_s": self.ef_s,
+            },
         }

@@ -45,10 +45,10 @@ def model_with_ann(tmp_path):
         index_builder=ExecutorHnswlibIndexBuilder(
             index_params=HnswlibParam(
                 space="l2",
-                M=100,
-                efC=2000,
+                m=100,
+                ef_c=2000,
                 post=0,
-                efS=2000,
+                ef_s=2000,
             ),
             index_store=SharedDiskIndexStore(
                 warehouse_dir=str(tmp_path),

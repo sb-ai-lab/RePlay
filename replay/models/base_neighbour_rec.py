@@ -17,11 +17,11 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.column import Column
 
+from replay.ann.ann_mixin import ANNMixin
 from replay.models.base_rec import Recommender
-from replay.ann.nmslib_hnsw_mixin import NmslibHnswMixin
 
 
-class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
+class NeighbourRec(Recommender, ANNMixin, ABC):
     """Base class that requires log at prediction time"""
 
     similarity: Optional[DataFrame]

@@ -8,7 +8,9 @@ from replay.ann.utils import create_hnswlib_index_instance
 from replay.session_handler import State
 
 
+# pylint: disable=too-few-public-methods
 class HnswlibFilterIndexInferer(IndexInferer):
+    """Hnswlib index inferer with filter seen items. Infers hnswlib index."""
     def infer(
         self, vectors: DataFrame, features_col: str, k: int
     ) -> DataFrame:
@@ -19,9 +21,7 @@ class HnswlibFilterIndexInferer(IndexInferer):
             _index_store
         )
 
-        return_type = "item_idx array<int>, distance array<double>"
-
-        @pandas_udf(return_type)
+        @pandas_udf(self.udf_return_type)
         def infer_index_udf(
             vectors: pd.Series,
             num_items: pd.Series,
@@ -33,8 +33,8 @@ class HnswlibFilterIndexInferer(IndexInferer):
                 load_index=lambda index, path: index.load_index(
                     path
                 ),  # pylint: disable=unnecessary-lambda
-                configure_index=lambda index: index.set_ef(index_params.efS)
-                if index_params.efS
+                configure_index=lambda index: index.set_ef(index_params.ef_s)
+                if index_params.ef_s
                 else None,
             )
 

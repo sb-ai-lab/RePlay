@@ -37,7 +37,6 @@ class ItemKNN(NeighbourRec):
         use_relevance: bool = False,
         shrink: float = 0.0,
         weighting: str = None,
-        # nmslib_hnsw_params: Optional[Union[NmslibHnswParam, Dict]] = None,
         index_builder: Optional[IndexBuilder] = None,
     ):
         """
@@ -56,7 +55,10 @@ class ItemKNN(NeighbourRec):
         if weighting not in valid_weightings:
             raise ValueError(f"weighting must be one of {valid_weightings}")
         self.weighting = weighting
-        self.index_builder = index_builder
+        if isinstance(index_builder, (IndexBuilder, type(None))):
+            self.index_builder = index_builder
+        elif isinstance(index_builder, dict):
+            self.init_builder_from_dict(index_builder)
 
     @property
     def _init_args(self):
@@ -65,15 +67,18 @@ class ItemKNN(NeighbourRec):
             "use_relevance": self.use_relevance,
             "num_neighbours": self.num_neighbours,
             "weighting": self.weighting,
+            "index_builder": self.index_builder.init_meta_as_dict() if self.index_builder else None,
         }
 
     def _save_model(self, path: str):
-        if self._nmslib_hnsw_params:
-            self._save_nmslib_hnsw_index(path)
+        if self._use_ann:
+            self._save_index(path)
 
     def _load_model(self, path: str):
-        if self._nmslib_hnsw_params:
-            self._load_nmslib_hnsw_index(path)
+        # if self._nmslib_hnsw_params:
+        #     self._load_nmslib_hnsw_index(path)
+        if self._use_ann:
+            self._load_index(path)
 
     @staticmethod
     def _shrink(dot_products: DataFrame, shrink: float) -> DataFrame:

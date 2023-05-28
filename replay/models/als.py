@@ -5,14 +5,14 @@ from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
-from replay.ann.hnswlib_mixin import HnswlibMixin
+from replay.ann.ann_mixin import ANNMixin
 from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.utils import list_to_vector_udf
 
 
 # pylint: disable=too-many-instance-attributes, too-many-ancestors
-class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
+class ALSWrap(Recommender, ItemVectorModel, ANNMixin):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
@@ -73,7 +73,10 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         self._seed = seed
         self._num_item_blocks = num_item_blocks
         self._num_user_blocks = num_user_blocks
-        self.index_builder = index_builder
+        if isinstance(index_builder, (IndexBuilder, type(None))):
+            self.index_builder = index_builder
+        elif isinstance(index_builder, dict):
+            self.init_builder_from_dict(index_builder)
         self.num_elements = None
 
     @property
@@ -82,21 +85,26 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
             "rank": self.rank,
             "implicit_prefs": self.implicit_prefs,
             "seed": self._seed,
+            "index_builder": self.index_builder.init_meta_as_dict() if self.index_builder else None,
         }
 
     def _save_model(self, path: str):
         self.model.write().overwrite().save(path)
 
-        if self._hnswlib_params:
-            self._save_hnswlib_index(path)
+        # if self._hnswlib_params:
+        #     self._save_hnswlib_index(path)
+        if self._use_ann:
+            self._save_index(path)
 
     def _load_model(self, path: str):
         self.model = ALSModel.load(path)
         self.model.itemFactors.cache()
         self.model.userFactors.cache()
 
-        if self._hnswlib_params:
-            self._load_hnswlib_index(path)
+        # if self._hnswlib_params:
+        #     self._load_hnswlib_index(path)
+        if self._use_ann:
+            self._load_index(path)
 
     def _fit(
         self,

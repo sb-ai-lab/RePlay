@@ -9,6 +9,8 @@ from replay.ann.index_stores.base_index_store import IndexStore
 
 
 class IndexBuilder(ABC):
+    """Abstract base class for index builders.
+     Describes a common interface for index builders. And provides common methods for them."""
     def __init__(self, index_params: BaseHnswParam, index_store: IndexStore):
         self.index_store = index_store
         self.index_params = index_params
@@ -23,7 +25,8 @@ class IndexBuilder(ABC):
         """
         Method that builds index and stores it using the `IndexStore` class.
 
-        :param vectors: DataFrame with vectors to build index. Schema: [{ids_col}: int, {features_col}: array<float>]
+        :param vectors: DataFrame with vectors to build index.
+            Schema: [{ids_col}: int, {features_col}: array<float>]
             or [{features_col}: array<float>]
         :param features_col: Name of column from `vectors` dataframe
             that contains vectors to build index
@@ -34,3 +37,17 @@ class IndexBuilder(ABC):
     @abstractmethod
     def produce_inferer(self, filter_seen_items: bool) -> IndexInferer:
         """Method that produce `IndexInferer`."""
+
+    def init_meta_as_dict(self):
+        """
+        Returns meta-information for class instance initialization.
+        Used to save the index builder to disk.
+        :return: dictionary with init meta.
+        """
+        return {
+            "builder": {
+                "module": type(self).__module__,
+                "class": type(self).__name__,
+            },
+            "index_param": self.index_params.init_meta_as_dict(),
+        }

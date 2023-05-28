@@ -48,7 +48,10 @@ class SLIM(NeighbourRec):
         self.beta = beta
         self.lambda_ = lambda_
         self.seed = seed
-        self.index_builder = index_builder
+        if isinstance(index_builder, (IndexBuilder, type(None))):
+            self.index_builder = index_builder
+        elif isinstance(index_builder, dict):
+            self.init_builder_from_dict(index_builder)
 
     @property
     def _init_args(self):
@@ -56,15 +59,20 @@ class SLIM(NeighbourRec):
             "beta": self.beta,
             "lambda_": self.lambda_,
             "seed": self.seed,
+            "index_builder": self.index_builder.init_meta_as_dict() if self.index_builder else None,
         }
 
     def _save_model(self, path: str):
-        if self._nmslib_hnsw_params:
-            self._save_nmslib_hnsw_index(path)
+        # if self._nmslib_hnsw_params:
+        #     self._save_nmslib_hnsw_index(path)
+        if self._use_ann:
+            self._save_index(path)
 
     def _load_model(self, path: str):
-        if self._nmslib_hnsw_params:
-            self._load_nmslib_hnsw_index(path)
+        # if self._nmslib_hnsw_params:
+        #     self._load_nmslib_hnsw_index(path)
+        if self._use_ann:
+            self._load_index(path)
 
     def _fit(
         self,

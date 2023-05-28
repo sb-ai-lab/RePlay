@@ -3,6 +3,7 @@ from typing import Callable, Any
 
 
 class IndexStore(ABC):
+    """Abstract base class for index stores. Describes a common interface for index stores."""
     def __init__(self):
         self._index = None
 
@@ -17,4 +18,8 @@ class IndexStore(ABC):
         load_index: Callable[[Any, str], None],
         configure_index: Callable[[Any], None],
     ):
-        """Loads index from IndexStor to index instance"""
+        """Loads index from IndexStore to index instance"""
+
+    @abstractmethod
+    def dump_index(self, target_path: str):
+        """Dumps index files to `target_path`"""

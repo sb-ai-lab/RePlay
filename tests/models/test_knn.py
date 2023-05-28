@@ -51,9 +51,9 @@ def model():
 def model_with_ann(tmp_path):
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
-        M=10,
-        efS=200,
-        efC=200,
+        m=10,
+        ef_s=200,
+        ef_c=200,
         post=0,
     )
     return ItemKNN(1, weighting=None,

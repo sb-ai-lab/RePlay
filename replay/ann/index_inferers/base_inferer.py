@@ -7,7 +7,14 @@ from replay.ann.entities.base_hnsw_param import BaseHnswParam
 from replay.ann.index_stores.base_index_store import IndexStore
 
 
+# pylint: disable=too-few-public-methods
 class IndexInferer(ABC):
+    """Abstract base class that describes a common interface for index inferers
+    and provides common methods for them."""
+
+    # All implementations use the same udf return type.
+    udf_return_type = "item_idx array<int>, distance array<double>"
+
     def __init__(self, index_params: BaseHnswParam, index_store: IndexStore):
         self.index_params = index_params
         self.index_store = index_store

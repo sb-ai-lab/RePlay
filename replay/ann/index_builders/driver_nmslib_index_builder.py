@@ -35,8 +35,8 @@ class DriverNmslibIndexBuilder(IndexBuilder):
         ids_col: Optional[str] = None,
     ):
         index_params = {
-            "M": self.index_params.M,
-            "efConstruction": self.index_params.efC,
+            "M": self.index_params.m,
+            "efConstruction": self.index_params.ef_c,
             "post": self.index_params.post,
         }
 

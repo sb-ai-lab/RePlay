@@ -7,14 +7,14 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
-from replay.ann.hnswlib_mixin import HnswlibMixin
+from replay.ann.ann_mixin import ANNMixin
 from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.utils import vector_dot, multiply_scala_udf, join_with_col_renaming
 
 
 # pylint: disable=too-many-instance-attributes, too-many-ancestors
-class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
+class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
     """
     Trains word2vec model where items ar treated as words and users as sentences.
     """
@@ -96,7 +96,10 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         self.max_iter = max_iter
         self._seed = seed
         self._num_partitions = num_partitions
-        self.index_builder = index_builder
+        if isinstance(index_builder, (IndexBuilder, type(None))):
+            self.index_builder = index_builder
+        elif isinstance(index_builder, dict):
+            self.init_builder_from_dict(index_builder)
         self.num_elements = None
 
     @property
@@ -109,15 +112,20 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
             "step_size": self.step_size,
             "max_iter": self.max_iter,
             "seed": self._seed,
+            "index_builder": self.index_builder.init_meta_as_dict() if self.index_builder else None,
         }
 
     def _save_model(self, path: str):
-        if self._hnswlib_params:
-            self._save_hnswlib_index(path)
+        # if self._hnswlib_params:
+        #     self._save_hnswlib_index(path)
+        if self.index_builder:
+            self._save_index(path)
 
     def _load_model(self, path: str):
-        if self._hnswlib_params:
-            self._load_hnswlib_index(path)
+        # if self._hnswlib_params:
+        #     self._load_hnswlib_index(path)
+        if self.index_builder:
+            self._load_index(path)
 
     def _fit(
         self,

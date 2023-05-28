@@ -62,8 +62,8 @@ class ExecutorHnswlibIndexBuilder(IndexBuilder):
                     index.add_items(np.stack(vectors_np))
 
             _index_store.save_to_store(
-                lambda path: index.save_index(path)
-            )  # pylint: disable=unnecessary-lambda)
+                lambda path: index.save_index(path)  # pylint: disable=unnecessary-lambda)
+            )
 
             yield pd.DataFrame(data={"_success": 1}, index=[0])
 

@@ -9,16 +9,18 @@ from replay.utils import get_filesystem, FileSystem
 
 
 class HdfsIndexStore(IndexStore):
+    """Class that responsible for index store in HDFS."""
+
     def __init__(self, warehouse_dir: str, index_dir: str):
-        self._index_dir = get_filesystem(
+        self._index_dir_info = get_filesystem(
             os.path.join(warehouse_dir, index_dir)
         )
-        if self._index_dir.filesystem != FileSystem.HDFS:
+        if self._index_dir_info.filesystem != FileSystem.HDFS:
             raise ValueError(
-                "Can't recognize path '%s' as HDFS path!", self._index_dir
+                f"Can't recognize path {self._index_dir_info} as HDFS path!"
             )
         self._hadoop_fs = fs.HadoopFileSystem.from_uri(
-            self._index_dir.hdfs_uri
+            self._index_dir_info.hdfs_uri
         )
         super().__init__()
 
@@ -39,7 +41,7 @@ class HdfsIndexStore(IndexStore):
             # here we copy index files from hdfs directory
             # to local disk directory
             fs.copy_files(
-                self._index_dir.path,
+                self._index_dir_info.path,
                 "file://" + temp_dir,
                 source_filesystem=self._hadoop_fs,
             )
@@ -57,7 +59,22 @@ class HdfsIndexStore(IndexStore):
             # to hdfs directory
             fs.copy_files(
                 "file://" + temp_dir,
-                self._index_dir.path,
+                self._index_dir_info.path,
                 destination_filesystem=self._hadoop_fs,
             )
             # param use_threads=True (?)
+
+    def dump_index(self, target_path: str):
+        target_path_info = get_filesystem(target_path)
+        destination_filesystem, target_path = fs.FileSystem.from_uri(
+            target_path_info.hdfs_uri + target_path_info.path
+            if target_path_info.filesystem == FileSystem.HDFS
+            else target_path_info.path
+        )
+        target_path = os.path.join(target_path, "index_files")
+        fs.copy_files(
+            self._index_dir_info.path,
+            target_path,
+            source_filesystem=self._hadoop_fs,
+            destination_filesystem=destination_filesystem,
+        )
