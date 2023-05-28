@@ -18,9 +18,11 @@ class SharedDiskIndexStore(IndexStore):
     It can also be used with a local disk when the driver and executors
     are running on the same machine."""
 
-    def __init__(self, warehouse_dir: str, index_dir: str):
+    def __init__(
+        self, warehouse_dir: str, index_dir: str, cleanup: bool = True
+    ):
         self.index_dir_path = os.path.join(warehouse_dir, index_dir)
-        super().__init__()
+        super().__init__(cleanup)
         if self.cleanup:
             logger.debug(
                 "Index directory %s is marked for deletion via weakref.finalize()",

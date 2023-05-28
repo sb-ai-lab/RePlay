@@ -22,7 +22,7 @@ class SparkFilesIndexStore(IndexStore):
 
     def _clean_up(self):
         if self.index_dir_path:
-            shutil.rmtree(self.index_dir_path)
+            shutil.rmtree(self.index_dir_path, ignore_errors=True)
             logger.info("Index directory %s deleted", self.index_dir_path)
 
     def __init__(self, cleanup: bool = True):

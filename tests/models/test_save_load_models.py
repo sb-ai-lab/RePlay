@@ -178,7 +178,8 @@ def test_ann_als_saving_loading(long_log_with_features, tmp_path):
                 ef_s=2000,
             ),
             index_store=SharedDiskIndexStore(
-                warehouse_dir=str(tmp_path), index_dir="hnswlib_index"
+                warehouse_dir=str(tmp_path), index_dir="hnswlib_index",
+                cleanup=False
             ),
         ),
     )
