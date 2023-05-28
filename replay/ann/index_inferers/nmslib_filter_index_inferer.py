@@ -14,6 +14,7 @@ from replay.session_handler import State
 # pylint: disable=too-few-public-methods
 class NmslibFilterIndexInferer(IndexInferer):
     """Nmslib index inferer with filter seen items. Infers nmslib hnsw index."""
+
     def infer(
         self, vectors: DataFrame, features_col: str, k: int
     ) -> DataFrame:

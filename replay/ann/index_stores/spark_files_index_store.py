@@ -1,5 +1,8 @@
+import logging
 import os
+import shutil
 import tempfile
+import weakref
 from typing import Callable, Any
 
 from pyarrow import fs
@@ -10,12 +13,23 @@ from replay.session_handler import State
 from replay.utils import get_filesystem, FileSystem
 
 
+logger = logging.getLogger("replay")
+
+
 class SparkFilesIndexStore(IndexStore):
     """Class that responsible for index store in spark files.
     Works though SparkContext.addFile()."""
-    def __init__(self):
+
+    def _clean_up(self):
+        if self.index_dir_path:
+            shutil.rmtree(self.index_dir_path)
+            logger.info("Index directory %s deleted", self.index_dir_path)
+
+    def __init__(self, cleanup: bool = True):
         self.index_dir_path = None
-        super().__init__()
+        super().__init__(cleanup)
+        if self.cleanup:
+            weakref.finalize(self, self._clean_up)
 
     def load_index(
         self,
@@ -41,8 +55,10 @@ class SparkFilesIndexStore(IndexStore):
 
         spark = State().session
         for filename in os.listdir(self.index_dir_path):
-            spark.sparkContext.addFile(
-                "file://" + os.path.join(self.index_dir_path, filename)
+            index_file_path = os.path.join(self.index_dir_path, filename)
+            spark.sparkContext.addFile("file://" + index_file_path)
+            logger.info(
+                "Index file %s transferred to executors", index_file_path
             )
 
     def dump_index(self, target_path: str):
@@ -77,6 +93,8 @@ class SparkFilesIndexStore(IndexStore):
 
         spark = State().session
         for filename in os.listdir(self.index_dir_path):
-            spark.sparkContext.addFile(
-                "file://" + os.path.join(self.index_dir_path, filename)
+            index_file_path = os.path.join(self.index_dir_path, filename)
+            spark.sparkContext.addFile("file://" + index_file_path)
+            logger.info(
+                "Index file %s transferred to executors", index_file_path
             )

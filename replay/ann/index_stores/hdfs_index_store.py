@@ -1,11 +1,15 @@
+import logging
 import os
 import tempfile
+import weakref
 from typing import Callable, Any
 
 from pyarrow import fs
 
 from replay.ann.index_stores.base_index_store import IndexStore
 from replay.utils import get_filesystem, FileSystem
+
+logger = logging.getLogger("replay")
 
 
 class HdfsIndexStore(IndexStore):
@@ -23,6 +27,15 @@ class HdfsIndexStore(IndexStore):
             self._index_dir_info.hdfs_uri
         )
         super().__init__()
+
+        if self.cleanup:
+            logger.debug(
+                "Index directory %s is marked for deletion via weakref.finalize()",
+                self._index_dir_info.path,
+            )
+            weakref.finalize(
+                self, self._hadoop_fs.delete_dir, self._index_dir_info.path
+            )
 
     def load_index(
         self,
@@ -63,6 +76,7 @@ class HdfsIndexStore(IndexStore):
                 destination_filesystem=self._hadoop_fs,
             )
             # param use_threads=True (?)
+            logger.info("Index files saved to %s", self._index_dir_info.path)
 
     def dump_index(self, target_path: str):
         target_path_info = get_filesystem(target_path)

@@ -45,5 +45,7 @@ class DriverHnswlibIndexBuilder(IndexBuilder):
             index.add_items(np.stack(vectors_np))
 
         self.index_store.save_to_store(
-            lambda path: index.save_index(path)  # pylint: disable=unnecessary-lambda)
+            lambda path: index.save_index(  # pylint: disable=unnecessary-lambda)
+                path
+            )
         )

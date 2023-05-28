@@ -22,7 +22,9 @@ def get_csr_matrix(
         ),
         shape=(
             user_idx.max() + 1,
-            vector_items.apply(lambda x: max(x)).max()  # pylint: disable=unnecessary-lambda
+            vector_items.apply(
+                lambda x: max(x)  # pylint: disable=unnecessary-lambda
+            ).max()
             + 1,
         ),
     )

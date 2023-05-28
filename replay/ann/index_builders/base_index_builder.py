@@ -10,7 +10,9 @@ from replay.ann.index_stores.base_index_store import IndexStore
 
 class IndexBuilder(ABC):
     """Abstract base class for index builders.
-     Describes a common interface for index builders. And provides common methods for them."""
+    Describes a common interface for index builders. And provides common methods for them.
+    """
+
     def __init__(self, index_params: BaseHnswParam, index_store: IndexStore):
         self.index_store = index_store
         self.index_params = index_params
