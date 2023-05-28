@@ -9,6 +9,12 @@ from implicit.als import AlternatingLeastSquares
 from pyspark.sql import functions as sf
 
 import replay
+from replay.ann.entities.hnswlib_param import HnswlibParam
+from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
+from replay.ann.index_builders.executor_hnswlib_index_builder import ExecutorHnswlibIndexBuilder
+from replay.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
+from replay.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
 from replay.data_preparator import Indexer
 from replay.model_handler import save, load
 from replay.models import *
@@ -156,3 +162,58 @@ def test_study(df, tmp_path):
     save(model, path)
     loaded_model = load(path)
     assert loaded_model.study == model.study
+
+
+def test_ann_als_saving_loading(long_log_with_features, tmp_path):
+    model = ALSWrap(
+        rank=2,
+        implicit_prefs=False,
+        seed=42,
+        index_builder=ExecutorHnswlibIndexBuilder(
+            index_params=HnswlibParam(
+                space="ip",
+                m=100,
+                ef_c=2000,
+                post=0,
+                ef_s=2000,
+            ),
+            index_store=SharedDiskIndexStore(
+                warehouse_dir=str(tmp_path), index_dir="hnswlib_index"
+            ),
+        ),
+    )
+
+    path = (tmp_path / "test").resolve()
+    model.fit(long_log_with_features)
+    base_pred = model.predict(long_log_with_features, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(long_log_with_features, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+def test_ann_slim_saving_loading(long_log_with_features, tmp_path):
+    nmslib_hnsw_params = NmslibHnswParam(
+        space="negdotprod_sparse",
+        m=10,
+        ef_s=200,
+        ef_c=200,
+        post=0,
+    )
+    return SLIM(
+        0.0,
+        0.01,
+        seed=42,
+        index_builder=DriverNmslibIndexBuilder(
+            index_params=nmslib_hnsw_params,
+            index_store=SparkFilesIndexStore(),
+        ),
+    )
+
+    path = (tmp_path / "test").resolve()
+    model.fit(long_log_with_features)
+    base_pred = model.predict(long_log_with_features, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(long_log_with_features, 5)
+    sparkDataFrameEqual(base_pred, new_pred)

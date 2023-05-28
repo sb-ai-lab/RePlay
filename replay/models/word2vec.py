@@ -74,7 +74,6 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         use_idf: bool = False,
         seed: Optional[int] = None,
         num_partitions: Optional[int] = None,
-        # hnswlib_params: Optional[Union[HnswlibParam, Dict]] = None,
         index_builder: Optional[IndexBuilder] = None,
     ):
         """
@@ -86,6 +85,8 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         :param window_size: window size
         :param use_idf: flag to use inverse document frequency
         :param seed: random seed
+        :param index_builder: `IndexBuilder` instance that adds ANN functionality.
+            If not set, then ann will not be used.
         """
 
         self.rank = rank
@@ -116,14 +117,19 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         }
 
     def _save_model(self, path: str):
-        # if self._hnswlib_params:
-        #     self._save_hnswlib_index(path)
+        # # create directory on shared disk or in HDFS
+        # path_info = get_filesystem(path)
+        # destination_filesystem, target_dir_path = fs.FileSystem.from_uri(
+        #     path_info.hdfs_uri + path_info.path
+        #     if path_info.filesystem == FileSystem.HDFS
+        #     else path_info.path
+        # )
+        # destination_filesystem.create_dir(target_dir_path)
+
         if self.index_builder:
             self._save_index(path)
 
     def _load_model(self, path: str):
-        # if self._hnswlib_params:
-        #     self._load_hnswlib_index(path)
         if self.index_builder:
             self._load_index(path)
 

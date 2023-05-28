@@ -16,7 +16,6 @@ class ItemKNN(NeighbourRec):
     def _get_ann_infer_params(self) -> Dict[str, Any]:
         return {
             "features_col": None,
-            # "params": self._nmslib_hnsw_params,
         }
 
     all_items: Optional[DataFrame]
@@ -44,7 +43,7 @@ class ItemKNN(NeighbourRec):
         :param use_relevance: flag to use relevance values as is or to treat them as 1
         :param shrink: term added to the denominator when calculating similarity
         :param weighting: item reweighting type, one of [None, 'tf_idf', 'bm25']
-        :param nmslib_hnsw_params: `NmslibHnswParam` instance, parameters for nmslib-hnsw methods.
+        :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
         self.shrink = shrink
@@ -75,8 +74,6 @@ class ItemKNN(NeighbourRec):
             self._save_index(path)
 
     def _load_model(self, path: str):
-        # if self._nmslib_hnsw_params:
-        #     self._load_nmslib_hnsw_index(path)
         if self._use_ann:
             self._load_index(path)
 

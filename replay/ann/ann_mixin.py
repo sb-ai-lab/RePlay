@@ -24,17 +24,7 @@ class ANNMixin(BaseRecommender):
     and an index inference in the `_inner_predict_wrap` step.
     """
 
-    INDEX_FILENAME = "index"
     index_builder: Optional[IndexBuilder] = None
-
-    @cached_property
-    def _spark_index_file_uid(self) -> str:  # pylint: disable=no-self-use
-        """
-        Cached property that returns the uuid for the index file name.
-        The unique name is needed to store the index file in `SparkFiles`
-        without conflicts with other index files.
-        """
-        return uuid.uuid4().hex[-12:]
 
     @property
     def _use_ann(self) -> bool:
@@ -197,111 +187,6 @@ class ANNMixin(BaseRecommender):
     def _load_index(self, path: str):
         self.index_builder.index_store = SparkFilesIndexStore()
         self.index_builder.index_store.load_from_path(path)
-
-    # def _save_index_files(
-    #     self,
-    #     target_dir: str,
-    #     index_params: BaseHnswParam,
-    #     additional_file_extensions: Optional[Tuple[str]] = (),
-    # ):
-    #     if index_params.build_index_on == "executor":
-    #         index_path = index_params.index_path
-    #     elif index_params.build_index_on == "driver":
-    #         index_path = SparkFiles.get(
-    #             f"{self.INDEX_FILENAME}_{self._spark_index_file_uid}"
-    #         )
-    #     else:
-    #         raise ValueError("Unknown 'build_index_on' param.")
-    #
-    #     source = get_filesystem(index_path)
-    #     target = get_filesystem(target_dir)
-    #
-    #     source_paths = [source.path] + [
-    #         source.path + ext for ext in additional_file_extensions
-    #     ]
-    #     index_file_target_path = os.path.join(target.path, self.INDEX_FILENAME)
-    #     target_paths = [index_file_target_path] + [
-    #         index_file_target_path + ext for ext in additional_file_extensions
-    #     ]
-    #
-    #     if source.filesystem == FileSystem.HDFS:
-    #         source_filesystem = fs.HadoopFileSystem.from_uri(source.hdfs_uri)
-    #     else:
-    #         source_filesystem = fs.LocalFileSystem()
-    #     if target.filesystem == FileSystem.HDFS:
-    #         destination_filesystem = fs.HadoopFileSystem.from_uri(
-    #             target.hdfs_uri
-    #         )
-    #     else:
-    #         destination_filesystem = fs.LocalFileSystem()
-    #
-    #     for source_path, target_path in zip(source_paths, target_paths):
-    #         print(source_path, target_path)
-    #         logger.debug(
-    #             "Index file coping from '%s' to '%s'", source_path, target_path
-    #         )
-    #         fs.copy_files(
-    #             source_path,
-    #             target_path,
-    #             source_filesystem=source_filesystem,
-    #             destination_filesystem=destination_filesystem,
-    #         )
-    #         # param use_threads=True (?)
-    #
-    # def _load_index(
-    #     self,
-    #     path: str,
-    #     index_params: BaseHnswParam,
-    #     additional_file_extensions: Optional[Tuple[str]] = (),
-    # ):
-    #     """Loads hnsw index from `path` directory to local dir.
-    #     Index file name is 'hnswlib_index'.
-    #     And adds index file to the `SparkFiles`.
-    #     `path` can be a hdfs path or a local path.
-    #
-    #
-    #     Args:
-    #         path: directory path, where index file is stored
-    #     """
-    #     source = get_filesystem(path + f"/{self.INDEX_FILENAME}")
-    #
-    #     temp_dir = tempfile.mkdtemp()
-    #     weakref.finalize(self, shutil.rmtree, temp_dir)
-    #     target_path = os.path.join(
-    #         temp_dir, f"{self.INDEX_FILENAME}_{self._spark_index_file_uid}"
-    #     )
-    #
-    #     source_paths = [source.path] + [
-    #         source.path + ext for ext in additional_file_extensions
-    #     ]
-    #     target_paths = [target_path] + [
-    #         target_path + ext for ext in additional_file_extensions
-    #     ]
-    #
-    #     if source.filesystem == FileSystem.HDFS:
-    #         source_filesystem = fs.HadoopFileSystem.from_uri(source.hdfs_uri)
-    #     else:
-    #         source_filesystem = fs.LocalFileSystem()
-    #
-    #     destination_filesystem = fs.LocalFileSystem()
-    #
-    #     for source_path, target_path in zip(source_paths, target_paths):
-    #         print(source_path, target_path)
-    #         logger.debug(
-    #             "Index file coping from '%s' to '%s'", source_path, target_path
-    #         )
-    #         fs.copy_files(
-    #             source_path,
-    #             target_path,
-    #             source_filesystem=source_filesystem,
-    #             destination_filesystem=destination_filesystem,
-    #         )
-    #
-    #     spark = SparkSession.getActiveSession()
-    #     for target_path in target_paths:
-    #         spark.sparkContext.addFile("file://" + target_path)
-    #
-    #     index_params.build_index_on = "driver"
 
     def init_builder_from_dict(self, init_meta: dict):
         """Inits an index builder instance from a dict with init meta."""

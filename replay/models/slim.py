@@ -33,14 +33,13 @@ class SLIM(NeighbourRec):
         beta: float = 0.01,
         lambda_: float = 0.01,
         seed: Optional[int] = None,
-        # nmslib_hnsw_params: Optional[Union[NmslibHnswParam, Dict]] = None,
         index_builder: Optional[IndexBuilder] = None,
     ):
         """
         :param beta: l2 regularization
         :param lambda_: l1 regularization
         :param seed: random seed
-        :param nmslib_hnsw_params: `NmslibHnswParam` instance, parameters for nmslib-hnsw methods.
+        :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
         if beta < 0 or lambda_ <= 0:
@@ -63,14 +62,10 @@ class SLIM(NeighbourRec):
         }
 
     def _save_model(self, path: str):
-        # if self._nmslib_hnsw_params:
-        #     self._save_nmslib_hnsw_index(path)
         if self._use_ann:
             self._save_index(path)
 
     def _load_model(self, path: str):
-        # if self._nmslib_hnsw_params:
-        #     self._load_nmslib_hnsw_index(path)
         if self._use_ann:
             self._load_index(path)
 
