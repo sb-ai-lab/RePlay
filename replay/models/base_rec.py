@@ -177,7 +177,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
-    ) -> Optional[Dict[str, Any]]:
+        item2item: bool = False
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[float]]:
         """
         Searches the best parameters with optuna.
 
@@ -193,13 +194,14 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :param k: recommendation list length
         :param budget: number of points to try
         :param new_study: keep searching with previous study or start a new study
+        :param item2item: apply optimization for item2item task or not
         :return: dictionary with best parameters
         """
         if self._search_space is None:
             self.logger.warning(
                 "%s has no hyper parameters to optimize", str(self)
             )
-            return None
+            return None, None
 
         if self.study is None or new_study:
             self.study = create_study(
@@ -214,7 +216,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             self.study.enqueue_trial(self._init_args)
 
         split_data = self._prepare_split_data(
-            train, test, user_features, item_features
+            train, test, user_features, item_features, item2item=item2item
         )
         objective = self._objective(
             search_space=search_space,
@@ -222,12 +224,14 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             recommender=self,
             criterion=criterion,
             k=k,
+            item2item=item2item
         )
 
         self.study.optimize(objective, budget)
         best_params = self.study.best_params
         self.set_params(**best_params)
-        return best_params
+        best_value = self.study.best_value
+        return best_params, best_value
 
     def _init_params_in_search_space(self, search_space):
         """Check if model params are inside search space"""
@@ -324,6 +328,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         test: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
+        item2item: bool = False
     ) -> SplitData:
         """
         This method converts data to spark and packs it into a named tuple to pass into optuna.
@@ -342,6 +347,25 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         )
         users = test.select("user_idx").distinct()
         items = test.select("item_idx").distinct()
+
+        test_infer = None
+        if item2item:
+
+            test_users = test\
+                .groupBy("user_idx")\
+                .agg(sf.count("item_idx").alias("item_count"))\
+                .filter(sf.col("item_count") > 1)\
+                .select("user_idx").distinct()
+
+            test = test.join(test_users, on="user_idx", how="right")
+
+            test = test\
+                .withColumn("item_num", sf.row_number()
+                            .over(Window.partitionBy("user_idx").orderBy(sf.col("timestamp").asc())))
+
+            test_infer = test.filter(test.item_num == 1)
+            test = test.filter(test.item_num > 1)
+
         split_data = SplitData(
             train,
             test,
@@ -351,6 +375,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             user_features_test,
             item_features_train,
             item_features_test,
+            test_infer
         )
         return split_data
 
@@ -673,6 +698,30 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             filter_seen_items,
         )
 
+    def _inner_get_nearest_items_wrap(
+            self,
+            items: Union[DataFrame, Iterable],
+            k: int,
+            metric: Optional[str] = "cosine_similarity",
+            candidates: Optional[Union[DataFrame, Iterable]] = None,
+    ) -> Optional[DataFrame]:
+
+        return self._get_nearest_items_wrap(
+                items=items,
+                k=k,
+                metric=metric,
+                candidates=candidates,
+            )
+
+    @property
+    def logger(self) -> logging.Logger:
+        """
+        :returns: get library logger
+        """
+        if self._logger is None:
+            self._logger = logging.getLogger("replay")
+        return self._logger
+
     def _get_fit_counts(self, entity: str) -> int:
         if not hasattr(self, f"_num_{entity}s"):
             setattr(
@@ -885,12 +934,10 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         if candidates is not None:
             candidates = get_unique_entities(candidates, "item_idx")
 
-        nearest_items_to_filter = self._get_nearest_items(
-            items=items,
-            metric=metric,
-            candidates=candidates,
-        )
-
+        nearest_items_to_filter = self._inner_get_nearest_items_wrap(items=items,
+                                                                     k=k,
+                                                                     metric=metric,
+                                                                     candidates=candidates)
         rel_col_name = metric if metric is not None else "similarity"
         nearest_items = get_top_k(
             dataframe=nearest_items_to_filter,
@@ -1658,6 +1705,12 @@ class NeighbourRec(Recommender, NmslibHnswMixin, ABC):
                 sf.collect_list("relevance").alias("vector_relevances"))
         )
         return user_vectors
+
+    def _get_item_vectors_to_infer_ann(
+            self, items: DataFrame
+    ) -> DataFrame:
+        pass
+
 
 class NonPersonalizedRecommender(Recommender, ABC):
     """Base class for non-personalized recommenders with popularity statistics."""
