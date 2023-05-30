@@ -5,8 +5,12 @@ import pytest
 import numpy as np
 
 from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
-from replay.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
+from replay.ann.index_builders.driver_nmslib_index_builder import (
+    DriverNmslibIndexBuilder,
+)
+from replay.ann.index_stores.spark_files_index_store import (
+    SparkFilesIndexStore,
+)
 from replay.constants import LOG_SCHEMA
 from replay.models import ItemKNN
 from tests.utils import spark
@@ -72,11 +76,12 @@ def model_with_ann(tmp_path):
         ef_c=200,
         post=0,
     )
-    return ItemKNN(1, weighting=None,
-                   index_builder=DriverNmslibIndexBuilder(
-                       index_params=nmslib_hnsw_params,
-                       index_store=SparkFilesIndexStore()
-                   )
+    return ItemKNN(
+        1,
+        weighting=None,
+        index_builder=DriverNmslibIndexBuilder(
+            index_params=nmslib_hnsw_params, index_store=SparkFilesIndexStore()
+        ),
     )
 
 
@@ -172,7 +177,9 @@ def test_knn_predict(log_2items_per_user, model, model_with_ann):
     recs1 = model.predict(log_2items_per_user, k=2, filter_seen_items=False)
 
     model_with_ann.fit(log_2items_per_user)
-    recs2 = model_with_ann.predict(log_2items_per_user, k=2, filter_seen_items=False)
+    recs2 = model_with_ann.predict(
+        log_2items_per_user, k=2, filter_seen_items=False
+    )
 
     recs1 = recs1.toPandas().sort_values(
         ["user_idx", "item_idx"], ascending=False
