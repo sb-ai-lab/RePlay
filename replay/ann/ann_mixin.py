@@ -1,7 +1,7 @@
 import uuid
 from abc import abstractmethod
 from functools import cached_property
-from typing import Optional, Dict, Union, Any
+from typing import Optional, Dict, Union, Any, Iterable
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -75,7 +75,17 @@ class ANNMixin(BaseRecommender):
         return users
 
     @abstractmethod
+    def _get_item_vectors_to_infer_ann(
+            self, items: DataFrame
+    ) -> DataFrame:
+        ...
+
+    @abstractmethod
     def _get_ann_infer_params(self) -> Dict[str, Any]:
+        ...
+
+    @abstractmethod
+    def _get_ann_infer_params_for_nearest_items(self) -> Dict[str, Any]:
         ...
 
     @abstractmethod
@@ -140,6 +150,34 @@ class ANNMixin(BaseRecommender):
                 filter_seen_items,
             )
 
+    def _inner_get_nearest_items_wrap(
+        self,
+        items: Union[DataFrame, Iterable],
+        k: int,
+        metric: Optional[str] = "cosine_similarity",
+        candidates: Optional[Union[DataFrame, Iterable]] = None,
+    ) -> Optional[DataFrame]:
+
+        if self._use_ann:
+            item_vectors = self._get_item_vectors_to_infer_ann(
+                items
+            )
+
+            ann_params = self._get_ann_infer_params_for_nearest_items()
+            return self._infer_ann_index(
+                item_vectors,
+                filter_seen_items=False,
+                k=k,
+                **ann_params,
+            )
+        else:
+
+            return self._get_nearest_items(
+                items=items,
+                metric=metric,
+                candidates=candidates,
+            )
+
     def _unpack_infer_struct(self, inference_result: DataFrame) -> DataFrame:
         """Transforms input dataframe.
         Unpacks and explodes arrays from `neighbours` struct.
@@ -161,8 +199,10 @@ class ANNMixin(BaseRecommender):
         Args:
             inference_result: output of infer_index UDF
         """
+        useful_col = "user_idx" if "user_idx" in inference_result.columns else "item_idx"
+
         res = inference_result.select(
-            "user_idx",
+            useful_col,
             sf.explode(
                 sf.arrays_zip("neighbours.item_idx", "neighbours.distance")
             ).alias("zip_exp"),
@@ -173,13 +213,23 @@ class ANNMixin(BaseRecommender):
         item_idx_field_name: str = fields[0]["name"]
         distance_field_name: str = fields[1]["name"]
 
-        res = res.select(
-            "user_idx",
-            sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx"),
-            (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias(
-                "relevance"
-            ),
-        )
+        if useful_col == "user_idx":
+            res = res.select(
+                useful_col,
+                sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx"),
+                (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias(
+                    "relevance"
+                ),
+            )
+        else:
+            res = res.select(
+                useful_col,
+                sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx_two"),
+                (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias(
+                    "cosine_similarity"
+                ),
+            ).withColumnRenamed(useful_col, "item_idx_one")
+
         return res
 
     def _filter_seen(

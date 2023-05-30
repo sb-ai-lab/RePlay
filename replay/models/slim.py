@@ -22,6 +22,18 @@ class SLIM(NeighbourRec):
             "index_type": "sparse",
         }
 
+    def _get_ann_infer_params_for_nearest_items(self) -> Dict[str, Any]:
+        return {
+            "features_col": "",
+            "params": self._nmslib_hnsw_params,
+            "index_type": "sparse",
+        }
+
+    def _get_item_vectors_to_infer_ann(
+            self, items: DataFrame
+    ) -> DataFrame:
+        pass
+
     @property
     def _use_ann(self) -> bool:
         return self._nmslib_hnsw_params is not None

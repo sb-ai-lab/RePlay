@@ -23,8 +23,16 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
             "index_dim": self.rank,
         }
 
+    def _get_ann_infer_params_for_nearest_items(self) -> Dict[str, Any]:
+        return {
+            "features_col": "item_factors",
+            "params": self._hnswlib_params,
+            "index_dim": self.rank,
+        }
+
     def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
         user_vectors, _ = self.get_features(users)
+        user_vectors = user_vectors.filter(user_vectors.user_factors.isNotNull())
         return user_vectors
 
     def _get_ann_build_params(self, log: DataFrame):
@@ -41,6 +49,17 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         item_vectors, _ = self.get_features(
             log.select("item_idx").distinct()
         )
+        return item_vectors
+
+    def _get_item_vectors_to_infer_ann(
+            self, items: DataFrame
+    ) -> DataFrame:
+
+        item_vectors, _ = self.get_features(
+            items
+        )
+
+        item_vectors = item_vectors.filter(item_vectors.item_factors.isNotNull())
         return item_vectors
 
     @property
@@ -79,7 +98,9 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
             "rank": self.rank,
             "implicit_prefs": self.implicit_prefs,
             "seed": self._seed,
-            "hnswlib_params": self._hnswlib_params
+            "hnswlib_params": self._hnswlib_params,
+            "num_item_blocks": self._num_item_blocks,
+            "num_user_blocks": self._num_user_blocks
         }
 
     def _save_model(self, path: str):

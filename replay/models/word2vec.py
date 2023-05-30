@@ -25,6 +25,13 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
             "index_dim": self.rank,
         }
 
+    def _get_ann_infer_params_for_nearest_items(self) -> Dict[str, Any]:
+        return {
+            "features_col": "item_vector",
+            "params": self._hnswlib_params,
+            "index_dim": self.rank,
+        }
+
     def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
         user_vectors = self._get_user_vectors(users, log)
         # converts to pandas_udf compatible format
@@ -53,6 +60,20 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
                 vector_to_array("item_vector").alias("item_vector")
             )
         )
+        return item_vectors
+
+    def _get_item_vectors_to_infer_ann(
+            self, items: DataFrame
+    ) -> DataFrame:
+        item_vectors = self._get_item_vectors()
+        item_vectors = (
+            item_vectors.join(items, on="item_idx")
+            .select(
+                "item_idx",
+                vector_to_array("item_vector").alias("item_vector")
+            )
+        )
+
         return item_vectors
 
     @property

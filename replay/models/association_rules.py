@@ -95,6 +95,11 @@ class AssociationRulesItemRec(NeighbourRec):
     def _get_ann_infer_params_for_nearest_items(self) -> Dict[str, Any]:
         pass
 
+    def _get_item_vectors_to_infer_ann(
+            self, items: DataFrame
+    ) -> DataFrame:
+        pass
+
     # pylint: disable=too-many-arguments,
     def __init__(
         self,
