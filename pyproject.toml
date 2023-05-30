@@ -84,5 +84,5 @@ pyspark-stubs = "*"
 line-length = 79
 
 [build-system]
-requires = ["poetry-core>=1.0.0, <1.6.1"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
