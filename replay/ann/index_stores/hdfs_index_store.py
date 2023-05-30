@@ -16,12 +16,11 @@ class HdfsIndexStore(IndexStore):
     """Class that responsible for index store in HDFS."""
 
     def __init__(self, warehouse_dir: str, index_dir: str):
-        self._index_dir_info = get_filesystem(
-            os.path.join(warehouse_dir, index_dir)
-        )
+        index_dir_path = os.path.join(warehouse_dir, index_dir)
+        self._index_dir_info = get_filesystem(index_dir_path)
         if self._index_dir_info.filesystem != FileSystem.HDFS:
             raise ValueError(
-                f"Can't recognize path {self._index_dir_info} as HDFS path!"
+                f"Can't recognize path {index_dir_path} as HDFS path!"
             )
         self._hadoop_fs = fs.HadoopFileSystem.from_uri(
             self._index_dir_info.hdfs_uri
