@@ -96,12 +96,15 @@ def test_enrich_with_features(log, model):
     )
 
 
-def test_ann_predict(log, model, model_with_ann):
+@pytest.mark.parametrize(
+    "filter_seen_items", [True, False]
+)
+def test_ann_predict(log, model, model_with_ann, filter_seen_items):
     model.fit(log)
-    recs1 = model.predict(log, k=1)
+    recs1 = model.predict(log, k=1, filter_seen_items=filter_seen_items)
 
     model_with_ann.fit(log)
-    recs2 = model_with_ann.predict(log, k=1)
+    recs2 = model_with_ann.predict(log, k=1, filter_seen_items=filter_seen_items)
 
     recs1 = recs1.toPandas().sort_values(
         ["user_idx", "item_idx"], ascending=False
