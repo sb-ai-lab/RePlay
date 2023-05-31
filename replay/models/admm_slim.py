@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 
 import numba as nb
 import numpy as np
@@ -87,6 +87,21 @@ class ADMMSLIM(NeighbourRec):
         "lambda_1": {"type": "loguniform", "args": [1e-9, 50]},
         "lambda_2": {"type": "loguniform", "args": [1e-9, 5000]},
     }
+
+    def _get_ann_infer_params(self) -> Dict[str, Any]:
+        pass
+
+    def _get_ann_infer_params_for_nearest_items(self) -> Dict[str, Any]:
+        pass
+
+    def _get_item_vectors_to_infer_ann(
+            self, items: DataFrame
+    ) -> DataFrame:
+        pass
+
+    @property
+    def _use_ann(self) -> bool:
+        return False
 
     def __init__(
         self,
