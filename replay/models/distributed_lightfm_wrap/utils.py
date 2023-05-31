@@ -13,11 +13,7 @@ from lightfm._lightfm_fast import (
     fit_warp,
     fit_warp_kos,
 )
-
-try:
-    import pygloo.dist.pygloo as pgl
-except ModuleNotFoundError:
-    import pygloo as pgl
+import pygloo as pgl
 
 from scipy.sparse import csr_matrix
 
@@ -52,10 +48,21 @@ class ModelTrainingFeatures:
 
 # pylint: disable=too-many-instance-attributes, too-many-arguments
 class LightFMTraining:
-    """Trainer used in distributed LightFM to perform training steps and results synchronization on Gloo workers
+    """LightFMTraining class used in distributed LightFM to perform training steps and results synchronization.
+
+    To perform a LightFM model training in a distributed fashion, each Spark executor is initialized as a Gloo worker.
+     The interation matrix is divided between executors. Additionally, OpenMP threads are initialized according to
+     the number of Spark executor cores.
+     Before the training begins, interaction matrix is partitioned by `user_idx`, model states (item and user embeddings
+     and biases, along with training features) are copied to the Spark executors. Then, the Gloo context is initialized,
+     each executor is registered as the Gloo worker, each of which will train the model on the part of the interaction
+     matrix.
+     During the training, on each epoch, model`s weights and user/item representations updates are performed separately
+     by Gloo workers. At the end of each epoch, worker collects the updates and AllReduce collective operation is
+     performed to synchronize the results with other Gloo workers.
 
     :param model: LightFM model instance
-    :param world_size: collective communication world size
+    :param world_size: collective communication world size - number of Gloo workers
     :param num_threads: number of threads for OpenMP parallelization within an executor
     """
 

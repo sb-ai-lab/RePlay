@@ -90,7 +90,7 @@ def get_first_level_model_features(
         )
         factors_to_explode.append(("item_factors", "if"))
 
-    if model.__str__() == "LightFMWrap":
+    if model.__str__() in ["LightFMWrap", "DistributedLightFMWrap"]:
         pairs_with_features = (
             pairs_with_features.fillna({"user_bias": 0, "item_bias": 0})
             .withColumnRenamed("user_bias", f"{prefix}_user_bias")

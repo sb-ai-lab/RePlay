@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 from pyspark.sql import functions as sf
 
+from replay.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
 from replay.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
 from replay.constants import LOG_SCHEMA
 from replay.models import DistributedLightFMWrap
@@ -12,13 +13,8 @@ from replay.scenarios.two_stages.two_stages_scenario import (
     get_first_level_model_features,
 )
 from replay.ann.entities.hnswlib_param import HnswlibParam
-from replay.ann.index_builders.executor_hnswlib_index_builder import (
-    ExecutorHnswlibIndexBuilder,
-)
-from replay.ann.index_stores.shared_disk_index_store import (
-    SharedDiskIndexStore,
-)
-from tests.utils import spark
+
+from tests.utils import spark, log as log_hnswlib_pred
 
 
 @pytest.fixture
@@ -59,7 +55,21 @@ def model():
         random_state=42,
         loss="bpr",
         tcp_port=1234,
-        index_builder=ExecutorHnswlibIndexBuilder(
+        connection_timeout=10,
+    )
+    model.num_epochs = 10
+    return model
+
+
+@pytest.fixture
+def model_ann():
+    model = DistributedLightFMWrap(
+        no_components=1,
+        random_state=42,
+        loss="bpr",
+        tcp_port=1234,
+        connection_timeout=10,
+        index_builder=DriverHnswlibIndexBuilder(
             index_params=HnswlibParam(
                 space="ip",
                 m=100,
@@ -84,11 +94,20 @@ def test_predict(log, user_features, item_features, model):
         filter_seen_items=True,
     )
 
-    assert list(pred.toPandas().sort_values("user_idx")["item_idx"]) == [
-        1,
-        2,
-        0,
-    ]
+    assert list(pred.toPandas().sort_values("user_idx")["item_idx"]) == [1, 2, 0]
+
+
+def test_predict_ann(log_hnswlib_pred, user_features, item_features, model_ann):
+    model_ann.fit(log_hnswlib_pred, user_features, item_features)
+    pred = model_ann.predict(
+        log=log_hnswlib_pred,
+        k=1,
+        user_features=user_features,
+        item_features=item_features,
+        filter_seen_items=True,
+    )
+
+    assert list(pred.toPandas().sort_values("user_idx")["item_idx"]) == [3, 1, 3, 3]
 
 
 def test_predict_no_user_features(log, user_features, item_features, model):
@@ -102,11 +121,7 @@ def test_predict_no_user_features(log, user_features, item_features, model):
         item_features=item_features,
         filter_seen_items=True,
     )
-    assert list(pred.toPandas().sort_values("user_idx")["item_idx"]) == [
-        1,
-        2,
-        0,
-    ]
+    assert list(pred.toPandas().sort_values("user_idx")["item_idx"]) == [1, 2, 0]
 
 
 def test_predict_pairs(log, user_features, item_features, model):

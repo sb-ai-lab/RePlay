@@ -17,23 +17,15 @@ from pyspark.sql.types import (
     StructField,
     StructType,
 )
-
-try:
-    import pygloo.dist.pygloo as pgl
-except ModuleNotFoundError:
-    import pygloo as pgl
-
+import pygloo as pgl
 import scipy.sparse as sp
-import torch.distributed as dist
 from sklearn.preprocessing import MinMaxScaler
+import torch.distributed as dist
 
-from replay.constants import REC_SCHEMA
-from replay.models.base_rec import HybridRecommender  # , PartialFitMixin
+from replay.models.base_rec import HybridRecommender
 from replay.models.distributed_lightfm_wrap.utils import LightFMTraining
-# from replay.models.hnswlib import HnswlibMixin
 from replay.ann.ann_mixin import ANNMixin
 from replay.ann.index_builders.base_index_builder import IndexBuilder
-
 from replay.session_handler import State
 from replay.utils import (
     check_numeric,
@@ -45,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 
 # pylint: disable=too-many-locals, too-many-instance-attributes, too-many-arguments, unnecessary-dunder-call
-class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
+class DistributedLightFMWrap(HybridRecommender, ANNMixin):
     """Wrapper for distributed version of the LightFM."""
 
     model_weights = (
@@ -74,8 +66,7 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
         if self.model is None:
             raise AttributeError("Model has not been fitted yet.")
         entity = self._get_entity_name(ids)
-        # entity = "user" if "user_idx" in ids.columns else "item"
-        if features:
+        if features is not None:
             features = self._convert_features_to_csr(
                 ids.select(f"{entity}_idx").distinct(), features
             )
@@ -161,7 +152,7 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
             pygloo_timeout_sec: int = 200,
     ):
         """
-        :param no_components: the dimensionality of the feature latent embeddings.
+        :param no_components: the dimensionality of the feature latent embeddings
         :param learning_schedule: learning schedule used on training. One of (‘adagrad’, ‘adadelta’)
         :param loss: loss function. One of (‘logistic’, ‘bpr’, ‘warp’, ‘warp-kos’)
         :param learning_rate: initial learning rate for the adagrad learning schedule
@@ -294,6 +285,7 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
         }
 
     def _initialize_world_size_and_threads(self):
+        # Get configurations parameters for Gloo workers
         spark_sess = SparkSession.getActiveSession()
         master_addr = spark_sess.conf.get("spark.master")
         if master_addr.startswith("local-cluster"):
@@ -314,7 +306,7 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
         # Reset user / item scalers in case if model was initialized earlier
         self.user_feat_scaler = None
         self.item_feat_scaler = None
-        # Initialize / reset model states as in case it was trained earlier
+        # Initialize / reset model states in case it was trained earlier
         self.model = LightFM(
             no_components=self.no_components,
             learning_schedule=self.learning_schedule,
@@ -360,14 +352,6 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
             user_features: Optional[DataFrame] = None,
             item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-        # @sf.pandas_udf("float")
-        # def predict_by_user(user_idx: pd.Series, item_idx: pd.Series) -> pd.DataFrame:
-        #     return model.predict(
-        #         user_ids=user_idx.to_numpy(),
-        #         item_ids=item_idx.to_numpy(),
-        #         item_features=csr_item_features,
-        #         user_features=csr_user_features,
-        #     )
 
         @sf.pandas_udf(FloatType())
         def predict_by_user(user_idx: pd.Series, item_idx: pd.Series) -> pd.Series:
@@ -394,41 +378,37 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
 
         return pairs.withColumn('relevance', predict_by_user(sf.col("user_idx"), sf.col("item_idx")))
 
-        # return pairs.groupby("user_idx").applyInPandas(
-        #     predict_by_user, REC_SCHEMA
-        # )
-
     def _convert_features_to_csr(
             self, entity_ids: DataFrame, features: Optional[DataFrame] = None
     ) -> Optional[sp.csr_matrix]:
         """
+        Convert DataFrame with features to scipy csr_matrix format if provided.
+
         :param entity_ids: user/item_ids from log
         :param features: user/item_features in DataFrame format
         :return: np.float32 csr_matrix of shape [n_users, n_user_features], optional
              Each row contains that user's weights over features.
         """
-        if not features:
+        if features is None:
             return None
 
         check_numeric(features)
 
-        # entity = "item" if "item_idx" in features.columns else "user"
         entity = self._get_entity_name(features)
         num_seen_entities = self.__getattribute__(f"max_seen_{entity}_idx")
+        # Filter out features and entities not presented in log or features DataFrame
         features = features.join(entity_ids, on=f"{entity}_idx", how="inner")
-        max_passed_id = (
-                entity_ids.agg({f"{entity}_idx": "max"}).first()[0] + 1
-        )
-        num_cold_entities = max(
-            0, max_passed_id - self.__getattribute__(f"max_seen_{entity}_idx")
-        )
+
+        max_passed_id = (entity_ids.agg({f"{entity}_idx": "max"}).first()[0] + 1)
+        # Get number of new entities, for which model has not been trained on
+        num_cold_entities = max(0, max_passed_id - self.__getattribute__(f"max_seen_{entity}_idx"))
         sparse_features = sp.vstack(
             [
-                # Identity features
+                # Identity features matrix
                 sp.eye(
                     num_seen_entities, num_seen_entities + num_cold_entities
                 ),
-                # Empty features
+                # Empty features matrix
                 sp.csr_matrix(
                     np.zeros(
                         (
@@ -456,9 +436,11 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
         number_of_features = features_columns.shape[1]
         # Scale down dense features
         scaler_name = f"{entity}_feat_scaler"
+        # Check if scaler for entity was already initialized
         if self.__getattribute__(scaler_name) is None:
             if not features_columns.size:
                 raise ValueError(f"features for {entity}s from log are absent")
+            # Update entity scaler with fitted scaler
             self.__setattr__(scaler_name, MinMaxScaler().fit(features_columns))
 
         if features_columns.size:
@@ -491,6 +473,8 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
     def _get_num_users_and_items(
             self, log: DataFrame, previous_log: Optional[DataFrame] = None
     ) -> Tuple[int, int]:
+        if previous_log is not None:
+            previous_log = previous_log.select(log.columns)
         interactions = self.unionify(log, previous_log)
         num_users = interactions.agg({"user_idx": "max"}).first()[0]
         num_items = interactions.agg({"item_idx": "max"}).first()[0]
@@ -507,6 +491,8 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
             item_features: Optional[DataFrame] = None,
     ) -> None:
         """
+        Partial fit model states reinitialization to adjust previous and current training logs.
+
         :param log: training log
         :param previous_log: previous training log
         :param num_users: number of users in log
@@ -520,15 +506,6 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
             num_users_previous_log,
             num_items_previous_log,
         ) = self._get_num_users_and_items(previous_log)
-        if (
-                not self.model.user_embeddings.shape[0] != num_users_previous_log
-        ) or (
-                not self.model.item_embeddings.shape[0] == num_items_previous_log
-        ):
-            raise ValueError(
-                "Number of user/items features in trained model is not equal"
-                "to number of users/items in previous log."
-            )
 
         # Get number of users and items added in log
         new_users = num_users - num_users_previous_log
@@ -542,8 +519,18 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
                 self.model.item_embeddings.shape[0] - num_items_previous_log
         )
 
-        num_user_extra_features_log = user_features.shape[1] - num_users
-        num_item_extra_features_log = item_features.shape[1] - num_items
+        if (
+            self.model.user_embeddings.shape[0] - num_user_extra_features_previous_log != num_users_previous_log
+        ) or (
+            self.model.item_embeddings.shape[0] - num_item_extra_features_previous_log != num_items_previous_log
+        ):
+            raise ValueError(
+                "Number of user/items features in trained model is not equal "
+                "to number of users/items in previous log."
+            )
+        # Get number of non-I features if entities features are passed
+        num_user_extra_features_log = user_features.shape[1] - num_users if user_features is not None else 0
+        num_item_extra_features_log = item_features.shape[1] - num_items if item_features is not None else 0
 
         if not (
                 num_user_extra_features_previous_log == num_user_extra_features_log
@@ -584,12 +571,13 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
                 (
                     model_array[:dissect_at],
                     added_array,
-                    model_array[:dissect_at],
+                    model_array[dissect_at:],
                 )
             )
 
         def _update_values(entity_updates: List[Tuple[str, np.ndarray]], num_entities_previous_log: int) -> None:
             for attribute_name, value in entity_updates:
+                # Concatenate new and old features preserving the identity and non identity features order
                 updated_value = _concat_arrays(
                     self.model.__getattribute__(attribute_name),
                     value,
@@ -616,21 +604,6 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
 
         _update_values(item_updates, num_items_previous_log)
         _update_values(user_updates, num_users_previous_log)
-        # for attribute_name, value in item_updates:
-        #     updated_value = _concat_arrays(
-        #         self.model.__getattribute__(attribute_name),
-        #         value,
-        #         num_items_previous_log,
-        #     )
-        #     self.model.__setattr__(attribute_name, updated_value)
-
-        # for attribute_name, value in user_updates:
-        #     updated_value = _concat_arrays(
-        #         self.model.__getattribute__(attribute_name),
-        #         value,
-        #         num_users_previous_log,
-        #     )
-        #     self.model.__setattr__(attribute_name, updated_value)
 
     # pylint: disable=unused-variable, too-many-statements
     def _fit_partial(
@@ -640,29 +613,42 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
             item_features: Optional[DataFrame] = None,
             previous_log: Optional[DataFrame] = None,
     ) -> None:
-        if not self.model:
+        if self.model is None:
+            # If fit partial called on non initialized model
             self._initialize_and_reset_model_state_and_scalers()
         self._initialize_world_size_and_threads()
 
         self.can_predict_cold_users = user_features is not None
         self.can_predict_cold_items = item_features is not None
 
-        # if user_features is not None:
-        #     self.can_predict_cold_users = True
-        # if item_features is not None:
-        #     self.can_predict_cold_items = True
-
+        # Prepare interactions log
         log = log.select("user_idx", "item_idx", sf.lit(1).alias("relevance"))
-        interactions = log.repartition(self.world_size, "user_idx")
+        log = log.repartition(self.world_size, "user_idx")
 
         n_users, n_items = self._get_num_users_and_items(
-            log=interactions, previous_log=previous_log
+            log=log, previous_log=previous_log
         )
+        # Update value of maximum seen users and items number
         self.max_seen_user_idx = n_users
         self.max_seen_item_idx = n_items
-
         user_features = self._convert_features_to_csr(log.select("user_idx").distinct(), user_features)
         item_features = self._convert_features_to_csr(log.select("item_idx").distinct(), item_features)
+        # Update model`s embeddings and biases if model was initialized and trained on previous log
+        if previous_log is not None:
+            if self.model.item_embeddings is not None:
+                self._reinitialize_embeddings(
+                    log,
+                    previous_log,
+                    num_users=n_users,
+                    num_items=n_items,
+                    user_features=user_features,
+                    item_features=item_features,
+                )
+            else:
+                raise ValueError(
+                    "Passed previous log will not affect training "
+                    "as the model has not been trained yet."
+                )
 
         (
             user_features,
@@ -674,22 +660,6 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
                 item_features.data,
         ):
             self.model._check_input_finite(input_data)
-
-        if previous_log:
-            if self.model.item_embeddings:
-                self._reinitialize_embeddings(
-                    log,
-                    previous_log,
-                    num_users=n_users,
-                    num_items=n_items,
-                    user_features=user_features,
-                    item_features=item_features,
-                )
-            else:
-                raise ValueError(
-                    "Passed previous log will not affect training"
-                    "as the model has not been trained yet."
-                )
 
         if self.model.item_embeddings is None:
             self.model._initialize(
@@ -704,9 +674,9 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
             raise ValueError("Incorrect number of features in user_features")
         if self.num_threads < 1:
             raise ValueError("Number of threads must be 1 or larger.")
-
+        # Initialize trainer instance to perform distributed training using Gloo workers
         training_instance = LightFMTraining(self.model, self.world_size, self.num_threads)
-
+        # Initialize TCP store for collective communications
         host = training_instance.get_host_ip()
         real_store = dist.TCPStore(
             host,
@@ -784,4 +754,4 @@ class DistributedLightFMWrap(HybridRecommender, ANNMixin):  # , PartialFitMixin
             if p_idx == 0:
                 yield training_instance.model
 
-        self.model = interactions.rdd.mapPartitionsWithIndex(udf_to_map_on_interactions_with_index).first()
+        self.model = log.rdd.mapPartitionsWithIndex(udf_to_map_on_interactions_with_index).first()
