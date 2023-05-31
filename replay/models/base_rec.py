@@ -150,8 +150,10 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
     """Base recommender"""
 
     model: Any
+    _logger: Optional[logging.Logger] = None
     can_predict_cold_users: bool = False
     can_predict_cold_items: bool = False
+    can_predict_item_to_item: bool = False
     _search_space: Optional[
         Dict[str, Union[str, Sequence[Union[str, int, float]]]]
     ] = None
