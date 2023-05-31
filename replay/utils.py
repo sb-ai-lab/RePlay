@@ -778,6 +778,14 @@ def get_filesystem(path: str) -> FileInfo:
     FileInfo(path='/tmp/file', filesystem=<FileSystem.LOCAL: 2>, hdfs_uri=None)
 
     >>> spark = SparkSession.builder.master("local[1]").getOrCreate()
+    >>> path = 'hdfs:///tmp/file'
+    >>> get_filesystem(path)
+    Traceback (most recent call last):
+     ...
+    ValueError: Can't get default hdfs uri for path = 'hdfs:///tmp/file'. \
+Specify an explicit path, such as 'hdfs://host:port/dir/file', \
+or set 'fs.defaultFS' in hadoop configuration.
+
     >>> path = '/tmp/file'
     >>> get_filesystem(path)
     FileInfo(path='/tmp/file', filesystem=<FileSystem.LOCAL: 2>, hdfs_uri=None)
@@ -785,6 +793,10 @@ def get_filesystem(path: str) -> FileInfo:
     >>> spark = SparkSession.builder.master("local[1]").getOrCreate().newSession()
     >>> spark.sparkContext._jsc.hadoopConfiguration().set('fs.defaultFS', 'hdfs://node21.bdcl:9000')
     >>> path = '/tmp/file'
+    >>> get_filesystem(path)
+    FileInfo(path='/tmp/file', filesystem=<FileSystem.HDFS: 1>, hdfs_uri='hdfs://node21.bdcl:9000')
+
+    >>> path = 'hdfs:///tmp/file'
     >>> get_filesystem(path)
     FileInfo(path='/tmp/file', filesystem=<FileSystem.HDFS: 1>, hdfs_uri='hdfs://node21.bdcl:9000')
 
@@ -805,7 +817,7 @@ def get_filesystem(path: str) -> FileInfo:
             if default_fs.startswith("hdfs://"):
                 return FileInfo(path[prefix_len:], FileSystem.HDFS, default_fs)
             else:
-                raise Exception(
+                raise ValueError(
                     f"Can't get default hdfs uri for path = '{path}'. "
                     "Specify an explicit path, such as 'hdfs://host:port/dir/file', "
                     "or set 'fs.defaultFS' in hadoop configuration."

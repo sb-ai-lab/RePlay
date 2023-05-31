@@ -6,7 +6,7 @@ import numpy as np
 from pyspark.sql import functions as sf
 
 from replay.ann.entities.hnswlib_param import HnswlibParam
-from replay.ann.index_builders.executor_hnswlib_index_builder import ExecutorHnswlibIndexBuilder
+from replay.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
 from replay.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
 from replay.constants import LOG_SCHEMA
 from replay.models import Word2VecRec
@@ -42,9 +42,9 @@ def model():
 def model_with_ann(tmp_path):
     model = Word2VecRec(
         rank=1, window_size=1, use_idf=True, seed=42, min_count=0,
-        index_builder=ExecutorHnswlibIndexBuilder(
+        index_builder=DriverHnswlibIndexBuilder(
             index_params=HnswlibParam(
-                space="l2",
+                space="ip",
                 m=100,
                 ef_c=2000,
                 post=0,
@@ -87,12 +87,29 @@ def test_predict(log, model):
 
 
 # here we use `test.utils.log` because we can't build the hnsw index on `log` data
-def test_ann_predict(log2, model, model_with_ann):
+def test_word2vec_predict_filter_seen_items(log2, model, model_with_ann):
     model.fit(log2)
     recs1 = model.predict(log2, k=1)
 
     model_with_ann.fit(log2)
     recs2 = model_with_ann.predict(log2, k=1)
+
+    recs1 = recs1.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+    recs2 = recs2.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+    assert recs1.user_idx.equals(recs2.user_idx)
+    assert recs1.item_idx.equals(recs2.item_idx)
+
+
+def test_word2vec_predict(log2, model, model_with_ann):
+    model.fit(log2)
+    recs1 = model.predict(log2, k=2, filter_seen_items=False)
+
+    model_with_ann.fit(log2)
+    recs2 = model_with_ann.predict(log2, k=2, filter_seen_items=False)
 
     recs1 = recs1.toPandas().sort_values(
         ["user_idx", "item_idx"], ascending=False

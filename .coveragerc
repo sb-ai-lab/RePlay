@@ -1,0 +1,2 @@
+[run]
+omit = replay/ann/index_stores/hdfs_index_store.py
