@@ -17,6 +17,8 @@ class HitRate(Metric):
 
     """
 
+    _scala_udf_name = "getHitRateMetricValue"
+
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         for i in pred[:k]:
