@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 
 import numba as nb
 import numpy as np
@@ -6,7 +6,8 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from scipy.sparse import coo_matrix, csr_matrix
 
-from replay.models.base_rec import NeighbourRec
+from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.models.base_neighbour_rec import NeighbourRec
 from replay.session_handler import State
 
 
@@ -65,7 +66,7 @@ def _main_iteration(
     )
 
 
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes, too-many-ancestors
 class ADMMSLIM(NeighbourRec):
     """`ADMM SLIM: Sparse Recommendations for Many Users
     <http://www.cs.columbia.edu/~jebara/papers/wsdm20_ADMM.pdf>`_
@@ -73,6 +74,12 @@ class ADMMSLIM(NeighbourRec):
     This is a modification for the basic SLIM model.
     Recommendations are improved with Alternating Direction Method of Multipliers.
     """
+
+    def _get_ann_infer_params(self) -> Dict[str, Any]:
+        return {
+            "features_col": None,
+            "params": self._nmslib_hnsw_params,
+        }
 
     rho: float
     threshold: float = 5
@@ -93,11 +100,14 @@ class ADMMSLIM(NeighbourRec):
         lambda_1: float = 5,
         lambda_2: float = 5000,
         seed: Optional[int] = None,
+        nmslib_hnsw_params: Optional[NmslibHnswParam] = None,
     ):
         """
         :param lambda_1: l1 regularization term
         :param lambda_2: l2 regularization term
         :param seed: random seed
+        :param nmslib_hnsw_params: `NmslibHnswParam` instance, parameters for nmslib-hnsw methods.
+            If not set, then ann will not be used.
         """
         if lambda_1 < 0 or lambda_2 <= 0:
             raise ValueError("Invalid regularization parameters")
@@ -105,6 +115,7 @@ class ADMMSLIM(NeighbourRec):
         self.lambda_2 = lambda_2
         self.rho = lambda_2
         self.seed = seed
+        self._nmslib_hnsw_params = nmslib_hnsw_params
 
     @property
     def _init_args(self):

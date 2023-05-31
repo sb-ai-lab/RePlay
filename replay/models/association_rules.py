@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, List, Optional, Union, Dict, Any
 
 import numpy as np
 
@@ -7,9 +7,11 @@ import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
 
-from replay.models.base_rec import NeighbourRec
+from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.models.base_neighbour_rec import NeighbourRec
 
 
+# pylint: disable=too-many-ancestors, too-many-instance-attributes
 class AssociationRulesItemRec(NeighbourRec):
     """
     Item-to-item recommender based on association rules.
@@ -70,6 +72,12 @@ class AssociationRulesItemRec(NeighbourRec):
     In this case all items in sessions should have the same relevance.
     """
 
+    def _get_ann_infer_params(self) -> Dict[str, Any]:
+        return {
+            "features_col": None,
+            "params": self._nmslib_hnsw_params,
+        }
+
     can_predict_item_to_item = True
     item_to_item_metrics: List[str] = ["lift", "confidence", "confidence_gain"]
     similarity: DataFrame
@@ -94,6 +102,7 @@ class AssociationRulesItemRec(NeighbourRec):
         num_neighbours: Optional[int] = 1000,
         use_relevance: bool = False,
         similarity_metric: str = "confidence",
+        nmslib_hnsw_params: Optional[NmslibHnswParam] = None,
     ) -> None:
         """
         :param session_col: name of column to group sessions.
@@ -107,6 +116,8 @@ class AssociationRulesItemRec(NeighbourRec):
         :param similarity_metric: `lift` of 'confidence'
             The metric used as a similarity to calculate the prediction,
             one of [``lift``, ``confidence``, ``confidence_gain``]
+        :param nmslib_hnsw_params: `NmslibHnswParam` instance, parameters for nmslib-hnsw methods.
+            If not set, then ann will not be used.
         """
 
         self.session_col = (
@@ -117,6 +128,7 @@ class AssociationRulesItemRec(NeighbourRec):
         self.num_neighbours = num_neighbours
         self.use_relevance = use_relevance
         self.similarity_metric = similarity_metric
+        self._nmslib_hnsw_params = nmslib_hnsw_params
 
     @property
     def _init_args(self):
