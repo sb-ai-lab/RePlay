@@ -8,7 +8,7 @@ from replay.filters import filter_by_min_count
 from replay.metrics import Metric, NDCG
 from replay.models import PopRec
 from replay.models.base_rec import BaseRecommender
-from replay.utils import fallback
+from replay.utils import fallback, get_unique_entities
 
 
 class Fallback(BaseRecommender):
@@ -94,7 +94,7 @@ class Fallback(BaseRecommender):
             ``[user_idx, item_idx, relevance]``
         """
         users = users or log or user_features or self.fit_users
-        users = self._get_ids(users, "user_idx")
+        users = get_unique_entities(users, "user_idx")
         hot_data = filter_by_min_count(log, self.threshold, "user_idx")
         hot_users = hot_data.select("user_idx").distinct()
         hot_users = hot_users.join(self.hot_users, on="user_idx")
@@ -133,6 +133,7 @@ class Fallback(BaseRecommender):
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
+        item2item: bool = False
     ) -> Tuple[Dict[str, Any]]:
         """
         Searches best parameters with optuna.
@@ -154,7 +155,7 @@ class Fallback(BaseRecommender):
         if param_borders is None:
             param_borders = {"main": None, "fallback": None}
         self.logger.info("Optimizing main model...")
-        params = self.main_model.optimize(
+        params, value = self.main_model.optimize(
             train,
             test,
             user_features,
@@ -168,7 +169,7 @@ class Fallback(BaseRecommender):
         self.main_model.set_params(**params)
         if self.fb_model._search_space is not None:
             self.logger.info("Optimizing fallback model...")
-            fb_params = self.fb_model.optimize(
+            fb_params, fb_value = self.fb_model.optimize(
                 train,
                 test,
                 user_features,

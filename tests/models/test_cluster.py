@@ -26,7 +26,7 @@ def test_works(
     model = ClusterRec()
     model.fit(long_log_with_features, users_features)
     model.predict(users_features, k=1)
-    res = model.optimize(
+    res, _ = model.optimize(
         long_log_with_features,
         short_log_with_features,
         users_features,

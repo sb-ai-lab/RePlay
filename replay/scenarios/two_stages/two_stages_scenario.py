@@ -1046,7 +1046,8 @@ class TwoStagesScenario(HybridRecommender):
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
-    ) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        item2item: bool = False
+    ) -> Tuple[List[Optional[Dict[str, Any]]], Optional[Dict[str, Any]], List[Optional[float]]]:
         """
         Optimize first level models with optuna.
 
@@ -1083,7 +1084,7 @@ class TwoStagesScenario(HybridRecommender):
         first_level_user_features = cache_if_exists(first_level_user_features)
         first_level_item_features = cache_if_exists(first_level_item_features)
 
-        params_found = []
+        params_found, metrics_values = [], []
         for i, model in enumerate(self.first_level_models):
             if param_borders[i] is None or (
                 isinstance(param_borders[i], dict) and param_borders[i]
@@ -1093,8 +1094,8 @@ class TwoStagesScenario(HybridRecommender):
                     i,
                     model.__str__(),
                 )
-                params_found.append(
-                    self._optimize_one_model(
+
+                param, metric = self._optimize_one_model(
                         model=model,
                         train=train,
                         test=test,
@@ -1106,17 +1107,20 @@ class TwoStagesScenario(HybridRecommender):
                         budget=budget,
                         new_study=new_study,
                     )
-                )
+
+                params_found.append(param)
+                metrics_values.append(metric)
             else:
                 params_found.append(None)
+                metrics_values.append(None)
 
         if self.fallback_model is None or (
             isinstance(param_borders[-1], dict) and not param_borders[-1]
         ):
-            return params_found, None
+            return params_found, None, metrics_values
 
         self.logger.info("Optimizing fallback-model")
-        fallback_params = self._optimize_one_model(
+        fallback_params, _ = self._optimize_one_model(
             model=self.fallback_model,
             train=train,
             test=test,
@@ -1128,7 +1132,7 @@ class TwoStagesScenario(HybridRecommender):
         )
         unpersist_if_exists(first_level_item_features)
         unpersist_if_exists(first_level_user_features)
-        return params_found, fallback_params
+        return params_found, fallback_params, metrics_values
 
     def _get_nearest_items(self, items: DataFrame, metric: Optional[str] = None,
                            candidates: Optional[DataFrame] = None) -> Optional[DataFrame]:
