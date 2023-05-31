@@ -49,6 +49,8 @@ pytorch-ranger = "^0.1.1"
 nmslib = "*"
 hnswlib = "*"
 cached-property = "*"
+# extra packages
+pygloo-rec = { version = "*", optional = true }
 
 [tool.poetry.dev-dependencies]
 # dev only
@@ -80,9 +82,12 @@ virtualenv = "*"
 data-science-types = "*"
 pyspark-stubs = "*"
 
+[tool.poetry.extras]
+distributed-lightfm = ["pygloo-rec"]
+
 [tool.black]
 line-length = 79
 
 [build-system]
-requires = ["poetry-core>=1.0.0, <1.6.1"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
