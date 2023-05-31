@@ -963,6 +963,8 @@ class TwoStagesScenario(HybridRecommender):
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
+        item2item: bool = False
+
     ) -> Tuple[List[Optional[Dict[str, Any]]], Optional[Dict[str, Any]], List[Optional[float]]]:
         """
         Optimize first level models with optuna.
