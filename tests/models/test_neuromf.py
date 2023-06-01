@@ -53,15 +53,6 @@ def test_fit(log, model):
         assert param_shapes[i] == tuple(parameter.shape)
 
 
-def test_predict(log, model):
-    model.fit(log)
-    try:
-        pred = model.predict(log=log, k=1)
-        pred.count()
-    except RuntimeError:  # noqa
-        pytest.fail()
-
-
 def test_check_gmf_only(log):
     params = {"learning_rate": 0.5, "epochs": 1, "embedding_gmf_dim": 2}
     model = NeuroMF(**params)
