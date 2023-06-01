@@ -10,14 +10,18 @@ from replay.models import (
     ALSWrap,
     AssociationRulesItemRec,
     ItemKNN,
+    LightFMWrap,
     PopRec,
+    RandomRec,
     SLIM,
     ThompsonSampling,
     UCB,
+    UserPopRec,
     Wilson,
     Word2VecRec,
 )
-from tests.utils import log, pos_neg_log, SEED, spark
+from replay.model_handler import save, load
+from tests.utils import log, pos_neg_log, SEED, spark, sparkDataFrameEqual
 
 
 def test_filter_seen(log):
@@ -159,3 +163,42 @@ def test_item_popularity(model, pos_neg_log):
         == pos_neg_log.select("item_idx").distinct().count()
     )
     model.item_popularity.count()
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ADMMSLIM(),
+        ALSWrap(),
+        ItemKNN(),
+        LightFMWrap(),
+        PopRec(),
+        RandomRec(seed=1),
+        SLIM(),
+        UserPopRec(),
+        Word2VecRec(),
+    ],
+)
+def test_save_load(long_log_with_features, model, tmp_path):
+    path = (tmp_path / "test").resolve()
+    model.fit(long_log_with_features)
+    base_pred = model.predict(long_log_with_features, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(long_log_with_features, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [ThompsonSampling(), UCB(), Wilson()],
+    ids=["thompson", "ucb", "wilson"]
+)
+def test_save_load_pos_neg_log(model, pos_neg_log, tmp_path):
+    path = (tmp_path / "model").resolve()
+    model.fit(pos_neg_log)
+    base_pred = model.predict(pos_neg_log, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(pos_neg_log, 5)
+    sparkDataFrameEqual(base_pred, new_pred)

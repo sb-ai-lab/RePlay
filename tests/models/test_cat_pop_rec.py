@@ -3,6 +3,7 @@
 import pytest
 from pyspark.sql import functions as sf
 
+from replay.model_handler import save, load
 from replay.models import CatPopRec
 from tests.utils import spark, sparkDataFrameEqual
 
@@ -100,3 +101,15 @@ def test_works_rel(spark, cat_log, requested_cats, model):
     )
     model.fit(cat_log)
     sparkDataFrameEqual(model.predict(requested_cats, k=3), ground_thuth)
+
+
+
+def test_save_load(cat_tree, cat_log, requested_cats, tmp_path):
+    path = (tmp_path / "cat_poprec").resolve()
+    model = CatPopRec(cat_tree=cat_tree)
+    model.fit(cat_log)
+    base_pred = model.predict(requested_cats, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(requested_cats, 5)
+    sparkDataFrameEqual(base_pred, new_pred)

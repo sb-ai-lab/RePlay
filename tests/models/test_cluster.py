@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 import pyspark.sql.functions as sf
 
+from replay.model_handler import save, load
 from replay.models import ClusterRec
 from replay.utils import convert2spark
 from tests.utils import (
@@ -11,6 +12,7 @@ from tests.utils import (
     long_log_with_features,
     short_log_with_features,
     user_features,
+    numeric_user_features,
     sparkDataFrameEqual,
 )
 
@@ -75,3 +77,14 @@ def test_raises(long_log_with_features, users_features):
                 "user_idx", "item_idx"
             )
         )
+
+
+def test_save_load(long_log_with_features, numeric_user_features, tmp_path):
+    path = (tmp_path / "cluster").resolve()
+    model = ClusterRec()
+    model.fit(long_log_with_features, numeric_user_features)
+    base_pred = model.predict(numeric_user_features, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(numeric_user_features, 5)
+    sparkDataFrameEqual(base_pred, new_pred)

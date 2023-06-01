@@ -11,6 +11,7 @@ from pyspark.sql.types import (
 )
 
 from replay.constants import LOG_SCHEMA
+from replay.model_handler import save, load
 from replay.models import ImplicitWrap
 from tests.utils import spark, log, sparkDataFrameEqual
 from replay.session_handler import get_spark_session
@@ -83,3 +84,14 @@ def test_predict_pairs(model, log, log_in_pred):
 def test_predict_empty_log(log, model):
     model.fit(log)
     model.predict(log.limit(0), 1)
+
+
+def test_save_load(long_log_with_features, tmp_path):
+    path = (tmp_path / "implicit").resolve()
+    model = ImplicitWrap(implicit.als.AlternatingLeastSquares())
+    model.fit(long_log_with_features)
+    base_pred = model.predict(long_log_with_features, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(long_log_with_features, 5)
+    sparkDataFrameEqual(base_pred, new_pred)

@@ -3,6 +3,7 @@ import pytest
 
 from pyspark.sql import functions as sf
 
+from replay.model_handler import save, load
 from replay.models import AssociationRulesItemRec
 from tests.utils import (
     log,
@@ -134,3 +135,13 @@ def test_similarity_metric_raises(log, model):
     with pytest.raises(ValueError, match="Select one of the valid metrics for predict:.*"):
         model.fit(log)
         model.similarity_metric = "invalid"
+
+
+def test_save_load(log, model, tmp_path):
+    path = (tmp_path / "rules").resolve()
+    model.fit(log)
+    base_pred = model.get_nearest_items([0], 5, metric="lift")
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.get_nearest_items([0], 5, metric="lift")
+    sparkDataFrameEqual(base_pred, new_pred)
