@@ -22,19 +22,6 @@ def model(log):
     return model
 
 
-def test_invalid_metric_raises(log, model):
-    with pytest.raises(
-        ValueError,
-        match=r"Select one of the valid distance metrics: \['lift', 'confidence', 'confidence_gain'\]",
-    ):
-        model.get_nearest_items(log.select("item_idx"), k=1, metric="invalid")
-
-
-def test_works(model):
-    assert hasattr(model, "similarity")
-    model.similarity.count()
-
-
 def check_formulas(count_ant, count_cons, pair_count, num_sessions, test_row):
     confidence_ant_con = pair_count / count_ant
     confidence_not_ant_con = (count_cons - pair_count) / (
@@ -129,12 +116,6 @@ def test_metric(log, log_to_pred, model):
         p_pred_metr_from_user_conf,
         p_pred_metr_from_user_lift
     )
-
-
-def test_similarity_metric_raises(log, model):
-    with pytest.raises(ValueError, match="Select one of the valid metrics for predict:.*"):
-        model.fit(log)
-        model.similarity_metric = "invalid"
 
 
 def test_save_load(log, model, tmp_path):

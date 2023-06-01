@@ -40,7 +40,46 @@ def test_filter_seen(log):
     assert pred.count() == 4
 
 
-# for NeighbourRec and ItemVectorModel
+@pytest.mark.parametrize(
+    "model",
+    [
+        ADMMSLIM(),
+        ALSWrap(),
+        ItemKNN(),
+        LightFMWrap(),
+        PopRec(),
+        RandomRec(seed=1),
+        SLIM(),
+        UserPopRec(),
+        Word2VecRec(),
+    ],
+)
+def test_save_load(log, model, tmp_path):
+    path = (tmp_path / "test").resolve()
+    model.fit(log)
+    base_pred = model.predict(log, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(log, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [ThompsonSampling(), UCB(), Wilson()],
+    ids=["thompson", "ucb", "wilson"]
+)
+def test_save_load_pos_neg_log(model, pos_neg_log, tmp_path):
+    path = (tmp_path / "model").resolve()
+    model.fit(pos_neg_log)
+    base_pred = model.predict(pos_neg_log, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(pos_neg_log, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+# for ItemVectorModel and NeighbourRec
 @pytest.mark.parametrize(
     "model, metric",
     [
@@ -49,8 +88,6 @@ def test_filter_seen(log):
         (ALSWrap(seed=SEED), "cosine_similarity"),
         (Word2VecRec(seed=SEED, min_count=0), "cosine_similarity"),
         (ADMMSLIM(seed=SEED), None),
-        (ItemKNN(), None),
-        (SLIM(seed=SEED), None),
         (AssociationRulesItemRec(min_item_count=1, min_pair_count=0), "lift"),
         (
             AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
@@ -60,6 +97,8 @@ def test_filter_seen(log):
             AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
             "confidence_gain",
         ),
+        (ItemKNN(), None),
+        (SLIM(seed=SEED), None),
     ],
     ids=[
         "als_euclidean",
@@ -67,11 +106,11 @@ def test_filter_seen(log):
         "als_cosine",
         "w2v_cosine",
         "admm_slim",
-        "knn",
-        "slim",
         "association_rules_lift",
         "association_rules_confidence",
         "association_rules_confidence_gain",
+        "knn",
+        "slim",
     ],
 )
 def test_get_nearest_items(log, model, metric):
@@ -106,13 +145,7 @@ def test_get_nearest_items(log, model, metric):
 
 
 @pytest.mark.parametrize("metric", ["absent", None])
-def test_nearest_items_raises(log, metric):
-    model = AssociationRulesItemRec()
-    model.fit(log.filter(sf.col("item_idx") != 3))
-    with pytest.raises(
-        ValueError, match=r"Select one of the valid distance metrics.*"
-    ):
-        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
+def test_get_nearest_items_raises(log, metric):
     model = ALSWrap()
     model.fit(log)
     with pytest.raises(
@@ -120,19 +153,57 @@ def test_nearest_items_raises(log, metric):
     ):
         model.get_nearest_items(items=[0, 1], k=2, metric=metric)
 
+    model = Word2VecRec()
+    model.fit(log)
+    with pytest.raises(
+        ValueError, match=r"Select one of the valid distance metrics.*"
+    ):
+        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
+
+    # AssociationRulesItemRec has overwritten get_nearest_items
+    model = AssociationRulesItemRec(min_item_count=1, min_pair_count=0)
+    model.fit(log.filter(sf.col("item_idx") != 3))
+    with pytest.raises(
+        ValueError, match=r"Select one of the valid distance metrics.*"
+    ):
+        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
+
+
+@pytest.mark.parametrize(
+    "new_metric",
+    ["lift", "absent"],
+)
+def test_similarity_metric_change(log, new_metric):
+    model = AssociationRulesItemRec(
+        min_item_count=1,
+        min_pair_count=0,
+        similarity_metric="confidence"
+    )
+    if new_metric in model.item_to_item_metrics:
+        model.fit(log)
+        model.similarity_metric = new_metric
+    else:
+        with pytest.raises(
+            ValueError, match=r"Select one of the valid metrics.*"
+        ):
+            model.fit(log)
+            model.similarity_metric = new_metric
+
 
 @pytest.mark.parametrize(
     "model",
     [
+        ADMMSLIM(),
         ItemKNN(),
-        SLIM(seed=SEED),
+        SLIM(),
     ],
     ids=[
+        "admm_slim",
         "knn",
         "slim",
     ],
 )
-def test_similarity_metric_raises(log, model):
+def test_similarity_metric_change_raises(log, model):
     with pytest.raises(
         ValueError,
         match="This class does not support changing similarity metrics",
@@ -163,42 +234,3 @@ def test_item_popularity(model, pos_neg_log):
         == pos_neg_log.select("item_idx").distinct().count()
     )
     model.item_popularity.count()
-
-
-@pytest.mark.parametrize(
-    "model",
-    [
-        ADMMSLIM(),
-        ALSWrap(),
-        ItemKNN(),
-        LightFMWrap(),
-        PopRec(),
-        RandomRec(seed=1),
-        SLIM(),
-        UserPopRec(),
-        Word2VecRec(),
-    ],
-)
-def test_save_load(long_log_with_features, model, tmp_path):
-    path = (tmp_path / "test").resolve()
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
-    save(model, path)
-    loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
-
-
-@pytest.mark.parametrize(
-    "model",
-    [ThompsonSampling(), UCB(), Wilson()],
-    ids=["thompson", "ucb", "wilson"]
-)
-def test_save_load_pos_neg_log(model, pos_neg_log, tmp_path):
-    path = (tmp_path / "model").resolve()
-    model.fit(pos_neg_log)
-    base_pred = model.predict(pos_neg_log, 5)
-    save(model, path)
-    loaded_model = load(path)
-    new_pred = loaded_model.predict(pos_neg_log, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
