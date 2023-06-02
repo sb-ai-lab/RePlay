@@ -44,6 +44,7 @@ def get_spark_session(
         )
         .config("spark.sql.shuffle.partitions", str(shuffle_partitions))
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
+        .config("spark.jars", "scala/target/scala-2.12/replay_2.12-0.1.jar")
         .config("spark.driver.maxResultSize", "4g")
         .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.host", "localhost")

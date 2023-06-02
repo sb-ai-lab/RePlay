@@ -851,7 +851,7 @@ class TwoStagesScenario(HybridRecommender):
         # Apply negative sampling to balance postive / negative combination in the resulting train dataset
         neg = second_level_train.filter(second_level_train.target == 0)
         pos = second_level_train.filter(second_level_train.target == 1)
-        neg_new = neg.sample(fraction=10 * pos.count() / neg.count())
+        neg_new = neg.sample(fraction=min(10.0 * pos.count() / neg.count(), 1.0))
         second_level_train = pos.union(neg_new)
 
         with JobGroupWithMetrics(self._job_group_id, "inferring_class_distribution"):
