@@ -839,6 +839,22 @@ def get_number_of_allocated_executors(spark: SparkSession):
     )
 
 
+def get_full_class_name(instance) -> str:
+    return ".".join([type(instance).__module__, type(instance).__name__])
+
+
+def get_class_by_class_name(clazz: str) -> Any:
+    """
+        Loads Python class from its name.
+    """
+    parts = clazz.split('.')
+    module = ".".join(parts[:-1])
+    m = __import__(module)
+    for comp in parts[1:]:
+        m = getattr(m, comp)
+    return m
+
+
 class FileSystem(Enum):
     HDFS = 1
     LOCAL = 2

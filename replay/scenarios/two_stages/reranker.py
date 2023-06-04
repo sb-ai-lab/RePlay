@@ -1,7 +1,7 @@
 import logging
 import os
 import pickle
-from abc import abstractmethod
+from abc import ABC
 from typing import Dict, Optional, List, Any
 
 from lightautoml.automl.presets.tabular_presets import TabularAutoML
@@ -14,7 +14,7 @@ from pyspark.sql import DataFrame, SparkSession
 from replay.session_handler import State
 from replay.utils import (
     convert2spark,
-    get_top_k_recs, )
+    get_top_k_recs, get_full_class_name, get_class_by_class_name, )
 
 
 class _ReRankerParams(HasLabelCol, HasPredictionCol, HasInputCols):
@@ -78,7 +78,7 @@ class PickledAndDefaultParamsWriter(DefaultParamsWriter):
             if isinstance(value, (Estimator, Transformer))
         }
         est_tr_metadata = {
-            name: ".".join([type(est_or_tr).__module__, type(est_or_tr).__name__])
+            name: get_full_class_name()
             for name, est_or_tr in est_tr_dict.items()
         }
 
@@ -127,7 +127,7 @@ class PickledAndDefaultParamsReader(DefaultParamsReader):
 
         # setting transformers or estimators into the instance
         for name, clazz in est_tr_metadata.items():
-            est_or_tr = DefaultParamsReader.__get_class(clazz).load(os.path.join(path, f"{name}"))
+            est_or_tr = get_class_by_class_name(clazz).load(os.path.join(path, f"{name}"))
             instance.__dict__[name] = est_or_tr
 
         return instance
@@ -152,7 +152,7 @@ class PickledAndDefaultParamsWritable(DefaultParamsWritable):
 
 
 # class ReRanker(AbleToSaveAndLoad):
-class ReRanker(Estimator, _ReRankerParams, PickledAndDefaultParamsReadable, PickledAndDefaultParamsWritable):
+class ReRanker(Estimator, _ReRankerParams, PickledAndDefaultParamsReadable, PickledAndDefaultParamsWritable, ABC):
     """
     Base class for models which re-rank recommendations produced by other models.
     May be used as a part of two-stages recommendation pipeline.

@@ -27,7 +27,7 @@ from replay.utils import (
     join_or_return,
     join_with_col_renaming,
     unpersist_if_exists, create_folder, save_transformer, do_path_exists, load_transformer, list_folder, JobGroup,
-    cache_and_materialize_if_in_debug, JobGroupWithMetrics,
+    cache_and_materialize_if_in_debug, JobGroupWithMetrics, get_full_class_name, get_class_by_class_name,
 )
 
 logger = logging.getLogger("replay")
@@ -298,7 +298,14 @@ class TwoStagesScenario(HybridRecommender):
 
         # save second stage model
         if self.second_stage_model is not None:
-            save_transformer(self.second_stage_model, os.path.join(path, "second_stage_model"))
+            self.second_stage_model.save(os.path.join(path, "second_stage_model"))
+            (
+                State()
+                .session
+                .createDataFrame([{"classname": get_full_class_name(self.second_stage_model)}])
+                .write
+                .parquet(os.path.join(path, "second_stage_model_metadata"))
+            )
 
         # save general data and settings
         data = {
@@ -351,8 +358,12 @@ class TwoStagesScenario(HybridRecommender):
 
         # load second stage model
         comp_path = os.path.join(path, "second_stage_model")
-        # second_stage_model = load_transformer(comp_path) if do_path_exists(comp_path) else None # TODO: fix it
-        second_stage_model = None
+        if do_path_exists(comp_path):
+            clazz = State().session.read.parquet(os.path.join(path, "second_stage_model_metadata")).first()["classname"]
+            cls = get_class_by_class_name(clazz)
+            second_stage_model = cls.load(os.path.join(path, "second_stage_model"))
+        else:
+            second_stage_model = None
 
         self.__dict__.update({
             **data,
@@ -889,7 +900,7 @@ class TwoStagesScenario(HybridRecommender):
         logger.info(f"Fitting {type(self.second_stage_model).__name__} on {second_level_train_to_convert}")
         # second_level_train_to_convert.write.parquet("hdfs://node21.bdcl:9000/tmp/second_level_train_to_convert.parquet")
         with JobGroupWithMetrics(self._job_group_id, f"{type(self.second_stage_model).__name__}_fitting"):
-            self.second_stage_model.fit(second_level_train_to_convert)
+            self.second_stage_model = self.second_stage_model.fit(second_level_train_to_convert)
 
         for dataframe in self.cached_list:
             unpersist_if_exists(dataframe)
