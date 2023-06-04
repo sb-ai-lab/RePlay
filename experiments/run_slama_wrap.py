@@ -23,7 +23,7 @@ def main():
     data = spark.read.parquet("/home/nikolay/wspace/2lvl_train_shuffled_0__01.parquet")
 
     if wrap_type == "slama":
-        swrap = SlamaWrap(params=params, config_path=second_model_config_path)
+        swrap = SlamaWrap(automl_params=params, config_path=second_model_config_path)
     else:
         swrap = LamaWrap(params=params, config_path=second_model_config_path)
 

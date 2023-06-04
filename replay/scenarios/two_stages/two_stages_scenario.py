@@ -232,7 +232,7 @@ class TwoStagesScenario(HybridRecommender):
             )
         elif second_model_type == "slama":
             self.second_stage_model = SlamaWrap(
-                params=second_model_params, config_path=second_model_config_path
+                automl_params=second_model_params, config_path=second_model_config_path
             )
         else:
             raise Exception(f"Unsupported second model type: {second_model_type}")
