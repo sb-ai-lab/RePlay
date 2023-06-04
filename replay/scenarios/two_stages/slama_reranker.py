@@ -164,10 +164,12 @@ class SlamaWrapModel(ReRankerModel):
             label_col: str = "target",
             prediction_col: str = "relevance",
             num_recommendations: int = 10,
-            automl_transformer: Optional[Transformer] = None
+            automl_transformer: Optional[Transformer] = None,
+            prune_lineage_before_automl: bool = True
     ):
         super(SlamaWrapModel, self).__init__(input_cols, label_col, prediction_col, num_recommendations)
         self._automl_transformer = automl_transformer
+        self._prune_lineage_before_automl = prune_lineage_before_automl
 
     def _transform(self, dataset: DataFrame) -> DataFrame:
         """
@@ -185,9 +187,15 @@ class SlamaWrapModel(ReRankerModel):
 
         data = _handle_columns(dataset)
 
-        data.write.mode("overwrite").parquet(f"/tmp/{type(self.model).__name__}_transform.parquet")
-        data = SparkSession.getActiveSession().read.parquet(f"/tmp/{type(self.model).__name__}_transform.parquet").cache()
-        data.write.mode('overwrite').format('noop').save()
+        if self._prune_lineage_before_automl:
+            data.write.mode("overwrite").parquet(f"/tmp/{type(self.model).__name__}_transform.parquet")
+            data = (
+                SparkSession
+                .getActiveSession()
+                .read
+                .parquet(f"/tmp/{type(self.model).__name__}_transform.parquet").cache()
+            )
+            data.write.mode('overwrite').format('noop').save()
 
         model_name = type(self.model).__name__
 
