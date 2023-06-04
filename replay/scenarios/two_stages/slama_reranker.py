@@ -1,30 +1,18 @@
 import logging
-import pickle
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, List
 
-import mlflow
-from pyspark.ml import PipelineModel, Transformer
+from pyspark.ml import Transformer
 from pyspark.ml.functions import vector_to_array
-from pyspark.ml.param import Param, Params, TypeConverters
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.pandas.functions import pandas_udf
-from pyspark.sql.functions import expr
 from pyspark.sql import functions as sf
-
+from pyspark.sql.types import TimestampType, NumericType, DateType, ArrayType, StringType
 from sparklightautoml.automl.presets.tabular_presets import SparkTabularAutoML
 from sparklightautoml.tasks.base import SparkTask
-from sparklightautoml.utils import WrappingSelectingPipelineModel
-from sparklightautoml.tasks.base import SparkTask
-from pyspark.sql.types import TimestampType, DoubleType, NumericType, DateType, ArrayType, StringType
 
 from replay.scenarios.two_stages.reranker import ReRanker, ReRankerModel, AutoMLParams
 from replay.session_handler import State
-from replay.utils import get_top_k_recs, log_exec_timer, JobGroup, JobGroupWithMetrics, \
+from replay.utils import get_top_k_recs, JobGroupWithMetrics, \
     cache_and_materialize_if_in_debug
-
-import pandas as pd
-import numpy as np
-
 
 logger = logging.getLogger("replay")
 

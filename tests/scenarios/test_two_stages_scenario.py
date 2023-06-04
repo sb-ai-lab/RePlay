@@ -7,7 +7,7 @@ from replay.models import ALSWrap, ItemKNN, PopRec, LightFMWrap
 from replay.scenarios import TwoStagesScenario
 from replay.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.data_preparator import ToNumericFeatureTransformer
-from replay.scenarios.two_stages.reranker import LamaWrap
+from replay.scenarios.two_stages.lama_reranker import LamaWrap
 from replay.splitters import DateSplitter
 
 from tests.utils import (

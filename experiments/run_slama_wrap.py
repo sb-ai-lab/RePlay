@@ -1,6 +1,6 @@
 import pickle
 
-from replay.scenarios.two_stages.reranker import LamaWrap
+from replay.scenarios.two_stages.lama_reranker import LamaWrap
 from replay.scenarios.two_stages.slama_reranker import SlamaWrap
 from replay.session_handler import get_spark_session
 
