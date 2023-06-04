@@ -15,7 +15,7 @@ from replay.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.metrics import Metric, Precision
 from replay.models import ALSWrap, RandomRec, PopRec
 from replay.models.base_rec import BaseRecommender, HybridRecommender
-from replay.scenarios.two_stages.reranker import LamaWrap
+from replay.scenarios.two_stages.reranker import LamaWrap, ReRankerModel, ReRanker
 from replay.scenarios.two_stages.slama_reranker import SlamaWrap
 from replay.session_handler import State
 from replay.splitters import Splitter, UserSplitter
@@ -227,15 +227,17 @@ class TwoStagesScenario(HybridRecommender):
             self.use_first_level_models_feat = use_first_level_models_feat
 
         if second_model_type == "lama":
-            self.second_stage_model = LamaWrap(
+            second_stage_model = LamaWrap(
                 automl_params=second_model_params, config_path=second_model_config_path
             )
         elif second_model_type == "slama":
-            self.second_stage_model = SlamaWrap(
+            second_stage_model = SlamaWrap(
                 automl_params=second_model_params, config_path=second_model_config_path
             )
         else:
             raise Exception(f"Unsupported second model type: {second_model_type}")
+
+        self.second_stage_model: Union[ReRanker, ReRankerModel] = second_stage_model
 
         self.num_negatives = num_negatives
         if negatives_type not in ["random", "first_level"]:
@@ -897,14 +899,18 @@ class TwoStagesScenario(HybridRecommender):
         self.cached_list.append(second_level_train_to_convert)
 
         # 7. Fit the second level model
-        logger.info(f"Fitting {type(self.second_stage_model).__name__} on {second_level_train_to_convert}")
-        # second_level_train_to_convert.write.parquet("hdfs://node21.bdcl:9000/tmp/second_level_train_to_convert.parquet")
-        with JobGroupWithMetrics(self._job_group_id, f"{type(self.second_stage_model).__name__}_fitting"):
-            self.second_stage_model = (
-                self.second_stage_model
-                .setInputCols(second_level_train_to_convert.drop("user_idx", "item_idx", "target").columns)
-                .fit(second_level_train_to_convert)
-            )
+        if isinstance(self.second_stage_model, ReRanker):
+            logger.info(f"Fitting {type(self.second_stage_model).__name__} on {second_level_train_to_convert}")
+            # second_level_train_to_convert.write.parquet("hdfs://node21.bdcl:9000/tmp/second_level_train_to_convert.parquet")
+            with JobGroupWithMetrics(self._job_group_id, f"{type(self.second_stage_model).__name__}_fitting"):
+                self.second_stage_model = (
+                    self.second_stage_model
+                    .setInputCols(second_level_train_to_convert.drop("user_idx", "item_idx", "target").columns)
+                    .fit(second_level_train_to_convert)
+                )
+        else:
+            logger.info(f"{type(self.second_stage_model).__name__} is already a traine model. "
+                        f"Skipping second stage fitting")
 
         for dataframe in self.cached_list:
             unpersist_if_exists(dataframe)
