@@ -80,13 +80,15 @@ class SlamaWrap(ReRanker, AutoMLParams):
     LightAutoML TabularPipeline binary classification model wrapper for recommendations re-ranking.
     Read more: https://github.com/sberbank-ai-lab/LightAutoML
     """
-    def __init__(self,
-                 automl_params: Optional[Dict] = None,
-                 config_path: Optional[str] = None,
-                 input_cols: Optional[List[str]] = None,
-                 label_col: str = "target",
-                 prediction_col: str = "relevance",
-                 num_recommendations: int = 10):
+    def __init__(
+            self,
+            automl_params: Optional[Dict] = None,
+            config_path: Optional[str] = None,
+            input_cols: Optional[List[str]] = None,
+            label_col: str = "target",
+            prediction_col: str = "relevance",
+            num_recommendations: int = 10
+    ):
         """
         Initialize LightAutoML TabularPipeline with passed params/configuration file.
 
@@ -100,15 +102,15 @@ class SlamaWrap(ReRanker, AutoMLParams):
 
     def _fit(self, dataset: DataFrame):
         """
-                Fit the LightAutoML TabularPipeline model with binary classification task.
-                Data should include negative and positive user-item pairs.
+        Fit the LightAutoML TabularPipeline model with binary classification task.
+        Data should include negative and positive user-item pairs.
 
-                :param data: spark dataframe with obligatory ``[user_idx, item_idx, target]``
-                    columns and features' columns. `Target` column should consist of zeros and ones
-                    as the model is a binary classification model.
-                :param params: dict of parameters to pass to model.fit()
-                    See LightAutoML TabularPipeline fit_predict parameters.
-                """
+        :param data: spark dataframe with obligatory ``[user_idx, item_idx, target]``
+            columns and features' columns. `Target` column should consist of zeros and ones
+            as the model is a binary classification model.
+        :param params: dict of parameters to pass to model.fit()
+            See LightAutoML TabularPipeline fit_predict parameters.
+        """
 
         if self.transformer is not None:
             raise RuntimeError("The ranker is already fitted")
