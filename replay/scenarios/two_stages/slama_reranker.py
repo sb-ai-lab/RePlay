@@ -29,7 +29,7 @@ import numpy as np
 logger = logging.getLogger("replay")
 
 
-def handle_columns(df: DataFrame, convert_target: bool = False) -> DataFrame:
+def _handle_columns(df: DataFrame, convert_target: bool = False) -> DataFrame:
     def explode_vec(col_name: str, size: int):
         return [sf.col(col_name).getItem(i).alias(f'{col_name}_{i}') for i in range(size)]
 
@@ -80,21 +80,6 @@ class SlamaWrap(ReRanker, AutoMLParams):
     LightAutoML TabularPipeline binary classification model wrapper for recommendations re-ranking.
     Read more: https://github.com/sberbank-ai-lab/LightAutoML
     """
-
-    # def save(self, path: str, overwrite: bool = False, spark: Optional[SparkSession] = None):
-    #     transformer = self.model.transformer()
-    #
-    #     if overwrite:
-    #         transformer.write().overwrite().save(path)
-    #     else:
-    #         transformer.write().save(path)
-    #
-    # @classmethod
-    # def load(cls, path: str, spark: Optional[SparkSession] = None):
-    #     pipeline_model = PipelineModel.load(path)
-    #
-    #     return SlamaWrap(transformer=pipeline_model)
-
     def __init__(self,
                  automl_params: Optional[Dict] = None,
                  config_path: Optional[str] = None,
@@ -112,8 +97,6 @@ class SlamaWrap(ReRanker, AutoMLParams):
 
         self.setAutoMLParams(automl_params)
         self.setConfigPath(config_path)
-
-        # assert (transformer is not None) != (params is not None or config_path is not None)
 
     def _fit(self, dataset: DataFrame):
         """
@@ -162,7 +145,13 @@ class SlamaWrap(ReRanker, AutoMLParams):
 
         data.unpersist()
 
-        return self.model.transformer()
+        return SlamaWrapModel(
+            input_cols=self.getInputCols(),
+            label_col=self.getLabelCol(),
+            prediction_col=self.getPredictionCol(),
+            num_recommendations=self.getNumRecommendations(),
+            automl_transformer=model.transformer()
+        )
 
 
 class SlamaWrapModel(ReRankerModel):
@@ -191,7 +180,7 @@ class SlamaWrapModel(ReRankerModel):
 
         logger.info(f"transformer type: {str(type(self._automl_transformer))}")
 
-        data = self.handle_columns(dataset)
+        data = _handle_columns(dataset)
 
         data.write.mode("overwrite").parquet(f"/tmp/{type(self.model).__name__}_transform.parquet")
         data = SparkSession.getActiveSession().read.parquet(f"/tmp/{type(self.model).__name__}_transform.parquet").cache()
@@ -207,7 +196,7 @@ class SlamaWrapModel(ReRankerModel):
             candidates_pred_sdf = sdf.select(
                 'user_idx',
                 'item_idx',
-                vector_to_array('prediction').getItem(1).alias('relevance')
+                vector_to_array('prediction').getItem(1).alias(self.getPredictionCol())
             )
 
             self.logger.info("Re-ranking is finished")
