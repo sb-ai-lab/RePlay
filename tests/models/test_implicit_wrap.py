@@ -73,6 +73,19 @@ def test_predict_pairs(model, log, log_in_pred):
     sparkDataFrameEqual(pairs.select("user_idx","item_idx"), pred.select("user_idx","item_idx"))
 
 
+@pytest.mark.parametrize(
+    "model",
+    [
+        ImplicitWrap(implicit.als.AlternatingLeastSquares()),
+        ImplicitWrap(implicit.bpr.BayesianPersonalizedRanking()),
+        ImplicitWrap(implicit.lmf.LogisticMatrixFactorization()),
+    ]
+)
+def test_predict_empty_log(log, model):
+    model.fit(log)
+    model.predict(log.limit(0), 1)
+
+
 def test_save_load(long_log_with_features, tmp_path):
     path = (tmp_path / "implicit").resolve()
     model = ImplicitWrap(implicit.als.AlternatingLeastSquares())

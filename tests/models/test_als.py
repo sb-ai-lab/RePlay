@@ -18,6 +18,14 @@ def model():
     return model
 
 
+def test_works(log, model):
+    try:
+        pred = model.fit_predict(log, k=1)
+        assert pred.count() == 4
+    except:  # noqa
+        pytest.fail()
+
+
 def test_diff_feedback_type(log, model):
     pred_exp = model.fit_predict(log, k=1)
     model.implicit_prefs = True

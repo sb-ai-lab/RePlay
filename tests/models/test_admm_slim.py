@@ -47,6 +47,12 @@ def test_fit(log, model):
     )
 
 
+def test_predict(log, model):
+    model.fit(log)
+    recs = model.predict(log, k=1)
+    assert recs.count() == 4
+
+
 @pytest.mark.parametrize(
     "lambda_1,lambda_2", [(0.0, 0.0), (-0.1, 0.1), (0.1, -0.1)]
 )
