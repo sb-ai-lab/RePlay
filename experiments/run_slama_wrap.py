@@ -6,7 +6,7 @@ from replay.session_handler import get_spark_session
 
 
 def main():
-    wrap_type = "lama"
+    wrap_type = "slama"
     spark = get_spark_session()
     # with open("/home/nikolay/wspace/2lvl_train_params.pickle", "rb") as f:
     #     params = pickle.load(f)
