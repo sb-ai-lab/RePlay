@@ -115,14 +115,15 @@ class SlamaWrap(ReRanker, AutoMLParams):
         if self.transformer is not None:
             raise RuntimeError("The ranker is already fitted")
 
-        data = dataset.drop("user_idx", "item_idx")
+        # data = dataset.drop("user_idx", "item_idx")
+        data = dataset.select(self.getLabelCol(), *self.getInputCols())
 
         data = self.handle_columns(data, convert_target=True)
 
         roles = {
-            "target": "target",
+            "target": self.getLabelCol(),
             "numeric": [field.name for field in data.schema.fields if
-                        isinstance(field.dataType, NumericType) and field.name != 'target'],
+                        isinstance(field.dataType, NumericType) and field.name != self.getLabelCol()],
         }
 
         automl_params = {

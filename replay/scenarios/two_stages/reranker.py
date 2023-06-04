@@ -263,9 +263,10 @@ class LamaWrap(ReRanker, AutoMLParams):
         :param fit_params: dict of parameters to pass to model.fit()
             See LightAutoML TabularPipeline fit_predict parameters.
         """
-        params = {"roles": {"target": "target"}, "verbose": 1}
+        params = {"roles": {"target": self.getLabelCol()}, "verbose": 1}
         params.update({} if self.getAutoMLParams() is None else self.getAutoMLParams())
-        data_pd = dataset.drop("user_idx", "item_idx").toPandas()
+        # data_pd = dataset.drop("user_idx", "item_idx").toPandas()
+        data_pd = dataset.select(self.getLabelCol(), *self.getInputCols()).toPandas()
 
         model = TabularAutoML(
             task=Task("binary"),

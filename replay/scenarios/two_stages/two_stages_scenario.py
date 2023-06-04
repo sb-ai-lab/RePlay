@@ -228,7 +228,7 @@ class TwoStagesScenario(HybridRecommender):
 
         if second_model_type == "lama":
             self.second_stage_model = LamaWrap(
-                params=second_model_params, config_path=second_model_config_path
+                automl_params=second_model_params, config_path=second_model_config_path
             )
         elif second_model_type == "slama":
             self.second_stage_model = SlamaWrap(
@@ -900,7 +900,11 @@ class TwoStagesScenario(HybridRecommender):
         logger.info(f"Fitting {type(self.second_stage_model).__name__} on {second_level_train_to_convert}")
         # second_level_train_to_convert.write.parquet("hdfs://node21.bdcl:9000/tmp/second_level_train_to_convert.parquet")
         with JobGroupWithMetrics(self._job_group_id, f"{type(self.second_stage_model).__name__}_fitting"):
-            self.second_stage_model = self.second_stage_model.fit(second_level_train_to_convert)
+            self.second_stage_model = (
+                self.second_stage_model
+                .setInputCols(second_level_train_to_convert.drop("user_idx", "item_idx", "target").columns)
+                .fit(second_level_train_to_convert)
+            )
 
         for dataframe in self.cached_list:
             unpersist_if_exists(dataframe)
