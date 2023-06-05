@@ -58,7 +58,7 @@ def test_param_in_borders(model, borders, answer):
 
 def test_it_works(model, log):
     assert model._params_tried() is False
-    res = model.optimize(log, log, k=2, budget=1)
+    res, _ = model.optimize(log, log, k=2, budget=1)
     assert isinstance(res["rank"], int)
     assert model._params_tried() is True
     model.optimize(log, log, k=2, budget=1)
@@ -69,5 +69,5 @@ def test_it_works(model, log):
 
 def test_ItemKNN(log):
     model = ItemKNN()
-    res = model.optimize(log, log, k=2, budget=1)
+    res, _ = model.optimize(log, log, k=2, budget=1)
     assert isinstance(res["num_neighbours"], int)

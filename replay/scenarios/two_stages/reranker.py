@@ -1,18 +1,19 @@
 import logging
+import pickle
 from abc import abstractmethod
 from typing import Dict, Optional
 
 from lightautoml.automl.presets.tabular_presets import TabularAutoML
 from lightautoml.tasks import Task
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
 
 from replay.utils import (
     convert2spark,
-    get_top_k_recs,
+    get_top_k_recs, AbleToSaveAndLoad,
 )
 
 
-class ReRanker:
+class ReRanker(AbleToSaveAndLoad):
     """
     Base class for models which re-rank recommendations produced by other models.
     May be used as a part of two-stages recommendation pipeline.
@@ -55,6 +56,24 @@ class LamaWrap(ReRanker):
     LightAutoML TabularPipeline binary classification model wrapper for recommendations re-ranking.
     Read more: https://github.com/sberbank-ai-lab/LightAutoML
     """
+
+    @classmethod
+    def load(cls, path: str, spark: Optional[SparkSession] = None):
+        spark = spark or cls._get_spark_session()
+        row = spark.read.parquet(path).first().asDict()
+        model = pickle.loads(row["data"])
+        wrap = LamaWrap()
+        wrap.model = model
+        return wrap
+
+    def save(self, path: str, overwrite: bool = False, spark: Optional[SparkSession] = None):
+        spark = spark or self._get_spark_session()
+        data = pickle.dumps(self.model)
+
+        spark.createDataFrame([{
+            "classname": self.get_classname(),
+            "data": data
+        }]).write.parquet(path, mode='overwrite' if overwrite else 'error')
 
     def __init__(
         self,

@@ -6,6 +6,8 @@ Contains classes for data preparation and categorical features transformation.
 ``ToNumericFeatureTransformer`` leaves only numerical features
 by one-hot encoding of some features and deleting the others.
 """
+import os
+import pickle
 import json
 import logging
 import string
@@ -21,7 +23,7 @@ from pyspark.ml.util import (
     MLReadable,
     DefaultParamsWriter,
 )
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.types import (
     DoubleType,
@@ -33,7 +35,8 @@ from pyspark.sql.types import (
 
 from replay.constants import AnyDataFrame
 from replay.session_handler import State
-from replay.utils import convert2spark, process_timestamp_column
+from replay.utils import convert2spark, process_timestamp_column, AbleToSaveAndLoad, load_transformer, \
+    save_transformer, create_folder
 
 LOG_COLUMNS = ["user_id", "item_id", "timestamp", "relevance"]
 
@@ -813,7 +816,7 @@ class CatFeaturesTransformer:
         )
 
 
-class ToNumericFeatureTransformer:
+class ToNumericFeatureTransformer(AbleToSaveAndLoad):
     """Transform user/item features to numeric types:
     - numeric features stays as is
     - categorical features:
@@ -827,6 +830,21 @@ class ToNumericFeatureTransformer:
     cols_to_ohe: Optional[List]
     cols_to_del: Optional[List]
     all_columns: Optional[List]
+
+    @classmethod
+    def load(cls, path: str, spark: Optional[SparkSession] = None):
+        spark = spark or cls._get_spark_session()
+        row = spark.read.parquet(os.path.join(path, "data.parquet")).first().asDict()
+
+        if row["has_cat_feat_transformer"]:
+            cat_feat_transformer = load_transformer(os.path.join(path, "cat_feat_transformer"))
+        else:
+            cat_feat_transformer = None
+
+        transformer = pickle.loads(row["data"])
+        transformer.cat_feat_transformer = cat_feat_transformer
+
+        return transformer
 
     def __init__(self, threshold: Optional[int] = 100):
         self.threshold = threshold
@@ -933,3 +951,21 @@ class ToNumericFeatureTransformer:
         """
         self.fit(spark_df)
         return self.transform(spark_df)
+
+    def save(self, path: str, overwrite: bool = False, spark: Optional[SparkSession] = None):
+        create_folder(path, delete_if_exists=overwrite)
+
+        cat_feat_transformer = self.cat_feat_transformer
+        self.cat_feat_transformer = None
+        dump = pickle.dumps(self)
+        self.cat_feat_transformer = cat_feat_transformer
+
+        if self.cat_feat_transformer is not None:
+            save_transformer(self.cat_feat_transformer, os.path.join(path, "cat_feat_transformer"))
+
+        df = SparkSession.getActiveSession().createDataFrame([{
+            "classname": self.get_classname(),
+            "data": dump,
+            "has_cat_feat_transformer": self.cat_feat_transformer is not None
+        }])
+        df.write.parquet(os.path.join(path, "data.parquet"))

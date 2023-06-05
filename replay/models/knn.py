@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -10,6 +10,29 @@ from replay.optuna_objective import ItemKNNObjective
 
 class ItemKNN(NeighbourRec):
     """Item-based ItemKNN with modified cosine similarity measure."""
+
+    def _get_ann_infer_params(self) -> Dict[str, Any]:
+        return {
+            "features_col": "",
+            "params": self._nmslib_hnsw_params,
+            "index_type": "sparse",
+        }
+
+    def _get_ann_infer_params_for_nearest_items(self) -> Dict[str, Any]:
+        return {
+            "features_col": "",
+            "params": self._nmslib_hnsw_params,
+            "index_type": "sparse",
+        }
+
+    def _get_item_vectors_to_infer_ann(
+            self, items: DataFrame
+    ) -> DataFrame:
+        pass
+
+    @property
+    def _use_ann(self) -> bool:
+        return self._nmslib_hnsw_params is not None
 
     all_items: Optional[DataFrame]
     dot_products: Optional[DataFrame]
@@ -29,12 +52,32 @@ class ItemKNN(NeighbourRec):
         use_relevance: bool = False,
         shrink: float = 0.0,
         weighting: str = None,
+        nmslib_hnsw_params: Optional[dict] = None,
     ):
         """
         :param num_neighbours: number of neighbours
         :param use_relevance: flag to use relevance values as is or to treat them as 1
         :param shrink: term added to the denominator when calculating similarity
         :param weighting: item reweighting type, one of [None, 'tf_idf', 'bm25']
+        :param nmslib_hnsw_params: parameters for nmslib-hnsw methods:
+        {"method":"hnsw",
+        "space":"negdotprod_sparse_fast",
+        "M":16,"efS":200,"efC":200,
+        ...}
+            The reasonable range of values for M parameter is 5-100,
+            for efC and eFS is 100-2000.
+            Increasing these values improves the prediction quality but increases index_time and inference_time too.
+            We recommend using these settings:
+              - M=16, efC=200 and efS=200 for simple datasets like MovieLens
+              - M=50, efC=1000 and efS=1000 for average quality with an average prediction time
+              - M=75, efC=2000 and efS=2000 for the highest quality with a long prediction time
+
+            note: choosing these parameters depends on the dataset and quality/time tradeoff
+            note: while reducing parameter values the highest range metrics like Metric@1000 suffer first
+            note: even in a case with a long training time,
+                profit from ann could be obtained while inference will be used multiple times
+
+        for more details see https://github.com/nmslib/nmslib/blob/master/manual/methods.md
         """
         self.shrink = shrink
         self.use_relevance = use_relevance
@@ -44,6 +87,7 @@ class ItemKNN(NeighbourRec):
         if weighting not in valid_weightings:
             raise ValueError(f"weighting must be one of {valid_weightings}")
         self.weighting = weighting
+        self._nmslib_hnsw_params = nmslib_hnsw_params
 
     @property
     def _init_args(self):
@@ -52,7 +96,16 @@ class ItemKNN(NeighbourRec):
             "use_relevance": self.use_relevance,
             "num_neighbours": self.num_neighbours,
             "weighting": self.weighting,
+            "nmslib_hnsw_params": self._nmslib_hnsw_params,
         }
+
+    def _save_model(self, path: str):
+        if self._nmslib_hnsw_params:
+            self._save_nmslib_hnsw_index(path, sparse=True)
+
+    def _load_model(self, path: str):
+        if self._nmslib_hnsw_params:
+            self._load_nmslib_hnsw_index(path, sparse=True)
 
     @staticmethod
     def _shrink(dot_products: DataFrame, shrink: float) -> DataFrame:

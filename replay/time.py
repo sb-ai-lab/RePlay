@@ -1,3 +1,5 @@
+from time import time
+
 import pyspark.sql.functions as sf
 import numpy as np
 
@@ -223,3 +225,26 @@ def smoothe_time(
     ).drop("age")
     log = log.withColumn("timestamp", sf.to_timestamp("timestamp"))
     return log
+
+
+class Timer:
+    """Timer to limit the duration tasks."""
+
+    def __init__(self, timeout: float = 300):
+        self._timeout = timeout
+        self.start_time = time()
+
+    @property
+    def time_spent(self) -> float:
+        return time() - self.start_time
+
+    @property
+    def time_left(self) -> float:
+        return self.timeout - self.time_spent
+
+    @property
+    def timeout(self) -> float:
+        return self._timeout
+
+    def time_limit_exceeded(self) -> bool:
+        return self.time_left < 0

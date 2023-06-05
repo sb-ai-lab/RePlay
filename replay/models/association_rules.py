@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, List, Optional, Union, Dict, Any
 
 import numpy as np
 
@@ -84,6 +84,21 @@ class AssociationRulesItemRec(NeighbourRec):
             "args": ["confidence", "lift"],
         },
     }
+
+    @property
+    def _use_ann(self) -> bool:
+        return False
+
+    def _get_ann_infer_params(self) -> Dict[str, Any]:
+        pass
+
+    def _get_ann_infer_params_for_nearest_items(self) -> Dict[str, Any]:
+        pass
+
+    def _get_item_vectors_to_infer_ann(
+            self, items: DataFrame
+    ) -> DataFrame:
+        pass
 
     # pylint: disable=too-many-arguments,
     def __init__(

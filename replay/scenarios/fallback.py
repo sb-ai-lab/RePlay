@@ -133,6 +133,7 @@ class Fallback(BaseRecommender):
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
+        item2item: bool = False
     ) -> Tuple[Dict[str, Any]]:
         """
         Searches best parameters with optuna.
@@ -154,7 +155,7 @@ class Fallback(BaseRecommender):
         if param_borders is None:
             param_borders = {"main": None, "fallback": None}
         self.logger.info("Optimizing main model...")
-        params = self.main_model.optimize(
+        params, value = self.main_model.optimize(
             train,
             test,
             user_features,
@@ -168,7 +169,7 @@ class Fallback(BaseRecommender):
         self.main_model.set_params(**params)
         if self.fb_model._search_space is not None:
             self.logger.info("Optimizing fallback model...")
-            fb_params = self.fb_model.optimize(
+            fb_params, fb_value = self.fb_model.optimize(
                 train,
                 test,
                 user_features,
