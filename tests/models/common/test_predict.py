@@ -158,7 +158,7 @@ def test_predict_empty_log(log, model):
         items=log.select("item_idx").distinct(),
         k=1,
     )
-    
+
     if isinstance(model, (ALSWrap, LightFMWrap, NeuroMF)):
         assert pred.count() == 4
     else:
@@ -552,6 +552,7 @@ def test_predict_pairs_k(log, model):
         > 0
     )
 
+
 @pytest.mark.parametrize(
     "model",
     [
@@ -580,6 +581,7 @@ def test_predict_pairs_raises_pairs_format(log):
     with pytest.raises(ValueError, match="pairs must be a dataframe with .*"):
         model.fit(log)
         model.predict_pairs(log, log)
+
 
 @pytest.mark.parametrize(
     "seed",
