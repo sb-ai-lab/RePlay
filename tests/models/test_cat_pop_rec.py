@@ -103,7 +103,6 @@ def test_works_rel(spark, cat_log, requested_cats, model):
     sparkDataFrameEqual(model.predict(requested_cats, k=3), ground_thuth)
 
 
-
 def test_save_load(cat_tree, cat_log, requested_cats, tmp_path):
     path = (tmp_path / "cat_poprec").resolve()
     model = CatPopRec(cat_tree=cat_tree)

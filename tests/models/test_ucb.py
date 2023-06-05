@@ -24,25 +24,6 @@ def fitted_model(pos_neg_log):
 
 @pytest.mark.parametrize(
     "sample,seed",
-    [(False, None), (True, None)],
-    ids=[
-        "no_sampling",
-        "sample_not_fixed",
-    ],
-)
-def test_predict_empty_log(fitted_model, pos_neg_log, sample, seed):
-    fitted_model.seed = seed
-    fitted_model.sample = sample
-
-    users = pos_neg_log.select("user_idx").distinct()
-    pred = fitted_model.predict(
-        log=None, users=users, items=list(range(10)), k=1
-    )
-    assert pred.count() == users.count()
-
-
-@pytest.mark.parametrize(
-    "sample,seed",
     [(False, None), (True, None), (True, 123)],
     ids=[
         "no_sampling",

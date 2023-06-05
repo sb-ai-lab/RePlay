@@ -1,39 +1,336 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
+import implicit
 import numpy as np
 
 from pyspark.sql import functions as sf
 
 from replay.models import (
-    ALSWrap,
     ADMMSLIM,
+    ALSWrap,
+    AssociationRulesItemRec,
     ClusterRec,
     ItemKNN,
+    ImplicitWrap,
     LightFMWrap,
+    MultVAE,
     NeuroMF,
     PopRec,
     RandomRec,
     SLIM,
-    MultVAE,
+    ThompsonSampling,
     UCB,
     Wilson,
     Word2VecRec,
-    DDPG,
-    AssociationRulesItemRec,
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
 
 from tests.utils import (
+    SEED,
     spark,
     log,
     log_to_pred,
     long_log_with_features,
+    pos_neg_log,
     user_features,
     sparkDataFrameEqual,
     sparkDataFrameNotEqual,
 )
 
-SEED = 123
+
+def fit_predict_selected(model, train_log, inf_log, user_features, users):
+    kwargs = {}
+    if isinstance(model, (HybridRecommender, UserRecommender)):
+        kwargs = {"user_features": user_features}
+    model.fit(train_log, **kwargs)
+    return model.predict(log=inf_log, users=users, k=1, **kwargs)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ALSWrap(seed=SEED),
+        ADMMSLIM(seed=SEED),
+        ItemKNN(),
+        ImplicitWrap(implicit.als.AlternatingLeastSquares()),
+        LightFMWrap(random_state=SEED),
+        MultVAE(),
+        NeuroMF(),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        PopRec(),
+        RandomRec(seed=SEED),
+    ],
+    ids=[
+        "als",
+        "admm_slim",
+        "knn",
+        "implicit",
+        "lightfm",
+        "multvae",
+        "neuromf",
+        "slim",
+        "word2vec",
+        "association_rules",
+        "pop_rec",
+        "random_rec",
+    ],
+)
+def test_works(log, model):
+    pred = model.fit_predict(log, k=1)
+    assert pred.count() == 4
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        PopRec(),
+        RandomRec(),
+        ThompsonSampling(),
+        UCB(),
+        Wilson(),
+    ],
+    ids=[
+        "pop_rec",
+        "random_rec",
+        "thompson",
+        "UCB",
+        "wilson",
+    ],
+)
+@pytest.mark.parametrize(
+    "sample",
+    [False,True],
+    ids=[
+        "no_sampling",
+        "sample_not_fixed",
+    ],
+)
+def test_predict_empty_log_nonpersonalized(pos_neg_log, model, sample, seed=None):
+    model.fit(pos_neg_log)
+    model.seed = seed
+    model.sample = sample
+
+    users = pos_neg_log.select("user_idx").distinct()
+    pred = model.predict(
+        log=pos_neg_log.limit(0), users=users, items=list(range(10)), k=1
+    )
+    pred_none = model.predict(
+        log=None, users=users, items=list(range(10)), k=1
+    )
+    assert pred.count() == users.count()
+    assert pred_none.count() == users.count()
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        ADMMSLIM(seed=SEED),
+        ALSWrap(seed=SEED),
+        ItemKNN(),
+        ImplicitWrap(implicit.als.AlternatingLeastSquares()),
+        LightFMWrap(random_state=SEED),
+        MultVAE(),
+        NeuroMF(),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+    ],
+    ids=[
+        "association_rules",
+        "admm_slim",
+        "als",
+        "knn",
+        "implicit",
+        "lightfm",
+        "multvae",
+        "neuromf",
+        "slim",
+        "word2vec",
+    ],
+)
+def test_predict_empty_log(log, model):
+    model.fit(log)
+    model.predict(log.limit(0), 1)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ADMMSLIM(seed=SEED),
+        ClusterRec(num_clusters=2),
+        ItemKNN(),
+        LightFMWrap(random_state=SEED, no_components=4),
+        MultVAE(),
+        SLIM(seed=SEED),
+        PopRec(),
+        RandomRec(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+    ],
+    ids=[
+        "admm_slim",
+        "cluster",
+        "knn",
+        "lightfm",
+        "multvae",
+        "slim",
+        "pop_rec",
+        "random_rec",
+        "word2vec",
+        "association_rules",
+    ],
+)
+def test_predict_new_users(model, long_log_with_features, user_features):
+    pred = fit_predict_selected(
+        model,
+        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+        inf_log=long_log_with_features,
+        user_features=user_features.drop("gender"),
+        users=[0],
+    )
+    assert pred.count() == 1
+    assert pred.collect()[0][0] == 0
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ClusterRec(num_clusters=2),
+        LightFMWrap(random_state=SEED, no_components=4),
+        PopRec(),
+        RandomRec(seed=SEED),
+    ],
+    ids=[
+        "cluster",
+        "lightfm",
+        "pop_rec",
+        "random_rec",
+    ],
+)
+def test_predict_cold_users(model, long_log_with_features, user_features):
+    pred = fit_predict_selected(
+        model,
+        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+        inf_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+        user_features=user_features.drop("gender"),
+        users=[0],
+    )
+    assert pred.count() == 1
+    assert pred.collect()[0][0] == 0
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ALSWrap(rank=2, seed=SEED),
+        ItemKNN(),
+        LightFMWrap(),
+        MultVAE(),
+        NeuroMF(),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+    ],
+    ids=[
+        "als",
+        "knn",
+        "lightfm_no_feat",
+        "multvae",
+        "neuromf",
+        "slim",
+        "word2vec",
+        "association_rules",
+    ],
+)
+def test_predict_cold_and_new_filter_out(model, long_log_with_features):
+    pred = fit_predict_selected(
+        model,
+        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+        inf_log=long_log_with_features,
+        user_features=None,
+        users=[0, 3],
+    )
+    # assert new/cold users are filtered out in `predict`
+    if isinstance(model, LightFMWrap) or not model.can_predict_cold_users:
+        assert pred.count() == 0
+    else:
+        assert 1 <= pred.count() <= 2
+
+
+@pytest.mark.parametrize("add_cold_items", [True, False])
+@pytest.mark.parametrize("predict_cold_only", [True, False])
+@pytest.mark.parametrize(
+    "model",
+    [
+        PopRec(),
+        RandomRec(seed=SEED),
+        Wilson(sample=True),
+        Wilson(sample=False),
+        UCB(sample=True),
+        UCB(sample=False),
+    ],
+    ids=[
+        "pop_rec",
+        "random_uni",
+        "wilson_sample",
+        "wilson",
+        "UCB_sample",
+        "UCB",
+    ],
+)
+def test_add_cold_items_for_nonpersonalized(
+    model, add_cold_items, predict_cold_only, long_log_with_features
+):
+    num_warm = 5
+    # k is greater than the number of warm items to check if
+    # the cold items are presented in prediction
+    k = 6
+    log = (
+        long_log_with_features
+        if not isinstance(model, (Wilson, UCB))
+        else long_log_with_features.withColumn(
+            "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
+        )
+    )
+    train_log = log.filter(sf.col("item_idx") < num_warm)
+    model.fit(train_log)
+    # ucb always adds cold items to prediction
+    if not isinstance(model, UCB):
+        model.add_cold_items = add_cold_items
+
+    items = log.select("item_idx").distinct()
+    if predict_cold_only:
+        items = items.filter(sf.col("item_idx") >= num_warm)
+    pred = model.predict(
+        log=log.filter(sf.col("item_idx") < num_warm),
+        users=[1],
+        items=items,
+        k=k,
+        filter_seen_items=False,
+    )
+
+    if isinstance(model, UCB) or add_cold_items:
+        assert pred.count() == min(k, items.count())
+        if predict_cold_only:
+            assert pred.select(sf.min("item_idx")).collect()[0][0] >= num_warm
+            # for RandomRec relevance of an item is equal to its inverse position in the list
+            if not isinstance(model, RandomRec):
+                assert pred.select("relevance").distinct().count() == 1
+    else:
+        if predict_cold_only:
+            assert pred.count() == 0
+        else:
+            # ucb always adds cold items to prediction
+            assert pred.select(sf.max("item_idx")).collect()[0][0] < num_warm
+            assert pred.count() == min(
+                k,
+                train_log.select("item_idx")
+                .distinct()
+                .join(items, on="item_idx")
+                .count(),
+            )
 
 
 @pytest.mark.parametrize(
@@ -157,41 +454,6 @@ def test_predict_pairs_k(log, model):
         > 0
     )
 
-
-@pytest.mark.parametrize(
-    "model",
-    [
-        ALSWrap(seed=SEED),
-        ADMMSLIM(seed=SEED),
-        ItemKNN(),
-        LightFMWrap(random_state=SEED),
-        MultVAE(),
-        NeuroMF(),
-        SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
-        PopRec(),
-        RandomRec(seed=SEED),
-    ],
-    ids=[
-        "als",
-        "admm_slim",
-        "knn",
-        "lightfm",
-        "multvae",
-        "neuromf",
-        "slim",
-        "word2vec",
-        "association_rules",
-        "pop_rec",
-        "random_rec",
-    ],
-)
-def test_predict_empty_log(log, model):
-    model.fit(log)
-    model.predict(log.limit(0), 1)
-
-
 @pytest.mark.parametrize(
     "model",
     [
@@ -221,119 +483,6 @@ def test_predict_pairs_raises_pairs_format(log):
         model.fit(log)
         model.predict_pairs(log, log)
 
-
-def fit_predict_selected(model, train_log, inf_log, user_features, users):
-    kwargs = {}
-    if isinstance(model, (HybridRecommender, UserRecommender)):
-        kwargs = {"user_features": user_features}
-    model.fit(train_log, **kwargs)
-    return model.predict(log=inf_log, users=users, k=1, **kwargs)
-
-
-@pytest.mark.parametrize(
-    "model",
-    [
-        ADMMSLIM(seed=SEED),
-        ClusterRec(num_clusters=2),
-        ItemKNN(),
-        LightFMWrap(random_state=SEED, no_components=4),
-        MultVAE(),
-        SLIM(seed=SEED),
-        PopRec(),
-        RandomRec(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
-    ],
-    ids=[
-        "admm_slim",
-        "cluster",
-        "knn",
-        "lightfm",
-        "multvae",
-        "slim",
-        "pop_rec",
-        "random_rec",
-        "word2vec",
-        "association_rules",
-    ],
-)
-def test_predict_new_users(model, long_log_with_features, user_features):
-    pred = fit_predict_selected(
-        model,
-        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
-        inf_log=long_log_with_features,
-        user_features=user_features.drop("gender"),
-        users=[0],
-    )
-    assert pred.count() == 1
-    assert pred.collect()[0][0] == 0
-
-
-@pytest.mark.parametrize(
-    "model",
-    [
-        ClusterRec(num_clusters=2),
-        LightFMWrap(random_state=SEED, no_components=4),
-        PopRec(),
-        RandomRec(seed=SEED),
-    ],
-    ids=[
-        "cluster",
-        "lightfm",
-        "pop_rec",
-        "random_rec",
-    ],
-)
-def test_predict_cold_users(model, long_log_with_features, user_features):
-    pred = fit_predict_selected(
-        model,
-        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
-        inf_log=long_log_with_features.filter(sf.col("user_idx") != 0),
-        user_features=user_features.drop("gender"),
-        users=[0],
-    )
-    assert pred.count() == 1
-    assert pred.collect()[0][0] == 0
-
-
-@pytest.mark.parametrize(
-    "model",
-    [
-        ALSWrap(rank=2, seed=SEED),
-        ItemKNN(),
-        LightFMWrap(),
-        MultVAE(),
-        NeuroMF(),
-        SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
-    ],
-    ids=[
-        "als",
-        "knn",
-        "lightfm_no_feat",
-        "multvae",
-        "neuromf",
-        "slim",
-        "word2vec",
-        "association_rules",
-    ],
-)
-def test_predict_cold_and_new_filter_out(model, long_log_with_features):
-    pred = fit_predict_selected(
-        model,
-        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
-        inf_log=long_log_with_features,
-        user_features=None,
-        users=[0, 3],
-    )
-    # assert new/cold users are filtered out in `predict`
-    if isinstance(model, LightFMWrap) or not model.can_predict_cold_users:
-        assert pred.count() == 0
-    else:
-        assert 1 <= pred.count() <= 2
-
-
 @pytest.mark.parametrize(
     "seed",
     [
@@ -361,100 +510,3 @@ def test_predict_pairs_to_file(spark, seed, long_log_with_features, tmp_path):
         sparkDataFrameEqual(pred_cached, pred_from_file)
     else:
         sparkDataFrameNotEqual(pred_cached, pred_from_file)
-
-
-@pytest.mark.parametrize(
-    "seed",
-    [
-        None,
-        SEED,
-    ],
-    ids=[
-        "no_seed",
-        "seed",
-    ],
-)
-def test_predict_to_file(spark, seed, log, tmp_path):
-    path = str((tmp_path / "pred.parquet").resolve().absolute())
-    model = RandomRec(seed=seed)
-    model.fit_predict(log, k=10, recs_file_path=path)
-    pred_cached = model.predict(log, k=10, recs_file_path=None)
-    pred_from_file = spark.read.parquet(path)
-    if model.seed is not None:
-        sparkDataFrameEqual(pred_cached, pred_from_file)
-    else:
-        sparkDataFrameNotEqual(pred_cached, pred_from_file)
-
-
-@pytest.mark.parametrize("add_cold_items", [True, False])
-@pytest.mark.parametrize("predict_cold_only", [True, False])
-@pytest.mark.parametrize(
-    "model",
-    [
-        PopRec(),
-        RandomRec(seed=SEED),
-        Wilson(sample=True),
-        Wilson(sample=False),
-        UCB(sample=True),
-        UCB(sample=False),
-    ],
-    ids=[
-        "pop_rec",
-        "random_uni",
-        "wilson_sample",
-        "wilson",
-        "UCB_sample",
-        "UCB",
-    ],
-)
-def test_add_cold_items_for_nonpersonalized(
-    model, add_cold_items, predict_cold_only, long_log_with_features
-):
-    num_warm = 5
-    # k is greater than the number of warm items to check if
-    # the cold items are presented in prediction
-    k = 6
-    log = (
-        long_log_with_features
-        if not isinstance(model, (Wilson, UCB))
-        else long_log_with_features.withColumn(
-            "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
-        )
-    )
-    train_log = log.filter(sf.col("item_idx") < num_warm)
-    model.fit(train_log)
-    # ucb always adds cold items to prediction
-    if not isinstance(model, UCB):
-        model.add_cold_items = add_cold_items
-
-    items = log.select("item_idx").distinct()
-    if predict_cold_only:
-        items = items.filter(sf.col("item_idx") >= num_warm)
-    pred = model.predict(
-        log=log.filter(sf.col("item_idx") < num_warm),
-        users=[1],
-        items=items,
-        k=k,
-        filter_seen_items=False,
-    )
-
-    if isinstance(model, UCB) or add_cold_items:
-        assert pred.count() == min(k, items.count())
-        if predict_cold_only:
-            assert pred.select(sf.min("item_idx")).collect()[0][0] >= num_warm
-            # for RandomRec relevance of an item is equal to its inverse position in the list
-            if not isinstance(model, RandomRec):
-                assert pred.select("relevance").distinct().count() == 1
-    else:
-        if predict_cold_only:
-            assert pred.count() == 0
-        else:
-            # ucb always adds cold items to prediction
-            assert pred.select(sf.max("item_idx")).collect()[0][0] < num_warm
-            assert pred.count() == min(
-                k,
-                train_log.select("item_idx")
-                .distinct()
-                .join(items, on="item_idx")
-                .count(),
-            )
