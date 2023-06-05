@@ -116,13 +116,3 @@ def test_metric(log, log_to_pred, model):
         p_pred_metr_from_user_conf,
         p_pred_metr_from_user_lift
     )
-
-
-def test_save_load(log, model, tmp_path):
-    path = (tmp_path / "rules").resolve()
-    model.fit(log)
-    base_pred = model.get_nearest_items([0], 5, metric="lift")
-    save(model, path)
-    loaded_model = load(path)
-    new_pred = loaded_model.get_nearest_items([0], 5, metric="lift")
-    sparkDataFrameEqual(base_pred, new_pred)

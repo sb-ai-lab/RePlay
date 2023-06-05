@@ -1,5 +1,6 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
+import implicit
 import numpy as np
 
 from pyspark.sql import functions as sf
@@ -9,6 +10,7 @@ from replay.models import (
     ADMMSLIM,
     ALSWrap,
     AssociationRulesItemRec,
+    ImplicitWrap,
     ItemKNN,
     LightFMWrap,
     PopRec,
@@ -45,6 +47,8 @@ def test_filter_seen(log):
     [
         ADMMSLIM(),
         ALSWrap(),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        ImplicitWrap(implicit.als.AlternatingLeastSquares()),
         ItemKNN(),
         LightFMWrap(),
         PopRec(),
