@@ -53,31 +53,6 @@ def test_fit(model):
         assert param_shapes[i] == tuple(parameter.shape)
 
 
-def test_predict(log, model):
-    recs = model.predict(log, users=[0, 1, 7], k=1)
-    # new users with history
-    assert recs.filter(sf.col("user_idx") == 0).count() == 1
-    # cold user
-    assert recs.filter(sf.col("user_idx") == 7).count() == 0
-    assert recs.count() == 2
-
-
-def test_predict_pairs(log, log2, model):
-    recs = model.predict_pairs(
-        pairs=log2.select("user_idx", "item_idx"), log=log
-    )
-    assert (
-        recs.count()
-        == (
-            log2.join(
-                log.select("user_idx").distinct(), on="user_idx", how="inner"
-            ).join(
-                log.select("item_idx").distinct(), on="item_idx", how="inner"
-            )
-        ).count()
-    )
-
-
 def test_save_load(log, model, spark):
     spark_local_dir = spark.conf.get("spark.local.dir")
     pattern = "best_multvae_1_loss=\\d\\.\\d+.pt.?"

@@ -50,22 +50,6 @@ def test_cold_user(long_log_with_features, users_features):
     assert res.filter(sf.col("relevance").isNull()).count() == 0
 
 
-def test_predict_pairs(long_log_with_features, users_features):
-    model = ClusterRec()
-    model.fit(long_log_with_features, user_features=users_features)
-    pairs = long_log_with_features.select("user_idx", "item_idx").filter(
-        sf.col("user_idx") == 1
-    )
-    res = model.predict_pairs(
-        pairs,
-        log=long_log_with_features,
-        user_features=users_features,
-    )
-    sparkDataFrameEqual(res.select("user_idx", "item_idx"), pairs)
-    assert res.count() == 4
-    assert res.select("user_idx").collect()[0][0] == 1
-
-
 def test_raises(long_log_with_features, users_features):
     model = ClusterRec()
     with pytest.raises(

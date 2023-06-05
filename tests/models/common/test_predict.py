@@ -26,15 +26,16 @@ from replay.models import (
 from replay.models.base_rec import HybridRecommender, UserRecommender
 
 from tests.utils import (
-    SEED,
-    spark,
+    item_features,
     log,
     log_to_pred,
     long_log_with_features,
     pos_neg_log,
-    user_features,
+    SEED,
+    spark,
     sparkDataFrameEqual,
     sparkDataFrameNotEqual,
+    user_features,
 )
 
 
@@ -54,8 +55,8 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
         ImplicitWrap(implicit.als.AlternatingLeastSquares()),
         ItemKNN(),
         LightFMWrap(random_state=SEED),
-        MultVAE(),
-        NeuroMF(),
+        MultVAE(epochs=1),
+        NeuroMF(epochs=1),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
@@ -131,8 +132,8 @@ def test_predict_empty_log_nonpersonalized(pos_neg_log, model, sample, seed=None
         ALSWrap(seed=SEED),
         ItemKNN(),
         LightFMWrap(random_state=SEED),
-        MultVAE(),
-        NeuroMF(),
+        MultVAE(epochs=1),
+        NeuroMF(epochs=1),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
     ],
@@ -171,7 +172,7 @@ def test_predict_empty_log(log, model):
             k=1,
         )
         assert pred_none.count() == 4
-    elif not isinstance(model, ALSWrap):
+    else:
         with pytest.raises((AttributeError, ValueError)):
             pred_none = model.predict(
                 None,
@@ -188,7 +189,7 @@ def test_predict_empty_log(log, model):
         ClusterRec(num_clusters=2),
         ItemKNN(),
         LightFMWrap(random_state=SEED, no_components=4),
-        MultVAE(),
+        MultVAE(epochs=1),
         SLIM(seed=SEED),
         PopRec(),
         RandomRec(seed=SEED),
@@ -243,6 +244,115 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
     assert pred.collect()[0][0] == 0
 
 
+@pytest.mark.parametrize(
+    "model",
+    [
+        ALSWrap(rank=2, seed=SEED),
+        ItemKNN(),
+        LightFMWrap(),
+        MultVAE(epochs=1),
+        NeuroMF(epochs=1),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+    ],
+    ids=[
+        "als",
+        "knn",
+        "lightfm_no_feat",
+        "multvae",
+        "neuromf",
+        "slim",
+        "word2vec",
+        "association_rules",
+    ],
+)
+def test_filter_out_cold_and_new_users(model, long_log_with_features):
+    pred = fit_predict_selected(
+        model,
+        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+        inf_log=long_log_with_features,
+        user_features=None,
+        users=[0, 3],
+    )
+    # assert new/cold users are filtered out in `predict`
+    if isinstance(model, LightFMWrap) or not model.can_predict_cold_users:
+        assert pred.count() == 0
+    else:
+        assert 1 <= pred.count() <= 2
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ALSWrap(rank=2, seed=SEED),
+        ItemKNN(),
+        LightFMWrap(),
+        MultVAE(epochs=1),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+    ],
+    ids=[
+        "als",
+        "knn",
+        "lightfm",
+        "multvae",
+        "slim",
+        "word2vec",
+        "association_rules",
+    ],
+)
+def test_predict_cold_items(model, long_log_with_features, item_features):
+    if isinstance(model, LightFMWrap):
+        model.fit(
+            long_log_with_features.filter(sf.col("item_idx") != 0),
+            item_features=item_features.drop("class", "color").filter(sf.col("item_idx") != 0),
+        )
+
+        pred_cold = model.predict(
+            long_log_with_features.filter(sf.col("item_idx") == 0),
+            users=long_log_with_features.select("user_idx").distinct(),
+            items=[0],
+            k=1,
+            item_features=item_features.drop("class", "color"),
+        )
+        pred_new = model.predict(
+            long_log_with_features.filter(sf.col("item_idx") == 0),
+            users=long_log_with_features.select("user_idx").distinct(),
+            items=[5],
+            k=1,
+            item_features=item_features.drop("class", "color"),
+        )
+        print("pred_cold ", pred_cold.toPandas())
+        assert pred_cold.count() > 0
+        print("pred_new ", pred_new.toPandas())
+        assert pred_new.count() > 0
+    else:
+        model.fit(long_log_with_features.filter(sf.col("item_idx") != 0))
+
+        pred_cold = model.predict(
+            long_log_with_features.filter(sf.col("item_idx") == 0),
+            users=long_log_with_features.select("user_idx").distinct(),
+            items=[0],
+            k=1,
+        )
+        pred_new = model.predict(
+            long_log_with_features.filter(sf.col("item_idx") == 0),
+            users=long_log_with_features.select("user_idx").distinct(),
+            items=[5],
+            k=1,
+        )
+        # if isinstance(model, ALSWrap):
+        #     assert pred_cold.count() == 3
+        # else:
+        assert pred_cold.count() == 0
+        if isinstance(model, ALSWrap):
+            assert pred_new.count() == 3
+        else:
+            assert pred_new.count() == 0
+
+
 @pytest.mark.parametrize("add_cold_items", [True, False])
 @pytest.mark.parametrize("predict_cold_only", [True, False])
 @pytest.mark.parametrize(
@@ -277,7 +387,7 @@ def test_add_cold_items_for_nonpersonalized(
     k = 6
     log = (
         long_log_with_features
-        if not isinstance(model, (Wilson, UCB))
+        if not isinstance(model, (ThompsonSampling, Wilson, UCB))
         else long_log_with_features.withColumn(
             "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
         )
@@ -324,50 +434,12 @@ def test_add_cold_items_for_nonpersonalized(
 @pytest.mark.parametrize(
     "model",
     [
-        ALSWrap(rank=2, seed=SEED),
-        ItemKNN(),
-        LightFMWrap(),
-        MultVAE(),
-        NeuroMF(),
-        SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
-    ],
-    ids=[
-        "als",
-        "knn",
-        "lightfm_no_feat",
-        "multvae",
-        "neuromf",
-        "slim",
-        "word2vec",
-        "association_rules",
-    ],
-)
-def test_predict_cold_and_new_filter_out(model, long_log_with_features):
-    pred = fit_predict_selected(
-        model,
-        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
-        inf_log=long_log_with_features,
-        user_features=None,
-        users=[0, 3],
-    )
-    # assert new/cold users are filtered out in `predict`
-    if isinstance(model, LightFMWrap) or not model.can_predict_cold_users:
-        assert pred.count() == 0
-    else:
-        assert 1 <= pred.count() <= 2
-
-
-@pytest.mark.parametrize(
-    "model",
-    [
         ADMMSLIM(seed=SEED),
         ALSWrap(seed=SEED),
         ItemKNN(),
         LightFMWrap(random_state=SEED),
-        MultVAE(),
-        NeuroMF(),
+        MultVAE(epochs=1),
+        NeuroMF(epochs=1),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
@@ -427,8 +499,8 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
         ALSWrap(seed=SEED),
         ItemKNN(),
         LightFMWrap(random_state=SEED),
-        MultVAE(),
-        NeuroMF(),
+        MultVAE(epochs=1),
+        NeuroMF(epochs=1),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
