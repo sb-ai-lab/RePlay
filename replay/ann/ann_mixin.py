@@ -1,7 +1,7 @@
 import importlib
 import logging
 from abc import abstractmethod
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union, Iterable
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -11,15 +11,16 @@ from replay.ann.index_stores.spark_files_index_store import (
     SparkFilesIndexStore,
 )
 from replay.models.base_rec import BaseRecommender
+from replay.utils import get_unique_entities, get_top_k_recs, return_recs
 
 logger = logging.getLogger("replay")
 
 
 class ANNMixin(BaseRecommender):
     """
-    This class overrides the `_fit_wrap` and `_inner_predict_wrap` methods of the base class,
+    This class overrides the `_fit_wrap` and `_predict_wrap` methods of the base class,
     adding an index construction in the `_fit_wrap` step
-    and an index inference in the `_inner_predict_wrap` step.
+    and an index inference in the `_predict_wrap` step.
     """
 
     index_builder: Optional[IndexBuilder] = None
@@ -138,26 +139,40 @@ class ANNMixin(BaseRecommender):
 
         """
 
-    def _inner_predict_wrap(  # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments, too-many-locals
+    def _predict_wrap(
         self,
-        log: DataFrame,
+        log: Optional[DataFrame],
         k: int,
-        users: DataFrame,
-        items: DataFrame,
+        users: Optional[Union[DataFrame, Iterable]] = None,
+        items: Optional[Union[DataFrame, Iterable]] = None,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
-        """Override base `_inner_predict_wrap` and adds ANN inference by condition"""
+        recs_file_path: Optional[str] = None,
+    ) -> Optional[DataFrame]:
+        self.logger.debug("Starting predict %s", type(self).__name__)
+        user_data = users or log or user_features or self.fit_users
+        users = get_unique_entities(user_data, "user_idx")
+        users, log = self._filter_cold_for_predict(users, log, "user")
+
+        item_data = items or self.fit_items
+        items = get_unique_entities(item_data, "item_idx")
+        items, log = self._filter_cold_for_predict(items, log, "item")
+        num_items = items.count()
+        if num_items < k:
+            message = f"k = {k} > number of items = {num_items}"
+            self.logger.debug(message)
+
         if self._use_ann:
             vectors = self._get_vectors_to_infer_ann(
                 log, users, filter_seen_items
             )
             ann_params = self._get_ann_infer_params()
             inferer = self.index_builder.produce_inferer(filter_seen_items)
-            return inferer.infer(vectors, ann_params["features_col"], k)
+            recs = inferer.infer(vectors, ann_params["features_col"], k)
         else:
-            return self._predict(
+            recs = self._predict(
                 log,
                 k,
                 users,
@@ -167,17 +182,18 @@ class ANNMixin(BaseRecommender):
                 filter_seen_items,
             )
 
-    def _filter_seen(
-        self, recs: DataFrame, log: DataFrame, k: int, users: DataFrame
-    ):
-        """
-        Overridden _filter_seen method from base class.
-        Filtering is not needed for ann methods, because the data is already filtered in udf.
-        """
-        if self._use_ann:
-            return recs
+        if not self._use_ann:
+            if filter_seen_items and log:
+                recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
 
-        return super()._filter_seen(recs, log, k, users)
+            recs = get_top_k_recs(recs, k=k).select(
+                "user_idx", "item_idx", "relevance"
+            )
+
+        output = return_recs(recs, recs_file_path)
+        self._clear_model_temp_view("filter_seen_users_log")
+        self._clear_model_temp_view("filter_seen_num_seen")
+        return output
 
     def _save_index(self, path):
         self.index_builder.index_store.dump_index(path)
