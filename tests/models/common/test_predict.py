@@ -10,6 +10,7 @@ from replay.models import (
     ALSWrap,
     AssociationRulesItemRec,
     ClusterRec,
+    DDPG,
     ItemKNN,
     ImplicitWrap,
     LightFMWrap,
@@ -39,6 +40,38 @@ from tests.utils import (
 )
 
 
+MODELS_RATING_LOG = [
+    ADMMSLIM(),
+    ALSWrap(),
+    AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+    # DDPG(),
+    ImplicitWrap(implicit.als.AlternatingLeastSquares()),
+    ItemKNN(),
+    LightFMWrap(),
+    MultVAE(epochs=1),
+    NeuroMF(epochs=1),
+    PopRec(),
+    RandomRec(),
+    SLIM(),
+    Word2VecRec(min_count=0),
+]
+MODELS_RATING_LOG_IDS = [
+    "admm_slim",
+    "als",
+    "association_rules",
+    # "ddpg",
+    "implicit",
+    "knn",
+    "lightfm",
+    "multvae",
+    "neuromf",
+    "pop_rec",
+    "random_rec",
+    "slim",
+    "word2vec",
+]
+
+
 def fit_predict_selected(model, train_log, inf_log, user_features, users):
     kwargs = {}
     if isinstance(model, (HybridRecommender, UserRecommender)):
@@ -47,37 +80,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
     return model.predict(log=inf_log, users=users, k=1, **kwargs)
 
 
-@pytest.mark.parametrize(
-    "model",
-    [
-        ADMMSLIM(seed=SEED),
-        ALSWrap(seed=SEED),
-        ImplicitWrap(implicit.als.AlternatingLeastSquares()),
-        ItemKNN(),
-        LightFMWrap(random_state=SEED),
-        MultVAE(epochs=1),
-        NeuroMF(epochs=1),
-        SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
-        PopRec(),
-        RandomRec(seed=SEED),
-    ],
-    ids=[
-        "admm_slim",
-        "als",
-        "implicit",
-        "knn",
-        "lightfm",
-        "multvae",
-        "neuromf",
-        "slim",
-        "word2vec",
-        "association_rules",
-        "pop_rec",
-        "random_rec",
-    ],
-)
+@pytest.mark.parametrize("model", MODELS_RATING_LOG, ids=MODELS_RATING_LOG_IDS)
 def test_works(log, model):
     pred = model.fit_predict(log, k=1)
     assert pred.count() == 4
@@ -185,19 +188,20 @@ def test_predict_empty_log(log, model):
 @pytest.mark.parametrize(
     "model",
     [
-        ADMMSLIM(seed=SEED),
+        ADMMSLIM(),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
         ClusterRec(num_clusters=2),
         ItemKNN(),
-        LightFMWrap(random_state=SEED, no_components=4),
+        LightFMWrap(no_components=4),
         MultVAE(epochs=1),
-        SLIM(seed=SEED),
+        SLIM(),
         PopRec(),
-        RandomRec(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        RandomRec(),
+        Word2VecRec(min_count=0),
     ],
     ids=[
         "admm_slim",
+        "association_rules",
         "cluster",
         "knn",
         "lightfm",
@@ -206,7 +210,6 @@ def test_predict_empty_log(log, model):
         "pop_rec",
         "random_rec",
         "word2vec",
-        "association_rules",
     ],
 )
 def test_predict_new_users(model, long_log_with_features, user_features):
@@ -217,6 +220,7 @@ def test_predict_new_users(model, long_log_with_features, user_features):
         user_features=user_features.drop("gender"),
         users=[0],
     )
+    print(pred.toPandas())
     assert pred.count() == 1
     assert pred.collect()[0][0] == 0
 
@@ -225,7 +229,7 @@ def test_predict_new_users(model, long_log_with_features, user_features):
     "model",
     [
         ClusterRec(num_clusters=2),
-        LightFMWrap(random_state=SEED, no_components=4),
+        LightFMWrap(),
     ],
     ids=[
         "cluster",
@@ -244,29 +248,7 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
     assert pred.collect()[0][0] == 0
 
 
-@pytest.mark.parametrize(
-    "model",
-    [
-        ALSWrap(rank=2, seed=SEED),
-        ItemKNN(),
-        LightFMWrap(),
-        MultVAE(epochs=1),
-        NeuroMF(epochs=1),
-        SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
-    ],
-    ids=[
-        "als",
-        "knn",
-        "lightfm_no_feat",
-        "multvae",
-        "neuromf",
-        "slim",
-        "word2vec",
-        "association_rules",
-    ],
-)
+@pytest.mark.parametrize("model", MODELS_RATING_LOG, ids=MODELS_RATING_LOG_IDS)
 def test_filter_out_cold_and_new_users(model, long_log_with_features):
     pred = fit_predict_selected(
         model,
@@ -285,22 +267,24 @@ def test_filter_out_cold_and_new_users(model, long_log_with_features):
 @pytest.mark.parametrize(
     "model",
     [
-        ALSWrap(rank=2, seed=SEED),
-        ItemKNN(),
-        LightFMWrap(),
-        MultVAE(epochs=1),
-        SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
+        ADMMSLIM(),
+        ALSWrap(),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        ItemKNN(),
+        LightFMWrap(no_components=4),
+        MultVAE(epochs=1),
+        SLIM(),
+        Word2VecRec(min_count=0),
     ],
     ids=[
+        "admm_slim",
         "als",
+        "association_rules",
         "knn",
         "lightfm",
         "multvae",
         "slim",
         "word2vec",
-        "association_rules",
     ],
 )
 def test_predict_cold_items(model, long_log_with_features, item_features):
@@ -324,9 +308,7 @@ def test_predict_cold_items(model, long_log_with_features, item_features):
             k=1,
             item_features=item_features.drop("class", "color"),
         )
-        print("pred_cold ", pred_cold.toPandas())
         assert pred_cold.count() > 0
-        print("pred_new ", pred_new.toPandas())
         assert pred_new.count() > 0
     else:
         model.fit(long_log_with_features.filter(sf.col("item_idx") != 0))
@@ -343,9 +325,6 @@ def test_predict_cold_items(model, long_log_with_features, item_features):
             items=[5],
             k=1,
         )
-        # if isinstance(model, ALSWrap):
-        #     assert pred_cold.count() == 3
-        # else:
         assert pred_cold.count() == 0
         if isinstance(model, ALSWrap):
             assert pred_new.count() == 3
@@ -431,31 +410,7 @@ def test_add_cold_items_for_nonpersonalized(
             )
 
 
-@pytest.mark.parametrize(
-    "model",
-    [
-        ADMMSLIM(seed=SEED),
-        ALSWrap(seed=SEED),
-        ItemKNN(),
-        LightFMWrap(random_state=SEED),
-        MultVAE(epochs=1),
-        NeuroMF(epochs=1),
-        SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
-    ],
-    ids=[
-        "admm_slim",
-        "als",
-        "knn",
-        "lightfm",
-        "multvae",
-        "neuromf",
-        "slim",
-        "word2vec",
-        "association_rules",
-    ],
-)
+@pytest.mark.parametrize("model", MODELS_RATING_LOG, ids=MODELS_RATING_LOG_IDS)
 def test_predict_pairs_warm_items_only(log, log_to_pred, model):
     model.fit(log)
     recs = model.predict(
@@ -492,35 +447,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
     )
 
 
-@pytest.mark.parametrize(
-    "model",
-    [
-        ADMMSLIM(seed=SEED),
-        ALSWrap(seed=SEED),
-        ItemKNN(),
-        LightFMWrap(random_state=SEED),
-        MultVAE(epochs=1),
-        NeuroMF(epochs=1),
-        SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
-        PopRec(),
-        RandomRec(seed=SEED),
-    ],
-    ids=[
-        "admm_slim",
-        "als",
-        "knn",
-        "lightfm",
-        "multvae",
-        "neuromf",
-        "slim",
-        "word2vec",
-        "association_rules",
-        "pop_rec",
-        "random_rec",
-    ],
-)
+@pytest.mark.parametrize("model", MODELS_RATING_LOG, ids=MODELS_RATING_LOG_IDS)
 def test_predict_pairs_k(log, model):
     model.fit(log)
 
@@ -556,18 +483,18 @@ def test_predict_pairs_k(log, model):
 @pytest.mark.parametrize(
     "model",
     [
-        ADMMSLIM(seed=SEED),
-        ItemKNN(),
-        SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
+        ADMMSLIM(),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        ItemKNN(),
+        SLIM(),
+        Word2VecRec(min_count=0),
     ],
     ids=[
         "admm_slim",
+        "association_rules",
         "knn",
         "slim",
         "word2vec",
-        "association_rules",
     ],
 )
 def test_predict_pairs_raises(log, model):
