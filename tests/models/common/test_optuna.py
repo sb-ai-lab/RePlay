@@ -1,7 +1,20 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
 
-from replay.models import ALSWrap, SLIM, ItemKNN
+from replay.models import (
+    ADMMSLIM,
+    ALSWrap,
+    AssociationRulesItemRec,
+    ClusterRec,
+    ItemKNN,
+    LightFMWrap,
+    MultVAE,
+    NeuroMF,
+    PopRec,
+    RandomRec,
+    SLIM,
+    Word2VecRec,
+)
 from tests.utils import log, spark
 
 
@@ -56,10 +69,32 @@ def test_param_in_borders(model, borders, answer):
     assert model._init_params_in_search_space(search_space) == answer
 
 
-def test_it_works(model, log):
+@pytest.mark.parametrize(
+    "model",
+    [
+        ADMMSLIM(),
+        ALSWrap(),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        ItemKNN(),
+        MultVAE(epochs=1),
+        NeuroMF(epochs=1),
+        SLIM(),
+        Word2VecRec(min_count=0),
+    ],
+    ids=[
+        "admm_slim",
+        "als",
+        "association_rules",
+        "knn",
+        "multvae",
+        "neuromf",
+        "slim",
+        "word2vec",
+    ],
+)
+def test_works(model, log):
     assert model._params_tried() is False
-    res = model.optimize(log, log, k=2, budget=1)
-    assert isinstance(res["rank"], int)
+    model.optimize(log, log, k=2, budget=1)
     assert model._params_tried() is True
     model.optimize(log, log, k=2, budget=1)
     assert len(model.study.trials) == 1
