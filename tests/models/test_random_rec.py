@@ -96,3 +96,19 @@ def test_predict_to_file(spark, fitted_model, log, tmp_path):
         sparkDataFrameEqual(pred_cached, pred_from_file)
     else:
         sparkDataFrameNotEqual(pred_cached, pred_from_file)
+
+
+def test_predict_pairs_to_file(spark, fitted_model, log, tmp_path):
+    path = str((tmp_path / "pred.parquet").resolve().absolute())
+    fitted_model.predict_pairs(
+        log=log,
+        pairs=log.select("user_idx", "item_idx"),
+        recs_file_path=path,
+    )
+    pred_cached = fitted_model.predict_pairs(
+        log=log,
+        pairs=log.select("user_idx", "item_idx"),
+        recs_file_path=None,
+    )
+    pred_from_file = spark.read.parquet(path)
+    sparkDataFrameEqual(pred_cached, pred_from_file)

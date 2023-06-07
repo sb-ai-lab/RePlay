@@ -105,7 +105,7 @@ def test_raises_fit(log, numeric_user_features, numeric_item_features, model):
         )
 
 
-def test_raises_predict(log, model):
+def test_raises_predict(log, model, numeric_item_features):
     with pytest.raises(
         ValueError, match="Item features are missing for predict"
     ):

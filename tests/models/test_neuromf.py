@@ -36,14 +36,14 @@ def test_fit(log, model):
     model.fit(log)
     assert len(list(model.model.parameters())) == 12
     param_shapes = [
-        (3, 2),
+        (4, 2),
         (4, 2),
         (4, 1),
-        (3, 1),
-        (3, 2),
+        (4, 1),
+        (4, 2),
         (4, 2),
         (4, 1),
-        (3, 1),
+        (4, 1),
         (2, 4),
         (2,),
         (1, 4),
@@ -98,7 +98,7 @@ def test_save_load(log, model, spark):
     assert path is not None
 
     new_model = NeuroMF(embedding_mlp_dim=1)
-    new_model.model = NMF(3, 4, 2, 2, [2])
+    new_model.model = NMF(4, 4, 2, 2, [2])
     assert len(old_params) == len(list(new_model.model.parameters()))
 
     new_model.load_model(path)

@@ -28,7 +28,7 @@ def fix_seeds():
 
 @pytest.fixture
 def model(log):
-    model = DDPG(user_num=5, item_num=5)
+    model = DDPG(user_num=5, item_num=5, exact_embeddings_size=False)
     model.batch_size = 1
     return model
 
@@ -43,7 +43,7 @@ def test_fit(log, model):
         (16,),
         (8, 16),
         (8,),
-        (3, 8),
+        (5, 8),
         (5, 8),
         (1, 5, 1),
         (1,),

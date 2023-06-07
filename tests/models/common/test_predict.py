@@ -581,32 +581,3 @@ def test_predict_pairs_raises_pairs_format(log):
     with pytest.raises(ValueError, match="pairs must be a dataframe with .*"):
         model.fit(log)
         model.predict_pairs(log, log)
-
-
-@pytest.mark.parametrize(
-    "seed",
-    [
-        None,
-        SEED,
-    ],
-    ids=[
-        "no_seed",
-        "seed",
-    ],
-)
-def test_predict_pairs_to_file(spark, seed, long_log_with_features, tmp_path):
-    path = str((tmp_path / "pred.parquet").resolve().absolute())
-    model = RandomRec(seed=seed)
-    model.fit(long_log_with_features)
-    pred_cached = model.predict_pairs(
-        log=long_log_with_features,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
-            "user_idx", "item_idx"
-        ),
-        recs_file_path=None,
-    )
-    pred_from_file = spark.read.parquet(path)
-    if model.seed is not None:
-        sparkDataFrameEqual(pred_cached, pred_from_file)
-    else:
-        sparkDataFrameNotEqual(pred_cached, pred_from_file)
