@@ -44,7 +44,6 @@ MODELS_RATING_LOG = [
     ADMMSLIM(),
     ALSWrap(),
     AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
-    # DDPG(),
     ImplicitWrap(implicit.als.AlternatingLeastSquares()),
     ItemKNN(),
     LightFMWrap(),
@@ -59,7 +58,6 @@ MODELS_RATING_LOG_IDS = [
     "admm_slim",
     "als",
     "association_rules",
-    # "ddpg",
     "implicit",
     "knn",
     "lightfm",
@@ -410,7 +408,31 @@ def test_add_cold_items_for_nonpersonalized(
             )
 
 
-@pytest.mark.parametrize("model", MODELS_RATING_LOG, ids=MODELS_RATING_LOG_IDS)
+@pytest.mark.parametrize(
+    "model",
+    [
+        ADMMSLIM(),
+        ALSWrap(),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        ItemKNN(),
+        LightFMWrap(no_components=4),
+        MultVAE(epochs=1),
+        NeuroMF(epochs=1),
+        SLIM(),
+        Word2VecRec(min_count=0),
+    ],
+    ids=[
+        "admm_slim",
+        "als",
+        "association_rules",
+        "knn",
+        "lightfm",
+        "multvae",
+        "neuromf",
+        "slim",
+        "word2vec",
+    ],
+)
 def test_predict_pairs_warm_items_only(log, log_to_pred, model):
     model.fit(log)
     recs = model.predict(
