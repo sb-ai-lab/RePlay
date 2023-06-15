@@ -46,4 +46,4 @@ jobs:
       - name: pytest
         run: |
           . ./venv/bin/activate
-          pytest --cov=replay --cov-report=term-missing --doctest-modules replay --cov-fail-under=93 tests
+          pytest --cov-config=.coveragerc --cov=replay --cov-report=term-missing --doctest-modules replay --cov-fail-under=93 tests
