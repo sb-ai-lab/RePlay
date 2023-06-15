@@ -49,6 +49,7 @@ pytorch-ranger = "^0.1.1"
 
 [tool.poetry.dev-dependencies]
 # dev only
+poetry-core = "1.6.0"
 # visualization
 jupyter = "*"
 jupyterlab = "*"
