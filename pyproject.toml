@@ -30,6 +30,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.7, <3.10"
+poetry-core = "1.6.0"
 lightfm = "*"
 lightautoml = ">=0.3.1, <0.3.7"
 numpy = ">=1.20.0"
