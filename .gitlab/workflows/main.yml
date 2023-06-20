@@ -11,7 +11,7 @@ variables:
 .setup_venv: &setup_venv
   - python -m venv venv
   - source ./venv/bin/activate
-  - pip install -q --upgrade pip wheel poetry==1.3.2 lightfm setuptools
+  - pip install -q --upgrade pip wheel poetry==1.3.2 lightfm
 
 .install_replay: &install_replay
   before_script:
