@@ -908,6 +908,6 @@ def assert_omp_single_thread():
     omp_num_threads = os.environ.get('OMP_NUM_THREADS', None)
     if omp_num_threads != '1':
         logging.getLogger("replay").warning(
-            f'Environment variable "OMP_NUM_THREADS" is set to "{omp_num_threads}". '
-            'Set it to 1 if the working process freezes.'
+            'Environment variable "OMP_NUM_THREADS" is set to "%s". '
+            'Set it to 1 if the working process freezes.', omp_num_threads
         )

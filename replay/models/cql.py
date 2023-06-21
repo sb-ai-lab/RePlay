@@ -35,7 +35,7 @@ timer = timeit.default_timer
 
 
 class CQL(Recommender):
-    r"""Conservative Q-Learning algorithm.
+    """Conservative Q-Learning algorithm.
 
     CQL is a SAC-based data-driven deep reinforcement learning algorithm, which
     achieves state-of-the-art performance in offline RL problems.
@@ -45,11 +45,9 @@ class CQL(Recommender):
     underestimation issue.
 
     .. math::
-
-        L(\theta_i) = \alpha\, \mathbb{E}_{s_t \sim D}
-            \left[\log{\sum_a \exp{Q_{\theta_i}(s_t, a)}}
-             - \mathbb{E}_{a \sim D} \big[Q_{\theta_i}(s_t, a)\big] - \tau\right]
-            + L_\mathrm{SAC}(\theta_i)
+        L(\\theta_i) = \\alpha\\, \\mathbb{E}_{s_t \\sim D}
+        \\left[\\log{\\sum_a \\exp{Q_{\\theta_i}(s_t, a)}} - \\mathbb{E}_{a \\sim D} \\big[Q_{\\theta_i}(s_t, a)\\big] - \\tau\\right]
+        + L_\\mathrm{SAC}(\\theta_i)
 
     where :math:`\alpha` is an automatically adjustable value via Lagrangian
     dual gradient descent and :math:`\tau` is a threshold value.
@@ -62,12 +60,11 @@ class CQL(Recommender):
     follows.
 
     .. math::
-
-        \log{\sum_a \exp{Q(s, a)}} \approx \log{\left(
-            \frac{1}{2N} \sum_{a_i \sim \text{Unif}(a)}^N
-                \left[\frac{\exp{Q(s, a_i)}}{\text{Unif}(a)}\right]
-            + \frac{1}{2N} \sum_{a_i \sim \pi_\phi(a|s)}^N
-                \left[\frac{\exp{Q(s, a_i)}}{\pi_\phi(a_i|s)}\right]\right)}
+        \\log{\\sum_a \\exp{Q(s, a)}} \\approx \\log{\\left(
+        \\frac{1}{2N} \\sum_{a_i \\sim \\text{Unif}(a)}^N
+            \\left[\\frac{\\exp{Q(s, a_i)}}{\\text{Unif}(a)}\\right]
+        + \\frac{1}{2N} \\sum_{a_i \\sim \\pi_\\phi(a|s)}^N
+            \\left[\\frac{\\exp{Q(s, a_i)}}{\\pi_\\phi(a_i|s)}\\right]\\right)}
 
     where :math:`N` is the number of sampled actions.
 
@@ -85,32 +82,31 @@ class CQL(Recommender):
         mdp_dataset_builder (MdpDatasetBuilder): the MDP dataset builder from users' log.
         actor_learning_rate (float): learning rate for policy function.
         critic_learning_rate (float): learning rate for Q functions.
-        temp_learning_rate (float):
-            learning rate for temperature parameter of SAC.
+        temp_learning_rate (float): learning rate for temperature parameter of SAC.
         alpha_learning_rate (float): learning rate for :math:`\alpha`.
         actor_optim_factory (d3rlpy.models.optimizers.OptimizerFactory):
-            optimizer factory for the actor.
-            The available options are `[SGD, Adam or RMSprop]`.
+        optimizer factory for the actor.
+        The available options are `[SGD, Adam or RMSprop]`.
         critic_optim_factory (d3rlpy.models.optimizers.OptimizerFactory):
-            optimizer factory for the critic.
-            The available options are `[SGD, Adam or RMSprop]`.
+        optimizer factory for the critic.
+        The available options are `[SGD, Adam or RMSprop]`.
         temp_optim_factory (d3rlpy.models.optimizers.OptimizerFactory):
-            optimizer factory for the temperature.
-            The available options are `[SGD, Adam or RMSprop]`.
+        optimizer factory for the temperature.
+        The available options are `[SGD, Adam or RMSprop]`.
         alpha_optim_factory (d3rlpy.models.optimizers.OptimizerFactory):
-            optimizer factory for :math:`\alpha`.
-            The available options are `[SGD, Adam or RMSprop]`.
+        optimizer factory for :math:`\alpha`.
+        The available options are `[SGD, Adam or RMSprop]`.
         actor_encoder_factory (d3rlpy.models.encoders.EncoderFactory or str):
-            encoder factory for the actor.
-            The available options are `['pixel', 'dense', 'vector', 'default']`.
-            See d3rlpy.models.encoders.EncoderFactory for details.
+        encoder factory for the actor.
+        The available options are `['pixel', 'dense', 'vector', 'default']`.
+        See d3rlpy.models.encoders.EncoderFactory for details.
         critic_encoder_factory (d3rlpy.models.encoders.EncoderFactory or str):
-            encoder factory for the critic.
-            The available options are `['pixel', 'dense', 'vector', 'default']`.
-            See d3rlpy.models.encoders.EncoderFactory for details.
+        encoder factory for the critic.
+        The available options are `['pixel', 'dense', 'vector', 'default']`.
+        See d3rlpy.models.encoders.EncoderFactory for details.
         q_func_factory (d3rlpy.models.q_functions.QFunctionFactory or str):
-            Q function factory. The available options are `['mean', 'qr', 'iqn', 'fqf']`.
-            See d3rlpy.models.q_functions.QFunctionFactory for details.
+        Q function factory. The available options are `['mean', 'qr', 'iqn', 'fqf']`.
+        See d3rlpy.models.q_functions.QFunctionFactory for details.
         batch_size (int): mini-batch size.
         n_frames (int): the number of frames to stack for image observation.
         n_steps (int): N-step TD calculation.
@@ -122,17 +118,17 @@ class CQL(Recommender):
         alpha_threshold (float): threshold value described as :math:`\tau`.
         conservative_weight (float): constant weight to scale conservative loss.
         n_action_samples (int): the number of sampled actions to compute
-            :math:`\log{\sum_a \exp{Q(s, a)}}`.
+        :math:`\log{\sum_a \exp{Q(s, a)}}`.
         soft_q_backup (bool): flag to use SAC-style backup.
         use_gpu (bool, int or d3rlpy.gpu.Device):
-            flag to use GPU, device ID or device.
+        flag to use GPU, device ID or device.
         scaler (d3rlpy.preprocessing.Scaler or str): preprocessor.
-            The available options are `['pixel', 'min_max', 'standard']`.
+        The available options are `['pixel', 'min_max', 'standard']`.
         action_scaler (d3rlpy.preprocessing.ActionScaler or str):
-            action preprocessor. The available options are `['min_max']`.
+        action preprocessor. The available options are `['min_max']`.
         reward_scaler (d3rlpy.preprocessing.RewardScaler or str):
-            reward preprocessor. The available options are
-            `['clip', 'min_max', 'standard']`.
+        reward preprocessor. The available options are
+        `['clip', 'min_max', 'standard']`.
         impl (d3rlpy.algos.torch.cql_impl.CQLImpl): algorithm implementation.
     """
 
@@ -154,7 +150,8 @@ class CQL(Recommender):
         "gamma": {"type": "loguniform", "args": [0.9, 0.999]},
         "n_critics": {"type": "int", "args": [2, 4]},
     }
-    
+
+    # pylint: disable=too-many-arguments, too-many-locals
     def __init__(
             self,
             mdp_dataset_builder: 'MdpDatasetBuilder',
@@ -196,7 +193,7 @@ class CQL(Recommender):
         assert_omp_single_thread()
 
         if isinstance(actor_optim_factory, dict):
-            self.logger.info(f'-- Desiarializing CQL parameters')
+            self.logger.info('-- Desiarializing CQL parameters')
             actor_optim_factory = _deserialize_param('actor_optim_factory', actor_optim_factory)
             critic_optim_factory = _deserialize_param('critic_optim_factory', critic_optim_factory)
             temp_optim_factory = _deserialize_param('temp_optim_factory', temp_optim_factory)
@@ -334,7 +331,7 @@ class CQL(Recommender):
             .groupby("user_idx")
             .applyInPandas(grouped_map, REC_SCHEMA)
         )
-    
+
     @property
     def _init_args(self) -> Dict[str, Any]:
         return dict(
@@ -347,11 +344,11 @@ class CQL(Recommender):
         )
 
     def _save_model(self, path: str) -> None:
-        self.logger.info(f'-- Saving model to {path}')
+        self.logger.info('-- Saving model to %s', path)
         self.model.save_model(path)
 
     def _load_model(self, path: str) -> None:
-        self.logger.info(f'-- Loading model from {path}')
+        self.logger.info('-- Loading model from %s', path)
         self.model.load_model(path)
 
     def _get_model_hyperparams(self) -> Dict[str, Any]:
@@ -362,6 +359,7 @@ class CQL(Recommender):
         """
         assert self.model._impl is not None, IMPL_NOT_INITIALIZED_ERROR
 
+        # pylint: disable=invalid-name
         # get hyperparameters without impl
         params = {}
         with disable_parallel():
@@ -480,9 +478,10 @@ class MdpDatasetBuilder:
         )
 
         prepare_time = timer() - start_time
-        self.logger.info(f'-- Building MDP dataset took {prepare_time:.2f} seconds')
+        self.logger.info('-- Building MDP dataset took %.2f seconds', prepare_time)
         return train_dataset
 
+    # pylint: disable=missing-function-docstring
     def init_args(self):
         return dict(
             top_k=self.top_k,
