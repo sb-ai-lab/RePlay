@@ -3,9 +3,11 @@
 import pytest
 import numpy as np
 
+from pyspark.sql import functions as sf
+
 from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
 from replay.ann.index_builders.executor_nmslib_index_builder import (
-    ExecutorNmslibIndexBuilder,
+    ExecutorNmslibIndexBuilder, make_build_index_udf,
 )
 from replay.ann.index_stores.shared_disk_index_store import (
     SharedDiskIndexStore,
@@ -94,3 +96,25 @@ def test_ann_predict(log, model, model_with_ann):
 def test_exceptions(beta, lambda_):
     with pytest.raises(ValueError):
         SLIM(beta, lambda_)
+
+
+def test_build_index_udf(log, model, tmp_path):
+    """This test used for test ANN functionality using similarity dataframe from SLIM model."""
+    nmslib_hnsw_params = NmslibHnswParam(
+        space="negdotprod_sparse",
+        m=10,
+        ef_s=200,
+        ef_c=200,
+        post=0,
+    )
+    index_store = SharedDiskIndexStore(
+        warehouse_dir=str(tmp_path), index_dir="nmslib_hnsw_index",
+        cleanup=False
+    )
+    model.fit(log)
+    similarity_pdf = model.similarity.select(
+        "similarity", "item_idx_one", "item_idx_two"
+    ).toPandas()
+    nmslib_hnsw_params.items_count = log.select(sf.max("item_idx")).first()[0] + 1
+    build_index_udf = make_build_index_udf(nmslib_hnsw_params, index_store)
+    build_index_udf(iter([similarity_pdf]))
