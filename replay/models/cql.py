@@ -185,7 +185,6 @@ class CQL(Recommender):
             scaler: ScalerArg = None,
             action_scaler: ActionScalerArg = None,
             reward_scaler: RewardScalerArg = None,
-            impl: Optional[CQLImpl] = None,
             **params
     ):
         super().__init__()
@@ -240,8 +239,7 @@ class CQL(Recommender):
             use_gpu=use_gpu,
             scaler=scaler,
             action_scaler=action_scaler,
-            reward_scaler=reward_scaler,
-            impl=impl,
+            reward_scaler=reward_scaler
             **params
         )
 
