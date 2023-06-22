@@ -170,3 +170,6 @@ airflow.yaml
 
 # temporary
 experiments/tests
+
+### d3rlpy logs
+d3rlpy_logs/

@@ -47,6 +47,9 @@ seaborn = "*"
 pyarrow = "*"
 implicit = ">=0.5"
 pytorch-ranger = "^0.1.1"
+d3rlpy = "*"
+# required by d3rlpy
+gym = "0.17.2"
 
 [tool.poetry.dev-dependencies]
 # dev only
