@@ -11,7 +11,6 @@ import d3rlpy.algos.cql as CQL_d3rlpy
 import numpy as np
 import pandas as pd
 import torch
-from d3rlpy.algos.torch import CQLImpl
 from d3rlpy.argument_utility import (
     EncoderArg, QFuncArg, UseGPUArg, ScalerArg, ActionScalerArg,
     RewardScalerArg
@@ -239,7 +238,7 @@ class CQL(Recommender):
             use_gpu=use_gpu,
             scaler=scaler,
             action_scaler=action_scaler,
-            reward_scaler=reward_scaler
+            reward_scaler=reward_scaler,
             **params
         )
 
