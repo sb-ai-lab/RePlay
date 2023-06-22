@@ -27,6 +27,7 @@ ___________________
     "ADMM SLIM", "Python CPU"
     "Wrapper for implicit", "Python CPU"
     "Wrapper for LightFM", "Python CPU"
+    "RL-based CQL Recommender", "PySpark"
 
 To get more info on how to choose base model, please see this  :doc:`page </pages/useful_data/algorithm_selection>`.
 
@@ -256,6 +257,17 @@ Denoising AutoEncoder.
 DDPG
 ```````````````````````````
 .. autoclass:: replay.models.DDPG
+    :special-members: __init__
+
+
+CQL Recommender
+```````````````
+Conservative Q-Learning (CQL) algorithm is a SAC-based data-driven deep reinforcement learning algorithm, 
+which achieves state-of-the-art performance in offline RL problems.
+
+.. image:: /images/cql_comparison.png
+
+.. autoclass:: replay.models.CQL
     :special-members: __init__
 
 

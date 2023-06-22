@@ -1,5 +1,6 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
 import os
+from functools import partial
 from os.path import dirname, join
 
 import pytest
@@ -10,6 +11,7 @@ from pyspark.sql import functions as sf
 
 import replay
 from replay.data_preparator import Indexer
+from replay.models.cql import MdpDatasetBuilder
 from replay.model_handler import save, load
 from replay.models import *
 from replay.utils import convert2spark
@@ -58,6 +60,7 @@ def df():
         SLIM,
         UserPopRec,
         LightFMWrap,
+        partial(CQL, n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=5)),
     ],
 )
 def test_equal_preds(long_log_with_features, recommender, tmp_path):
