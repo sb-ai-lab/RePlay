@@ -8,7 +8,7 @@ from pyspark.sql import functions as sf
 from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
 from replay.ann.index_builders.executor_nmslib_index_builder import (
     ExecutorNmslibIndexBuilder,
-    make_build_index_udf,
+    build_and_save_index,
 )
 from replay.ann.index_stores.shared_disk_index_store import (
     SharedDiskIndexStore,
@@ -120,5 +120,6 @@ def test_build_index_udf(log, model, tmp_path):
     nmslib_hnsw_params.items_count = (
         log.select(sf.max("item_idx")).first()[0] + 1
     )
-    build_index_udf = make_build_index_udf(nmslib_hnsw_params, index_store)
-    build_index_udf(iter([similarity_pdf]))
+    build_and_save_index(
+        iter([similarity_pdf]), nmslib_hnsw_params, index_store
+    )

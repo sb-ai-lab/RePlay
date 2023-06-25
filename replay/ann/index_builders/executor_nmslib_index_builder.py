@@ -20,6 +20,48 @@ from replay.ann.utils import (
 logger = logging.getLogger("replay")
 
 
+def build_and_save_index(
+    iterator: Iterator[pd.DataFrame],
+    index_params: NmslibHnswParam,
+    index_store: IndexStore,
+):
+    creation_index_params = {
+        "M": index_params.m,
+        "efConstruction": index_params.ef_c,
+        "post": index_params.post,
+    }
+
+    index = create_nmslib_index_instance(index_params)
+
+    pdfs = []
+    for pdf in iterator:
+        pdfs.append(pdf)
+
+    pdf = pd.concat(pdfs)
+
+    # We collect all iterator values into one dataframe,
+    # because we cannot guarantee that `pdf` will contain rows
+    # with the same `item_idx_two`.
+    # And therefore we cannot call the `addDataPointBatch` iteratively.
+    data = pdf["similarity"].values
+    row_ind = pdf["item_idx_two"].values
+    col_ind = pdf["item_idx_one"].values
+
+    sim_matrix_tmp = csr_matrix(
+        (data, (row_ind, col_ind)),
+        shape=(
+            index_params.items_count,
+            index_params.items_count,
+        ),
+    )
+    index.addDataPointBatch(data=sim_matrix_tmp)
+    index.createIndex(creation_index_params)
+
+    index_store.save_to_store(
+        lambda path: index.saveIndex(path, save_data=True)
+    )  # pylint: disable=unnecessary-lambda)
+
+
 def make_build_index_udf(
     index_params: NmslibHnswParam, index_store: IndexStore
 ):
@@ -32,11 +74,6 @@ def make_build_index_udf(
     :param index_store: index store
     :return: `build_index_udf`
     """
-    creation_index_params = {
-        "M": index_params.m,
-        "efConstruction": index_params.ef_c,
-        "post": index_params.post,
-    }
 
     def build_index_udf(iterator: Iterator[pd.DataFrame]):
         """Builds index on executor and writes it to shared disk or hdfs.
@@ -45,35 +82,7 @@ def make_build_index_udf(
             iterator: iterates on dataframes with vectors/features
 
         """
-        index = create_nmslib_index_instance(index_params)
-
-        pdfs = []
-        for pdf in iterator:
-            pdfs.append(pdf)
-
-        pdf = pd.concat(pdfs)
-
-        # We collect all iterator values into one dataframe,
-        # because we cannot guarantee that `pdf` will contain rows
-        # with the same `item_idx_two`.
-        # And therefore we cannot call the `addDataPointBatch` iteratively.
-        data = pdf["similarity"].values
-        row_ind = pdf["item_idx_two"].values
-        col_ind = pdf["item_idx_one"].values
-
-        sim_matrix_tmp = csr_matrix(
-            (data, (row_ind, col_ind)),
-            shape=(
-                index_params.items_count,
-                index_params.items_count,
-            ),
-        )
-        index.addDataPointBatch(data=sim_matrix_tmp)
-        index.createIndex(creation_index_params)
-
-        index_store.save_to_store(
-            lambda path: index.saveIndex(path, save_data=True)
-        )  # pylint: disable=unnecessary-lambda)
+        build_and_save_index(iterator, index_params, index_store)
 
         yield pd.DataFrame(data={"_success": 1}, index=[0])
 
