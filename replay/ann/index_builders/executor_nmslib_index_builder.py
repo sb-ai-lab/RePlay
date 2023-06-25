@@ -3,97 +3,18 @@ from typing import Optional, Iterator
 
 import pandas as pd
 from pyspark.sql import DataFrame
-from scipy.sparse import csr_matrix
 
-from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
 from replay.ann.index_builders.base_index_builder import IndexBuilder
+from replay.ann.index_builders.nmslib_index_builder_mixin import (
+    NmslibIndexBuilderMixin,
+)
 from replay.ann.index_inferers.base_inferer import IndexInferer
 from replay.ann.index_inferers.nmslib_filter_index_inferer import (
     NmslibFilterIndexInferer,
 )
 from replay.ann.index_inferers.nmslib_index_inferer import NmslibIndexInferer
-from replay.ann.index_stores.base_index_store import IndexStore
-from replay.ann.utils import (
-    create_nmslib_index_instance,
-)
 
 logger = logging.getLogger("replay")
-
-
-def build_and_save_index(
-    iterator: Iterator[pd.DataFrame],
-    index_params: NmslibHnswParam,
-    index_store: IndexStore,
-):
-    """
-    Builds nmslib index and saves it to index storage.
-    This function is implemented to be able to test
-    the `build_index_udf` internal functionality outside of spark,
-    because pytest does not see this function call if the function is called by spark.
-    :param iterator: iterator over pandas dataframes.
-    :param index_params: index parameters as instance of NmslibHnswParam.
-    :param index_store: index store
-    :return:
-    """
-    creation_index_params = {
-        "M": index_params.m,
-        "efConstruction": index_params.ef_c,
-        "post": index_params.post,
-    }
-
-    index = create_nmslib_index_instance(index_params)
-
-    pdfs = []
-    for pdf in iterator:
-        pdfs.append(pdf)
-
-    pdf = pd.concat(pdfs)
-
-    # We collect all iterator values into one dataframe,
-    # because we cannot guarantee that `pdf` will contain rows
-    # with the same `item_idx_two`.
-    # And therefore we cannot call the `addDataPointBatch` iteratively.
-    data = pdf["similarity"].values
-    row_ind = pdf["item_idx_two"].values
-    col_ind = pdf["item_idx_one"].values
-
-    sim_matrix_tmp = csr_matrix(
-        (data, (row_ind, col_ind)),
-        shape=(
-            index_params.items_count,
-            index_params.items_count,
-        ),
-    )
-    index.addDataPointBatch(data=sim_matrix_tmp)
-    index.createIndex(creation_index_params)
-
-    index_store.save_to_store(
-        lambda path: index.saveIndex(path, save_data=True)
-    )  # pylint: disable=unnecessary-lambda)
-
-
-def make_build_index_udf(
-    index_params: NmslibHnswParam, index_store: IndexStore
-):
-    """
-    Method returns udf to build nmslib index.
-    :param index_params: index parameters as instance of NmslibHnswParam.
-    :param index_store: index store
-    :return: `build_index_udf` pandas UDF
-    """
-
-    def build_index_udf(iterator: Iterator[pd.DataFrame]):
-        """Builds index on executor and writes it to shared disk or hdfs.
-
-        Args:
-            iterator: iterates on dataframes with vectors/features
-
-        """
-        build_and_save_index(iterator, index_params, index_store)
-
-        yield pd.DataFrame(data={"_success": 1}, index=[0])
-
-    return build_index_udf
 
 
 class ExecutorNmslibIndexBuilder(IndexBuilder):
@@ -109,6 +30,40 @@ class ExecutorNmslibIndexBuilder(IndexBuilder):
         else:
             return NmslibIndexInferer(self.index_params, self.index_store)
 
+    def make_build_index_udf(self):
+        """
+        Method returns udf to build nmslib index.
+        :return: `build_index_udf` pandas UDF
+        """
+
+        index_params = self.index_params
+        index_store = self.index_store
+
+        def build_index_udf(iterator: Iterator[pd.DataFrame]):
+            """Builds index on executor and writes it to shared disk or hdfs.
+
+            Args:
+                iterator: iterates on dataframes with vectors/features
+
+            """
+            # We collect all iterator values into one dataframe,
+            # because we cannot guarantee that `pdf` will contain rows
+            # with the same `item_idx_two`.
+            # And therefore we cannot call the `addDataPointBatch` iteratively (in build_and_save_index).
+            pdfs = []
+            for pdf in iterator:
+                pdfs.append(pdf)
+
+            pdf = pd.concat(pdfs)
+
+            NmslibIndexBuilderMixin.build_and_save_index(
+                pdf, index_params, index_store
+            )
+
+            yield pd.DataFrame(data={"_success": 1}, index=[0])
+
+        return build_index_udf
+
     def build_index(
         self,
         vectors: DataFrame,
@@ -119,9 +74,7 @@ class ExecutorNmslibIndexBuilder(IndexBuilder):
         vectors = vectors.repartition(1)
 
         # this function will build the index
-        build_index_udf = make_build_index_udf(
-            self.index_params, self.index_store
-        )
+        build_index_udf = self.make_build_index_udf()
 
         # Here we perform materialization (`.collect()`) to build the hnsw index.
         vectors.select(
