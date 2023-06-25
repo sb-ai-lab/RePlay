@@ -1,5 +1,7 @@
 import collections
 import pickle
+import logging
+import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Iterable, List, Optional, Set, Tuple, Union
@@ -991,3 +993,18 @@ def load_pickled_from_parquet(path: str) -> Any:
     df = spark.read.parquet(path)
     pickled_instance = df.rdd.map(lambda row: bytes(row.data)).first()
     return pickle.loads(pickled_instance)
+
+
+def assert_omp_single_thread():
+    """
+    Check that OMP_NUM_THREADS is set to 1 and warn if not.
+
+    PyTorch uses multithreading for cpu math operations via OpenMP library. Sometimes this
+    leads to failures when OpenMP multithreading is mixed with multiprocessing.
+    """
+    omp_num_threads = os.environ.get('OMP_NUM_THREADS', None)
+    if omp_num_threads != '1':
+        logging.getLogger("replay").warning(
+            'Environment variable "OMP_NUM_THREADS" is set to "%s". '
+            'Set it to 1 if the working process freezes.', omp_num_threads
+        )
