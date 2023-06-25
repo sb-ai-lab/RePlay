@@ -10,8 +10,7 @@ from pyspark import SparkFiles
 
 from replay.ann.index_stores.base_index_store import IndexStore
 from replay.session_handler import State
-from replay.utils import get_filesystem, FileSystem
-
+from replay.ann.index_stores.utils import FileSystem, get_filesystem
 
 logger = logging.getLogger("replay")
 
