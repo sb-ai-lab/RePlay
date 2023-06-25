@@ -25,6 +25,16 @@ def build_and_save_index(
     index_params: NmslibHnswParam,
     index_store: IndexStore,
 ):
+    """
+    Builds nmslib index and saves it to index storage.
+    This function is implemented to be able to test
+    the `build_index_udf` internal functionality outside of spark,
+    because pytest does not see this function call if the function is called by spark.
+    :param iterator: iterator over pandas dataframes.
+    :param index_params: index parameters as instance of NmslibHnswParam.
+    :param index_store: index store
+    :return:
+    """
     creation_index_params = {
         "M": index_params.m,
         "efConstruction": index_params.ef_c,
@@ -67,12 +77,9 @@ def make_build_index_udf(
 ):
     """
     Method returns udf to build nmslib index.
-    This function is implemented as a builder function to be able to test
-    the build_index_udf internal function outside of spark,
-    because pytest does not see this function call if the function is called by spark.
     :param index_params: index parameters as instance of NmslibHnswParam.
     :param index_store: index store
-    :return: `build_index_udf`
+    :return: `build_index_udf` pandas UDF
     """
 
     def build_index_udf(iterator: Iterator[pd.DataFrame]):
