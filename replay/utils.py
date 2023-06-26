@@ -1,33 +1,23 @@
-import os
-import pickle
-import shutil
 import collections
+import pickle
 import logging
-
-from typing import Dict, Any, Iterable, List, Optional, Set, Tuple, Union
-from abc import ABC, abstractmethod
-from contextlib import contextmanager
-from dataclasses import dataclass
-from datetime import datetime
-from enum import Enum
+import os
+from typing import Any, Iterable, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import pyspark.sql.types as st
-
 from numpy.random import default_rng
-from pyarrow import fs
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
 from pyspark.sql import SparkSession, Column, DataFrame, Window, functions as sf
+from pyspark.sql.column import _to_java_column, _to_seq
 from scipy.sparse import csr_matrix
 
 from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
 from replay.session_handler import State
-from pyspark.sql.column import _to_java_column, _to_seq
+
 
 # pylint: disable=invalid-name
-
-logger = logging.getLogger("replay")
 
 
 def convert2spark(data_frame: Optional[AnyDataFrame]) -> Optional[DataFrame]:
@@ -142,30 +132,6 @@ def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "idx") -> DataFrame:
     )
 
 
-def delete_folder(path: str):
-    file_info = get_filesystem(path)
-
-    if file_info.filesystem == FileSystem.HDFS:
-        fs.HadoopFileSystem.from_uri(file_info.hdfs_uri).delete_dir(path)
-    else:
-        fs.LocalFileSystem().delete_dir(file_info.path)
-
-
-def create_folder(path: str, delete_if_exists: bool = False, exists_ok: bool = False):
-    file_info = get_filesystem(path)
-
-    is_exists = do_path_exists(path)
-    if is_exists and delete_if_exists:
-        delete_folder(path)
-    elif is_exists and not exists_ok:
-        raise FileExistsError(f"The path already exists: {path}")
-
-    if file_info.filesystem == FileSystem.HDFS:
-        fs.HadoopFileSystem.from_uri(file_info.hdfs_uri).create_dir(file_info.path)
-    else:
-        fs.LocalFileSystem().create_dir(file_info.path)
-
-
 @sf.udf(returnType=st.DoubleType())
 def vector_dot(one: DenseVector, two: DenseVector) -> float:
     """
@@ -247,13 +213,12 @@ def vector_mult(
 
 
 def multiply_scala_udf(scalar, vector):
-    """Multiplies a scalar by a vector
+    """
+    Multiplies a scalar by a vector
 
-    Args:
-        scalar: column with scalars
-        vector: column with vectors
-
-    Returns: column expression
+    :param scalar: column with scalars
+    :param vector: column with vectors
+    :return: column expression
     """
     sc = SparkSession.getActiveSession().sparkContext
     _f = sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.multiplyUDF()
@@ -776,136 +741,6 @@ def drop_temp_view(temp_view_name: str) -> None:
     spark.catalog.dropTempView(temp_view_name)
 
 
-class log_exec_timer:
-    def __init__(self, name: Optional[str] = None):
-        self.name = name
-        self._start = None
-        self._duration = None
-
-    def __enter__(self):
-        self._start = datetime.now()
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self._duration = (datetime.now() - self._start).total_seconds()
-        msg = (
-            f"Exec time of {self.name}: {self._duration}"
-            if self.name
-            else f"Exec time: {self._duration}"
-        )
-        logger.info(msg)
-
-    @property
-    def duration(self):
-        return self._duration
-
-
-@contextmanager
-def JobGroup(group_id: str, description: str):
-    sc = SparkSession.getActiveSession().sparkContext
-    sc.setJobGroup(group_id, description)
-    yield f"{group_id} - {description}"
-    sc._jsc.clearJobGroup()
-
-
-def cache_and_materialize_if_in_debug(df: DataFrame, description: str = "no-desc"):
-    if os.environ.get("REPLAY_DEBUG_MODE", None):
-        with log_exec_timer(description):
-            df = df.cache()
-            df.write.mode('overwrite').format('noop').save()
-
-
-@contextmanager
-def JobGroupWithMetrics(group_id: str, description: str):
-    metric_name = f"{group_id}__{description}"
-    with JobGroup(group_id, description), log_exec_timer(metric_name) as timer:
-        yield
-
-    if os.environ.get("REPLAY_DEBUG_MODE", None):
-        import mlflow
-        mlflow.log_metric(timer.name, timer.duration)
-
-
-def get_number_of_allocated_executors(spark: SparkSession):
-    sc = spark._jsc.sc()
-    return (
-        len(
-            [
-                executor.host()
-                for executor in sc.statusTracker().getExecutorInfos()
-            ]
-        )
-        - 1
-    )
-
-
-class FileSystem(Enum):
-    HDFS = 1
-    LOCAL = 2
-
-
-def get_default_fs() -> str:
-    spark = SparkSession.getActiveSession()
-    hadoop_conf = spark._jsc.hadoopConfiguration()
-    default_fs = hadoop_conf.get("fs.defaultFS")
-    logger.debug(f"hadoop_conf.get('fs.defaultFS'): {default_fs}")
-    return default_fs
-
-
-@dataclass(frozen=True)
-class FileInfo:
-    path: str
-    filesystem: FileSystem
-    hdfs_uri: str = None
-
-
-def get_filesystem(path: str) -> FileInfo:
-    """Analyzes path and hadoop config and return tuple of `filesystem`,
-    `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix).
-
-    For example:
-
-    >>> path = 'hdfs://node21.bdcl:9000/tmp/file'
-    >>> get_filesystem(path)
-    FileInfo(path='/tmp/file', filesystem=<FileSystem.HDFS: 1>, hdfs_uri='hdfs://node21.bdcl:9000')
-    or
-    >>> path = 'file:///tmp/file'
-    >>> get_filesystem(path)
-    FileInfo(path='/tmp/file', filesystem=<FileSystem.LOCAL: 2>, hdfs_uri=None)
-
-    Args:
-        path (str): path to file on hdfs or local disk
-
-    Returns:
-        Tuple[int, Optional[str], str]: `filesystem id`,
-    `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix)
-    """
-    prefix_len = 7  # 'hdfs://' and 'file://' length
-    if path.startswith("hdfs://"):
-        if path.startswith("hdfs:///"):
-            default_fs = get_default_fs()
-            if default_fs.startswith("hdfs://"):
-                return FileInfo(path[prefix_len:], FileSystem.HDFS, default_fs)
-            else:
-                raise Exception(
-                    f"Can't get default hdfs uri for path = '{path}'. "
-                    "Specify an explicit path, such as 'hdfs://host:port/dir/file', "
-                    "or set 'fs.defaultFS' in hadoop configuration."
-                )
-        else:
-            hostname = path[prefix_len:].split("/", 1)[0]
-            hdfs_uri = "hdfs://" + hostname
-            return FileInfo(path[len(hdfs_uri):], FileSystem.HDFS, hdfs_uri)
-    elif path.startswith("file://"):
-        return FileInfo(path[prefix_len:], FileSystem.LOCAL)
-    else:
-        default_fs = get_default_fs()
-        if default_fs.startswith("hdfs://"):
-            return FileInfo(path, FileSystem.HDFS, default_fs)
-        else:
-            return FileInfo(path, FileSystem.LOCAL)
-
-
 def sample_top_k_recs(pairs: DataFrame, k: int, seed: int = None):
     """
     Sample k items for each user with probability proportional to the relevance score.
@@ -1031,146 +866,16 @@ def return_recs(
     return None
 
 
-def unionify(df: DataFrame, df_2: Optional[DataFrame] = None) -> DataFrame:
-    if df_2 is not None:
-        df = df.unionByName(df_2)
-    return df
-
-
-@contextmanager
-def unpersist_after(dfs: Dict[str, Optional[DataFrame]]):
-    yield
-
-    for df in dfs.values():
-        if df is not None:
-            df.unpersist()
-
-
-class AbleToSaveAndLoad(ABC):
-    @classmethod
-    @abstractmethod
-    def load(cls, path: str, spark: Optional[SparkSession] = None):
-        """
-            load an instance of this class from saved state
-
-            :return: an instance of the current class
-        """
-
-    @abstractmethod
-    def save(self, path: str, overwrite: bool = False, spark: Optional[SparkSession] = None):
-        """
-            Saves the current instance
-        """
-
-    @staticmethod
-    def _get_spark_session() -> SparkSession:
-        return State().session
-
-    @classmethod
-    def _validate_classname(cls, classname: str):
-        assert classname == cls.get_classname()
-
-    @classmethod
-    def get_classname(cls):
-        return ".".join([cls.__module__, cls.__name__])
-
-
-def prepare_dir(path):
-    """
-    Create empty `path` dir
-    """
-    if os.path.exists(path):
-        shutil.rmtree(path)
-    os.makedirs(path)
-
-
-def get_class_by_name(classname: str) -> type:
-    parts = classname.split(".")
-    module = ".".join(parts[:-1])
-    m = __import__(module)
-    for comp in parts[1:]:
-        m = getattr(m, comp)
-    return m
-
-
-def do_path_exists(path: str) -> bool:
-    spark = State().session
-
-    # due to the error: pyspark.sql.utils.IllegalArgumentException: Wrong FS: file:/...
-    if path.startswith("file:/"):
-        return os.path.exists(path)
-
-    fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration())
-    is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
-    return is_exists
-
-
-def list_folder(path: str) -> List[str]:
-    """
-        List files in a given directory
-        :path: a directory to list files in
-        :return: names of files from the given directory (not absolute names)
-    """
-    spark = State().session
-    # if True:
-    # # if path.startswith("file:/"):
-    #
-    #     files = [x for x in os.listdir(path)]
-    #     logging.info("Files", files)
-    #     return files
-    fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration())
-    base_path = spark._jvm.org.apache.hadoop.fs.Path(path)
-
-    if not fs.isDirectory(base_path):
-        raise RuntimeError(f"The path is not directory. Cannot list it. The path: {path}")
-
-    entries = fs.listStatus(base_path)
-    files = [entry.getPath().getName() for entry in entries]
-    return files
-
-
-def save_transformer(
-        transformer: AbleToSaveAndLoad,
-        path: str,
-        overwrite: bool = False):
-
-    logger.info(f"Saving transformer on path: {path}")
-    spark = State().session
-
-    is_exists = do_path_exists(path)
-
-    if is_exists and not overwrite:
-        raise FileExistsError(f"Path '{path}' already exists. Mode is 'overwrite = False'.")
-    elif is_exists:
-        delete_folder(path)
-
-    create_folder(path)
-
-    spark.createDataFrame([{
-        "classname": transformer.get_classname()
-    }]).write.parquet(os.path.join(path, "metadata.parquet"))
-
-    transformer.save(os.path.join(path, "transformer"), overwrite, spark=spark)
-    logger.info(f"The transformer is saved on path {path}")
-
-
-def load_transformer(path: str):
-    spark = State().session
-    metadata_row = spark.read.parquet(os.path.join(path, "metadata.parquet")).first().asDict()
-    clazz = get_class_by_name(metadata_row["classname"])
-    instance = clazz.load(os.path.join(path, "transformer"), spark)
-    return instance
-
-
 def save_picklable_to_parquet(obj: Any, path: str) -> None:
     """
     Function dumps object to disk or hdfs in parquet format.
 
-    Args:
-        obj: object to be saved
-        path: path to dump
+    :param obj: object to be saved
+    :param path: path to dump
+    :return:
     """
-    sc = SparkSession.getActiveSession().sparkContext
+
+    sc = State().session.sparkContext
     # We can use `RDD.saveAsPickleFile`, but it has no "overwrite" parameter
     pickled_instance = pickle.dumps(obj)
     Record = collections.namedtuple("Record", ["data"])
@@ -1181,15 +886,28 @@ def save_picklable_to_parquet(obj: Any, path: str) -> None:
 
 def load_pickled_from_parquet(path: str) -> Any:
     """
-    Function loads object from disk or hdfs, what was dumped via `save_picklable_to_parquet` function.
+    Function loads object from disk or hdfs,
+    what was dumped via `save_picklable_to_parquet` function.
 
-    Args:
-        path: source path
-
-    Returns: unpickled object
-
+    :param path: source path
+    :return: unpickled object
     """
-    spark = SparkSession.getActiveSession()
+    spark = State().session
     df = spark.read.parquet(path)
     pickled_instance = df.rdd.map(lambda row: bytes(row.data)).first()
     return pickle.loads(pickled_instance)
+
+
+def assert_omp_single_thread():
+    """
+    Check that OMP_NUM_THREADS is set to 1 and warn if not.
+
+    PyTorch uses multithreading for cpu math operations via OpenMP library. Sometimes this
+    leads to failures when OpenMP multithreading is mixed with multiprocessing.
+    """
+    omp_num_threads = os.environ.get('OMP_NUM_THREADS', None)
+    if omp_num_threads != '1':
+        logging.getLogger("replay").warning(
+            'Environment variable "OMP_NUM_THREADS" is set to "%s". '
+            'Set it to 1 if the working process freezes.', omp_num_threads
+        )

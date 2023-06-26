@@ -2,11 +2,11 @@ from typing import Optional, Tuple, Dict, Any
 
 import pyspark.sql.functions as sf
 
-from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
 from replay.models.base_rec import Recommender, ItemVectorModel
+from replay.spark_custom_models.recommendation import ALS, ALSModel
 from replay.models.hnswlib import HnswlibMixin
 from replay.utils import list_to_vector_udf
 
@@ -168,37 +168,32 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         filter_seen_items: bool = True,
     ) -> DataFrame:
 
-        if (items.count() == self.fit_items.count()) and (
-            items.join(self.fit_items, on="item_idx", how="inner").count()
-            == self.fit_items.count()
-        ):
-            max_seen = 0
-            if filter_seen_items and log is not None:
-                max_seen_in_log = (
-                    log.join(users, on="user_idx")
-                    .groupBy("user_idx")
-                    .agg(sf.count("user_idx").alias("num_seen"))
-                    .select(sf.max("num_seen"))
-                    .collect()[0][0]
-                )
-                max_seen = max_seen_in_log if max_seen_in_log is not None else 0
-
-            recs_als = self.model.recommendForUserSubset(users, k + max_seen)
-            return (
-                recs_als.withColumn(
-                    "recommendations", sf.explode("recommendations")
-                )
-                .withColumn("item_idx", sf.col("recommendations.item_idx"))
-                .withColumn(
-                    "relevance",
-                    sf.col("recommendations.rating").cast(DoubleType()),
-                )
-                .select("user_idx", "item_idx", "relevance")
+        max_seen = 0
+        if filter_seen_items and log is not None:
+            max_seen_in_log = (
+                log.join(users, on="user_idx")
+                .groupBy("user_idx")
+                .agg(sf.count("user_idx").alias("num_seen"))
+                .select(sf.max("num_seen"))
+                .collect()[0][0]
+            )
+            max_seen = (
+                max_seen_in_log if max_seen_in_log is not None else 0
             )
 
-        return self._predict_pairs(
-            pairs=users.crossJoin(items).withColumn("relevance", sf.lit(1)),
-            log=log,
+        recs_als = self.model.recommendItemsForUserItemSubset(
+            users, items, k + max_seen
+        )
+        return (
+            recs_als.withColumn(
+                "recommendations", sf.explode("recommendations")
+            )
+            .withColumn("item_idx", sf.col("recommendations.item_idx"))
+            .withColumn(
+                "relevance",
+                sf.col("recommendations.rating").cast(DoubleType()),
+            )
+            .select("user_idx", "item_idx", "relevance")
         )
 
     def _predict_pairs(
