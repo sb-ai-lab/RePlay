@@ -49,7 +49,8 @@ class ExecutorNmslibIndexBuilder(IndexBuilder):
             # We collect all iterator values into one dataframe,
             # because we cannot guarantee that `pdf` will contain rows
             # with the same `item_idx_two`.
-            # And therefore we cannot call the `addDataPointBatch` iteratively (in build_and_save_index).
+            # And therefore we cannot call the `addDataPointBatch` iteratively
+            # (in build_and_save_index).
             pdfs = []
             for pdf in iterator:
                 pdfs.append(pdf)

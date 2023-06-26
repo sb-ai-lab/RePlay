@@ -6,6 +6,7 @@ from replay.ann.index_stores.base_index_store import IndexStore
 from replay.ann.utils import create_nmslib_index_instance
 
 
+# pylint: disable=too-few-public-methods
 class NmslibIndexBuilderMixin:
     """Provides nmslib index building method for different nmslib index builders"""
 
