@@ -1427,7 +1427,6 @@ class UserRecommender(BaseRecommender, ABC):
             k=k,
         )
 
-
     def _get_item_vectors_to_infer_ann(
             self, items: DataFrame
     ) -> DataFrame:

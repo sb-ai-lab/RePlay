@@ -233,12 +233,14 @@ class ANNMixin(BaseRecommender):
                 metric=metric,
                 candidates=candidates,
             )
+
     def _save_index(self, path):
         self.index_builder.index_store.dump_index(path)
 
     def _load_index(self, path: str):
         self.index_builder.index_store = SparkFilesIndexStore()
         self.index_builder.index_store.load_from_path(path)
+
     def init_builder_from_dict(self, init_meta: dict):
         """Inits an index builder instance from a dict with init meta."""
         # index param entity instance initialization

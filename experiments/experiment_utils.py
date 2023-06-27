@@ -26,7 +26,7 @@ from replay.models import (
     UCB,
 )
 from replay.models.base_rec import BaseRecommender
-from replay.utils import log_exec_timer, get_number_of_allocated_executors
+# from replay.utils import log_exec_timer, get_number_of_allocated_executors
 from replay.data_preparator import DataPreparator, Indexer
 from replay.splitters import DateSplitter, UserSplitter
 

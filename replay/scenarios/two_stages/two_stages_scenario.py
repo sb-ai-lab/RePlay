@@ -323,13 +323,13 @@ class TwoStagesScenario(HybridRecommender):
 
         # load transformers for features
         comp_path = os.path.join(path, "first_level_user_features_transformer")
-        first_level_user_features_transformer = load_transformer(comp_path) if do_path_exists(comp_path) else None #TODO: check why this dir exists if user_features=None
+        first_level_user_features_transformer = load_transformer(comp_path) if do_path_exists(comp_path) else None
 
         comp_path = os.path.join(path, "first_level_item_features_transformer")
-        first_level_item_features_transformer = load_transformer(comp_path) if do_path_exists(comp_path) else None #TODO same
+        first_level_item_features_transformer = load_transformer(comp_path) if do_path_exists(comp_path) else None
 
         comp_path = os.path.join(path, "features_processor")
-        features_processor = load_transformer(comp_path) if do_path_exists(comp_path) else None # TODO same
+        features_processor = load_transformer(comp_path) if do_path_exists(comp_path) else None
 
         # load first level models
         first_level_models_path = os.path.join(path, "first_level_models")
@@ -812,15 +812,15 @@ class TwoStagesScenario(HybridRecommender):
 
         with JobGroupWithMetrics(self._job_group_id, f"{type(self).__name__}._combine"):
             first_level_candidates = self._combine(
-                    log=first_level_train,
-                    k=self.num_negatives,
-                    users=log.select("user_idx").distinct(),
-                    items=log.select("item_idx").distinct(),
-                    user_features=first_level_user_features,
-                    item_features=first_level_item_features,
-                    log_to_filter=first_level_train,
-                    mode="union",
-                    prediction_label='1'
+                log=first_level_train,
+                k=self.num_negatives,
+                users=log.select("user_idx").distinct(),
+                items=log.select("item_idx").distinct(),
+                user_features=first_level_user_features,
+                item_features=first_level_item_features,
+                log_to_filter=first_level_train,
+                mode="union",
+                prediction_label='1'
             )
 
             # may be skipped due to join caching in the end
@@ -922,15 +922,15 @@ class TwoStagesScenario(HybridRecommender):
         # by making predictions with first level models and combining them into final recommendation lists
         with JobGroupWithMetrics(self._job_group_id, f"{type(self).__name__}._combine"):
             candidates = self._combine(
-                    log=log,
-                    k=self.num_negatives,
-                    users=users,
-                    items=items,
-                    user_features=first_level_user_features,
-                    item_features=first_level_item_features,
-                    log_to_filter=log,
-                    mode="union",
-                    prediction_label='2'
+                log=log,
+                k=self.num_negatives,
+                users=users,
+                items=items,
+                user_features=first_level_user_features,
+                item_features=first_level_item_features,
+                log_to_filter=log,
+                mode="union",
+                prediction_label='2'
             )
 
             # PERF - preventing potential losing time on repeated expensive computations
@@ -1096,17 +1096,17 @@ class TwoStagesScenario(HybridRecommender):
                 )
 
                 param, metric = self._optimize_one_model(
-                        model=model,
-                        train=train,
-                        test=test,
-                        user_features=first_level_user_features,
-                        item_features=first_level_item_features,
-                        param_borders=param_borders[i],
-                        criterion=criterion,
-                        k=k,
-                        budget=budget,
-                        new_study=new_study,
-                    )
+                    model=model,
+                    train=train,
+                    test=test,
+                    user_features=first_level_user_features,
+                    item_features=first_level_item_features,
+                    param_borders=param_borders[i],
+                    criterion=criterion,
+                    k=k,
+                    budget=budget,
+                    new_study=new_study,
+                )
 
                 params_found.append(param)
                 metrics_values.append(metric)
