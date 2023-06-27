@@ -52,6 +52,7 @@ d3rlpy = "*"
 gym = "0.17.2"
 nmslib = "*"
 hnswlib = "*"
+cached-property = "*"
 
 [tool.poetry.dev-dependencies]
 # dev only

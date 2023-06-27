@@ -5,22 +5,23 @@ import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
+from replay.ann.ann_mixin import ANNMixin
+from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.spark_custom_models.recommendation import ALS, ALSModel
-from replay.models.hnswlib import HnswlibMixin
 from replay.utils import list_to_vector_udf
 
 
-class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
+# pylint: disable=too-many-instance-attributes, too-many-ancestors
+class ALSWrap(Recommender, ItemVectorModel, ANNMixin):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
 
     def _get_ann_infer_params(self) -> Dict[str, Any]:
+        self.index_builder.index_params.dim = self.rank
         return {
             "features_col": "user_factors",
-            "params": self._hnswlib_params,
-            "index_dim": self.rank,
         }
 
     def _get_ann_infer_params_for_nearest_items(self) -> Dict[str, Any]:
@@ -36,13 +37,11 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         return user_vectors
 
     def _get_ann_build_params(self, log: DataFrame):
-        self.num_elements = log.select("item_idx").distinct().count()
+        self.index_builder.index_params.dim = self.rank
+        self.index_builder.index_params.max_elements = log.select("item_idx").distinct().count()
         return {
             "features_col": "item_factors",
-            "params": self._hnswlib_params,
-            "dim": self.rank,
-            "num_elements": self.num_elements,
-            "id_col": "item_idx",
+            "ids_col": "item_idx",
         }
 
     def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
@@ -62,10 +61,6 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         item_vectors = item_vectors.filter(item_vectors.item_factors.isNotNull())
         return item_vectors
 
-    @property
-    def _use_ann(self) -> bool:
-        return self._hnswlib_params is not None
-
     _seed: Optional[int] = None
     _search_space = {
         "rank": {"type": "loguniform_int", "args": [8, 256]},
@@ -79,7 +74,7 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         seed: Optional[int] = None,
         num_item_blocks: Optional[int] = None,
         num_user_blocks: Optional[int] = None,
-        hnswlib_params: Optional[dict] = None,
+        index_builder: Optional[IndexBuilder] = None,
     ):
         """
         :param rank: hidden dimension for the approximate matrix
@@ -97,7 +92,11 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
         self._seed = seed
         self._num_item_blocks = num_item_blocks
         self._num_user_blocks = num_user_blocks
-        self._hnswlib_params = hnswlib_params
+        if isinstance(index_builder, (IndexBuilder, type(None))):
+            self.index_builder = index_builder
+        elif isinstance(index_builder, dict):
+            self.init_builder_from_dict(index_builder)
+        self.num_elements = None
 
     @property
     def _init_args(self):
@@ -105,24 +104,22 @@ class ALSWrap(Recommender, ItemVectorModel, HnswlibMixin):
             "rank": self.rank,
             "implicit_prefs": self.implicit_prefs,
             "seed": self._seed,
-            "hnswlib_params": self._hnswlib_params,
-            "num_item_blocks": self._num_item_blocks,
-            "num_user_blocks": self._num_user_blocks
+            "index_builder": self.index_builder.init_meta_as_dict() if self.index_builder else None,
         }
 
     def _save_model(self, path: str):
         self.model.write().overwrite().save(path)
 
-        if self._hnswlib_params:
-            self._save_hnswlib_index(path)
+        if self._use_ann:
+            self._save_index(path)
 
     def _load_model(self, path: str):
         self.model = ALSModel.load(path)
         self.model.itemFactors.cache()
         self.model.userFactors.cache()
 
-        if self._hnswlib_params:
-            self._load_hnswlib_index(path)
+        if self._use_ann:
+            self._load_index(path)
 
     def _fit(
         self,
