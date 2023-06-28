@@ -113,6 +113,10 @@ from experiment_utils import (
     get_partition_num,
     prepare_datasets, get_models,
 )
+from replay.ann.index_builders.executor_hnswlib_index_builder import ExecutorHnswlibIndexBuilder
+from replay.ann.index_stores.hdfs_index_store import HdfsIndexStore
+from replay.ann.entities.hnswlib_param import HnswlibParam
+
 from replay.experiment import Experiment
 from replay.metrics import HitRate, MAP, NDCG
 from replay.scenarios import TwoStagesScenario
@@ -204,16 +208,25 @@ def main(spark: SparkSession, dataset_name: str):
                 "seed": seed,
                 "num_item_blocks": int(os.environ.get("NUM_BLOCKS", 10)),
                 "num_user_blocks": int(os.environ.get("NUM_BLOCKS", 10)),
-                "hnswlib_params": {
-                    "space": "ip",
-                    "M": 100,
-                    "efS": 2000,
-                    "efC": 2000,
-                    "post": 0,
-                    "index_path": f"/tmp/als_hnswlib_index_{spark.sparkContext.applicationId}",
-                    "build_index_on": "executor",
-                },
-            },
+                "index_builder": ExecutorHnswlibIndexBuilder(
+                    index_params=HnswlibParam(
+                        space="ip",
+                        m=100,
+                        ef_s=2000,
+                        ef_c=2000,
+                        post=0),
+                    index_store=HdfsIndexStore(index_dir=f"als_hnswlib_index_{spark.sparkContext.applicationId})",
+                                               warehouse_dir="/tmp")
+                )},
+
+                # "hnswlib_params": {
+                #
+                #     "index_path": f"/tmp/als_hnswlib_index_{spark.sparkContext.applicationId}",
+                #     "build_index_on": "executor",
+                # },
+        #         self.index_store = index_store
+        # self.index_params = index_params
+        #     },
             "replay.models.word2vec.Word2VecRec": {
                 "rank": int(os.environ.get("WORD2VEC_RANK", 100)),
                 "seed": seed,
@@ -328,6 +341,7 @@ def main(spark: SparkSession, dataset_name: str):
 
 if __name__ == "__main__":
     spark_sess = get_spark_session()
+    spark_sess.sparkContext.setLogLevel('ERROR')
     dataset = os.environ.get("DATASET", "MovieLens_1m")
     main(spark=spark_sess, dataset_name=dataset)
     spark_sess.stop()

@@ -1165,3 +1165,15 @@ def cache_and_materialize_if_in_debug(df: DataFrame, description: str = "no-desc
         with log_exec_timer(description):
             df = df.cache()
             df.write.mode('overwrite').format('noop').save()
+
+def get_number_of_allocated_executors(spark: SparkSession):
+    sc = spark._jsc.sc()
+    return (
+        len(
+            [
+                executor.host()
+                for executor in sc.statusTracker().getExecutorInfos()
+            ]
+        )
+        - 1
+    )
