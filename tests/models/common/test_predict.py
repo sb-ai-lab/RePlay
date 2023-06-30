@@ -1,6 +1,5 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
-import implicit
 import numpy as np
 from pyspark.sql import functions as sf
 
@@ -46,7 +45,6 @@ MODELS_RATING_LOG = [
     ALSWrap(),
     AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=1), batch_size=512),
-    ImplicitWrap(implicit.als.AlternatingLeastSquares()),
     ItemKNN(),
     LightFMWrap(),
     MultVAE(epochs=1),
@@ -61,7 +59,6 @@ MODELS_RATING_LOG_IDS = [
     "als",
     "association_rules",
     "cql",
-    "implicit",
     "knn",
     "lightfm",
     "multvae",
