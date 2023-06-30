@@ -12,13 +12,13 @@ import pyspark.sql.functions as sf
 from pyspark.sql.types import (
     IntegerType,
     StructField,
-    StructType, ArrayType, DoubleType,
+    StructType, ArrayType, DoubleType
 )
 
-from replay.constants import LOG_SCHEMA, REC_SCHEMA
+from replay.constants import LOG_SCHEMA, REC_SCHEMA, PREDICT_SCHEMA
 from replay.metrics import *
 from replay.distributions import item_distribution
-from replay.metrics.base_metric import get_enriched_recommendations
+from replay.metrics.base_metric import get_enriched_recommendations, drop_duplicates, filter_sort
 
 from tests.utils import (
     assert_allclose,
@@ -421,6 +421,36 @@ def test_duplicate_recs(quality_metrics, duplicate_recs, recs, true):
             metric(k=4, recommendations=recs, ground_truth=true),
             err_msg=str(metric),
         )
+
+
+def test_drop_duplicates(spark, duplicate_recs):
+    recs = drop_duplicates(duplicate_recs)
+    gt = spark.createDataFrame(
+        data=[
+            [0, 0, 3.0],
+            [0, 1, 2.0],
+            [0, 2, 1.0],
+            [1, 0, 3.0],
+            [1, 1, 4.0],
+            [1, 4, 1.0],
+            [2, 0, 5.0],
+            [2, 2, 1.0],
+            [2, 3, 2.0]
+        ],
+        schema=REC_SCHEMA,)
+    sparkDataFrameEqual(recs, gt)
+
+
+def test_filter_sort(spark, duplicate_recs):
+    recs = filter_sort(duplicate_recs)
+    gt = spark.createDataFrame(
+        data=[
+            [0, [0, 1, 2]],
+            [1, [1, 0, 4]],
+            [2, [0, 3, 2]]
+        ],
+        schema=PREDICT_SCHEMA)
+    sparkDataFrameEqual(recs, gt)
 
 
 def test_ncis_raises(prev_relevance):
