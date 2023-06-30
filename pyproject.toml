@@ -30,6 +30,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.7, <3.10"
+poetry-core = "1.6.0"
 lightfm = "*"
 lightautoml = ">=0.3.1, <0.3.7"
 numpy = ">=1.20.0"
@@ -46,6 +47,9 @@ seaborn = "*"
 pyarrow = "*"
 implicit = ">=0.5"
 pytorch-ranger = "^0.1.1"
+d3rlpy = "*"
+# required by d3rlpy
+gym = "0.17.2"
 
 [tool.poetry.dev-dependencies]
 # dev only

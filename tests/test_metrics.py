@@ -562,3 +562,14 @@ def test_ncis_precision_scala(spark, prev_relevance):
     assert (metric_values[2][0] == 0)
     assert (metric_values[3][0] == 1)
     assert (metric_values[4][0] == 0)
+
+
+def test_not_implemented_scala_udf():
+
+    class NewEmptyMetric(Metric):
+        @staticmethod
+        def _get_metric_value_by_user(k, pred, ground_truth) -> float:
+            pass
+
+    with pytest.raises(NotImplementedError, match="Scala UDF not implemented for NewEmptyMetric class!"):
+        NewEmptyMetric().scala_udf_name
