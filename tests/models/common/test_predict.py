@@ -2,7 +2,6 @@
 import pytest
 import implicit
 import numpy as np
-
 from pyspark.sql import functions as sf
 
 from replay.models import (
@@ -10,6 +9,7 @@ from replay.models import (
     ALSWrap,
     AssociationRulesItemRec,
     ClusterRec,
+    CQL,
     DDPG,
     ItemKNN,
     ImplicitWrap,
@@ -25,6 +25,7 @@ from replay.models import (
     Word2VecRec,
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
+from replay.models.cql import MdpDatasetBuilder
 
 from tests.utils import (
     item_features,
@@ -44,6 +45,7 @@ MODELS_RATING_LOG = [
     ADMMSLIM(),
     ALSWrap(),
     AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+    CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=1), batch_size=512),
     ImplicitWrap(implicit.als.AlternatingLeastSquares()),
     ItemKNN(),
     LightFMWrap(),
@@ -58,6 +60,7 @@ MODELS_RATING_LOG_IDS = [
     "admm_slim",
     "als",
     "association_rules",
+    "cql",
     "implicit",
     "knn",
     "lightfm",
@@ -189,6 +192,7 @@ def test_predict_empty_log(log, model):
         ADMMSLIM(),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
         ClusterRec(num_clusters=2),
+        CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=3), batch_size=512),
         ItemKNN(),
         LightFMWrap(no_components=4),
         MultVAE(epochs=1),
@@ -201,6 +205,7 @@ def test_predict_empty_log(log, model):
         "admm_slim",
         "association_rules",
         "cluster",
+        "cql",
         "knn",
         "lightfm",
         "multvae",
@@ -218,7 +223,6 @@ def test_predict_new_users(model, long_log_with_features, user_features):
         user_features=user_features.drop("gender"),
         users=[0],
     )
-    print(pred.toPandas())
     assert pred.count() == 1
     assert pred.collect()[0][0] == 0
 
