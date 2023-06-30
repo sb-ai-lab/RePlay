@@ -1,7 +1,7 @@
 from typing import Optional
 
 import numpy as np
-from pyspark.sql import DataFrame, Window
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
