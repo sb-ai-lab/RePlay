@@ -68,10 +68,10 @@ def preprocess_gt(
     return true_items_by_users
 
 
-def filter_sort(recommendations: AnyDataFrame) -> DataFrame:
+def drop_duplicates(recommendations: AnyDataFrame) -> DataFrame:
+
     """
-    Filter duplicated predictions by choosing the most relevant,
-     and sort items in predictions by relevance
+    Filter duplicated predictions by choosing the most relevant
     """
     return (
         recommendations.withColumn(
@@ -82,6 +82,18 @@ def filter_sort(recommendations: AnyDataFrame) -> DataFrame:
         )
         .where(sf.col("_num") == 1)
         .drop("_num")
+    )
+
+
+def filter_sort(recommendations: DataFrame) -> DataFrame:
+    """
+    Filter duplicated predictions by choosing the most relevant,
+     and sort items in predictions by relevance
+    """
+    recommendations = drop_duplicates(recommendations)
+
+    return (
+        recommendations
         .groupby("user_idx")
         .agg(sf.collect_list(sf.struct("relevance", "item_idx")).alias("pred"))
         .withColumn("pred", sf.reverse(sf.array_sort("pred")))
@@ -570,17 +582,9 @@ class NCISMetric(Metric):
         weight_type = recommendations.schema["weight"].dataType
         item_type = ground_truth.schema["item_idx"].dataType
 
+        recommendations = drop_duplicates(recommendations)
         recommendations = (
-            recommendations.withColumn(
-                "_num",
-                sf.row_number().over(
-                    Window.partitionBy("user_idx", "item_idx").orderBy(
-                        "relevance"
-                    )
-                ),
-            )
-            .where(sf.col("_num") == 1)
-            .drop("_num")
+            recommendations
             .groupby("user_idx")
             .agg(
                 sf.collect_list(
