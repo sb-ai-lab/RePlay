@@ -18,14 +18,18 @@ from tests.utils import (
 
 
 @pytest.fixture
+def model():
+    return ClusterRec()
+
+
+@pytest.fixture
 def users_features(spark, user_features):
     return user_features.drop("gender")
 
 
 def test_works(
-    long_log_with_features, short_log_with_features, users_features
+    long_log_with_features, model, short_log_with_features, users_features
 ):
-    model = ClusterRec()
     model.fit(long_log_with_features, users_features)
     model.predict(users_features, k=1)
     res = model.optimize(
@@ -38,8 +42,7 @@ def test_works(
     assert type(res["num_clusters"]) == int
 
 
-def test_cold_user(long_log_with_features, users_features):
-    model = ClusterRec(2)
+def test_cold_user(long_log_with_features, model, users_features):
     train = long_log_with_features.filter("user_idx < 2")
     model.fit(train, user_features=users_features)
     res = model.predict(
@@ -50,8 +53,7 @@ def test_cold_user(long_log_with_features, users_features):
     assert res.filter(sf.col("relevance").isNull()).count() == 0
 
 
-def test_raises(long_log_with_features, users_features):
-    model = ClusterRec()
+def test_raises(long_log_with_features, model, users_features):
     with pytest.raises(
         TypeError, match="missing 1 required positional argument"
     ):
@@ -63,9 +65,42 @@ def test_raises(long_log_with_features, users_features):
         )
 
 
-def test_save_load(long_log_with_features, numeric_user_features, tmp_path):
+def test_predict_pairs(long_log_with_features, model, users_features):
+    model.fit(long_log_with_features, users_features)
+
+    pairs_pred_k = model.predict_pairs(
+        pairs=long_log_with_features.select("user_idx", "item_idx"),
+        log=long_log_with_features,
+        user_features=users_features,
+        k=1,
+    )
+
+    pairs_pred = model.predict_pairs(
+        pairs=long_log_with_features.select("user_idx", "item_idx"),
+        log=long_log_with_features,
+        user_features=users_features,
+        k=None,
+    )
+
+    assert (
+        pairs_pred_k.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        == 0
+    )
+
+    assert (
+        pairs_pred.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        > 0
+    )
+
+
+def test_save_load(long_log_with_features, model, numeric_user_features, tmp_path):
     path = (tmp_path / "cluster").resolve()
-    model = ClusterRec()
     model.fit(long_log_with_features, numeric_user_features)
     base_pred = model.predict(numeric_user_features, 5)
     save(model, path)
