@@ -49,8 +49,7 @@ def test_fit(log, model):
         (1,),
     ]
     for i, parameter in enumerate(model.model.parameters()):
-        print(tuple(parameter.shape))
-        # assert param_shapes[i] == tuple(parameter.shape)
+        assert param_shapes[i] == tuple(parameter.shape)
 
 
 def test_predict(log, model):

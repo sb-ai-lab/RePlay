@@ -260,7 +260,7 @@ def test_filter_out_cold_and_new_users(model, long_log_with_features):
         users=[0, 3],
     )
     # assert new/cold users are filtered out in `predict`
-    if isinstance(model, LightFMWrap) or not model.can_predict_cold_users:
+    if isinstance(model, (LightFMWrap, ADMMSLIM)) or not model.can_predict_cold_users:
         assert pred.count() == 0
     else:
         assert 1 <= pred.count() <= 2
