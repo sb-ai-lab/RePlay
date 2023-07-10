@@ -2,6 +2,7 @@
 import pytest
 import implicit
 import numpy as np
+from functools import partial
 
 from pyspark.sql import functions as sf
 
@@ -22,6 +23,7 @@ from replay.models import (
     Wilson,
     Word2VecRec,
 )
+from replay.models.cql import MdpDatasetBuilder
 from replay.model_handler import save, load
 from tests.utils import log, pos_neg_log, SEED, spark, sparkDataFrameEqual
 
@@ -48,6 +50,7 @@ def test_filter_seen(log):
         ADMMSLIM(),
         ALSWrap(),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        partial(CQL, n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=5)),
         ImplicitWrap(implicit.als.AlternatingLeastSquares()),
         ItemKNN(),
         LightFMWrap(),
