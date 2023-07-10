@@ -11,6 +11,7 @@ from replay.models import (
     ADMMSLIM,
     ALSWrap,
     AssociationRulesItemRec,
+    CQL,
     ImplicitWrap,
     ItemKNN,
     LightFMWrap,
