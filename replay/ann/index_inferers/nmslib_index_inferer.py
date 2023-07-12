@@ -60,9 +60,9 @@ class NmslibIndexInferer(IndexInferer):
             return pd_res
 
         cols = ["user_idx", "vector_items", "vector_relevances"]
-
+        col = "user_idx" if features_col == "user_factors" else "item_idx"
         res = vectors.select(
-            "user_idx",
+            col,
             infer_index_udf(*cols).alias("neighbours"),
         )
 

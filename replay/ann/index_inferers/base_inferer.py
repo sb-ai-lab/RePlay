@@ -48,8 +48,9 @@ class IndexInferer(ABC):
         Args:
             inference_result: output of infer_index UDF
         """
+        col = "user_idx" if "user_idx" in inference_result.columns else "item_idx"
         res = inference_result.select(
-            "user_idx",
+            col,
             sf.explode(
                 sf.arrays_zip("neighbours.item_idx", "neighbours.distance")
             ).alias("zip_exp"),
@@ -61,9 +62,10 @@ class IndexInferer(ABC):
         item_idx_field_name: str = fields[0]["name"]
         distance_field_name: str = fields[1]["name"]
 
+        alias_col = "item_idx" if col == "user_idx" else "neighbour_item_idx"
         res = res.select(
-            "user_idx",
-            sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx"),
+            col,
+            sf.col(f"zip_exp.{item_idx_field_name}").alias(alias_col),
             (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias(
                 "relevance"
             ),

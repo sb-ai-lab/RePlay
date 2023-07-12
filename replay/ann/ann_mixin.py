@@ -11,9 +11,7 @@ from replay.ann.index_stores.spark_files_index_store import (
     SparkFilesIndexStore,
 )
 from replay.models.base_rec import BaseRecommender
-from replay.utils import get_unique_entities, get_top_k_recs, return_recs
-
-logger = logging.getLogger("replay")
+from replay.utils import get_unique_entities, get_top_k_recs, get_top_k, return_recs
 
 
 class ANNMixin(BaseRecommender):
@@ -216,3 +214,83 @@ class ANNMixin(BaseRecommender):
         index_builder = class_(index_params=index_params, index_store=None)
 
         self.index_builder = index_builder
+
+
+class ANNItem2itemMixin(ANNMixin):
+    """
+    This class overrides the '_get_nearest_items_wrap' methods of the base class,
+    adding an index inference in the ` _get_nearest_items_wrap` step
+    """
+
+    @abstractmethod
+    def _get_item_vectors_to_infer_ann(
+            self, items: DataFrame
+    ) -> DataFrame:
+        """
+        Implementations of this method must return a dataframe with item vectors.
+        Item vectors from this method are used to infer the index.
+
+        Args:
+            items: DataFrame with items
+
+        Returns: DataFrame[item_idx int, vector array<double>] or DataFrame[vector array<double>].
+        Vector column name in dataframe can be anything.
+        """
+
+    @abstractmethod
+    def _get_ann_nearest_items_infer_params(self) -> Dict[str, Any]:
+        """
+        Implementation of this method must return dictionary
+        with arguments for `inferer.infer` method.
+
+        Returns: Dictionary with arguments to infer index. For example: {
+            "features_col": "item_vector",
+            ...
+        }
+
+        """
+
+    def _get_nearest_items_wrap(
+        self,
+        items: Union[DataFrame, Iterable],
+        k: int,
+        metric: Optional[str] = "cosine_similarity",
+        candidates: Optional[Union[DataFrame, Iterable]] = None,
+    ) -> Optional[DataFrame]:
+
+        items = get_unique_entities(items, "item_idx")
+        if candidates is not None:
+            candidates = get_unique_entities(candidates, "item_idx")
+
+        if self._use_ann:
+            item_vectors = self._get_item_vectors_to_infer_ann(
+                items
+            )
+            ann_params = self._get_ann_nearest_items_infer_params()
+            inferer = self.index_builder.produce_inferer(filter_seen_items=False)
+            nearest_items = inferer.infer(item_vectors, ann_params["features_col"], k)
+        else:
+            nearest_items_to_filter = self._get_nearest_items(
+                items=items,
+                metric=metric,
+                candidates=candidates,
+            )
+
+            rel_col_name = metric if metric is not None else "similarity"
+            nearest_items = get_top_k(
+                dataframe=nearest_items_to_filter,
+                partition_by_col=sf.col("item_idx_one"),
+                order_by_col=[
+                    sf.col(rel_col_name).desc(),
+                    sf.col("item_idx_two").desc(),
+                ],
+                k=k,
+            )
+
+        nearest_items = nearest_items.withColumnRenamed(
+            "item_idx_two", "neighbour_item_idx"
+        )
+        nearest_items = nearest_items.withColumnRenamed(
+            "item_idx_one", "item_idx"
+        )
+        return nearest_items

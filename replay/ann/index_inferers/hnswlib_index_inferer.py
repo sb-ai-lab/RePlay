@@ -45,11 +45,12 @@ class HnswlibIndexInferer(IndexInferer):
 
             return pd_res
 
+        col = "user_idx" if features_col == "user_factors" else "item_idx"
         res = vectors.select(
-            "user_idx",
+            col,
             infer_index_udf(features_col).alias("neighbours"),
         )
-
+        #todo : change infer() in other inferers
         res = self._unpack_infer_struct(res)
 
         return res

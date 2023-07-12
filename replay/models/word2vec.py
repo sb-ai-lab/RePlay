@@ -7,14 +7,14 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
-from replay.ann.ann_mixin import ANNMixin
+from replay.ann.ann_mixin import ANNItem2itemMixin
 from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.utils import vector_dot, multiply_scala_udf, join_with_col_renaming
 
 
 # pylint: disable=too-many-instance-attributes, too-many-ancestors
-class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
+class Word2VecRec(Recommender, ItemVectorModel, ANNItem2itemMixin):
     """
     Trains word2vec model where items ar treated as words and users as sentences.
     """
@@ -25,6 +25,12 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
             "features_col": "user_vector",
         }
 
+    def _get_ann_nearest_items_infer_params(self) -> Dict[str, Any]:
+        self.index_builder.index_params.dim = self.rank
+        return {
+            "features_col": "item_vector"
+        }
+
     def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
         user_vectors = self._get_user_vectors(users, log)
         # converts to pandas_udf compatible format
@@ -32,6 +38,20 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
             "user_idx", vector_to_array("user_vector").alias("user_vector")
         )
         return user_vectors
+
+    def _get_item_vectors_to_infer_ann(
+            self, items: DataFrame
+    ) -> DataFrame:
+        item_vectors = self._get_item_vectors()
+        item_vectors = (
+            item_vectors.join(items, on="item_idx")
+            .select(
+                "item_idx",
+                vector_to_array("item_vector").alias("item_vector")
+            )
+        )
+
+        return item_vectors
 
     def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
         self.index_builder.index_params.dim = self.rank

@@ -5,7 +5,7 @@ import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
-from replay.ann.ann_mixin import ANNMixin
+from replay.ann.ann_mixin import ANNItem2itemMixin
 from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.spark_custom_models.recommendation import ALS, ALSModel
@@ -13,7 +13,7 @@ from replay.utils import list_to_vector_udf
 
 
 # pylint: disable=too-many-instance-attributes, too-many-ancestors
-class ALSWrap(Recommender, ItemVectorModel, ANNMixin):
+class ALSWrap(Recommender, ItemVectorModel, ANNItem2itemMixin):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
@@ -24,9 +24,26 @@ class ALSWrap(Recommender, ItemVectorModel, ANNMixin):
             "features_col": "user_factors",
         }
 
+    def _get_ann_nearest_items_infer_params(self) -> Dict[str, Any]:
+        self.index_builder.index_params.dim = self.rank
+        return {
+            "features_col": "item_factors"
+        }
+
     def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
         user_vectors, _ = self.get_features(users)
         return user_vectors
+
+    def _get_item_vectors_to_infer_ann(
+            self, items: DataFrame
+    ) -> DataFrame:
+
+        item_vectors, _ = self.get_features(
+            items
+        )
+
+        item_vectors = item_vectors.filter(item_vectors.item_factors.isNotNull())
+        return item_vectors
 
     def _get_ann_build_params(self, log: DataFrame):
         self.index_builder.index_params.dim = self.rank
