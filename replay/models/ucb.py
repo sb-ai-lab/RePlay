@@ -89,6 +89,7 @@ class UCB(NonPersonalizedRecommender):
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
+        item2item: bool = False
     ) -> None:
         """
         Searches best parameters with optuna.
@@ -105,6 +106,7 @@ class UCB(NonPersonalizedRecommender):
         :param k: recommendation list length
         :param budget: number of points to try
         :param new_study: keep searching with previous study or start a new study
+        :param item2item: apply optimization for item2item task or not
         :return: dictionary with best parameters
         """
         self.logger.warning(

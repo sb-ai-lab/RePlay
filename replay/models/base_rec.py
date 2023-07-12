@@ -359,8 +359,9 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             test = test.join(test_users, on="user_idx", how="right")
 
             test = test\
-                .withColumn("item_num", sf.row_number()
-                            .over(Window.partitionBy("user_idx").orderBy(sf.col("timestamp").asc())))
+                .withColumn("item_num",
+                            sf.row_number().over(Window.partitionBy("user_idx")
+                                                 .orderBy(sf.col("timestamp").asc())))
 
             test_infer = test.filter(test.item_num == 1)
             test = test.filter(test.item_num > 1)

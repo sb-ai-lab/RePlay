@@ -101,8 +101,10 @@ def eval_quality(
 
     if item2item:
         logger.debug("item2item predictions inside optimization")
-        nearest_items = recommender.get_nearest_items(items=split_data.test_infer.select("item_idx").distinct(), k=k)
-        nearest_items = nearest_items.filter(nearest_items.item_idx != nearest_items.neighbour_item_idx)
+        nearest_items = recommender.get_nearest_items(
+            items=split_data.test_infer.select("item_idx").distinct(), k=k)
+        nearest_items = nearest_items.filter(
+            nearest_items.item_idx != nearest_items.neighbour_item_idx)
         nearest_items = nearest_items \
             .withColumnRenamed("cosine_similarity", "relevance") \
             .withColumnRenamed("confidence", "relevance") \
@@ -116,7 +118,8 @@ def eval_quality(
         pred = pred.filter(pred.item_idx.isNotNull())
 
         logger.debug("Calculating criterion")
-        criterion_value = criterion(pred, split_data.test.select("user_idx", "item_idx", "relevance", "timestamp"), k)
+        criterion_value = criterion(
+            pred, split_data.test.select("user_idx", "item_idx", "relevance", "timestamp"), k)
 
     else:
         recs = recommender._predict_wrap(
@@ -225,9 +228,10 @@ class ItemKNNObjective:
         ).cache()
 
         if item2item:
-            nearest_items = recommender.get_nearest_items(items=split_data.test_infer.select("item_idx").distinct(),
-                                                          k=k)
-            nearest_items = nearest_items.filter(nearest_items.item_idx != nearest_items.neighbour_item_idx)
+            nearest_items = recommender.get_nearest_items(
+                items=split_data.test_infer.select("item_idx").distinct(), k=k)
+            nearest_items = nearest_items.filter(
+                nearest_items.item_idx != nearest_items.neighbour_item_idx)
 
             pred = split_data.test_infer.select("user_idx", "item_idx", "timestamp") \
                 .join(nearest_items, "item_idx", how="left") \

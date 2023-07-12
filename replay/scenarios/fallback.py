@@ -133,6 +133,7 @@ class Fallback(BaseRecommender):
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
+        item2item: bool = False
     ) -> Tuple[Dict[str, Any]]:
         """
         Searches best parameters with optuna.
@@ -149,6 +150,7 @@ class Fallback(BaseRecommender):
         :param k: recommendation list length
         :param budget: number of points to try
         :param new_study: keep searching with previous study or start a new study
+        :param item2item: apply optimization for item2item task or not
         :return: tuple of dictionaries with best parameters
         """
         if param_borders is None:
