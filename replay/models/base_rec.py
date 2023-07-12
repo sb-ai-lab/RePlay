@@ -176,6 +176,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
+        item2item: bool = False
     ) -> Optional[Dict[str, Any]]:
         """
         Searches the best parameters with optuna.
@@ -192,6 +193,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :param k: recommendation list length
         :param budget: number of points to try
         :param new_study: keep searching with previous study or start a new study
+        :param item2item: apply optimization for item2item task or not
         :return: dictionary with best parameters
         """
         if self._search_space is None:
@@ -213,7 +215,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             self.study.enqueue_trial(self._init_args)
 
         split_data = self._prepare_split_data(
-            train, test, user_features, item_features
+            train, test, user_features, item_features, item2item=item2item
         )
         objective = self._objective(
             search_space=search_space,
@@ -221,6 +223,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             recommender=self,
             criterion=criterion,
             k=k,
+            item2item=item2item
         )
 
         self.study.optimize(objective, budget)
@@ -323,6 +326,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         test: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
+        item2item: bool = False
     ) -> SplitData:
         """
         This method converts data to spark and packs it into a named tuple to pass into optuna.
@@ -331,6 +335,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :param test: test data
         :param user_features: user features
         :param item_features: item features
+        :param item2item: whether to make splits for item2item task
         :return: packed PySpark DataFrames
         """
         user_features_train, user_features_test = self._train_test_features(
@@ -341,6 +346,25 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         )
         users = test.select("user_idx").distinct()
         items = test.select("item_idx").distinct()
+
+        test_infer = None
+        if item2item:
+
+            test_users = test\
+                .groupBy("user_idx")\
+                .agg(sf.count("item_idx").alias("item_count"))\
+                .filter(sf.col("item_count") > 1)\
+                .select("user_idx").distinct()
+
+            test = test.join(test_users, on="user_idx", how="right")
+
+            test = test\
+                .withColumn("item_num", sf.row_number()
+                            .over(Window.partitionBy("user_idx").orderBy(sf.col("timestamp").asc())))
+
+            test_infer = test.filter(test.item_num == 1)
+            test = test.filter(test.item_num > 1)
+
         split_data = SplitData(
             train,
             test,
@@ -350,6 +374,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             user_features_test,
             item_features_train,
             item_features_test,
+            test_infer
         )
         return split_data
 
