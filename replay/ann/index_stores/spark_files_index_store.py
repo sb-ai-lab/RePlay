@@ -17,7 +17,7 @@ logger = logging.getLogger("replay")
 
 class SparkFilesIndexStore(IndexStore):
     """Class that responsible for index store in spark files.
-    Works though SparkContext.addFile()."""
+    Works through SparkContext.addFile()."""
 
     def _clean_up(self):
         """Removes directory with index files

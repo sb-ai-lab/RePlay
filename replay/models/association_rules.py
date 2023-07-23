@@ -1,13 +1,11 @@
 from typing import Iterable, List, Optional, Union, Dict, Any
 
 import numpy as np
-
 import pyspark.sql.functions as sf
-
 from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
 
-from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_neighbour_rec import NeighbourRec
 
 
@@ -75,7 +73,6 @@ class AssociationRulesItemRec(NeighbourRec):
     def _get_ann_infer_params(self) -> Dict[str, Any]:
         return {
             "features_col": None,
-            "params": self._nmslib_hnsw_params,
         }
 
     can_predict_item_to_item = True
@@ -102,7 +99,7 @@ class AssociationRulesItemRec(NeighbourRec):
         num_neighbours: Optional[int] = 1000,
         use_relevance: bool = False,
         similarity_metric: str = "confidence",
-        nmslib_hnsw_params: Optional[NmslibHnswParam] = None,
+        index_builder: Optional[IndexBuilder] = None,
     ) -> None:
         """
         :param session_col: name of column to group sessions.
@@ -116,7 +113,7 @@ class AssociationRulesItemRec(NeighbourRec):
         :param similarity_metric: `lift` of 'confidence'
             The metric used as a similarity to calculate the prediction,
             one of [``lift``, ``confidence``, ``confidence_gain``]
-        :param nmslib_hnsw_params: `NmslibHnswParam` instance, parameters for nmslib-hnsw methods.
+        :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
 
@@ -128,7 +125,10 @@ class AssociationRulesItemRec(NeighbourRec):
         self.num_neighbours = num_neighbours
         self.use_relevance = use_relevance
         self.similarity_metric = similarity_metric
-        self._nmslib_hnsw_params = nmslib_hnsw_params
+        if isinstance(index_builder, (IndexBuilder, type(None))):
+            self.index_builder = index_builder
+        elif isinstance(index_builder, dict):
+            self.init_builder_from_dict(index_builder)
 
     @property
     def _init_args(self):

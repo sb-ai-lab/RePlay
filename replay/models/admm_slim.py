@@ -6,7 +6,7 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from scipy.sparse import coo_matrix, csr_matrix
 
-from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_neighbour_rec import NeighbourRec
 from replay.session_handler import State
 
@@ -78,7 +78,6 @@ class ADMMSLIM(NeighbourRec):
     def _get_ann_infer_params(self) -> Dict[str, Any]:
         return {
             "features_col": None,
-            "params": self._nmslib_hnsw_params,
         }
 
     rho: float
@@ -100,13 +99,13 @@ class ADMMSLIM(NeighbourRec):
         lambda_1: float = 5,
         lambda_2: float = 5000,
         seed: Optional[int] = None,
-        nmslib_hnsw_params: Optional[NmslibHnswParam] = None,
+        index_builder: Optional[IndexBuilder] = None,
     ):
         """
         :param lambda_1: l1 regularization term
         :param lambda_2: l2 regularization term
         :param seed: random seed
-        :param nmslib_hnsw_params: `NmslibHnswParam` instance, parameters for nmslib-hnsw methods.
+        :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
         if lambda_1 < 0 or lambda_2 <= 0:
@@ -115,7 +114,10 @@ class ADMMSLIM(NeighbourRec):
         self.lambda_2 = lambda_2
         self.rho = lambda_2
         self.seed = seed
-        self._nmslib_hnsw_params = nmslib_hnsw_params
+        if isinstance(index_builder, (IndexBuilder, type(None))):
+            self.index_builder = index_builder
+        elif isinstance(index_builder, dict):
+            self.init_builder_from_dict(index_builder)
 
     @property
     def _init_args(self):

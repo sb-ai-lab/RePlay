@@ -20,7 +20,6 @@ class SLIM(NeighbourRec):
     def _get_ann_infer_params(self) -> Dict[str, Any]:
         return {
             "features_col": None,
-            # "params": self._nmslib_hnsw_params,
         }
 
     _search_space = {
