@@ -11,7 +11,7 @@ from replay.ann.index_stores.spark_files_index_store import (
     SparkFilesIndexStore,
 )
 from replay.models.base_rec import BaseRecommender
-from replay.utils import get_unique_entities, get_top_k_recs, return_recs
+from replay.utils import get_top_k_recs, return_recs
 
 logger = logging.getLogger("replay")
 
@@ -151,18 +151,9 @@ class ANNMixin(BaseRecommender):
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
     ) -> Optional[DataFrame]:
-        self.logger.debug("Starting predict %s", type(self).__name__)
-        user_data = users or log or user_features or self.fit_users
-        users = get_unique_entities(user_data, "user_idx")
-        users, log = self._filter_cold_for_predict(users, log, "user")
-
-        item_data = items or self.fit_items
-        items = get_unique_entities(item_data, "item_idx")
-        items, log = self._filter_cold_for_predict(items, log, "item")
-        num_items = items.count()
-        if num_items < k:
-            message = f"k = {k} > number of items = {num_items}"
-            self.logger.debug(message)
+        log, users, items = self._filter_log_users_items_dataframes(
+            log, k, users, items
+        )
 
         if self._use_ann:
             vectors = self._get_vectors_to_infer_ann(

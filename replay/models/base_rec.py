@@ -52,7 +52,9 @@ from replay.utils import (
     get_top_k_recs,
     return_recs,
     vector_euclidean_distance_similarity,
-    vector_dot, save_picklable_to_parquet, load_pickled_from_parquet,
+    vector_dot,
+    save_picklable_to_parquet,
+    load_pickled_from_parquet,
 )
 
 
@@ -496,6 +498,49 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
         return recs
 
+    def _filter_log_users_items_dataframes(
+        self,
+        log: Optional[DataFrame],
+        k: int,
+        users: Optional[Union[DataFrame, Iterable]] = None,
+        items: Optional[Union[DataFrame, Iterable]] = None,
+        user_features: Optional[DataFrame] = None,
+    ):
+        """
+        Returns triplet of filtered `log`, `users`, and `items`.
+        Filters out cold entities (users/items) from the `users`/`items` and `log` dataframes
+        if the model does not predict cold.
+        Filters out duplicates from `users` and `items` dataframes,
+        and excludes all columns except `user_idx` and `item_idx`.
+
+        :param log: historical log of interactions
+            ``[user_idx, item_idx, timestamp, relevance]``
+        :param k: number of recommendations for each user
+        :param users: users to create recommendations for
+            dataframe containing ``[user_idx]`` or ``array-like``;
+            if ``None``, recommend to all users from ``log``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_idx]`` or ``array-like``;
+            if ``None``, take all items from ``log``.
+            If it contains new items, ``relevance`` for them will be ``0``.
+        :param user_features: user features
+            ``[user_idx , timestamp]`` + feature columns
+        :return: triplet of filtered `log`, `users`, and `items` dataframes.
+        """
+        self.logger.debug("Starting predict %s", type(self).__name__)
+        user_data = users or log or user_features or self.fit_users
+        users = get_unique_entities(user_data, "user_idx")
+        users, log = self._filter_cold_for_predict(users, log, "user")
+
+        item_data = items or self.fit_items
+        items = get_unique_entities(item_data, "item_idx")
+        items, log = self._filter_cold_for_predict(items, log, "item")
+        num_items = items.count()
+        if num_items < k:
+            message = f"k = {k} > number of items = {num_items}"
+            self.logger.debug(message)
+        return log, users, items
+
     # pylint: disable=too-many-arguments
     def _predict_wrap(
         self,
@@ -531,18 +576,9 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
             or None if `file_path` is provided
         """
-        self.logger.debug("Starting predict %s", type(self).__name__)
-        user_data = users or log or user_features or self.fit_users
-        users = get_unique_entities(user_data, "user_idx")
-        users, log = self._filter_cold_for_predict(users, log, "user")
-
-        item_data = items or self.fit_items
-        items = get_unique_entities(item_data, "item_idx")
-        items, log = self._filter_cold_for_predict(items, log, "item")
-        num_items = items.count()
-        if num_items < k:
-            message = f"k = {k} > number of items = {num_items}"
-            self.logger.debug(message)
+        log, users, items = self._filter_log_users_items_dataframes(
+            log, k, users, items
+        )
 
         recs = self._predict(
             log,
