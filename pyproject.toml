@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "replay-rec"
-version = "0.10.0"
+version = "0.11.0"
 license = "Apache-2.0"
 description = "RecSys Library"
 authors = ["AI Lab",
