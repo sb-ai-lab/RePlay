@@ -15,6 +15,7 @@ ___________________
     "Wilson Recommender", "PySpark"
     "Random Recommender", "PySpark"
     "UCB", "PySpark"
+    "Thompson Sampling", "PySpark"
     "K-Nearest Neighbours", "PySpark"
     "Alternating Least Squares", "PySpark"
     "SLIM", "PySpark"
@@ -78,6 +79,11 @@ Random Recommender
 UCB Recommender
 ``````````````````
 .. autoclass:: replay.models.UCB
+   :special-members: __init__
+
+Thompson Sampling
+``````````````````
+.. autoclass:: replay.models.ThompsonSampling
    :special-members: __init__
 
 K Nearest Neighbours
