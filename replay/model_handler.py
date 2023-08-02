@@ -9,7 +9,7 @@ import pyspark.sql.types as st
 from pyspark.ml.feature import StringIndexerModel, IndexToString
 from pyspark.sql import SparkSession
 
-from replay.data_preparator import Indexer
+from replay.preprocessing.data_preparator import Indexer
 from replay.models import *
 from replay.models.base_rec import BaseRecommender
 from replay.session_handler import State

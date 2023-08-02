@@ -5,8 +5,8 @@ from typing import Optional, Union, Iterable, Dict, List, Any, Tuple
 
 from pyspark.sql import DataFrame
 
-from replay.constants import AnyDataFrame
-from replay.filters import filter_by_min_count
+from replay.data import AnyDataFrame
+from replay.preprocessing.filters import filter_by_min_count
 from replay.metrics import Metric, NDCG
 from replay.models.base_rec import BaseRecommender
 from replay.utils import convert2spark, get_unique_entities

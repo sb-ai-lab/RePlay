@@ -6,7 +6,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
-from replay.constants import AnyDataFrame
+from replay.data import AnyDataFrame
 from replay.metrics.base_metric import (
     fill_na_with_empty_array,
     RecOnlyMetric,

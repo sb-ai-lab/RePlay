@@ -5,7 +5,7 @@ import pytest
 import pandas as pd
 
 import replay
-from replay.data_preparator import Indexer
+from replay.preprocessing.data_preparator import Indexer
 from replay.model_handler import (
     save_indexer,
     load_indexer,

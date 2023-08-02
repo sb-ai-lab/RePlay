@@ -10,7 +10,7 @@ from pyspark.sql.types import (
     StructType,
 )
 
-from replay.constants import LOG_SCHEMA
+from replay.data import LOG_SCHEMA
 from replay.models import ImplicitWrap
 from tests.utils import spark, log, sparkDataFrameEqual
 from replay.session_handler import get_spark_session

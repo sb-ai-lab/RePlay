@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from replay.constants import AnyDataFrame
+from replay.data import AnyDataFrame
 from replay.utils import convert2spark
 
 SplitterReturnType = Tuple[DataFrame, DataFrame]

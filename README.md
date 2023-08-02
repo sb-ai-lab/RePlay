@@ -45,7 +45,7 @@ If you encounter an error during RePlay installation, check the [troubleshooting
 ```python
 from rs_datasets import MovieLens
 
-from replay.data_preparator import DataPreparator, Indexer
+from replay.preprocessing.data_preparator import DataPreparator, Indexer
 from replay.metrics import HitRate, NDCG
 from replay.models import ItemKNN
 from replay.session_handler import State

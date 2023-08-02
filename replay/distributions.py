@@ -4,7 +4,7 @@ import pandas as pd
 import seaborn as sns
 from pyspark.sql import functions as sf
 
-from replay.constants import AnyDataFrame
+from replay.data import AnyDataFrame
 from replay.utils import convert2spark, get_top_k_recs
 
 

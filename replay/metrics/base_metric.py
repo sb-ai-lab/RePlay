@@ -16,7 +16,7 @@ from pyspark.sql import Window
 from pyspark.sql.column import _to_java_column, _to_seq
 from scipy.stats import norm
 
-from replay.constants import AnyDataFrame, IntOrList, NumType
+from replay.data import AnyDataFrame, IntOrList, NumType
 from replay.session_handler import State
 from replay.utils import convert2spark, get_top_k_recs
 

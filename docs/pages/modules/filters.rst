@@ -1,5 +1,5 @@
 Filters
 ======================
 
-.. automodule:: replay.filters
+.. automodule:: replay.preprocessing.filters
     :members:

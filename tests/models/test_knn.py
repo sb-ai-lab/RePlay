@@ -11,7 +11,7 @@ from replay.ann.index_builders.driver_nmslib_index_builder import (
 from replay.ann.index_stores.spark_files_index_store import (
     SparkFilesIndexStore,
 )
-from replay.constants import LOG_SCHEMA
+from replay.data import LOG_SCHEMA
 from replay.models import ItemKNN
 from tests.utils import spark
 

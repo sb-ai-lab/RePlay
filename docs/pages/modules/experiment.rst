@@ -1,6 +1,6 @@
 Compare Results
 ======================
 
-.. autoclass:: replay.experiment.Experiment
+.. autoclass:: replay.metrics.experiment.Experiment
    :members:
    :special-members: __init__

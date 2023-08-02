@@ -6,7 +6,7 @@ from pyspark.sql import DataFrame
 
 from replay.models.base_rec import Recommender
 from replay.utils import to_csr, save_picklable_to_parquet, load_pickled_from_parquet
-from replay.constants import REC_SCHEMA
+from replay.data import REC_SCHEMA
 
 
 class ImplicitWrap(Recommender):

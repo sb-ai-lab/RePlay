@@ -7,7 +7,7 @@ import pytest
 
 from pyspark.sql import functions as sf
 
-from replay.history_based_fp import (
+from replay.preprocessing.history_based_fp import (
     ConditionalPopularityProcessor,
     EmptyFeatureProcessor,
     HistoryBasedFeaturesProcessor,

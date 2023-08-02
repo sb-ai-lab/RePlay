@@ -6,7 +6,7 @@ from typing import Optional, Union
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
 
-from replay.constants import AnyDataFrame
+from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter, SplitterReturnType
 from replay.utils import convert2spark
 

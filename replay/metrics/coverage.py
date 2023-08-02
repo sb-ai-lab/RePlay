@@ -3,7 +3,7 @@ from typing import Dict, Optional, Union
 from pyspark.sql import Window, DataFrame
 from pyspark.sql import functions as sf
 
-from replay.constants import AnyDataFrame, IntOrList, NumType
+from replay.data import AnyDataFrame, IntOrList, NumType
 from replay.utils import convert2spark
 from replay.metrics.base_metric import RecOnlyMetric, process_k
 

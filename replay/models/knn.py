@@ -6,7 +6,7 @@ from pyspark.sql.window import Window
 
 from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_neighbour_rec import NeighbourRec
-from replay.optuna_objective import ItemKNNObjective
+from replay.optimization import ItemKNNObjective
 
 
 # pylint: disable=too-many-ancestors

@@ -7,7 +7,7 @@ from pyspark.sql.functions import col
 from pyspark.sql.types import TimestampType
 from typing import Union, Optional
 
-from replay.constants import AnyDataFrame
+from replay.data import AnyDataFrame
 from replay.utils import convert2spark
 from replay.session_handler import State
 

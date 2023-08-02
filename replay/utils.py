@@ -13,7 +13,7 @@ from pyspark.sql import SparkSession, Column, DataFrame, Window, functions as sf
 from pyspark.sql.column import _to_java_column, _to_seq
 from scipy.sparse import csr_matrix
 
-from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
+from replay.data import AnyDataFrame, NumType, REC_SCHEMA
 from replay.session_handler import State
 
 

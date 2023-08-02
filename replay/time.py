@@ -2,7 +2,7 @@ import pyspark.sql.functions as sf
 import numpy as np
 
 from replay.utils import convert2spark
-from replay.constants import AnyDataFrame
+from replay.data import AnyDataFrame
 
 
 def get_item_recency(

@@ -5,9 +5,9 @@ from typing import Dict, Optional, Tuple, List, Union, Any
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 
-from replay.constants import AnyDataFrame
-from replay.data_preparator import ToNumericFeatureTransformer
-from replay.history_based_fp import HistoryBasedFeaturesProcessor
+from replay.data import AnyDataFrame
+from replay.preprocessing.data_preparator import ToNumericFeatureTransformer
+from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.metrics import Metric, Precision
 from replay.models import ALSWrap, RandomRec, PopRec
 from replay.models.base_rec import BaseRecommender, HybridRecommender

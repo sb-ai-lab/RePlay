@@ -29,7 +29,7 @@ from replay.ann.index_stores.shared_disk_index_store import (
 from replay.ann.index_stores.spark_files_index_store import (
     SparkFilesIndexStore,
 )
-from replay.data_preparator import Indexer
+from replay.preprocessing.data_preparator import Indexer
 from replay.models.cql import MdpDatasetBuilder
 from replay.model_handler import save, load
 from replay.models import *
