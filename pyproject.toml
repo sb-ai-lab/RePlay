@@ -50,6 +50,9 @@ pytorch-ranger = "^0.1.1"
 d3rlpy = "*"
 # required by d3rlpy
 gym = "0.17.2"
+nmslib = "*"
+hnswlib = "*"
+cached-property = "*"
 
 [tool.poetry.dev-dependencies]
 # dev only
