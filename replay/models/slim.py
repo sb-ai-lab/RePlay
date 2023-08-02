@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -7,13 +7,20 @@ from pyspark.sql import types as st
 from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
-from replay.models.base_rec import NeighbourRec
+from replay.ann.index_builders.base_index_builder import IndexBuilder
+from replay.models.base_neighbour_rec import NeighbourRec
 from replay.session_handler import State
 
 
+# pylint: disable=too-many-ancestors
 class SLIM(NeighbourRec):
     """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
+
+    def _get_ann_infer_params(self) -> Dict[str, Any]:
+        return {
+            "features_col": None,
+        }
 
     _search_space = {
         "beta": {"type": "loguniform", "args": [1e-6, 5]},
@@ -25,21 +32,41 @@ class SLIM(NeighbourRec):
         beta: float = 0.01,
         lambda_: float = 0.01,
         seed: Optional[int] = None,
+        index_builder: Optional[IndexBuilder] = None,
     ):
         """
         :param beta: l2 regularization
         :param lambda_: l1 regularization
         :param seed: random seed
+        :param index_builder: `IndexBuilder` instance that adds ANN functionality.
+            If not set, then ann will not be used.
         """
         if beta < 0 or lambda_ <= 0:
             raise ValueError("Invalid regularization parameters")
         self.beta = beta
         self.lambda_ = lambda_
         self.seed = seed
+        if isinstance(index_builder, (IndexBuilder, type(None))):
+            self.index_builder = index_builder
+        elif isinstance(index_builder, dict):
+            self.init_builder_from_dict(index_builder)
 
     @property
     def _init_args(self):
-        return {"beta": self.beta, "lambda_": self.lambda_, "seed": self.seed}
+        return {
+            "beta": self.beta,
+            "lambda_": self.lambda_,
+            "seed": self.seed,
+            "index_builder": self.index_builder.init_meta_as_dict() if self.index_builder else None,
+        }
+
+    def _save_model(self, path: str):
+        if self._use_ann:
+            self._save_index(path)
+
+    def _load_model(self, path: str):
+        if self._use_ann:
+            self._load_index(path)
 
     def _fit(
         self,
