@@ -5,7 +5,7 @@ import pytest
 import pyspark.sql.functions as sf
 
 from replay.models import ClusterRec
-from replay.utils import convert2spark
+from replay.utils.spark_utils import convert2spark
 from tests.utils import (
     spark,
     long_log_with_features,

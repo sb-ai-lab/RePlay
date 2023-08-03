@@ -17,7 +17,7 @@ from pyspark.sql.types import (
 
 from replay.data import LOG_SCHEMA, REC_SCHEMA
 from replay.metrics import *
-from replay.distributions import item_distribution
+from replay.utils.distributions import item_distribution
 from replay.metrics.base_metric import get_enriched_recommendations, sorter
 
 from tests.utils import (

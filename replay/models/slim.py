@@ -7,9 +7,9 @@ from pyspark.sql import types as st
 from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
-from replay.ann.index_builders.base_index_builder import IndexBuilder
+from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_neighbour_rec import NeighbourRec
-from replay.session_handler import State
+from replay.utils.session_handler import State
 
 
 # pylint: disable=too-many-ancestors

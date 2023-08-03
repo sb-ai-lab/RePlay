@@ -27,7 +27,7 @@ from pyspark.sql import DataFrame, functions as sf, Window
 
 from replay.data import REC_SCHEMA
 from replay.models.base_rec import Recommender
-from replay.utils import assert_omp_single_thread
+from replay.utils.spark_utils import assert_omp_single_thread
 
 
 timer = timeit.default_timer

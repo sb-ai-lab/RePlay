@@ -13,7 +13,7 @@ from pyspark.ml.linalg import DenseVector
 from pyspark.sql import DataFrame
 
 from replay.data import REC_SCHEMA, LOG_SCHEMA
-from replay.session_handler import get_spark_session
+from replay.utils.session_handler import get_spark_session
 
 
 def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:

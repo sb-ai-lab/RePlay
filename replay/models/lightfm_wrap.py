@@ -13,8 +13,13 @@ from sklearn.preprocessing import MinMaxScaler
 
 from replay.data import REC_SCHEMA
 from replay.models.base_rec import HybridRecommender
-from replay.utils import to_csr, check_numeric, save_picklable_to_parquet, load_pickled_from_parquet
-from replay.session_handler import State
+from replay.utils.spark_utils import (
+    to_csr,
+    check_numeric,
+    save_picklable_to_parquet,
+    load_pickled_from_parquet,
+)
+from replay.utils.session_handler import State
 
 
 # pylint: disable=too-many-locals, too-many-instance-attributes

@@ -16,7 +16,7 @@ from datetime import datetime
 from pyspark.sql import DataFrame
 from pyspark.sql.types import TimestampType
 
-from replay.utils import (
+from replay.utils.spark_utils import (
     join_or_return,
     join_with_col_renaming,
     unpersist_if_exists,

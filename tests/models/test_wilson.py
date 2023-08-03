@@ -6,8 +6,8 @@ from pyspark.sql import functions as sf
 from statsmodels.stats.proportion import proportion_confint
 
 from replay.models import Wilson
-from replay.utils import convert2spark
 from tests.utils import log, spark, sparkDataFrameEqual
+from replay.utils.spark_utils import convert2spark
 
 
 @pytest.fixture

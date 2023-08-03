@@ -7,10 +7,10 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
-from replay.ann.ann_mixin import ANNMixin
-from replay.ann.index_builders.base_index_builder import IndexBuilder
+from replay.models.extensions.ann.ann_mixin import ANNMixin
+from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.utils import vector_dot, multiply_scala_udf, join_with_col_renaming
+from replay.utils.spark_utils import vector_dot, multiply_scala_udf, join_with_col_renaming
 
 
 # pylint: disable=too-many-instance-attributes, too-many-ancestors

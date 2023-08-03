@@ -10,7 +10,7 @@ from replay.preprocessing.data_preparator import (
     CatFeaturesTransformer,
     Indexer,
 )
-from replay.utils import convert2spark
+from replay.utils.spark_utils import convert2spark
 from tests.utils import (
     item_features,
     long_log_with_features,

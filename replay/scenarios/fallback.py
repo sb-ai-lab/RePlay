@@ -8,7 +8,7 @@ from replay.preprocessing.filters import filter_by_min_count
 from replay.metrics import Metric, NDCG
 from replay.models import PopRec
 from replay.models.base_rec import BaseRecommender
-from replay.utils import fallback, get_unique_entities
+from replay.utils.spark_utils import fallback, get_unique_entities
 
 
 class Fallback(BaseRecommender):

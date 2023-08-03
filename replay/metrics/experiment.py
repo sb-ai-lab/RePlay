@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 import pandas as pd
 
 from replay.data import AnyDataFrame, IntOrList, NumType
-from replay.utils import convert2spark
+from replay.utils.spark_utils import convert2spark
 from replay.metrics.base_metric import (
     get_enriched_recommendations,
     Metric,

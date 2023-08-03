@@ -4,7 +4,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
 
-from replay.ann.index_builders.base_index_builder import IndexBuilder
+from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_neighbour_rec import NeighbourRec
 from replay.optimization import ItemKNNObjective
 

@@ -12,7 +12,7 @@ from replay.metrics.base_metric import (
     RecOnlyMetric,
     sorter,
 )
-from replay.utils import convert2spark, get_top_k_recs
+from replay.utils.spark_utils import convert2spark, get_top_k_recs
 
 
 # pylint: disable=too-few-public-methods

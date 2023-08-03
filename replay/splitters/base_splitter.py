@@ -5,7 +5,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from replay.data import AnyDataFrame
-from replay.utils import convert2spark
+from replay.utils.spark_utils import convert2spark
 
 SplitterReturnType = Tuple[DataFrame, DataFrame]
 

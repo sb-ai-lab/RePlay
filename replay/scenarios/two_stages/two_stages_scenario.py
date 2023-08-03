@@ -13,9 +13,9 @@ from replay.models import ALSWrap, RandomRec, PopRec
 from replay.models.base_rec import BaseRecommender, HybridRecommender
 from replay.scenarios.two_stages.reranker import LamaWrap
 
-from replay.session_handler import State
+from replay.utils.session_handler import State
 from replay.splitters import Splitter, UserSplitter
-from replay.utils import (
+from replay.utils.spark_utils import (
     array_mult,
     cache_if_exists,
     fallback,

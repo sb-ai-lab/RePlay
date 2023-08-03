@@ -32,8 +32,8 @@ from pyspark.sql.types import (
 )
 
 from replay.data import AnyDataFrame
-from replay.session_handler import State
-from replay.utils import convert2spark, process_timestamp_column
+from replay.utils.session_handler import State
+from replay.utils.spark_utils import convert2spark, process_timestamp_column
 
 LOG_COLUMNS = ["user_id", "item_id", "timestamp", "relevance"]
 

@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 
 from replay.data import REC_SCHEMA
 from replay.models.base_rec import Recommender
-from replay.session_handler import State
+from replay.utils.session_handler import State
 
 
 class TorchRecommender(Recommender):

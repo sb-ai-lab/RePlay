@@ -8,8 +8,8 @@ from pyspark.sql.types import TimestampType
 from typing import Union, Optional
 
 from replay.data import AnyDataFrame
-from replay.utils import convert2spark
-from replay.session_handler import State
+from replay.utils.spark_utils import convert2spark
+from replay.utils.session_handler import State
 
 
 def filter_by_min_count(
@@ -91,7 +91,7 @@ def take_num_user_interactions(
      Get first/last ``num_interactions`` interactions for each user.
 
     >>> import pandas as pd
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> log_pd = pd.DataFrame({"user_idx": ["u1", "u2", "u2", "u3", "u3", "u3"],
     ...                     "item_idx": ["i1", "i2","i3", "i1", "i2","i3"],
     ...                     "rel": [1., 0.5, 3, 1, 0, 1],
@@ -184,7 +184,7 @@ def take_num_days_of_user_hist(
     Get first/last ``days`` of users' interactions.
 
     >>> import pandas as pd
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> log_pd = pd.DataFrame({"user_idx": ["u1", "u2", "u2", "u3", "u3", "u3"],
     ...                     "item_idx": ["i1", "i2","i3", "i1", "i2","i3"],
     ...                     "rel": [1., 0.5, 3, 1, 0, 1],
@@ -271,7 +271,7 @@ def take_time_period(
     Select a part of data between ``[start_date, end_date)``.
 
     >>> import pandas as pd
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> log_pd = pd.DataFrame({"user_idx": ["u1", "u2", "u2", "u3", "u3", "u3"],
     ...                     "item_idx": ["i1", "i2","i3", "i1", "i2","i3"],
     ...                     "rel": [1., 0.5, 3, 1, 0, 1],
@@ -331,7 +331,7 @@ def take_num_days_of_global_hist(
     Select first/last days from ``log``.
 
     >>> import pandas as pd
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> log_pd = pd.DataFrame({"user_idx": ["u1", "u2", "u2", "u3", "u3", "u3"],
     ...                     "item_idx": ["i1", "i2","i3", "i1", "i2","i3"],
     ...                     "rel": [1., 0.5, 3, 1, 0, 1],

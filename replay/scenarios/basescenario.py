@@ -9,7 +9,7 @@ from replay.data import AnyDataFrame
 from replay.preprocessing.filters import filter_by_min_count
 from replay.metrics import Metric, NDCG
 from replay.models.base_rec import BaseRecommender
-from replay.utils import convert2spark, get_unique_entities
+from replay.utils.spark_utils import convert2spark, get_unique_entities
 
 
 class BaseScenario(BaseRecommender):
