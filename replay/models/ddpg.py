@@ -11,9 +11,15 @@ from pandas import DataFrame
 from pyspark.sql import functions as sf
 from pytorch_ranger import Ranger
 from torch import nn
+from torch.distributions.gamma import Gamma
 
 from replay.constants import REC_SCHEMA
 from replay.models.base_torch_rec import Recommender
+from replay.utils import convert2spark
+
+import logging
+
+logger = logging.getLogger("replay")
 
 
 def to_np(tensor: torch.Tensor) -> np.array:
@@ -32,82 +38,75 @@ class ReplayBuffer:
     """
 
     # pylint: disable=too-many-arguments
-    def __init__(self, capacity: int = 1000000, prob_alpha: float = 0.6):
-        self.prob_alpha = prob_alpha
+    def __init__(self, device, capacity, memory_size, embedding_dim):
         self.capacity = capacity
+
         self.buffer = {
-            "user": [],
-            "memory": [],
-            "action": [],
-            "reward": [],
-            "next_user": [],
-            "next_memory": [],
-            "done": [],
+            "user": torch.zeros((capacity,), device=device),
+            "memory": torch.zeros((capacity, memory_size), device=device),
+            "action": torch.zeros((capacity, embedding_dim), device=device),
+            "reward": torch.zeros((capacity,), device=device),
+            "next_user": torch.zeros((capacity,), device=device),
+            "next_memory": torch.zeros((capacity, memory_size), device=device),
+            "done": torch.zeros((capacity,), device=device),
+            "sample_weight": torch.zeros((capacity,), device=device),
         }
+
         self.pos = 0
-        self.priorities = np.zeros((capacity,), dtype=np.float32)
+        self.is_filled = False
 
-    def push(self, user, memory, action, reward, next_user, next_memory, done):
+    def push(
+        self,
+        user,
+        memory,
+        action,
+        reward,
+        next_user,
+        next_memory,
+        done,
+        sample_weight,
+    ):
         """Add transition to buffer."""
-        max_priority = (
-            self.priorities.max() if len(self.buffer["user"]) > 0 else 1.0
-        )
 
-        if len(self.buffer) < self.capacity:
-            self.buffer["user"].append(user)
-            self.buffer["memory"].append(memory)
-            self.buffer["action"].append(action)
-            self.buffer["reward"].append(reward)
-            self.buffer["next_user"].append(next_user)
-            self.buffer["next_memory"].append(next_memory)
-            self.buffer["done"].append(done)
-        else:
-            self.buffer["user"][self.pos] = user
-            self.buffer["memory"][self.pos] = memory
-            self.buffer["action"][self.pos] = action
-            self.buffer["reward"][self.pos] = reward
-            self.buffer["next_user"][self.pos] = next_user
-            self.buffer["next_memory"][self.pos] = next_memory
-            self.buffer["done"][self.pos] = done
+        batch_size = user.shape[0]
 
-        self.priorities[self.pos] = max_priority
-        self.pos = (self.pos + 1) % self.capacity
+        self.buffer["user"][self.pos : self.pos + batch_size] = user
+        self.buffer["memory"][self.pos : self.pos + batch_size] = memory
+        self.buffer["action"][self.pos : self.pos + batch_size] = action
+        self.buffer["reward"][self.pos : self.pos + batch_size] = reward
+        self.buffer["next_user"][self.pos : self.pos + batch_size] = next_user
+        self.buffer["next_memory"][
+            self.pos : self.pos + batch_size
+        ] = next_memory
+        self.buffer["done"][self.pos : self.pos + batch_size] = done
+        self.buffer["sample_weight"][
+            self.pos : self.pos + batch_size
+        ] = sample_weight
+
+        if (new_pos := self.pos + batch_size) >= self.capacity:
+            self.is_filled = True
+        self.pos = new_pos % self.capacity
 
     # pylint: disable=too-many-locals
-    def sample(self, batch_size, beta=0.4):
+    def sample(self, batch_size):
         """Sample transition from buffer."""
-        current_buffer_len = len(self.buffer["user"])
-        if current_buffer_len == self.capacity:
-            priorities = self.priorities
-        else:
-            priorities = self.priorities[: self.pos]
+        current_buffer_len = len(self)
 
-        probs = priorities ** self.prob_alpha
-        probs /= probs.sum()
-        indices = np.random.choice(current_buffer_len, batch_size, p=probs)
-
-        weights = (current_buffer_len * probs[indices]) ** (-beta)
-        weights /= weights.max()
-        weights = np.array(weights, dtype=np.float32)
+        indices = np.random.choice(current_buffer_len, batch_size)
 
         return {
-            "user": np.concatenate([self.buffer["user"][i] for i in indices]),
-            "memory": np.concatenate(
-                [self.buffer["memory"][i] for i in indices]
-            ),
-            "action": np.array([self.buffer["action"][i] for i in indices]),
-            "reward": np.array([self.buffer["reward"][i] for i in indices]),
-            "next_user": np.concatenate(
-                [self.buffer["next_user"][i] for i in indices]
-            ),
-            "next_memory": np.concatenate(
-                [self.buffer["next_memory"][i] for i in indices]
-            ),
-            "done": np.array([self.buffer["done"][i] for i in indices]),
+            "user": self.buffer["user"][indices],
+            "memory": self.buffer["memory"][indices],
+            "action": self.buffer["action"][indices],
+            "reward": self.buffer["reward"][indices],
+            "next_user": self.buffer["next_user"][indices],
+            "next_memory": self.buffer["next_memory"][indices],
+            "done": self.buffer["done"][indices],
+            "sample_weight": self.buffer["sample_weight"][indices],
         }
 
     def __len__(self):
-        return len(self.buffer["user"])
+        return self.capacity if self.is_filled else self.pos + 1
 
 
 # pylint: disable=too-many-instance-attributes,too-many-arguments,not-callable
@@ -117,10 +116,11 @@ class OUNoise:
     def __init__(
         self,
         action_dim,
+        device,
         theta=0.15,
         max_sigma=0.4,
         min_sigma=0.4,
-        noise_type="ou",
+        noise_type="gauss",
         decay_period=10,
     ):
         self.theta = theta
@@ -130,22 +130,24 @@ class OUNoise:
         self.decay_period = decay_period
         self.action_dim = action_dim
         self.noise_type = noise_type
-        self.state = np.zeros(action_dim)
+        self.device = device
+        self.state = torch.zeros(action_dim, device=self.device)
 
     def reset(self):
         """Fill state with zeros."""
-        self.state = np.zeros(self.action_dim)
+        self.state.fill_(0)
 
     def evolve_state(self):
         """Perform OU discrete approximation step"""
         x = self.state
-        d_x = -self.theta * x + self.sigma * np.random.randn(self.action_dim)
+        d_x = -self.theta * x + self.sigma * torch.randn(
+            self.action_dim, device=self.device
+        )
         self.state = x + d_x
         return self.state
 
     def get_action(self, action, step=0):
         """Get state after applying noise."""
-        action = to_np(action)
         self.sigma = self.max_sigma - (self.max_sigma - self.min_sigma) * min(
             1.0, step / self.decay_period
         )
@@ -153,9 +155,9 @@ class OUNoise:
             ou_state = self.evolve_state()
             return torch.tensor([action + ou_state]).float()
         elif self.noise_type == "gauss":
-            return torch.tensor(
-                [self.sigma * np.random.randn(self.action_dim)]
-            ).float()
+            return action + self.sigma * torch.randn(
+                action.shape, device=self.device
+            )
         else:
             raise ValueError("noise_type must be one of ['ou', 'gauss']")
 
@@ -167,7 +169,14 @@ class ActorDRR(nn.Module):
     """
 
     def __init__(
-        self, user_num, item_num, embedding_dim, hidden_dim, memory_size
+        self,
+        user_num,
+        item_num,
+        embedding_dim,
+        hidden_dim,
+        memory_size,
+        env_gamma_alpha,
+        device,
     ):
         super().__init__()
         self.layers = nn.Sequential(
@@ -183,7 +192,9 @@ class ActorDRR(nn.Module):
 
         self.initialize()
 
-        self.environment = Env(item_num, user_num, memory_size)
+        self.environment = Env(
+            item_num, user_num, memory_size, env_gamma_alpha, device
+        )
 
     def initialize(self):
         """weight init"""
@@ -201,22 +212,32 @@ class ActorDRR(nn.Module):
         return self.layers(state)
 
     # pylint: disable=not-callable
-    def get_action(self, action_emb, items, return_scores=False):
+    def get_action(self, action_emb, items, items_mask, return_scores=False):
         """
-        :param action_emb: output of the .forward()
-        :param items: items batch
+        :param action_emb: output of the .forward() (user_batch_size x emb_dim)
+        :param items: items batch (user_batch_size x items_num)
+        :param items: mask of available items for reccomendation (user_batch_size x items_num)
         :param return_scores: whether to return scores of items
         :return: output, prediction (and scores if return_scores)
         """
-        items = torch.tensor(items).long()
+
+        assert items.shape == items_mask.shape
+
+        items = self.state_repr.item_embeddings(items)  # B x i x emb_dim
+
         scores = torch.bmm(
-            self.state_repr.item_embeddings(items).unsqueeze(0),
-            action_emb.T.unsqueeze(0),
-        ).squeeze(0)
+            items,
+            action_emb.unsqueeze(-1),  # B x emb_dim x 1
+        ).squeeze(-1)
+
+        assert scores.shape == items_mask.shape
+
+        scores *= items_mask
+
         if return_scores:
-            return scores, torch.gather(items, 0, scores.argmax(0))
+            return scores, torch.argmax(scores, dim=1)
         else:
-            return torch.gather(items, 0, scores.argmax(0))
+            return torch.argmax(scores, dim=1)
 
 
 class CriticDRR(nn.Module):
@@ -225,14 +246,20 @@ class CriticDRR(nn.Module):
     <https://arxiv.org/pdf/1802.05814.pdf>`_).
     """
 
-    def __init__(self, state_repr_dim, action_emb_dim, hidden_dim):
+    def __init__(
+        self, state_repr_dim, action_emb_dim, hidden_dim, heads_num, heads_q
+    ):
         super().__init__()
         self.layers = nn.Sequential(
             nn.Linear(state_repr_dim + action_emb_dim, hidden_dim),
             nn.LayerNorm(hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, 1),
         )
+
+        self.heads = nn.ModuleList(
+            [nn.Linear(hidden_dim, 1) for _ in range(heads_num)]
+        )
+        self.heads_q = heads_q
 
         self.initialize()
 
@@ -242,6 +269,9 @@ class CriticDRR(nn.Module):
             if isinstance(layer, nn.Linear):
                 nn.init.kaiming_uniform_(layer.weight)
 
+        for head in self.heads:
+            nn.init.kaiming_uniform_(head.weight)
+
     def forward(self, state, action):
         """
         :param state: state batch
@@ -249,8 +279,11 @@ class CriticDRR(nn.Module):
         :return: x, Q values for given states and actions
         """
         x = torch.cat([state, action], 1)
-        x = self.layers(x)
-        return x
+        out = self.layers(x)
+        heads_out = torch.stack([head(out) for head in self.heads])
+        out = torch.quantile(heads_out, self.heads_q, dim=0)
+
+        return out
 
 
 # pylint: disable=too-many-instance-attributes, not-callable
@@ -262,13 +295,16 @@ class Env:
     """
 
     matrix: np.array
-    related_items: np.array
-    nonrelated_items: np.array
-    available_items: list
-    user_id: int
+    related_items: torch.Tensor
+    nonrelated_items: torch.Tensor
+    available_items: torch.Tensor  # B x i
+    available_items_mask: torch.Tensor  # B x i
+    user_id: torch.Tensor  # batch of users B x i
     num_rele: int
 
-    def __init__(self, item_num, user_num, memory_size):
+    def __init__(
+        self, item_count, user_count, memory_size, gamma_alpha, device
+    ):
         """
         Initialize memory as ['item_num'] * 'memory_size' for each user.
 
@@ -284,12 +320,19 @@ class Env:
         :param related_items: relevant items for user_id
         :param nonrelated_items: non-relevant items for user_id
         :param num_rele: number of related_items
-        :param available_items: non-seen items
+        :param available_items: mask of non-seen items
         """
-        self.item_count = item_num
-        self.user_count = user_num
+        self.item_count = item_count
+        self.user_count = user_count
         self.memory_size = memory_size
-        self.memory = np.ones([user_num, memory_size]) * item_num
+        self.device = device
+        self.gamma = Gamma(
+            torch.tensor([gamma_alpha]), torch.tensor([1 / gamma_alpha])
+        )
+
+        self.memory = torch.full(
+            (user_count, memory_size), item_count, device=device
+        )
 
     def update_env(self, matrix=None, item_count=None):
         """Update some of Env attributes."""
@@ -298,56 +341,98 @@ class Env:
         if matrix is not None:
             self.matrix = matrix.copy()
 
-    def reset(self, user_id):
+    def reset(self, user_ids):
         """
-        :param user_id: user_id number
+        :param user_id: batch of user ids
         :return: user, memory
         """
-        self.user_id = user_id
-        self.related_items = np.argwhere(self.matrix[self.user_id] > 0)[:, 1]
-        self.num_rele = len(self.related_items)
-        self.nonrelated_items = np.random.choice(
-            list(set(range(self.item_count)) - set(self.related_items)),
-            self.num_rele,
-        )
-        self.available_items = list(np.zeros(self.num_rele * 2))
-        self.available_items[::2] = self.related_items
-        self.available_items[1::2] = self.nonrelated_items
+        self.user_batch_size = len(user_ids)
 
-        return torch.tensor([self.user_id]), torch.tensor(
-            self.memory[[self.user_id], :]
+        self.user_ids = torch.tensor(
+            user_ids, dtype=torch.int64, device=self.device
         )
 
-    def step(self, action, action_emb=None, buffer=None):
-        """Execute step and return (user, memory) for new state"""
-        initial_user = self.user_id
-        initial_memory = self.memory[[initial_user], :]
+        self.max_num_rele = (self.matrix[user_ids] > 0).sum(1).max()
+        self.available_items = torch.zeros(
+            (self.user_batch_size, 2 * self.max_num_rele),
+            dtype=torch.int64,
+            device=self.device,
+        )
+        self.available_items_mask = torch.ones_like(
+            self.available_items, device=self.device
+        )
 
-        reward = float(to_np(action[0]) in self.related_items)
-        if reward:
-            self.memory[self.user_id] = list(self.memory[self.user_id][1:]) + [
-                action
-            ]
+        # padding with non-existent items
+        self.related_items = torch.full(
+            (self.user_batch_size, self.max_num_rele),
+            self.item_count,
+            device=self.device,
+        )
 
-        self.available_items.remove(to_np(action[0]))
-
-        if buffer is not None:
-            buffer.push(
-                np.array([initial_user]),
-                np.array(initial_memory),
-                to_np(action_emb[0]),
-                np.array([reward]),
-                np.array([self.user_id]),
-                self.memory[[self.user_id], :],
-                np.array([reward]),
+        for idx, user_id in enumerate(user_ids):
+            user_related_items = torch.tensor(
+                np.argwhere(self.matrix[user_id] > 0)[:, 1], device=self.device
             )
 
-        return (
-            torch.tensor([self.user_id]),
-            torch.tensor(self.memory[[self.user_id], :]),
-            reward,
-            0,
-        )
+            user_num_rele = len(user_related_items)
+
+            self.related_items[idx, :user_num_rele] = user_related_items
+
+            self.nonrelated_items = torch.multinomial(
+                torch.tensor(
+                    list(
+                        set(range(self.item_count)) - set(user_related_items)
+                    ),
+                    dtype=torch.float,
+                ),
+                2 * self.max_num_rele - user_num_rele,
+            ).to(self.device)
+
+            self.available_items[idx, :user_num_rele] = user_related_items
+            self.available_items[idx, user_num_rele:] = self.nonrelated_items
+            perm = torch.randperm(self.available_items.shape[1])
+            self.available_items[idx] = self.available_items[idx, perm]
+
+        return self.user_ids, self.memory[self.user_ids]
+
+    def step(self, actions, actions_emb=None, buffer: ReplayBuffer = None):
+        """Execute step and return (user, memory) for new state"""
+        initial_users = self.user_ids
+        initial_memory = self.memory[self.user_ids].clone()
+
+        global_actions = self.available_items[
+            torch.arange(self.available_items.shape[0]), actions
+        ]
+        rewards = (global_actions.reshape(-1, 1) == self.related_items).sum(1)
+
+        for idx, reward in enumerate(rewards):  # надо обновить память
+            if reward:
+                user_id = self.user_ids[idx]
+                self.memory[user_id] = torch.tensor(
+                    list(self.memory[user_id][1:]) + [global_actions[idx]]
+                )
+
+        self.available_items_mask[
+            torch.arange(self.available_items_mask.shape[0]), actions
+        ] = 0
+
+        if buffer is not None:
+            sample_weight = (
+                self.gamma.sample((self.user_batch_size,))
+                .squeeze()
+                .detach()
+                .to(self.device)
+            )
+            buffer.push(
+                initial_users.detach(),
+                initial_memory.detach(),
+                actions_emb.detach(),
+                rewards.detach(),
+                self.user_ids.detach(),
+                self.memory[self.user_ids].detach(),
+                rewards.detach(),
+                sample_weight,
+            )
 
 
 class StateReprModule(nn.Module):
@@ -369,9 +454,11 @@ class StateReprModule(nn.Module):
     ):
         super().__init__()
         self.user_embeddings = nn.Embedding(user_num, embedding_dim)
+
         self.item_embeddings = nn.Embedding(
             item_num + 1, embedding_dim, padding_idx=int(item_num)
         )
+
         self.drr_ave = torch.nn.Conv1d(
             in_channels=memory_size, out_channels=1, kernel_size=1
         )
@@ -427,7 +514,13 @@ class DDPG(Recommender):
     buffer_size: int = 1000000
     _search_space = {
         "noise_sigma": {"type": "uniform", "args": [0.1, 0.6]},
-        "noise_theta": {"type": "uniform", "args": [0.05, 0.15]},
+        "gamma": {"type": "uniform", "args": [0.7, 1.0]},
+        "value_lr": {"type": "loguniform", "args": [1e-7, 1e-1]},
+        "value_decay": {"type": "loguniform", "args": [1e-7, 1e-1]},
+        "policy_lr": {"type": "loguniform", "args": [1e-7, 1e-1]},
+        "policy_decay": {"type": "loguniform", "args": [1e-7, 1e-1]},
+        "memory_size": {"type": "categorical", "args": [3, 5, 7, 9]},
+        "noise_type": {"type": "categorical", "args": ["gauss", "ou"]},
     }
     checkpoint_step: int = 10000
     replay_buffer: ReplayBuffer
@@ -444,12 +537,18 @@ class DDPG(Recommender):
         self,
         noise_sigma: float = 0.2,
         noise_theta: float = 0.05,
-        noise_type: str = "ou",
+        noise_type: str = "gauss",
         seed: int = 9,
         user_num: int = 10,
         item_num: int = 10,
         log_dir: str = "logs/tmp",
         exact_embeddings_size=True,
+        n_critics_head: int = 10,
+        env_gamma_alpha: float = 0.2,
+        critic_heads_q: float = 0.15,
+        n_jobs=None,
+        use_gpu=False,
+        user_batch_size: int = 8,
     ):
         """
         :param noise_sigma: Ornstein-Uhlenbeck noise sigma value
@@ -462,6 +561,7 @@ class DDPG(Recommender):
         :exact_embeddings_size: flag whether to set user/item_num from training log
         """
         super().__init__()
+        print("new_init")
         np.random.seed(seed)
         torch.manual_seed(seed)
 
@@ -473,6 +573,23 @@ class DDPG(Recommender):
         self.item_num = item_num
         self.log_dir = Path(log_dir)
         self.exact_embeddings_size = exact_embeddings_size
+        self.n_critics_head = n_critics_head
+        self.env_gamma_alpha = env_gamma_alpha
+        self.critic_heads_q = critic_heads_q
+        self.user_batch_size = user_batch_size
+        if n_jobs is not None:
+            torch.set_num_threads(n_jobs)
+
+        if use_gpu:
+            use_cuda = torch.cuda.is_available()
+            if use_cuda:
+                self.device = torch.device("cuda")
+            else:
+                self.device = torch.device("cpu")
+        else:
+            self.device = torch.device("cpu")
+
+        print(f"{self.device=}")
 
     @property
     def _init_args(self):
@@ -489,13 +606,14 @@ class DDPG(Recommender):
 
     # pylint: disable=too-many-locals
     def _batch_pass(self, batch: dict) -> Dict[str, Any]:
-        user = torch.FloatTensor(batch["user"])
-        memory = torch.FloatTensor(batch["memory"])
-        action = torch.FloatTensor(batch["action"])
-        reward = torch.FloatTensor(batch["reward"])
-        next_user = torch.FloatTensor(batch["next_user"])
-        next_memory = torch.FloatTensor(batch["next_memory"])
-        done = torch.FloatTensor(batch["done"])
+        user = batch["user"]
+        memory = batch["memory"]
+        action = batch["action"]
+        reward = batch["reward"]
+        next_user = batch["next_user"]
+        next_memory = batch["next_memory"]
+        done = batch["done"]
+        sample_weight = batch["sample_weight"]
 
         state = self.model.state_repr(user, memory)
         policy_loss = self.value_net(state, self.model(user, memory))
@@ -504,13 +622,19 @@ class DDPG(Recommender):
         next_state = self.model.state_repr(next_user, next_memory)
         next_action = self.target_model(next_user, next_memory)
         target_value = self.target_value_net(next_state, next_action.detach())
-        expected_value = reward + (1.0 - done) * self.gamma * target_value
+        expected_value = (
+            reward + (1.0 - done) * self.gamma * target_value
+        )  # smth strange, check article
         expected_value = torch.clamp(
             expected_value, self.min_value, self.max_value
         )
 
         value = self.value_net(state, action)
-        value_loss = (value - expected_value.detach()).squeeze(1).pow(2).mean()
+        value_loss = (
+            (((value - expected_value.detach())).pow(2) * sample_weight)
+            .squeeze(1)
+            .mean()
+        )
 
         return policy_loss, value_loss
 
@@ -522,21 +646,20 @@ class DDPG(Recommender):
         items_np: np.ndarray,
     ) -> DataFrame:
         with torch.no_grad():
-            user_batch = torch.LongTensor([user_idx])
-            action_emb = model(
-                user_batch,
-                torch.tensor(model.environment.memory)[
-                    to_np(user_batch).astype(int), :
-                ],
+            # user_batch, memory = model.environment.reset([user_idx])
+            user_batch = torch.tensor([user_idx], dtype=torch.int64)
+            memory = model.environment.memory[user_batch]
+            action_emb = model(user_batch, memory)
+            items = torch.tensor(items_np, dtype=torch.int64).unsqueeze(0)
+            scores, _ = model.get_action(
+                action_emb, items, torch.full_like(items, True), True
             )
-            user_recs, _ = model.get_action(action_emb, items_np, True)
-            user_recs = user_recs.squeeze(1)
-
+            scores = scores.squeeze()
             return pd.DataFrame(
                 {
-                    "user_idx": user_recs.shape[0] * [user_idx],
+                    "user_idx": scores.shape[0] * [user_idx],
                     "item_idx": items_np,
-                    "relevance": user_recs,
+                    "relevance": scores,
                 }
             )
 
@@ -627,7 +750,7 @@ class DDPG(Recommender):
 
     def _get_batch(self, step: int = 0) -> dict:
         beta = self._get_beta(step)
-        batch = self.replay_buffer.sample(self.batch_size, beta)
+        batch = self.replay_buffer.sample(self.batch_size)
         return batch
 
     def _run_train_step(self, batch: dict) -> None:
@@ -653,9 +776,16 @@ class DDPG(Recommender):
             )
 
     def _init_inner(self):
-        self.replay_buffer = ReplayBuffer(self.buffer_size)
+        self.replay_buffer = ReplayBuffer(
+            self.device,
+            self.buffer_size,
+            memory_size=self.memory_size,
+            embedding_dim=self.embedding_dim,
+        )
+
         self.ou_noise = OUNoise(
             self.embedding_dim,
+            device=self.device,
             theta=self.noise_theta,
             max_sigma=self.noise_sigma,
             min_sigma=self.noise_sigma,
@@ -668,20 +798,36 @@ class DDPG(Recommender):
             self.embedding_dim,
             self.hidden_dim,
             self.memory_size,
-        )
+            env_gamma_alpha=self.env_gamma_alpha,
+            device=self.device,
+        ).to(self.device)
+
         self.target_model = ActorDRR(
             self.user_num,
             self.item_num,
             self.embedding_dim,
             self.hidden_dim,
             self.memory_size,
-        )
+            env_gamma_alpha=self.env_gamma_alpha,
+            device=self.device,
+        ).to(self.device)
+
         self.value_net = CriticDRR(
-            self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
-        )
+            self.embedding_dim * 3,
+            self.embedding_dim,
+            self.hidden_dim,
+            heads_num=self.n_critics_head,
+            heads_q=self.critic_heads_q,
+        ).to(self.device)
+
         self.target_value_net = CriticDRR(
-            self.embedding_dim * 3, self.embedding_dim, self.hidden_dim
-        )
+            self.embedding_dim * 3,
+            self.embedding_dim,
+            self.hidden_dim,
+            heads_num=self.n_critics_head,
+            heads_q=self.critic_heads_q,
+        ).to(self.device)
+
         self._target_update(self.target_value_net, self.value_net, soft_tau=1)
         self._target_update(self.target_model, self.model, soft_tau=1)
 
@@ -715,6 +861,14 @@ class DDPG(Recommender):
         self.logger.debug("Training DDPG")
         self.train(users)
 
+    @staticmethod
+    def UsersLoader(users, batch_size):
+        pos = 0
+        while pos != len(users):
+            new_pos = min(pos + batch_size, len(users))
+            yield users[pos:new_pos]
+            pos = new_pos
+
     def train(self, users: np.array) -> None:
         """
         Run training loop
@@ -724,19 +878,22 @@ class DDPG(Recommender):
         """
         self.log_dir.mkdir(parents=True, exist_ok=True)
         step = 0
-
-        for user in tqdm.auto.tqdm(users):
-            user, memory = self.model.environment.reset(user)
+        users_loader = self.UsersLoader(users, self.user_batch_size)
+        for user_ids in tqdm.auto.tqdm(list(users_loader)):
+            user_ids, memory = self.model.environment.reset(user_ids)
             self.ou_noise.reset()
-            for user_step in range(len(self.model.environment.related_items)):
-                action_emb = self.model(user, memory)
-                action_emb = self.ou_noise.get_action(action_emb[0], user_step)
-                action = self.model.get_action(
-                    action_emb,
+            for users_step in range(self.model.environment.max_num_rele):
+                actions_emb = self.model(user_ids, memory)
+                actions_emb = self.ou_noise.get_action(actions_emb, users_step)
+
+                actions = self.model.get_action(
+                    actions_emb,
                     self.model.environment.available_items,
+                    self.model.environment.available_items_mask,
                 )
-                user, memory, _, _ = self.model.environment.step(
-                    action, action_emb, self.replay_buffer
+
+                self.model.environment.step(
+                    actions, actions_emb, self.replay_buffer
                 )
 
                 if len(self.replay_buffer) > self.batch_size:
@@ -757,6 +914,8 @@ class DDPG(Recommender):
         )
         torch.save(
             {
+                "fit_users": self.fit_users.toPandas(),
+                "fit_items": self.fit_items.toPandas(),
                 "actor": self.model.state_dict(),
                 "critic": self.value_net.state_dict(),
                 "memory": self.model.environment.memory,
@@ -776,6 +935,8 @@ class DDPG(Recommender):
         self.model.environment.memory = checkpoint["memory"]
         self.policy_optimizer.load_state_dict(checkpoint["policy_optimizer"])
         self.value_optimizer.load_state_dict(checkpoint["value_optimizer"])
+        self.fit_users = convert2spark(checkpoint["fit_users"])
+        self.fit_items = convert2spark(checkpoint["fit_items"])
 
         self._target_update(self.target_value_net, self.value_net, soft_tau=1)
         self._target_update(self.target_model, self.model, soft_tau=1)
