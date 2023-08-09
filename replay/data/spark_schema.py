@@ -1,10 +1,3 @@
-"""
-Constants are stored here
-"""
-from typing import Iterable, Union
-
-import pandas as pd
-from pyspark.sql import DataFrame
 from pyspark.sql.types import (
     DoubleType,
     IntegerType,
@@ -12,6 +5,7 @@ from pyspark.sql.types import (
     StructType,
     TimestampType,
 )
+
 
 LOG_SCHEMA = StructType(
     [
@@ -36,7 +30,3 @@ BASE_SCHEMA = StructType(
         StructField("item_idx", IntegerType()),
     ]
 )
-
-IntOrList = Union[Iterable[int], int]
-NumType = Union[int, float]
-AnyDataFrame = Union[DataFrame, pd.DataFrame]

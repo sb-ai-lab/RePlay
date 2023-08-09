@@ -8,7 +8,7 @@ from pyspark.sql.types import DoubleType
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.models.extensions.spark_custom_models.recommendation import ALS, ALSModel
+from replay.models.extensions.spark_custom_models.als_extention import ALS, ALSModel
 from replay.utils.spark_utils import list_to_vector_udf
 
 
