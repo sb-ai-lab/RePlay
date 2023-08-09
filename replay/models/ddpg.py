@@ -17,10 +17,6 @@ from replay.data import REC_SCHEMA
 from replay.models.base_torch_rec import Recommender
 from replay.utils import convert2spark
 
-import logging
-
-logger = logging.getLogger("replay")
-
 
 def to_np(tensor: torch.Tensor) -> np.array:
     """Converts torch.Tensor to numpy."""
@@ -165,7 +161,7 @@ class OUNoise:
 class ActorDRR(nn.Module):
     """
     DDPG Actor model (based on `DRR
-    <https://arxiv.org/pdf/1802.05814.pdf>`_).
+    <https://arxiv.org/pdf/1802.05814.pdf>`).
     """
 
     def __init__(
@@ -243,12 +239,17 @@ class ActorDRR(nn.Module):
 class CriticDRR(nn.Module):
     """
     DDPG Critic model (based on `DRR
-    <https://arxiv.org/pdf/1802.05814.pdf>`_).
+    <https://arxiv.org/pdf/1802.05814.pdf>`
+    and `Bayes-UCBDQN <https://arxiv.org/pdf/2205.07704.pdf>`).
     """
 
     def __init__(
         self, state_repr_dim, action_emb_dim, hidden_dim, heads_num, heads_q
     ):
+        """
+        :param heads_num: number of heads (samples of Q funtion)
+        :param heads_q: quantile of Q function distribution
+        """
         super().__init__()
         self.layers = nn.Sequential(
             nn.Linear(state_repr_dim + action_emb_dim, hidden_dim),
@@ -290,8 +291,22 @@ class CriticDRR(nn.Module):
 class Env:
     """
     RL environment for recommender systems.
+    Simulates interacting with a batch of users
 
     Keep users' latest relevant items (memory).
+
+    :param item_count: total number of items
+    :param user_count: total number of users
+    :param memory_size: maximum number of items in memory
+    :param memory: torch.tensor with users' latest relevant items
+    :param matrix: sparse matrix with users-item ratings
+    :param user_ids: user ids from the batch
+    :param related_items: relevant items for current users
+    :param nonrelated_items: non-relevant items for current users
+    :param max_num_rele: maximum number of related items by users in the batch
+    :param available_items: items available for recommendation
+    :param available_items_mask: mask of non-seen items
+    :param gamma: param of Gamma distibution for sample weights
     """
 
     matrix: np.array
@@ -310,17 +325,6 @@ class Env:
 
         'item_num' is a padding index in StateReprModule.
         It will result in zero embeddings.
-
-        :param item_num: number of items
-        :param user_num: number of users
-        :param memory_size: maximum number of items in memory
-        :param memory: np.array with users' latest relevant items
-        :param matrix: sparse matrix with users-item ratings
-        :param user_id: users_id number
-        :param related_items: relevant items for user_id
-        :param nonrelated_items: non-relevant items for user_id
-        :param num_rele: number of related_items
-        :param available_items: mask of non-seen items
         """
         self.item_count = item_count
         self.user_count = user_count
@@ -724,10 +728,6 @@ class DDPG(Recommender):
         return recs
 
     @staticmethod
-    def _get_beta(idx, beta_start=0.4, beta_steps=100000):
-        return min(1.0, beta_start + idx * (1.0 - beta_start) / beta_steps)
-
-    @staticmethod
     def _preprocess_log(log):
         """
         :param log: pyspark DataFrame
@@ -748,8 +748,7 @@ class DDPG(Recommender):
 
         return train_matrix, user_num, item_num, appropriate_users
 
-    def _get_batch(self, step: int = 0) -> dict:
-        beta = self._get_beta(step)
+    def _get_batch(self) -> dict:
         batch = self.replay_buffer.sample(self.batch_size)
         return batch
 
@@ -897,7 +896,7 @@ class DDPG(Recommender):
                 )
 
                 if len(self.replay_buffer) > self.batch_size:
-                    batch = self._get_batch(step)
+                    batch = self._get_batch()
                     self._run_train_step(batch)
 
                 if step % self.checkpoint_step == 0 and step > 0:
