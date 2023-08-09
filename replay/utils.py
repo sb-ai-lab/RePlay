@@ -398,7 +398,7 @@ def to_csr(
         return csr_matrix(
             (
                 [],
-                ([],[]),
+                ([], []),
             ),
             shape=(0, 0),
         )

@@ -4,6 +4,13 @@ import numpy as np
 
 from pyspark.sql import functions as sf
 
+from replay.ann.entities.hnswlib_param import HnswlibParam
+from replay.ann.index_builders.executor_hnswlib_index_builder import (
+    ExecutorHnswlibIndexBuilder,
+)
+from replay.ann.index_stores.shared_disk_index_store import (
+    SharedDiskIndexStore,
+)
 from replay.models import ALSWrap
 from replay.scenarios.two_stages.two_stages_scenario import (
     get_first_level_model_features,
@@ -15,6 +22,28 @@ from tests.utils import log, spark
 def model():
     model = ALSWrap(2, implicit_prefs=False)
     model._seed = 42
+    return model
+
+
+@pytest.fixture
+def model_with_ann(tmp_path):
+    model = ALSWrap(
+        rank=2,
+        implicit_prefs=False,
+        seed=42,
+        index_builder=ExecutorHnswlibIndexBuilder(
+            index_params=HnswlibParam(
+                space="ip",
+                m=100,
+                ef_c=2000,
+                post=0,
+                ef_s=2000,
+            ),
+            index_store=SharedDiskIndexStore(
+                warehouse_dir=str(tmp_path), index_dir="hnswlib_index"
+            ),
+        ),
+    )
     return model
 
 
@@ -65,3 +94,23 @@ def test_enrich_with_features(log, model):
         [row_dict["_if_1"], row_dict["_if_1"] * row_dict["_uf_1"]],
         [-2.938199281692505, 0],
     )
+
+
+@pytest.mark.parametrize(
+    "filter_seen_items", [True, False]
+)
+def test_ann_predict(log, model, model_with_ann, filter_seen_items):
+    model.fit(log)
+    recs1 = model.predict(log, k=1, filter_seen_items=filter_seen_items)
+
+    model_with_ann.fit(log)
+    recs2 = model_with_ann.predict(log, k=1, filter_seen_items=filter_seen_items)
+
+    recs1 = recs1.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+    recs2 = recs2.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+    assert recs1.user_idx.equals(recs2.user_idx)
+    assert recs1.item_idx.equals(recs2.item_idx)

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "replay-rec"
-version = "0.10.0"
+version = "0.11.0"
 license = "Apache-2.0"
 description = "RecSys Library"
 authors = ["AI Lab",
@@ -50,6 +50,9 @@ pytorch-ranger = "^0.1.1"
 d3rlpy = "*"
 # required by d3rlpy
 gym = "0.17.2"
+nmslib = "*"
+hnswlib = "*"
+cached-property = "*"
 
 [tool.poetry.dev-dependencies]
 # dev only
