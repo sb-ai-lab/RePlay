@@ -1,5 +1,6 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
 import os
+from functools import partial
 from os.path import dirname, join
 
 import pytest
@@ -9,7 +10,27 @@ from implicit.als import AlternatingLeastSquares
 from pyspark.sql import functions as sf
 
 import replay
+from replay.ann.entities.hnswlib_param import HnswlibParam
+from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
+from replay.ann.index_builders.driver_nmslib_index_builder import (
+    DriverNmslibIndexBuilder,
+)
+from replay.ann.index_builders.executor_hnswlib_index_builder import (
+    ExecutorHnswlibIndexBuilder,
+)
+from replay.ann.index_builders.executor_nmslib_index_builder import (
+    ExecutorNmslibIndexBuilder,
+)
+from replay.ann.index_stores.hdfs_index_store import HdfsIndexStore
+from replay.ann.index_stores.shared_disk_index_store import (
+    SharedDiskIndexStore,
+)
+from replay.ann.index_stores.spark_files_index_store import (
+    SparkFilesIndexStore,
+)
 from replay.data_preparator import Indexer
+from replay.models.cql import MdpDatasetBuilder
 from replay.model_handler import save, load
 from replay.models import *
 from replay.utils import convert2spark
@@ -58,6 +79,7 @@ def df():
         SLIM,
         UserPopRec,
         LightFMWrap,
+        partial(CQL, n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=5)),
     ],
 )
 def test_equal_preds(long_log_with_features, recommender, tmp_path):
@@ -156,3 +178,121 @@ def test_study(df, tmp_path):
     save(model, path)
     loaded_model = load(path)
     assert loaded_model.study == model.study
+
+
+def test_ann_als_saving_loading(long_log_with_features, tmp_path):
+    model = ALSWrap(
+        rank=2,
+        implicit_prefs=False,
+        seed=42,
+        index_builder=ExecutorHnswlibIndexBuilder(
+            index_params=HnswlibParam(
+                space="ip",
+                m=100,
+                ef_c=2000,
+                post=0,
+                ef_s=2000,
+            ),
+            index_store=SharedDiskIndexStore(
+                warehouse_dir=str(tmp_path),
+                index_dir="hnswlib_index",
+                cleanup=False,
+            ),
+        ),
+    )
+
+    path = (tmp_path / "test").resolve()
+    model.fit(long_log_with_features)
+    base_pred = model.predict(long_log_with_features, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(long_log_with_features, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
+    model = Word2VecRec(
+        rank=1, window_size=1, use_idf=True, seed=42, min_count=0,
+        index_builder=DriverHnswlibIndexBuilder(
+            index_params=HnswlibParam(
+                space="l2",
+                m=100,
+                ef_c=2000,
+                post=0,
+                ef_s=2000,
+            ),
+            index_store=SharedDiskIndexStore(
+                warehouse_dir=str(tmp_path),
+                index_dir="hnswlib_index"
+            )
+        )
+    )
+
+    path = (tmp_path / "test").resolve()
+    model.fit(long_log_with_features)
+    base_pred = model.predict(long_log_with_features, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(long_log_with_features, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+def test_ann_slim_saving_loading(long_log_with_features, tmp_path):
+    nmslib_hnsw_params = NmslibHnswParam(
+        space="negdotprod_sparse",
+        m=10,
+        ef_s=200,
+        ef_c=200,
+        post=0,
+    )
+    model = SLIM(
+        0.0,
+        0.01,
+        seed=42,
+        index_builder=DriverNmslibIndexBuilder(
+            index_params=nmslib_hnsw_params,
+            index_store=SparkFilesIndexStore(),
+        ),
+    )
+
+    path = (tmp_path / "test").resolve()
+    model.fit(long_log_with_features)
+    base_pred = model.predict(long_log_with_features, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(long_log_with_features, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+def test_ann_knn_saving_loading(long_log_with_features, tmp_path):
+    nmslib_hnsw_params = NmslibHnswParam(
+        space="negdotprod_sparse",
+        m=10,
+        ef_s=200,
+        ef_c=200,
+        post=0,
+    )
+    model = ItemKNN(
+        1,
+        weighting=None,
+        index_builder=ExecutorNmslibIndexBuilder(
+            index_params=nmslib_hnsw_params,
+            index_store=SharedDiskIndexStore(
+                warehouse_dir=str(tmp_path), index_dir="nmslib_hnsw_index"
+            ),
+        ),
+    )
+
+    path = (tmp_path / "test").resolve()
+    model.fit(long_log_with_features)
+    base_pred = model.predict(long_log_with_features, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(long_log_with_features, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+def test_hdfs_index_store_exception():
+    local_warehouse_dir = 'file:///tmp'
+    with pytest.raises(ValueError, match=f"Can't recognize path {local_warehouse_dir + '/index_dir'} as HDFS path!"):
+        HdfsIndexStore(warehouse_dir=local_warehouse_dir, index_dir="index_dir")

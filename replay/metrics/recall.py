@@ -17,6 +17,8 @@ class Recall(Metric):
     :math:`|Rel_i|` -- the number of relevant items for user :math:`i`
     """
 
+    _scala_udf_name = "getRecallMetricValue"
+
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         if len(ground_truth) == 0:

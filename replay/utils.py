@@ -1,27 +1,23 @@
-from typing import Any, Iterable, List, Optional, Set, Tuple, Union
-
 import collections
+import pickle
 import logging
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
-from enum import Enum
+import os
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import pyspark.sql.types as st
-
-from pyspark.sql import SparkSession
 from numpy.random import default_rng
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
-from pyspark.sql import Column, DataFrame, Window, functions as sf
+from pyspark.sql import SparkSession, Column, DataFrame, Window, functions as sf
+from pyspark.sql.column import _to_java_column, _to_seq
 from scipy.sparse import csr_matrix
 
 from replay.constants import AnyDataFrame, NumType, REC_SCHEMA
 from replay.session_handler import State
 
-# pylint: disable=invalid-name
 
-logger = logging.getLogger("replay")
+# pylint: disable=invalid-name
 
 
 def convert2spark(data_frame: Optional[AnyDataFrame]) -> Optional[DataFrame]:
@@ -216,6 +212,19 @@ def vector_mult(
     return one * two
 
 
+def multiply_scala_udf(scalar, vector):
+    """
+    Multiplies a scalar by a vector
+
+    :param scalar: column with scalars
+    :param vector: column with vectors
+    :return: column expression
+    """
+    sc = SparkSession.getActiveSession().sparkContext
+    _f = sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.multiplyUDF()
+    return Column(_f.apply(_to_seq(sc, [scalar, vector], _to_java_column)))
+
+
 @sf.udf(returnType=st.ArrayType(st.DoubleType()))
 def array_mult(first: st.ArrayType, second: st.ArrayType):
     """
@@ -389,7 +398,7 @@ def to_csr(
         return csr_matrix(
             (
                 [],
-                ([],[]),
+                ([], []),
             ),
             shape=(0, 0),
         )
@@ -732,73 +741,6 @@ def drop_temp_view(temp_view_name: str) -> None:
     spark.catalog.dropTempView(temp_view_name)
 
 
-class FileSystem(Enum):
-    HDFS = 1
-    LOCAL = 2
-
-
-def get_default_fs() -> str:
-    spark = SparkSession.getActiveSession()
-    hadoop_conf = spark._jsc.hadoopConfiguration()
-    default_fs = hadoop_conf.get("fs.defaultFS")
-    logger.debug(f"hadoop_conf.get('fs.defaultFS'): {default_fs}")
-    return default_fs
-
-
-@dataclass(frozen=True)
-class FileInfo:
-    path: str
-    filesystem: FileSystem
-    hdfs_uri: str = None
-
-
-def get_filesystem(path: str) -> FileInfo:
-    """Analyzes path and hadoop config and return tuple of `filesystem`,
-    `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix).
-
-    For example:
-
-    >>> path = 'hdfs://node21.bdcl:9000/tmp/file'
-    >>> get_filesystem(path)
-    FileInfo(path='/tmp/file', filesystem=<FileSystem.HDFS: 1>, hdfs_uri='hdfs://node21.bdcl:9000')
-    or
-    >>> path = 'file:///tmp/file'
-    >>> get_filesystem(path)
-    FileInfo(path='/tmp/file', filesystem=<FileSystem.LOCAL: 2>, hdfs_uri=None)
-
-    Args:
-        path (str): path to file on hdfs or local disk
-
-    Returns:
-        Tuple[int, Optional[str], str]: `filesystem id`,
-    `hdfs uri` (if filesystem is hdfs) and `cleaned path` (without prefix)
-    """
-    prefix_len = 7  # 'hdfs://' and 'file://' length
-    if path.startswith("hdfs://"):
-        if path.startswith("hdfs:///"):
-            default_fs = get_default_fs()
-            if default_fs.startswith("hdfs://"):
-                return FileInfo(path[prefix_len:], FileSystem.HDFS, default_fs)
-            else:
-                raise Exception(
-                    f"Can't get default hdfs uri for path = '{path}'. "
-                    "Specify an explicit path, such as 'hdfs://host:port/dir/file', "
-                    "or set 'fs.defaultFS' in hadoop configuration."
-                )
-        else:
-            hostname = path[prefix_len:].split("/", 1)[0]
-            hdfs_uri = "hdfs://" + hostname
-            return FileInfo(path[len(hdfs_uri):], FileSystem.HDFS, hdfs_uri)
-    elif path.startswith("file://"):
-        return FileInfo(path[prefix_len:], FileSystem.LOCAL)
-    else:
-        default_fs = get_default_fs()
-        if default_fs.startswith("hdfs://"):
-            return FileInfo(path, FileSystem.HDFS, default_fs)
-        else:
-            return FileInfo(path, FileSystem.LOCAL)
-
-
 def sample_top_k_recs(pairs: DataFrame, k: int, seed: int = None):
     """
     Sample k items for each user with probability proportional to the relevance score.
@@ -922,6 +864,53 @@ def return_recs(
 
     recs.write.parquet(path=recs_file_path, mode="overwrite")
     return None
+
+
+def save_picklable_to_parquet(obj: Any, path: str) -> None:
+    """
+    Function dumps object to disk or hdfs in parquet format.
+
+    :param obj: object to be saved
+    :param path: path to dump
+    :return:
+    """
+
+    sc = State().session.sparkContext
+    # We can use `RDD.saveAsPickleFile`, but it has no "overwrite" parameter
+    pickled_instance = pickle.dumps(obj)
+    Record = collections.namedtuple("Record", ["data"])
+    rdd = sc.parallelize([Record(pickled_instance)])
+    instance_df = rdd.map(lambda rec: Record(bytearray(rec.data))).toDF()
+    instance_df.write.mode("overwrite").parquet(path)
+
+
+def load_pickled_from_parquet(path: str) -> Any:
+    """
+    Function loads object from disk or hdfs,
+    what was dumped via `save_picklable_to_parquet` function.
+
+    :param path: source path
+    :return: unpickled object
+    """
+    spark = State().session
+    df = spark.read.parquet(path)
+    pickled_instance = df.rdd.map(lambda row: bytes(row.data)).first()
+    return pickle.loads(pickled_instance)
+
+
+def assert_omp_single_thread():
+    """
+    Check that OMP_NUM_THREADS is set to 1 and warn if not.
+
+    PyTorch uses multithreading for cpu math operations via OpenMP library. Sometimes this
+    leads to failures when OpenMP multithreading is mixed with multiprocessing.
+    """
+    omp_num_threads = os.environ.get('OMP_NUM_THREADS', None)
+    if omp_num_threads != '1':
+        logging.getLogger("replay").warning(
+            'Environment variable "OMP_NUM_THREADS" is set to "%s". '
+            'Set it to 1 if the working process freezes.', omp_num_threads
+        )
 
 
 def unionify(df: DataFrame, df_2: Optional[DataFrame] = None) -> DataFrame:

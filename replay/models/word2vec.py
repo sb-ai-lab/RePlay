@@ -2,27 +2,27 @@ from typing import Optional, Dict, Any
 
 from pyspark.ml.feature import Word2Vec
 from pyspark.ml.functions import vector_to_array
+from pyspark.ml.stat import Summarizer
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
-from pyspark.ml.stat import Summarizer
 
+from replay.ann.ann_mixin import ANNMixin
+from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.models.hnswlib import HnswlibMixin
-from replay.utils import vector_dot, vector_mult, join_with_col_renaming
+from replay.utils import vector_dot, multiply_scala_udf, join_with_col_renaming
 
 
-# pylint: disable=too-many-instance-attributes
-class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
+# pylint: disable=too-many-instance-attributes, too-many-ancestors
+class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
     """
     Trains word2vec model where items ar treated as words and users as sentences.
     """
 
     def _get_ann_infer_params(self) -> Dict[str, Any]:
+        self.index_builder.index_params.dim = self.rank
         return {
             "features_col": "user_vector",
-            "params": self._hnswlib_params,
-            "index_dim": self.rank,
         }
 
     def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
@@ -34,14 +34,12 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         return user_vectors
 
     def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
-        self.num_elements = log.select("item_idx").distinct().count()
-        self.logger.debug(f"index 'num_elements' = {self.num_elements}")
+        self.index_builder.index_params.dim = self.rank
+        self.index_builder.index_params.max_elements = log.select("item_idx").distinct().count()
+        self.logger.debug("index 'num_elements' = %s", self.num_elements)
         return {
             "features_col": "item_vector",
-            "params": self._hnswlib_params,
-            "dim": self.rank,
-            "num_elements": self.num_elements,
-            "id_col": "item_idx"
+            "ids_col": "item_idx"
         }
 
     def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
@@ -54,10 +52,6 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
             )
         )
         return item_vectors
-
-    @property
-    def _use_ann(self) -> bool:
-        return self._hnswlib_params is not None
 
     idf: DataFrame
     vectors: DataFrame
@@ -79,7 +73,8 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         window_size: int = 1,
         use_idf: bool = False,
         seed: Optional[int] = None,
-        hnswlib_params: Optional[dict] = None,
+        num_partitions: Optional[int] = None,
+        index_builder: Optional[IndexBuilder] = None,
     ):
         """
         :param rank: embedding size
@@ -90,6 +85,8 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         :param window_size: window size
         :param use_idf: flag to use inverse document frequency
         :param seed: random seed
+        :param index_builder: `IndexBuilder` instance that adds ANN functionality.
+            If not set, then ann will not be used.
         """
 
         self.rank = rank
@@ -99,7 +96,12 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
         self.step_size = step_size
         self.max_iter = max_iter
         self._seed = seed
-        self._hnswlib_params = hnswlib_params
+        self._num_partitions = num_partitions
+        if isinstance(index_builder, (IndexBuilder, type(None))):
+            self.index_builder = index_builder
+        elif isinstance(index_builder, dict):
+            self.init_builder_from_dict(index_builder)
+        self.num_elements = None
 
     @property
     def _init_args(self):
@@ -111,16 +113,25 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
             "step_size": self.step_size,
             "max_iter": self.max_iter,
             "seed": self._seed,
-            "hnswlib_params": self._hnswlib_params,
+            "index_builder": self.index_builder.init_meta_as_dict() if self.index_builder else None,
         }
 
     def _save_model(self, path: str):
-        if self._hnswlib_params:
-            self._save_hnswlib_index(path)
+        # # create directory on shared disk or in HDFS
+        # path_info = get_filesystem(path)
+        # destination_filesystem, target_dir_path = fs.FileSystem.from_uri(
+        #     path_info.hdfs_uri + path_info.path
+        #     if path_info.filesystem == FileSystem.HDFS
+        #     else path_info.path
+        # )
+        # destination_filesystem.create_dir(target_dir_path)
+
+        if self.index_builder:
+            self._save_index(path)
 
     def _load_model(self, path: str):
-        if self._hnswlib_params:
-            self._load_hnswlib_index(path)
+        if self.index_builder:
+            self._load_index(path)
 
     def _fit(
         self,
@@ -160,9 +171,13 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
 
         self.logger.debug("Model training")
 
+        if self._num_partitions is None:
+            self._num_partitions = log_by_users.rdd.getNumPartitions()
+
         word_2_vec = Word2Vec(
             vectorSize=self.rank,
             minCount=self.min_count,
+            numPartitions=self._num_partitions,
             stepSize=self.step_size,
             maxIter=self.max_iter,
             inputCol="items",
@@ -205,7 +220,7 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
             res, self.idf, on_col_name="item_idx", how="inner"
         )
         res = res.join(
-            self.vectors,
+            self.vectors.hint("broadcast"),
             how="inner",
             on=sf.col("item_idx") == sf.col("item"),
         ).drop("item")
@@ -213,7 +228,7 @@ class Word2VecRec(Recommender, ItemVectorModel, HnswlibMixin):
             res.groupby("user_idx")
             .agg(
                 Summarizer.mean(
-                    vector_mult(sf.col("idf"), sf.col("vector"))
+                    multiply_scala_udf(sf.col("idf"), sf.col("vector"))
                 ).alias("user_vector")
             )
             .select("user_idx", "user_vector")

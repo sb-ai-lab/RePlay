@@ -15,6 +15,7 @@ ___________________
     "Wilson Recommender", "PySpark"
     "Random Recommender", "PySpark"
     "UCB", "PySpark"
+    "Thompson Sampling", "PySpark"
     "K-Nearest Neighbours", "PySpark"
     "Alternating Least Squares", "PySpark"
     "SLIM", "PySpark"
@@ -27,6 +28,7 @@ ___________________
     "ADMM SLIM", "Python CPU"
     "Wrapper for implicit", "Python CPU"
     "Wrapper for LightFM", "Python CPU"
+    "RL-based CQL Recommender", "PySpark"
 
 To get more info on how to choose base model, please see this  :doc:`page </pages/useful_data/algorithm_selection>`.
 
@@ -77,6 +79,11 @@ Random Recommender
 UCB Recommender
 ``````````````````
 .. autoclass:: replay.models.UCB
+   :special-members: __init__
+
+Thompson Sampling
+``````````````````
+.. autoclass:: replay.models.ThompsonSampling
    :special-members: __init__
 
 K Nearest Neighbours
@@ -256,6 +263,17 @@ Denoising AutoEncoder.
 DDPG
 ```````````````````````````
 .. autoclass:: replay.models.DDPG
+    :special-members: __init__
+
+
+CQL Recommender
+```````````````
+Conservative Q-Learning (CQL) algorithm is a SAC-based data-driven deep reinforcement learning algorithm, 
+which achieves state-of-the-art performance in offline RL problems.
+
+.. image:: /images/cql_comparison.png
+
+.. autoclass:: replay.models.CQL
     :special-members: __init__
 
 
