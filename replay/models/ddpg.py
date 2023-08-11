@@ -226,7 +226,6 @@ class ActorDRR(nn.Module):
         assert items.shape == items_mask.shape
 
         items = self.state_repr.item_embeddings(items)  # B x i x emb_dim
-        print(f"get_action {items.shape=}")
         scores = torch.bmm(
             items,
             action_emb.unsqueeze(-1),  # B x emb_dim x 1
@@ -586,7 +585,6 @@ class DDPG(Recommender):
         :exact_embeddings_size: flag whether to set user/item_num from training log
         """
         super().__init__()
-        print("new_init")
         np.random.seed(seed)
         torch.manual_seed(seed)
 
