@@ -173,6 +173,7 @@ class ActorDRR(nn.Module):
         memory_size,
         env_gamma_alpha,
         device,
+        min_trajectory_len,
     ):
         super().__init__()
         self.layers = nn.Sequential(
@@ -189,7 +190,12 @@ class ActorDRR(nn.Module):
         self.initialize()
 
         self.environment = Env(
-            item_num, user_num, memory_size, env_gamma_alpha, device
+            item_num,
+            user_num,
+            memory_size,
+            env_gamma_alpha,
+            device,
+            min_trajectory_len,
         )
 
     def initialize(self):
@@ -212,7 +218,7 @@ class ActorDRR(nn.Module):
         """
         :param action_emb: output of the .forward() (user_batch_size x emb_dim)
         :param items: items batch (user_batch_size x items_num)
-        :param items: mask of available items for reccomendation (user_batch_size x items_num)
+        :param items_mask: mask of available items for reccomendation (user_batch_size x items_num)
         :param return_scores: whether to return scores of items
         :return: output, prediction (and scores if return_scores)
         """
@@ -318,7 +324,13 @@ class Env:
     num_rele: int
 
     def __init__(
-        self, item_count, user_count, memory_size, gamma_alpha, device
+        self,
+        item_count,
+        user_count,
+        memory_size,
+        gamma_alpha,
+        device,
+        min_trajectory_len,
     ):
         """
         Initialize memory as ['item_num'] * 'memory_size' for each user.
@@ -331,12 +343,13 @@ class Env:
         self.memory_size = memory_size
         self.device = device
         self.gamma = Gamma(
-            torch.tensor([gamma_alpha]), torch.tensor([1 / gamma_alpha])
+            torch.tensor([float(gamma_alpha)]),
+            torch.tensor([1 / float(gamma_alpha)]),
         )
-
         self.memory = torch.full(
             (user_count, memory_size), item_count, device=device
         )
+        self.min_trajectory_len = min_trajectory_len
 
     def update_env(self, matrix=None, item_count=None):
         """Update some of Env attributes."""
@@ -356,7 +369,9 @@ class Env:
             user_ids, dtype=torch.int64, device=self.device
         )
 
-        self.max_num_rele = (self.matrix[user_ids] > 0).sum(1).max()
+        self.max_num_rele = max(
+            (self.matrix[user_ids] > 0).sum(1).max(), self.min_trajectory_len
+        )
         self.available_items = torch.zeros(
             (self.user_batch_size, 2 * self.max_num_rele),
             dtype=torch.int64,
@@ -369,7 +384,7 @@ class Env:
         # padding with non-existent items
         self.related_items = torch.full(
             (self.user_batch_size, self.max_num_rele),
-            self.item_count,
+            -1,  # maybe define new constant
             device=self.device,
         )
 
@@ -382,20 +397,41 @@ class Env:
 
             self.related_items[idx, :user_num_rele] = user_related_items
 
-            self.nonrelated_items = torch.multinomial(
-                torch.tensor(
+            replace = bool(2 * self.max_num_rele > self.item_count)
+
+            nonrelated_items = torch.tensor(
+                np.random.choice(
                     list(
-                        set(range(self.item_count)) - set(user_related_items)
+                        set(range(self.item_count + 1))
+                        - set(user_related_items.tolist())
                     ),
-                    dtype=torch.float,
-                ),
-                2 * self.max_num_rele - user_num_rele,
+                    replace=replace,
+                    size=2 * self.max_num_rele - user_num_rele,
+                )
             ).to(self.device)
 
+            # nonrelated_items = torch.multinomial(
+            #     torch.tensor(
+            #         list(
+            #             set(range(self.item_count + 1)) - set(user_related_items.tolist())
+            #         ),
+            #         dtype=torch.float,
+            #     ),
+            #     2 * self.max_num_rele - user_num_rele,
+            #     replacement=replacement
+            # ).to(self.device)
+            # print(
+            #     f"{list(set(range(self.item_count + 1)) - set(user_related_items.tolist()))=}"
+            # )
             self.available_items[idx, :user_num_rele] = user_related_items
-            self.available_items[idx, user_num_rele:] = self.nonrelated_items
+            # print(f"{user_related_items=}")
+            self.available_items[idx, user_num_rele:] = nonrelated_items
+            # print(f"{nonrelated_items=}")
+            self.available_items[self.available_items == -1] = self.item_count
             perm = torch.randperm(self.available_items.shape[1])
             self.available_items[idx] = self.available_items[idx, perm]
+
+        # print(f"{self.available_items=}")
 
         return self.user_ids, self.memory[self.user_ids]
 
@@ -407,8 +443,9 @@ class Env:
         global_actions = self.available_items[
             torch.arange(self.available_items.shape[0]), actions
         ]
+        # print(f"{global_actions=}")
         rewards = (global_actions.reshape(-1, 1) == self.related_items).sum(1)
-
+        # print(f"{rewards=}")
         for idx, reward in enumerate(rewards):  # надо обновить память
             if reward:
                 user_id = self.user_ids[idx]
@@ -437,6 +474,8 @@ class Env:
                 rewards.detach(),
                 sample_weight,
             )
+
+        return self.user_ids, self.memory, rewards, 0
 
 
 class StateReprModule(nn.Module):
@@ -553,6 +592,7 @@ class DDPG(Recommender):
         n_jobs=None,
         use_gpu=False,
         user_batch_size: int = 8,
+        min_trajectory_len: int = 10,
     ):
         """
         :param noise_sigma: Ornstein-Uhlenbeck noise sigma value
@@ -581,6 +621,7 @@ class DDPG(Recommender):
         self.env_gamma_alpha = env_gamma_alpha
         self.critic_heads_q = critic_heads_q
         self.user_batch_size = user_batch_size
+        self.min_trajectory_len = min_trajectory_len
         if n_jobs is not None:
             torch.set_num_threads(n_jobs)
 
@@ -728,11 +769,11 @@ class DDPG(Recommender):
         return recs
 
     @staticmethod
-    def _preprocess_log(log):
+    def _preprocess_df(data):
         """
-        :param log: pyspark DataFrame
+        :param data: pandas DataFrame
         """
-        data = log.toPandas()[["user_idx", "item_idx", "relevance"]]
+        data = data[["user_idx", "item_idx", "relevance"]]
         train_data = data.values.tolist()
 
         user_num = data["user_idx"].max() + 1
@@ -747,6 +788,10 @@ class DDPG(Recommender):
         appropriate_users = data["user_idx"].unique()
 
         return train_matrix, user_num, item_num, appropriate_users
+
+    @staticmethod
+    def _preprocess_log(log):
+        return DDPG._preprocess_df(log.toPandas())
 
     def _get_batch(self) -> dict:
         batch = self.replay_buffer.sample(self.batch_size)
@@ -799,6 +844,7 @@ class DDPG(Recommender):
             self.memory_size,
             env_gamma_alpha=self.env_gamma_alpha,
             device=self.device,
+            min_trajectory_len=self.min_trajectory_len,
         ).to(self.device)
 
         self.target_model = ActorDRR(
@@ -809,6 +855,7 @@ class DDPG(Recommender):
             self.memory_size,
             env_gamma_alpha=self.env_gamma_alpha,
             device=self.device,
+            min_trajectory_len=self.min_trajectory_len,
         ).to(self.device)
 
         self.value_net = CriticDRR(
@@ -847,7 +894,11 @@ class DDPG(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        train_matrix, user_num, item_num, users = self._preprocess_log(log)
+        data = log.toPandas()
+        self._fit_df(data)
+
+    def _fit_df(self, data):
+        train_matrix, user_num, item_num, users = self._preprocess_df(data)
 
         if self.exact_embeddings_size:
             self.user_num = user_num
@@ -913,8 +964,12 @@ class DDPG(Recommender):
         )
         torch.save(
             {
-                "fit_users": self.fit_users.toPandas(),
-                "fit_items": self.fit_items.toPandas(),
+                "fit_users": fit_users.toPandas()
+                if (fit_users := getattr(self, "fit_users", None))
+                else None,
+                "fit_items": fit_items.toPandas()
+                if (fit_items := getattr(self, "fit_items", None))
+                else None,
                 "actor": self.model.state_dict(),
                 "critic": self.value_net.state_dict(),
                 "memory": self.model.environment.memory,
