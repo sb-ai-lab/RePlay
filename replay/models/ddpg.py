@@ -226,7 +226,7 @@ class ActorDRR(nn.Module):
         assert items.shape == items_mask.shape
 
         items = self.state_repr.item_embeddings(items)  # B x i x emb_dim
-
+        print(f"get_action {items.shape=}")
         scores = torch.bmm(
             items,
             action_emb.unsqueeze(-1),  # B x emb_dim x 1
@@ -410,28 +410,11 @@ class Env:
                 )
             ).to(self.device)
 
-            # nonrelated_items = torch.multinomial(
-            #     torch.tensor(
-            #         list(
-            #             set(range(self.item_count + 1)) - set(user_related_items.tolist())
-            #         ),
-            #         dtype=torch.float,
-            #     ),
-            #     2 * self.max_num_rele - user_num_rele,
-            #     replacement=replacement
-            # ).to(self.device)
-            # print(
-            #     f"{list(set(range(self.item_count + 1)) - set(user_related_items.tolist()))=}"
-            # )
             self.available_items[idx, :user_num_rele] = user_related_items
-            # print(f"{user_related_items=}")
             self.available_items[idx, user_num_rele:] = nonrelated_items
-            # print(f"{nonrelated_items=}")
             self.available_items[self.available_items == -1] = self.item_count
             perm = torch.randperm(self.available_items.shape[1])
             self.available_items[idx] = self.available_items[idx, perm]
-
-        # print(f"{self.available_items=}")
 
         return self.user_ids, self.memory[self.user_ids]
 
@@ -443,9 +426,7 @@ class Env:
         global_actions = self.available_items[
             torch.arange(self.available_items.shape[0]), actions
         ]
-        # print(f"{global_actions=}")
         rewards = (global_actions.reshape(-1, 1) == self.related_items).sum(1)
-        # print(f"{rewards=}")
         for idx, reward in enumerate(rewards):  # надо обновить память
             if reward:
                 user_id = self.user_ids[idx]
