@@ -81,7 +81,7 @@ class Surprisal(RecOnlyMetric):
         recommendations = (
             recommendations
             .join(self.item_weights, on="item_idx", how="left")
-            .fillna(1)
+            .fillna(1.0)
             .groupby("user_idx")
             .agg(
                 sf.collect_list(
