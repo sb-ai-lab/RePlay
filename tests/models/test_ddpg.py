@@ -1,10 +1,6 @@
 # pylint: disable-all
 from datetime import datetime
 
-import warnings
-
-warnings.simplefilter("ignore")
-
 import pytest
 import torch
 import numpy as np
@@ -17,8 +13,6 @@ from replay.models.ddpg import (
     CriticDRR,
     OUNoise,
     ReplayBuffer,
-    to_np,
-    StateReprModule,
 )
 
 from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
@@ -27,20 +21,6 @@ from tests.utils import ddpg_critic_param as critic_param
 from tests.utils import ddpg_state_repr_param as state_repr_param
 
 from tests.utils import BATCH_SIZES, DF_CASES
-import logging
-
-logging.basicConfig(level=logging.CRITICAL)
-logging.disable(logging.CRITICAL)
-
-spark_logger = logging.getLogger("py4j")
-spark_logger.setLevel(logging.CRITICAL)
-logging.getLogger("Executor").setLevel(logging.CRITICAL)
-import logging
-
-loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-
-for logger in loggers:
-    logger.setLevel(logging.CRITICAL)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -265,7 +245,6 @@ def test_env_step(log, model, user=[0, 1, 2]):
     )
     # model.replay_buffer.capacity = 4
     train_matrix, _, item_num, _ = model._preprocess_log(log)
-    print(f"{train_matrix.toarray()=}")
     model.model = ActorDRR(
         model.user_num,
         model.item_num,
