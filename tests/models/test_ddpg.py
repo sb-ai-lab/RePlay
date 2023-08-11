@@ -156,7 +156,7 @@ def test_actor_get_action(actor_param, batch_size):
 
 @pytest.mark.parametrize("df", DF_CASES)
 def test_fit_df(df):
-    model = DDPG()
+    model = DDPG(n_jobs=1, use_gpu=True)
     model._fit_df(df)
 
 
