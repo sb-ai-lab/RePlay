@@ -13,15 +13,12 @@ from pyspark.ml.linalg import DenseVector
 from pyspark.sql import DataFrame
 import torch
 
-from replay.data import REC_SCHEMA, LOG_SCHEMA
-from replay.utils.session_handler import get_spark_session
+from replay.constants import LOG_SCHEMA
+from replay.session_handler import get_spark_session
 
 from replay.models.ddpg import (
     ActorDRR,
     CriticDRR,
-    OUNoise,
-    ReplayBuffer,
-    to_np,
     StateReprModule,
 )
 
