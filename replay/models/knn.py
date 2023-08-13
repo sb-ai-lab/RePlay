@@ -6,13 +6,14 @@ from pyspark.sql.window import Window
 
 from replay.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_neighbour_rec import NeighbourRec
-from replay.models.base_rec import NeighbourRec, PartialFitMixin
+from replay.models.base_rec import PartialFitMixin
 from replay.optuna_objective import ItemKNNObjective
 from replay.utils import unionify
 
 import warnings
 
 
+# pylint: disable=too-many-ancestors
 class ItemKNN(NeighbourRec, PartialFitMixin):
     """Item-based ItemKNN with modified cosine similarity measure."""
 
@@ -30,7 +31,7 @@ class ItemKNN(NeighbourRec, PartialFitMixin):
     _search_space = {
         "num_neighbours": {"type": "int", "args": [1, 100]},
         "shrink": {"type": "int", "args": [0, 100]},
-        "weighting": {"type": "categorical", "args": [None, "tf_idf", "bm25"]}
+        "weighting": {"type": "categorical", "args": [None, "tf_idf", "bm25"]},
     }
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -70,7 +71,9 @@ class ItemKNN(NeighbourRec, PartialFitMixin):
             "use_relevance": self.use_relevance,
             "num_neighbours": self.num_neighbours,
             "weighting": self.weighting,
-            "index_builder": self.index_builder.init_meta_as_dict() if self.index_builder else None,
+            "index_builder": self.index_builder.init_meta_as_dict()
+            if self.index_builder
+            else None,
         }
 
     def _save_model(self, path: str):
@@ -89,7 +92,9 @@ class ItemKNN(NeighbourRec, PartialFitMixin):
             / (sf.col("norm1") * sf.col("norm2") + shrink),
         ).select("item_idx_one", "item_idx_two", "similarity")
 
-    def _get_similarity(self, log: DataFrame, previous_log: Optional[DataFrame] = None) -> DataFrame:
+    def _get_similarity(
+        self, log: DataFrame, previous_log: Optional[DataFrame] = None
+    ) -> DataFrame:
         """
         Calculate item similarities
 
@@ -139,19 +144,20 @@ class ItemKNN(NeighbourRec, PartialFitMixin):
         avgdl = item_stats.select(sf.mean("n_users_per_item")).take(1)[0][0]
         log = log.join(item_stats, how="inner", on="item_idx")
 
-        log = (
-            log.withColumn(
-                "relevance",
-                sf.col("relevance") * (self.bm25_k1 + 1) / (
-                    sf.col("relevance") + self.bm25_k1 * (
-                        1 - self.bm25_b + self.bm25_b * (
-                            sf.col("n_users_per_item") / avgdl
-                        )
-                    )
+        log = log.withColumn(
+            "relevance",
+            sf.col("relevance")
+            * (self.bm25_k1 + 1)
+            / (
+                sf.col("relevance")
+                + self.bm25_k1
+                * (
+                    1
+                    - self.bm25_b
+                    + self.bm25_b * (sf.col("n_users_per_item") / avgdl)
                 )
-            )
-            .drop("n_users_per_item")
-        )
+            ),
+        ).drop("n_users_per_item")
 
         return log
 
@@ -167,27 +173,25 @@ class ItemKNN(NeighbourRec, PartialFitMixin):
         n_items = log.select("item_idx").distinct().count()
 
         if self.weighting == "tf_idf":
-            idf = (
-                df.withColumn("idf", sf.log1p(sf.lit(n_items) / sf.col("DF")))
-                .drop("DF")
-            )
+            idf = df.withColumn(
+                "idf", sf.log1p(sf.lit(n_items) / sf.col("DF"))
+            ).drop("DF")
         elif self.weighting == "bm25":
-            idf = (
-                df.withColumn(
-                    "idf",
-                    sf.log1p(
-                        (sf.lit(n_items) - sf.col("DF") + 0.5)
-                        / (sf.col("DF") + 0.5)
-                    ),
-                )
-                .drop("DF")
-            )
+            idf = df.withColumn(
+                "idf",
+                sf.log1p(
+                    (sf.lit(n_items) - sf.col("DF") + 0.5)
+                    / (sf.col("DF") + 0.5)
+                ),
+            ).drop("DF")
         else:
             raise ValueError("weighting must be one of ['tf_idf', 'bm25']")
 
         return idf
 
-    def _get_products(self, log: DataFrame, log_part: Optional[DataFrame] = None) -> DataFrame:
+    def _get_products(
+        self, log: DataFrame, log_part: Optional[DataFrame] = None
+    ) -> DataFrame:
         """
         Calculate item dot products
 
@@ -196,14 +200,18 @@ class ItemKNN(NeighbourRec, PartialFitMixin):
         """
         if self.weighting:
             log = self._reweight_log(log)
-            log_part = self._reweight_log(log_part) if log_part is not None else None
+            log_part = (
+                self._reweight_log(log_part) if log_part is not None else None
+            )
 
         left = log.withColumnRenamed(
             "item_idx", "item_idx_one"
         ).withColumnRenamed("relevance", "rel_one")
-        right = (log_part if log_part is not None else log).withColumnRenamed(
-            "item_idx", "item_idx_two"
-        ).withColumnRenamed("relevance", "rel_two")
+        right = (
+            (log_part if log_part is not None else log)
+            .withColumnRenamed("item_idx", "item_idx_two")
+            .withColumnRenamed("relevance", "rel_two")
+        )
 
         dot_products = (
             left.join(right, how="inner", on="user_idx")
@@ -228,7 +236,9 @@ class ItemKNN(NeighbourRec, PartialFitMixin):
                 log_part.withColumn("relevance", sf.col("relevance") ** 2)
                 .groupBy("item_idx")
                 .agg(sf.sum("relevance").alias("square_norm"))
-                .select(sf.col("item_idx"), sf.sqrt("square_norm").alias("norm"))
+                .select(
+                    sf.col("item_idx"), sf.sqrt("square_norm").alias("norm")
+                )
             )
 
             norm2 = item_norms_part.withColumnRenamed(
@@ -269,23 +279,35 @@ class ItemKNN(NeighbourRec, PartialFitMixin):
             .drop("similarity_order")
         )
 
-    def fit_partial(self, log: DataFrame, previous_log: Optional[DataFrame] = None) -> None:
+    def fit_partial(
+        self, log: DataFrame, previous_log: Optional[DataFrame] = None
+    ) -> None:
         super().fit_partial(log, previous_log)
 
         if self._use_ann:
-            warnings.warn("ItemKNN fit_partial is used wth 'use_ann' flag. "
-                          "It means full ann index rebuilding for this particular model.", RuntimeWarning)
+            warnings.warn(
+                "ItemKNN fit_partial is used wth 'use_ann' flag. "
+                "It means full ann index rebuilding for this particular model.",
+                RuntimeWarning,
+            )
             vectors = self._get_vectors_to_build_ann(log)
             ann_params = self._get_ann_build_params(log)
             self._build_ann_index(vectors, **ann_params)
 
     def _fit_partial(
-            self,
-            log: DataFrame,
-            user_features: Optional[DataFrame] = None,
-            item_features: Optional[DataFrame] = None,
-            previous_log: Optional[DataFrame] = None) -> None:
-        log = log.select("user_idx", "item_idx", "relevance" if self.use_relevance else sf.lit(1).alias("relevance"))
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        previous_log: Optional[DataFrame] = None,
+    ) -> None:
+        log = log.select(
+            "user_idx",
+            "item_idx",
+            "relevance"
+            if self.use_relevance
+            else sf.lit(1).alias("relevance"),  # pylint: disable=no-member
+        )
 
         # TODO: fit_partial integration with ANN index
         # TODO: no need for special integration, because you need to rebuild the whole
@@ -299,7 +321,11 @@ class ItemKNN(NeighbourRec, PartialFitMixin):
     def _project_fields(self, log: Optional[DataFrame]):
         if log is None:
             return None
-        return log.select("user_idx", "item_idx", "relevance" if self.use_relevance else sf.lit(1))
+        return log.select(
+            "user_idx",
+            "item_idx",
+            "relevance" if self.use_relevance else sf.lit(1),
+        )
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -312,7 +338,6 @@ class ItemKNN(NeighbourRec, PartialFitMixin):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-
         return self._predict_pairs_inner(
             log=log,
             filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),

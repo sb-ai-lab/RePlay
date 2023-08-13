@@ -107,13 +107,16 @@ def test_refit(fitted_model, log_ucb, log_ucb2):
         else sparkDataFrameEqual
     )
 
-    fitted_model.refit(log_ucb2)
+    fitted_model.fit_partial(log_ucb2, log_ucb)
     pred_after_refit = fitted_model.predict(
         log_ucb, items=list(range(10)), k=1
     )
 
-    fitted_model.fit(log_ucb.union(log_ucb2))
-    pred_after_full_fit = fitted_model.predict(
+    new_ucb_model = UCB()
+    new_ucb_model.seed = 123
+    new_ucb_model.sample = True
+    new_ucb_model.fit(log_ucb.union(log_ucb2))
+    pred_after_full_fit = new_ucb_model.predict(
         log_ucb, items=list(range(10)), k=1
     )
 

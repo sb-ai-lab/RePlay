@@ -85,7 +85,7 @@ class UCB(NonPersonalizedRecommender):
     def _dataframes(self):
         return {
             "items_counts_aggr": self.items_counts_aggr,
-            "item_popularity": self.item_popularity
+            "item_popularity": self.item_popularity,
         }
 
     def _clear_cache(self):
@@ -128,31 +128,52 @@ class UCB(NonPersonalizedRecommender):
             "which cannot not be directly optimized"
         )
 
-    def _fit_partial(self,
-                     log: DataFrame,
-                     user_features: Optional[DataFrame] = None,
-                     item_features: Optional[DataFrame] = None,
-                     previous_log: Optional[DataFrame] = None) -> None:
+    def _fit_partial(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        previous_log: Optional[DataFrame] = None,
+    ) -> None:
         with unpersist_after(self._dataframes):
             self._check_relevance(log)
-            self._check_relevance(previous_log)
+            if previous_log:
+                self._check_relevance(previous_log)
 
             # we save this dataframe for the refit() method
-            self.items_counts_aggr = unionify(
-                log.select("item_idx", sf.col("relevance").alias("pos"), sf.lit(1).alias("total")),
-                self.items_counts_aggr
-            ).groupby("item_idx").agg(
-                sf.sum("pos").alias("pos"),
-                sf.sum("total").alias("total")
-                # sf.count("relevance").alias("total"),
-            ).cache()
+            self.items_counts_aggr = (
+                unionify(
+                    log.select(
+                        "item_idx",
+                        sf.col("relevance").alias("pos"),
+                        sf.lit(1).alias("total"),  # pylint: disable=no-member
+                    ),
+                    self.items_counts_aggr,
+                )
+                .groupby("item_idx")
+                .agg(
+                    sf.sum("pos").alias("pos"),
+                    sf.sum("total").alias("total")
+                    # sf.count("relevance").alias("total"),
+                )
+                .cache()
+            )
 
             # we save this variable for the refit() method
             self.full_count += log.count()
-            self.item_popularity = self.items_counts_aggr.withColumn(
-                "relevance",
-                sf.col("pos") / sf.col("total") + sf.sqrt(sf.log(sf.lit(self.coef * self.full_count)) / sf.col("total"))
-            ).drop("pos", "total").cache()
+            self.item_popularity = (
+                self.items_counts_aggr.withColumn(
+                    "relevance",
+                    sf.col("pos") / sf.col("total")
+                    + sf.sqrt(
+                        self.coef
+                        * sf.log(sf.lit(self.full_count))
+                        / sf.col("total")
+                    ),
+                )
+                .drop("pos", "total")
+                .cache()
+            )
 
             self.item_popularity.cache().count()
 
@@ -169,14 +190,13 @@ class UCB(NonPersonalizedRecommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-
         if self.sample:
             return self._predict_with_sampling(
                 log=log,
                 k=k,
                 users=users,
                 items=items,
-                filter_seen_items=filter_seen_items
+                filter_seen_items=filter_seen_items,
             )
         else:
             return self._predict_without_sampling(
@@ -190,7 +210,6 @@ class UCB(NonPersonalizedRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-
         return pairs.join(
             self.item_popularity, on="item_idx", how="left"
         ).fillna(value=self.fill, subset=["relevance"])

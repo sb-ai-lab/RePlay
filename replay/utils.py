@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pyspark.sql.types as st
 from numpy.random import default_rng
+from contextlib import contextmanager
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
 from pyspark.sql import SparkSession, Column, DataFrame, Window, functions as sf
 from pyspark.sql.column import _to_java_column, _to_seq
@@ -914,6 +915,13 @@ def assert_omp_single_thread():
 
 
 def unionify(df: DataFrame, df_2: Optional[DataFrame] = None) -> DataFrame:
+    """
+    Unions two dataframes using the `pyspark.sql.DataFrame.unionByName`.
+    If second dataframe is None then just returns first dataframe.
+    :param df: first dataframe.
+    :param df_2: second dataframe.
+    :return:
+    """
     if df_2 is not None:
         df = df.unionByName(df_2)
     return df
@@ -921,6 +929,7 @@ def unionify(df: DataFrame, df_2: Optional[DataFrame] = None) -> DataFrame:
 
 @contextmanager
 def unpersist_after(dfs: Dict[str, Optional[DataFrame]]):
+    """Context manager that calls `pyspark.sql.DataFrame.unpersist` when the context exits."""
     yield
 
     for df in dfs.values():

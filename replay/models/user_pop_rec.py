@@ -54,45 +54,46 @@ class UserPopRec(Recommender, PartialFitMixin):
     def _dataframes(self):
         return {
             "user_item_popularity": self.user_item_popularity,
-            "user_relevance_sum": self.user_relevance_sum
+            "user_relevance_sum": self.user_relevance_sum,
         }
 
-    def _fit_partial(self,
-                     log: DataFrame,
-                     user_features: Optional[DataFrame] = None,
-                     item_features: Optional[DataFrame] = None,
-                     previous_log: Optional[DataFrame] = None) -> None:
+    def _fit_partial(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        previous_log: Optional[DataFrame] = None,
+    ) -> None:
         with unpersist_after(self._dataframes):
             # new users: just unionify(user_item_popularity, self.user_item_popularity)
             # new items: groupby users +
 
-            relevance_sums = (
-                log.groupBy("user_idx", "item_idx").agg(sf.sum("relevance").alias("user_item_rel_sum"))
+            relevance_sums = log.groupBy("user_idx", "item_idx").agg(
+                sf.sum("relevance").alias("user_item_rel_sum")
             )
 
             self.user_relevance_sum = (
                 unionify(
-                    relevance_sums.select("user_idx", sf.col("user_item_rel_sum").alias("user_rel_sum")),
-                    self.user_relevance_sum
+                    relevance_sums.select(
+                        "user_idx",
+                        sf.col("user_item_rel_sum").alias("user_rel_sum"),
+                    ),
+                    self.user_relevance_sum,
                 )
                 .groupBy("user_idx")
                 .agg(sf.sum("user_rel_sum").alias("user_rel_sum"))
             ).cache()
 
-            self.user_item_popularity = (
-                relevance_sums
-                .join(
-                    self.user_relevance_sum,
-                    how="inner",
-                    on="user_idx",
-                )
-                .select(
-                    "user_idx",
-                    "item_idx",
-                    (sf.col("user_item_rel_sum") / sf.col("user_rel_sum")).alias(
-                        "relevance"
-                    ),
-                )
+            self.user_item_popularity = relevance_sums.join(
+                self.user_relevance_sum,
+                how="inner",
+                on="user_idx",
+            ).select(
+                "user_idx",
+                "item_idx",
+                (sf.col("user_item_rel_sum") / sf.col("user_rel_sum")).alias(
+                    "relevance"
+                ),
             )
             self.user_item_popularity.cache().count()
 

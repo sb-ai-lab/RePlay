@@ -121,7 +121,7 @@ class RandomRec(NonPersonalizedRecommender):
         seed: Optional[int] = None,
         add_cold_items: bool = True,
         cold_weight: float = 0.5,
-        sample: bool = False
+        sample: bool = False,
     ):
         """
         :param distribution: recommendation strategy:
@@ -173,7 +173,7 @@ class RandomRec(NonPersonalizedRecommender):
     def _dataframes(self):
         return {
             "item_popularity": self.item_popularity,
-            "relevance_sums": self.relevance_sums
+            "relevance_sums": self.relevance_sums,
         }
 
     def _clear_cache(self):
@@ -188,11 +188,13 @@ class RandomRec(NonPersonalizedRecommender):
             fill = 0
         self.fill = fill
 
-    def _fit_partial(self,
-                     log: DataFrame,
-                     user_features: Optional[DataFrame] = None,
-                     item_features: Optional[DataFrame] = None,
-                     previous_log: Optional[DataFrame] = None) -> None:
+    def _fit_partial(
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        previous_log: Optional[DataFrame] = None,
+    ) -> None:
         with unpersist_after(self._dataframes):
             if self.distribution == "popular_based":
                 # storing the intermediate aggregate (e.g. agg result) is
@@ -205,12 +207,18 @@ class RandomRec(NonPersonalizedRecommender):
                     .agg(sf.countDistinct("user_idx").alias("user_count"))
                     .select(
                         "item_idx",
-                        (sf.col("user_count").astype("float") + sf.lit(self.alpha)).alias("relevance")
+                        (
+                            sf.col("user_count").astype("float")
+                            + sf.lit(self.alpha)
+                        ).alias("relevance"),
                     )
                 )
             elif self.distribution == "relevance":
                 self.relevance_sums = (
-                    unionify(log.select("item_idx", "relevance"), self.relevance_sums)
+                    unionify(
+                        log.select("item_idx", "relevance"),
+                        self.relevance_sums,
+                    )
                     .groupBy("item_idx")
                     .agg(sf.sum("relevance").alias("relevance"))
                     .cache()
@@ -218,13 +226,16 @@ class RandomRec(NonPersonalizedRecommender):
                 item_popularity = self.relevance_sums
             else:
                 item_popularity = unionify(
-                    log.select("item_idx", sf.lit(1.0).alias("relevance")),
-                    self.item_popularity
+                    log.select("item_idx", sf.lit(1.0).alias("relevance")),  # pylint: disable=no-member
+                    self.item_popularity,
                 ).drop_duplicates(["item_idx"])
 
             self.item_popularity = item_popularity.select(
-                    "item_idx",
-                    (sf.col("relevance") / item_popularity.agg(sf.sum("relevance")).first()[0]).alias("relevance")
+                "item_idx",
+                (
+                    sf.col("relevance")
+                    / item_popularity.agg(sf.sum("relevance")).first()[0]
+                ).alias("relevance"),
             )
 
             self.item_popularity.cache().count()

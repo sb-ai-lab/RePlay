@@ -6,11 +6,12 @@ from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
 
 from replay.ann.index_builders.base_index_builder import IndexBuilder
-from replay.models.base_rec import NeighbourRec, PartialFitMixin
 from replay.models.base_neighbour_rec import NeighbourRec
+from replay.models.base_rec import PartialFitMixin
 from replay.utils import unpersist_after, unionify
 
 
+# pylint: disable=too-many-ancestors, too-many-instance-attributes
 class AssociationRulesItemRec(NeighbourRec, PartialFitMixin):
     """
     Item-to-item recommender based on association rules.
@@ -407,4 +408,3 @@ class AssociationRulesItemRec(NeighbourRec, PartialFitMixin):
             "items_aggr": self.items_aggr,
             "session_col_unique_vals": self.session_col_unique_vals,
         }
-

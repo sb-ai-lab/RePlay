@@ -1042,9 +1042,18 @@ class ItemVectorModel(BaseRecommender):
 
 
 class PartialFitMixin(BaseRecommender):
+    """
+    Base class for fit partial.
+    """
     def fit_partial(self,
                     log: DataFrame,
                     previous_log: Optional[DataFrame] = None) -> None:
+        """
+        Method for incremental model training.
+        :param log: current part of log.
+        :param previous_log: previous log.
+        :return:
+        """
         self._fit_partial(log,
                           user_features=None,
                           item_features=None,
@@ -1067,6 +1076,7 @@ class PartialFitMixin(BaseRecommender):
         ...
 
     def _clear_cache(self):
+        # pylint: disable=super-with-arguments
         super(PartialFitMixin, self)._clear_cache()
         for df in self._dataframes.values():
             if df is not None:

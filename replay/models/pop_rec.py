@@ -87,9 +87,10 @@ class PopRec(NonPersonalizedRecommender):
         self.all_user_ids: Optional[DataFrame] = None
         self.item_abs_relevances: Optional[DataFrame] = None
         self.item_popularity: Optional[DataFrame] = None
+        self._users_count: Optional[int] = None
         super().__init__(
-                add_cold_items=add_cold_items, cold_weight=cold_weight
-            )
+            add_cold_items=add_cold_items, cold_weight=cold_weight
+        )
 
     @property
     def _init_args(self):
@@ -98,13 +99,13 @@ class PopRec(NonPersonalizedRecommender):
             "add_cold_items": self.add_cold_items,
             "cold_weight": self.cold_weight,
         }
-    
+
     @property
     def _dataframes(self):
         return {
             "all_user_ids": self.all_user_ids,
             "item_abs_relevances": self.item_abs_relevances,
-            "item_popularity": self.item_popularity
+            "item_popularity": self.item_popularity,
         }
 
     def _clear_cache(self):
@@ -113,34 +114,42 @@ class PopRec(NonPersonalizedRecommender):
                 df.unpersist()
 
     def _fit_partial(
-            self,
-            log: DataFrame,
-            user_features: Optional[DataFrame] = None,
-            item_features: Optional[DataFrame] = None,
-            previous_log: Optional[DataFrame] = None):
+        self,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        previous_log: Optional[DataFrame] = None,
+    ):
         with unpersist_after(self._dataframes):
-            self.all_user_ids = unionify(log.select("user_idx"), self.all_user_ids).distinct().cache()
+            self.all_user_ids = (
+                unionify(log.select("user_idx"), self.all_user_ids)
+                .distinct()
+                .cache()
+            )
             self._users_count = self.all_user_ids.count()
             if self.use_relevance:
                 # we will save it to update fitted model
                 self.item_abs_relevances = (
-                    unionify(log.select("item_idx", "relevance"), self.item_abs_relevances)
+                    unionify(
+                        log.select("item_idx", "relevance"),
+                        self.item_abs_relevances,
+                    )
                     .groupBy("item_idx")
                     .agg(sf.sum("relevance").alias("relevance"))
                 ).cache()
 
-                self.item_popularity = (
-                    self.item_abs_relevances.withColumn("relevance", sf.col("relevance") / sf.lit(self._users_count))
+                self.item_popularity = self.item_abs_relevances.withColumn(
+                    "relevance",
+                    sf.col("relevance") / sf.lit(self._users_count),
                 )
             else:
                 log = unionify(log, previous_log)
                 # equal to storing a whole old log which may be huge
-                self.item_popularity = (
-                    log
-                    .groupBy("item_idx")
-                    .agg(
-                        (sf.countDistinct("user_idx").alias("relevance") / sf.lit(self._users_count)).alias("relevance")
-                    )
+                self.item_popularity = log.groupBy("item_idx").agg(
+                    (
+                        sf.countDistinct("user_idx").alias("relevance")
+                        / sf.lit(self._users_count)
+                    ).alias("relevance")
                 )
 
             self.item_popularity.cache().count()

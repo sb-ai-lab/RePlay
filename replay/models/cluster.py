@@ -39,27 +39,45 @@ class ClusterRec(UserRecommender, PartialFitMixin):
     def _load_model(self, path: str):
         self.model = KMeansModel.load(path)
 
-    def _get_nearest_items(self, items: DataFrame, metric: Optional[str] = None,
-                           candidates: Optional[DataFrame] = None) -> Optional[DataFrame]:
+    def _get_nearest_items(
+        self,
+        items: DataFrame,
+        metric: Optional[str] = None,
+        candidates: Optional[DataFrame] = None,
+    ) -> Optional[DataFrame]:
         raise NotImplementedError()
 
-    def _fit_partial(self, log: DataFrame, user_features: Optional[DataFrame] = None,) -> None:
+    def _fit_partial(
+            self,
+            log: DataFrame,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None,
+            previous_log: Optional[DataFrame] = None) -> None:
         with unpersist_after(self._dataframes):
-            user_features_vector = self._transform_features(user_features) if user_features is not None else None
+            user_features_vector = (
+                self._transform_features(user_features)
+                if user_features is not None
+                else None
+            )
 
             if self.model is None:
                 assert user_features_vector is not None
-                self.model = KMeans().setK(self.num_clusters).setFeaturesCol("features").fit(user_features_vector)
-
-            if user_features_vector is not None:
-                users_clusters = (
-                    self.model
-                        .transform(user_features_vector)
-                        .select("user_idx", sf.col("prediction").alias('cluster'))
+                self.model = (
+                    KMeans()
+                    .setK(self.num_clusters)
+                    .setFeaturesCol("features")
+                    .fit(user_features_vector)
                 )
 
+            if user_features_vector is not None:
+                users_clusters = self.model.transform(
+                    user_features_vector
+                ).select("user_idx", sf.col("prediction").alias("cluster"))
+
                 # update if we make fit_partial instead of just fit
-                self.users_clusters = unionify(users_clusters, self.users_clusters).drop_duplicates(["user_idx"])
+                self.users_clusters = unionify(
+                    users_clusters, self.users_clusters
+                ).drop_duplicates(["user_idx"])
 
             item_count_in_cluster = (
                 log.join(self.users_clusters, on="user_idx", how="left")
@@ -74,9 +92,15 @@ class ClusterRec(UserRecommender, PartialFitMixin):
                 .agg(sf.sum("item_count").alias("item_count"))
             )
 
-            self.item_rel_in_cluster = self.item_count_in_cluster.withColumn(
-                "relevance", sf.col("item_count") / sf.max("item_count").over(Window.partitionBy("cluster"))
-            ).drop("item_count", "max_count_in_cluster").cache()
+            self.item_rel_in_cluster = (
+                self.item_count_in_cluster.withColumn(
+                    "relevance",
+                    sf.col("item_count")
+                    / sf.max("item_count").over(Window.partitionBy("cluster")),
+                )
+                .drop("item_count", "max_count_in_cluster")
+                .cache()
+            )
 
             # materialize datasets
             self.item_rel_in_cluster.count()
@@ -93,7 +117,7 @@ class ClusterRec(UserRecommender, PartialFitMixin):
         self,
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
-        previous_log: Optional[DataFrame] = None
+        previous_log: Optional[DataFrame] = None,
     ) -> None:
         self._fit_partial(log, user_features)
 
@@ -107,7 +131,7 @@ class ClusterRec(UserRecommender, PartialFitMixin):
         return {
             "users_clusters": self.users_clusters,
             "item_rel_in_cluster": self.item_rel_in_cluster,
-            "item_count_in_cluster": self.item_count_in_cluster
+            "item_count_in_cluster": self.item_count_in_cluster,
         }
 
     @staticmethod
@@ -117,19 +141,22 @@ class ClusterRec(UserRecommender, PartialFitMixin):
         return vec.transform(user_features).select("user_idx", "features")
 
     def _make_user_clusters(self, users, user_features):
-
-        usr_cnt_in_fv = (user_features
-                         .select("user_idx")
-                         .distinct()
-                         .join(users.distinct(), on="user_idx").count())
+        usr_cnt_in_fv = (
+            user_features.select("user_idx")
+            .distinct()
+            .join(users.distinct(), on="user_idx")
+            .count()
+        )
 
         user_cnt = users.distinct().count()
 
         if usr_cnt_in_fv < user_cnt:
-            self.logger.info("% user(s) don't "
-                             "have a feature vector. "
-                             "The results will not be calculated for them.",
-                             user_cnt - usr_cnt_in_fv)
+            self.logger.info(
+                "% user(s) don't "
+                "have a feature vector. "
+                "The results will not be calculated for them.",
+                user_cnt - usr_cnt_in_fv,
+            )
 
         user_features_vector = self._transform_features(
             user_features.join(users, on="user_idx")
@@ -151,7 +178,6 @@ class ClusterRec(UserRecommender, PartialFitMixin):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-
         user_clusters = self._make_user_clusters(users, user_features)
         filtered_items = self.item_rel_in_cluster.join(items, on="item_idx")
         pred = user_clusters.join(filtered_items, on="cluster").drop("cluster")
@@ -164,15 +190,17 @@ class ClusterRec(UserRecommender, PartialFitMixin):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-
         if not user_features:
             raise ValueError("User features are missing for predict")
 
-        user_clusters = self._make_user_clusters(pairs.select("user_idx").distinct(), user_features)
+        user_clusters = self._make_user_clusters(
+            pairs.select("user_idx").distinct(), user_features
+        )
         pairs_with_clusters = pairs.join(user_clusters, on="user_idx")
-        filtered_items = (self.item_rel_in_cluster
-                          .join(pairs.select("item_idx").distinct(), on="item_idx"))
-        pred = (pairs_with_clusters
-                .join(filtered_items, on=["cluster", "item_idx"])
-                .select("user_idx","item_idx","relevance"))
+        filtered_items = self.item_rel_in_cluster.join(
+            pairs.select("item_idx").distinct(), on="item_idx"
+        )
+        pred = pairs_with_clusters.join(
+            filtered_items, on=["cluster", "item_idx"]
+        ).select("user_idx", "item_idx", "relevance")
         return pred
