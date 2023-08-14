@@ -85,26 +85,47 @@ def drop_duplicates(recommendations: AnyDataFrame) -> DataFrame:
     )
 
 
-def filter_sort(recommendations: DataFrame) -> DataFrame:
+def filter_sort(recommendations: DataFrame, *extra_columns: str) -> DataFrame:
     """
     Filter duplicated predictions by choosing the most relevant,
-     and sort items in predictions by relevance
+    sort items in predictions by relevance,
+     and return DataFrame with extra_columns if exist
     """
+    item_type = recommendations.schema["item_idx"].dataType
+    extra_col_type = recommendations.schema[extra_columns[0]].dataType if extra_columns else None
+
     recommendations = drop_duplicates(recommendations)
 
-    return (
+    recommendations = (
         recommendations
         .groupby("user_idx")
-        .agg(sf.collect_list(sf.struct("relevance", "item_idx")).alias("pred"))
-        .withColumn("pred", sf.reverse(sf.array_sort("pred")))
-        .withColumn("pred", sf.col("pred.item_idx"))
+        .agg(sf.collect_list(sf.struct("relevance", "item_idx", *extra_columns)).alias("pred_list"))
+        .withColumn("pred_list", sf.reverse(sf.array_sort("pred_list")))
+    )
+
+    selection = ["user_idx", sf.col("pred_list.item_idx").alias("pred")]
+    if extra_columns:
+        selection.append(sf.col(f"pred_list.{extra_columns[0]}"))
+
+    recommendations = (
+        recommendations.select(*selection)
         .withColumn(
             "pred",
-            sf.col("pred").cast(
-                st.ArrayType(recommendations.schema["item_idx"].dataType, True)
-            ),
+            sf.col("pred").cast(st.ArrayType(item_type, True))
+        ))
+
+    if extra_columns:
+        recommendations = (
+            recommendations
+            .withColumn(
+                f"{extra_columns[0]}",
+                sf.col(f"{extra_columns[0]}").cast(
+                    st.ArrayType(extra_col_type, True)
+                )
+            )
         )
-    )
+
+    return recommendations
 
 
 def get_enriched_recommendations(
@@ -582,32 +603,7 @@ class NCISMetric(Metric):
         weight_type = recommendations.schema["weight"].dataType
         item_type = ground_truth.schema["item_idx"].dataType
 
-        recommendations = drop_duplicates(recommendations)
-        recommendations = (
-            recommendations
-            .groupby("user_idx")
-            .agg(
-                sf.collect_list(
-                    sf.struct("relevance", "item_idx", "weight")
-                ).alias("rel_id_weight")
-            )
-            .withColumn(
-                "pred_weight", sf.reverse(sf.array_sort("rel_id_weight"))
-            )
-            .select(
-                "user_idx",
-                sf.col("pred_weight.item_idx").alias("pred"),
-                sf.col("pred_weight.weight"),
-            )
-            .withColumn(
-                "pred",
-                sf.col("pred").cast(
-                    st.ArrayType(
-                        recommendations.schema["item_idx"].dataType, True
-                    )
-                ),
-            )
-        )
+        recommendations = filter_sort(recommendations, "weight")
 
         if ground_truth_users is not None:
             true_items_by_users = true_items_by_users.join(

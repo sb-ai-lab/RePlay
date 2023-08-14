@@ -7,7 +7,7 @@ from pyspark.sql import types as st
 
 from replay.constants import AnyDataFrame
 from replay.utils import convert2spark, get_top_k_recs
-from replay.metrics.base_metric import fill_na_with_empty_array, RecOnlyMetric, drop_duplicates
+from replay.metrics.base_metric import fill_na_with_empty_array, RecOnlyMetric, filter_sort
 
 
 # pylint: disable=too-few-public-methods
@@ -76,22 +76,13 @@ class Surprisal(RecOnlyMetric):
         recommendations = convert2spark(recommendations)
         ground_truth_users = convert2spark(ground_truth_users)
         recommendations = get_top_k_recs(recommendations, max_k)
-        recommendations = drop_duplicates(recommendations)
 
         recommendations = (
-            recommendations
-            .join(self.item_weights, on="item_idx", how="left")
-            .fillna(1.0)
-            .groupby("user_idx")
-            .agg(
-                sf.collect_list(
-                    sf.struct("relevance", "item_idx", "rec_weight")
-                ).alias("rel_id_weight")
-            )
-            .withColumn(
-                "pred_rec_weight", sf.reverse(sf.array_sort("rel_id_weight"))
-            )
-            .select("user_idx", sf.col("pred_rec_weight.rec_weight"))
+            recommendations.join(self.item_weights, on="item_idx", how="left").fillna(1.0)
+        )
+        recommendations = filter_sort(recommendations, "rec_weight")
+        recommendations = (
+            recommendations.select("user_idx", sf.col("rec_weight"))
             .withColumn(
                 "rec_weight",
                 sf.col("rec_weight").cast(st.ArrayType(st.DoubleType(), True)),
