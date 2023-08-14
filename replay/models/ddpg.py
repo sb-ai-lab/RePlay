@@ -646,9 +646,12 @@ class DDPG(Recommender):
         next_state = self.model.state_repr(next_user, next_memory)
         next_action = self.target_model(next_user, next_memory)
         target_value = self.target_value_net(next_state, next_action.detach())
-        expected_value = (
-            reward + (1.0 - done) * self.gamma * target_value
+        expected_value = reward + (
+            1.0 - done
+        ) * self.gamma * target_value.squeeze(
+            1
         )  # smth strange, check article
+
         expected_value = torch.clamp(
             expected_value, self.min_value, self.max_value
         )
