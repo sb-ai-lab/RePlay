@@ -11,7 +11,6 @@ from pyspark.sql.types import (
     StructField,
     StructType,
     TimestampType,
-    ArrayType
 )
 
 LOG_SCHEMA = StructType(
