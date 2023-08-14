@@ -31,12 +31,6 @@ REC_SCHEMA = StructType(
     ]
 )
 
-PREDICT_SCHEMA = StructType(
-    [
-        StructField("user_idx", IntegerType()),
-        StructField("pred", ArrayType(IntegerType()))
-    ]
-)
 
 BASE_SCHEMA = StructType(
     [

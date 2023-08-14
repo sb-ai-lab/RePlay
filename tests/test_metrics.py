@@ -15,7 +15,7 @@ from pyspark.sql.types import (
     StructType, ArrayType, DoubleType
 )
 
-from replay.constants import LOG_SCHEMA, REC_SCHEMA, PREDICT_SCHEMA
+from replay.constants import LOG_SCHEMA, REC_SCHEMA
 from replay.metrics import *
 from replay.distributions import item_distribution
 from replay.metrics.base_metric import get_enriched_recommendations, drop_duplicates, filter_sort
@@ -449,7 +449,13 @@ def test_filter_sort(spark, duplicate_recs):
             [1, [1, 0, 4]],
             [2, [0, 3, 2]]
         ],
-        schema=PREDICT_SCHEMA)
+        schema=StructType(
+            [
+                StructField("user_idx", IntegerType()),
+                StructField("pred", ArrayType(IntegerType()))
+            ]
+        )
+    )
     sparkDataFrameEqual(recs, gt)
 
 
