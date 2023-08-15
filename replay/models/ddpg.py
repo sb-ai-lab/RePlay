@@ -961,11 +961,11 @@ class DDPG(Recommender):
             {
                 # pylint: disable-next=used-before-assignment
                 "fit_users": fit_users.toPandas()
-                if fit_users is None
+                if fit_users is not None
                 else None,
                 # pylint: disable-next=used-before-assignment
                 "fit_items": fit_items.toPandas()
-                if fit_items is None
+                if fit_items is not None
                 else None,
                 "actor": self.model.state_dict(),
                 "critic": self.value_net.state_dict(),
