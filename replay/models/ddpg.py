@@ -623,8 +623,6 @@ class DDPG(Recommender):
         else:
             self.device = torch.device("cpu")
 
-        print(f"{self.device=}")
-
     @property
     def _init_args(self):
         return {
