@@ -355,6 +355,9 @@ class Env:
             (user_count, memory_size), item_count, device=device
         )
         self.min_trajectory_len = min_trajectory_len
+        self.max_num_rele = None
+        self.user_batch_size = None
+        self.user_ids = None
 
     def update_env(self, matrix=None, item_count=None):
         """Update some of Env attributes."""
@@ -461,7 +464,7 @@ class Env:
                 sample_weight,
             )
 
-        return self.user_ids, self.memory, rewards, 0
+        return self.user_ids, self.memory[self.user_ids], rewards, 0
 
 
 class StateReprModule(nn.Module):
@@ -562,6 +565,7 @@ class DDPG(Recommender):
     value_optimizer: Ranger
 
     # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-locals
     def __init__(
         self,
         noise_sigma: float = 0.2,
@@ -900,7 +904,8 @@ class DDPG(Recommender):
         self.train(users)
 
     @staticmethod
-    def UsersLoader(users, batch_size):
+    def users_loader(users, batch_size):
+        """loader for users' batch"""
         pos = 0
         while pos != len(users):
             new_pos = min(pos + batch_size, len(users))
@@ -916,7 +921,7 @@ class DDPG(Recommender):
         """
         self.log_dir.mkdir(parents=True, exist_ok=True)
         step = 0
-        users_loader = self.UsersLoader(users, self.user_batch_size)
+        users_loader = self.users_loader(users, self.user_batch_size)
         for user_ids in tqdm.auto.tqdm(list(users_loader)):
             user_ids, memory = self.model.environment.reset(user_ids)
             self.ou_noise.reset(user_ids.shape[0])
@@ -930,7 +935,7 @@ class DDPG(Recommender):
                     self.model.environment.available_items_mask,
                 )
 
-                self.model.environment.step(
+                _, memory, _, _ = self.model.environment.step(
                     actions, actions_emb, self.replay_buffer
                 )
 
@@ -952,9 +957,11 @@ class DDPG(Recommender):
         )
         torch.save(
             {
+                # pylint: disable-next=used-before-assignment
                 "fit_users": fit_users.toPandas()
                 if (fit_users := getattr(self, "fit_users", None))
                 else None,
+                # pylint: disable-next=used-before-assignment
                 "fit_items": fit_items.toPandas()
                 if (fit_items := getattr(self, "fit_items", None))
                 else None,
