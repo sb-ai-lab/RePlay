@@ -26,8 +26,6 @@ warnings.filterwarnings("ignore", category=ExperimentalWarning)
 TOP_K = 10
 TOP_K_LIST_METRICS = [1, 5, 10]
 
-# надо сохранить модель параметры метрики
-
 
 def fit_predict_add_res(
     name,

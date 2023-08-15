@@ -79,7 +79,8 @@ class ReplayBuffer:
             self.pos : self.pos + batch_size
         ] = sample_weight
 
-        if (new_pos := self.pos + batch_size) >= self.capacity:
+        new_pos = self.pos + batch_size
+        if new_pos >= self.capacity:
             self.is_filled = True
         self.pos = new_pos % self.capacity
 
@@ -127,17 +128,22 @@ class OUNoise:
         self.action_dim = action_dim
         self.noise_type = noise_type
         self.device = device
-        self.state = torch.zeros(action_dim, device=self.device)
+        self.state = torch.zeros((1, action_dim), device=self.device)
 
-    def reset(self):
+    def reset(self, user_batch_size):
         """Fill state with zeros."""
-        self.state.fill_(0)
+        if self.state.shape[0] == user_batch_size:
+            self.state.fill_(0)
+        else:
+            self.state = torch.zeros(
+                (user_batch_size, self.action_dim), device=self.device
+            )
 
     def evolve_state(self):
         """Perform OU discrete approximation step"""
         x = self.state
         d_x = -self.theta * x + self.sigma * torch.randn(
-            self.action_dim, device=self.device
+            x.shape, device=self.device
         )
         self.state = x + d_x
         return self.state
@@ -149,7 +155,7 @@ class OUNoise:
         )
         if self.noise_type == "ou":
             ou_state = self.evolve_state()
-            return torch.tensor([action + ou_state]).float()
+            return action + ou_state
         elif self.noise_type == "gauss":
             return action + self.sigma * torch.randn(
                 action.shape, device=self.device
@@ -426,7 +432,7 @@ class Env:
             torch.arange(self.available_items.shape[0]), actions
         ]
         rewards = (global_actions.reshape(-1, 1) == self.related_items).sum(1)
-        for idx, reward in enumerate(rewards):  # надо обновить память
+        for idx, reward in enumerate(rewards):
             if reward:
                 user_id = self.user_ids[idx]
                 self.memory[user_id] = torch.tensor(
@@ -913,7 +919,7 @@ class DDPG(Recommender):
         users_loader = self.UsersLoader(users, self.user_batch_size)
         for user_ids in tqdm.auto.tqdm(list(users_loader)):
             user_ids, memory = self.model.environment.reset(user_ids)
-            self.ou_noise.reset()
+            self.ou_noise.reset(user_ids.shape[0])
             for users_step in range(self.model.environment.max_num_rele):
                 actions_emb = self.model(user_ids, memory)
                 actions_emb = self.ou_noise.get_action(actions_emb, users_step)
