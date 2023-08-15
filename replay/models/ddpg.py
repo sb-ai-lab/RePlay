@@ -955,15 +955,19 @@ class DDPG(Recommender):
             self.user_num,
             self.item_num,
         )
+
+        fit_users = getattr(self, "fit_users", None)
+        fit_items = getattr(self, "fit_items", None)
+
         torch.save(
             {
                 # pylint: disable-next=used-before-assignment
                 "fit_users": fit_users.toPandas()
-                if (fit_users := getattr(self, "fit_users", None))
+                if fit_users is None
                 else None,
                 # pylint: disable-next=used-before-assignment
                 "fit_items": fit_items.toPandas()
-                if (fit_items := getattr(self, "fit_items", None))
+                if fit_items is None
                 else None,
                 "actor": self.model.state_dict(),
                 "critic": self.value_net.state_dict(),
