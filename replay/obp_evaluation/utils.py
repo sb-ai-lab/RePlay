@@ -56,15 +56,3 @@ def split_bandit_feedback(bandit_feedback, val_size=0.3):
     bandit_feedback_val = bandit_subset([n_rounds_train, n_rounds], bandit_feedback)
 
     return bandit_feedback_train, bandit_feedback_val
-
-
-
-
-
-
-
-
-
-
-
-
