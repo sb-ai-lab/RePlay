@@ -55,12 +55,10 @@ def context2df(context: np.ndarray,
         Converts OBP log to the pandas DataFrame
     """
 
-    d = {
-        idx_col_name: idx_col
-    }
-
-    df1 = pd.DataFrame(d)
-    df2 = pd.DataFrame(context)
+    df1 = pd.DataFrame({
+        idx_col_name+"_idx": idx_col
+    })
+    df2 = pd.DataFrame(context, columns=[str(i)+"_"+idx_col_name for i in range(context.shape[1])])
 
     return df1.join(df2)
 
@@ -132,11 +130,10 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
         self.max_usr_id = len(reward)
 
         if context is not None:
-            user_features = convert2spark(context2df(context, np.arange(self.max_usr_id), "user_idx"))
+            user_features = convert2spark(context2df(context, np.arange(self.max_usr_id), "user"))
 
         if action_context is not None:
-            n_actions = np.max(action)
-            self.item_features = convert2spark(context2df(action_context, np.arange(n_actions), "item_idx"))
+            self.item_features = convert2spark(context2df(action_context, np.arange(self.n_actions), "item"))
 
         self.replay_model._fit_wrap(log, user_features, self.item_features)
 
@@ -155,7 +152,7 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
 
         user_features = None
         if context is not None:
-            user_features = convert2spark(context2df(context, np.arange(self.max_usr_id, self.max_usr_id + n_rounds), 'user_idx'))
+            user_features = convert2spark(context2df(context, np.arange(self.max_usr_id, self.max_usr_id + n_rounds), 'user'))
 
         users = convert2spark(pd.DataFrame({"user_idx": np.arange(self.max_usr_id, self.max_usr_id + n_rounds)}))
         items = convert2spark(pd.DataFrame({"item_idx": np.arange(self.n_actions)}))
