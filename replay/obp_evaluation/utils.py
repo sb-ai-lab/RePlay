@@ -1,8 +1,13 @@
 from sklearn.linear_model import LogisticRegression
 from obp.ope import RegressionModel
 import numpy as np
+from typing import Dict, List, Tuple
+
 
 def get_est_rewards_by_reg(n_actions, len_list, bandit_feedback_train, bandit_feedback_test):
+    """
+        Fit Logistic Regression to rewards from `bandit_feedback`.
+    """
     regression_model = RegressionModel(
         n_actions=n_actions,
         len_list=len_list,
@@ -24,29 +29,54 @@ def get_est_rewards_by_reg(n_actions, len_list, bandit_feedback_train, bandit_fe
 
     return estimated_rewards_by_reg_model
 
-def bandit_subset(borders, bandit_feedback):
-    l, r = borders
 
-    assert l < r
+def bandit_subset(borders: List[int],
+                  bandit_feedback: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+    """
+        This function returns subset of a `bandit_feedback`
+        with borders specified in `borders`.
 
-    position = None if bandit_feedback["position"] is None else bandit_feedback["position"][l:r]
+        :param bandit_feedback: Bandit log data with fields
+                                ``[action, reward, context, action_context,
+                                   n_rounds, n_actions, position, pscore]``
+                                as in OpenBanditPipeline.
+        :param borders: List with two values ``[left, right]``
+        :return: Returns subset of a `bandit_feedback` for each key with
+                 indexes from `left`(including) to `right`(excluding).
+    """
+    assert len(borders) == 2
+
+    left, right = borders
+
+    assert left < right
+
+    position = None if bandit_feedback["position"] is None\
+        else bandit_feedback["position"][left:right]
 
     return dict(
-        n_rounds=r - l,
+        n_rounds=right - left,
         n_actions=bandit_feedback["n_actions"],
-        action=bandit_feedback["action"][l:r],
+        action=bandit_feedback["action"][left:right],
         position=position,
-        reward=bandit_feedback["reward"][l:r],
-        pscore=bandit_feedback["pscore"][l:r],
-        context=bandit_feedback["context"][l:r],
-        action_context=bandit_feedback["action_context"][l:r]
+        reward=bandit_feedback["reward"][left:right],
+        pscore=bandit_feedback["pscore"][left:right],
+        context=bandit_feedback["context"][left:right],
+        action_context=bandit_feedback["action_context"][left:right]
     )
 
-def split_bandit_feedback(bandit_feedback, val_size=0.3):
+
+def split_bandit_feedback(bandit_feedback: Dict[str, np.ndarray],
+                          val_size: int = 0.3) -> Tuple[Dict[str, np.ndarray],
+                                                        Dict[str, np.ndarray]]:
     '''
-        bandit_feedback is a Dict with fields ["action", "reward", "context",
-                                               "action_context", "n_rounds",
-                                               "n_actions", "position", "pscore"]
+        Split `bandit_feedback` into two subsets.
+        :param bandit_feedback: Bandit log data with fields
+                                ``[action, reward, context, action_context,
+                                   n_rounds, n_actions, position, pscore]``
+                                as in OpenBanditPipeline.
+        :param val_size: Number in range ``[0, 1]`` corresponding to the proportion of
+                         train/val split.
+        :return: `bandit_feedback_train` and `bandit_feedback_val` split.
     '''
 
     n_rounds = bandit_feedback["n_rounds"]

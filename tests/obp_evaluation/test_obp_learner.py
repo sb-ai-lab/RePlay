@@ -6,6 +6,7 @@ from replay.obp_evaluation.replay_offline import RePlayOfflinePolicyLearner
 from replay.obp_evaluation.utils import split_bandit_feedback
 from replay.models import RandomRec
 
+
 @pytest.fixture
 def bandit_feedback():
     return {
@@ -20,6 +21,7 @@ def bandit_feedback():
         "position": None
     }
 
+
 @pytest.fixture
 def bandit_log():
     return spark.createDataFrame(
@@ -31,9 +33,11 @@ def bandit_log():
         schema=LOG_SCHEMA,
     )
 
+
 @pytest.fixture
 def model():
     return RandomRec(seed=42)
+
 
 @pytest.fixture
 def replay_obp_learner(model, bandit_feedback):
@@ -51,6 +55,7 @@ def replay_obp_learner(model, bandit_feedback):
 
     return learner
 
+
 def test_fit(model, bandit_feedback, replay_obp_learner):
     assert replay_obp_learner.max_usr_id == 3
 
@@ -59,11 +64,13 @@ def test_fit(model, bandit_feedback, replay_obp_learner):
     assert train["n_rounds"] == 2
     assert val["n_rounds"] == 1
 
+
 @pytest.mark.parametrize("context", [[[1, 1, 1]], [[0.5, 1, 1]]])
 def test_predict(context, replay_obp_learner):
     pred = replay_obp_learner.predict(1, context)
 
     assert replay_obp_learner.max_usr_id == 4
+
 
 @pytest.mark.parametrize("val_size", [0.3])
 def test_optimize(bandit_feedback, replay_obp_learner, val_size):

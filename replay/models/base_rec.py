@@ -49,7 +49,6 @@ if PYSPARK_AVAILABLE:
         vector_euclidean_distance_similarity,
     )
 
-from replay.data_preparator import DataPreparator, Indexer
 
 # pylint: disable=too-few-public-methods
 class IsSavable(ABC):
@@ -667,9 +666,9 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
     def _predict_proba(
         self,
         log : DataFrame,
+        k: int,
         users: DataFrame,
         items: DataFrame,
-        k: int,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True
@@ -700,7 +699,13 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         n_users = users.select("user_idx").count()
         n_items = items.select("item_idx").count()
 
-        recs = self._predict(log, k, users, items, user_features, item_features, filter_seen_items) #Pass user_features, item_features
+        recs = self._predict(log,
+                             k,
+                             users,
+                             items,
+                             user_features,
+                             item_features,
+                             filter_seen_items)
 
         recs = get_top_k_recs(recs, k=k).select(
             "user_idx", "item_idx", "relevance"
@@ -709,14 +714,16 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         cols = [f"k{i}" for i in range(k)]
 
         recs_items = recs.groupBy("user_idx").agg(
-                    sf.collect_list("item_idx").alias("item_idx")).select(
-                        [sf.col("item_idx")[i].alias(cols[i]) for i in range(k)]
-                    )
+            sf.collect_list("item_idx").alias("item_idx")).select(
+                [sf.col("item_idx")[i].alias(cols[i]) for i in range(k)]
+        )
 
         action_dist = np.zeros(shape=(n_users, n_items, k))
 
         for i in range(k):
-            action_dist[np.arange(n_users), recs_items.select(cols[i]).toPandas()[cols[i]].to_numpy(), np.ones(n_users, dtype=int) * i] += 1
+            action_dist[np.arange(n_users),
+                        recs_items.select(cols[i]).toPandas()[cols[i]].to_numpy(),
+                        np.ones(n_users, dtype=int) * i] += 1
 
         return action_dist
 
@@ -1729,9 +1736,9 @@ class NonPersonalizedRecommender(Recommender, ABC):
     def _predict_proba(
         self,
         log : DataFrame,
+        k: int,
         users: DataFrame,
         items: DataFrame,
-        k: int,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True
@@ -1773,4 +1780,10 @@ class NonPersonalizedRecommender(Recommender, ABC):
 
             return np.tile(items_pd, (n_users, k)).reshape(n_users, k, n_items).transpose((0, 2, 1))
 
-        return super()._predict_proba(log, users, items, k, user_features, item_features, filter_seen_items)
+        return super()._predict_proba(log,
+                                      k,
+                                      users,
+                                      items,
+                                      user_features,
+                                      item_features,
+                                      filter_seen_items)

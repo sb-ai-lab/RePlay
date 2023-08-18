@@ -2,72 +2,6 @@ from ml_collections import config_dict
 
 def get_config(alg_type):
     config = {
-        "lin_ucb": config_dict.ConfigDict({
-                "model": "LinUCB",
-                "params": config_dict.ConfigDict({
-                        "eps": -2.0,
-                        "alpha": 1.0,
-                        "regr_type": "disjoint"
-                    }),
-                "opt": config_dict.ConfigDict({
-                        "do_opt": True,
-                        "param_borders": {
-                                "eps": [-10, 10],
-                                "alpha": [0.001, 10]
-                            }
-                    })
-            }),
-
-        "log_ucb": config_dict.ConfigDict({
-                "model": "LogUCB",
-                "params": config_dict.ConfigDict({
-                        "eps": -10.0,
-                        "alpha": 1.0,
-                        "random_state": 42
-                    }),
-                "opt": config_dict.ConfigDict({
-                        "do_opt": True,
-                        "param_borders": {
-                                "eps": [-10, 10],
-                                "alpha": [0.01, 10]
-                            }
-                    })
-            }),
-
-        "lin_ts": config_dict.ConfigDict({
-                "model": "LinTS",
-                "params": config_dict.ConfigDict({
-                        "nu": 0.0,
-                        "alpha": 1.0,
-                        "regr_type": "disjoint",
-                        "random_state": 42
-                    }),
-                "opt": config_dict.ConfigDict({
-                        "do_opt": True,
-                        "param_borders": {
-                                "nu": [1, 10],
-                                "alpha": [100, 1000]
-                            }
-                    })
-            }),
-
-        "log_ts": config_dict.ConfigDict({
-                "model": "LogTS",
-                "params": config_dict.ConfigDict({
-                        "eps": 0.0,
-                        "alpha": 1e-9,
-                        "regr_type": "disjoint",
-                        "random_state": 42
-                    }),
-                "opt": config_dict.ConfigDict({
-                        "do_opt": True,
-                        "param_borders": {
-                                "eps": [0.0, 10.0],
-                                "alpha": [100, 1000]
-                            }
-                    })
-            }),
-
         "ucb": config_dict.ConfigDict({
                 "model": "UCB",
                 "params": config_dict.ConfigDict({
@@ -79,17 +13,6 @@ def get_config(alg_type):
                         "param_borders": {
                                 "coef": [0, 10]
                             }
-                    })
-            }),
-
-        "kl_ucb": config_dict.ConfigDict({
-                "model": "KL_UCB",
-                "params": config_dict.ConfigDict({
-                        "exploration_coef": 0.0
-                    }),
-                "opt": config_dict.ConfigDict({
-                        "do_opt": True,
-                        "param_borders": {"coef": [0, 3]}
                     })
             }),
 
@@ -133,9 +56,15 @@ def get_config(alg_type):
             "val_size": 0.3,
             "budget": 40
 
-        })
+    })
+
+
+    config.spark_params = config_dict.ConfigDict({
+            "spark_memory": 4,
+            "shuffle_partitions": 16
+    })
 
     config.behavior_policy = "random"
-    config.data_path = None
+    config.data_path = None #your path to the Open Bandit Dataset
 
     return config

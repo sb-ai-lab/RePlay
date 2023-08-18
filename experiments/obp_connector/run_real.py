@@ -15,11 +15,13 @@ config_flags.DEFINE_config_file("config")
 
 from pyspark.sql import SparkSession
 from replay.session_handler import get_spark_session, State
-from replay.splitters import UserSplitter
-from replay.utils import convert2spark, get_log_info
 from replay.logger import get_logger
-
-from replay.models import UCB, KL_UCB, Wilson, RandomRec, PopRec, LinUCB, LogUCB, LinTS, LogTS, ALSWrap, ItemKNN, SLIM, LightFMWrap
+from replay.models import (
+    UCB,
+    Wilson,
+    RandomRec,
+    LightFMWrap
+)
 from replay.obp_evaluation.replay_offline import RePlayOfflinePolicyLearner
 from replay.obp_evaluation.utils import get_est_rewards_by_reg
 
@@ -30,20 +32,14 @@ from replay.obp_evaluation.utils import bandit_subset
 import obp
 from obp.dataset import (
     SyntheticBanditDataset,
-    logistic_reward_function,
-    linear_reward_function,
     OpenBanditDataset
 )
 from obp.policy import (
-    IPWLearner, 
-    QLearner,
-    NNPolicyLearner, 
+    IPWLearner,
     Random
 )
-
 from obp.ope import (
     OffPolicyEvaluation,
-    RegressionModel,
     DirectMethod,
     InverseProbabilityWeighting,
     DoublyRobust
@@ -100,7 +96,7 @@ def eval_baselines(dataset, bandit_feedback_train, bandit_feedback_test):
 def main(_):
     args = FLAGS.config
 
-    spark = State(get_spark_session()).session
+    spark = State(get_spark_session(**args.spark_params)).session
     spark.sparkContext.setLogLevel('ERROR')
 
     logger = get_logger("replay", logging.INFO)

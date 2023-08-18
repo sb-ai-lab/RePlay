@@ -6,22 +6,17 @@ warnings.filterwarnings("ignore", category=ExperimentalWarning)
 import pandas as pd
 import numpy as np
 import logging
-import os
-import multiprocessing
 
-from pyspark.sql import SparkSession
-
-from replay.data_preparator import DataPreparator, Indexer
-from replay.experiment import Experiment
-from replay.metrics import Coverage, HitRate, NDCG, MAP
-from replay.model_handler import save, load, save_indexer, load_indexer
-from replay.models import ALSWrap, ItemKNN, SLIM, LightFMWrap
 from replay.session_handler import get_spark_session, State
-from replay.splitters import UserSplitter
-from replay.utils import convert2spark, get_log_info
 from replay.logger import get_logger
 
-from replay.models import UCB, KL_UCB, Wilson, RandomRec, PopRec, LinUCB
+from replay.models import (
+    UCB,
+    Wilson,
+    RandomRec,
+    PopRec,
+    LightFMWrap
+)
 from replay.obp_evaluation.replay_offline import RePlayOfflinePolicyLearner
 from replay.obp_evaluation.utils import get_est_rewards_by_reg
 
@@ -31,20 +26,16 @@ from sklearn.linear_model import LogisticRegression
 import obp
 from obp.dataset import (
     SyntheticBanditDataset,
-    logistic_reward_function,
-    linear_reward_function,
-    OpenBanditDataset
+    logistic_reward_function
 )
 from obp.policy import (
     IPWLearner,
-    QLearner,
     NNPolicyLearner,
     Random
 )
 
 from obp.ope import (
     OffPolicyEvaluation,
-    RegressionModel,
     DirectMethod,
     InverseProbabilityWeighting,
     DoublyRobust
