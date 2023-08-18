@@ -1,15 +1,13 @@
 import numpy as np
 import pandas as pd
-import time
 import logging
 
 from dataclasses import dataclass
 
 from obp.policy.base import BaseOfflinePolicyLearner
-from obp.policy.policy_type import PolicyType
-from replay.utils import convert2spark
-from replay.data_preparator import DataPreparator, Indexer
 from pyspark.sql import DataFrame
+
+from replay.utils import convert2spark
 from replay.obp_evaluation.obp_optuna_objective import OBPObjective
 from replay.obp_evaluation.utils import split_bandit_feedback
 from replay.models.base_rec import BaseRecommender
@@ -20,14 +18,10 @@ from optuna.samplers import TPESampler
 from typing import (
     Any,
     Dict,
-    Iterable,
     List,
     Optional,
-    Union,
-    Sequence,
-    Set,
-    Tuple,
 )
+
 
 def obp2df(action: np.ndarray,
            reward: np.ndarray,
@@ -38,15 +32,14 @@ def obp2df(action: np.ndarray,
 
     n_interactions = len(action)
 
-    d = {
-        "user_idx": np.arange(n_interactions),
-        "item_idx": action,
-        "relevance": reward,
-        "timestamp": timestamp,
-    }
-    df = pd.DataFrame(d)
+    df = pd.DataFrame({"user_idx": np.arange(n_interactions),
+                       "item_idx": action,
+                       "relevance": reward,
+                       "timestamp": timestamp,
+                       })
 
     return df
+
 
 def context2df(context: np.ndarray,
                idx_col: np.ndarray,
@@ -56,11 +49,13 @@ def context2df(context: np.ndarray,
     """
 
     df1 = pd.DataFrame({
-        idx_col_name+"_idx": idx_col
+        idx_col_name + "_idx": idx_col
     })
-    df2 = pd.DataFrame(context, columns=[str(i)+"_"+idx_col_name for i in range(context.shape[1])])
+    cols = [str(i) + "_" + idx_col_name for i in range(context.shape[1])]
+    df2 = pd.DataFrame(context, columns=cols)
 
     return df1.join(df2)
+
 
 @dataclass
 class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
@@ -69,12 +64,13 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
 
         :param n_actions: Number of actions.
 
-        :param len_list: Length of a list of actions in a recommendation/ranking inferface, slate size.
-                         When Open Bandit Dataset is used, 3 should be set.
+        :param len_list: Length of a list of actions in a recommendation/ranking inferface,
+                         slate size. When Open Bandit Dataset is used, 3 should be set.
 
         :param replay_model: Any model from replay library with fit, predict functions.
 
-        :param log: Log of interactions (user_id, item_id, relevance). Constructing inside the fit method. Used for predict of replay_model.
+        :param log: Log of interactions (user_id, item_id, relevance).
+                    Constructing inside the fit method. Used for predict of replay_model.
     """
 
     replay_model: Optional[BaseRecommender] = None
@@ -85,14 +81,6 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
     _logger: Optional[logging.Logger] = None
     _objective = OBPObjective
 
-    def __post_init__(self) -> None:
-        """Initialize class"""
-
-        super().__post_init__()
-
-        if self.replay_model is None:
-            self.replay_model = UCB()
-
     @property
     def logger(self) -> logging.Logger:
         """
@@ -102,17 +90,19 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
             self._logger = logging.getLogger("replay")
         return self._logger
 
-    def fit(
-        self,
-        action: np.ndarray,
-        reward: np.ndarray,
-        timestamp: np.ndarray,
-        context: np.ndarray = None,
-        action_context: np.ndarray = None) -> None:
-        """Fits an offline bandit policy on the given logged bandit data.
+    # pylint: disable=too-many-arguments, arguments-differ
+    def fit(self,
+            action: np.ndarray,
+            reward: np.ndarray,
+            timestamp: np.ndarray,
+            context: np.ndarray = None,
+            action_context: np.ndarray = None) -> None:
+        """
+        Fits an offline bandit policy on the given logged bandit data.
         This `fit` method wraps bandit data and calls `fit` method for the replay_model.
 
-        :param action: Actions sampled by the logging/behavior policy for each data in logged bandit data, i.e., :math:`a_i`.
+        :param action: Actions sampled by the logging/behavior policy
+                       for each data in logged bandit data, i.e., :math:`a_i`.
 
         :param reward: Rewards observed for each data in logged bandit data, i.e., :math:`r_i`.
 
@@ -130,15 +120,20 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
         self.max_usr_id = len(reward)
 
         if context is not None:
-            user_features = convert2spark(context2df(context, np.arange(self.max_usr_id), "user"))
+            user_features = convert2spark(context2df(context,
+                                                     np.arange(self.max_usr_id),
+                                                     "user"))
 
         if action_context is not None:
-            self.item_features = convert2spark(context2df(action_context, np.arange(self.n_actions), "item"))
+            self.item_features = convert2spark(context2df(action_context,
+                                                          np.arange(self.n_actions),
+                                                          "item"))
 
         self.replay_model._fit_wrap(log, user_features, self.item_features)
 
+    # pylint: disable=arguments-renamed
     def predict(self,
-                n_rounds,
+                n_rounds: int = 1,
                 context: np.ndarray = None) -> np.ndarray:
         '''Predict best actions for new data.
         Action set predicted by this `predict` method can contain duplicate items.
@@ -152,25 +147,30 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
 
         user_features = None
         if context is not None:
-            user_features = convert2spark(context2df(context, np.arange(self.max_usr_id, self.max_usr_id + n_rounds), 'user'))
+            user_features = convert2spark(context2df(context,
+                                                     np.arange(self.max_usr_id,
+                                                               self.max_usr_id + n_rounds),
+                                                     'user'))
 
-        users = convert2spark(pd.DataFrame({"user_idx": np.arange(self.max_usr_id, self.max_usr_id + n_rounds)}))
+        users = convert2spark(pd.DataFrame({"user_idx": np.arange(self.max_usr_id,
+                                                                  self.max_usr_id + n_rounds)}))
         items = convert2spark(pd.DataFrame({"item_idx": np.arange(self.n_actions)}))
 
         self.max_usr_id += n_rounds
 
         action_dist = self.replay_model._predict_proba(self.log,
-                                                     users,
-                                                     items,
-                                                     self.len_list,
-                                                     user_features=user_features,
-                                                     item_features=self.item_features,
-                                                     filter_seen_items=False)
+                                                       self.len_list,
+                                                       users,
+                                                       items,
+                                                       user_features=user_features,
+                                                       item_features=self.item_features,
+                                                       filter_seen_items=False)
 
         assert np.allclose(action_dist.sum(1), np.ones(shape=(n_rounds, self.len_list)))
 
         return action_dist
 
+    # pylint: disable=too-many-arguments, too-many-locals, no-member
     def optimize(
         self,
         bandit_feedback: Dict[str, np.ndarray],
@@ -184,12 +184,14 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
         Optimization is carried out over the IPW/DR/DM scores(IPW by default).
 
         :param bandit_feedback: Bandit log data with fields
-                                ``[action, reward, context, action_context, n_rounds, n_actions, position, pscore]``
+                                ``[action, reward, context, action_context,
+                                   n_rounds, n_actions, position, pscore]``
                                 as in OpenBanditPipeline.
 
         :param val_size: Size of validation subset.
 
-        :param param_borders: Dictionary of parameter names with pair of borders for the parameters optimization algorithm.
+        :param param_borders: Dictionary of parameter names with pair of borders
+                              for the parameters optimization algorithm.
 
         :param criterion: Score for optimization. Available are `ipw`, `dr` and `dm`.
 
@@ -200,7 +202,8 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
         :return: Dictionary of parameter names with optimal value of corresponding parameter.
         '''
 
-        bandit_feedback_train, bandit_feedback_val = split_bandit_feedback(bandit_feedback, val_size)
+        bandit_feedback_train,\
+            bandit_feedback_val = split_bandit_feedback(bandit_feedback, val_size)
 
         if self.replay_model._search_space is None:
             self.logger.warning(

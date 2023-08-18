@@ -1,11 +1,8 @@
 import numpy as np
-import pandas as pd
-import collections
 from functools import partial
-from typing import Any, Dict, List, Optional, Callable, Union
+from typing import Any, Dict, List, Optional
 
 from optuna import Trial
-from replay.optuna_objective import ObjectiveWrapper
 
 from obp.ope import (
     OffPolicyEvaluation,
@@ -13,9 +10,12 @@ from obp.ope import (
     InverseProbabilityWeighting,
     DoublyRobust
 )
+from replay.optuna_objective import ObjectiveWrapper
 from replay.obp_evaluation.utils import get_est_rewards_by_reg
 from replay.optuna_objective import suggest_params
 
+
+# pylint: disable=too-many-arguments
 def obp_objective_calculator(
         trial: Trial,
         search_space: Dict[str, List[Optional[Any]]],
@@ -24,7 +24,7 @@ def obp_objective_calculator(
         learner,
         criterion: str,
         k: int,
-    ) -> float:
+) -> float:
     """
     Sample parameters and calculate criterion value
     :param trial: optuna trial
@@ -50,11 +50,11 @@ def obp_objective_calculator(
                 timestamp=timestamp,
                 context=bandit_feedback_train["context"],
                 action_context=bandit_feedback_train["action_context"]
-            )
+                )
 
     action_dist = learner.predict(bandit_feedback_val["n_rounds"],
                                   bandit_feedback_val["context"]
-                                )
+                                  )
 
     ope_estimator = None
     if criterion == "ipw":
@@ -72,7 +72,7 @@ def obp_objective_calculator(
     )
 
     estimated_rewards_by_reg_model = None
-    if criterion == "dm" or criterion == "dr":
+    if criterion in ("dm", "dr"):
         estimated_rewards_by_reg_model = get_est_rewards_by_reg(learner.n_actions,
                                                                 k,
                                                                 bandit_feedback_train,
@@ -84,6 +84,7 @@ def obp_objective_calculator(
     )[criterion]
 
     return estimated_policy_value
+
 
 OBPObjective = partial(
     ObjectiveWrapper, objective_calculator=obp_objective_calculator
