@@ -67,7 +67,7 @@ def test_fit(model, bandit_feedback, replay_obp_learner):
 
 @pytest.mark.parametrize("context", [[[1, 1, 1]], [[0.5, 1, 1]]])
 def test_predict(context, replay_obp_learner):
-    pred = replay_obp_learner.predict(1, context)
+    pred = replay_obp_learner.predict(1, np.array(context, dtype=np.float32))
 
     assert replay_obp_learner.max_usr_id == 4
 
