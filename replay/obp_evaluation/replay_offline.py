@@ -184,9 +184,8 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
         Optimization is carried out over the IPW/DR/DM scores(IPW by default).
 
         :param bandit_feedback: Bandit log data with fields
-                                ``[action, reward, context, action_context,
-                                   n_rounds, n_actions, position, pscore]``
-                                as in OpenBanditPipeline.
+            ``[action, reward, context, action_context,
+            n_rounds, n_actions, position, pscore]`` as in OpenBanditPipeline.
 
         :param val_size: Size of validation subset.
 
