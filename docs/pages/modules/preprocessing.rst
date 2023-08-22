@@ -1,7 +1,12 @@
+Preprocessing
+===================
+
+.. automodule:: replay.preprocessing
+
 .. _data-preparator:
 
 Data Preparation
-=================
+___________________
 
 Replay has a number of requirements for input data.
 We await that input columns are in the form ``[user_id, item_id, timestamp, relevance]``.
@@ -14,5 +19,13 @@ You can convert indexes of your Spark DataFrame with ``Indexer`` class.
 If your DataFrame is in the form of Pandas DataFrame and has different column names, you can either
 preprocess it yourself with ``convert2spark`` function or use ``DataPreparator`` class
 
+
 .. autoclass:: replay.preprocessing.data_preparator.DataPreparator
    :members:
+
+
+Filters
+___________________
+
+.. automodule:: replay.preprocessing.filters
+    :members:

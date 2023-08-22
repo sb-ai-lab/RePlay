@@ -22,7 +22,7 @@ There are also requirements regarding column names.
 user_idx and item_idx should be numerical indexes starting at zero without gaps. 
 This is important for models that use sparse matrices and estimate their dimensions on biggest seen index.
 
-You should convert your data with [Indexer](modules/data_preparator.rst) class. 
+You should convert your data with [Indexer](modules/preprocessing.rst) class. 
 It will store label encoders for you to convert raw id to idx and back.
 
 ### Timestamp requirements
