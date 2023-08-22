@@ -1,10 +1,12 @@
 import pytest
+import logging
 import numpy as np
 import pandas as pd
 
 from replay.obp_evaluation.replay_offline import RePlayOfflinePolicyLearner
 from replay.obp_evaluation.utils import split_bandit_feedback
 from replay.models import RandomRec
+from replay.logger import get_logger
 
 
 @pytest.fixture
@@ -39,6 +41,10 @@ def model():
     return RandomRec(seed=42)
 
 
+def test_logger():
+    logger = get_logger("replay", logging.INFO)
+
+
 @pytest.fixture
 def replay_obp_learner(model, bandit_feedback):
     learner = RePlayOfflinePolicyLearner(n_actions=2,
@@ -52,6 +58,8 @@ def replay_obp_learner(model, bandit_feedback):
                 timestamp=bandit_feedback["timestamp"],
                 context=bandit_feedback["context"],
                 action_context=bandit_feedback["action_context"])
+
+    logger = learner.logger
 
     return learner
 
@@ -72,9 +80,14 @@ def test_predict(context, replay_obp_learner):
     assert replay_obp_learner.max_usr_id == 4
 
 
-@pytest.mark.parametrize("val_size", [0.3])
-def test_optimize(bandit_feedback, replay_obp_learner, val_size):
-    best_params = replay_obp_learner.optimize(bandit_feedback, val_size, budget=2)
+@pytest.mark.parametrize("val_size,criterion", [(0.3, "ipw"),
+                                                (0.3, "dm"),
+                                                (0.3, "dr")])
+def test_optimize(bandit_feedback, replay_obp_learner, val_size, criterion):
+    best_params = replay_obp_learner.optimize(bandit_feedback,
+                                              val_size,
+                                              budget=2,
+                                              criterion=criterion)
 
     assert replay_obp_learner.replay_model.alpha == best_params["alpha"]
     assert replay_obp_learner.replay_model.distribution == best_params["distribution"]
