@@ -87,10 +87,15 @@ def drop_duplicates(recommendations: AnyDataFrame) -> DataFrame:
 
 def filter_sort(recommendations: DataFrame, extra_column: str = None) -> DataFrame:
     """
-    Filter duplicated predictions by choosing the most relevant,
-    sort items in predictions by relevance,
-     and return DataFrame with extra_column if exist
+    Filters duplicated predictions by choosing items with the highest relevance,
+    Sorts items in predictions by its relevance,
+    If `extra_column` is not None return DataFrame with extra_column e.g. item weight.
 
+    :param recommendations: recommendation list
+    :param extra_column: column in recommendations
+        which will be return besides ``[user_idx, item_idx]``
+    :return: ``[user_idx, item_idx]`` if extra_column = None
+        or ``[user_idx, item_idx, extra_column]`` if extra_column exists.
     """
     item_type = recommendations.schema["item_idx"].dataType
     extra_column_type = recommendations.schema[extra_column].dataType if extra_column else None
