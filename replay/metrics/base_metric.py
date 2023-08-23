@@ -85,45 +85,40 @@ def drop_duplicates(recommendations: AnyDataFrame) -> DataFrame:
     )
 
 
-def filter_sort(recommendations: DataFrame, *extra_columns: str) -> DataFrame:
+def filter_sort(recommendations: DataFrame, extra_column: str = None) -> DataFrame:
     """
     Filter duplicated predictions by choosing the most relevant,
     sort items in predictions by relevance,
-     and return DataFrame with extra_columns if exist
+     and return DataFrame with extra_column if exist
+
     """
     item_type = recommendations.schema["item_idx"].dataType
-    extra_col_type = recommendations.schema[extra_columns[0]].dataType if extra_columns else None
+    extra_column_type = recommendations.schema[extra_column].dataType if extra_column else None
 
     recommendations = drop_duplicates(recommendations)
 
     recommendations = (
         recommendations
         .groupby("user_idx")
-        .agg(sf.collect_list(sf.struct("relevance", "item_idx", *extra_columns)).alias("pred_list"))
+        .agg(
+            sf.collect_list(
+                sf.struct(*[c for c in ["relevance", "item_idx", extra_column] if c is not None]))
+            .alias("pred_list"))
         .withColumn("pred_list", sf.reverse(sf.array_sort("pred_list")))
     )
 
-    selection = ["user_idx", sf.col("pred_list.item_idx").alias("pred")]
-    if extra_columns:
-        selection.append(sf.col(f"pred_list.{extra_columns[0]}"))
-
-    recommendations = (
-        recommendations.select(*selection)
-        .withColumn(
-            "pred",
-            sf.col("pred").cast(st.ArrayType(item_type, True))
-        ))
-
-    if extra_columns:
-        recommendations = (
-            recommendations
-            .withColumn(
-                f"{extra_columns[0]}",
-                sf.col(f"{extra_columns[0]}").cast(
-                    st.ArrayType(extra_col_type, True)
-                )
-            )
+    selection = [
+        "user_idx",
+        sf.col("pred_list.item_idx")
+        .cast(st.ArrayType(item_type, True)).alias("pred")
+    ]
+    if extra_column:
+        selection.append(
+            sf.col(f"pred_list.{extra_column}")
+            .cast(st.ArrayType(extra_column_type, True))
         )
+
+    recommendations = recommendations.select(*selection)
 
     return recommendations
 
