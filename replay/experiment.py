@@ -34,14 +34,14 @@ class Experiment:
     >>> ex.add_result("model", pred)
     >>> ex.results
                          NDCG@2    NDCG@3  Surprisal@3
-    baseline           0.613147  0.469279     1.000000
-    baseline_gt_users  0.306574  0.234639     0.500000
+    baseline           0.386853  0.296082     1.000000
+    baseline_gt_users  0.193426  0.148041     0.500000
     model              0.386853  0.530721     0.666667
     >>> ex.compare("baseline")
-                            NDCG@2  NDCG@3 Surprisal@3
-    baseline                 –       –           –
-    baseline_gt_users   -50.0%  -50.0%      -50.0%
-    model              -36.91%  13.09%     -33.33%
+                       NDCG@2  NDCG@3 Surprisal@3
+    baseline                –       –           –
+    baseline_gt_users  -50.0%  -50.0%      -50.0%
+    model                0.0%  79.25%     -33.33%
     >>> ex = Experiment(test, {Precision(): [3]}, calc_median=True, calc_conf_interval=0.95)
     >>> ex.add_result("baseline", recs)
     >>> ex.add_result("model", pred)
