@@ -7,6 +7,7 @@ from replay.models.base_rec import NonPersonalizedRecommender
 from replay.utils import unpersist_after, unionify
 
 
+# pylint: disable=too-many-instance-attributes
 class RandomRec(NonPersonalizedRecommender):
     """
     Recommend random items, either weighted by item popularity or uniform.

@@ -113,6 +113,7 @@ class ClusterRec(UserRecommender, PartialFitMixin):
     ) -> None:
         self._fit_partial(log, user_features)
 
+    # pylint: disable=arguments-renamed
     def fit_partial(
         self,
         log: DataFrame,

@@ -292,7 +292,7 @@ class ItemKNN(NeighbourRec, PartialFitMixin):
             )
             vectors = self._get_vectors_to_build_ann(log)
             ann_params = self._get_ann_build_params(log)
-            self._build_ann_index(vectors, **ann_params)
+            self.index_builder.build_index(vectors, **ann_params)
 
     def _fit_partial(
         self,
@@ -309,9 +309,10 @@ class ItemKNN(NeighbourRec, PartialFitMixin):
             else sf.lit(1).alias("relevance"),  # pylint: disable=no-member
         )
 
+        # pylint: disable=fixme
         # TODO: fit_partial integration with ANN index
         # TODO: no need for special integration, because you need to rebuild the whole
-        #  index if set of items have been chnaged
+        #  index if set of items have been changed
         #  and no need for rebuilding if only user sets have changes
         similarity_matrix = self._get_similarity(log, previous_log)
         similarity_matrix = unionify(similarity_matrix, self.similarity)
