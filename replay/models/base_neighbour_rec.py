@@ -37,7 +37,8 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
 
     def _clear_cache(self):
         if hasattr(self, "similarity"):
-            self.similarity.unpersist()
+            if self.similarity:
+                self.similarity.unpersist()
 
     # pylint: disable=missing-function-docstring
     @property
