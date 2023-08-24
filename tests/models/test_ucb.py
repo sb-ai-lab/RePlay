@@ -82,9 +82,12 @@ def test_predict(fitted_model, log_ucb, sample, seed):
     pred.unpersist()
 
     # predictions are equal/non-equal after model re-fit
-    fitted_model.fit(log_ucb)
+    new_ucb_model = UCB()
+    new_ucb_model.seed = seed
+    new_ucb_model.sample = sample
+    new_ucb_model.fit(log_ucb)
 
-    pred_after_refit = fitted_model.predict(
+    pred_after_refit = new_ucb_model.predict(
         log_ucb, items=list(range(10)), k=1
     )
     equality_check(pred_checkpoint, pred_after_refit)

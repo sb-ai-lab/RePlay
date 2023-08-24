@@ -10,7 +10,8 @@ from tests.utils import log, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
 @pytest.fixture(
     params=[
         {"seed": 123},
-        {},
+        {"sample": True},  # added sample here,
+        # because RandomRec.predict generates the same predict without seed
         {"distribution": "popular_based", "seed": 123},
         {"distribution": "relevance", "seed": 123},
     ],

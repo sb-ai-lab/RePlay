@@ -228,7 +228,11 @@ class RandomRec(NonPersonalizedRecommender):
             else:
                 item_popularity = unionify(
                     log.select("item_idx", sf.lit(1.0).alias("relevance")),  # pylint: disable=no-member
-                    self.item_popularity,
+                    self.item_popularity.select(
+                        "item_idx", sf.lit(1.0).alias("relevance")  # pylint: disable=no-member
+                    )
+                    if self.item_popularity
+                    else None,
                 ).drop_duplicates(["item_idx"])
 
             self.item_popularity = item_popularity.select(
