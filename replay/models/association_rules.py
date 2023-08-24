@@ -316,20 +316,20 @@ class AssociationRulesItemRec(NeighbourRec, PartialFitMixin):
             frequent_items_cached.unpersist()
 
     # pylint: disable=too-many-arguments
-    def _predict(
-        self,
-        log: DataFrame,
-        k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
-    ) -> None:
-        raise NotImplementedError(
-            f"item-to-user predict is not implemented for {self}, "
-            f"use get_nearest_items method to get item-to-item recommendations"
-        )
+    # def _predict(
+    #     self,
+    #     log: DataFrame,
+    #     k: int,
+    #     users: DataFrame,
+    #     items: DataFrame,
+    #     user_features: Optional[DataFrame] = None,
+    #     item_features: Optional[DataFrame] = None,
+    #     filter_seen_items: bool = True,
+    # ) -> None:
+    #     raise NotImplementedError(
+    #         f"item-to-user predict is not implemented for {self}, "
+    #         f"use get_nearest_items method to get item-to-item recommendations"
+    #     )
 
     @property
     def get_similarity(self):
