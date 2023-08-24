@@ -29,6 +29,7 @@ ___________________
     "Wrapper for implicit", "Python CPU"
     "Wrapper for LightFM", "Python CPU"
     "RL-based CQL Recommender", "PySpark"
+    "Hierarchical Recommender", "Python CPU"
 
 To get more info on how to choose base model, please see this  :doc:`page </pages/useful_data/algorithm_selection>`.
 
@@ -296,3 +297,13 @@ implicit
 ````````
 .. autoclass:: replay.models.ImplicitWrap
     :special-members: __init__
+
+uLinUCB
+```````
+.. autoclass:: replay.models.uLinUCB
+   :special-members: __init__
+
+Hierarchical Recommender
+````````````````````````
+.. autoclass:: replay.models.HierarchicalRecommender
+   :special-members: __init__
