@@ -12,13 +12,13 @@ import pyspark.sql.functions as sf
 from pyspark.sql.types import (
     IntegerType,
     StructField,
-    StructType, ArrayType, DoubleType,
+    StructType, ArrayType, DoubleType
 )
 
 from replay.constants import LOG_SCHEMA, REC_SCHEMA
 from replay.metrics import *
 from replay.distributions import item_distribution
-from replay.metrics.base_metric import get_enriched_recommendations, sorter
+from replay.metrics.base_metric import get_enriched_recommendations, drop_duplicates, filter_sort
 
 from tests.utils import (
     assert_allclose,
@@ -423,15 +423,40 @@ def test_duplicate_recs(quality_metrics, duplicate_recs, recs, true):
         )
 
 
-def test_sorter():
-    result = sorter(((1, 2), (2, 3), (3, 2)))
-    assert result == [2, 3]
+def test_drop_duplicates(spark, duplicate_recs):
+    recs = drop_duplicates(duplicate_recs)
+    gt = spark.createDataFrame(
+        data=[
+            [0, 0, 3.0],
+            [0, 1, 2.0],
+            [0, 2, 1.0],
+            [1, 0, 3.0],
+            [1, 1, 4.0],
+            [1, 4, 1.0],
+            [2, 0, 5.0],
+            [2, 2, 1.0],
+            [2, 3, 2.0]
+        ],
+        schema=REC_SCHEMA,)
+    sparkDataFrameEqual(recs, gt)
 
 
-def test_sorter_index():
-    ids, weights = sorter(((1, 2, 3), (2, 3, 4), (3, 3, 5)), extra_position=2)
-    assert ids == [3, 2]
-    assert weights == [5, 3]
+def test_filter_sort(spark, duplicate_recs):
+    recs = filter_sort(duplicate_recs)
+    gt = spark.createDataFrame(
+        data=[
+            [0, [0, 1, 2]],
+            [1, [1, 0, 4]],
+            [2, [0, 3, 2]]
+        ],
+        schema=StructType(
+            [
+                StructField("user_idx", IntegerType()),
+                StructField("pred", ArrayType(IntegerType()))
+            ]
+        )
+    )
+    sparkDataFrameEqual(recs, gt)
 
 
 def test_ncis_raises(prev_relevance):
