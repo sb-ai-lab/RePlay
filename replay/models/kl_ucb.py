@@ -9,14 +9,14 @@ from scipy.optimize import root_scalar
 
 class KL_UCB(UCB):
     """
-    Single actor Bernoulli `bandit model
+    Bernoulli `bandit model
     <https://en.wikipedia.org/wiki/Multi-armed_bandit>`_. Same to :class:`UCB`
     computes item relevance as an upper confidence bound of true fraction of
     positive interactions.
 
     In a nutshell, KL-UCB сonsiders the data as the history of interactions
     with items. The interaction may be either positive or negative. For each
-    item the model computes the empirical frequency of positive interactions
+    item the model computes empirical frequency of positive interactions
     and estimates the true frequency with an upper confidence bound. The higher
     the bound for an item is the more relevant it is presumed.
 
@@ -64,7 +64,8 @@ class KL_UCB(UCB):
     with columns ``[user_idx, item_idx, timestamp, relevance]``. Following the
     procedure above, KL-UCB would see each row as a record of an interaction
     with ``item_idx`` with positive (relevance = 1) or negative (relevance = 0)
-    outcome. ``user_idx`` and ``timestamp`` are ignored.
+    outcome. ``user_idx`` and ``timestamp`` are ignored i.e. the model treats
+    log as non-personalized - item scores are same for all users.
 
     If ``relevance`` column is not of 0/1 initially, then you have to decide
     what kind of relevance has to be considered as positive and convert
@@ -113,7 +114,7 @@ class KL_UCB(UCB):
 
     def _calc_item_popularity(self):
 
-        rhs = math.log(self.full_count) \
+        right_hand_side = math.log(self.full_count) \
             + self.coef * math.log(math.log(self.full_count))
         eps = 1e-12
 
@@ -126,20 +127,20 @@ class KL_UCB(UCB):
 
             if (p == 0) :
                 ucb = root_scalar(
-                    f=lambda q: math.log(1 / (1 - q)) - rhs,
+                    f=lambda q: math.log(1 / (1 - q)) - right_hand_side,
                     bracket=[0, 1 - eps],
                     method='brentq').root
                 return ucb
 
             if (p == 1) :
                 ucb = root_scalar(
-                    f=lambda q: math.log(1 / q) - rhs,
+                    f=lambda q: math.log(1 / q) - right_hand_side,
                     bracket=[0 + eps, 1],
                     method='brentq').root
                 return ucb
 
             ucb = root_scalar(
-                f=lambda q: total * Bernoulli_KL(p, q) - rhs,
+                f=lambda q: total * Bernoulli_KL(p, q) - right_hand_side,
                 bracket=[p, 1 - eps],
                 method='brentq').root
             return ucb
