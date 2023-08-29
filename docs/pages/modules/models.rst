@@ -15,6 +15,7 @@ ___________________
     "Wilson Recommender", "PySpark"
     "Random Recommender", "PySpark"
     "UCB", "PySpark"
+    "uLinUCB", "Python CPU"
     "Thompson Sampling", "PySpark"
     "K-Nearest Neighbours", "PySpark"
     "Alternating Least Squares", "PySpark"
@@ -297,6 +298,10 @@ implicit
 ````````
 .. autoclass:: replay.models.ImplicitWrap
     :special-members: __init__
+
+
+Other models
+____________________________________________________
 
 uLinUCB
 ```````

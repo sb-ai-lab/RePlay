@@ -45,6 +45,8 @@ The same goes for new items.
 |LightFM Wrap               |Hybrid           | [depends on loss](https://making.lyst.com/lightfm/docs/lightfm.html#lightfm)       | + | + |
 |Implicit Wrap              |Collaborative    | [depends on model](https://implicit.readthedocs.io/en/latest/index.html)    | - | - |
 |Two Stages Scenario        |Hybrid           | converted to unary ratings for second level    | `*` | `*` |
+|uLinUCB                    |Hybrid           | converted to unary ratings             | - | - |
+|Hierarchical Recommender   |Hybrid           | converted to unary ratings             |`*`| - |
 
 `*` - depends on base models. 
 
@@ -74,6 +76,8 @@ The same goes for new items.
 |LightFM  Wrap                | + | + | + | + |
 |Implicit Wrap                | + | - | - | + |
 |Two Stages Scenario          | + | `*` | `*` | `*` |
+|uLinUCB                      | + | + | + | - |
+|Hierarchical Recommender     |`*`|`*`|`*`|`*`|
 
 `*` - depends on base models. 
 

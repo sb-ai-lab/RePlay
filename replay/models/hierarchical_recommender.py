@@ -1,15 +1,3 @@
-#TODO
-# docs in .rst
-# experiments (02_model_comparison)
-
-# To the Contributor
-# - make smart cluster embeddings
-# - add support of more than HybridRecommenders
-# - translate Pandas to PySpark
-# - add predict_proba usage (when ready) and other prediction schemes (sample, and predict proba)
-# - something that you come up with yourself!
-#
-
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -21,19 +9,42 @@ from replay.models.base_rec import HybridRecommender
 from replay.models.u_lin_ucb import uLinUCB
 from replay.utils import convert2spark
 
+#`article <https://arxiv.org/abs/2110.09905>`_.
 
 class HierarchicalRecommender(HybridRecommender):
     """
-    Hierarchical Recommender class inspired by 
-    `Song et al <https://arxiv.org/pdf/1102.2490.pdf>`_. The recommender 
-    sequentially clusterizes the item space constructing a tree of given depth. 
-    At each node of the tree a simple recommeneder operates. If not a leaf the 
-    item space of a node recommender is children nodes, otherwise, some cluster 
-    of the initial item space. At the fitting stage the hierarchical 
-    recommender sequantially fits recommenders at nodes for them to learn which 
-    child or item to recommend for each user. To make a prediction for a user 
-    the recommender sieves down the tree making a path to the predicted item by 
-    selecting recommended child at each node.
+    Hierarchical Recommender class is inspired by 
+    `the article of Song et al <https://arxiv.org/abs/2110.09905>`_ and is a
+    generalization of the method. By default it works as HCB proposed there.
+
+    The model sequentially clusterizes the item space constructing a tree of
+    given ``depth``. The clusterization is performed according to the
+    ``cluster_model`` - any sklearn clusterer instance provided by the user.
+
+    At each node of a tree a node recommender instance is mounted. All of them
+    are produced by ``recommender_class`` object (not an instance!) and are
+    initialized with ``recommender_params``.
+
+    To predict an item the model goes down the tree each time selecting the
+    next node as the one predicted by the parent node recommender. A leaf
+    node recommender would give an item itself.
+    
+    The log is considered as the history of user-item interactions. To fit
+    the model each interaction is counted in all node recommenders on the
+    path from the root to the item as if such path would be traversed through
+    the prediction process.
+
+    Hierarchical Recommender may be useful to enhance the perforamance of
+    simple models not suitable for large item space problems (such as many
+    contextual bandits) and to reduce prediction time in models that need to
+    iterate through all of the items to make a recommendation.
+
+    In this version Hierarchical Recommender is implemented as
+    ``HybridRecommender`` and apart from ``log`` requires both ``item_features``
+    and ``user_features`` in ``fit()`` method. By the same reason only
+    ``HybridRecommender`` classess may be passed as a ``recommender_class``.
+    Need in features at ``predict()`` depends on the ``recommender_class``
+    itself.
     """
 
     def __init__(
@@ -45,9 +56,9 @@ class HierarchicalRecommender(HybridRecommender):
     ):
         """
         :param depth: depth of the item tree
-        :param cluster_model: an sklearn.cluseter object (or any with similar 
+        :param cluster_model: an sklearn.cluster object (or any with similar 
             API) that would perform clustering on the item space
-        :param recommender_class: a RePlay recommeder class object (not an 
+        :param recommender_class: a RePlay hybrid recommender class object (not an 
             instance!) instances of which would be mounted at each tree node
         :param recommender_params: initialization parameters for the recommenders
         """

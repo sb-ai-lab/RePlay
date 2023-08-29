@@ -8,7 +8,8 @@ from replay.utils import convert2spark
 
 class uLinUCB(HybridRecommender):
     """
-    A recommender implicitly proposed by `Song et al <https://arxiv.org/pdf/1102.2490.pdf>`_.
+    A recommender implicitly proposed by 
+    `Song et al <https://arxiv.org/abs/2110.09905>`_.
     Is used as the default node recommender in :class:`HierarchicalRecommender`.
     Shares all the logic with classical item-disjoint :class:`LinUCB` but is 
     user-disjoint instead. May be useful in problems with fixed number of users
