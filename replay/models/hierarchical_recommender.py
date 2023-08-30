@@ -9,8 +9,6 @@ from replay.models.base_rec import HybridRecommender
 from replay.models.u_lin_ucb import uLinUCB
 from replay.utils import convert2spark
 
-#`article <https://arxiv.org/abs/2110.09905>`_.
-
 class HierarchicalRecommender(HybridRecommender):
     """
     Hierarchical Recommender class is inspired by 
