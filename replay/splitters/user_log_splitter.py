@@ -6,9 +6,9 @@ from typing import Optional, Union
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
 
-from replay.constants import AnyDataFrame
+from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter, SplitterReturnType
-from replay.utils import convert2spark
+from replay.utils.spark_utils import convert2spark
 
 
 # pylint: disable=too-few-public-methods
@@ -18,7 +18,7 @@ class UserSplitter(Splitter):
 
     Example:
 
-    >>> from replay.session_handler import get_spark_session, State
+    >>> from replay.utils.session_handler import get_spark_session, State
     >>> spark = get_spark_session(1, 1)
     >>> state = State(spark)
 
@@ -37,7 +37,7 @@ class UserSplitter(Splitter):
     4         2         2          5          2
     5         2         3          6          1
 
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> data_frame = convert2spark(data_frame)
 
     By default, test is one last item for each user

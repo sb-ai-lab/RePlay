@@ -5,14 +5,9 @@ Modules
    :maxdepth: 4
    :caption: Contents:
 
-   modules/filters
-   modules/time
-   modules/models
-   modules/saver
+   modules/preprocessing
    modules/splitters
+   modules/models
    modules/metrics
-   modules/experiment
    modules/scenarios
-   modules/data_preparator
-   modules/distributions
-
+   modules/utils

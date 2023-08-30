@@ -4,14 +4,14 @@ from datetime import datetime
 import pytest
 import numpy as np
 
-from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.ann.index_builders.driver_nmslib_index_builder import (
+from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import (
     DriverNmslibIndexBuilder,
 )
-from replay.ann.index_stores.spark_files_index_store import (
+from replay.models.extensions.ann.index_stores.spark_files_index_store import (
     SparkFilesIndexStore,
 )
-from replay.constants import LOG_SCHEMA
+from replay.data import LOG_SCHEMA
 from replay.models import ItemKNN
 from tests.utils import spark
 

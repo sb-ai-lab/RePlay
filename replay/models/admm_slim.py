@@ -6,9 +6,9 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from scipy.sparse import coo_matrix, csr_matrix
 
-from replay.ann.index_builders.base_index_builder import IndexBuilder
+from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_neighbour_rec import NeighbourRec
-from replay.session_handler import State
+from replay.utils.session_handler import State
 
 
 # pylint: disable=too-many-arguments, too-many-locals

@@ -5,8 +5,8 @@ import pandas as pd
 from pyspark.sql import DataFrame
 
 from replay.models.base_rec import Recommender
-from replay.utils import to_csr, save_picklable_to_parquet, load_pickled_from_parquet
-from replay.constants import REC_SCHEMA
+from replay.utils.spark_utils import to_csr, save_picklable_to_parquet, load_pickled_from_parquet
+from replay.data import REC_SCHEMA
 
 
 class ImplicitWrap(Recommender):
@@ -23,7 +23,7 @@ class ImplicitWrap(Recommender):
     with conversions made under the hood.
 
     >>> import pandas as pd
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> df = pd.DataFrame({"user_idx": [1, 1, 2, 2], "item_idx": [1, 2, 2, 3], "relevance": [1, 1, 1, 1]})
     >>> df = convert2spark(df)
     >>> als.fit_predict(df, 1, users=[1])[["user_idx", "item_idx"]].toPandas()

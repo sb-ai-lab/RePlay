@@ -5,7 +5,7 @@ import pytest
 import numpy as np
 from pyspark.sql import functions as sf
 
-from replay.constants import LOG_SCHEMA
+from replay.data import LOG_SCHEMA
 from replay.models import ADMMSLIM
 from tests.utils import spark
 

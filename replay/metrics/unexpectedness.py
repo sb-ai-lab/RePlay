@@ -2,13 +2,13 @@ from typing import Optional
 
 from pyspark.sql import DataFrame
 
-from replay.constants import AnyDataFrame
+from replay.data import AnyDataFrame
 from replay.metrics.base_metric import (
     RecOnlyMetric,
     fill_na_with_empty_array,
     filter_sort
 )
-from replay.utils import convert2spark, get_top_k_recs
+from replay.utils.spark_utils import convert2spark, get_top_k_recs
 
 
 # pylint: disable=too-few-public-methods
@@ -17,7 +17,7 @@ class Unexpectedness(RecOnlyMetric):
     Fraction of recommended items that are not present in some baseline recommendations.
 
     >>> import pandas as pd
-    >>> from replay.session_handler import get_spark_session, State
+    >>> from replay.utils.session_handler import get_spark_session, State
     >>> spark = get_spark_session(1, 1)
     >>> state = State(spark)
 

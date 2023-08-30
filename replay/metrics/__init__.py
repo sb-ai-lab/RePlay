@@ -59,3 +59,4 @@ from replay.metrics.recall import Recall
 from replay.metrics.rocauc import RocAuc
 from replay.metrics.surprisal import Surprisal
 from replay.metrics.unexpectedness import Unexpectedness
+from replay.metrics.experiment import Experiment

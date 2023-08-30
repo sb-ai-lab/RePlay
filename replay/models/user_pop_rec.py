@@ -28,7 +28,7 @@ class UserPopRec(Recommender):
     1         1         2          1
     2         3         3          1
 
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> data_frame = convert2spark(data_frame)
     >>> model = UserPopRec()
     >>> res = model.fit_predict(data_frame, 1, filter_seen_items=False)

@@ -4,11 +4,11 @@ import numpy as np
 
 from pyspark.sql import functions as sf
 
-from replay.ann.entities.hnswlib_param import HnswlibParam
-from replay.ann.index_builders.executor_hnswlib_index_builder import (
+from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
+from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import (
     ExecutorHnswlibIndexBuilder,
 )
-from replay.ann.index_stores.shared_disk_index_store import (
+from replay.models.extensions.ann.index_stores.shared_disk_index_store import (
     SharedDiskIndexStore,
 )
 from replay.models import ALSWrap

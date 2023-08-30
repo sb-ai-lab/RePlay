@@ -17,7 +17,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.column import Column
 
-from replay.ann.ann_mixin import ANNMixin
+from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.models.base_rec import Recommender
 
 

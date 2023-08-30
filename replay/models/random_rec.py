@@ -24,12 +24,12 @@ class RandomRec(NonPersonalizedRecommender):
     As the recommendations from `predict` are cached, save them to disk, or create a checkpoint
     and unpersist them to get different recommendations after another `predict` call.
 
-    >>> from replay.session_handler import get_spark_session, State
+    >>> from replay.utils.session_handler import get_spark_session, State
     >>> spark = get_spark_session(1, 1)
     >>> state = State(spark)
 
     >>> import pandas as pd
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>>
     >>> log = convert2spark(pd.DataFrame({
     ...     "user_idx": [1, 1, 2, 2, 3, 4],

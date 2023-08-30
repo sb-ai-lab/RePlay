@@ -5,8 +5,8 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 
-from replay.constants import AnyDataFrame
-from replay.utils import convert2spark, get_top_k_recs
+from replay.data import AnyDataFrame
+from replay.utils.spark_utils import convert2spark, get_top_k_recs
 from replay.metrics.base_metric import fill_na_with_empty_array, RecOnlyMetric, filter_sort
 
 

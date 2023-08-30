@@ -9,23 +9,23 @@ Default session will be created automatically and can be accessed as a ``session
 
 .. code-block:: python
 
-    from replay.session_handler import State
+    from replay.utils.session_handler import State
     State().session
 
 There is also a helper function to provide basic settings for the creation of Spark session
 
-.. autofunction:: replay.session_handler.get_spark_session
+.. autofunction:: replay.utils.session_handler.get_spark_session
 
 You can pass any Spark session to ``State`` for it to be available in library.
 
 .. code-block:: python
 
-    from replay.session_handler import get_spark_session
+    from replay.utils.session_handler import get_spark_session
     session = get_spark_session(2)
     State(session)
 
 
-.. autoclass:: replay.session_handler.State
+.. autoclass:: replay.utils.session_handler.State
 
 Logging
 ------------
