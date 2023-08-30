@@ -4,7 +4,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from replay.models.base_rec import IsSavable, RecommenderCommons
-from replay.utils import (
+from replay.utils.spark_utils import (
     get_top_k,
     get_unique_entities,
     filter_cold,

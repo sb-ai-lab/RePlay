@@ -142,7 +142,6 @@ out
 gen
 
 ### User ignores
-data/
 pyvenv.cfg
 *~
 tmp/

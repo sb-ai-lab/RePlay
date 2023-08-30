@@ -30,7 +30,7 @@ class PopRec(NonPersonalizedRecommender):
     4         3         3        0.7
     5         4         3        1.0
 
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> data_frame = convert2spark(data_frame)
 
     >>> res = PopRec().fit_predict(data_frame, 1)

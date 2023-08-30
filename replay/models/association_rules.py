@@ -5,7 +5,7 @@ import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
 
-from replay.ann.index_builders.base_index_builder import IndexBuilder
+from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_neighbour_rec import NeighbourRec
 
 
@@ -35,7 +35,7 @@ class AssociationRulesItemRec(NeighbourRec):
     1         1         2          1
     2         2         2          4
     3         3         3          1
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> from replay.models import AssociationRulesItemRec
     >>> data_frame = convert2spark(data_frame)
     >>> data_frame_for_predict = convert2spark(data_frame_for_predict)

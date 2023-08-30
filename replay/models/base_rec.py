@@ -37,11 +37,11 @@ from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 from pyspark.sql.column import Column
 
-from replay.constants import REC_SCHEMA
+from replay.data import REC_SCHEMA
 from replay.metrics import Metric, NDCG
-from replay.optuna_objective import SplitData, MainObjective
-from replay.session_handler import State
-from replay.utils import (
+from replay.optimization.optuna_objective import SplitData, MainObjective
+from replay.utils.session_handler import State
+from replay.utils.spark_utils import (
     cache_temp_view,
     convert2spark,
     cosine_similarity,
