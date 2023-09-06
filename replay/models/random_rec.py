@@ -4,7 +4,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from replay.models.base_rec import NonPersonalizedRecommender
-from replay.utils import unpersist_after, unionify
+from replay.utils.spark_utils import unpersist_after, unionify
 
 
 # pylint: disable=too-many-instance-attributes

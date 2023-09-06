@@ -8,7 +8,7 @@ from replay.models.extensions.ann.index_builders.base_index_builder import Index
 from replay.models.base_neighbour_rec import NeighbourRec
 from replay.models.base_rec import PartialFitMixin
 from replay.optimization.optuna_objective import ItemKNNObjective
-from replay.utils import unionify
+from replay.utils.spark_utils import unionify
 
 import warnings
 

@@ -8,7 +8,7 @@ from pyspark.sql.window import Window
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_neighbour_rec import NeighbourRec
 from replay.models.base_rec import PartialFitMixin
-from replay.utils import unpersist_after, unionify
+from replay.utils.spark_utils import unpersist_after, unionify
 
 
 # pylint: disable=too-many-ancestors, too-many-instance-attributes

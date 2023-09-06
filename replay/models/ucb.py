@@ -7,7 +7,7 @@ from pyspark.sql import functions as sf
 
 from replay.metrics import Metric, NDCG
 from replay.models.base_rec import NonPersonalizedRecommender
-from replay.utils import unpersist_after, unionify
+from replay.utils.spark_utils import unpersist_after, unionify
 
 
 class UCB(NonPersonalizedRecommender):

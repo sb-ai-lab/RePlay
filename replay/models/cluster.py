@@ -6,7 +6,7 @@ from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 
 from replay.models.base_rec import UserRecommender, PartialFitMixin
-from replay.utils import unionify, unpersist_after
+from replay.utils.spark_utils import unionify, unpersist_after
 
 
 class ClusterRec(UserRecommender, PartialFitMixin):

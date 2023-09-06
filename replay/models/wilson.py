@@ -5,7 +5,7 @@ from pyspark.sql import functions as sf
 from scipy.stats import norm
 
 from replay.models.pop_rec import PopRec
-from replay.utils import unionify, unpersist_after
+from replay.utils.spark_utils import unionify, unpersist_after
 
 
 # pylint: disable=too-many-ancestors
