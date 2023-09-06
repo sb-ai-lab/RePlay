@@ -177,7 +177,7 @@ class UCB(NonPersonalizedRecommender):
 
             self.item_popularity.cache().count()
 
-            self.fill = 1 + math.sqrt(math.log(self.coef * self.full_count))
+            self.fill = 1 + math.sqrt(self.coef * math.log(self.full_count))
 
     # pylint: disable=too-many-arguments
     def _predict(
