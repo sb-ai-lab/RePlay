@@ -95,13 +95,13 @@ class RandomRec(NonPersonalizedRecommender):
     >>> random_pop = RandomRec(seed=555)
     >>> random_pop.fit(log)
     >>> random_pop.item_popularity.show()
-    +--------+---------+
-    |item_idx|relevance|
-    +--------+---------+
-    |       1|      1.0|
-    |       2|      1.0|
-    |       3|      1.0|
-    +--------+---------+
+    +--------+------------------+
+    |item_idx|         relevance|
+    +--------+------------------+
+    |       1|0.3333333333333333|
+    |       2|0.3333333333333333|
+    |       3|0.3333333333333333|
+    +--------+------------------+
     <BLANKLINE>
     """
 
@@ -122,7 +122,7 @@ class RandomRec(NonPersonalizedRecommender):
         seed: Optional[int] = None,
         add_cold_items: bool = True,
         cold_weight: float = 0.5,
-        sample: bool = False,
+        sample: bool = True,
     ):
         """
         :param distribution: recommendation strategy:
