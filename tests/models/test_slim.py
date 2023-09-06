@@ -5,12 +5,12 @@ import numpy as np
 
 from pyspark.sql import functions as sf
 
-from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.ann.index_builders.executor_nmslib_index_builder import (
+from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.models.extensions.ann.index_builders.executor_nmslib_index_builder import (
     ExecutorNmslibIndexBuilder,
 )
-from replay.ann.index_builders.nmslib_index_builder_mixin import NmslibIndexBuilderMixin
-from replay.ann.index_stores.shared_disk_index_store import (
+from replay.models.extensions.ann.index_builders.nmslib_index_builder_mixin import NmslibIndexBuilderMixin
+from replay.models.extensions.ann.index_stores.shared_disk_index_store import (
     SharedDiskIndexStore,
 )
 from replay.models import SLIM

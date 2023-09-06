@@ -6,7 +6,7 @@ import torch
 import numpy as np
 from pytorch_ranger import Ranger
 
-from replay.constants import LOG_SCHEMA
+from replay.data import LOG_SCHEMA
 from replay.models import DDPG
 from replay.models.ddpg import (
     ActorDRR,

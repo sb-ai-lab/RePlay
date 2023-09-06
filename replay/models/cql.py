@@ -25,9 +25,9 @@ from d3rlpy.models.q_functions import create_q_func_factory
 from d3rlpy.preprocessing import create_scaler, create_action_scaler, create_reward_scaler
 from pyspark.sql import DataFrame, functions as sf, Window
 
-from replay.constants import REC_SCHEMA
+from replay.data import REC_SCHEMA
 from replay.models.base_rec import Recommender
-from replay.utils import assert_omp_single_thread
+from replay.utils.spark_utils import assert_omp_single_thread
 
 
 timer = timeit.default_timer

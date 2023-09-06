@@ -5,17 +5,17 @@ from typing import Dict, Optional, Tuple, List, Union, Any
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 
-from replay.constants import AnyDataFrame
-from replay.data_preparator import ToNumericFeatureTransformer
-from replay.history_based_fp import HistoryBasedFeaturesProcessor
+from replay.data import AnyDataFrame
+from replay.preprocessing.data_preparator import ToNumericFeatureTransformer
+from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.metrics import Metric, Precision
 from replay.models import ALSWrap, RandomRec, PopRec
 from replay.models.base_rec import BaseRecommender, HybridRecommender
 from replay.scenarios.two_stages.reranker import LamaWrap
 
-from replay.session_handler import State
+from replay.utils.session_handler import State
 from replay.splitters import Splitter, UserSplitter
-from replay.utils import (
+from replay.utils.spark_utils import (
     array_mult,
     cache_if_exists,
     fallback,

@@ -5,11 +5,11 @@ import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
-from replay.ann.ann_mixin import ANNMixin
-from replay.ann.index_builders.base_index_builder import IndexBuilder
+from replay.models.extensions.ann.ann_mixin import ANNMixin
+from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.spark_custom_models.recommendation import ALS, ALSModel
-from replay.utils import list_to_vector_udf
+from replay.models.extensions.spark_custom_models.als_extension import ALS, ALSModel
+from replay.utils.spark_utils import list_to_vector_udf
 
 
 # pylint: disable=too-many-instance-attributes, too-many-ancestors

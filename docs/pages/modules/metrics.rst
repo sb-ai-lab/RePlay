@@ -141,3 +141,12 @@ Your metric should be inherited from ``Metric`` or ``NCISMetric`` class and impl
    :special-members: _get_metric_value_by_user
 
 .. autoclass:: replay.metrics.base_metric.RecOnlyMetric
+
+----------------------
+
+Compare Results
+----------------------
+
+.. autoclass:: replay.metrics.experiment.Experiment
+   :members:
+   :special-members: __init__

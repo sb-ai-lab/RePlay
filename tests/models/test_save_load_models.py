@@ -10,30 +10,30 @@ from implicit.als import AlternatingLeastSquares
 from pyspark.sql import functions as sf
 
 import replay
-from replay.ann.entities.hnswlib_param import HnswlibParam
-from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
-from replay.ann.index_builders.driver_nmslib_index_builder import (
+from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
+from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
+from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import (
     DriverNmslibIndexBuilder,
 )
-from replay.ann.index_builders.executor_hnswlib_index_builder import (
+from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import (
     ExecutorHnswlibIndexBuilder,
 )
-from replay.ann.index_builders.executor_nmslib_index_builder import (
+from replay.models.extensions.ann.index_builders.executor_nmslib_index_builder import (
     ExecutorNmslibIndexBuilder,
 )
-from replay.ann.index_stores.hdfs_index_store import HdfsIndexStore
-from replay.ann.index_stores.shared_disk_index_store import (
+from replay.models.extensions.ann.index_stores.hdfs_index_store import HdfsIndexStore
+from replay.models.extensions.ann.index_stores.shared_disk_index_store import (
     SharedDiskIndexStore,
 )
-from replay.ann.index_stores.spark_files_index_store import (
+from replay.models.extensions.ann.index_stores.spark_files_index_store import (
     SparkFilesIndexStore,
 )
-from replay.data_preparator import Indexer
+from replay.preprocessing.data_preparator import Indexer
 from replay.models.cql import MdpDatasetBuilder
-from replay.model_handler import save, load
+from replay.utils.model_handler import save, load
 from replay.models import *
-from replay.utils import convert2spark
+from replay.utils.spark_utils import convert2spark
 from tests.utils import long_log_with_features, sparkDataFrameEqual, spark
 from tests.models.test_cat_pop_rec import cat_tree, cat_log, requested_cats
 

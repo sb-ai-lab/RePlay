@@ -12,7 +12,7 @@ from pyspark.sql import functions as sf
 from pytorch_ranger import Ranger
 from torch import nn
 
-from replay.constants import REC_SCHEMA
+from replay.data import REC_SCHEMA
 from replay.models.base_torch_rec import Recommender
 
 

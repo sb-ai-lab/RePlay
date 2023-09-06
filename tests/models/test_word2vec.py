@@ -5,12 +5,12 @@ import pytest
 import numpy as np
 from pyspark.sql import functions as sf
 
-from replay.ann.entities.hnswlib_param import HnswlibParam
-from replay.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
-from replay.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
-from replay.constants import LOG_SCHEMA
+from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
+from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
+from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
+from replay.data import LOG_SCHEMA
 from replay.models import Word2VecRec
-from replay.utils import vector_dot
+from replay.utils.spark_utils import vector_dot
 from tests.utils import spark, log as log2
 
 

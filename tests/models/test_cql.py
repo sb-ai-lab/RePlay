@@ -4,7 +4,7 @@ from _pytest.python_api import approx
 from pytest import approx
 from pyspark.sql import DataFrame
 
-from replay.constants import LOG_SCHEMA
+from replay.data import LOG_SCHEMA
 from replay.models.cql import MdpDatasetBuilder
 from replay.models import CQL
 from tests.utils import spark, log

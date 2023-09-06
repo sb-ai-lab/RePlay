@@ -2,9 +2,8 @@
 Base classes for quality and diversity metrics.
 """
 import logging
-import operator
 from abc import ABC, abstractmethod
-from typing import Dict, List, Tuple, Union, Optional
+from typing import Dict, List, Union, Optional
 
 import pandas as pd
 from pyspark.sql import Column
@@ -16,42 +15,9 @@ from pyspark.sql import Window
 from pyspark.sql.column import _to_java_column, _to_seq
 from scipy.stats import norm
 
-from replay.constants import AnyDataFrame, IntOrList, NumType
-from replay.session_handler import State
-from replay.utils import convert2spark, get_top_k_recs
-
-
-# pylint: disable=no-member
-def sorter(
-    items: Tuple[Tuple], extra_position=None
-) -> Union[List, Tuple[List, List]]:
-    """
-    Sorts a list of tuples and chooses unique objects.
-    Sorting is made using relevance values (descending).
-    Unique items from `item_idx` column are selected.
-    If `extra_position` is None, only list with ordered items is returned.
-    Otherwise two lists are returned, the first is with item_ids
-    and the second is with the tuples' elements on 'extra_position', e.g item weight.
-
-    :param items: tuples ``(relevance, item_idx, *args)``.
-    :param extra_position: index of the element in tuple to be returned in addition to item_idx,
-        if None, only item_ids are returned
-    :return: list of unique item_ids sorted by relevance is descending order
-        and additional list of corresponding values on `extra_position` if not None
-    """
-    res = sorted(items, key=operator.itemgetter(0), reverse=True)
-    set_res = set()
-    item_ids = []
-    extra_values = []
-    for item in res:
-        if item[1] not in set_res:
-            set_res.add(item[1])
-            item_ids.append(item[1])
-            if extra_position is not None:
-                extra_values.append(item[extra_position])
-    if extra_position is None:
-        return item_ids
-    return item_ids, extra_values
+from replay.data import AnyDataFrame, IntOrList, NumType
+from replay.utils.session_handler import State
+from replay.utils.spark_utils import convert2spark, get_top_k_recs
 
 
 def fill_na_with_empty_array(
@@ -102,6 +68,66 @@ def preprocess_gt(
     return true_items_by_users
 
 
+def drop_duplicates(recommendations: AnyDataFrame) -> DataFrame:
+
+    """
+    Filter duplicated predictions by choosing the most relevant
+    """
+    return (
+        recommendations.withColumn(
+            "_num",
+            sf.row_number().over(
+                Window.partitionBy("user_idx", "item_idx").orderBy(sf.col("relevance").desc())
+            ),
+        )
+        .where(sf.col("_num") == 1)
+        .drop("_num")
+    )
+
+
+def filter_sort(recommendations: DataFrame, extra_column: str = None) -> DataFrame:
+    """
+    Filters duplicated predictions by choosing items with the highest relevance,
+    Sorts items in predictions by its relevance,
+    If `extra_column` is not None return DataFrame with extra_column e.g. item weight.
+
+    :param recommendations: recommendation list
+    :param extra_column: column in recommendations
+        which will be return besides ``[user_idx, item_idx]``
+    :return: ``[user_idx, item_idx]`` if extra_column = None
+        or ``[user_idx, item_idx, extra_column]`` if extra_column exists.
+    """
+    item_type = recommendations.schema["item_idx"].dataType
+    extra_column_type = recommendations.schema[extra_column].dataType if extra_column else None
+
+    recommendations = drop_duplicates(recommendations)
+
+    recommendations = (
+        recommendations
+        .groupby("user_idx")
+        .agg(
+            sf.collect_list(
+                sf.struct(*[c for c in ["relevance", "item_idx", extra_column] if c is not None]))
+            .alias("pred_list"))
+        .withColumn("pred_list", sf.reverse(sf.array_sort("pred_list")))
+    )
+
+    selection = [
+        "user_idx",
+        sf.col("pred_list.item_idx")
+        .cast(st.ArrayType(item_type, True)).alias("pred")
+    ]
+    if extra_column:
+        selection.append(
+            sf.col(f"pred_list.{extra_column}")
+            .cast(st.ArrayType(extra_column_type, True))
+        )
+
+    recommendations = recommendations.select(*selection)
+
+    return recommendations
+
+
 def get_enriched_recommendations(
     recommendations: AnyDataFrame,
     ground_truth: AnyDataFrame,
@@ -125,17 +151,10 @@ def get_enriched_recommendations(
     # if there are duplicates in recommendations,
     # we will leave fewer than k recommendations after sort_udf
     recommendations = get_top_k_recs(recommendations, k=max_k)
-    sort_udf = sf.udf(
-        sorter,
-        returnType=st.ArrayType(recommendations.schema["item_idx"].dataType),
-    )
 
     true_items_by_users = preprocess_gt(ground_truth, ground_truth_users)
-    joined = (
-        recommendations.groupby("user_idx")
-        .agg(sf.collect_list(sf.struct("relevance", "item_idx")).alias("pred"))
-        .select("user_idx", sort_udf(sf.col("pred")).alias("pred"))
-        .join(true_items_by_users, how="right", on=["user_idx"])
+    joined = filter_sort(recommendations).join(
+        true_items_by_users, how="right", on=["user_idx"]
     )
 
     return fill_na_with_empty_array(
@@ -584,33 +603,8 @@ class NCISMetric(Metric):
         weight_type = recommendations.schema["weight"].dataType
         item_type = ground_truth.schema["item_idx"].dataType
 
-        sort_ids_weights_udf = sf.udf(
-            lambda x: sorter(items=x, extra_position=2),
-            returnType=st.StructType(
-                [
-                    st.StructField("pred", st.ArrayType(item_type)),
-                    st.StructField("weight", st.ArrayType(weight_type)),
-                ]
-            ),
-        )
+        recommendations = filter_sort(recommendations, "weight")
 
-        recommendations = (
-            recommendations.groupby("user_idx")
-            .agg(
-                sf.collect_list(
-                    sf.struct("relevance", "item_idx", "weight")
-                ).alias("rel_id_weight")
-            )
-            .withColumn(
-                "pred_weight",
-                sort_ids_weights_udf(sf.col("rel_id_weight")),
-            )
-            .select(
-                "user_idx",
-                sf.col("pred_weight.pred"),
-                sf.col("pred_weight.weight"),
-            )
-        )
         if ground_truth_users is not None:
             true_items_by_users = true_items_by_users.join(
                 ground_truth_users, on="user_idx", how="right"

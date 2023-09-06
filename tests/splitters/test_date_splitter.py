@@ -4,7 +4,7 @@ from datetime import datetime
 import pytest
 import numpy as np
 
-from replay.constants import LOG_SCHEMA
+from replay.data import LOG_SCHEMA
 from replay.splitters import DateSplitter
 from tests.utils import spark
 
