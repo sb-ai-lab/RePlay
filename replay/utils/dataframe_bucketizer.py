@@ -9,7 +9,7 @@ from replay.utils.session_handler import State
 
 class DataframeBucketizer(
     Transformer, DefaultParamsWritable, DefaultParamsReadable
-):
+):  # pylint: disable=R0901
     """
     Buckets the input dataframe, dumps it to spark warehouse directory,
     and returns a bucketed dataframe.

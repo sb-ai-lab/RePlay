@@ -1,3 +1,7 @@
+default_stages: [commit, merge-commit, push]
+default_language_version:
+    python: python3.9
+
 repos:
   -   repo: local
       hooks:
@@ -8,12 +12,12 @@ repos:
             types: [python]
         -   id: pycodestyle
             name: pycodestyle
-            entry: pycodestyle --ignore=E501,W605,W503,E203,E231 --max-doc-length=160
+            entry: pycodestyle
             language: system
             types: [python]
         -   id: pylint
             name: pylint
-            entry: pylint --rcfile .pylintrc
+            entry: pylint replay
             language: system
             types: [python]
 #        -   id: mypy

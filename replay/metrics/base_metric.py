@@ -120,7 +120,7 @@ def filter_sort(recommendations: DataFrame, extra_column: str = None) -> DataFra
     if extra_column:
         selection.append(
             sf.col(f"pred_list.{extra_column}")
-            .cast(st.ArrayType(extra_column_type, True))
+            .cast(st.ArrayType(extra_column_type, True)).alias(extra_column)
         )
 
     recommendations = recommendations.select(*selection)

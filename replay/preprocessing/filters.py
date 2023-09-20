@@ -72,6 +72,12 @@ def filter_out_low_ratings(
     |      4.0|
     +---------+
     <BLANKLINE>
+
+    :param data_frame: spark or pandas dataframe to apply filter
+    :param value: minimal value the entry should appear in dataset
+        in order to remain
+    :param rating_column: the column in which filtering is performed.
+    :return: filtered DataFrame
     """
     data_frame = convert2spark(data_frame)
     data_frame = data_frame.filter(data_frame[rating_column] >= value)
@@ -88,7 +94,7 @@ def take_num_user_interactions(
     item_col: Optional[str] = "item_idx",
 ) -> DataFrame:
     """
-     Get first/last ``num_interactions`` interactions for each user.
+    Get first/last ``num_interactions`` interactions for each user.
 
     >>> import pandas as pd
     >>> from replay.utils.spark_utils import convert2spark

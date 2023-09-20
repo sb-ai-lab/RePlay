@@ -25,25 +25,23 @@ jobs:
         run: |
           python -m venv venv
           . ./venv/bin/activate
-          pip install --upgrade pip wheel poetry==1.3.2 lightfm
+          pip install --upgrade pip wheel poetry==1.5.1 lightfm
 
           poetry cache clear pypi --all
-          poetry lock
           poetry install
       - name: Build docs
         run: |
           . ./venv/bin/activate
-          cd docs
-          make clean html
+          make -C docs clean html
       - name: pycodestyle
         run: |
           . ./venv/bin/activate
-          pycodestyle --ignore=E203,E231,E501,W503,W605 --max-doc-length=160 replay tests
+          pycodestyle replay tests
       - name: pylint
         run: |
           . ./venv/bin/activate
-          pylint --rcfile=.pylintrc replay
+          pylint replay
       - name: pytest
         run: |
           . ./venv/bin/activate
-          pytest --cov-config=.coveragerc --cov=replay --cov-report=term-missing --doctest-modules replay --cov-fail-under=93 tests
+          pytest

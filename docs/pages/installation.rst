@@ -1,7 +1,7 @@
 Installation
 ============
 
-It is recommended to use Unix machine with ``python >= 3.7``
+It is recommended to use Unix machine with ``python >= 3.8``
 
 Basic
 --------
@@ -48,7 +48,7 @@ You can also clone repository and install with poetry
     git clone git@github.com:sb-ai-lab/RePlay.git
     cd RePlay
     pip install -U pip wheel
-    pip install -U requests pypandoc cython optuna poetry
+    pip install -U requests pypandoc cython optuna poetry lightfm
     poetry install
 
 Poetry resolves dependencies from ``pyproject.toml`` and fixes versions into ``poetry.lock`` file.
