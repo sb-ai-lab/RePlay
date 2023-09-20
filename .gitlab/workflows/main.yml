@@ -29,6 +29,7 @@ stages:
   - resolve
   - code_quality
   - test
+  - run_examples
 
 resolve-job:
   stage: resolve
@@ -74,3 +75,9 @@ test-job:
   stage: test
   script:
     - pytest --cov=replay --cov-report=term-missing --doctest-modules replay --cov-fail-under=93 tests
+
+examples-execute-job:
+  <<: *install_replay
+  stage: run_examples
+  script:
+    - jupyter nbconvert --to notebook --execute experiments/*.ipynb
