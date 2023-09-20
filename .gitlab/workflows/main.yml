@@ -26,10 +26,10 @@ cache: &global_cache
   policy: pull
 
 stages:
+  - run_examples
   - resolve
   - code_quality
   - test
-  - run_examples
 
 resolve-job:
   stage: resolve
