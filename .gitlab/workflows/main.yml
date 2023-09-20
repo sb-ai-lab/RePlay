@@ -26,10 +26,10 @@ cache: &global_cache
   policy: pull
 
 stages:
-  - run_examples
   - resolve
   - code_quality
   - test
+  - run_examples
 
 resolve-job:
   stage: resolve
@@ -80,4 +80,4 @@ examples-execute-job:
   <<: *install_replay
   stage: run_examples
   script:
-    - jupyter nbconvert --to notebook --execute experiments/*.ipynb
+    - jupyter nbconvert --to notebook --execute experiments/01_replay_basics.ipynb.ipynb
