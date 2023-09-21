@@ -80,6 +80,4 @@ examples-execute-job:
   <<: *install_replay
   stage: run_examples
   script:
-    - pwd
-    - ls
-    - jupyter nbconvert --to notebook --execute experiments/01_replay_basics.ipynb.ipynb
+    - jupyter nbconvert --to notebook --execute experiments/01_replay_basics.ipynb
