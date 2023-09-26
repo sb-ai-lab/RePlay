@@ -331,14 +331,14 @@ class CQL(Recommender):
 
     @property
     def _init_args(self) -> Dict[str, Any]:
-        return dict(
+        return {
             # non-model hyperparams
-            n_epochs=self.n_epochs,
-            mdp_dataset_builder=self.mdp_dataset_builder.init_args(),
+            "n_epochs": self.n_epochs,
+            "mdp_dataset_builder": self.mdp_dataset_builder.init_args(),
 
             # model internal hyperparams
             **self._get_model_hyperparams()
-        )
+        }
 
     def _save_model(self, path: str) -> None:
         self.logger.info('-- Saving model to %s', path)
@@ -480,7 +480,7 @@ class MdpDatasetBuilder:
 
     # pylint: disable=missing-function-docstring
     def init_args(self):
-        return dict(
-            top_k=self.top_k,
-            action_randomization_scale=self.action_randomization_scale
-        )
+        return {
+            "top_k": self.top_k,
+            "action_randomization_scale": self.action_randomization_scale,
+        }

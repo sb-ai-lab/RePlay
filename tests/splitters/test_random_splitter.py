@@ -27,7 +27,7 @@ def test_nothing_is_lost(test_size, log):
         test_size=test_size,
         drop_cold_items=False,
         drop_cold_users=False,
-        seed=1234,
+        seed=7777,
     )
     train, test = splitter.split(log)
     real_test_size = test.count() / len(log)

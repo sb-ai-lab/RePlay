@@ -33,7 +33,7 @@ def test_works(
         k=1,
         budget=1,
     )
-    assert type(res["num_clusters"]) == int
+    assert isinstance(res["num_clusters"], int)
 
 
 def test_cold_user(long_log_with_features, users_features):
