@@ -7,15 +7,15 @@ from optuna.exceptions import ExperimentalWarning
 from pyspark.sql import functions as sf
 
 from pprint import pprint
-from replay.data_preparator import DataPreparator, Indexer
-from replay.experiment import Experiment
+from replay.preprocessing import DataPreparator, Indexer
+from replay.metrics import Experiment
 from replay.metrics import Coverage, HitRate, MRR, MAP, NDCG, Surprisal
 from replay.models import DDPG
 from argparse import ArgumentParser
 import json
 from pathlib import Path
 
-from replay.session_handler import State
+from replay.utils import State
 from replay.splitters import DateSplitter
 from rs_datasets import MovieLens
 
