@@ -35,18 +35,18 @@ def get_spark_session(
         path_to_replay_jar = os.environ.get("REPLAY_JAR_PATH")
     else:
         if pyspark_version.startswith("3.1"):
-            path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.1.jar"
+            path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
         elif pyspark_version.startswith("3.2") or pyspark_version.startswith(
             "3.3"
         ):
-            path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.2.jar"
+            path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.2.0/replay_2.12-3.2.0.jar"
         elif pyspark_version.startswith("3.4"):
-            path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.4.jar"
+            path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.4.0/replay_2.12-3.4.0.jar"
         else:
-            path_to_replay_jar = "jars/replay_2.12-0.1_spark_3.1.jar"
+            path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
             logging.warning(
                 "Replay ALS model support only spark 3.1-3.4 versions! "
-                "Replay will use 'jars/replay_2.12-0.1_spark_3.1.jar' in 'spark.jars' property."
+                "Replay will use 'https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar' in 'spark.jars' property."
             )
 
     if spark_memory is None:
