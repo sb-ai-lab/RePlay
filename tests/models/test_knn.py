@@ -226,3 +226,37 @@ def test_fit_partial(log, new_log_part, model):
 
     assert all(recs1.user_idx.values == recs2.user_idx.values)
     assert all(recs1.item_idx.values == recs2.item_idx.values)
+
+
+def test_fit_partial_with_ann(log, new_log_part, model_with_ann):
+    # fit model incrementally on log and new log part
+    model_with_ann.fit(log)
+    model_with_ann.fit_partial(new_log_part, log)
+    recs1 = model_with_ann.predict(log, k=2, filter_seen_items=False)
+    recs1 = recs1.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+
+    # fit model on full log
+    nmslib_hnsw_params = NmslibHnswParam(
+        space="negdotprod_sparse",
+        m=10,
+        ef_s=200,
+        ef_c=200,
+        post=0,
+    )
+    new_model = ItemKNN(
+        1,
+        weighting=None,
+        index_builder=DriverNmslibIndexBuilder(
+            index_params=nmslib_hnsw_params, index_store=SparkFilesIndexStore()
+        ),
+    )
+    new_model.fit(unionify(log, new_log_part))
+    recs2 = new_model.predict(log, k=2, filter_seen_items=False)
+    recs2 = recs2.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+
+    assert all(recs1.user_idx.values == recs2.user_idx.values)
+    assert all(recs1.item_idx.values == recs2.item_idx.values)
