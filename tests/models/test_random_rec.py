@@ -70,8 +70,12 @@ def test_predict(fitted_model, log):
     pred.unpersist()
 
     # predictions are equal/non-equal after model re-fit
-    fitted_model.fit(log)
-    pred_after_refit = fitted_model.predict(log, k=1)
+    new_random_rec_model = RandomRec(
+        distribution=fitted_model.distribution,
+        seed=fitted_model.seed
+    )
+    new_random_rec_model.fit(log)
+    pred_after_refit = new_random_rec_model.predict(log, k=1)
     equality_check(pred_checkpoint, pred_after_refit)
 
     # predictions are equal/non-equal when call `predict repeatedly`

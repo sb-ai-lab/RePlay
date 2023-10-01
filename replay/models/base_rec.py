@@ -1041,6 +1041,48 @@ class ItemVectorModel(BaseRecommender):
         return similarity_matrix
 
 
+class PartialFitMixin(BaseRecommender):
+    """
+    Base class for fit partial.
+    """
+    def fit_partial(self,
+                    log: DataFrame,
+                    previous_log: Optional[DataFrame] = None) -> None:
+        """
+        Method for incremental model training.
+        :param log: current part of log.
+        :param previous_log: previous log.
+        :return:
+        """
+        self._fit_partial(log,
+                          user_features=None,
+                          item_features=None,
+                          previous_log=previous_log)
+
+    def _fit(
+            self,
+            log: DataFrame,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None) -> None:
+        self._fit_partial(log, user_features, item_features)
+
+    @abstractmethod
+    def _fit_partial(
+            self,
+            log: DataFrame,
+            user_features: Optional[DataFrame] = None,
+            item_features: Optional[DataFrame] = None,
+            previous_log: Optional[DataFrame] = None) -> None:
+        ...
+
+    def _clear_cache(self):
+        # pylint: disable=super-with-arguments
+        super(PartialFitMixin, self)._clear_cache()
+        for df in self._dataframes.values():
+            if df is not None:
+                df.unpersist()
+
+
 # pylint: disable=abstract-method
 class HybridRecommender(BaseRecommender, ABC):
     """Base class for models that can use extra features"""
@@ -1441,7 +1483,7 @@ class UserRecommender(BaseRecommender, ABC):
         )
 
 
-class NonPersonalizedRecommender(Recommender, ABC):
+class NonPersonalizedRecommender(Recommender, PartialFitMixin, ABC):
     """Base class for non-personalized recommenders with popularity statistics."""
 
     can_predict_cold_users = True

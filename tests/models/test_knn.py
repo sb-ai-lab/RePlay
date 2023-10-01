@@ -4,7 +4,9 @@ from datetime import datetime
 import pytest
 import numpy as np
 
-from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.models.extensions.ann.entities.nmslib_hnsw_param import (
+    NmslibHnswParam,
+)
 from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import (
     DriverNmslibIndexBuilder,
 )
@@ -13,6 +15,7 @@ from replay.models.extensions.ann.index_stores.spark_files_index_store import (
 )
 from replay.data import LOG_SCHEMA
 from replay.models import ItemKNN
+from replay.utils.spark_utils import unionify
 from tests.utils import spark
 
 
@@ -25,6 +28,19 @@ def log(spark):
             [1, 1, date, 1.0],
             [2, 0, date, 1.0],
             [2, 1, date, 1.0],
+        ],
+        schema=LOG_SCHEMA,
+    )
+
+
+@pytest.fixture
+def new_log_part(spark):
+    date = datetime(2019, 1, 1)
+    return spark.createDataFrame(
+        data=[
+            [3, 0, date, 1.0],
+            [4, 0, date, 1.0],
+            [4, 1, date, 1.0],
         ],
         schema=LOG_SCHEMA,
     )
@@ -187,5 +203,60 @@ def test_knn_predict(log_2items_per_user, model, model_with_ann):
     recs2 = recs2.toPandas().sort_values(
         ["user_idx", "item_idx"], ascending=False
     )
+    assert all(recs1.user_idx.values == recs2.user_idx.values)
+    assert all(recs1.item_idx.values == recs2.item_idx.values)
+
+
+def test_fit_partial(log, new_log_part, model):
+    # fit model incrementally on log and new log part
+    model.fit(log)
+    model.fit_partial(new_log_part, log)
+    recs1 = model.predict(log, k=2, filter_seen_items=False)
+    recs1 = recs1.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+
+    # fit model on full log
+    new_model = ItemKNN(1, weighting=None)
+    new_model.fit(unionify(log, new_log_part))
+    recs2 = new_model.predict(log, k=2, filter_seen_items=False)
+    recs2 = recs2.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+
+    assert all(recs1.user_idx.values == recs2.user_idx.values)
+    assert all(recs1.item_idx.values == recs2.item_idx.values)
+
+
+def test_fit_partial_with_ann(log, new_log_part, model_with_ann):
+    # fit model incrementally on log and new log part
+    model_with_ann.fit(log)
+    model_with_ann.fit_partial(new_log_part, log)
+    recs1 = model_with_ann.predict(log, k=2, filter_seen_items=False)
+    recs1 = recs1.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+
+    # fit model on full log
+    nmslib_hnsw_params = NmslibHnswParam(
+        space="negdotprod_sparse",
+        m=10,
+        ef_s=200,
+        ef_c=200,
+        post=0,
+    )
+    new_model = ItemKNN(
+        1,
+        weighting=None,
+        index_builder=DriverNmslibIndexBuilder(
+            index_params=nmslib_hnsw_params, index_store=SparkFilesIndexStore()
+        ),
+    )
+    new_model.fit(unionify(log, new_log_part))
+    recs2 = new_model.predict(log, k=2, filter_seen_items=False)
+    recs2 = recs2.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+
     assert all(recs1.user_idx.values == recs2.user_idx.values)
     assert all(recs1.item_idx.values == recs2.item_idx.values)

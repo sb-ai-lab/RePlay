@@ -12,7 +12,6 @@ from replay.models.base_neighbour_rec import NeighbourRec
 from replay.utils.session_handler import State
 
 
-# pylint: disable=too-many-ancestors
 class SLIM(NeighbourRec):
     """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
