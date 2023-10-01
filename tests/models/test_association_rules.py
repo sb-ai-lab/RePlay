@@ -1,17 +1,31 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
+from datetime import datetime
+
 import pytest
 
 from pyspark.sql import functions as sf
 
+from replay.data import LOG_SCHEMA
 from replay.models import AssociationRulesItemRec
 from tests.utils import (
     log,
     spark,
     sparkDataFrameEqual,
     sparkDataFrameNotEqual,
-    log,
     log_to_pred,
 )
+
+
+@pytest.fixture
+def log2(spark):
+    return spark.createDataFrame(
+        data=[
+            [1, 2, datetime(2019, 9, 14), 4.0],
+            [3, 3, datetime(2019, 9, 15), 3.0],
+            [4, 0, datetime(2019, 9, 15), 3.0],
+        ],
+        schema=LOG_SCHEMA,
+    )
 
 
 @pytest.fixture
@@ -134,3 +148,15 @@ def test_similarity_metric_raises(log, model):
     with pytest.raises(ValueError, match="Select one of the valid metrics for predict:.*"):
         model.fit(log)
         model.similarity_metric = "invalid"
+
+
+def test_fit_partial(model, log, log2):
+    model.fit_partial(log2, log)
+    pred_after_refit = model.predict(log, items=list(range(10)), k=1)
+
+    new_model = AssociationRulesItemRec(min_item_count=1, min_pair_count=1)
+    new_model.fit(log.union(log2))
+    pred_after_full_fit = new_model.predict(log, items=list(range(10)), k=1)
+
+    # predictions are equal after model fit partial and full fit on all log
+    sparkDataFrameEqual(pred_after_full_fit, pred_after_refit)
