@@ -1,4 +1,4 @@
-image: replay/ci-image:0.0.2
+image: replay/ci-image:0.0.3
 
 workflow:
   rules:
