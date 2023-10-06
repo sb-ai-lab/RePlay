@@ -1,16 +1,14 @@
-FROM eclipse-temurin:11.0.17_8-jre
-
-RUN apt-get update
-RUN apt-get install -y software-properties-common && add-apt-repository ppa:deadsnakes/ppa
-RUN apt-get install -y python3.9 python3.9-venv python3.9-dev build-essential
-RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3.9 get-pip.py
-RUN ln -s /usr/bin/pip3 /usr/bin/pip && \
-    ln -s /usr/bin/python3.9 /usr/bin/python
-
-RUN adduser --disabled-password --gecos "" user
-USER user
-WORKDIR /home/user
-
-ENV PATH="/home/user/.local/bin:${PATH}"
-
-RUN pip install --upgrade pip wheel poetry
+FROM python:3.9-slim as builder
+COPY --from=openjdk:11-jre-slim /usr/local/openjdk-11 /usr/local/openjdk-11
+ENV JAVA_HOME /usr/local/openjdk-11
+RUN update-alternatives --install /usr/bin/java java /usr/local/openjdk-11/bin/java 1
+WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends apt-utils \
+    && apt-get install libgomp1 build-essential pandoc -y \
+    && apt-get install git -y --no-install-recommends 
+RUN pip install --no-cache-dir --upgrade pip wheel poetry==1.5.1 lightfm
+RUN python -m poetry config virtualenvs.create false
+COPY . .
+RUN cd RePlay/ && poetry install
+RUN rm -rf *
