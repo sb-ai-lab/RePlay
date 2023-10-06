@@ -1,4 +1,4 @@
-image: replay/ci-image:0.0.2
+image: replay/ci-image:0.0.3
 
 workflow:
   rules:
@@ -9,8 +9,6 @@ variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
 .setup_venv: &setup_venv
-  - python -m venv venv
-  - source ./venv/bin/activate
   - pip install -q --upgrade pip wheel poetry==1.5.1 lightfm
 
 .install_replay: &install_replay
@@ -21,8 +19,9 @@ variables:
 cache: &global_cache
   key: ${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}
   paths:
-    - ./venv/
+    # - ./venv/
     - .cache/pip
+    - .cache/pypoetry
   policy: pull
 
 stages:
