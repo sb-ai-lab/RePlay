@@ -24,6 +24,7 @@ REC_SCHEMA = StructType(
     ]
 )
 
+
 BASE_SCHEMA = StructType(
     [
         StructField("user_idx", IntegerType()),

@@ -13,9 +13,14 @@ from replay.models.ddpg import (
     CriticDRR,
     OUNoise,
     ReplayBuffer,
-    to_np,
 )
+
 from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
+from tests.utils import ddpg_actor_param as actor_param
+from tests.utils import ddpg_critic_param as critic_param
+from tests.utils import ddpg_state_repr_param as state_repr_param
+
+from tests.utils import BATCH_SIZES, DF_CASES
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -57,6 +62,82 @@ def model(log):
     model = DDPG(user_num=5, item_num=5)
     model.batch_size = 1
     return model
+
+
+@pytest.mark.parametrize("batch_size", BATCH_SIZES)
+def test_critic_forward(critic_param, batch_size):
+    critic, param = critic_param
+    state_dim = param["state_repr_dim"]
+    action_dim = param["action_emb_dim"]
+
+    state = torch.rand((batch_size, state_dim))
+    action = torch.rand((batch_size, action_dim))
+
+    out = critic(state, action)
+
+    assert out.shape == (batch_size, 1), "Wrong output shape of critic forward"
+
+
+@pytest.mark.parametrize("batch_size", BATCH_SIZES)
+def test_state_repr_forward(state_repr_param, batch_size):
+    state_repr, param = state_repr_param
+    memory_size = param["memory_size"]
+    user_num = param["user_num"]
+    item_num = param["item_num"]
+    embedding_dim = param["embedding_dim"]
+
+    user = torch.randint(high=user_num, size=(batch_size,))
+    memory = torch.randint(high=item_num, size=(batch_size, memory_size))
+
+    out = state_repr(user, memory)
+
+    assert out.shape == (
+        batch_size,
+        3 * embedding_dim,
+    ), "Wrong output shape of state_repr forward"
+
+
+@pytest.mark.parametrize("batch_size", BATCH_SIZES)
+def test_actor_forward(actor_param, batch_size):
+    actor, param = actor_param
+    memory_size = param["memory_size"]
+    user_num = param["user_num"]
+    item_num = param["item_num"]
+    embedding_dim = param["embedding_dim"]
+
+    user = torch.randint(high=user_num, size=(batch_size,))
+    memory = torch.randint(high=item_num, size=(batch_size, memory_size))
+
+    out = actor(user, memory)
+
+    assert out.shape == (
+        batch_size,
+        embedding_dim,
+    ), "Wrong output shape of actor forward"
+
+
+@pytest.mark.parametrize("batch_size", BATCH_SIZES)
+def test_actor_get_action(actor_param, batch_size):
+    actor, param = actor_param
+    user_num = param["user_num"]
+    batch_size = min(batch_size, user_num)
+    item_num = param["item_num"]
+
+    items = torch.tensor(range(item_num)).repeat((batch_size, 1))
+    action = torch.randint(high=item_num, size=(batch_size,))
+    action_emb = actor.state_repr.item_embeddings(action)
+
+    discrete_actions = actor.get_action(
+        action_emb, items, torch.ones_like(items)
+    )
+
+    assert (action == discrete_actions).prod()
+
+
+@pytest.mark.parametrize("df", DF_CASES)
+def test_fit_df(df):
+    model = DDPG(n_jobs=1, use_gpu=True)
+    model._fit_df(df)
 
 
 def test_fit(log, model):
@@ -115,9 +196,16 @@ def test_save_load(log, model, user_num=5, item_num=5):
         embedding_dim=8,
         hidden_dim=16,
         memory_size=5,
+        env_gamma_alpha=1,
+        device=torch.device("cpu"),
+        min_trajectory_len=10,
     )
     new_model.value_net = CriticDRR(
-        state_repr_dim=24, action_emb_dim=8, hidden_dim=8
+        state_repr_dim=24,
+        action_emb_dim=8,
+        hidden_dim=8,
+        heads_num=10,
+        heads_q=0.15,
     )
     assert len(old_params) == len(list(new_model.model.parameters()))
 
@@ -148,20 +236,29 @@ def test_save_load(log, model, user_num=5, item_num=5):
         )
 
 
-def test_env_step(log, model, user=0):
-    replay_buffer = ReplayBuffer()
+def test_env_step(log, model, user=[0, 1, 2]):
+    replay_buffer = ReplayBuffer(
+        torch.device("cpu"),
+        1000000,
+        5,
+        8,
+    )
     # model.replay_buffer.capacity = 4
-    train_matrix, _, _, _ = model._preprocess_log(log)
+    train_matrix, _, item_num, _ = model._preprocess_log(log)
     model.model = ActorDRR(
         model.user_num,
         model.item_num,
         model.embedding_dim,
         model.hidden_dim,
         model.memory_size,
+        1,
+        torch.device("cpu"),
+        min_trajectory_len=10,
     )
     model.model.environment.update_env(matrix=train_matrix)
     model.ou_noise = OUNoise(
         model.embedding_dim,
+        torch.device("cpu"),
         theta=model.noise_theta,
         max_sigma=model.noise_sigma,
         min_sigma=model.noise_sigma,
@@ -176,15 +273,24 @@ def test_env_step(log, model, user=0):
         action_emb = model.ou_noise.get_action(action_emb[0], 0)
 
     model.ou_noise.noise_type = "ou"
-    _, action = model.model.get_action(
+    model.model.get_action(
         action_emb,
         model.model.environment.available_items,
+        torch.ones_like(model.model.environment.available_items),
         return_scores=True,
     )
 
-    model.model.environment.memory[to_np(user), to_np(action)] = 1
+    model.model.environment.memory[user, -1] = item_num + 100
 
-    user, new_memory, _, _ = model.model.environment.step(
-        action, action_emb, replay_buffer
-    )
-    assert new_memory[user][0][-1] == action
+    # choose related action
+    global_action = model.model.environment.related_items[user, 0]
+    action = torch.where(
+        model.model.environment.available_items - global_action.reshape(-1, 1)
+        == 0
+    )[1]
+
+    # step
+    model.model.environment.step(action, action_emb, replay_buffer)
+
+    # chech memory update
+    assert (model.model.environment.memory[user, -1] == global_action).prod()
