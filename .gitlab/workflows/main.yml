@@ -1,28 +1,27 @@
-image: replay/ci-image:0.0.2
-
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_PIPELINE_SOURCE == "schedule"
 
+image: "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
+
 variables:
+  VERSION: "0.0.5"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
-.setup_venv: &setup_venv
-  - python -m venv venv
-  - source ./venv/bin/activate
+.setup_env: &setup_env
   - pip install -q --upgrade pip wheel poetry==1.5.1 lightfm
 
 .install_replay: &install_replay
   before_script:
-    - *setup_venv
+    - *setup_env
     - poetry install
 
 cache: &global_cache
   key: ${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}
   paths:
-    - ./venv/
     - .cache/pip
+    - .cache/pypoetry
   policy: pull
 
 stages:
@@ -36,7 +35,7 @@ resolve-job:
     <<: *global_cache
     policy: push
   script:
-    - *setup_venv
+    - *setup_env
     - poetry --version
     - pip --version
     - poetry install
