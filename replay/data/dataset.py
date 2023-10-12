@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 """
 ``Dataset`` universal dataset class for manipulating interactions and feed data to models.
 """
@@ -18,12 +19,32 @@ DataFrameLike = Union[PandasDataFrame, SparkDataFrame]
 
 
 # pylint: disable=too-many-instance-attributes
+=======
+from __future__ import annotations
+
+from typing import Callable, Dict, Iterable, List, Optional, Sequence
+
+import numpy as np
+
+from replay.data.schema import FeatureHint, FeatureInfo, FeatureSchema, FeatureSource, FeatureType
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame, check_dataframe_type
+
+if PYSPARK_AVAILABLE:  # pragma: no cover
+    import pyspark.sql.functions as F
+    from pyspark.storagelevel import StorageLevel
+
+
+>>>>>>> Add dataset functionality
 class Dataset:
     """
     Universal dataset for feeding data to models.
     """
 
+<<<<<<< HEAD
     # pylint: disable=too-many-arguments
+=======
+    @check_dataframe_type("interactions", "query_features", "item_features")
+>>>>>>> Add dataset functionality
     def __init__(
         self,
         feature_schema: FeatureSchema,
@@ -34,6 +55,7 @@ class Dataset:
         categorical_encoded: bool = False,
     ):
         """
+<<<<<<< HEAD
         :param feature_schema: mapping of columns names and feature infos.
         :param interactions: dataframe with interactions.
         :param query_features: dataframe with query features,
@@ -45,6 +67,20 @@ class Dataset:
         :param categorical_encoded: the parameter responsible for checking the categorical features
             encoded validity,
             defaults: ```False```.
+=======
+        Args:
+            feature_schema (FeatureSchema): mapping of columns names and feature infos.
+            interactions (PandasDataFrame or SparkDataFrame): dataframe with interactions.
+            query_features(PandasDataFrame or SparkDataFrame, optional): dataframe with query features,
+                defaults: ```None```.
+            item_features(PandasDataFrame or SparkDataFrame, optional): dataframe with item features,
+                defaults: ```None```.
+            check_consistency(bool): the parameter responsible for checking the consistency of the data,
+                defaults: ```True```.
+            categorical_encoded(bool): the parameter responsible for checking the categorical features
+                encoded validity,
+                defaults: ```False```.
+>>>>>>> Add dataset functionality
         """
         self._interactions = interactions
         self._query_features = query_features
@@ -57,6 +93,7 @@ class Dataset:
 
         try:
             feature_schema.item_id_column
+<<<<<<< HEAD
         except Exception as exception:
             raise ValueError("Item id column is not set.") from exception
 
@@ -64,6 +101,15 @@ class Dataset:
             feature_schema.query_id_column
         except Exception as exception:
             raise ValueError("Query id column is not set.") from exception
+=======
+        except Exception as e:
+            raise ValueError("Item id column is not set.") from e
+
+        try:
+            feature_schema.query_id_column
+        except Exception as e:
+            raise ValueError("Query id column is not set.") from e
+>>>>>>> Add dataset functionality
 
         if self.item_features is not None and isinstance(self.item_features, PandasDataFrame) != self.is_pandas:
             raise TypeError("Interactions and item features should have the same type.")
@@ -95,35 +141,60 @@ class Dataset:
     @property
     def is_categorical_encoded(self) -> bool:
         """
+<<<<<<< HEAD
         :returns: is categorical features are encoded.
+=======
+        Returns:
+            bool: Is categorical features are encoded.
+>>>>>>> Add dataset functionality
         """
         return self._categorical_encoded
 
     @property
     def interactions(self) -> DataFrameLike:
         """
+<<<<<<< HEAD
         :returns: interactions dataset.
+=======
+        Returns:
+            DataFrameLike: Interactions dataset.
+>>>>>>> Add dataset functionality
         """
         return self._interactions
 
     @property
     def query_features(self) -> Optional[DataFrameLike]:
         """
+<<<<<<< HEAD
         :returns: query features dataset.
+=======
+        Returns:
+            Optional[DataFrameLike]: Query features dataset.
+>>>>>>> Add dataset functionality
         """
         return self._query_features
 
     @property
     def item_features(self) -> Optional[DataFrameLike]:
         """
+<<<<<<< HEAD
         :returns: item features dataset.
+=======
+        Returns:
+            Optional[DataFrameLike]: Item features dataset.
+>>>>>>> Add dataset functionality
         """
         return self._item_features
 
     @property
     def query_ids(self) -> DataFrameLike:
         """
+<<<<<<< HEAD
         :returns: dataset with unique query ids.
+=======
+        Returns:
+            Optional[DataFrameLike]: Dataset with unique query ids.
+>>>>>>> Add dataset functionality
         """
         query_column_df = self._ids_feature_map[FeatureHint.QUERY_ID]
         if self.is_pandas:
@@ -138,7 +209,12 @@ class Dataset:
     @property
     def item_ids(self) -> DataFrameLike:
         """
+<<<<<<< HEAD
         :returns: dataset with unique item ids.
+=======
+        Returns:
+            Optional[DataFrameLike]: Dataset with unique item ids.
+>>>>>>> Add dataset functionality
         """
         item_column_df = self._ids_feature_map[FeatureHint.ITEM_ID]
         if self.is_pandas:
@@ -154,7 +230,12 @@ class Dataset:
     @property
     def query_count(self) -> int:
         """
+<<<<<<< HEAD
         :returns: the number of queries.
+=======
+        Returns:
+            int: The number of queries.
+>>>>>>> Add dataset functionality
         """
         query_count = self.feature_schema.query_id_feature.cardinality
         assert query_count is not None
@@ -163,7 +244,12 @@ class Dataset:
     @property
     def item_count(self) -> int:
         """
+<<<<<<< HEAD
         :returns: The number of items.
+=======
+        Returns:
+            int: The number of items.
+>>>>>>> Add dataset functionality
         """
         item_count = self.feature_schema.item_id_feature.cardinality
         assert item_count is not None
@@ -172,6 +258,7 @@ class Dataset:
     @property
     def feature_schema(self) -> FeatureSchema:
         """
+<<<<<<< HEAD
         :returns: List of features.
         """
         return self._feature_schema
@@ -217,15 +304,84 @@ class Dataset:
                 self.item_features.cache()
             if self.query_features is not None:
                 self.query_features.cache()
+=======
+        Returns:
+            FeaturesInfoList: List of features.
+        """
+        return self._feature_schema
+
+    if PYSPARK_AVAILABLE:
+
+        def persist(self, storage_level: StorageLevel = StorageLevel(True, True, False, True, 1)) -> None:
+            """
+            Sets the storage level to persist SparkDataFrame for interactions, item_features
+            and user_features.
+
+            Args:
+                storage_level (StorageLevel): Storage level to set for persistance.
+                    default: ```MEMORY_AND_DISK_DESER```.
+
+            Returns:
+                None
+            """
+            if self.is_spark:
+                self.interactions.persist(storage_level)
+                if self.item_features is not None:
+                    self.item_features.persist(storage_level)
+                if self.query_features is not None:
+                    self.query_features.persist(storage_level)
+
+        def unpersist(self, blocking: bool = False) -> None:
+            """
+            Marks SparkDataFrame as non-persistent, and remove all blocks for it from memory and disk
+            for interactions, item_features and user_features.
+
+            Args:
+                blocking (bool): Whether to block until all blocks are deleted.
+                    default: ```False```.
+
+            Returns:
+                None
+            """
+            if self.is_spark:
+                self.interactions.unpersist(blocking)
+                if self.item_features is not None:
+                    self.item_features.unpersist(blocking)
+                if self.query_features is not None:
+                    self.query_features.unpersist(blocking)
+
+        def cache(self) -> None:
+            """
+            Persists the SparkDataFrame with the default storage level (MEMORY_AND_DISK)
+            for interactions, item_features and user_features.
+
+            Returns:
+                None
+            """
+            if self.is_spark:
+                self.interactions.cache()
+                if self.item_features is not None:
+                    self.item_features.cache()
+                if self.query_features is not None:
+                    self.query_features.cache()
+>>>>>>> Add dataset functionality
 
     def subset(self, features_to_keep: Iterable[str]) -> Dataset:
         """
         Returns subset of features. Keeps query and item IDs even if
         the corresponding sources are not explicitly passed to this functions.
 
+<<<<<<< HEAD
         :param features_to_keep: sequence of features to keep.
 
         :returns: new Dataset with given features.
+=======
+        Args:
+            features_to_keep (Iterable[str]): Sequence of features to keep.
+
+        Returns:
+            Dataset: New Dataset with given features.
+>>>>>>> Add dataset functionality
         """
         # We always need to have query and item ID features in interactions dataset
         features_to_keep_set = set(features_to_keep)
@@ -341,7 +497,10 @@ class Dataset:
         self._set_cardinality(features_list=unlabeled_columns)
         return unlabeled_columns
 
+<<<<<<< HEAD
     # pylint: disable=no-self-use
+=======
+>>>>>>> Add dataset functionality
     def _set_features_source(self, feature_list: List[FeatureInfo], source: FeatureSource) -> None:
         for feature in feature_list:
             # pylint: disable=protected-access
@@ -446,6 +605,7 @@ class Dataset:
 
 
 def nunique(data: DataFrameLike, column: str) -> int:
+<<<<<<< HEAD
     """
     Returns number of unique values of specified column in dataframe.
 
@@ -454,18 +614,23 @@ def nunique(data: DataFrameLike, column: str) -> int:
 
     :returns: number of unique values.
     """
+=======
+>>>>>>> Add dataset functionality
     if isinstance(data, SparkDataFrame):
         return data.select(column).distinct().count()
     return data[column].nunique()
 
 
 def select(data: DataFrameLike, columns: Sequence[str]) -> DataFrameLike:
+<<<<<<< HEAD
     """
     :param data: dataframe.
     :param columns: sequence of column names to select.
 
     :returns: selected data in the same format as input dataframe.
     """
+=======
+>>>>>>> Add dataset functionality
     if isinstance(data, SparkDataFrame):
         return data.select(*columns)
     if isinstance(data, PandasDataFrame):
