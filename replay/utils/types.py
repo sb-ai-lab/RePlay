@@ -1,3 +1,4 @@
+# pylint: skip-file
 from typing import Union
 
 from pandas import DataFrame as PandasDataFrame

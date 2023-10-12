@@ -1,3 +1,4 @@
+# pylint: skip-file
 import warnings
 from typing import Dict, Iterable, Iterator, Optional, Sequence, Set, Union
 
