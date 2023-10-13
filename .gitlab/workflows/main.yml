@@ -1,7 +1,9 @@
 workflow:
   rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
 
 image: "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
 
@@ -28,6 +30,7 @@ stages:
   - resolve
   - code_quality
   - test
+  - build package
 
 resolve-job:
   stage: resolve
@@ -71,3 +74,15 @@ test-job:
   stage: test
   script:
     - pytest
+
+build-production-package:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  stage: build package
+  script:
+    - *setup_env
+    - export PACKAGE_SUFFIX=.dev${CI_JOB_ID}
+    - echo $PACKAGE_SUFFIX
+    - poetry version
+    - poetry config repositories.replay ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
+    - poetry publish --build -r replay -u gitlab-ci-token -p ${CI_JOB_TOKEN}
