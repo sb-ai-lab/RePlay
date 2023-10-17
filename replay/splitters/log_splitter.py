@@ -10,9 +10,12 @@ These kind of splitters process log as a whole:
 from datetime import datetime
 from typing import Optional, Union
 
+from pandas import DataFrame as PandasDataFrame
 import pyspark.sql.functions as sf
-from pyspark.sql import DataFrame, Window
+from pyspark.sql import DataFrame as SparkDataFrame, Window
+from replay.utils.spark_utils import convert2spark
 
+from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import (
     Splitter,
     SplitterReturnType,
@@ -32,7 +35,9 @@ class DateSplitter(Splitter):
         "drop_zero_rel_in_test",
         "user_col",
         "item_col",
-        "date_col",
+        "timestamp_col",
+        "session_id_col",
+        "session_id_processing_strategy",
     ]
 
     # pylint: disable=too-many-arguments
@@ -45,6 +50,9 @@ class DateSplitter(Splitter):
         user_col: str = "user_idx",
         item_col: Optional[str] = "item_idx",
         date_col: Optional[str] = "timestamp",
+        rating_col: Optional[str] = "relevance",
+        session_id_col: Optional[str] = None,
+        session_id_processing_strategy: str = "test",
     ):
         """
         :param test_start: string``yyyy-mm-dd``, int unix timestamp, datetime or a
@@ -63,27 +71,33 @@ class DateSplitter(Splitter):
             drop_zero_rel_in_test=drop_zero_rel_in_test,
             user_col=user_col,
             item_col=item_col,
-            date_col=date_col,
+            timestamp_col=date_col,
+            rating_col=rating_col,
+            session_id_col=session_id_col,
+            session_id_processing_strategy=session_id_processing_strategy
         )
         self.test_start = test_start
 
-    def _core_split(self, log: DataFrame) -> SplitterReturnType:
+    def _get_order_of_sort(self) -> list:
+        return [self.user_col, self.timestamp_col]
+
+    def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
         if isinstance(self.test_start, float):
-            dates = log.select(self.date_col).withColumn(
-                "_row_number_by_ts", sf.row_number().over(Window.orderBy(self.date_col))
+            dates = log.select(self.timestamp_col).withColumn(
+                "_row_number_by_ts", sf.row_number().over(Window.orderBy(self.timestamp_col))
             )
             test_start = int(dates.count() * (1 - self.test_start)) + 1
             test_start = (
                 dates.filter(sf.col("_row_number_by_ts") == test_start)
-                .select(self.date_col)
+                .select(self.timestamp_col)
                 .collect()[0][0]
             )
         else:
-            dtype = dict(log.dtypes)[self.date_col]
-            test_start = sf.lit(self.test_start).cast(self.date_col).cast(dtype)
-        train = log.filter(sf.col(self.date_col) < test_start)
-        test = log.filter(sf.col(self.date_col) >= test_start)
-        return train, test
+            dtype = dict(log.dtypes)[self.timestamp_col]
+            test_start = sf.lit(self.test_start).cast(self.timestamp_col).cast(dtype)
+        train = log.filter(sf.col(self.timestamp_col) < test_start)
+        test = log.filter(sf.col(self.timestamp_col) >= test_start)
+        return [train, test]
 
 
 # pylint: disable=too-few-public-methods
@@ -92,13 +106,15 @@ class RandomSplitter(Splitter):
 
     _init_arg_names = [
         "test_size",
-        "drop_cold_items",
         "drop_cold_users",
+        "drop_cold_items",
         "drop_zero_rel_in_test",
         "seed",
         "user_col",
         "item_col",
-        "date_col",
+        "timestamp_col",
+        "session_id_col",
+        "session_id_processing_strategy",
     ]
 
     # pylint: disable=too-many-arguments
@@ -111,7 +127,10 @@ class RandomSplitter(Splitter):
         seed: Optional[int] = None,
         user_col: str = "user_idx",
         item_col: Optional[str] = "item_idx",
-        date_col: Optional[str] = "timestamp",
+        timestamp_col: Optional[str] = "timestamp",
+        rating_col: Optional[str] = "relevance",
+        session_id_col: Optional[str] = None,
+        session_id_processing_strategy: str = "test",
     ):
         """
         :param test_size: test size 0 to 1
@@ -122,7 +141,7 @@ class RandomSplitter(Splitter):
         :param seed: random seed
         :param user_col: user id column name
         :param item_col: item id column name
-        :param date_col: timestamp column name
+        :param timestamp_col: timestamp column name
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
@@ -130,18 +149,24 @@ class RandomSplitter(Splitter):
             drop_zero_rel_in_test=drop_zero_rel_in_test,
             user_col=user_col,
             item_col=item_col,
-            date_col=date_col,
+            timestamp_col=timestamp_col,
+            rating_col=rating_col,
+            session_id_col=session_id_col,
+            session_id_processing_strategy=session_id_processing_strategy
         )
         self.seed = seed
         self.test_size = test_size
         if test_size < 0 or test_size > 1:
             raise ValueError("test_size must be 0 to 1")
 
-    def _core_split(self, log: DataFrame) -> SplitterReturnType:
-        train, test = log.randomSplit(
+    def _get_order_of_sort(self) -> list:
+        pass
+
+    def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
+        train, test = convert2spark(log).randomSplit(
             [1 - self.test_size, self.test_size], self.seed
         )
-        return train, test
+        return [train, test]
 
 
 # pylint: disable=too-few-public-methods
@@ -197,22 +222,31 @@ class NewUsersSplitter(Splitter):
     <BLANKLINE>
     """
 
-    _init_arg_names = ["test_size",
-                       "drop_cold_items",
-                       "drop_zero_rel_in_test",
-                       "user_col",
-                       "item_col",
-                       "date_col",]
+    _init_arg_names = [
+        "test_size",
+        "drop_cold_users",
+        "drop_cold_items",
+        "drop_zero_rel_in_test",
+        "user_col",
+        "item_col",
+        "timestamp_col",
+        "session_id_col",
+        "session_id_processing_strategy",
+    ]
 
     # pylint: disable=too-many-arguments
     def __init__(
         self,
         test_size: float,
         drop_cold_items: bool = False,
+        drop_cold_users: bool = False,
         drop_zero_rel_in_test: bool = True,
         user_col: str = "user_idx",
         item_col: Optional[str] = "item_idx",
-        date_col: Optional[str] = "timestamp",
+        timestamp_col: Optional[str] = "timestamp",
+        rating_col: Optional[str] = "relevance",
+        session_id_col: Optional[str] = None,
+        session_id_processing_strategy: str = "test",
     ):
         """
         :param test_size: test size 0 to 1
@@ -225,19 +259,25 @@ class NewUsersSplitter(Splitter):
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
-            drop_cold_users=False,
+            drop_cold_users=drop_cold_users,
             drop_zero_rel_in_test=drop_zero_rel_in_test,
             user_col=user_col,
             item_col=item_col,
-            date_col=date_col,
+            timestamp_col=timestamp_col,
+            rating_col=rating_col,
+            session_id_col=session_id_col,
+            session_id_processing_strategy=session_id_processing_strategy
         )
         self.test_size = test_size
         if test_size < 0 or test_size > 1:
             raise ValueError("test_size must be 0 to 1")
 
-    def _core_split(self, log: DataFrame) -> SplitterReturnType:
+    def _get_order_of_sort(self) -> list:
+        pass
+
+    def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
         start_date_by_user = log.groupby(self.user_col).agg(
-            sf.min(self.date_col).alias("_start_dt_by_user")
+            sf.min(self.timestamp_col).alias("_start_dt_by_user")
         )
         test_start_date = (
             start_date_by_user.groupby("_start_dt_by_user")
@@ -254,14 +294,14 @@ class NewUsersSplitter(Splitter):
             .head()[0]
         )
 
-        train = log.filter(sf.col(self.date_col) < test_start_date)
+        train = log.filter(sf.col(self.timestamp_col) < test_start_date)
 
         test = log.join(
             start_date_by_user.filter(sf.col("_start_dt_by_user") >= test_start_date),
             how="inner",
             on=self.user_col,
         ).drop("_start_dt_by_user")
-        return train, test
+        return [train, test]
 
 
 # pylint: disable=too-few-public-methods
@@ -274,13 +314,15 @@ class ColdUserRandomSplitter(Splitter):
 
     _init_arg_names = [
         "test_size",
-        "drop_cold_items",
         "drop_cold_users",
+        "drop_cold_items",
         "drop_zero_rel_in_test",
         "seed",
         "user_col",
         "item_col",
-        "date_col",
+        "timestamp_col",
+        "session_id_col",
+        "session_id_processing_strategy",
     ]
 
     # pylint: disable=too-many-arguments
@@ -293,7 +335,10 @@ class ColdUserRandomSplitter(Splitter):
         seed: Optional[int] = None,
         user_col: str = "user_idx",
         item_col: Optional[str] = "item_idx",
-        date_col: Optional[str] = "timestamp",
+        timestamp_col: Optional[str] = "timestamp",
+        rating_col: Optional[str] = "relevance",
+        session_id_col: Optional[str] = None,
+        session_id_processing_strategy: str = "test",
     ):
         """
         :param test_size: fraction of users to be in test
@@ -312,12 +357,21 @@ class ColdUserRandomSplitter(Splitter):
             drop_zero_rel_in_test=drop_zero_rel_in_test,
             user_col=user_col,
             item_col=item_col,
-            date_col=date_col,
+            timestamp_col=timestamp_col,
+            rating_col=rating_col,
+            session_id_col=session_id_col,
+            session_id_processing_strategy=session_id_processing_strategy
         )
-        self.test_size = test_size
         self.seed = seed
+        self.test_size = test_size
+        if test_size < 0 or test_size > 1:
+            raise ValueError("test_size must be 0 to 1")
+        
+    def _get_order_of_sort(self) -> list:
+        pass
 
-    def _core_split(self, log: DataFrame) -> SplitterReturnType:
+    def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
+        log = convert2spark(log)
         users = log.select(self.user_col).distinct()
         train_users, test_users = users.randomSplit(
             [1 - self.test_size, self.test_size],
@@ -325,4 +379,4 @@ class ColdUserRandomSplitter(Splitter):
         )
         train = log.join(train_users, on=self.user_col, how="inner")
         test = log.join(test_users, on=self.user_col, how="inner")
-        return train, test
+        return [train, test]
