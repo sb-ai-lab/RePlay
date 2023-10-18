@@ -13,3 +13,6 @@ from replay.splitters.log_splitter import (
     RandomSplitter,
 )
 from replay.splitters.user_log_splitter import UserSplitter, k_folds
+from replay.splitters.ratio_splitter import RatioSplitter
+from replay.splitters.last_n_splitter import LastNSplitter
+from replay.splitters.time_splitter import TimeSplitter

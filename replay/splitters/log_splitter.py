@@ -36,6 +36,7 @@ class DateSplitter(Splitter):
         "user_col",
         "item_col",
         "timestamp_col",
+        "rating_col",
         "session_id_col",
         "session_id_processing_strategy",
     ]
@@ -49,7 +50,7 @@ class DateSplitter(Splitter):
         drop_zero_rel_in_test: bool = True,
         user_col: str = "user_idx",
         item_col: Optional[str] = "item_idx",
-        date_col: Optional[str] = "timestamp",
+        timestamp_col: Optional[str] = "timestamp",
         rating_col: Optional[str] = "relevance",
         session_id_col: Optional[str] = None,
         session_id_processing_strategy: str = "test",
@@ -63,7 +64,12 @@ class DateSplitter(Splitter):
             from the test part of the dataset
         :param user_col: user id column name
         :param item_col: item id column name
-        :param date_col: timestamp column name
+        :param timestamp_col: timestamp column name
+        :param rating_col: rating column name
+        :param session_id_col: name of session id column, which values can not be split.
+        :param session_id_processing_strategy: strategy of processing session if it is split,
+            values: ``train, test``, train: whole split session goes to train. test: same but to test.
+            default: ``test``.
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
@@ -71,7 +77,7 @@ class DateSplitter(Splitter):
             drop_zero_rel_in_test=drop_zero_rel_in_test,
             user_col=user_col,
             item_col=item_col,
-            timestamp_col=date_col,
+            timestamp_col=timestamp_col,
             rating_col=rating_col,
             session_id_col=session_id_col,
             session_id_processing_strategy=session_id_processing_strategy
@@ -113,6 +119,7 @@ class RandomSplitter(Splitter):
         "user_col",
         "item_col",
         "timestamp_col",
+        "rating_col",
         "session_id_col",
         "session_id_processing_strategy",
     ]
@@ -142,6 +149,11 @@ class RandomSplitter(Splitter):
         :param user_col: user id column name
         :param item_col: item id column name
         :param timestamp_col: timestamp column name
+        :param rating_col: rating column name
+        :param session_id_col: name of session id column, which values can not be split.
+        :param session_id_processing_strategy: strategy of processing session if it is split,
+            values: ``train, test``, train: whole split session goes to train. test: same but to test.
+            default: ``test``.
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
@@ -230,6 +242,7 @@ class NewUsersSplitter(Splitter):
         "user_col",
         "item_col",
         "timestamp_col",
+        "rating_col",
         "session_id_col",
         "session_id_processing_strategy",
     ]
@@ -255,7 +268,12 @@ class NewUsersSplitter(Splitter):
             from the test part of the dataset
         :param user_col: user id column name
         :param item_col: item id column name
-        :param date_col: timestamp column name
+        :param timestamp_col: timestamp column name
+        :param rating_col: rating column name
+        :param session_id_col: name of session id column, which values can not be split.
+        :param session_id_processing_strategy: strategy of processing session if it is split,
+            values: ``train, test``, train: whole split session goes to train. test: same but to test.
+            default: ``test``.
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
@@ -349,7 +367,12 @@ class ColdUserRandomSplitter(Splitter):
         :param seed: random seed
         :param user_col: user id column name
         :param item_col: item id column name
-        :param date_col: timestamp column name
+        :param timestamp_col: timestamp column name
+        :param rating_col: rating column name
+        :param session_id_col: name of session id column, which values can not be split.
+        :param session_id_processing_strategy: strategy of processing session if it is split,
+            values: ``train, test``, train: whole split session goes to train. test: same but to test.
+            default: ``test``.
         """
         super().__init__(
             drop_cold_items=drop_cold_items,

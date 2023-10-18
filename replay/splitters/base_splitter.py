@@ -46,6 +46,11 @@ class Splitter(ABC):
         :param user_col: user id column name
         :param item_col: item id column name
         :param timestamp_col: timestamp column name
+        :param rating_col: rating column name
+        :param session_id_col: name of session id column, which values can not be split.
+        :param session_id_processing_strategy: strategy of processing session if it is split,
+            values: ``train, test``, train: whole split session goes to train. test: same but to test.
+            default: ``test``.
         """
         self.drop_cold_users = drop_cold_users
         self.drop_cold_items = drop_cold_items
@@ -80,7 +85,7 @@ class Splitter(ABC):
         :param dataframe: input DataFrame
         :returns: filtered DataFrame
         """
-        if self.drop_zero_rel_in_test:
+        if self.drop_zero_rel_in_test and self.rating_col in dataframe.columns:
             return dataframe.filter(f"{self.rating_col} > 0.0")
         return dataframe
 
