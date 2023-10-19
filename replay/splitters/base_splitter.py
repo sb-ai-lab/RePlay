@@ -10,7 +10,7 @@ from replay.data import AnyDataFrame
 SplitterReturnType = Tuple[AnyDataFrame, AnyDataFrame]
 
 
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods, too-many-instance-attributes
 class Splitter(ABC):
     """Base class"""
 

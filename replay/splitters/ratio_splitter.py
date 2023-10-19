@@ -9,10 +9,33 @@ from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter
 
 
+# pylint: disable=too-few-public-methods, too-many-instance-attributes
 class RatioSplitter(Splitter):
     """
     Split interactions into train and test by ratio.
 
+    >>> from datetime import datetime
+    >>> import pandas as pd
+    >>> columns = ["user_id", "item_id", "timestamp"]
+    >>> data = [
+    ...     (1, 1, "01-01-2020"),
+    ...     (1, 2, "02-01-2020"),
+    ...     (1, 3, "03-01-2020"),
+    ...     (1, 4, "04-01-2020"),
+    ...     (1, 5, "05-01-2020"),
+    ...     (2, 1, "06-01-2020"),
+    ...     (2, 2, "07-01-2020"),
+    ...     (2, 3, "08-01-2020"),
+    ...     (2, 9, "09-01-2020"),
+    ...     (2, 10, "10-01-2020"),
+    ...     (3, 1, "01-01-2020"),
+    ...     (3, 5, "02-01-2020"),
+    ...     (3, 3, "03-01-2020"),
+    ...     (3, 1, "04-01-2020"),
+    ...     (3, 2, "05-01-2020"),
+    ... ]
+    >>> dataset = pd.DataFrame(data, columns=columns)
+    >>> dataset["timestamp"] = pd.to_datetime(dataset["timestamp"], format="%d-%m-%Y")
     >>> dataset
         user_id  item_id  timestamp
     0         1        1 2020-01-01
@@ -53,6 +76,7 @@ class RatioSplitter(Splitter):
     <BLANKLINE>
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         ratio: List[float],
@@ -196,7 +220,9 @@ class RatioSplitter(Splitter):
                 ).otherwise(sf.lit(0)),
             )
         else:
-            interactions = interactions.withColumn("frac", sf.round(sf.col("row_num") / sf.col("count"), self._precision))
+            interactions = interactions.withColumn(
+                "frac", sf.round(sf.col("row_num") / sf.col("count"), self._precision)
+            )
 
         interactions = interactions.withColumn("is_test", sf.col("frac") > train_size)
         if self.session_id_col:
@@ -273,12 +299,13 @@ class RatioSplitter(Splitter):
 
         return train, test
 
-    def _core_split(self, interactions: AnyDataFrame) -> List[AnyDataFrame]:
+    # pylint: disable=invalid-name
+    def _core_split(self, log: AnyDataFrame) -> List[AnyDataFrame]:
         sum_ratio = round(sum(self.ratio), self._precision)
         if self.split_by_fraqtions:
-            train, test = self._partial_split_fraqtions(interactions, sum_ratio)
+            train, test = self._partial_split_fraqtions(log, sum_ratio)
         else:
-            train, test = self._partial_split(interactions, sum_ratio)
+            train, test = self._partial_split(log, sum_ratio)
 
         self.min_interactions_per_group = None  # Needed only at first split
         res = []

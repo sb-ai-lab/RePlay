@@ -9,12 +9,34 @@ from pyspark.sql import DataFrame as SparkDataFrame, Window
 from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter
 
-
+# pylint: disable=too-few-public-methods
 class LastNSplitter(Splitter):
     """
     Split interactions by last N interactions/seconds per user.
     Type of splitting depends on the ``strategy`` parameter.
 
+    >>> from datetime import datetime
+    >>> import pandas as pd
+    >>> columns = ["user_id", "item_id", "timestamp"]
+    >>> data = [
+    ...     (1, 1, "01-01-2020"),
+    ...     (1, 2, "02-01-2020"),
+    ...     (1, 3, "03-01-2020"),
+    ...     (1, 4, "04-01-2020"),
+    ...     (1, 5, "05-01-2020"),
+    ...     (2, 1, "06-01-2020"),
+    ...     (2, 2, "07-01-2020"),
+    ...     (2, 3, "08-01-2020"),
+    ...     (2, 9, "09-01-2020"),
+    ...     (2, 10, "10-01-2020"),
+    ...     (3, 1, "01-01-2020"),
+    ...     (3, 5, "02-01-2020"),
+    ...     (3, 3, "03-01-2020"),
+    ...     (3, 1, "04-01-2020"),
+    ...     (3, 2, "05-01-2020"),
+    ... ]
+    >>> dataset = pd.DataFrame(data, columns=columns)
+    >>> dataset["timestamp"] = pd.to_datetime(dataset["timestamp"], format="%d-%m-%Y")
     >>> dataset
         user_id  item_id  timestamp
     0         1        1 2020-01-01
@@ -55,7 +77,7 @@ class LastNSplitter(Splitter):
     <BLANKLINE>
     """
 
-    # pylint: disable=invalid-name
+    # pylint: disable=invalid-name, too-many-arguments
     def __init__(
         self,
         N: List[int],
@@ -221,7 +243,9 @@ class LastNSplitter(Splitter):
         self, interactions: PandasDataFrame, seconds: int
     ) -> Tuple[PandasDataFrame, PandasDataFrame]:
         res = interactions.copy(deep=True)
-        res["diff_timestamp"] = res.groupby(self.divide_column)[self.timestamp_col].transform(max) - res[self.timestamp_col]
+        res["diff_timestamp"] = (
+            res.groupby(self.divide_column)[self.timestamp_col].transform(max) - res[self.timestamp_col]
+        )
         res["is_test"] = res["diff_timestamp"] < seconds
         if self.session_id_col:
             res = self._recalculate_with_session_id_column(res)
@@ -252,10 +276,10 @@ class LastNSplitter(Splitter):
 
         return train, test
 
-    def _core_split(self, interactions: AnyDataFrame) -> List[AnyDataFrame]:
+    def _core_split(self, log: AnyDataFrame) -> List[AnyDataFrame]:
         if self.strategy == "seconds":
-            interactions = self._to_unix_timestamp(interactions)
-        train, test = getattr(self, "_partial_split_" + self.strategy)(interactions, self.N[0])
+            log = self._to_unix_timestamp(log)
+        train, test = getattr(self, "_partial_split_" + self.strategy)(log, self.N[0])
         res = []
         for r in self.N[1:]:
             train, train1 = getattr(self, "_partial_split_" + self.strategy)(train, r)

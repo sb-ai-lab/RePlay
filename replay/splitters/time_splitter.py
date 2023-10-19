@@ -8,12 +8,33 @@ from pyspark.sql import DataFrame as SparkDataFrame
 from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter
 
-
+# pylint: disable=too-few-public-methods
 class TimeSplitter(Splitter):
     """
     Split interactions by time.
 
     >>> from datetime import datetime
+    >>> import pandas as pd
+    >>> columns = ["user_id", "item_id", "timestamp"]
+    >>> data = [
+    ...     (1, 1, "01-01-2020"),
+    ...     (1, 2, "02-01-2020"),
+    ...     (1, 3, "03-01-2020"),
+    ...     (1, 4, "04-01-2020"),
+    ...     (1, 5, "05-01-2020"),
+    ...     (2, 1, "06-01-2020"),
+    ...     (2, 2, "07-01-2020"),
+    ...     (2, 3, "08-01-2020"),
+    ...     (2, 9, "09-01-2020"),
+    ...     (2, 10, "10-01-2020"),
+    ...     (3, 1, "01-01-2020"),
+    ...     (3, 5, "02-01-2020"),
+    ...     (3, 3, "03-01-2020"),
+    ...     (3, 1, "04-01-2020"),
+    ...     (3, 2, "05-01-2020"),
+    ... ]
+    >>> dataset = pd.DataFrame(data, columns=columns)
+    >>> dataset["timestamp"] = pd.to_datetime(dataset["timestamp"], format="%d-%m-%Y")
     >>> dataset
         user_id  item_id  timestamp
     0         1        1 2020-01-01
@@ -56,6 +77,7 @@ class TimeSplitter(Splitter):
     <BLANKLINE>
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         time_threshold: List[Union[datetime, str, int]],
@@ -138,10 +160,10 @@ class TimeSplitter(Splitter):
 
         return train, test
 
-    def _core_split(self, interactions: AnyDataFrame) -> List[AnyDataFrame]:
+    def _core_split(self, log: AnyDataFrame) -> List[AnyDataFrame]:
         res = []
         for threshold in self.time_threshold:
-            train, interactions = self._partial_split(interactions, threshold)
+            train, log = self._partial_split(log, threshold)
             res.append(train)
-        res.append(interactions)
+        res.append(log)
         return res
