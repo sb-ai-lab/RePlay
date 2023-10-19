@@ -8,6 +8,7 @@ from pyspark.sql import DataFrame as SparkDataFrame
 from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter
 
+
 # pylint: disable=too-few-public-methods
 class TimeSplitter(Splitter):
     """
