@@ -10,9 +10,8 @@ These kind of splitters process log as a whole:
 from datetime import datetime
 from typing import Optional, Union
 
-from pandas import DataFrame as PandasDataFrame
 import pyspark.sql.functions as sf
-from pyspark.sql import DataFrame as SparkDataFrame, Window
+from pyspark.sql import Window
 from replay.utils.spark_utils import convert2spark
 
 from replay.data import AnyDataFrame
@@ -389,7 +388,7 @@ class ColdUserRandomSplitter(Splitter):
         self.test_size = test_size
         if test_size < 0 or test_size > 1:
             raise ValueError("test_size must be 0 to 1")
-        
+
     def _get_order_of_sort(self) -> list:
         pass
 

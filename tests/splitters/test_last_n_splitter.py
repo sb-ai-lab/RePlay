@@ -579,4 +579,3 @@ def test_original_dataframe_not_change(pandas_dataframe_test):
     LastNSplitter([5]).split(original_dataframe)
 
     assert original_dataframe.equals(pandas_dataframe_test)
-
