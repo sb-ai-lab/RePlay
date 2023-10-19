@@ -188,11 +188,13 @@ class NewUsersSplitter(Splitter):
 
 
     >>> from replay.splitters import NewUsersSplitter
+    >>> from pyspark.sql import SparkSession
     >>> import pandas as pd
     >>> data_frame = pd.DataFrame({"user_idx": [1,1,2,2,3,4],
     ...    "item_idx": [1,2,3,1,2,3],
     ...    "relevance": [1,2,3,4,5,6],
     ...    "timestamp": [20,40,20,30,10,40]})
+    >>> data_frame_spark = SparkSession.builder.getOrCreate().createDataFrame(data_frame)
     >>> data_frame
        user_idx  item_idx  relevance  timestamp
     0         1         1          1         20
@@ -201,7 +203,7 @@ class NewUsersSplitter(Splitter):
     3         2         1          4         30
     4         3         2          5         10
     5         4         3          6         40
-    >>> train, test = NewUsersSplitter(test_size=0.1).split(data_frame)
+    >>> train, test = NewUsersSplitter(test_size=0.1).split(data_frame_spark)
     >>> train.show()
     +--------+--------+---------+---------+
     |user_idx|item_idx|relevance|timestamp|
@@ -223,7 +225,7 @@ class NewUsersSplitter(Splitter):
     Train DataFrame can be drastically reduced even with moderate
     `test_size` if the amount of new users is small.
 
-    >>> train, test = NewUsersSplitter(test_size=0.3).split(data_frame)
+    >>> train, test = NewUsersSplitter(test_size=0.3).split(data_frame_spark)
     >>> train.show()
     +--------+--------+---------+---------+
     |user_idx|item_idx|relevance|timestamp|
