@@ -1,7 +1,6 @@
 # pylint: disable=invalid-name, missing-function-docstring, redefined-outer-name,
 # pylint: disable=too-many-arguments, unused-import, unused-wildcard-import, wildcard-import
 import math
-from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -9,119 +8,12 @@ import pyspark.sql.functions as sf
 import pytest
 from pyspark.sql.types import ArrayType, DoubleType, IntegerType, StructField, StructType
 
-from replay.data import LOG_SCHEMA, REC_SCHEMA
+from replay.data import REC_SCHEMA
 from replay.experimental.metrics import *
 from replay.metrics import Coverage
 from replay.metrics.base_metric import drop_duplicates, filter_sort, get_enriched_recommendations
 from replay.utils.distributions import item_distribution
 from tests.utils import assert_allclose, assertDictAlmostEqual, sparkDataFrameEqual
-
-
-@pytest.fixture
-def one_user():
-    df = pd.DataFrame({"user_idx": [1], "item_idx": [1], "relevance": [1]})
-    return df
-
-
-@pytest.fixture
-def two_users():
-    df = pd.DataFrame({"user_idx": [1, 2], "item_idx": [1, 2], "relevance": [1, 1]})
-    return df
-
-
-@pytest.fixture
-def recs(spark):
-    return spark.createDataFrame(
-        data=[
-            [0, 0, 3.0],
-            [0, 1, 2.0],
-            [0, 2, 1.0],
-            [1, 0, 3.0],
-            [1, 1, 4.0],
-            [1, 4, 1.0],
-            [2, 0, 5.0],
-            [2, 2, 1.0],
-            [2, 3, 2.0],
-        ],
-        schema=REC_SCHEMA,
-    )
-
-
-@pytest.fixture
-def recs2(spark):
-    return spark.createDataFrame(
-        data=[[0, 3, 4.0], [0, 4, 5.0]],
-        schema=REC_SCHEMA,
-    )
-
-
-@pytest.fixture
-def empty_recs(spark):
-    return spark.createDataFrame(
-        data=[],
-        schema=REC_SCHEMA,
-    )
-
-
-@pytest.fixture
-def true(spark):
-    return spark.createDataFrame(
-        data=[
-            [0, 0, datetime(2019, 9, 12), 3.0],
-            [0, 4, datetime(2019, 9, 13), 2.0],
-            [0, 1, datetime(2019, 9, 17), 1.0],
-            [1, 5, datetime(2019, 9, 14), 4.0],
-            [1, 0, datetime(2019, 9, 15), 3.0],
-            [2, 1, datetime(2019, 9, 15), 3.0],
-        ],
-        schema=LOG_SCHEMA,
-    )
-
-
-@pytest.fixture
-def true_users(spark):
-    return spark.createDataFrame(
-        data=[[1], [2], [3], [4]],
-        schema=StructType([StructField("user_idx", IntegerType())]),
-    )
-
-
-@pytest.fixture
-def prev_relevance(spark):
-    return spark.createDataFrame(
-        data=[
-            [0, 0, 100.0],
-            [0, 4, 0.0],
-            [1, 10, -5.0],
-            [4, 6, 11.5],
-        ],
-        schema=REC_SCHEMA,
-    )
-
-
-@pytest.fixture
-def quality_metrics():
-    return [ScalaNDCG(), ScalaHitRate(), ScalaPrecision(), ScalaRecall(), ScalaMAP(), ScalaMRR(), ScalaRocAuc()]
-
-
-@pytest.fixture
-def duplicate_recs(spark):
-    return spark.createDataFrame(
-        data=[
-            [0, 0, 3.0],
-            [0, 1, 2.0],
-            [0, 2, 1.0],
-            [0, 0, 3.0],
-            [1, 0, 3.0],
-            [1, 1, 4.0],
-            [1, 4, 1.0],
-            [1, 1, 2.0],
-            [2, 0, 5.0],
-            [2, 2, 1.0],
-            [2, 3, 2.0],
-        ],
-        schema=REC_SCHEMA,
-    )
 
 
 def test_get_enriched_recommendations_true_users(spark, recs, true, true_users):

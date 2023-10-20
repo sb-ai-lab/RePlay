@@ -9,9 +9,10 @@ import pyspark.sql.types as st
 from pyspark.ml.feature import IndexToString, StringIndexerModel
 from pyspark.sql import SparkSession
 
+from replay.models import *
 from replay.models.base_rec import BaseRecommender
 from replay.preprocessing import Indexer
-from replay.splitters import Splitter
+from replay.splitters import *
 
 from .session_handler import State
 from .spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
