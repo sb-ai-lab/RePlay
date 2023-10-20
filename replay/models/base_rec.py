@@ -16,17 +16,7 @@ import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from os.path import join
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Union,
-    Sequence,
-    Set,
-    Tuple,
-)
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -38,8 +28,8 @@ from pyspark.sql import functions as sf
 from pyspark.sql.column import Column
 
 from replay.data import REC_SCHEMA
-from replay.metrics import Metric, NDCG
-from replay.optimization.optuna_objective import SplitData, MainObjective
+from replay.metrics import NDCG, Metric
+from replay.optimization.optuna_objective import MainObjective, SplitData
 from replay.utils.session_handler import State
 from replay.utils.spark_utils import (
     cache_temp_view,
@@ -47,14 +37,14 @@ from replay.utils.spark_utils import (
     cosine_similarity,
     drop_temp_view,
     filter_cold,
-    get_unique_entities,
     get_top_k,
     get_top_k_recs,
-    return_recs,
-    vector_euclidean_distance_similarity,
-    vector_dot,
-    save_picklable_to_parquet,
+    get_unique_entities,
     load_pickled_from_parquet,
+    return_recs,
+    save_picklable_to_parquet,
+    vector_dot,
+    vector_euclidean_distance_similarity,
 )
 
 
@@ -154,9 +144,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
     model: Any
     can_predict_cold_users: bool = False
     can_predict_cold_items: bool = False
-    _search_space: Optional[
-        Dict[str, Union[str, Sequence[Union[str, int, float]]]]
-    ] = None
+    _search_space: Optional[Dict[str, Union[str, Sequence[Union[str, int, float]]]]] = None
     _objective = MainObjective
     study = None
     fit_users: DataFrame
@@ -197,26 +185,17 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :return: dictionary with best parameters
         """
         if self._search_space is None:
-            self.logger.warning(
-                "%s has no hyper parameters to optimize", str(self)
-            )
+            self.logger.warning("%s has no hyper parameters to optimize", str(self))
             return None
 
         if self.study is None or new_study:
-            self.study = create_study(
-                direction="maximize", sampler=TPESampler()
-            )
+            self.study = create_study(direction="maximize", sampler=TPESampler())
 
         search_space = self._prepare_param_borders(param_borders)
-        if (
-            self._init_params_in_search_space(search_space)
-            and not self._params_tried()
-        ):
+        if self._init_params_in_search_space(search_space) and not self._params_tried():
             self.study.enqueue_trial(self._init_args)
 
-        split_data = self._prepare_split_data(
-            train, test, user_features, item_features
-        )
+        split_data = self._prepare_split_data(train, test, user_features, item_features)
         objective = self._objective(
             search_space=search_space,
             split_data=split_data,
@@ -240,12 +219,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             borders = search_space[param]["args"]
             param_type = search_space[param]["type"]
 
-            extra_category = (
-                param_type == "categorical" and value not in borders
-            )
-            param_out_of_bounds = param_type != "categorical" and (
-                value < borders[0] or value > borders[1]
-            )
+            extra_category = param_type == "categorical" and value not in borders
+            param_out_of_bounds = param_type != "categorical" and (value < borders[0] or value > borders[1])
             if extra_category or param_out_of_bounds:
                 outside_search_space[param] = {
                     "borders": borders,
@@ -287,11 +262,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         # If used didn't specify some params to be tested optuna still needs to suggest them
         # This part makes sure this suggestion will be constant
         args = self._init_args
-        missing_borders = {
-            param: args[param]
-            for param in search_space
-            if param not in param_borders
-        }
+        missing_borders = {param: args[param] for param in search_space if param not in param_borders}
         for param, value in missing_borders.items():
             if search_space[param]["type"] == "categorical":
                 search_space[param]["args"] = [value]
@@ -303,15 +274,10 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
     def _check_borders(self, param, borders):
         """Raise value error if param borders are not valid"""
         if param not in self._search_space:
-            raise ValueError(
-                f"Hyper parameter {param} is not defined for {str(self)}"
-            )
+            raise ValueError(f"Hyper parameter {param} is not defined for {str(self)}")
         if not isinstance(borders, list):
             raise ValueError(f"Parameter {param} borders are not a list")
-        if (
-            self._search_space[param]["type"] != "categorical"
-            and len(borders) != 2
-        ):
+        if self._search_space[param]["type"] != "categorical" and len(borders) != 2:
             raise ValueError(
                 f"""
                 Hyper parameter {param} is numerical
@@ -335,12 +301,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :param item_features: item features
         :return: packed PySpark DataFrames
         """
-        user_features_train, user_features_test = self._train_test_features(
-            train, test, user_features, "user_idx"
-        )
-        item_features_train, item_features_test = self._train_test_features(
-            train, test, item_features, "item_idx"
-        )
+        user_features_train, user_features_test = self._train_test_features(train, test, user_features, "user_idx")
+        item_features_train, item_features_test = self._train_test_features(train, test, item_features, "item_idx")
         users = test.select("user_idx").distinct()
         items = test.select("item_idx").distinct()
         split_data = SplitData(
@@ -373,12 +335,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :return: features for train and test subsets
         """
         if features is not None:
-            features_train = features.join(
-                train.select(column).distinct(), on=column
-            )
-            features_test = features.join(
-                test.select(column).distinct(), on=column
-            )
+            features_train = features.join(train.select(column).distinct(), on=column)
+            features_test = features.join(test.select(column).distinct(), on=column)
         else:
             features_train = None
             features_test = None
@@ -405,29 +363,17 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         if user_features is None:
             users = log.select("user_idx").distinct()
         else:
-            users = (
-                log.select("user_idx")
-                .union(user_features.select("user_idx"))
-                .distinct()
-            )
+            users = log.select("user_idx").union(user_features.select("user_idx")).distinct()
         if item_features is None:
             items = log.select("item_idx").distinct()
         else:
-            items = (
-                log.select("item_idx")
-                .union(item_features.select("item_idx"))
-                .distinct()
-            )
+            items = log.select("item_idx").union(item_features.select("item_idx")).distinct()
         self.fit_users = sf.broadcast(users)
         self.fit_items = sf.broadcast(items)
         self._num_users = self.fit_users.count()
         self._num_items = self.fit_items.count()
-        self._user_dim_size = (
-            self.fit_users.agg({"user_idx": "max"}).collect()[0][0] + 1
-        )
-        self._item_dim_size = (
-            self.fit_items.agg({"item_idx": "max"}).collect()[0][0] + 1
-        )
+        self._user_dim_size = self.fit_users.agg({"user_idx": "max"}).collect()[0][0] + 1
+        self._item_dim_size = self.fit_items.agg({"item_idx": "max"}).collect()[0][0] + 1
         self._fit(log, user_features, item_features)
 
     @abstractmethod
@@ -449,18 +395,14 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :return:
         """
 
-    def _filter_seen(
-        self, recs: DataFrame, log: DataFrame, k: int, users: DataFrame
-    ):
+    def _filter_seen(self, recs: DataFrame, log: DataFrame, k: int, users: DataFrame):
         """
         Filter seen items (presented in log) out of the users' recommendations.
         For each user return from `k` to `k + number of seen by user` recommendations.
         """
         users_log = log.join(users, on="user_idx")
         self._cache_model_temp_view(users_log, "filter_seen_users_log")
-        num_seen = users_log.groupBy("user_idx").agg(
-            sf.count("item_idx").alias("seen_count")
-        )
+        num_seen = users_log.groupBy("user_idx").agg(sf.count("item_idx").alias("seen_count"))
         self._cache_model_temp_view(num_seen, "filter_seen_num_seen")
 
         # count maximal number of items seen by users
@@ -471,11 +413,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         # crop recommendations to first k + max_seen items for each user
         recs = recs.withColumn(
             "temp_rank",
-            sf.row_number().over(
-                Window.partitionBy("user_idx").orderBy(
-                    sf.col("relevance").desc()
-                )
-            ),
+            sf.row_number().over(Window.partitionBy("user_idx").orderBy(sf.col("relevance").desc())),
         ).filter(sf.col("temp_rank") <= sf.lit(max_seen + k))
 
         # leave k + number of items seen by user recommendations in recs
@@ -491,8 +429,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             users_log.withColumnRenamed("item_idx", "item")
             .withColumnRenamed("user_idx", "user")
             .select("user", "item"),
-            on=(sf.col("user_idx") == sf.col("user"))
-            & (sf.col("item_idx") == sf.col("item")),
+            on=(sf.col("user_idx") == sf.col("user")) & (sf.col("item_idx") == sf.col("item")),
             how="anti",
         ).drop("user", "item")
 
@@ -576,9 +513,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
             or None if `file_path` is provided
         """
-        log, users, items = self._filter_log_users_items_dataframes(
-            log, k, users, items
-        )
+        log, users, items = self._filter_log_users_items_dataframes(log, k, users, items)
 
         recs = self._predict(
             log,
@@ -592,9 +527,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         if filter_seen_items and log:
             recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
 
-        recs = get_top_k_recs(recs, k=k).select(
-            "user_idx", "item_idx", "relevance"
-        )
+        recs = get_top_k_recs(recs, k=k).select("user_idx", "item_idx", "relevance")
 
         output = return_recs(recs, recs_file_path)
         self._clear_model_temp_view("filter_seen_users_log")
@@ -618,18 +551,14 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
         fit_entities = getattr(self, f"fit_{entity}s")
 
-        num_new, main_df = filter_cold(
-            main_df, fit_entities, col_name=f"{entity}_{suffix}"
-        )
+        num_new, main_df = filter_cold(main_df, fit_entities, col_name=f"{entity}_{suffix}")
         if num_new > 0:
             self.logger.info(
                 "%s model can't predict cold %ss, they will be ignored",
                 self,
                 entity,
             )
-        _, log_df = filter_cold(
-            log_df, fit_entities, col_name=f"{entity}_{suffix}"
-        )
+        _, log_df = filter_cold(log_df, fit_entities, col_name=f"{entity}_{suffix}")
         return main_df, log_df
 
     # pylint: disable=too-many-arguments
@@ -694,10 +623,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             setattr(
                 self,
                 f"_{entity}_dim_size",
-                getattr(self, f"fit_{entity}s")
-                .agg({f"{entity}_idx": "max"})
-                .collect()[0][0]
-                + 1,
+                getattr(self, f"fit_{entity}s").agg({f"{entity}_idx": "max"}).collect()[0][0] + 1,
             )
         return getattr(self, f"_{entity}_dim_size")
 
@@ -763,13 +689,10 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             or None if `file_path` is provided
         """
         log, user_features, item_features, pairs = [
-            convert2spark(df)
-            for df in [log, user_features, item_features, pairs]
+            convert2spark(df) for df in [log, user_features, item_features, pairs]
         ]
         if sorted(pairs.columns) != ["item_idx", "user_idx"]:
-            raise ValueError(
-                "pairs must be a dataframe with columns strictly [user_idx, item_idx]"
-            )
+            raise ValueError("pairs must be a dataframe with columns strictly [user_idx, item_idx]")
         pairs, log = self._filter_cold_for_predict(pairs, log, "user")
         pairs, log = self._filter_cold_for_predict(pairs, log, "item")
 
@@ -838,18 +761,14 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         )
         return pred
 
-    def _get_features_wrap(
-        self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Optional[Tuple[DataFrame, int]]:
+    def _get_features_wrap(self, ids: DataFrame, features: Optional[DataFrame]) -> Optional[Tuple[DataFrame, int]]:
         if "user_idx" not in ids.columns and "item_idx" not in ids.columns:
             raise ValueError("user_idx or item_idx missing")
         vectors, rank = self._get_features(ids, features)
         return vectors, rank
 
     # pylint: disable=unused-argument
-    def _get_features(
-        self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Tuple[Optional[DataFrame], Optional[int]]:
+    def _get_features(self, ids: DataFrame, features: Optional[DataFrame]) -> Tuple[Optional[DataFrame], Optional[int]]:
         """
         Get embeddings from model
 
@@ -895,12 +814,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             k=k,
         )
 
-        nearest_items = nearest_items.withColumnRenamed(
-            "item_idx_two", "neighbour_item_idx"
-        )
-        nearest_items = nearest_items.withColumnRenamed(
-            "item_idx_one", "item_idx"
-        )
+        nearest_items = nearest_items.withColumnRenamed("item_idx_two", "neighbour_item_idx")
+        nearest_items = nearest_items.withColumnRenamed("item_idx_one", "item_idx")
         return nearest_items
 
     def _get_nearest_items(
@@ -909,20 +824,14 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         metric: Optional[str] = None,
         candidates: Optional[DataFrame] = None,
     ) -> Optional[DataFrame]:
-        raise NotImplementedError(
-            f"item-to-item prediction is not implemented for {self}"
-        )
+        raise NotImplementedError(f"item-to-item prediction is not implemented for {self}")
 
     def _params_tried(self):
         """check if current parameters were already evaluated"""
         if self.study is None:
             return False
 
-        params = {
-            name: value
-            for name, value in self._init_args.items()
-            if name in self._search_space
-        }
+        params = {name: value for name, value in self._init_args.items() if name in self._search_space}
         for trial in self.study.trials:
             if params == trial.params:
                 return True
@@ -968,10 +877,7 @@ class ItemVectorModel(BaseRecommender):
             spark-dataframe with columns ``[item_idx, neighbour_item_idx, similarity]``
         """
         if metric not in self.item_to_item_metrics:
-            raise ValueError(
-                f"Select one of the valid distance metrics: "
-                f"{self.item_to_item_metrics}"
-            )
+            raise ValueError(f"Select one of the valid distance metrics: " f"{self.item_to_item_metrics}")
 
         return self._get_nearest_items_wrap(
             items=items,
@@ -1013,9 +919,9 @@ class ItemVectorModel(BaseRecommender):
             )
         )
 
-        right_part = items_vectors.withColumnRenamed(
-            "item_idx", "item_idx_two"
-        ).withColumnRenamed("item_vector", "item_vector_two")
+        right_part = items_vectors.withColumnRenamed("item_idx", "item_idx_two").withColumnRenamed(
+            "item_vector", "item_vector_two"
+        )
 
         if candidates is not None:
             right_part = right_part.join(
@@ -1023,20 +929,14 @@ class ItemVectorModel(BaseRecommender):
                 on="item_idx_two",
             )
 
-        joined_factors = left_part.join(
-            right_part, on=sf.col("item_idx_one") != sf.col("item_idx_two")
-        )
+        joined_factors = left_part.join(right_part, on=sf.col("item_idx_one") != sf.col("item_idx_two"))
 
         joined_factors = joined_factors.withColumn(
             metric,
-            dist_function(
-                sf.col("item_vector_one"), sf.col("item_vector_two")
-            ),
+            dist_function(sf.col("item_vector_one"), sf.col("item_vector_two")),
         )
 
-        similarity_matrix = joined_factors.select(
-            "item_idx_one", "item_idx_two", metric
-        )
+        similarity_matrix = joined_factors.select("item_idx_one", "item_idx_two", metric)
 
         return similarity_matrix
 
@@ -1196,9 +1096,7 @@ class HybridRecommender(BaseRecommender, ABC):
             k=k,
         )
 
-    def get_features(
-        self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Optional[Tuple[DataFrame, int]]:
+    def get_features(self, ids: DataFrame, features: Optional[DataFrame]) -> Optional[Tuple[DataFrame, int]]:
         """
         Returns user or item feature vectors as a Column with type ArrayType
         :param ids: Spark DataFrame with unique ids
@@ -1458,9 +1356,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
         if 0 < cold_weight <= 1:
             self.cold_weight = cold_weight
         else:
-            raise ValueError(
-                "`cold_weight` value should be in interval (0, 1]"
-            )
+            raise ValueError("`cold_weight` value should be in interval (0, 1]")
 
     @property
     def _dataframes(self):
@@ -1482,17 +1378,11 @@ class NonPersonalizedRecommender(Recommender, ABC):
         Calculating a fill value a the minimal relevance
         calculated during model training multiplied by weight.
         """
-        return (
-            item_popularity.select(sf.min("relevance")).collect()[0][0]
-            * weight
-        )
+        return item_popularity.select(sf.min("relevance")).collect()[0][0] * weight
 
     @staticmethod
     def _check_relevance(log: DataFrame):
-
-        vals = log.select("relevance").where(
-            (sf.col("relevance") != 1) & (sf.col("relevance") != 0)
-        )
+        vals = log.select("relevance").where((sf.col("relevance") != 1) & (sf.col("relevance") != 0))
         if vals.count() > 0:
             raise ValueError("Relevance values in log must be 0 or 1")
 
@@ -1510,11 +1400,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
     @staticmethod
     def _calc_max_hist_len(log: DataFrame, users: DataFrame) -> int:
         max_hist_len = (
-            (
-                log.join(users, on="user_idx")
-                .groupBy("user_idx")
-                .agg(sf.countDistinct("item_idx").alias("items_count"))
-            )
+            (log.join(users, on="user_idx").groupBy("user_idx").agg(sf.countDistinct("item_idx").alias("items_count")))
             .select(sf.max("items_count"))
             .collect()[0][0]
         )
@@ -1540,32 +1426,21 @@ class NonPersonalizedRecommender(Recommender, ABC):
         selected_item_popularity = self._get_selected_item_popularity(items)
         selected_item_popularity = selected_item_popularity.withColumn(
             "rank",
-            sf.row_number().over(
-                Window.orderBy(
-                    sf.col("relevance").desc(), sf.col("item_idx").desc()
-                )
-            ),
+            sf.row_number().over(Window.orderBy(sf.col("relevance").desc(), sf.col("item_idx").desc())),
         )
 
         if filter_seen_items and log is not None:
             user_to_num_items = (
-                log.join(users, on="user_idx")
-                .groupBy("user_idx")
-                .agg(sf.countDistinct("item_idx").alias("num_items"))
+                log.join(users, on="user_idx").groupBy("user_idx").agg(sf.countDistinct("item_idx").alias("num_items"))
             )
             users = users.join(user_to_num_items, on="user_idx", how="left")
             users = users.fillna(0, "num_items")
             # 'selected_item_popularity' truncation by k + max_seen
             max_seen = users.select(sf.coalesce(sf.max("num_items"), sf.lit(0))).collect()[0][0]
-            selected_item_popularity = selected_item_popularity\
-                .filter(sf.col("rank") <= k + max_seen)
-            return users.join(
-                selected_item_popularity, on=(sf.col("rank") <= k + sf.col("num_items")), how="left"
-            )
+            selected_item_popularity = selected_item_popularity.filter(sf.col("rank") <= k + max_seen)
+            return users.join(selected_item_popularity, on=(sf.col("rank") <= k + sf.col("num_items")), how="left")
 
-        return users.crossJoin(
-            selected_item_popularity.filter(sf.col("rank") <= k)
-        ).drop("rank")
+        return users.crossJoin(selected_item_popularity.filter(sf.col("rank") <= k)).drop("rank")
 
     def _predict_with_sampling(
         self,
@@ -1583,15 +1458,12 @@ class NonPersonalizedRecommender(Recommender, ABC):
         selected_item_popularity = self._get_selected_item_popularity(items)
         selected_item_popularity = selected_item_popularity.withColumn(
             "relevance",
-            sf.when(sf.col("relevance") == sf.lit(0.0), 0.1**6).otherwise(
-                sf.col("relevance")
-            ),
+            sf.when(sf.col("relevance") == sf.lit(0.0), 0.1**6).otherwise(sf.col("relevance")),
         )
 
         items_pd = selected_item_popularity.withColumn(
             "probability",
-            sf.col("relevance")
-            / selected_item_popularity.select(sf.sum("relevance")).first()[0],
+            sf.col("relevance") / selected_item_popularity.select(sf.sum("relevance")).first()[0],
         ).toPandas()
 
         if items_pd.shape[0] == 0:
@@ -1658,7 +1530,6 @@ class NonPersonalizedRecommender(Recommender, ABC):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-
         if self.sample:
             return self._predict_with_sampling(
                 log=log,
@@ -1668,9 +1539,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
                 filter_seen_items=filter_seen_items,
             )
         else:
-            return self._predict_without_sampling(
-                log, k, users, items, filter_seen_items
-            )
+            return self._predict_without_sampling(log, k, users, items, filter_seen_items)
 
     def _predict_pairs(
         self,

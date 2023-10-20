@@ -1,8 +1,9 @@
-import pyspark.sql.functions as sf
 import numpy as np
+import pyspark.sql.functions as sf
 
-from replay.utils.spark_utils import convert2spark
 from replay.data import AnyDataFrame
+
+from .spark_utils import convert2spark
 
 
 def get_item_recency(
@@ -86,9 +87,7 @@ def get_item_recency(
         "item_idx",
         sf.unix_timestamp(sf.to_timestamp("timestamp")).alias("timestamp"),
     )
-    items = items.groupBy("item_idx").agg(
-        sf.mean("timestamp").alias("timestamp")
-    )
+    items = items.groupBy("item_idx").agg(sf.mean("timestamp").alias("timestamp"))
     items = items.withColumn("relevance", sf.lit(1))
     items = smoothe_time(items, decay, limit, kind)
     return items
@@ -191,16 +190,10 @@ def smoothe_time(
     <BLANKLINE>
     """
     log = convert2spark(log)
-    log = log.withColumn(
-        "timestamp", sf.unix_timestamp(sf.to_timestamp("timestamp"))
-    )
-    last_date = (
-        log.agg({"timestamp": "max"}).collect()[0].asDict()["max(timestamp)"]
-    )
+    log = log.withColumn("timestamp", sf.unix_timestamp(sf.to_timestamp("timestamp")))
+    last_date = log.agg({"timestamp": "max"}).collect()[0].asDict()["max(timestamp)"]
     day_in_secs = 86400
-    log = log.withColumn(
-        "age", (last_date - sf.col("timestamp")) / day_in_secs
-    )
+    log = log.withColumn("age", (last_date - sf.col("timestamp")) / day_in_secs)
     if kind == "power":
         power = np.log(0.5) / np.log(decay)
         log = log.withColumn("age", sf.pow(sf.col("age") + 1, power))
@@ -211,15 +204,9 @@ def smoothe_time(
         k = 0.5 / decay
         log = log.withColumn("age", 1 - k * sf.col("age"))
     else:
-        raise ValueError(
-            f"parameter kind must be one of [power, exp, linear], got {kind}"
-        )
+        raise ValueError(f"parameter kind must be one of [power, exp, linear], got {kind}")
 
-    log = log.withColumn(
-        "age", sf.when(sf.col("age") < limit, limit).otherwise(sf.col("age"))
-    )
-    log = log.withColumn(
-        "relevance", sf.col("relevance") * sf.col("age")
-    ).drop("age")
+    log = log.withColumn("age", sf.when(sf.col("age") < limit, limit).otherwise(sf.col("age")))
+    log = log.withColumn("relevance", sf.col("relevance") * sf.col("age")).drop("age")
     log = log.withColumn("timestamp", sf.to_timestamp("timestamp"))
     return log

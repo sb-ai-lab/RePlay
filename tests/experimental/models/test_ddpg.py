@@ -1,34 +1,26 @@
 # pylint: disable-all
 from datetime import datetime
 
-import pytest
-import torch
 import numpy as np
 import pandas as pd
-from pytorch_ranger import Ranger
+import pytest
+import torch
 from pyspark.sql import functions as sf
+from pytorch_ranger import Ranger
 
 from replay.data import LOG_SCHEMA
 from replay.experimental.models import DDPG
-from replay.experimental.models.ddpg import (
-    ActorDRR,
-    CriticDRR,
-    OUNoise,
-    ReplayBuffer,
-    to_np,
-    StateReprModule
-)
+from replay.experimental.models.ddpg import ActorDRR, CriticDRR, OUNoise, ReplayBuffer, StateReprModule, to_np
 from tests.utils import (
     del_files_by_pattern,
     find_file_by_pattern,
-    spark,
     log,
     log_to_pred,
     long_log_with_features,
-    user_features,
+    spark,
     sparkDataFrameEqual,
+    user_features,
 )
-
 
 SEED = 123
 
@@ -251,9 +243,7 @@ def test_actor_get_action(ddpg_actor_param, batch_size):
     action = torch.randint(high=item_num, size=(batch_size,))
     action_emb = actor.state_repr.item_embeddings(action)
 
-    discrete_actions = actor.get_action(
-        action_emb, items, torch.ones_like(items)
-    )
+    discrete_actions = actor.get_action(action_emb, items, torch.ones_like(items))
 
     assert (action == discrete_actions).prod()
 
@@ -301,15 +291,9 @@ def test_save_load(log, model, user_num=5, item_num=5):
 
     model.exact_embeddings_size = False
     model.fit(log=log)
-    old_params = [
-        param.detach().cpu().numpy() for param in model.model.parameters()
-    ]
-    old_policy_optimizer_params = model.policy_optimizer.state_dict()[
-        "param_groups"
-    ][0]
-    old_value_optimizer_params = model.value_optimizer.state_dict()[
-        "param_groups"
-    ][0]
+    old_params = [param.detach().cpu().numpy() for param in model.model.parameters()]
+    old_policy_optimizer_params = model.policy_optimizer.state_dict()["param_groups"][0]
+    old_value_optimizer_params = model.value_optimizer.state_dict()["param_groups"][0]
     path = find_file_by_pattern(spark_local_dir, pattern)
     assert path is not None
 
@@ -342,17 +326,13 @@ def test_save_load(log, model, user_num=5, item_num=5):
             old_params[i],
             atol=1.0e-3,
         )
-    for param_name, parameter in new_model.policy_optimizer.state_dict()[
-        "param_groups"
-    ][0].items():
+    for param_name, parameter in new_model.policy_optimizer.state_dict()["param_groups"][0].items():
         assert np.allclose(
             parameter,
             old_policy_optimizer_params[param_name],
             atol=1.0e-3,
         )
-    for param_name, parameter in new_model.value_optimizer.state_dict()[
-        "param_groups"
-    ][0].items():
+    for param_name, parameter in new_model.value_optimizer.state_dict()["param_groups"][0].items():
         assert np.allclose(
             parameter,
             old_value_optimizer_params[param_name],
@@ -408,10 +388,7 @@ def test_env_step(log, model, user=[0, 1, 2]):
 
     # choose related action
     global_action = model.model.environment.related_items[user, 0]
-    action = torch.where(
-        model.model.environment.available_items - global_action.reshape(-1, 1)
-        == 0
-    )[1]
+    action = torch.where(model.model.environment.available_items - global_action.reshape(-1, 1) == 0)[1]
 
     # step
     model.model.environment.step(action, action_emb, replay_buffer)
@@ -426,16 +403,12 @@ def test_predict_pairs_to_file(spark, long_log_with_features, tmp_path):
     model.fit(long_log_with_features)
     model.predict_pairs(
         log=long_log_with_features,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
-            "user_idx", "item_idx"
-        ),
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
         recs_file_path=path,
     )
     pred_cached = model.predict_pairs(
         log=long_log_with_features,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
-            "user_idx", "item_idx"
-        ),
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
         recs_file_path=None,
     )
     pred_from_file = spark.read.parquet(path)
@@ -446,8 +419,6 @@ def test_predict_to_file(spark, long_log_with_features, tmp_path):
     model = DDPG(seed=SEED, user_num=6, item_num=6)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
     model.fit_predict(long_log_with_features, k=10, recs_file_path=path)
-    pred_cached = model.predict(
-        long_log_with_features, k=10, recs_file_path=None
-    )
+    pred_cached = model.predict(long_log_with_features, k=10, recs_file_path=None)
     pred_from_file = spark.read.parquet(path)
     sparkDataFrameEqual(pred_cached, pred_from_file)

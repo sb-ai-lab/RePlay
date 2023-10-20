@@ -3,12 +3,7 @@
 from pyspark.sql import functions as sf
 
 from replay.preprocessing.data_preparator import ToNumericFeatureTransformer
-
-from tests.utils import (
-    item_features,
-    spark,
-    sparkDataFrameEqual,
-)
+from tests.utils import item_features, spark, sparkDataFrameEqual
 
 
 def test_all_to_numeric_big_threshold(item_features):
@@ -16,10 +11,7 @@ def test_all_to_numeric_big_threshold(item_features):
     processor.fit(item_features.filter(sf.col("class") != "dog"))
     transformed = processor.transform(item_features)
     assert "iq" in transformed.columns and "color" not in transformed.columns
-    assert (
-        "ohe_class_dog" not in transformed.columns
-        and "ohe_class_cat" in transformed.columns
-    )
+    assert "ohe_class_dog" not in transformed.columns and "ohe_class_cat" in transformed.columns
     assert sorted(transformed.columns) == [
         "iq",
         "item_idx",
@@ -61,7 +53,5 @@ def test_all_to_numeric_empty(item_features):
 
     processor.fit(item_features.select("item_idx", "class"))
     assert processor.cat_feat_transformer is None
-    transformed = processor.transform(
-        item_features.select("item_idx", "class")
-    )
+    transformed = processor.transform(item_features.select("item_idx", "class"))
     assert transformed.columns == ["item_idx"]

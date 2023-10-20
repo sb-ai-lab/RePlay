@@ -1,8 +1,8 @@
 # pylint: disable-all
 from datetime import datetime
 
-import pytest
 import numpy as np
+import pytest
 
 from replay.data import LOG_SCHEMA
 from replay.splitters import NewUsersSplitter

@@ -1,15 +1,13 @@
 # pylint: disable-all
-import pytest
 import pandas as pd
+import pytest
 
 from replay.splitters.user_log_splitter import k_folds
 
 
 @pytest.fixture
 def df():
-    df = pd.DataFrame(
-        {"user_idx": [1, 1, 1, 2, 2], "item_idx": [1, 2, 3, 4, 5]}
-    )
+    df = pd.DataFrame({"user_idx": [1, 1, 1, 2, 2], "item_idx": [1, 2, 3, 4, 5]})
     return df
 
 

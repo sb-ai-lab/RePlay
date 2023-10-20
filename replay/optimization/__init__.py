@@ -2,8 +2,10 @@
 Hyperparameter optimization of models
 """
 
-from replay.optimization.optuna_objective import (
-    MainObjective,
-    SplitData,
-    ItemKNNObjective,
-)
+from .optuna_objective import ItemKNNObjective, MainObjective, SplitData
+
+__all__ = [
+    "MainObjective",
+    "SplitData",
+    "ItemKNNObjective",
+]

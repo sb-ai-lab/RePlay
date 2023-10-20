@@ -5,7 +5,7 @@ import pytest
 from pandas import DataFrame
 
 from replay.models import Recommender
-from tests.utils import spark, log
+from tests.utils import log, spark
 
 
 # pylint: disable=missing-class-docstring, too-many-arguments

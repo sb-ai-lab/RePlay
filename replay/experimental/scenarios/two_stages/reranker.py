@@ -6,10 +6,7 @@ from lightautoml.automl.presets.tabular_presets import TabularAutoML
 from lightautoml.tasks import Task
 from pyspark.sql import DataFrame
 
-from replay.utils.spark_utils import (
-    convert2spark,
-    get_top_k_recs,
-)
+from replay.utils.spark_utils import convert2spark, get_top_k_recs
 
 
 class ReRanker:
@@ -114,6 +111,4 @@ class LamaWrap(ReRanker):
         )
 
         self.logger.info("top-k")
-        return get_top_k_recs(
-            recs=convert2spark(candidates_ids), k=k, id_type="idx"
-        )
+        return get_top_k_recs(recs=convert2spark(candidates_ids), k=k, id_type="idx")

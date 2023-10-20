@@ -1,20 +1,17 @@
-import pandas as pd
-import implicit
-import pytest
-import numpy as np
 from datetime import datetime
+
+import implicit
+import numpy as np
+import pandas as pd
+import pytest
+from implicit.als import AlternatingLeastSquares
 from pyspark.sql import functions as sf
-from pyspark.sql.types import (
-    IntegerType,
-    StructField,
-    StructType,
-)
+from pyspark.sql.types import IntegerType, StructField, StructType
 
 from replay.data import LOG_SCHEMA
 from replay.experimental.models import ImplicitWrap
-from tests.utils import spark, log, sparkDataFrameEqual, long_log_with_features
-from implicit.als import AlternatingLeastSquares
 from replay.utils.session_handler import get_spark_session
+from tests.utils import log, long_log_with_features, spark, sparkDataFrameEqual
 
 
 @pytest.mark.parametrize(
@@ -23,23 +20,12 @@ from replay.utils.session_handler import get_spark_session
         ImplicitWrap(implicit.als.AlternatingLeastSquares()),
         ImplicitWrap(implicit.bpr.BayesianPersonalizedRanking()),
         ImplicitWrap(implicit.lmf.LogisticMatrixFactorization()),
-    ]
+    ],
 )
-@pytest.mark.parametrize(
-    "filter_seen",
-    [
-        True,
-        False
-    ]
-)
-def test_predict(model, log,filter_seen):
+@pytest.mark.parametrize("filter_seen", [True, False])
+def test_predict(model, log, filter_seen):
     model.fit(log)
-    pred = model.predict(
-        log=log,
-        k=5,
-        users=[1],
-        filter_seen_items=filter_seen
-    )
+    pred = model.predict(log=log, k=5, users=[1], filter_seen_items=filter_seen)
 
     assert pred.select("user_idx").distinct().count() == 1
     assert pred.count() == 2 if filter_seen else 4
@@ -51,17 +37,11 @@ def test_predict(model, log,filter_seen):
         ImplicitWrap(implicit.als.AlternatingLeastSquares()),
         ImplicitWrap(implicit.bpr.BayesianPersonalizedRanking()),
         ImplicitWrap(implicit.lmf.LogisticMatrixFactorization()),
-    ]
+    ],
 )
-@pytest.mark.parametrize(
-    "log_in_pred",
-    [
-        True,
-        False
-    ]
-)
+@pytest.mark.parametrize("log_in_pred", [True, False])
 def test_predict_pairs(model, log, log_in_pred):
-    pairs = log.select("user_idx","item_idx").filter(sf.col("user_idx") == 2)
+    pairs = log.select("user_idx", "item_idx").filter(sf.col("user_idx") == 2)
     model.fit(log)
     pred = model.predict_pairs(pairs, log if log_in_pred else None)
     pred_top_k = model.predict_pairs(pairs, log if log_in_pred else None, k=2)
@@ -70,7 +50,7 @@ def test_predict_pairs(model, log, log_in_pred):
     assert pred_top_k.groupBy("user_idx").count().filter(f"count > 2").count() == 0
     assert pred.groupBy("user_idx").count().filter(f"count > 2").count() != 0
 
-    sparkDataFrameEqual(pairs.select("user_idx","item_idx"), pred.select("user_idx","item_idx"))
+    sparkDataFrameEqual(pairs.select("user_idx", "item_idx"), pred.select("user_idx", "item_idx"))
 
 
 @pytest.mark.parametrize(
@@ -79,7 +59,7 @@ def test_predict_pairs(model, log, log_in_pred):
         ImplicitWrap(implicit.als.AlternatingLeastSquares()),
         ImplicitWrap(implicit.bpr.BayesianPersonalizedRanking()),
         ImplicitWrap(implicit.lmf.LogisticMatrixFactorization()),
-    ]
+    ],
 )
 def test_predict_empty_log(log, model):
     model.fit(log)

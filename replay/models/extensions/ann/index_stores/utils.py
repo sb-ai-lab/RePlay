@@ -6,6 +6,7 @@ from pyspark.sql import SparkSession
 
 class FileSystem(Enum):
     """File system types"""
+
     HDFS = 1
     LOCAL = 2
 
@@ -21,6 +22,7 @@ def get_default_fs() -> str:
 @dataclass(frozen=True)
 class FileInfo:
     """File meta-information: filesystem, path and hdfs_uri (optional)"""
+
     path: str
     filesystem: FileSystem
     hdfs_uri: str = None
@@ -88,7 +90,7 @@ or set 'fs.defaultFS' in hadoop configuration.
         else:
             hostname = path[prefix_len:].split("/", 1)[0]
             hdfs_uri = "hdfs://" + hostname
-            return FileInfo(path[len(hdfs_uri):], FileSystem.HDFS, hdfs_uri)
+            return FileInfo(path[len(hdfs_uri) :], FileSystem.HDFS, hdfs_uri)
     elif path.startswith("file://"):
         return FileInfo(path[prefix_len:], FileSystem.LOCAL)
     else:

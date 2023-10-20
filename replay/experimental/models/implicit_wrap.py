@@ -4,9 +4,9 @@ from typing import Optional
 import pandas as pd
 from pyspark.sql import DataFrame
 
-from replay.models.base_rec import Recommender
-from replay.utils.spark_utils import to_csr, save_picklable_to_parquet, load_pickled_from_parquet
 from replay.data import REC_SCHEMA
+from replay.models.base_rec import Recommender
+from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet, to_csr
 
 
 class ImplicitWrap(Recommender):
@@ -34,9 +34,7 @@ class ImplicitWrap(Recommender):
     def __init__(self, model):
         """Provide initialized ``implicit`` model."""
         self.model = model
-        self.logger.info(
-            "The model is a wrapper of a non-distributed model which may affect performance"
-        )
+        self.logger.info("The model is a wrapper of a non-distributed model which may affect performance")
 
     @property
     def _init_args(self):
@@ -91,18 +89,21 @@ class ImplicitWrap(Recommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-
         items_to_use = items.distinct().toPandas().item_idx.tolist()
         user_item_data = to_csr(log)
         model = self.model
         return (
             users.select("user_idx")
             .groupby("user_idx")
-            .applyInPandas(self._pd_func(
-                model=model,
-                items_to_use=items_to_use,
-                user_item_data=user_item_data,
-                filter_seen_items=filter_seen_items), REC_SCHEMA)
+            .applyInPandas(
+                self._pd_func(
+                    model=model,
+                    items_to_use=items_to_use,
+                    user_item_data=user_item_data,
+                    filter_seen_items=filter_seen_items,
+                ),
+                REC_SCHEMA,
+            )
         )
 
     def _predict_pairs(
@@ -112,8 +113,5 @@ class ImplicitWrap(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-
         model = self.model
-        return pairs.groupby("user_idx").applyInPandas(
-            self._pd_func(model=model, filter_seen_items=False),
-            REC_SCHEMA)
+        return pairs.groupby("user_idx").applyInPandas(self._pd_func(model=model, filter_seen_items=False), REC_SCHEMA)

@@ -3,12 +3,9 @@ from typing import Optional
 from pyspark.sql import DataFrame
 
 from replay.data import AnyDataFrame
-from replay.metrics.base_metric import (
-    RecOnlyMetric,
-    fill_na_with_empty_array,
-    filter_sort
-)
 from replay.utils.spark_utils import convert2spark, get_top_k_recs
+
+from .base_metric import RecOnlyMetric, fill_na_with_empty_array, filter_sort
 
 
 # pylint: disable=too-few-public-methods
@@ -29,7 +26,8 @@ class Unexpectedness(RecOnlyMetric):
     """
 
     def __init__(
-        self, pred: AnyDataFrame,
+        self,
+        pred: AnyDataFrame,
     ):  # pylint: disable=super-init-not-called
         """
         :param pred: model predictions
@@ -66,10 +64,6 @@ class Unexpectedness(RecOnlyMetric):
         recommendations = recommendations.join(base_recs, how="right", on=["user_idx"])
 
         if ground_truth_users is not None:
-            recommendations = recommendations.join(
-                ground_truth_users, on="user_idx", how="right"
-            )
+            recommendations = recommendations.join(ground_truth_users, on="user_idx", how="right")
 
-        return fill_na_with_empty_array(
-            recommendations, "pred", base_pred.schema["item_idx"].dataType
-        )
+        return fill_na_with_empty_array(recommendations, "pred", base_pred.schema["item_idx"].dataType)

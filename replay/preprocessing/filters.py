@@ -2,19 +2,19 @@
 Select or remove data by some criteria
 """
 from datetime import datetime, timedelta
-from pyspark.sql import DataFrame, Window, functions as sf
+from typing import Optional, Union
+
+from pyspark.sql import DataFrame, Window
+from pyspark.sql import functions as sf
 from pyspark.sql.functions import col
 from pyspark.sql.types import TimestampType
-from typing import Union, Optional
 
 from replay.data import AnyDataFrame
-from replay.utils.spark_utils import convert2spark
 from replay.utils.session_handler import State
+from replay.utils.spark_utils import convert2spark
 
 
-def filter_by_min_count(
-    data_frame: AnyDataFrame, num_entries: int, group_by: str = "user_idx"
-) -> DataFrame:
+def filter_by_min_count(data_frame: AnyDataFrame, num_entries: int, group_by: str = "user_idx") -> DataFrame:
     """
     Remove entries with entities (e.g. users, items) which are presented in `data_frame`
     less than `num_entries` times. The `data_frame` is grouped by `group_by` column,
@@ -35,12 +35,8 @@ def filter_by_min_count(
     """
     data_frame = convert2spark(data_frame)
     input_count = data_frame.count()
-    count_by_group = data_frame.groupBy(group_by).agg(
-        sf.count(group_by).alias(f"{group_by}_temp_count")
-    )
-    remaining_entities = count_by_group.filter(
-        count_by_group[f"{group_by}_temp_count"] >= num_entries
-    ).select(group_by)
+    count_by_group = data_frame.groupBy(group_by).agg(sf.count(group_by).alias(f"{group_by}_temp_count"))
+    remaining_entities = count_by_group.filter(count_by_group[f"{group_by}_temp_count"] >= num_entries).select(group_by)
     data_frame = data_frame.join(remaining_entities, on=group_by, how="inner")
     output_count = data_frame.count()
     diff = (input_count - output_count) / input_count
@@ -55,9 +51,7 @@ def filter_by_min_count(
     return data_frame
 
 
-def filter_out_low_ratings(
-    data_frame: AnyDataFrame, value: float, rating_column="relevance"
-) -> DataFrame:
+def filter_out_low_ratings(data_frame: AnyDataFrame, value: float, rating_column="relevance") -> DataFrame:
     """
     Remove records with records less than ``value`` in ``column``.
 
@@ -251,18 +245,13 @@ def take_num_days_of_user_hist(
     if first:
         return (
             log.withColumn("min_date", sf.min(col(date_col)).over(window))
-            .filter(
-                col(date_col)
-                < col("min_date") + sf.expr(f"INTERVAL {days} days")
-            )
+            .filter(col(date_col) < col("min_date") + sf.expr(f"INTERVAL {days} days"))
             .drop("min_date")
         )
 
     return (
         log.withColumn("max_date", sf.max(col(date_col)).over(window))
-        .filter(
-            col(date_col) > col("max_date") - sf.expr(f"INTERVAL {days} days")
-        )
+        .filter(col(date_col) > col("max_date") - sf.expr(f"INTERVAL {days} days"))
         .drop("max_date")
     )
 
@@ -317,9 +306,7 @@ def take_time_period(
     if start_date is None:
         start_date = log.agg(sf.min(date_column)).first()[0]
     if end_date is None:
-        end_date = log.agg(sf.max(date_column)).first()[0] + timedelta(
-            seconds=1
-        )
+        end_date = log.agg(sf.max(date_column)).first()[0] + timedelta(seconds=1)
 
     return log.filter(
         (col(date_column) >= sf.lit(start_date).cast(TimestampType()))
@@ -386,13 +373,9 @@ def take_num_days_of_global_hist(
     """
     if first:
         start_date = log.agg(sf.min(date_column)).first()[0]
-        end_date = sf.lit(start_date).cast(TimestampType()) + sf.expr(
-            f"INTERVAL {duration_days} days"
-        )
+        end_date = sf.lit(start_date).cast(TimestampType()) + sf.expr(f"INTERVAL {duration_days} days")
         return log.filter(col(date_column) < end_date)
 
     end_date = log.agg(sf.max(date_column)).first()[0]
-    start_date = sf.lit(end_date).cast(TimestampType()) - sf.expr(
-        f"INTERVAL {duration_days} days"
-    )
+    start_date = sf.lit(end_date).cast(TimestampType()) - sf.expr(f"INTERVAL {duration_days} days")
     return log.filter(col(date_column) > start_date)

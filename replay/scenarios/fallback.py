@@ -1,13 +1,13 @@
 # pylint: disable=protected-access
-from typing import Optional, Dict, List, Any, Tuple, Union, Iterable
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from pyspark.sql import DataFrame
 
 from replay.data import AnyDataFrame
-from replay.preprocessing.filters import filter_by_min_count
-from replay.metrics import Metric, NDCG
+from replay.metrics import NDCG, Metric
 from replay.models import PopRec
 from replay.models.base_rec import BaseRecommender
+from replay.preprocessing.filters import filter_by_min_count
 from replay.utils.spark_utils import fallback, get_unique_entities
 
 

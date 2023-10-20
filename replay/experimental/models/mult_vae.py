@@ -16,7 +16,7 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, TensorDataset
 
-from replay.experimental.models.base_torch_rec import TorchRecommender
+from .base_torch_rec import TorchRecommender
 
 
 class VAE(nn.Module):
@@ -43,20 +43,10 @@ class VAE(nn.Module):
         self.decoder_dims = [latent_dim, hidden_dim, item_count]
 
         self.encoder = nn.ModuleList(
-            [
-                nn.Linear(d_in, d_out)
-                for d_in, d_out in zip(
-                    self.encoder_dims[:-1], self.encoder_dims[1:]
-                )
-            ]
+            [nn.Linear(d_in, d_out) for d_in, d_out in zip(self.encoder_dims[:-1], self.encoder_dims[1:])]
         )
         self.decoder = nn.ModuleList(
-            [
-                nn.Linear(d_in, d_out)
-                for d_in, d_out in zip(
-                    self.decoder_dims[:-1], self.decoder_dims[1:]
-                )
-            ]
+            [nn.Linear(d_in, d_out) for d_in, d_out in zip(self.decoder_dims[:-1], self.decoder_dims[1:])]
         )
         self.dropout = nn.Dropout(dropout)
         self.activation = torch.nn.ReLU()
@@ -81,9 +71,7 @@ class VAE(nn.Module):
         logvar_latent = hidden[:, self.latent_dim :]
         return mu_latent, logvar_latent
 
-    def reparameterize(
-        self, mu_latent: torch.Tensor, logvar_latent: torch.Tensor
-    ) -> torch.Tensor:
+    def reparameterize(self, mu_latent: torch.Tensor, logvar_latent: torch.Tensor) -> torch.Tensor:
         """Reparametrization trick"""
 
         if self.training:
@@ -101,9 +89,7 @@ class VAE(nn.Module):
         return self.decoder[-1](hidden)  # type: ignore
 
     # pylint: disable=arguments-differ
-    def forward(  # type: ignore
-        self, batch: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, batch: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:  # type: ignore
         """
         :param batch: user batch
         :return: output, expectation and logarithm of variation
@@ -199,9 +185,7 @@ class MultVAE(TorchRecommender):
             "patience": self.patience,
         }
 
-    def _get_data_loader(
-        self, data: pd.DataFrame, shuffle: bool = True
-    ) -> Tuple[csr_matrix, DataLoader, np.ndarray]:
+    def _get_data_loader(self, data: pd.DataFrame, shuffle: bool = True) -> Tuple[csr_matrix, DataLoader, np.ndarray]:
         """get data loader and matrix with data"""
         users_count = data["user_idx"].value_counts().count()
         user_idx = data["user_idx"].astype("category").cat  # type: ignore
@@ -230,20 +214,12 @@ class MultVAE(TorchRecommender):
     ) -> None:
         self.logger.debug("Creating batch")
         data = log.select("user_idx", "item_idx").toPandas()
-        splitter = GroupShuffleSplit(
-            n_splits=1, test_size=self.valid_split_size, random_state=self.seed
-        )
-        train_idx, valid_idx = next(
-            splitter.split(data, groups=data["user_idx"])
-        )
+        splitter = GroupShuffleSplit(n_splits=1, test_size=self.valid_split_size, random_state=self.seed)
+        train_idx, valid_idx = next(splitter.split(data, groups=data["user_idx"]))
         train_data, valid_data = data.iloc[train_idx], data.iloc[valid_idx]
 
-        self.train_user_batch, train_data_loader, _ = self._get_data_loader(
-            train_data
-        )
-        self.valid_user_batch, valid_data_loader, _ = self._get_data_loader(
-            valid_data, False
-        )
+        self.train_user_batch, train_data_loader, _ = self._get_data_loader(train_data)
+        self.valid_user_batch, valid_data_loader, _ = self._get_data_loader(valid_data, False)
 
         self.logger.debug("Training VAE")
         self.model = VAE(
@@ -257,9 +233,7 @@ class MultVAE(TorchRecommender):
             lr=self.learning_rate,
             weight_decay=self.l2_reg / self.batch_size_users,
         )
-        lr_scheduler = ReduceLROnPlateau(
-            optimizer, factor=self.factor, patience=self.patience
-        )
+        lr_scheduler = ReduceLROnPlateau(optimizer, factor=self.factor, patience=self.patience)
 
         self.train(
             train_data_loader,
@@ -288,12 +262,8 @@ class MultVAE(TorchRecommender):
             full_batch = self.train_user_batch
         else:
             full_batch = self.valid_user_batch
-        user_batch = torch.FloatTensor(full_batch[batch[0]].toarray()).to(
-            self.device
-        )
-        pred_user_batch, latent_mu, latent_logvar = self.model.forward(
-            user_batch
-        )
+        user_batch = torch.FloatTensor(full_batch[batch[0]].toarray()).to(self.device)
+        pred_user_batch, latent_mu, latent_logvar = self.model.forward(user_batch)
         return {
             "y_pred": pred_user_batch,
             "y_true": user_batch,
@@ -316,17 +286,11 @@ class MultVAE(TorchRecommender):
             user_batch[0, items_np_history] = 1
             user_recs = F.softmax(model(user_batch)[0][0].detach(), dim=0)
             if cnt is not None:
-                best_item_idx = (
-                    torch.argsort(
-                        user_recs[items_np_to_pred], descending=True
-                    )[:cnt]
-                ).numpy()
+                best_item_idx = (torch.argsort(user_recs[items_np_to_pred], descending=True)[:cnt]).numpy()
                 items_np_to_pred = items_np_to_pred[best_item_idx]
             return pd.DataFrame(
                 {
-                    "user_idx": np.array(
-                        items_np_to_pred.shape[0] * [user_idx]
-                    ),
+                    "user_idx": np.array(items_np_to_pred.shape[0] * [user_idx]),
                     "item_idx": items_np_to_pred,
                     "relevance": user_recs[items_np_to_pred],
                 }

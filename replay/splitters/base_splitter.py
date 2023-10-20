@@ -76,7 +76,7 @@ class Splitter(ABC):
         drop_cold_items: bool,
         drop_cold_users: bool,
         user_col: str = "user_idx",
-        item_col: Optional[str] = "item_idx"
+        item_col: Optional[str] = "item_idx",
     ) -> DataFrame:
         """
         Removes cold users and items from the test data
@@ -90,20 +90,12 @@ class Splitter(ABC):
         :return: filtered DataFrame
         """
         if drop_cold_items:
-            train_tmp = train.select(
-                sf.col(item_col).alias("_item_id_inner")
-            ).distinct()
-            test = test.join(train_tmp, sf.col(item_col) == sf.col("_item_id_inner")).drop(
-                "_item_id_inner"
-            )
+            train_tmp = train.select(sf.col(item_col).alias("_item_id_inner")).distinct()
+            test = test.join(train_tmp, sf.col(item_col) == sf.col("_item_id_inner")).drop("_item_id_inner")
 
         if drop_cold_users:
-            train_tmp = train.select(
-                sf.col(user_col).alias("_user_id_inner")
-            ).distinct()
-            test = test.join(train_tmp, sf.col(user_col) == sf.col("_user_id_inner")).drop(
-                "_user_id_inner"
-            )
+            train_tmp = train.select(sf.col(user_col).alias("_user_id_inner")).distinct()
+            test = test.join(train_tmp, sf.col(user_col) == sf.col("_user_id_inner")).drop("_user_id_inner")
         return test
 
     @abstractmethod

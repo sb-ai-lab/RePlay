@@ -5,21 +5,15 @@ from typing import Optional, Tuple
 import numpy as np
 import pandas as pd
 import pyspark.sql.functions as sf
-
 from lightfm import LightFM
 from pyspark.sql import DataFrame
-from scipy.sparse import csr_matrix, hstack, diags
+from scipy.sparse import csr_matrix, diags, hstack
 from sklearn.preprocessing import MinMaxScaler
 
 from replay.data import REC_SCHEMA
 from replay.models.base_rec import HybridRecommender
-from replay.utils.spark_utils import (
-    to_csr,
-    check_numeric,
-    save_picklable_to_parquet,
-    load_pickled_from_parquet,
-)
 from replay.utils.session_handler import State
+from replay.utils.spark_utils import check_numeric, load_pickled_from_parquet, save_picklable_to_parquet, to_csr
 
 
 # pylint: disable=too-many-locals, too-many-instance-attributes
@@ -98,9 +92,7 @@ class LightFMWrap(HybridRecommender):
         idx_col_name = f"{entity}_idx"
 
         # filter features by log
-        feature_table = feature_table.join(
-            log_ids_list, on=idx_col_name, how="inner"
-        )
+        feature_table = feature_table.join(log_ids_list, on=idx_col_name, how="inner")
 
         fit_dim = getattr(self, f"_{entity}_dim")
         matrix_height = max(
@@ -117,15 +109,7 @@ class LightFMWrap(HybridRecommender):
             feature_table.select(
                 idx_col_name,
                 # first column contains id, next contain features
-                *(
-                    sorted(
-                        list(
-                            set(feature_table.columns).difference(
-                                {idx_col_name}
-                            )
-                        )
-                    )
-                ),
+                *(sorted(list(set(feature_table.columns).difference({idx_col_name})))),
             )
             .toPandas()
             .to_numpy()
@@ -186,12 +170,8 @@ class LightFMWrap(HybridRecommender):
         self.item_feat_scaler = None
 
         interactions_matrix = to_csr(log, self._user_dim, self._item_dim)
-        csr_item_features = self._feature_table_to_csr(
-            log.select("item_idx").distinct(), item_features
-        )
-        csr_user_features = self._feature_table_to_csr(
-            log.select("user_idx").distinct(), user_features
-        )
+        csr_item_features = self._feature_table_to_csr(log.select("item_idx").distinct(), item_features)
+        csr_user_features = self._feature_table_to_csr(log.select("user_idx").distinct(), user_features)
 
         if user_features is not None:
             self.can_predict_cold_users = True
@@ -232,16 +212,10 @@ class LightFMWrap(HybridRecommender):
         if self.can_predict_cold_items and item_features is None:
             raise ValueError("Item features are missing for predict")
 
-        csr_item_features = self._feature_table_to_csr(
-            pairs.select("item_idx").distinct(), item_features
-        )
-        csr_user_features = self._feature_table_to_csr(
-            pairs.select("user_idx").distinct(), user_features
-        )
+        csr_item_features = self._feature_table_to_csr(pairs.select("item_idx").distinct(), item_features)
+        csr_user_features = self._feature_table_to_csr(pairs.select("user_idx").distinct(), user_features)
 
-        return pairs.groupby("user_idx").applyInPandas(
-            predict_by_user, REC_SCHEMA
-        )
+        return pairs.groupby("user_idx").applyInPandas(predict_by_user, REC_SCHEMA)
 
     # pylint: disable=too-many-arguments
     def _predict(
@@ -254,9 +228,7 @@ class LightFMWrap(HybridRecommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        return self._predict_selected_pairs(
-            users.crossJoin(items), user_features, item_features
-        )
+        return self._predict_selected_pairs(users.crossJoin(items), user_features, item_features)
 
     def _predict_pairs(
         self,
@@ -265,13 +237,9 @@ class LightFMWrap(HybridRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
-        return self._predict_selected_pairs(
-            pairs, user_features, item_features
-        )
+        return self._predict_selected_pairs(pairs, user_features, item_features)
 
-    def _get_features(
-        self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Tuple[Optional[DataFrame], Optional[int]]:
+    def _get_features(self, ids: DataFrame, features: Optional[DataFrame]) -> Tuple[Optional[DataFrame], Optional[int]]:
         """
         Get features from LightFM.
         LightFM has methods get_item_representations/get_user_representations,
@@ -298,9 +266,7 @@ class LightFMWrap(HybridRecommender):
         else:
             sparse_features = self._feature_table_to_csr(ids, features)
 
-        biases, vectors = getattr(self.model, f"get_{entity}_representations")(
-            sparse_features
-        )
+        biases, vectors = getattr(self.model, f"get_{entity}_representations")(sparse_features)
 
         embed_list = list(
             zip(

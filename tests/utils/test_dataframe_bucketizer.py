@@ -3,11 +3,7 @@ import pytest
 from pyspark.conf import SparkConf
 
 from replay.utils.dataframe_bucketizer import DataframeBucketizer
-from tests.utils import (
-    log,
-    log2,
-    spark,
-)
+from tests.utils import log, log2, spark
 
 
 def test_dataframe_bucketizer(spark, log, log2):
@@ -31,8 +27,7 @@ def test_dataframe_bucketizer(spark, log, log2):
     ) as bucketizer:
         with pytest.raises(
             ValueError,
-            match="Parameter 'table_name' is not set! "
-            "Please set it via method 'set_table_name'.",
+            match="Parameter 'table_name' is not set! " "Please set it via method 'set_table_name'.",
         ):
             bucketed_log = bucketizer.transform(log2)
 

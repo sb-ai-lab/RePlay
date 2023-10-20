@@ -1,32 +1,17 @@
 # pylint: disable-all
-import pytest
 import numpy as np
-
+import pytest
 from pyspark.sql import functions as sf
 
-from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
-from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import (
-    ExecutorHnswlibIndexBuilder,
-)
-from replay.models.extensions.ann.index_stores.shared_disk_index_store import (
-    SharedDiskIndexStore,
-)
+from replay.experimental.models import ScalaALSWrap as ALSWrap
+from replay.experimental.scenarios.two_stages.two_stages_scenario import get_first_level_model_features
 from replay.models import AssociationRulesItemRec
 from replay.models.base_rec import HybridRecommender, UserRecommender
-from replay.experimental.models import ScalaALSWrap as ALSWrap
-from replay.experimental.scenarios.two_stages.two_stages_scenario import (
-    get_first_level_model_features,
-)
-from tests.utils import (
-    spark,
-    log,
-    log_to_pred,
-    long_log_with_features,
-    user_features,
-    sparkDataFrameEqual,
-)
-from replay.utils.model_handler import save, load
-
+from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
+from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import ExecutorHnswlibIndexBuilder
+from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
+from replay.utils.model_handler import load, save
+from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
 
 SEED = 123
 
@@ -60,9 +45,7 @@ def model_with_ann(tmp_path):
                 post=0,
                 ef_s=2000,
             ),
-            index_store=SharedDiskIndexStore(
-                warehouse_dir=str(tmp_path), index_dir="hnswlib_index"
-            ),
+            index_store=SharedDiskIndexStore(warehouse_dir=str(tmp_path), index_dir="hnswlib_index"),
         ),
     )
     return model
@@ -99,28 +82,20 @@ def test_diff_feedback_type(log, model):
 
 def test_enrich_with_features(log, model):
     model.fit(log.filter(sf.col("user_idx").isin([0, 2])))
-    res = get_first_level_model_features(
-        model, log.filter(sf.col("user_idx").isin([0, 1]))
-    )
+    res = get_first_level_model_features(model, log.filter(sf.col("user_idx").isin([0, 1])))
 
-    cold_user_and_item = res.filter(
-        (sf.col("user_idx") == 1) & (sf.col("item_idx") == 3)
-    )
+    cold_user_and_item = res.filter((sf.col("user_idx") == 1) & (sf.col("item_idx") == 3))
     row_dict = cold_user_and_item.collect()[0].asDict()
     assert row_dict["_if_0"] == row_dict["_uf_0"] == row_dict["_fm_1"] == 0.0
 
-    warm_user_and_item = res.filter(
-        (sf.col("user_idx") == 0) & (sf.col("item_idx") == 0)
-    )
+    warm_user_and_item = res.filter((sf.col("user_idx") == 0) & (sf.col("item_idx") == 0))
     row_dict = warm_user_and_item.collect()[0].asDict()
     np.allclose(
         [row_dict["_fm_1"], row_dict["_if_1"] * row_dict["_uf_1"]],
         [4.093189725967505, row_dict["_fm_1"]],
     )
 
-    cold_user_warm_item = res.filter(
-        (sf.col("user_idx") == 1) & (sf.col("item_idx") == 0)
-    )
+    cold_user_warm_item = res.filter((sf.col("user_idx") == 1) & (sf.col("item_idx") == 0))
     row_dict = cold_user_warm_item.collect()[0].asDict()
     np.allclose(
         [row_dict["_if_1"], row_dict["_if_1"] * row_dict["_uf_1"]],
@@ -128,9 +103,7 @@ def test_enrich_with_features(log, model):
     )
 
 
-@pytest.mark.parametrize(
-    "filter_seen_items", [True, False]
-)
+@pytest.mark.parametrize("filter_seen_items", [True, False])
 def test_ann_predict(log, model, model_with_ann, filter_seen_items):
     model.fit(log)
     recs1 = model.predict(log, k=1, filter_seen_items=filter_seen_items)
@@ -138,12 +111,8 @@ def test_ann_predict(log, model, model_with_ann, filter_seen_items):
     model_with_ann.fit(log)
     recs2 = model_with_ann.predict(log, k=1, filter_seen_items=filter_seen_items)
 
-    recs1 = recs1.toPandas().sort_values(
-        ["user_idx", "item_idx"], ascending=False
-    )
-    recs2 = recs2.toPandas().sort_values(
-        ["user_idx", "item_idx"], ascending=False
-    )
+    recs1 = recs1.toPandas().sort_values(["user_idx", "item_idx"], ascending=False)
+    recs2 = recs2.toPandas().sort_values(["user_idx", "item_idx"], ascending=False)
     assert recs1.user_idx.equals(recs2.user_idx)
     assert recs1.item_idx.equals(recs2.item_idx)
 
@@ -201,21 +170,9 @@ def test_predict_pairs_k(log):
         k=None,
     )
 
-    assert (
-        pairs_pred_k.groupBy("user_idx")
-        .count()
-        .filter(sf.col("count") > 1)
-        .count()
-        == 0
-    )
+    assert pairs_pred_k.groupBy("user_idx").count().filter(sf.col("count") > 1).count() == 0
 
-    assert (
-        pairs_pred.groupBy("user_idx")
-        .count()
-        .filter(sf.col("count") > 1)
-        .count()
-        > 0
-    )
+    assert pairs_pred.groupBy("user_idx").count().filter(sf.col("count") > 1).count() > 0
 
 
 def test_predict_empty_log(log):
@@ -265,29 +222,18 @@ def test_get_nearest_items(log, als_model, metric):
         candidates=[0, 3],
     )
     assert res.count() == 1
-    assert (
-        len(
-            set(res.toPandas().to_dict()["item_idx"].values()).difference(
-                {0, 1}
-            )
-        )
-        == 0
-    )
+    assert len(set(res.toPandas().to_dict()["item_idx"].values()).difference({0, 1})) == 0
 
 
 @pytest.mark.parametrize("metric", ["absent", None])
 def test_nearest_items_raises(log, metric):
     model = AssociationRulesItemRec()
     model.fit(log.filter(sf.col("item_idx") != 3))
-    with pytest.raises(
-        ValueError, match=r"Select one of the valid distance metrics.*"
-    ):
+    with pytest.raises(ValueError, match=r"Select one of the valid distance metrics.*"):
         model.get_nearest_items(items=[0, 1], k=2, metric=metric)
     model = ALSWrap()
     model.fit(log)
-    with pytest.raises(
-        ValueError, match=r"Select one of the valid distance metrics.*"
-    ):
+    with pytest.raises(ValueError, match=r"Select one of the valid distance metrics.*"):
         model.get_nearest_items(items=[0, 1], k=2, metric=metric)
 
 
@@ -313,16 +259,12 @@ def test_predict_pairs_to_file(spark, long_log_with_features, tmp_path):
     model.fit(long_log_with_features)
     model.predict_pairs(
         log=long_log_with_features,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
-            "user_idx", "item_idx"
-        ),
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
         recs_file_path=path,
     )
     pred_cached = model.predict_pairs(
         log=long_log_with_features,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
-            "user_idx", "item_idx"
-        ),
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
         recs_file_path=None,
     )
     pred_from_file = spark.read.parquet(path)
@@ -333,8 +275,6 @@ def test_predict_to_file(spark, long_log_with_features, tmp_path):
     model = ALSWrap(rank=2, seed=SEED)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
     model.fit_predict(long_log_with_features, k=10, recs_file_path=path)
-    pred_cached = model.predict(
-        long_log_with_features, k=10, recs_file_path=None
-    )
+    pred_cached = model.predict(long_log_with_features, k=10, recs_file_path=None)
     pred_from_file = spark.read.parquet(path)
     sparkDataFrameEqual(pred_cached, pred_from_file)

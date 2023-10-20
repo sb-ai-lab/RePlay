@@ -1,14 +1,14 @@
 # pylint: disable=too-many-arguments
 # pragma: no cover
 from abc import abstractmethod
-from typing import Optional, Union, Iterable, Dict, List, Any, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from pyspark.sql import DataFrame
 
 from replay.data import AnyDataFrame
-from replay.preprocessing.filters import filter_by_min_count
-from replay.metrics import Metric, NDCG
+from replay.metrics import NDCG, Metric
 from replay.models.base_rec import BaseRecommender
+from replay.preprocessing.filters import filter_by_min_count
 from replay.utils.spark_utils import convert2spark, get_unique_entities
 
 
@@ -17,7 +17,7 @@ class BaseScenario(BaseRecommender):
 
     can_predict_cold_users: bool = False
 
-    def __init__(self, cold_model, threshold=5):    # pragma: no cover
+    def __init__(self, cold_model, threshold=5):  # pragma: no cover
         self.threshold = threshold
         self.cold_model = cold_model
         self.hot_users = None

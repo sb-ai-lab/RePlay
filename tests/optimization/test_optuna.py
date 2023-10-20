@@ -1,7 +1,7 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
 
-from replay.models import SLIM, ItemKNN, ALSWrap
+from replay.models import SLIM, ALSWrap, ItemKNN
 from tests.utils import log, spark
 
 
@@ -54,9 +54,7 @@ def test_correct_borders(model, borders):
     assert res["rank"].keys() == model._search_space["rank"].keys()
 
 
-@pytest.mark.parametrize(
-    "borders,answer", [(None, True), ({"rank": [-10, -1]}, False)]
-)
+@pytest.mark.parametrize("borders,answer", [(None, True), ({"rank": [-10, -1]}, False)])
 def test_param_in_borders(model, borders, answer):
     search_space = model._prepare_param_borders(borders)
     assert model._init_params_in_search_space(search_space) == answer

@@ -1,6 +1,6 @@
 import math
 
-from replay.metrics.base_metric import Metric
+from .base_metric import Metric
 
 
 # pylint: disable=too-few-public-methods

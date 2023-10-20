@@ -1,8 +1,8 @@
 # pylint: disable-all
 from datetime import datetime
 
-import pytest
 import numpy as np
+import pytest
 
 from replay.data import LOG_SCHEMA
 from replay.splitters import UserSplitter
@@ -140,7 +140,9 @@ def log2(spark):
 
 def test_split_quantity(log2):
     splitter = UserSplitter(
-        drop_cold_items=False, drop_cold_users=False, item_test_size=2,
+        drop_cold_items=False,
+        drop_cold_users=False,
+        item_test_size=2,
     )
     train, test = splitter.split(log2)
     num_items = test.toPandas().user_idx.value_counts()
@@ -150,7 +152,9 @@ def test_split_quantity(log2):
 
 def test_split_proportion(log2):
     splitter = UserSplitter(
-        drop_cold_items=False, drop_cold_users=False, item_test_size=0.4,
+        drop_cold_items=False,
+        drop_cold_users=False,
+        item_test_size=0.4,
     )
     train, test = splitter.split(log2)
     num_items = test.toPandas().user_idx.value_counts()

@@ -47,14 +47,26 @@ For each metric, a formula for its calculation is given, because this is
 important for the correct comparison of algorithms, as mentioned in our
 `article <https://arxiv.org/abs/2206.12858>`_.
 """
-from replay.experimental.metrics.base_metric import ScalaMetric
-from replay.experimental.metrics.hitrate import ScalaHitRate
-from replay.experimental.metrics.ncis_precision import ScalaNCISPrecision
-from replay.experimental.metrics.map import ScalaMAP
-from replay.experimental.metrics.mrr import ScalaMRR
-from replay.experimental.metrics.ndcg import ScalaNDCG
-from replay.experimental.metrics.precision import ScalaPrecision
-from replay.experimental.metrics.recall import ScalaRecall
-from replay.experimental.metrics.rocauc import ScalaRocAuc
-from replay.experimental.metrics.surprisal import ScalaSurprisal
-from replay.experimental.metrics.unexpectedness import ScalaUnexpectedness
+from .hitrate import ScalaHitRate
+from .map import ScalaMAP
+from .mrr import ScalaMRR
+from .ncis_precision import ScalaNCISPrecision
+from .ndcg import ScalaNDCG
+from .precision import ScalaPrecision
+from .recall import ScalaRecall
+from .rocauc import ScalaRocAuc
+from .surprisal import ScalaSurprisal
+from .unexpectedness import ScalaUnexpectedness
+
+__all__ = [
+    "ScalaHitRate",
+    "ScalaNCISPrecision",
+    "ScalaMAP",
+    "ScalaMRR",
+    "ScalaNDCG",
+    "ScalaPrecision",
+    "ScalaRecall",
+    "ScalaRocAuc",
+    "ScalaSurprisal",
+    "ScalaUnexpectedness",
+]

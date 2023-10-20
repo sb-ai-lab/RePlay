@@ -3,12 +3,12 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
+import torch
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-import torch
 from torch import nn
-from torch.optim.optimizer import Optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
 from replay.data import REC_SCHEMA
@@ -23,9 +23,7 @@ class TorchRecommender(Recommender):
     device: torch.device
 
     def __init__(self):
-        self.logger.info(
-            "The model is neural network with non-distributed training"
-        )
+        self.logger.info("The model is neural network with non-distributed training")
         self.checkpoint_path = State().session.conf.get("spark.local.dir")
         self.device = State().device
 
@@ -38,9 +36,7 @@ class TorchRecommender(Recommender):
         optimizer.step()
         return loss.item()
 
-    def _run_validation(
-        self, valid_data_loader: DataLoader, epoch: int
-    ) -> float:
+    def _run_validation(self, valid_data_loader: DataLoader, epoch: int) -> float:
         self.model.eval()
         valid_loss = 0
         with torch.no_grad():
@@ -133,9 +129,9 @@ class TorchRecommender(Recommender):
         agg_fn = self._predict_by_user
 
         def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
-            return agg_fn(
-                pandas_df, model, items_consider_in_pred, k, items_count
-            )[["user_idx", "item_idx", "relevance"]]
+            return agg_fn(pandas_df, model, items_consider_in_pred, k, items_count)[
+                ["user_idx", "item_idx", "relevance"]
+            ]
 
         self.logger.debug("Predict started")
         # do not apply map on cold users for MultVAE predict
@@ -161,9 +157,7 @@ class TorchRecommender(Recommender):
         users = pairs.select("user_idx").distinct()
 
         def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
-            return agg_fn(pandas_df, model, items_count)[
-                ["user_idx", "item_idx", "relevance"]
-            ]
+            return agg_fn(pandas_df, model, items_count)[["user_idx", "item_idx", "relevance"]]
 
         self.logger.debug("Calculate relevance for user-item pairs")
         user_history = (
@@ -171,14 +165,10 @@ class TorchRecommender(Recommender):
             .groupBy("user_idx")
             .agg(sf.collect_list("item_idx").alias("item_idx_history"))
         )
-        user_pairs = pairs.groupBy("user_idx").agg(
-            sf.collect_list("item_idx").alias("item_idx_to_pred")
-        )
+        user_pairs = pairs.groupBy("user_idx").agg(sf.collect_list("item_idx").alias("item_idx_to_pred"))
         full_df = user_pairs.join(user_history, on="user_idx", how="inner")
 
-        recs = full_df.groupby("user_idx").applyInPandas(
-            grouped_map, REC_SCHEMA
-        )
+        recs = full_df.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
 
         return recs
 

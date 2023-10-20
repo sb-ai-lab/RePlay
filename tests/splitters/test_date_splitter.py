@@ -1,8 +1,8 @@
 # pylint: disable-all
 from datetime import datetime
 
-import pytest
 import numpy as np
+import pytest
 
 from replay.data import LOG_SCHEMA
 from replay.splitters import DateSplitter
@@ -30,9 +30,7 @@ def split_date():
 
 
 def test_split(log, split_date):
-    splitter = DateSplitter(
-        split_date, drop_cold_items=False, drop_cold_users=False
-    )
+    splitter = DateSplitter(split_date, drop_cold_items=False, drop_cold_users=False)
     train, test = splitter.split(log)
 
     train_max_date = train.toPandas().timestamp.max()
@@ -43,21 +41,15 @@ def test_split(log, split_date):
 
 
 def test_string(log, split_date):
-    splitter = DateSplitter(
-        split_date, drop_cold_items=False, drop_cold_users=False
-    )
+    splitter = DateSplitter(split_date, drop_cold_items=False, drop_cold_users=False)
     train_by_date, test_by_date = splitter.split(log)
 
     str_date = split_date.strftime("%Y-%m-%d")
-    splitter = DateSplitter(
-        str_date, drop_cold_items=False, drop_cold_users=False
-    )
+    splitter = DateSplitter(str_date, drop_cold_items=False, drop_cold_users=False)
     train_by_str, test_by_str = splitter.split(log)
 
     int_date = int(split_date.timestamp())
-    splitter = DateSplitter(
-        int_date, drop_cold_items=False, drop_cold_users=False
-    )
+    splitter = DateSplitter(int_date, drop_cold_items=False, drop_cold_users=False)
     train_by_int, test_by_int = splitter.split(log)
 
     assert train_by_date.count() == train_by_str.count()
@@ -82,9 +74,7 @@ def test_proportion(log):
 
 
 def test_drop_cold_items(log, split_date):
-    splitter = DateSplitter(
-        split_date, drop_cold_items=True, drop_cold_users=False
-    )
+    splitter = DateSplitter(split_date, drop_cold_items=True, drop_cold_users=False)
     train, test = splitter.split(log)
 
     train_items = train.toPandas().item_idx
@@ -94,9 +84,7 @@ def test_drop_cold_items(log, split_date):
 
 
 def test_drop_cold_users(log, split_date):
-    splitter = DateSplitter(
-        split_date, drop_cold_items=False, drop_cold_users=True
-    )
+    splitter = DateSplitter(split_date, drop_cold_items=False, drop_cold_users=True)
     train, test = splitter.split(log)
 
     train_users = train.toPandas().user_idx

@@ -1,5 +1,6 @@
-from replay.experimental.metrics.base_metric import ScalaRecOnlyMetric
 from replay.metrics import Unexpectedness
+
+from .base_metric import ScalaRecOnlyMetric
 
 
 # pylint: disable=too-few-public-methods

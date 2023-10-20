@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -7,9 +7,10 @@ from pyspark.sql import types as st
 from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.models.base_neighbour_rec import NeighbourRec
 from replay.utils.session_handler import State
+
+from .base_neighbour_rec import NeighbourRec
+from .extensions.ann.index_builders.base_index_builder import IndexBuilder
 
 
 # pylint: disable=too-many-ancestors
@@ -99,7 +100,7 @@ class SLIM(NeighbourRec):
             positive=True,
         )
 
-        def slim_column(pandas_df: pd.DataFrame) -> pd.DataFrame:   # pragma: no cover
+        def slim_column(pandas_df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover
             """
             fit similarity matrix with ElasticNet
             :param pandas_df: pd.Dataframe
@@ -108,9 +109,7 @@ class SLIM(NeighbourRec):
             idx = int(pandas_df["item_idx_one"][0])
             column = interactions_matrix[:, idx]
             column_arr = column.toarray().ravel()
-            interactions_matrix[
-                interactions_matrix[:, idx].nonzero()[0], idx
-            ] = 0
+            interactions_matrix[interactions_matrix[:, idx].nonzero()[0], idx] = 0
 
             regression.fit(interactions_matrix, column_arr)
             interactions_matrix[:, idx] = column

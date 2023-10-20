@@ -7,7 +7,8 @@ from pyspark.sql import types as st
 
 from replay.data import AnyDataFrame
 from replay.utils.spark_utils import convert2spark, get_top_k_recs
-from replay.metrics.base_metric import fill_na_with_empty_array, RecOnlyMetric, filter_sort
+
+from .base_metric import RecOnlyMetric, fill_na_with_empty_array, filter_sort
 
 
 # pylint: disable=too-few-public-methods
@@ -41,7 +42,8 @@ class Surprisal(RecOnlyMetric):
     """
 
     def __init__(
-        self, log: AnyDataFrame,
+        self,
+        log: AnyDataFrame,
     ):  # pylint: disable=super-init-not-called
         """
         Here we calculate self-information for each item
@@ -51,10 +53,7 @@ class Surprisal(RecOnlyMetric):
         self.log = convert2spark(log)
         n_users = self.log.select("user_idx").distinct().count()  # type: ignore
         self.item_weights = self.log.groupby("item_idx").agg(
-            (
-                sf.log2(n_users / sf.countDistinct("user_idx"))  # type: ignore
-                / np.log2(n_users)
-            ).alias("rec_weight")
+            (sf.log2(n_users / sf.countDistinct("user_idx")) / np.log2(n_users)).alias("rec_weight")  # type: ignore
         )
 
     @staticmethod
@@ -73,22 +72,15 @@ class Surprisal(RecOnlyMetric):
         ground_truth_users = convert2spark(ground_truth_users)
         recommendations = get_top_k_recs(recommendations, max_k)
 
-        recommendations = (
-            recommendations.join(self.item_weights, on="item_idx", how="left").fillna(1.0)
-        )
+        recommendations = recommendations.join(self.item_weights, on="item_idx", how="left").fillna(1.0)
         recommendations = filter_sort(recommendations, "rec_weight")
-        recommendations = (
-            recommendations.select("user_idx", sf.col("rec_weight"))
-            .withColumn(
-                "rec_weight",
-                sf.col("rec_weight").cast(st.ArrayType(st.DoubleType(), True)),
-            )
+        recommendations = recommendations.select("user_idx", sf.col("rec_weight")).withColumn(
+            "rec_weight",
+            sf.col("rec_weight").cast(st.ArrayType(st.DoubleType(), True)),
         )
         if ground_truth_users is not None:
             recommendations = fill_na_with_empty_array(
-                recommendations.join(
-                    ground_truth_users, on="user_idx", how="right"
-                ),
+                recommendations.join(ground_truth_users, on="user_idx", how="right"),
                 "rec_weight",
                 self.item_weights.schema["rec_weight"].dataType,
             )

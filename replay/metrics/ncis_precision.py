@@ -1,6 +1,6 @@
 import numpy as np
 
-from replay.metrics.base_metric import NCISMetric
+from .base_metric import NCISMetric
 
 
 # pylint: disable=too-few-public-methods

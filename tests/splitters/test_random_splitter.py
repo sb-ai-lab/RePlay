@@ -1,6 +1,6 @@
 # pylint: disable-all
-import pytest
 import numpy as np
+import pytest
 
 from replay.splitters import RandomSplitter
 

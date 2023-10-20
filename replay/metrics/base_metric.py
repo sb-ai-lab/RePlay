@@ -3,23 +3,20 @@ Base classes for quality and diversity metrics.
 """
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Union, Optional
+from typing import Dict, Optional, Union
 
 import pandas as pd
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 from pyspark.sql.types import DataType
-from pyspark.sql import Window
 from scipy.stats import norm
 
 from replay.data import AnyDataFrame, IntOrList, NumType
 from replay.utils.spark_utils import convert2spark, get_top_k_recs
 
 
-def fill_na_with_empty_array(
-    df: DataFrame, col_name: str, element_type: DataType
-) -> DataFrame:
+def fill_na_with_empty_array(df: DataFrame, col_name: str, element_type: DataType) -> DataFrame:
     """
     Fill empty values in array column with empty array of `element_type` values.
     :param df: dataframe with `col_name` column of ArrayType(`element_type`)
@@ -49,13 +46,9 @@ def preprocess_gt(
     ground_truth = convert2spark(ground_truth)
     ground_truth_users = convert2spark(ground_truth_users)
 
-    true_items_by_users = ground_truth.groupby("user_idx").agg(
-        sf.collect_set("item_idx").alias("ground_truth")
-    )
+    true_items_by_users = ground_truth.groupby("user_idx").agg(sf.collect_set("item_idx").alias("ground_truth"))
     if ground_truth_users is not None:
-        true_items_by_users = true_items_by_users.join(
-            ground_truth_users, on="user_idx", how="right"
-        )
+        true_items_by_users = true_items_by_users.join(ground_truth_users, on="user_idx", how="right")
         true_items_by_users = fill_na_with_empty_array(
             true_items_by_users,
             "ground_truth",
@@ -66,16 +59,13 @@ def preprocess_gt(
 
 
 def drop_duplicates(recommendations: AnyDataFrame) -> DataFrame:
-
     """
     Filter duplicated predictions by choosing the most relevant
     """
     return (
         recommendations.withColumn(
             "_num",
-            sf.row_number().over(
-                Window.partitionBy("user_idx", "item_idx").orderBy(sf.col("relevance").desc())
-            ),
+            sf.row_number().over(Window.partitionBy("user_idx", "item_idx").orderBy(sf.col("relevance").desc())),
         )
         .where(sf.col("_num") == 1)
         .drop("_num")
@@ -100,24 +90,19 @@ def filter_sort(recommendations: DataFrame, extra_column: str = None) -> DataFra
     recommendations = drop_duplicates(recommendations)
 
     recommendations = (
-        recommendations
-        .groupby("user_idx")
+        recommendations.groupby("user_idx")
         .agg(
-            sf.collect_list(
-                sf.struct(*[c for c in ["relevance", "item_idx", extra_column] if c is not None]))
-            .alias("pred_list"))
+            sf.collect_list(sf.struct(*[c for c in ["relevance", "item_idx", extra_column] if c is not None])).alias(
+                "pred_list"
+            )
+        )
         .withColumn("pred_list", sf.reverse(sf.array_sort("pred_list")))
     )
 
-    selection = [
-        "user_idx",
-        sf.col("pred_list.item_idx")
-        .cast(st.ArrayType(item_type, True)).alias("pred")
-    ]
+    selection = ["user_idx", sf.col("pred_list.item_idx").cast(st.ArrayType(item_type, True)).alias("pred")]
     if extra_column:
         selection.append(
-            sf.col(f"pred_list.{extra_column}")
-            .cast(st.ArrayType(extra_column_type, True)).alias(extra_column)
+            sf.col(f"pred_list.{extra_column}").cast(st.ArrayType(extra_column_type, True)).alias(extra_column)
         )
 
     recommendations = recommendations.select(*selection)
@@ -150,13 +135,9 @@ def get_enriched_recommendations(
     recommendations = get_top_k_recs(recommendations, k=max_k)
 
     true_items_by_users = preprocess_gt(ground_truth, ground_truth_users)
-    joined = filter_sort(recommendations).join(
-        true_items_by_users, how="right", on=["user_idx"]
-    )
+    joined = filter_sort(recommendations).join(true_items_by_users, how="right", on=["user_idx"])
 
-    return fill_na_with_empty_array(
-        joined, "pred", recommendations.schema["item_idx"].dataType
-    )
+    return fill_na_with_empty_array(joined, "pred", recommendations.schema["item_idx"].dataType)
 
 
 def process_k(func):
@@ -253,9 +234,7 @@ class Metric(ABC):
         res = {}
         for k in k_list:
             distribution = self._get_metric_distribution(recs, k)
-            value = distribution.agg(
-                sf.expr("percentile_approx(value, 0.5)").alias("value")
-            ).first()["value"]
+            value = distribution.agg(sf.expr("percentile_approx(value, 0.5)").alias("value")).first()["value"]
             res[k] = value
         return res
 
@@ -264,9 +243,7 @@ class Metric(ABC):
         res = {}
         for k in k_list:
             distribution = self._get_metric_distribution(recs, k)
-            value = distribution.agg(sf.avg("value").alias("value")).first()[
-                "value"
-            ]
+            value = distribution.agg(sf.avg("value").alias("value")).first()["value"]
             res[k] = value
         return res
 
@@ -279,12 +256,8 @@ class Metric(ABC):
         cur_class = self.__class__
         distribution = recs.rdd.flatMap(
             # pylint: disable=protected-access
-            lambda x: [
-                (x[0], float(cur_class._get_metric_value_by_user(k, *x[1:])))
-            ]
-        ).toDF(
-            f"user_idx {recs.schema['user_idx'].dataType.typeName()}, value double"
-        )
+            lambda x: [(x[0], float(cur_class._get_metric_value_by_user(k, *x[1:])))]
+        ).toDF(f"user_idx {recs.schema['user_idx'].dataType.typeName()}, value double")
         return distribution
 
     @staticmethod
@@ -342,9 +315,7 @@ class Metric(ABC):
         res = pd.DataFrame()
         for cut_off in k_list:
             dist = self._get_metric_distribution(recs, cut_off)
-            val = count.join(dist, on="user_idx", how="right").fillna(
-                0, subset="count"
-            )
+            val = count.join(dist, on="user_idx", how="right").fillna(0, subset="count")
             val = (
                 val.groupBy("count")
                 .agg(sf.avg("value").alias("value"))
@@ -432,16 +403,13 @@ class NCISMetric(Metric):
         :activation: activation function, applied over relevance values.
             "logit"/"sigmoid", "softmax" or None
         """
-        self.prev_policy_weights = convert2spark(
-            prev_policy_weights
-        ).withColumnRenamed("relevance", "prev_relevance")
+        self.prev_policy_weights = convert2spark(prev_policy_weights).withColumnRenamed("relevance", "prev_relevance")
         self.threshold = threshold
         if activation is None or activation in ("logit", "sigmoid", "softmax"):
             self.activation = activation
             if activation == "softmax":
                 self.logger.info(
-                    "For accurate softmax calculation pass only one `k` value "
-                    "in the NCISMetric metrics `call`"
+                    "For accurate softmax calculation pass only one `k` value " "in the NCISMetric metrics `call`"
                 )
         else:
             raise ValueError(f"Unexpected `activation` - {activation}")
@@ -459,13 +427,10 @@ class NCISMetric(Metric):
                 "_min_rel_user",
                 sf.min(col_name).over(Window.partitionBy("user_idx")),
             )
-            .withColumn(
-                col_name, sf.exp(sf.col(col_name) - sf.col("_min_rel_user"))
-            )
+            .withColumn(col_name, sf.exp(sf.col(col_name) - sf.col("_min_rel_user")))
             .withColumn(
                 col_name,
-                sf.col(col_name)
-                / sf.sum(col_name).over(Window.partitionBy("user_idx")),
+                sf.col(col_name) / sf.sum(col_name).over(Window.partitionBy("user_idx")),
             )
             .drop("_min_rel_user")
         )
@@ -475,9 +440,7 @@ class NCISMetric(Metric):
         """
         Apply sigmoid/logistic function to column `col_name`
         """
-        return df.withColumn(
-            col_name, sf.lit(1.0) / (sf.lit(1.0) + sf.exp(-sf.col(col_name)))
-        )
+        return df.withColumn(col_name, sf.lit(1.0) / (sf.lit(1.0) + sf.exp(-sf.col(col_name))))
 
     @staticmethod
     def _weigh_and_clip(
@@ -498,12 +461,8 @@ class NCISMetric(Metric):
             .withColumn(
                 "weight",
                 sf.when(sf.col(prev_policy_col) == sf.lit(0.0), sf.lit(upper))
-                .when(
-                    sf.col("weight_unbounded") < sf.lit(lower), sf.lit(lower)
-                )
-                .when(
-                    sf.col("weight_unbounded") > sf.lit(upper), sf.lit(upper)
-                )
+                .when(sf.col("weight_unbounded") < sf.lit(lower), sf.lit(lower))
+                .when(sf.col("weight_unbounded") > sf.lit(upper), sf.lit(upper))
                 .otherwise(sf.col("weight_unbounded")),
             )
             .select("user_idx", "item_idx", "relevance", "weight")
@@ -511,19 +470,11 @@ class NCISMetric(Metric):
 
     def _reweighing(self, recommendations):
         if self.activation == "softmax":
-            recommendations = self._softmax_by_user(
-                recommendations, col_name="prev_relevance"
-            )
-            recommendations = self._softmax_by_user(
-                recommendations, col_name="relevance"
-            )
+            recommendations = self._softmax_by_user(recommendations, col_name="prev_relevance")
+            recommendations = self._softmax_by_user(recommendations, col_name="relevance")
         elif self.activation in ["logit", "sigmoid"]:
-            recommendations = self._sigmoid(
-                recommendations, col_name="prev_relevance"
-            )
-            recommendations = self._sigmoid(
-                recommendations, col_name="relevance"
-            )
+            recommendations = self._sigmoid(recommendations, col_name="prev_relevance")
+            recommendations = self._sigmoid(recommendations, col_name="relevance")
 
         return self._weigh_and_clip(recommendations, self.threshold)
 
@@ -550,18 +501,16 @@ class NCISMetric(Metric):
         ground_truth = convert2spark(ground_truth)
         ground_truth_users = convert2spark(ground_truth_users)
 
-        true_items_by_users = ground_truth.groupby("user_idx").agg(
-            sf.collect_set("item_idx").alias("ground_truth")
-        )
+        true_items_by_users = ground_truth.groupby("user_idx").agg(sf.collect_set("item_idx").alias("ground_truth"))
 
         group_on = ["item_idx"]
         if "user_idx" in self.prev_policy_weights.columns:
             group_on.append("user_idx")
         recommendations = get_top_k_recs(recommendations, k=max_k)
 
-        recommendations = recommendations.join(
-            self.prev_policy_weights, on=group_on, how="left"
-        ).na.fill(0.0, subset=["prev_relevance"])
+        recommendations = recommendations.join(self.prev_policy_weights, on=group_on, how="left").na.fill(
+            0.0, subset=["prev_relevance"]
+        )
 
         recommendations = self._reweighing(recommendations)
 
@@ -571,13 +520,9 @@ class NCISMetric(Metric):
         recommendations = filter_sort(recommendations, "weight")
 
         if ground_truth_users is not None:
-            true_items_by_users = true_items_by_users.join(
-                ground_truth_users, on="user_idx", how="right"
-            )
+            true_items_by_users = true_items_by_users.join(ground_truth_users, on="user_idx", how="right")
 
-        recommendations = recommendations.join(
-            true_items_by_users, how="right", on=["user_idx"]
-        )
+        recommendations = recommendations.join(true_items_by_users, how="right", on=["user_idx"])
         return fill_na_with_empty_array(
             fill_na_with_empty_array(recommendations, "pred", item_type),
             "weight",

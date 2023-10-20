@@ -1,5 +1,6 @@
-from replay.experimental.metrics.base_metric import ScalaMetric
 from replay.metrics.base_metric import NCISMetric
+
+from .base_metric import ScalaMetric
 
 
 # pylint: disable=too-few-public-methods

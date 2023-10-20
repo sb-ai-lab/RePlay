@@ -7,8 +7,9 @@ import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
 
 from replay.data import AnyDataFrame
-from replay.splitters.base_splitter import Splitter, SplitterReturnType
 from replay.utils.spark_utils import convert2spark
+
+from .base_splitter import Splitter, SplitterReturnType
 
 
 # pylint: disable=too-few-public-methods
@@ -169,9 +170,7 @@ class UserSplitter(Splitter):
                 )
             test_users = (
                 all_users.withColumn("_rand", sf.rand(self.seed))
-                .withColumn(
-                    "_row_num", sf.row_number().over(Window.orderBy("_rand"))
-                )
+                .withColumn("_row_num", sf.row_number().over(Window.orderBy("_rand")))
                 .filter(f"_row_num <= {test_user_count}")
                 .drop("_rand", "_row_num")
             )
@@ -188,17 +187,11 @@ class UserSplitter(Splitter):
         """
 
         counts = log.groupBy(self.user_col).count()
-        test_users = self._get_test_users(log).withColumn(
-            "test_user", sf.lit(1)
-        )
+        test_users = self._get_test_users(log).withColumn("test_user", sf.lit(1))
         if self.shuffle:
-            res = self._add_random_partition(
-                log.join(test_users, how="left", on=self.user_col)
-            )
+            res = self._add_random_partition(log.join(test_users, how="left", on=self.user_col))
         else:
-            res = self._add_time_partition(
-                log.join(test_users, how="left", on=self.user_col)
-            )
+            res = self._add_time_partition(log.join(test_users, how="left", on=self.user_col))
 
         res = res.join(counts, on=self.user_col, how="left")
         res = res.withColumn("_frac", sf.col("_row_num") / sf.col("count"))
@@ -224,17 +217,11 @@ class UserSplitter(Splitter):
         :return: train and test DataFrames
         """
 
-        test_users = self._get_test_users(log).withColumn(
-            "test_user", sf.lit(1)
-        )
+        test_users = self._get_test_users(log).withColumn("test_user", sf.lit(1))
         if self.shuffle:
-            res = self._add_random_partition(
-                log.join(test_users, how="left", on=self.user_col)
-            )
+            res = self._add_random_partition(log.join(test_users, how="left", on=self.user_col))
         else:
-            res = self._add_time_partition(
-                log.join(test_users, how="left", on=self.user_col)
-            )
+            res = self._add_time_partition(log.join(test_users, how="left", on=self.user_col))
         train = res.filter(
             f"""
                     _row_num > {self.item_test_size} OR
@@ -256,9 +243,7 @@ class UserSplitter(Splitter):
             train, test = self._split_quantity(log)
         else:
             raise ValueError(
-                "`test_size` value must be [0, 1) or "
-                "a positive integer; "
-                f"test_size={self.item_test_size}"
+                "`test_size` value must be [0, 1) or " "a positive integer; " f"test_size={self.item_test_size}"
             )
 
         return train, test
@@ -273,17 +258,15 @@ class UserSplitter(Splitter):
         dataframe = dataframe.withColumn("_rand", sf.rand(self.seed))
         dataframe = dataframe.withColumn(
             "_row_num",
-            sf.row_number().over(
-                Window.partitionBy(self.user_col).orderBy("_rand")
-            ),
+            sf.row_number().over(Window.partitionBy(self.user_col).orderBy("_rand")),
         )
         return dataframe
 
     @staticmethod
     def _add_time_partition(
-            dataframe: DataFrame,
-            user_col: str = "user_idx",
-            date_col: str = "timestamp",
+        dataframe: DataFrame,
+        user_col: str = "user_idx",
+        date_col: str = "timestamp",
     ) -> DataFrame:
         """
         Adds user index `_row_num` based on `timestamp`.
@@ -295,11 +278,7 @@ class UserSplitter(Splitter):
         """
         res = dataframe.withColumn(
             "_row_num",
-            sf.row_number().over(
-                Window.partitionBy(user_col).orderBy(
-                    sf.col(date_col).desc()
-                )
-            ),
+            sf.row_number().over(Window.partitionBy(user_col).orderBy(sf.col(date_col).desc())),
         )
         return res
 
@@ -327,10 +306,7 @@ def k_folds(
         dataframe = convert2spark(log).withColumn("_rand", sf.rand(seed))
         dataframe = dataframe.withColumn(
             "fold",
-            sf.row_number().over(
-                Window.partitionBy(user_col).orderBy("_rand")
-            )
-            % n_folds,
+            sf.row_number().over(Window.partitionBy(user_col).orderBy("_rand")) % n_folds,
         ).drop("_rand")
         for i in range(n_folds):
             train = dataframe.filter(f"fold != {i}").drop("fold")

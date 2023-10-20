@@ -1,12 +1,12 @@
-from typing import Iterable, List, Optional, Union, Dict, Any
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import numpy as np
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
 
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.models.base_neighbour_rec import NeighbourRec
+from .base_neighbour_rec import NeighbourRec
+from .extensions.ann.index_builders import IndexBuilder
 
 
 # pylint: disable=too-many-ancestors, too-many-instance-attributes
@@ -117,9 +117,7 @@ class AssociationRulesItemRec(NeighbourRec):
             If not set, then ann will not be used.
         """
 
-        self.session_col = (
-            session_col if session_col is not None else "user_idx"
-        )
+        self.session_col = session_col if session_col is not None else "user_idx"
         self.min_item_count = min_item_count
         self.min_pair_count = min_pair_count
         self.num_neighbours = num_neighbours
@@ -172,22 +170,17 @@ class AssociationRulesItemRec(NeighbourRec):
             .drop("item_count")
         ).cache()
 
-        frequent_items_log = log.join(
-            frequent_items_cached.select("item_idx"), on="item_idx"
-        )
+        frequent_items_log = log.join(frequent_items_cached.select("item_idx"), on="item_idx")
 
         frequent_item_pairs = (
             frequent_items_log.withColumnRenamed("item_idx", "antecedent")
             .withColumnRenamed("relevance", "antecedent_rel")
             .join(
-                frequent_items_log.withColumnRenamed(
-                    self.session_col, self.session_col + "_cons"
-                )
+                frequent_items_log.withColumnRenamed(self.session_col, self.session_col + "_cons")
                 .withColumnRenamed("item_idx", "consequent")
                 .withColumnRenamed("relevance", "consequent_rel"),
                 on=[
-                    sf.col(self.session_col)
-                    == sf.col(self.session_col + "_cons"),
+                    sf.col(self.session_col) == sf.col(self.session_col + "_cons"),
                     sf.col("antecedent") < sf.col("consequent"),
                 ],
             )
@@ -196,9 +189,7 @@ class AssociationRulesItemRec(NeighbourRec):
                 "relevance",
                 sf.least(sf.col("consequent_rel"), sf.col("antecedent_rel")),
             )
-            .drop(
-                self.session_col + "_cons", "consequent_rel", "antecedent_rel"
-            )
+            .drop(self.session_col + "_cons", "consequent_rel", "antecedent_rel")
         )
 
         pairs_count = (
@@ -219,16 +210,12 @@ class AssociationRulesItemRec(NeighbourRec):
         )
 
         pairs_metrics = pairs_metrics.join(
-            frequent_items_cached.withColumnRenamed(
-                "item_relevance", "antecedent_relevance"
-            ),
+            frequent_items_cached.withColumnRenamed("item_relevance", "antecedent_relevance"),
             on=[sf.col("antecedent") == sf.col("item_idx")],
         ).drop("item_idx")
 
         pairs_metrics = pairs_metrics.join(
-            frequent_items_cached.withColumnRenamed(
-                "item_relevance", "consequent_relevance"
-            ),
+            frequent_items_cached.withColumnRenamed("item_relevance", "consequent_relevance"),
             on=[sf.col("consequent") == sf.col("item_idx")],
         ).drop("item_idx")
 
@@ -237,9 +224,7 @@ class AssociationRulesItemRec(NeighbourRec):
             sf.col("pair_relevance") / sf.col("antecedent_relevance"),
         ).withColumn(
             "lift",
-            num_sessions
-            * sf.col("confidence")
-            / sf.col("consequent_relevance"),
+            num_sessions * sf.col("confidence") / sf.col("consequent_relevance"),
         )
 
         if self.num_neighbours is not None:
@@ -306,10 +291,7 @@ class AssociationRulesItemRec(NeighbourRec):
             spark-dataframe with columns ``[item_id, neighbour_item_id, similarity]``
         """
         if metric not in self.item_to_item_metrics:
-            raise ValueError(
-                f"Select one of the valid distance metrics: "
-                f"{self.item_to_item_metrics}"
-            )
+            raise ValueError(f"Select one of the valid distance metrics: " f"{self.item_to_item_metrics}")
 
         return self._get_nearest_items_wrap(
             items=items,
@@ -336,9 +318,7 @@ class AssociationRulesItemRec(NeighbourRec):
         pairs_to_consider = self.similarity
         if candidates is not None:
             pairs_to_consider = self.similarity.join(
-                sf.broadcast(
-                    candidates.withColumnRenamed("item_idx", "item_idx_two")
-                ),
+                sf.broadcast(candidates.withColumnRenamed("item_idx", "item_idx_two")),
                 on="item_idx_two",
             )
 

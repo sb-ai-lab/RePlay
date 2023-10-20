@@ -3,52 +3,39 @@ import os
 from functools import partial
 from os.path import dirname, join
 
-import pytest
 import pandas as pd
-
+import pytest
 from implicit.als import AlternatingLeastSquares
 from pyspark.sql import functions as sf
 
 import replay
+from replay.models import *
 from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
 from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
-from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import (
-    DriverNmslibIndexBuilder,
-)
-from replay.models.extensions.ann.index_builders.executor_nmslib_index_builder import (
-    ExecutorNmslibIndexBuilder,
-)
-from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import (
-    ExecutorHnswlibIndexBuilder,
-)
+from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
+from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import ExecutorHnswlibIndexBuilder
+from replay.models.extensions.ann.index_builders.executor_nmslib_index_builder import ExecutorNmslibIndexBuilder
 from replay.models.extensions.ann.index_stores.hdfs_index_store import HdfsIndexStore
-from replay.models.extensions.ann.index_stores.shared_disk_index_store import (
-    SharedDiskIndexStore,
-)
-from replay.models.extensions.ann.index_stores.spark_files_index_store import (
-    SparkFilesIndexStore,
-)
+from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
+from replay.models.extensions.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
 from replay.preprocessing.data_preparator import Indexer
-from replay.utils.model_handler import save, load
-from replay.models import *
+from replay.utils.model_handler import load, save
 from replay.utils.spark_utils import convert2spark
-from tests.utils import long_log_with_features, sparkDataFrameEqual, spark
-from tests.models.test_cat_pop_rec import cat_tree, cat_log, requested_cats
+from tests.models.test_cat_pop_rec import cat_log, cat_tree, requested_cats
+from tests.utils import long_log_with_features, spark, sparkDataFrameEqual
 
 
 @pytest.fixture
 def log_unary(long_log_with_features):
-    return long_log_with_features.withColumn(
-        "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
-    )
+    return long_log_with_features.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0))
 
 
 @pytest.fixture
 def user_features(spark):
-    return spark.createDataFrame(
-        [(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)]
-    ).toDF("user_idx", "age", "mood", "gender")
+    return spark.createDataFrame([(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)]).toDF(
+        "user_idx", "age", "mood", "gender"
+    )
 
 
 @pytest.fixture
@@ -165,7 +152,11 @@ def test_study(df, tmp_path):
 
 def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
     model = Word2VecRec(
-        rank=1, window_size=1, use_idf=True, seed=42, min_count=0,
+        rank=1,
+        window_size=1,
+        use_idf=True,
+        seed=42,
+        min_count=0,
         index_builder=DriverHnswlibIndexBuilder(
             index_params=HnswlibParam(
                 space="l2",
@@ -174,11 +165,8 @@ def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
                 post=0,
                 ef_s=2000,
             ),
-            index_store=SharedDiskIndexStore(
-                warehouse_dir=str(tmp_path),
-                index_dir="hnswlib_index"
-            )
-        )
+            index_store=SharedDiskIndexStore(warehouse_dir=str(tmp_path), index_dir="hnswlib_index"),
+        ),
     )
 
     path = (tmp_path / "test").resolve()
@@ -230,9 +218,7 @@ def test_ann_knn_saving_loading(long_log_with_features, tmp_path):
         weighting=None,
         index_builder=ExecutorNmslibIndexBuilder(
             index_params=nmslib_hnsw_params,
-            index_store=SharedDiskIndexStore(
-                warehouse_dir=str(tmp_path), index_dir="nmslib_hnsw_index"
-            ),
+            index_store=SharedDiskIndexStore(warehouse_dir=str(tmp_path), index_dir="nmslib_hnsw_index"),
         ),
     )
 
@@ -246,6 +232,6 @@ def test_ann_knn_saving_loading(long_log_with_features, tmp_path):
 
 
 def test_hdfs_index_store_exception():
-    local_warehouse_dir = 'file:///tmp'
+    local_warehouse_dir = "file:///tmp"
     with pytest.raises(ValueError, match=f"Can't recognize path {local_warehouse_dir + '/index_dir'} as HDFS path!"):
         HdfsIndexStore(warehouse_dir=local_warehouse_dir, index_dir="index_dir")

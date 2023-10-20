@@ -3,7 +3,7 @@ from typing import Optional
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from replay.models.base_rec import Recommender
+from .base_rec import Recommender
 
 
 class UserPopRec(Recommender):
@@ -56,7 +56,6 @@ class UserPopRec(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-
         user_relevance_sum = (
             log.groupBy("user_idx")
             .agg(sf.sum("relevance").alias("user_rel_sum"))
@@ -74,9 +73,7 @@ class UserPopRec(Recommender):
             .select(
                 "user_idx",
                 "item_idx",
-                (sf.col("user_item_rel_sum") / sf.col("user_rel_sum")).alias(
-                    "relevance"
-                ),
+                (sf.col("user_item_rel_sum") / sf.col("user_rel_sum")).alias("relevance"),
             )
         )
         self.user_item_popularity.cache().count()
@@ -97,10 +94,6 @@ class UserPopRec(Recommender):
         filter_seen_items: bool = True,
     ) -> DataFrame:
         if filter_seen_items:
-            self.logger.warning(
-                "UserPopRec can't predict new items, recommendations will not be filtered"
-            )
+            self.logger.warning("UserPopRec can't predict new items, recommendations will not be filtered")
 
-        return self.user_item_popularity.join(users, on="user_idx").join(
-            items, on="item_idx"
-        )
+        return self.user_item_popularity.join(users, on="user_idx").join(items, on="item_idx")

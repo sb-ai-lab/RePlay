@@ -4,7 +4,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from scipy.stats import norm
 
-from replay.models.pop_rec import PopRec
+from .pop_rec import PopRec
 
 
 class Wilson(PopRec):
@@ -58,9 +58,7 @@ class Wilson(PopRec):
         self.alpha = alpha
         self.sample = sample
         self.seed = seed
-        super().__init__(
-            add_cold_items=add_cold_items, cold_weight=cold_weight
-        )
+        super().__init__(add_cold_items=add_cold_items, cold_weight=cold_weight)
 
     @property
     def _init_args(self):
@@ -78,7 +76,6 @@ class Wilson(PopRec):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-
         self._check_relevance(log)
 
         items_counts = log.groupby("item_idx").agg(
@@ -89,16 +86,10 @@ class Wilson(PopRec):
         crit = norm.isf(self.alpha / 2.0)
         items_counts = items_counts.withColumn(
             "relevance",
-            (sf.col("pos") + sf.lit(0.5 * crit**2))
-            / (sf.col("total") + sf.lit(crit**2))
+            (sf.col("pos") + sf.lit(0.5 * crit**2)) / (sf.col("total") + sf.lit(crit**2))
             - sf.lit(crit)
             / (sf.col("total") + sf.lit(crit**2))
-            * sf.sqrt(
-                (sf.col("total") - sf.col("pos"))
-                * sf.col("pos")
-                / sf.col("total")
-                + crit**2 / 4
-            ),
+            * sf.sqrt((sf.col("total") - sf.col("pos")) * sf.col("pos") / sf.col("total") + crit**2 / 4),
         )
 
         self.item_popularity = items_counts.drop("pos", "total")

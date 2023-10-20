@@ -23,20 +23,19 @@
 
 import sys
 
-from pyspark import since, keyword_only
-from pyspark.ml.param.shared import HasPredictionCol, HasBlockSize, HasMaxIter, HasRegParam, \
-    HasCheckpointInterval, HasSeed
-from pyspark.ml.wrapper import JavaEstimator, JavaModel
+from pyspark import keyword_only, since
 from pyspark.ml.common import inherit_doc
-from pyspark.ml.param import Params, TypeConverters, Param
-from pyspark.ml.util import JavaMLWritable, JavaMLReadable
-from pyspark.ml.util import MLReadable
-from pyspark.ml.util import JavaMLReader
-from pyspark.ml.wrapper import JavaParams
-from pyspark.ml.util import _jvm
-
-
-__all__ = ['ALS', 'ALSModel']
+from pyspark.ml.param import Param, Params, TypeConverters
+from pyspark.ml.param.shared import (
+    HasBlockSize,
+    HasCheckpointInterval,
+    HasMaxIter,
+    HasPredictionCol,
+    HasRegParam,
+    HasSeed,
+)
+from pyspark.ml.util import JavaMLReadable, JavaMLReader, JavaMLWritable, MLReadable, _jvm
+from pyspark.ml.wrapper import JavaEstimator, JavaModel, JavaParams
 
 
 class ALSModelJavaMLReadable(MLReadable):
@@ -73,16 +72,28 @@ class _ALSModelParams(HasPredictionCol, HasBlockSize):
     .. versionadded:: 3.0.0
     """
 
-    userCol = Param(Params._dummy(), "userCol", "column name for user ids. Ids must be within "
-                    + "the integer value range.", typeConverter=TypeConverters.toString)
-    itemCol = Param(Params._dummy(), "itemCol", "column name for item ids. Ids must be within "
-                    + "the integer value range.", typeConverter=TypeConverters.toString)
-    coldStartStrategy = Param(Params._dummy(), "coldStartStrategy", "strategy for dealing with "
-                              + "unknown or new users/items at prediction time. This may be useful "
-                              + "in cross-validation or production scenarios, for handling "
-                              + "user/item ids the model has not seen in the training data. "
-                              + "Supported values: 'nan', 'drop'.",
-                              typeConverter=TypeConverters.toString)
+    userCol = Param(
+        Params._dummy(),
+        "userCol",
+        "column name for user ids. Ids must be within " + "the integer value range.",
+        typeConverter=TypeConverters.toString,
+    )
+    itemCol = Param(
+        Params._dummy(),
+        "itemCol",
+        "column name for item ids. Ids must be within " + "the integer value range.",
+        typeConverter=TypeConverters.toString,
+    )
+    coldStartStrategy = Param(
+        Params._dummy(),
+        "coldStartStrategy",
+        "strategy for dealing with "
+        + "unknown or new users/items at prediction time. This may be useful "
+        + "in cross-validation or production scenarios, for handling "
+        + "user/item ids the model has not seen in the training data. "
+        + "Supported values: 'nan', 'drop'.",
+        typeConverter=TypeConverters.toString,
+    )
 
     def __init__(self, *args):
         super(_ALSModelParams, self).__init__(*args)
@@ -118,36 +129,53 @@ class _ALSParams(_ALSModelParams, HasMaxIter, HasRegParam, HasCheckpointInterval
     .. versionadded:: 3.0.0
     """
 
-    rank = Param(Params._dummy(), "rank", "rank of the factorization",
-                 typeConverter=TypeConverters.toInt)
-    numUserBlocks = Param(Params._dummy(), "numUserBlocks", "number of user blocks",
-                          typeConverter=TypeConverters.toInt)
-    numItemBlocks = Param(Params._dummy(), "numItemBlocks", "number of item blocks",
-                          typeConverter=TypeConverters.toInt)
-    implicitPrefs = Param(Params._dummy(), "implicitPrefs", "whether to use implicit preference",
-                          typeConverter=TypeConverters.toBoolean)
-    alpha = Param(Params._dummy(), "alpha", "alpha for implicit preference",
-                  typeConverter=TypeConverters.toFloat)
+    rank = Param(Params._dummy(), "rank", "rank of the factorization", typeConverter=TypeConverters.toInt)
+    numUserBlocks = Param(Params._dummy(), "numUserBlocks", "number of user blocks", typeConverter=TypeConverters.toInt)
+    numItemBlocks = Param(Params._dummy(), "numItemBlocks", "number of item blocks", typeConverter=TypeConverters.toInt)
+    implicitPrefs = Param(
+        Params._dummy(), "implicitPrefs", "whether to use implicit preference", typeConverter=TypeConverters.toBoolean
+    )
+    alpha = Param(Params._dummy(), "alpha", "alpha for implicit preference", typeConverter=TypeConverters.toFloat)
 
-    ratingCol = Param(Params._dummy(), "ratingCol", "column name for ratings",
-                      typeConverter=TypeConverters.toString)
-    nonnegative = Param(Params._dummy(), "nonnegative",
-                        "whether to use nonnegative constraint for least squares",
-                        typeConverter=TypeConverters.toBoolean)
-    intermediateStorageLevel = Param(Params._dummy(), "intermediateStorageLevel",
-                                     "StorageLevel for intermediate datasets. Cannot be 'NONE'.",
-                                     typeConverter=TypeConverters.toString)
-    finalStorageLevel = Param(Params._dummy(), "finalStorageLevel",
-                              "StorageLevel for ALS model factors.",
-                              typeConverter=TypeConverters.toString)
+    ratingCol = Param(Params._dummy(), "ratingCol", "column name for ratings", typeConverter=TypeConverters.toString)
+    nonnegative = Param(
+        Params._dummy(),
+        "nonnegative",
+        "whether to use nonnegative constraint for least squares",
+        typeConverter=TypeConverters.toBoolean,
+    )
+    intermediateStorageLevel = Param(
+        Params._dummy(),
+        "intermediateStorageLevel",
+        "StorageLevel for intermediate datasets. Cannot be 'NONE'.",
+        typeConverter=TypeConverters.toString,
+    )
+    finalStorageLevel = Param(
+        Params._dummy(),
+        "finalStorageLevel",
+        "StorageLevel for ALS model factors.",
+        typeConverter=TypeConverters.toString,
+    )
 
     def __init__(self, *args):
         super(_ALSParams, self).__init__(*args)
-        self._setDefault(rank=10, maxIter=10, regParam=0.1, numUserBlocks=10, numItemBlocks=10,
-                         implicitPrefs=False, alpha=1.0, userCol="user", itemCol="item",
-                         ratingCol="rating", nonnegative=False, checkpointInterval=10,
-                         intermediateStorageLevel="MEMORY_AND_DISK",
-                         finalStorageLevel="MEMORY_AND_DISK", coldStartStrategy="nan")
+        self._setDefault(
+            rank=10,
+            maxIter=10,
+            regParam=0.1,
+            numUserBlocks=10,
+            numItemBlocks=10,
+            implicitPrefs=False,
+            alpha=1.0,
+            userCol="user",
+            itemCol="item",
+            ratingCol="rating",
+            nonnegative=False,
+            checkpointInterval=10,
+            intermediateStorageLevel="MEMORY_AND_DISK",
+            finalStorageLevel="MEMORY_AND_DISK",
+            coldStartStrategy="nan",
+        )
 
     @since("1.4.0")
     def getRank(self):
@@ -337,11 +365,27 @@ class ALS(JavaEstimator, _ALSParams, JavaMLWritable, JavaMLReadable):
     """
 
     @keyword_only
-    def __init__(self, *, rank=10, maxIter=10, regParam=0.1, numUserBlocks=10,
-                 numItemBlocks=10, implicitPrefs=False, alpha=1.0, userCol="user", itemCol="item",
-                 seed=None, ratingCol="rating", nonnegative=False, checkpointInterval=10,
-                 intermediateStorageLevel="MEMORY_AND_DISK",
-                 finalStorageLevel="MEMORY_AND_DISK", coldStartStrategy="nan", blockSize=4096):
+    def __init__(
+        self,
+        *,
+        rank=10,
+        maxIter=10,
+        regParam=0.1,
+        numUserBlocks=10,
+        numItemBlocks=10,
+        implicitPrefs=False,
+        alpha=1.0,
+        userCol="user",
+        itemCol="item",
+        seed=None,
+        ratingCol="rating",
+        nonnegative=False,
+        checkpointInterval=10,
+        intermediateStorageLevel="MEMORY_AND_DISK",
+        finalStorageLevel="MEMORY_AND_DISK",
+        coldStartStrategy="nan",
+        blockSize=4096
+    ):
         """
         __init__(self, \\*, rank=10, maxIter=10, regParam=0.1, numUserBlocks=10,
                  numItemBlocks=10, implicitPrefs=False, alpha=1.0, userCol="user", itemCol="item", \
@@ -356,11 +400,27 @@ class ALS(JavaEstimator, _ALSParams, JavaMLWritable, JavaMLReadable):
 
     @keyword_only
     @since("1.4.0")
-    def setParams(self, *, rank=10, maxIter=10, regParam=0.1, numUserBlocks=10,
-                  numItemBlocks=10, implicitPrefs=False, alpha=1.0, userCol="user", itemCol="item",
-                  seed=None, ratingCol="rating", nonnegative=False, checkpointInterval=10,
-                  intermediateStorageLevel="MEMORY_AND_DISK",
-                  finalStorageLevel="MEMORY_AND_DISK", coldStartStrategy="nan", blockSize=4096):
+    def setParams(
+        self,
+        *,
+        rank=10,
+        maxIter=10,
+        regParam=0.1,
+        numUserBlocks=10,
+        numItemBlocks=10,
+        implicitPrefs=False,
+        alpha=1.0,
+        userCol="user",
+        itemCol="item",
+        seed=None,
+        ratingCol="rating",
+        nonnegative=False,
+        checkpointInterval=10,
+        intermediateStorageLevel="MEMORY_AND_DISK",
+        finalStorageLevel="MEMORY_AND_DISK",
+        coldStartStrategy="nan",
+        blockSize=4096
+    ):
         """
         setParams(self, \\*, rank=10, maxIter=10, regParam=0.1, numUserBlocks=10, \
                  numItemBlocks=10, implicitPrefs=False, alpha=1.0, userCol="user", itemCol="item", \
@@ -666,16 +726,18 @@ class ALSModel(JavaModel, _ALSModelParams, JavaMLWritable, ALSModelJavaMLReadabl
 
         Meta-algorithms such as Pipeline should override this method as a classmethod.
         """
+
         def __get_class(clazz):
             """
             Loads Python class from its name.
             """
-            parts = clazz.split('.')
+            parts = clazz.split(".")
             module = ".".join(parts[:-1])
             m = __import__(module)
             for comp in parts[1:]:
                 m = getattr(m, comp)
             return m
+
         stage_name = "replay.experimental.models.extensions.spark_custom_models.als_extension.ALSModel"
         # Generate a default new instance from the stage_name class.
         py_type = __get_class(stage_name)
@@ -693,33 +755,33 @@ class ALSModel(JavaModel, _ALSModelParams, JavaMLWritable, ALSModelJavaMLReadabl
         elif hasattr(py_type, "_from_java"):
             py_stage = py_type._from_java(java_stage)
         else:
-            raise NotImplementedError("This Java stage cannot be loaded into Python currently: %r"
-                                      % stage_name)
+            raise NotImplementedError("This Java stage cannot be loaded into Python currently: %r" % stage_name)
         return py_stage
 
 
 if __name__ == "__main__":
     import doctest
+
     import pyspark.ml.recommendation
     from pyspark.sql import SparkSession
+
     globs = pyspark.ml.recommendation.__dict__.copy()
     # The small batch size here ensures that we see multiple batches,
     # even in these small test examples:
-    spark = SparkSession.builder\
-        .master("local[2]")\
-        .appName("ml.recommendation tests")\
-        .getOrCreate()
+    spark = SparkSession.builder.master("local[2]").appName("ml.recommendation tests").getOrCreate()
     sc = spark.sparkContext
-    globs['sc'] = sc
-    globs['spark'] = spark
+    globs["sc"] = sc
+    globs["spark"] = spark
     import tempfile
+
     temp_path = tempfile.mkdtemp()
-    globs['temp_path'] = temp_path
+    globs["temp_path"] = temp_path
     try:
         (failure_count, test_count) = doctest.testmod(globs=globs, optionflags=doctest.ELLIPSIS)
         spark.stop()
     finally:
         from shutil import rmtree
+
         try:
             rmtree(temp_path)
         except OSError:

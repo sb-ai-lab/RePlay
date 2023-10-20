@@ -4,7 +4,7 @@ import numpy as np
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from replay.models.base_rec import NonPersonalizedRecommender
+from .base_rec import NonPersonalizedRecommender
 
 
 class ThompsonSampling(NonPersonalizedRecommender):
@@ -16,6 +16,7 @@ class ThompsonSampling(NonPersonalizedRecommender):
     The reward probability of each of the K arms is modeled by a Beta distribution
     which is updated after an arm is selected. The initial prior distribution is Beta(1,1).
     """
+
     def __init__(
         self,
         sample: bool = False,
@@ -37,24 +38,17 @@ class ThompsonSampling(NonPersonalizedRecommender):
     ) -> None:
         self._check_relevance(log)
 
-        num_positive = log.filter(
-            log.relevance == sf.lit(1)
-        ).groupby("item_idx").agg(
-            sf.count("relevance").alias("positive")
+        num_positive = (
+            log.filter(log.relevance == sf.lit(1)).groupby("item_idx").agg(sf.count("relevance").alias("positive"))
         )
-        num_negative = log.filter(
-            log.relevance == sf.lit(0)
-        ).groupby("item_idx").agg(
-            sf.count("relevance").alias("negative")
+        num_negative = (
+            log.filter(log.relevance == sf.lit(0)).groupby("item_idx").agg(sf.count("relevance").alias("negative"))
         )
 
-        self.item_popularity = num_positive.join(
-            num_negative, how="inner", on="item_idx"
-        )
+        self.item_popularity = num_positive.join(num_negative, how="inner", on="item_idx")
 
         self.item_popularity = self.item_popularity.withColumn(
-            "relevance",
-            sf.udf(np.random.beta, "double")("positive", "negative")
+            "relevance", sf.udf(np.random.beta, "double")("positive", "negative")
         ).drop("positive", "negative")
         self.item_popularity.cache().count()
         self.fill = np.random.beta(1, 1)

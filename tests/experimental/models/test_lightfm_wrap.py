@@ -7,20 +7,10 @@ from pyspark.sql import functions as sf
 
 from replay.data import LOG_SCHEMA
 from replay.experimental.models import LightFMWrap
-from replay.experimental.scenarios.two_stages.two_stages_scenario import (
-    get_first_level_model_features,
-)
-from replay.utils.model_handler import save, load
-from tests.utils import (
-    spark,
-    log,
-    log_to_pred,
-    long_log_with_features,
-    user_features,
-    sparkDataFrameEqual,
-)
+from replay.experimental.scenarios.two_stages.two_stages_scenario import get_first_level_model_features
 from replay.models.base_rec import HybridRecommender, UserRecommender
-
+from replay.utils.model_handler import load, save
+from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
 
 SEED = 123
 
@@ -52,16 +42,14 @@ def log(spark):
 
 @pytest.fixture
 def user_features(spark):
-    return spark.createDataFrame(
-        [(0, 2.0, 5.0), (1, 0.0, -5.0), (4, 4.0, 3.0)]
-    ).toDF("user_idx", "user_feature_1", "user_feature_2")
+    return spark.createDataFrame([(0, 2.0, 5.0), (1, 0.0, -5.0), (4, 4.0, 3.0)]).toDF(
+        "user_idx", "user_feature_1", "user_feature_2"
+    )
 
 
 @pytest.fixture
 def item_features(spark):
-    return spark.createDataFrame([(0, 4.0, 5.0), (1, 5.0, 4.0)]).toDF(
-        "item_idx", "item_feature_1", "item_feature_2"
-    )
+    return spark.createDataFrame([(0, 4.0, 5.0), (1, 5.0, 4.0)]).toDF("item_idx", "item_feature_1", "item_feature_2")
 
 
 @pytest.fixture
@@ -151,9 +139,7 @@ def test_raises_fit(log, user_features, item_features, model):
 
 
 def test_raises_predict(log, user_features, item_features, model):
-    with pytest.raises(
-        ValueError, match="Item features are missing for predict"
-    ):
+    with pytest.raises(ValueError, match="Item features are missing for predict"):
         model.fit(log, None, item_features)
         pred = model.predict_pairs(
             log.select("user_idx", "item_idx"),
@@ -162,12 +148,8 @@ def test_raises_predict(log, user_features, item_features, model):
         )
 
 
-def _fit_predict_compare_features(
-    model, log, user_features, user_features_filtered, item_features, test_ids
-):
-    model.fit(
-        log, user_features=user_features_filtered, item_features=item_features
-    )
+def _fit_predict_compare_features(model, log, user_features, user_features_filtered, item_features, test_ids):
+    model.fit(log, user_features=user_features_filtered, item_features=item_features)
 
     pred_for_test = (
         model.predict_pairs(
@@ -190,22 +172,16 @@ def _fit_predict_compare_features(
         .asDict()
     )
     assert np.isclose(
-        row_dict["_if_0"] * row_dict["_uf_0"]
-        + row_dict["_user_bias"]
-        + row_dict["_item_bias"],
+        row_dict["_if_0"] * row_dict["_uf_0"] + row_dict["_user_bias"] + row_dict["_item_bias"],
         pred_for_test,
     )
 
 
 def test_enrich_with_features(log, user_features, item_features, model):
-    test_pair = log.filter(
-        (sf.col("item_idx") == 1) & (sf.col("user_idx") == 1)
-    )
+    test_pair = log.filter((sf.col("item_idx") == 1) & (sf.col("user_idx") == 1))
 
     for user_f, item_f in [[None, None], [user_features, item_features]]:
-        _fit_predict_compare_features(
-            model, log, user_f, user_f, item_f, test_pair
-        )
+        _fit_predict_compare_features(model, log, user_f, user_f, item_f, test_pair)
         if item_f is not None:
             _fit_predict_compare_features(
                 model,
@@ -270,21 +246,9 @@ def test_predict_pairs_k(log):
         k=None,
     )
 
-    assert (
-        pairs_pred_k.groupBy("user_idx")
-        .count()
-        .filter(sf.col("count") > 1)
-        .count()
-        == 0
-    )
+    assert pairs_pred_k.groupBy("user_idx").count().filter(sf.col("count") > 1).count() == 0
 
-    assert (
-        pairs_pred.groupBy("user_idx")
-        .count()
-        .filter(sf.col("count") > 1)
-        .count()
-        > 0
-    )
+    assert pairs_pred.groupBy("user_idx").count().filter(sf.col("count") > 1).count() > 0
 
 
 def test_predict_empty_log(log):

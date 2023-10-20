@@ -4,12 +4,8 @@ import pandas as pd
 
 from replay.data import AnyDataFrame, IntOrList, NumType
 from replay.utils.spark_utils import convert2spark
-from replay.metrics.base_metric import (
-    get_enriched_recommendations,
-    Metric,
-    NCISMetric,
-    RecOnlyMetric,
-)
+
+from .base_metric import Metric, NCISMetric, RecOnlyMetric, get_enriched_recommendations
 
 
 # pylint: disable=too-few-public-methods
@@ -96,26 +92,14 @@ class Experiment:
         """
         max_k = 0
         for current_k in self.metrics.values():
-            max_k = max(
-                (*current_k, max_k)
-                if isinstance(current_k, list)
-                else (current_k, max_k)
-            )
+            max_k = max((*current_k, max_k) if isinstance(current_k, list) else (current_k, max_k))
 
-        recs = get_enriched_recommendations(
-            pred, self.test, max_k, ground_truth_users
-        ).cache()
-        for metric, k_list in sorted(
-            self.metrics.items(), key=lambda x: str(x[0])
-        ):
+        recs = get_enriched_recommendations(pred, self.test, max_k, ground_truth_users).cache()
+        for metric, k_list in sorted(self.metrics.items(), key=lambda x: str(x[0])):
             enriched = None
             if isinstance(metric, (RecOnlyMetric, NCISMetric)):
-                enriched = metric._get_enriched_recommendations(
-                    pred, self.test, max_k, ground_truth_users
-                )
-            values, median, conf_interval = self._calculate(
-                metric, enriched or recs, k_list
-            )
+                enriched = metric._get_enriched_recommendations(pred, self.test, max_k, ground_truth_users)
+            values, median, conf_interval = self._calculate(metric, enriched or recs, k_list)
 
             if isinstance(k_list, int):
                 self._add_metric(  # type: ignore
@@ -145,9 +129,7 @@ class Experiment:
         if self.calc_median:
             median = metric._median(enriched, k_list)
         if self.calc_conf_interval is not None:
-            conf_interval = metric._conf_interval(
-                enriched, k_list, self.calc_conf_interval
-            )
+            conf_interval = metric._conf_interval(enriched, k_list, self.calc_conf_interval)
         return values, median, conf_interval
 
     # pylint: disable=too-many-arguments
@@ -172,13 +154,9 @@ class Experiment:
         """
         self.results.at[name, f"{metric}@{k}"] = value  # type: ignore
         if median is not None:
-            self.results.at[
-                name, f"{metric}@{k}_median"
-            ] = median  # type: ignore
+            self.results.at[name, f"{metric}@{k}_median"] = median  # type: ignore
         if conf_interval is not None:
-            self.results.at[
-                name, f"{metric}@{k}_{self.calc_conf_interval}_conf_interval"
-            ] = conf_interval
+            self.results.at[name, f"{metric}@{k}_{self.calc_conf_interval}_conf_interval"] = conf_interval
 
     # pylint: disable=not-an-iterable
     def compare(self, name: str) -> pd.DataFrame:
@@ -190,17 +168,13 @@ class Experiment:
         """
         if name not in self.results.index:
             raise ValueError(f"No results for model {name}")
-        columns = [
-            column for column in self.results.columns if column[-1].isdigit()
-        ]
+        columns = [column for column in self.results.columns if column[-1].isdigit()]
         data_frame = self.results[columns].copy()
         baseline = data_frame.loc[name]
         for idx in data_frame.index:
             if idx != name:
                 diff = data_frame.loc[idx] / baseline - 1
-                data_frame.loc[idx] = [
-                    str(round(v * 100, 2)) + "%" for v in diff
-                ]
+                data_frame.loc[idx] = [str(round(v * 100, 2)) + "%" for v in diff]
             else:
                 data_frame.loc[name] = ["–"] * len(baseline)
         return data_frame

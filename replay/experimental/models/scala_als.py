@@ -1,14 +1,14 @@
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 import pyspark.sql.functions as sf
-
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
-from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.models import ALSWrap
+from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.experimental.models.extensions.spark_custom_models.als_extension import ALS, ALSModel
+
+from .extensions.spark_custom_models.als_extension import ALS, ALSModel
 
 
 # pylint: disable=too-many-instance-attributes, too-many-ancestors
@@ -16,6 +16,7 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
+
     def _get_ann_infer_params(self) -> Dict[str, Any]:
         self.index_builder.index_params.dim = self.rank
         return {
@@ -35,9 +36,7 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
         }
 
     def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
-        item_vectors, _ = self.get_features(
-            log.select("item_idx").distinct()
-        )
+        item_vectors, _ = self.get_features(log.select("item_idx").distinct())
         return item_vectors
 
     # pylint: disable=too-many-arguments
@@ -118,7 +117,6 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-
         max_seen = 0
         if filter_seen_items and log is not None:
             max_seen_in_log = (
@@ -128,17 +126,11 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
                 .select(sf.max("num_seen"))
                 .collect()[0][0]
             )
-            max_seen = (
-                max_seen_in_log if max_seen_in_log is not None else 0
-            )
+            max_seen = max_seen_in_log if max_seen_in_log is not None else 0
 
-        recs_als = self.model.recommendItemsForUserItemSubset(
-            users, items, k + max_seen
-        )
+        recs_als = self.model.recommendItemsForUserItemSubset(users, items, k + max_seen)
         return (
-            recs_als.withColumn(
-                "recommendations", sf.explode("recommendations")
-            )
+            recs_als.withColumn("recommendations", sf.explode("recommendations"))
             .withColumn("item_idx", sf.col("recommendations.item_idx"))
             .withColumn(
                 "relevance",

@@ -1,33 +1,20 @@
 # pylint: disable=invalid-name, missing-function-docstring, redefined-outer-name,
 # pylint: disable=too-many-arguments, unused-import, unused-wildcard-import, wildcard-import
 import math
-import pytest
-
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
-
 import pyspark.sql.functions as sf
-from pyspark.sql.types import (
-    IntegerType,
-    StructField,
-    StructType, ArrayType, DoubleType
-)
+import pytest
+from pyspark.sql.types import ArrayType, DoubleType, IntegerType, StructField, StructType
 
 from replay.data import LOG_SCHEMA, REC_SCHEMA
 from replay.experimental.metrics import *
 from replay.metrics import Coverage
+from replay.metrics.base_metric import drop_duplicates, filter_sort, get_enriched_recommendations
 from replay.utils.distributions import item_distribution
-from replay.metrics.base_metric import get_enriched_recommendations, drop_duplicates, filter_sort
-
-from tests.utils import (
-    assert_allclose,
-    assertDictAlmostEqual,
-    log,
-    sparkDataFrameEqual,
-    spark,
-)
+from tests.utils import assert_allclose, assertDictAlmostEqual, log, spark, sparkDataFrameEqual
 
 
 @pytest.fixture
@@ -38,9 +25,7 @@ def one_user():
 
 @pytest.fixture
 def two_users():
-    df = pd.DataFrame(
-        {"user_idx": [1, 2], "item_idx": [1, 2], "relevance": [1, 1]}
-    )
+    df = pd.DataFrame({"user_idx": [1, 2], "item_idx": [1, 2], "relevance": [1, 1]})
     return df
 
 
@@ -139,12 +124,8 @@ def duplicate_recs(spark):
     )
 
 
-def test_get_enriched_recommendations_true_users(
-    spark, recs, true, true_users
-):
-    enriched = get_enriched_recommendations(
-        recs, true, 2, ground_truth_users=true_users
-    )
+def test_get_enriched_recommendations_true_users(spark, recs, true, true_users):
+    enriched = get_enriched_recommendations(recs, true, 2, ground_truth_users=true_users)
     gt = spark.createDataFrame(
         data=[
             [1, ([1, 0]), ([0, 5])],
@@ -164,7 +145,9 @@ def test_metric_calc_with_gt_users(quality_metrics, recs, true):
             true,
             1,
             ground_truth_users=true.select("user_idx").distinct(),
-        ) == metric(recs, true, 1), str(metric)
+        ) == metric(
+            recs, true, 1
+        ), str(metric)
 
 
 @pytest.mark.parametrize(
@@ -199,11 +182,7 @@ def test_hit_rate_at_k_old(recs, true, true_users):
 )
 def test_user_dist(log, recs, true, true_users, gt_users, result):
     users = true_users if gt_users else None
-    vals = (
-        ScalaHitRate()
-        .user_distribution(log, recs, true, 3, users)
-        .sort_values("count")
-    )
+    vals = ScalaHitRate().user_distribution(log, recs, true, 3, users).sort_values("count")
     pd.testing.assert_frame_equal(vals, result, check_dtype=False)
 
 
@@ -224,9 +203,7 @@ def test_item_dist(log, recs):
                 3: 1
                 / 3
                 * (
-                    1
-                    / (1 / np.log2(2) + 1 / np.log2(3) + 1 / np.log2(4))
-                    * (1 / np.log2(2) + 1 / np.log2(3))
+                    1 / (1 / np.log2(2) + 1 / np.log2(3) + 1 / np.log2(4)) * (1 / np.log2(2) + 1 / np.log2(3))
                     + 1 / (1 / np.log2(2) + 1 / np.log2(3)) * (1 / np.log2(3))
                 ),
             },
@@ -235,9 +212,7 @@ def test_item_dist(log, recs):
             True,
             {
                 1: 0,
-                3: 1
-                / 4
-                * (1 / (1 / np.log2(2) + 1 / np.log2(3)) * (1 / np.log2(3))),
+                3: 1 / 4 * (1 / (1 / np.log2(2) + 1 / np.log2(3)) * (1 / np.log2(3))),
             },
         ),
     ],
@@ -341,9 +316,7 @@ def test_coverage(true, recs, empty_recs):
         {1: 0.3333333333333333, 3: 0.8333333333333334, 5: 0.8333333333333334},
     )
     assertDictAlmostEqual(
-        coverage(
-            recs, [1, 3, 5], ground_truth_users=pd.DataFrame({"user_idx": [1]})
-        ),
+        coverage(recs, [1, 3, 5], ground_truth_users=pd.DataFrame({"user_idx": [1]})),
         {1: 0.16666666666666666, 3: 0.5, 5: 0.5},
     )
     assertDictAlmostEqual(
@@ -377,26 +350,18 @@ def test_drop_duplicates(spark, duplicate_recs):
             [1, 4, 1.0],
             [2, 0, 5.0],
             [2, 2, 1.0],
-            [2, 3, 2.0]
+            [2, 3, 2.0],
         ],
-        schema=REC_SCHEMA,)
+        schema=REC_SCHEMA,
+    )
     sparkDataFrameEqual(recs, gt)
 
 
 def test_filter_sort(spark, duplicate_recs):
     recs = filter_sort(duplicate_recs)
     gt = spark.createDataFrame(
-        data=[
-            [0, [0, 1, 2]],
-            [1, [1, 0, 4]],
-            [2, [0, 3, 2]]
-        ],
-        schema=StructType(
-            [
-                StructField("user_idx", IntegerType()),
-                StructField("pred", ArrayType(IntegerType()))
-            ]
-        )
+        data=[[0, [0, 1, 2]], [1, [1, 0, 4]], [2, [0, 3, 2]]],
+        schema=StructType([StructField("user_idx", IntegerType()), StructField("pred", ArrayType(IntegerType()))]),
     )
     sparkDataFrameEqual(recs, gt)
 
@@ -439,9 +404,7 @@ def test_ncis_weigh_and_clip(spark, prev_relevance):
         df=(
             prev_relevance.withColumn(
                 "prev_relevance",
-                sf.when(sf.col("user_idx") == 1, sf.lit(0)).otherwise(
-                    sf.lit(20)
-                ),
+                sf.when(sf.col("user_idx") == 1, sf.lit(0)).otherwise(sf.lit(20)),
             )
         ),
         threshold=10,
@@ -470,32 +433,33 @@ def test_ncis_get_enriched_recommendations(spark, recs, prev_relevance, true):
 def test_ncis_precision_scala(spark, prev_relevance):
     ncis_precision = ScalaNCISPrecision(prev_policy_weights=prev_relevance)
     df = spark.createDataFrame(
-        [(4, [1, 0, 4], [0, 5, 4], [20.0, 5.0, 15.0]),
-         (4, [], [0, 5, 4], []),
-         (4, [1], [0, 5, 4], [100.0]),
-         (4, [1], [1, 5, 4], [100.0]),
-         (4, [1], [], [1.0])],
-        StructType([
-            StructField("k", IntegerType(), True),
-            StructField("pred", ArrayType(IntegerType()), True),
-            StructField("ground_truth", ArrayType(IntegerType()), True),
-            StructField("pred_weights", ArrayType(DoubleType()), True),
-        ])
+        [
+            (4, [1, 0, 4], [0, 5, 4], [20.0, 5.0, 15.0]),
+            (4, [], [0, 5, 4], []),
+            (4, [1], [0, 5, 4], [100.0]),
+            (4, [1], [1, 5, 4], [100.0]),
+            (4, [1], [], [1.0]),
+        ],
+        StructType(
+            [
+                StructField("k", IntegerType(), True),
+                StructField("pred", ArrayType(IntegerType()), True),
+                StructField("ground_truth", ArrayType(IntegerType()), True),
+                StructField("pred_weights", ArrayType(DoubleType()), True),
+            ]
+        ),
     )
     metric_values = df.select(
-        ncis_precision.get_scala_udf(
-            ncis_precision.scala_udf_name, ["k", "pred", "pred_weights", "ground_truth"]
-        )
+        ncis_precision.get_scala_udf(ncis_precision.scala_udf_name, ["k", "pred", "pred_weights", "ground_truth"])
     ).collect()
-    assert (metric_values[0][0] == 0.5)
-    assert (metric_values[1][0] == 0)
-    assert (metric_values[2][0] == 0)
-    assert (metric_values[3][0] == 1)
-    assert (metric_values[4][0] == 0)
+    assert metric_values[0][0] == 0.5
+    assert metric_values[1][0] == 0
+    assert metric_values[2][0] == 0
+    assert metric_values[3][0] == 1
+    assert metric_values[4][0] == 0
 
 
 def test_not_implemented_scala_udf():
-
     class NewEmptyMetric(ScalaMetric):
         @staticmethod
         def _get_metric_value_by_user(k, pred, ground_truth) -> float:
