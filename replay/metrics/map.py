@@ -15,8 +15,6 @@ class MAP(Metric):
     :math:`\\mathbb{1}_{r_{ij}}` -- indicator function showing if user :math:`i` interacted with item :math:`j`
     """
 
-    _scala_udf_name = "getMAPMetricValue"
-
     @staticmethod
     def _get_metric_value_by_user(k, pred, ground_truth) -> float:
         length = min(k, len(pred))

@@ -3,20 +3,17 @@ Base classes for quality and diversity metrics.
 """
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, List, Union, Optional
+from typing import Dict, Union, Optional
 
 import pandas as pd
-from pyspark.sql import Column
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql import types as st
 from pyspark.sql.types import DataType
 from pyspark.sql import Window
-from pyspark.sql.column import _to_java_column, _to_seq
 from scipy.stats import norm
 
 from replay.data import AnyDataFrame, IntOrList, NumType
-from replay.utils.session_handler import State
 from replay.utils.spark_utils import convert2spark, get_top_k_recs
 
 
@@ -184,10 +181,9 @@ class Metric(ABC):
     """Base metric class"""
 
     _logger: Optional[logging.Logger] = None
-    _scala_udf_name: Optional[str] = None
 
-    def __init__(self, use_scala_udf: bool = False) -> None:
-        self._use_scala_udf = use_scala_udf
+    def __init__(self) -> None:
+        pass
 
     @property
     def logger(self) -> logging.Logger:
@@ -197,14 +193,6 @@ class Metric(ABC):
         if self._logger is None:
             self._logger = logging.getLogger("replay")
         return self._logger
-
-    @property
-    def scala_udf_name(self) -> str:
-        """Returns UDF name from `org.apache.spark.replay.utils.ScalaPySparkUDFs`"""
-        if self._scala_udf_name:
-            return self._scala_udf_name
-        else:
-            raise NotImplementedError(f"Scala UDF not implemented for {type(self).__name__} class!")
 
     def __str__(self):
         return type(self).__name__
@@ -288,12 +276,6 @@ class Metric(ABC):
         :param k: depth cut-off
         :return: metric distribution for different cut-offs and users
         """
-        if self._use_scala_udf:
-            metric_value_col = self.get_scala_udf(
-                self.scala_udf_name, [sf.lit(k).alias("k"), *recs.columns[1:]]
-            ).alias("value")
-            return recs.select("user_idx", metric_value_col)
-
         cur_class = self.__class__
         distribution = recs.rdd.flatMap(
             # pylint: disable=protected-access
@@ -373,21 +355,6 @@ class Metric(ABC):
             res = res.append(val, ignore_index=True)
         return res
 
-    @staticmethod
-    def get_scala_udf(udf_name: str, params: List) -> Column:
-        """
-        Returns expression of calling scala UDF as column
-
-        :param udf_name: UDF name from `org.apache.spark.replay.utils.ScalaPySparkUDFs`
-        :param params: list of UDF params in right order
-        :return: column expression
-        """
-        sc = State().session.sparkContext  # pylint: disable=invalid-name
-        scala_udf = getattr(
-            sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs, udf_name
-        )()
-        return Column(scala_udf.apply(_to_seq(sc, params, _to_java_column)))
-
 
 # pylint: disable=too-few-public-methods
 class RecOnlyMetric(Metric):
@@ -457,7 +424,6 @@ class NCISMetric(Metric):
         prev_policy_weights: AnyDataFrame,
         threshold: float = 10.0,
         activation: Optional[str] = None,
-        use_scala_udf: bool = False,
     ):  # pylint: disable=super-init-not-called
         """
         :param prev_policy_weights: historical item of user-item relevance (previous policy values)
@@ -466,7 +432,6 @@ class NCISMetric(Metric):
         :activation: activation function, applied over relevance values.
             "logit"/"sigmoid", "softmax" or None
         """
-        self._use_scala_udf = use_scala_udf
         self.prev_policy_weights = convert2spark(
             prev_policy_weights
         ).withColumnRenamed("relevance", "prev_relevance")

@@ -98,6 +98,11 @@ Alternating Least Squares
 .. autoclass:: replay.models.ALSWrap
     :special-members: __init__
 
+Alternating Least Squares on Scala (Experimental part)
+``````````````````````````````````````````````````````
+.. autoclass:: replay.experimental.models.ScalaALSWrap
+    :special-members: __init__
+
 SLIM
 ````
 SLIM Recommender calculates similarity between objects to produce recommendations :math:`W`.
@@ -151,13 +156,13 @@ Neural models with distributed inference
 ________________________________________
 Models implemented in pytorch with distributed inference in pyspark.
 
-Neural Matrix Factorization
-```````````````````````````
-.. autoclass:: replay.models.NeuroMF
+Neural Matrix Factorization (Experimental part)
+```````````````````````````````````````````````
+.. autoclass:: replay.experimental.models.NeuroMF
     :special-members: __init__
 
-Mult-VAE
-````````
+Mult-VAE (Experimental part)
+````````````````````````````
 Variation AutoEncoder
 
 .. image:: /images/vae-gaussian.png
@@ -257,23 +262,23 @@ With :math:`\beta = 0` VAE is the same as the
 Denoising AutoEncoder.
 
 
-.. autoclass:: replay.models.MultVAE
+.. autoclass:: replay.experimental.models.MultVAE
     :special-members: __init__
 
-DDPG
+DDPG (Experimental part)
 ```````````````````````````
-.. autoclass:: replay.models.DDPG
+.. autoclass:: replay.experimental.models.DDPG
     :special-members: __init__
 
 
-CQL Recommender
-```````````````
+CQL Recommender (Experimental part)
+```````````````````````````````````
 Conservative Q-Learning (CQL) algorithm is a SAC-based data-driven deep reinforcement learning algorithm, 
 which achieves state-of-the-art performance in offline RL problems.
 
 .. image:: /images/cql_comparison.png
 
-.. autoclass:: replay.models.CQL
+.. autoclass:: replay.experimental.models.CQL
     :special-members: __init__
 
 
@@ -282,17 +287,17 @@ ____________________________________________________
 Wrappers for popular recommendation libraries and algorithms
 implemented in python with distributed inference in pyspark.
 
-ADMM SLIM
-`````````
-.. autoclass:: replay.models.ADMMSLIM
+ADMM SLIM (Experimental part)
+`````````````````````````````
+.. autoclass:: replay.experimental.models.ADMMSLIM
     :special-members: __init__
 
-LightFM
-```````
-.. autoclass:: replay.models.LightFMWrap
+LightFM (Experimental part)
+```````````````````````````
+.. autoclass:: replay.experimental.models.LightFMWrap
     :special-members: __init__
 
-implicit
-````````
-.. autoclass:: replay.models.ImplicitWrap
+implicit (Experimental part)
+````````````````````````````
+.. autoclass:: replay.experimental.models.ImplicitWrap
     :special-members: __init__

@@ -32,7 +32,7 @@ class Coverage(RecOnlyMetric):
         self.item_count = self.items.count()
 
     @staticmethod
-    def _get_metric_value_by_user(k, *args):
+    def _get_metric_value_by_user(k, *args):    # pragma: no cover
         # not averaged by users
         pass
 

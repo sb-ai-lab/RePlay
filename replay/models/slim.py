@@ -99,7 +99,7 @@ class SLIM(NeighbourRec):
             positive=True,
         )
 
-        def slim_column(pandas_df: pd.DataFrame) -> pd.DataFrame:
+        def slim_column(pandas_df: pd.DataFrame) -> pd.DataFrame:   # pragma: no cover
             """
             fit similarity matrix with ElasticNet
             :param pandas_df: pd.Dataframe

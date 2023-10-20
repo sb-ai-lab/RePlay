@@ -4,23 +4,147 @@ from datetime import datetime
 import pytest
 import torch
 import numpy as np
+import pandas as pd
 from pytorch_ranger import Ranger
+from pyspark.sql import functions as sf
 
 from replay.data import LOG_SCHEMA
-from replay.models import DDPG
-from replay.models.ddpg import (
+from replay.experimental.models import DDPG
+from replay.experimental.models.ddpg import (
     ActorDRR,
     CriticDRR,
     OUNoise,
     ReplayBuffer,
+    to_np,
+    StateReprModule
+)
+from tests.utils import (
+    del_files_by_pattern,
+    find_file_by_pattern,
+    spark,
+    log,
+    log_to_pred,
+    long_log_with_features,
+    user_features,
+    sparkDataFrameEqual,
 )
 
-from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
-from tests.utils import ddpg_actor_param as actor_param
-from tests.utils import ddpg_critic_param as critic_param
-from tests.utils import ddpg_state_repr_param as state_repr_param
 
-from tests.utils import BATCH_SIZES, DF_CASES
+SEED = 123
+
+
+DDPG_PARAMS = [
+    dict(
+        state_repr_dim=1,
+        action_emb_dim=1,
+        hidden_dim=1,
+        heads_num=1,
+        heads_q=0.5,
+        user_num=1,
+        item_num=1,
+        embedding_dim=1,
+        memory_size=1,
+        device=torch.device("cpu"),
+        env_gamma_alpha=1,
+        min_trajectory_len=10,
+    ),
+    dict(
+        state_repr_dim=10,
+        action_emb_dim=10,
+        hidden_dim=1,
+        heads_num=15,
+        heads_q=0.1,
+        user_num=10,
+        item_num=10,
+        embedding_dim=10,
+        memory_size=10,
+        device=torch.device("cpu"),
+        env_gamma_alpha=1,
+        min_trajectory_len=10,
+    ),
+]
+
+HEADER = ["user_idx", "item_idx", "relevance"]
+
+
+def matrix_to_df(matrix):
+    x1 = np.repeat(np.arange(matrix.shape[0]), matrix.shape[1])
+    x2 = np.tile(np.arange(matrix.shape[1]), matrix.shape[0])
+    x3 = matrix.flatten()
+
+    return pd.DataFrame(np.array([x1, x2, x3]).T, columns=HEADER)
+
+
+DF_CASES = [
+    matrix_to_df(np.zeros((1, 1), dtype=int)),
+    matrix_to_df(np.ones((1, 1), dtype=int)),
+    matrix_to_df(np.zeros((10, 10), dtype=int)),
+    matrix_to_df(np.ones((10, 10), dtype=int)),
+    matrix_to_df(np.random.choice([0, 1], size=(10, 10), p=[0.9, 0.1])),
+    # pd.DataFrame(
+    #     np.array(
+    #         [
+    #             [1, 2, 1],
+    #             [3, 4, 0],
+    #             [7, 9, 1],
+    #             [11, 10, 0],
+    #             [11, 4, 1],
+    #             [7, 10, 1],
+    #         ]
+    #     ),
+    #     columns=HEADER,
+    # ),
+]
+
+
+@pytest.fixture(params=DDPG_PARAMS)
+def ddpg_critic_param(request):
+    param = request.param
+    return (
+        CriticDRR(
+            state_repr_dim=param["state_repr_dim"],
+            action_emb_dim=param["action_emb_dim"],
+            hidden_dim=param["hidden_dim"],
+            heads_num=param["heads_num"],
+            heads_q=param["heads_q"],
+        ),
+        param,
+    )
+
+
+@pytest.fixture(params=DDPG_PARAMS)
+def ddpg_actor_param(request):
+    param = request.param
+    return (
+        ActorDRR(
+            user_num=param["user_num"],
+            item_num=param["item_num"],
+            embedding_dim=param["embedding_dim"],
+            hidden_dim=param["hidden_dim"],
+            memory_size=param["memory_size"],
+            env_gamma_alpha=param["env_gamma_alpha"],
+            device=param["device"],
+            min_trajectory_len=param["min_trajectory_len"],
+        ),
+        param,
+    )
+
+
+@pytest.fixture(params=DDPG_PARAMS)
+def ddpg_state_repr_param(request):
+    param = request.param
+    return (
+        StateReprModule(
+            user_num=param["user_num"],
+            item_num=param["item_num"],
+            embedding_dim=param["embedding_dim"],
+            memory_size=param["memory_size"],
+        ),
+        param,
+    )
+
+
+BATCH_SIZES = [1, 2, 3, 10, 15]
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -65,8 +189,8 @@ def model(log):
 
 
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
-def test_critic_forward(critic_param, batch_size):
-    critic, param = critic_param
+def test_critic_forward(ddpg_critic_param, batch_size):
+    critic, param = ddpg_critic_param
     state_dim = param["state_repr_dim"]
     action_dim = param["action_emb_dim"]
 
@@ -79,8 +203,8 @@ def test_critic_forward(critic_param, batch_size):
 
 
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
-def test_state_repr_forward(state_repr_param, batch_size):
-    state_repr, param = state_repr_param
+def test_state_repr_forward(ddpg_state_repr_param, batch_size):
+    state_repr, param = ddpg_state_repr_param
     memory_size = param["memory_size"]
     user_num = param["user_num"]
     item_num = param["item_num"]
@@ -98,8 +222,8 @@ def test_state_repr_forward(state_repr_param, batch_size):
 
 
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
-def test_actor_forward(actor_param, batch_size):
-    actor, param = actor_param
+def test_actor_forward(ddpg_actor_param, batch_size):
+    actor, param = ddpg_actor_param
     memory_size = param["memory_size"]
     user_num = param["user_num"]
     item_num = param["item_num"]
@@ -117,8 +241,8 @@ def test_actor_forward(actor_param, batch_size):
 
 
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
-def test_actor_get_action(actor_param, batch_size):
-    actor, param = actor_param
+def test_actor_get_action(ddpg_actor_param, batch_size):
+    actor, param = ddpg_actor_param
     user_num = param["user_num"]
     batch_size = min(batch_size, user_num)
     item_num = param["item_num"]
@@ -294,3 +418,36 @@ def test_env_step(log, model, user=[0, 1, 2]):
 
     # chech memory update
     assert (model.model.environment.memory[user, -1] == global_action).prod()
+
+
+def test_predict_pairs_to_file(spark, long_log_with_features, tmp_path):
+    model = DDPG(seed=SEED, user_num=6, item_num=6)
+    path = str((tmp_path / "pred.parquet").resolve().absolute())
+    model.fit(long_log_with_features)
+    model.predict_pairs(
+        log=long_log_with_features,
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
+            "user_idx", "item_idx"
+        ),
+        recs_file_path=path,
+    )
+    pred_cached = model.predict_pairs(
+        log=long_log_with_features,
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
+            "user_idx", "item_idx"
+        ),
+        recs_file_path=None,
+    )
+    pred_from_file = spark.read.parquet(path)
+    sparkDataFrameEqual(pred_cached, pred_from_file)
+
+
+def test_predict_to_file(spark, long_log_with_features, tmp_path):
+    model = DDPG(seed=SEED, user_num=6, item_num=6)
+    path = str((tmp_path / "pred.parquet").resolve().absolute())
+    model.fit_predict(long_log_with_features, k=10, recs_file_path=path)
+    pred_cached = model.predict(
+        long_log_with_features, k=10, recs_file_path=None
+    )
+    pred_from_file = spark.read.parquet(path)
+    sparkDataFrameEqual(pred_cached, pred_from_file)

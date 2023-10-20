@@ -95,7 +95,7 @@ def save(
         save_picklable_to_parquet(model.study, join(path, "study"))
 
 
-def load(path: str) -> BaseRecommender:
+def load(path: str, model_type=None) -> BaseRecommender:
     """
     Load saved model from disk
 
@@ -111,7 +111,10 @@ def load(path: str) -> BaseRecommender:
     name = args["_model_name"]
     del args["_model_name"]
 
-    model_class = globals()[name]
+    if model_type is not None:
+        model_class = model_type
+    else:
+        model_class = globals()[name]
     init_args = getfullargspec(model_class.__init__).args
     init_args.remove("self")
     extra_args = set(args) - set(init_args)

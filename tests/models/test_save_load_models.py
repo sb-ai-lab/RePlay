@@ -16,11 +16,11 @@ from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder im
 from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import (
     DriverNmslibIndexBuilder,
 )
-from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import (
-    ExecutorHnswlibIndexBuilder,
-)
 from replay.models.extensions.ann.index_builders.executor_nmslib_index_builder import (
     ExecutorNmslibIndexBuilder,
+)
+from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import (
+    ExecutorHnswlibIndexBuilder,
 )
 from replay.models.extensions.ann.index_stores.hdfs_index_store import HdfsIndexStore
 from replay.models.extensions.ann.index_stores.shared_disk_index_store import (
@@ -30,7 +30,6 @@ from replay.models.extensions.ann.index_stores.spark_files_index_store import (
     SparkFilesIndexStore,
 )
 from replay.preprocessing.data_preparator import Indexer
-from replay.models.cql import MdpDatasetBuilder
 from replay.utils.model_handler import save, load
 from replay.models import *
 from replay.utils.spark_utils import convert2spark
@@ -71,15 +70,10 @@ def df():
     "recommender",
     [
         ALSWrap,
-        ADMMSLIM,
         ItemKNN,
-        MultVAE,
-        NeuroMF,
         PopRec,
         SLIM,
         UserPopRec,
-        LightFMWrap,
-        partial(CQL, n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=5)),
     ],
 )
 def test_equal_preds(long_log_with_features, recommender, tmp_path):
@@ -126,17 +120,6 @@ def test_word(df, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
-def test_implicit(long_log_with_features, tmp_path):
-    path = (tmp_path / "implicit").resolve()
-    model = ImplicitWrap(AlternatingLeastSquares())
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
-    save(model, path)
-    loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
-
-
 def test_cluster(long_log_with_features, user_features, tmp_path):
     path = (tmp_path / "cluster").resolve()
     model = ClusterRec()
@@ -178,36 +161,6 @@ def test_study(df, tmp_path):
     save(model, path)
     loaded_model = load(path)
     assert loaded_model.study == model.study
-
-
-def test_ann_als_saving_loading(long_log_with_features, tmp_path):
-    model = ALSWrap(
-        rank=2,
-        implicit_prefs=False,
-        seed=42,
-        index_builder=ExecutorHnswlibIndexBuilder(
-            index_params=HnswlibParam(
-                space="ip",
-                m=100,
-                ef_c=2000,
-                post=0,
-                ef_s=2000,
-            ),
-            index_store=SharedDiskIndexStore(
-                warehouse_dir=str(tmp_path),
-                index_dir="hnswlib_index",
-                cleanup=False,
-            ),
-        ),
-    )
-
-    path = (tmp_path / "test").resolve()
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
-    save(model, path)
-    loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
 
 
 def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):

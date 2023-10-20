@@ -4,18 +4,29 @@ import numpy as np
 
 from pyspark.sql import functions as sf
 
-from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
-from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import (
-    ExecutorHnswlibIndexBuilder,
+from replay.models import ALSWrap, AssociationRulesItemRec
+from replay.models.base_rec import HybridRecommender, UserRecommender
+from replay.utils.spark_utils import join_or_return, array_mult, horizontal_explode
+from replay.utils.model_handler import save, load
+from tests.utils import (
+    spark,
+    log,
+    log_to_pred,
+    long_log_with_features,
+    user_features,
+    sparkDataFrameEqual,
 )
-from replay.models.extensions.ann.index_stores.shared_disk_index_store import (
-    SharedDiskIndexStore,
-)
-from replay.models import ALSWrap
-from replay.scenarios.two_stages.two_stages_scenario import (
-    get_first_level_model_features,
-)
-from tests.utils import log, spark
+
+
+SEED = 123
+
+
+def fit_predict_selected(model, train_log, inf_log, user_features, users):
+    kwargs = {}
+    if isinstance(model, (HybridRecommender, UserRecommender)):
+        kwargs = {"user_features": user_features}
+    model.fit(train_log, **kwargs)
+    return model.predict(log=inf_log, users=users, k=1, **kwargs)
 
 
 @pytest.fixture
@@ -25,26 +36,76 @@ def model():
     return model
 
 
-@pytest.fixture
-def model_with_ann(tmp_path):
-    model = ALSWrap(
-        rank=2,
-        implicit_prefs=False,
-        seed=42,
-        index_builder=ExecutorHnswlibIndexBuilder(
-            index_params=HnswlibParam(
-                space="ip",
-                m=100,
-                ef_c=2000,
-                post=0,
-                ef_s=2000,
-            ),
-            index_store=SharedDiskIndexStore(
-                warehouse_dir=str(tmp_path), index_dir="hnswlib_index"
-            ),
-        ),
+def get_first_level_model_features(model, pairs, user_features=None, item_features=None, add_factors_mult=True, prefix=""):
+    users = pairs.select("user_idx").distinct()
+    items = pairs.select("item_idx").distinct()
+    user_factors, user_vector_len = model._get_features_wrap(
+        users, user_features
     )
-    return model
+    item_factors, item_vector_len = model._get_features_wrap(
+        items, item_features
+    )
+
+    pairs_with_features = join_or_return(
+        pairs, user_factors, how="left", on="user_idx"
+    )
+    pairs_with_features = join_or_return(
+        pairs_with_features,
+        item_factors,
+        how="left",
+        on="item_idx",
+    )
+
+    factors_to_explode = []
+    if user_factors is not None:
+        pairs_with_features = pairs_with_features.withColumn(
+            "user_factors",
+            sf.coalesce(
+                sf.col("user_factors"),
+                sf.array([sf.lit(0.0)] * user_vector_len),
+            ),
+        )
+        factors_to_explode.append(("user_factors", "uf"))
+
+    if item_factors is not None:
+        pairs_with_features = pairs_with_features.withColumn(
+            "item_factors",
+            sf.coalesce(
+                sf.col("item_factors"),
+                sf.array([sf.lit(0.0)] * item_vector_len),
+            ),
+        )
+        factors_to_explode.append(("item_factors", "if"))
+
+    if model.__str__() == "LightFMWrap":
+        pairs_with_features = (
+            pairs_with_features.fillna({"user_bias": 0, "item_bias": 0})
+            .withColumnRenamed("user_bias", f"{prefix}_user_bias")
+            .withColumnRenamed("item_bias", f"{prefix}_item_bias")
+        )
+
+    if (
+        add_factors_mult
+        and user_factors is not None
+        and item_factors is not None
+    ):
+        pairs_with_features = pairs_with_features.withColumn(
+            "factors_mult",
+            array_mult(sf.col("item_factors"), sf.col("user_factors")),
+        )
+        factors_to_explode.append(("factors_mult", "fm"))
+
+    for col_name, feature_prefix in factors_to_explode:
+        col_set = set(pairs_with_features.columns)
+        col_set.remove(col_name)
+        pairs_with_features = horizontal_explode(
+            data_frame=pairs_with_features,
+            column_to_explode=col_name,
+            other_columns=[sf.col(column) for column in sorted(list(col_set))],
+            prefix=f"{prefix}_{feature_prefix}",
+        )
+
+    return pairs_with_features
 
 
 def test_works(log, model):
@@ -96,21 +157,86 @@ def test_enrich_with_features(log, model):
     )
 
 
-@pytest.mark.parametrize(
-    "filter_seen_items", [True, False]
-)
-def test_ann_predict(log, model, model_with_ann, filter_seen_items):
+def test_init_args(model):
+    args = model._init_args
+
+    assert args["rank"] == 2
+    assert args["implicit_prefs"] is False
+    assert args["seed"] == 42
+
+
+def test_predict_pairs_raises_pairs_format(log):
+    model = ALSWrap(seed=SEED)
+    with pytest.raises(ValueError, match="pairs must be a dataframe with .*"):
+        model.fit(log)
+        model.predict_pairs(log, log)
+
+
+@pytest.mark.parametrize("metric", ["absent", None])
+def test_nearest_items_raises(log, metric):
+    model = AssociationRulesItemRec()
+    model.fit(log.filter(sf.col("item_idx") != 3))
+    with pytest.raises(
+        ValueError, match=r"Select one of the valid distance metrics.*"
+    ):
+        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
+    model = ALSWrap()
     model.fit(log)
-    recs1 = model.predict(log, k=1, filter_seen_items=filter_seen_items)
+    with pytest.raises(
+        ValueError, match=r"Select one of the valid distance metrics.*"
+    ):
+        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
 
-    model_with_ann.fit(log)
-    recs2 = model_with_ann.predict(log, k=1, filter_seen_items=filter_seen_items)
 
-    recs1 = recs1.toPandas().sort_values(
-        ["user_idx", "item_idx"], ascending=False
-    )
-    recs2 = recs2.toPandas().sort_values(
-        ["user_idx", "item_idx"], ascending=False
-    )
-    assert recs1.user_idx.equals(recs2.user_idx)
-    assert recs1.item_idx.equals(recs2.item_idx)
+@pytest.mark.parametrize(
+    "borders",
+    [
+        {"wrong_name": None},
+        {"rank": None},
+        {"rank": 2},
+        {"rank": [1]},
+        {"rank": [1, 2, 3]},
+    ],
+    ids=[
+        "wrong name",
+        "None border",
+        "int border",
+        "border's too short",
+        "border's too long",
+    ],
+)
+def test_bad_borders(borders):
+    model = ALSWrap()
+    with pytest.raises(ValueError):
+        model._prepare_param_borders(borders)
+
+
+@pytest.mark.parametrize("borders", [None, {"rank": [5, 9]}])
+def test_correct_borders(borders):
+    model = ALSWrap()
+    res = model._prepare_param_borders(borders)
+    assert res.keys() == model._search_space.keys()
+    assert "rank" in res
+    assert isinstance(res["rank"], dict)
+    assert res["rank"].keys() == model._search_space["rank"].keys()
+
+
+@pytest.mark.parametrize(
+    "borders,answer", [(None, True), ({"rank": [-10, -1]}, False)]
+)
+def test_param_in_borders(borders, answer):
+    model = ALSWrap()
+    search_space = model._prepare_param_borders(borders)
+    assert model._init_params_in_search_space(search_space) == answer
+
+
+def test_it_works(log):
+    model = ALSWrap()
+    assert model._params_tried() is False
+    res = model.optimize(log, log, k=2, budget=1)
+    assert isinstance(res["rank"], int)
+    assert model._params_tried() is True
+    model.optimize(log, log, k=2, budget=1)
+    assert len(model.study.trials) == 1
+    model.optimize(log, log, k=2, budget=1, new_study=False)
+    assert len(model.study.trials) == 2

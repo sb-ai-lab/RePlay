@@ -28,16 +28,12 @@ class Unexpectedness(RecOnlyMetric):
     0.67
     """
 
-    _scala_udf_name = "getUnexpectednessMetricValue"
-
     def __init__(
         self, pred: AnyDataFrame,
-        use_scala_udf: bool = False
     ):  # pylint: disable=super-init-not-called
         """
         :param pred: model predictions
         """
-        self._use_scala_udf = use_scala_udf
         self.pred = convert2spark(pred)
 
     @staticmethod
