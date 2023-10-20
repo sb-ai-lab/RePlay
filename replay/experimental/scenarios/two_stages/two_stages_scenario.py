@@ -630,6 +630,7 @@ class TwoStagesScenario(HybridRecommender):
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
         filter_seen_items: bool = True,
+        recs_file_path: Optional[str] = None,
     ) -> DataFrame:
         """
         :param log: input DataFrame ``[user_id, item_id, timestamp, relevance]``
@@ -650,6 +651,7 @@ class TwoStagesScenario(HybridRecommender):
             user_features,
             item_features,
             filter_seen_items,
+            recs_file_path,
         )
 
     @staticmethod

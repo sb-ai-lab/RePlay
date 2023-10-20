@@ -11,6 +11,6 @@ Fallback
 
 Two Stage Scenario (Experimental part)
 --------------------------------------
-.. autoclass:: replay.experimental.scenarios.TwoStagesScenario
+.. autoclass:: replay.experimental.scenarios.two_stages.TwoStagesScenario
    :special-members: __init__
    :members: fit, predict, optimize

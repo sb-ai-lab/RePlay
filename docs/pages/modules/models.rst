@@ -35,7 +35,7 @@ To get more info on how to choose base model, please see this  :doc:`page </page
 Recommender interface
 ____________________________
 
-.. autoclass:: replay.models.Recommender
+.. autoclass:: replay.models.base_rec.Recommender
     :members:
 
 .. autoclass:: replay.models.base_rec.BaseRecommender
