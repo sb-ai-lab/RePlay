@@ -64,15 +64,15 @@ from .unexpectedness import Unexpectedness
 __all__ = [
     "Metric",
     "Coverage",
+    "Experiment",
     "HitRate",
-    "NCISPrecision",
     "MAP",
     "MRR",
+    "NCISPrecision",
     "NDCG",
     "Precision",
     "Recall",
     "RocAuc",
     "Surprisal",
     "Unexpectedness",
-    "Experiment",
 ]

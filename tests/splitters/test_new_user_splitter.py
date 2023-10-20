@@ -6,7 +6,6 @@ import pytest
 
 from replay.data import LOG_SCHEMA
 from replay.splitters import NewUsersSplitter
-from tests.utils import spark
 
 
 @pytest.fixture
@@ -38,6 +37,6 @@ def test_users_are_cold(log):
 
 
 @pytest.mark.parametrize("test_size", [-1.0, 2.0])
-def test_bad_test_size(log, test_size):
+def test_bad_test_size(test_size):
     with pytest.raises(ValueError):
         NewUsersSplitter(test_size)

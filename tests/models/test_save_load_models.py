@@ -1,29 +1,23 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
-import os
-from functools import partial
 from os.path import dirname, join
 
 import pandas as pd
 import pytest
-from implicit.als import AlternatingLeastSquares
 from pyspark.sql import functions as sf
 
 import replay
 from replay.models import *
-from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
-from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
-from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
-from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import ExecutorHnswlibIndexBuilder
-from replay.models.extensions.ann.index_builders.executor_nmslib_index_builder import ExecutorNmslibIndexBuilder
-from replay.models.extensions.ann.index_stores.hdfs_index_store import HdfsIndexStore
-from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
-from replay.models.extensions.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
+from replay.models.extensions.ann.entities import HnswlibParam, NmslibHnswParam
+from replay.models.extensions.ann.index_builders import (
+    DriverHnswlibIndexBuilder,
+    DriverNmslibIndexBuilder,
+    ExecutorNmslibIndexBuilder,
+)
+from replay.models.extensions.ann.index_stores import HdfsIndexStore, SharedDiskIndexStore, SparkFilesIndexStore
 from replay.preprocessing.data_preparator import Indexer
 from replay.utils.model_handler import load, save
 from replay.utils.spark_utils import convert2spark
-from tests.models.test_cat_pop_rec import cat_log, cat_tree, requested_cats
-from tests.utils import long_log_with_features, spark, sparkDataFrameEqual
+from tests.utils import sparkDataFrameEqual
 
 
 @pytest.fixture

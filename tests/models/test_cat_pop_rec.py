@@ -4,7 +4,7 @@ import pytest
 from pyspark.sql import functions as sf
 
 from replay.models import CatPopRec
-from tests.utils import spark, sparkDataFrameEqual
+from tests.utils import sparkDataFrameEqual
 
 
 @pytest.fixture

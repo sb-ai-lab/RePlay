@@ -10,17 +10,8 @@ from pytorch_ranger import Ranger
 
 from replay.data import LOG_SCHEMA
 from replay.experimental.models import DDPG
-from replay.experimental.models.ddpg import ActorDRR, CriticDRR, OUNoise, ReplayBuffer, StateReprModule, to_np
-from tests.utils import (
-    del_files_by_pattern,
-    find_file_by_pattern,
-    log,
-    log_to_pred,
-    long_log_with_features,
-    spark,
-    sparkDataFrameEqual,
-    user_features,
-)
+from replay.experimental.models.ddpg import ActorDRR, CriticDRR, OUNoise, ReplayBuffer, StateReprModule
+from tests.utils import del_files_by_pattern, find_file_by_pattern, sparkDataFrameEqual
 
 SEED = 123
 

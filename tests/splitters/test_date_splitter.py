@@ -6,7 +6,6 @@ import pytest
 
 from replay.data import LOG_SCHEMA
 from replay.splitters import DateSplitter
-from tests.utils import spark
 
 
 @pytest.fixture

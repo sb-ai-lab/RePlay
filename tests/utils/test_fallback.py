@@ -4,7 +4,6 @@ import pandas as pd
 from replay.models import ItemKNN
 from replay.scenarios import Fallback
 from replay.utils.spark_utils import convert2spark, fallback
-from tests.utils import log, log2, spark
 
 
 def test_fallback():

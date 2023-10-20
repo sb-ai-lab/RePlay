@@ -7,13 +7,13 @@ import numpy as np
 import pandas as pd
 import pyspark.sql.functions as sf
 import pytest
-from pyspark.sql.types import ArrayType, DoubleType, IntegerType, StructField, StructType
+from pyspark.sql.types import ArrayType, IntegerType, StructField, StructType
 
 from replay.data import LOG_SCHEMA, REC_SCHEMA
 from replay.metrics import *
 from replay.metrics.base_metric import drop_duplicates, filter_sort, get_enriched_recommendations
 from replay.utils.distributions import item_distribution
-from tests.utils import assert_allclose, assertDictAlmostEqual, log, spark, sparkDataFrameEqual
+from tests.utils import assert_allclose, assertDictAlmostEqual, sparkDataFrameEqual
 
 
 @pytest.fixture

@@ -7,11 +7,11 @@ from replay.experimental.models import ScalaALSWrap as ALSWrap
 from replay.experimental.scenarios.two_stages.two_stages_scenario import get_first_level_model_features
 from replay.models import AssociationRulesItemRec
 from replay.models.base_rec import HybridRecommender, UserRecommender
-from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
-from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import ExecutorHnswlibIndexBuilder
-from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
+from replay.models.extensions.ann.entities import HnswlibParam
+from replay.models.extensions.ann.index_builders import ExecutorHnswlibIndexBuilder
+from replay.models.extensions.ann.index_stores import SharedDiskIndexStore
 from replay.utils.model_handler import load, save
-from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
+from tests.utils import sparkDataFrameEqual
 
 SEED = 123
 

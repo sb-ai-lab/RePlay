@@ -11,7 +11,7 @@ from pyspark.sql.types import TimestampType
 
 import replay.utils.session_handler
 from replay.utils import spark_utils as utils
-from tests.utils import long_log_with_features, spark, sparkDataFrameEqual
+from tests.utils import sparkDataFrameEqual
 
 datetime = partial(datetime, tzinfo=timezone.utc)
 

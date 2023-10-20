@@ -16,7 +16,7 @@ from replay.models import (
     Word2VecRec,
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
-from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
+from tests.utils import sparkDataFrameEqual
 
 SEED = 123
 

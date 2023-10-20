@@ -22,17 +22,18 @@ from .wilson import Wilson
 from .word2vec import Word2VecRec
 
 __all__ = [
+    "extensions",
+    "ALSWrap",
     "AssociationRulesItemRec",
+    "CatPopRec",
+    "ClusterRec",
     "ItemKNN",
     "PopRec",
-    "UserPopRec",
     "RandomRec",
     "SLIM",
+    "ThompsonSampling",
+    "UCB",
+    "UserPopRec",
     "Wilson",
     "Word2VecRec",
-    "ClusterRec",
-    "CatPopRec",
-    "UCB",
-    "ThompsonSampling",
-    "ALSWrap",
 ]

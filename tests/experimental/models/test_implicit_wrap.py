@@ -1,17 +1,9 @@
-from datetime import datetime
-
 import implicit
-import numpy as np
-import pandas as pd
 import pytest
-from implicit.als import AlternatingLeastSquares
 from pyspark.sql import functions as sf
-from pyspark.sql.types import IntegerType, StructField, StructType
 
-from replay.data import LOG_SCHEMA
 from replay.experimental.models import ImplicitWrap
-from replay.utils.session_handler import get_spark_session
-from tests.utils import log, long_log_with_features, spark, sparkDataFrameEqual
+from tests.utils import sparkDataFrameEqual
 
 
 @pytest.mark.parametrize(

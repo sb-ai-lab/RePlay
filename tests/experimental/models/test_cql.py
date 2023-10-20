@@ -8,7 +8,7 @@ from pytest import approx
 from replay.experimental.models import CQL
 from replay.experimental.models.cql import MdpDatasetBuilder
 from replay.models.base_rec import HybridRecommender, UserRecommender
-from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
+from tests.utils import sparkDataFrameEqual
 
 
 def fit_predict_selected(model, train_log, inf_log, user_features, users):

@@ -8,19 +8,9 @@ from pyspark.sql import functions as sf
 
 from replay.data import LOG_SCHEMA
 from replay.experimental.models import NeuroMF
-from replay.experimental.models.neuromf import NMF
 from replay.models.base_rec import HybridRecommender, UserRecommender
 from replay.utils.model_handler import load, save
-from tests.utils import (
-    del_files_by_pattern,
-    find_file_by_pattern,
-    log,
-    log_to_pred,
-    long_log_with_features,
-    spark,
-    sparkDataFrameEqual,
-    user_features,
-)
+from tests.utils import sparkDataFrameEqual
 
 SEED = 123
 

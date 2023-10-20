@@ -9,6 +9,7 @@ from .neuromf import NeuroMF
 from .scala_als import ScalaALSWrap
 
 __all__ = [
+    "extensions",
     "ADMMSLIM",
     "ScalaALSWrap",
     "ImplicitWrap",

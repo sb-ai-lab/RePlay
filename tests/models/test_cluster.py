@@ -6,11 +6,11 @@ import pytest
 
 from replay.models import ClusterRec
 from replay.utils.spark_utils import convert2spark
-from tests.utils import long_log_with_features, short_log_with_features, spark, sparkDataFrameEqual, user_features
+from tests.utils import sparkDataFrameEqual
 
 
 @pytest.fixture
-def users_features(spark, user_features):
+def users_features(user_features):
     return user_features.drop("gender")
 
 

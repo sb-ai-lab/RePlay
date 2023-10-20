@@ -3,7 +3,7 @@ import pytest
 from pyspark.sql import functions as sf
 
 from replay.models import UCB
-from tests.utils import log, log2, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
+from tests.utils import sparkDataFrameEqual, sparkDataFrameNotEqual
 
 
 @pytest.fixture

@@ -5,9 +5,7 @@ from pyspark.sql import functions as sf
 
 from replay.models import ALSWrap, AssociationRulesItemRec
 from replay.models.base_rec import HybridRecommender, UserRecommender
-from replay.utils.model_handler import load, save
 from replay.utils.spark_utils import array_mult, horizontal_explode, join_or_return
-from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
 
 SEED = 123
 

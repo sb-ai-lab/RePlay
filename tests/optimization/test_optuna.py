@@ -2,7 +2,6 @@
 import pytest
 
 from replay.models import SLIM, ALSWrap, ItemKNN
-from tests.utils import log, spark
 
 
 @pytest.fixture

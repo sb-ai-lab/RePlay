@@ -3,7 +3,6 @@ import numpy as np
 import pyspark.sql.functions as sf
 
 from replay.models.extensions.ann.index_inferers.utils import get_csr_matrix
-from tests.utils import log2, spark
 
 
 def test_get_csr_matrix(spark, log2):

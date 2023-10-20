@@ -2,11 +2,9 @@
 from datetime import datetime
 
 import pytest
-from pyspark.sql import functions as sf
 
 from replay.data import LOG_SCHEMA
 from replay.models import PopRec
-from tests.utils import spark
 
 
 @pytest.fixture

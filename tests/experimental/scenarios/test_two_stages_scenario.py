@@ -5,20 +5,12 @@ from pyspark.sql import functions as sf
 
 from replay.experimental.models import LightFMWrap
 from replay.experimental.models import ScalaALSWrap as ALSWrap
-from replay.experimental.scenarios import TwoStagesScenario
+from replay.experimental.scenarios.two_stages import TwoStagesScenario
 from replay.experimental.scenarios.two_stages.reranker import LamaWrap
 from replay.models import ItemKNN, PopRec
 from replay.preprocessing.data_preparator import ToNumericFeatureTransformer
 from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.splitters import DateSplitter
-from tests.utils import (
-    item_features,
-    long_log_with_features,
-    short_log_with_features,
-    spark,
-    sparkDataFrameEqual,
-    user_features,
-)
 
 
 @pytest.fixture

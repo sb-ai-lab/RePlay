@@ -12,7 +12,7 @@ from replay.preprocessing.history_based_fp import (
     HistoryBasedFeaturesProcessor,
     LogStatFeaturesProcessor,
 )
-from tests.utils import spark, sparkDataFrameEqual
+from tests.utils import sparkDataFrameEqual
 
 simple_u_columns = ["u_log_num_interact", "u_mean_i_log_num_interact"]
 simple_i_columns = ["i_log_num_interact", "i_mean_u_log_num_interact"]

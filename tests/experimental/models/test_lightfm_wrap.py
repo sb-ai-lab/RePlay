@@ -10,7 +10,7 @@ from replay.experimental.models import LightFMWrap
 from replay.experimental.scenarios.two_stages.two_stages_scenario import get_first_level_model_features
 from replay.models.base_rec import HybridRecommender, UserRecommender
 from replay.utils.model_handler import load, save
-from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
+from tests.utils import sparkDataFrameEqual
 
 SEED = 123
 

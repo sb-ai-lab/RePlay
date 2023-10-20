@@ -1,10 +1,8 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-import numpy as np
 import pytest
 from pyspark.sql import functions as sf
 
-from replay.models import UCB, ThompsonSampling
-from tests.utils import log, spark, sparkDataFrameEqual
+from replay.models import ThompsonSampling
 
 
 @pytest.fixture

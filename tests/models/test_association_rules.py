@@ -3,7 +3,7 @@ import pytest
 from pyspark.sql import functions as sf
 
 from replay.models import AssociationRulesItemRec
-from tests.utils import log, log_to_pred, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
+from tests.utils import sparkDataFrameEqual, sparkDataFrameNotEqual
 
 
 @pytest.fixture

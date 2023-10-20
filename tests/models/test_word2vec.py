@@ -7,12 +7,10 @@ from pyspark.sql import functions as sf
 
 from replay.data import LOG_SCHEMA
 from replay.models import Word2VecRec
-from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
-from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
-from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
+from replay.models.extensions.ann.entities import HnswlibParam
+from replay.models.extensions.ann.index_builders import DriverHnswlibIndexBuilder
+from replay.models.extensions.ann.index_stores import SharedDiskIndexStore
 from replay.utils.spark_utils import vector_dot
-from tests.utils import log as log2
-from tests.utils import spark
 
 
 @pytest.fixture

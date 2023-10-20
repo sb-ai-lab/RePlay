@@ -1,6 +1,4 @@
 """ RecSys library """
-from . import data, metrics, models, optimization, preprocessing, scenarios, splitters, utils
-
 try:
     from . import experimental
 

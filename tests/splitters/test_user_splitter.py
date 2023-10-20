@@ -6,7 +6,6 @@ import pytest
 
 from replay.data import LOG_SCHEMA
 from replay.splitters import UserSplitter
-from tests.utils import spark
 
 
 @pytest.fixture
@@ -144,7 +143,7 @@ def test_split_quantity(log2):
         drop_cold_users=False,
         item_test_size=2,
     )
-    train, test = splitter.split(log2)
+    _, test = splitter.split(log2)
     num_items = test.toPandas().user_idx.value_counts()
     assert num_items.nunique() == 1
     assert num_items.unique()[0] == 2
@@ -156,7 +155,7 @@ def test_split_proportion(log2):
         drop_cold_users=False,
         item_test_size=0.4,
     )
-    train, test = splitter.split(log2)
+    _, test = splitter.split(log2)
     num_items = test.toPandas().user_idx.value_counts()
     assert num_items[1] == 2
     assert num_items[0] == 1 and num_items[2] == 1

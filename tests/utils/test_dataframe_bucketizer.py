@@ -3,7 +3,6 @@ import pytest
 from pyspark.conf import SparkConf
 
 from replay.utils.dataframe_bucketizer import DataframeBucketizer
-from tests.utils import log, log2, spark
 
 
 def test_dataframe_bucketizer(spark, log, log2):

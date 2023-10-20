@@ -9,7 +9,7 @@ from replay.data import LOG_SCHEMA
 from replay.experimental.models import ADMMSLIM
 from replay.models.base_rec import HybridRecommender, UserRecommender
 from replay.utils.model_handler import load, save
-from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
+from tests.utils import sparkDataFrameEqual
 
 SEED = 123
 

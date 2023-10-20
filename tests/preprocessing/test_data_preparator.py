@@ -8,7 +8,7 @@ from pyspark.sql.types import StringType, TimestampType
 
 from replay.preprocessing.data_preparator import CatFeaturesTransformer, DataPreparator, Indexer
 from replay.utils.spark_utils import convert2spark
-from tests.utils import item_features, long_log_with_features, short_log_with_features, spark, sparkDataFrameEqual
+from tests.utils import sparkDataFrameEqual
 
 
 @pytest.fixture

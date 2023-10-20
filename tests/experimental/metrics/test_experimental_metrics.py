@@ -14,7 +14,7 @@ from replay.experimental.metrics import *
 from replay.metrics import Coverage
 from replay.metrics.base_metric import drop_duplicates, filter_sort, get_enriched_recommendations
 from replay.utils.distributions import item_distribution
-from tests.utils import assert_allclose, assertDictAlmostEqual, log, spark, sparkDataFrameEqual
+from tests.utils import assert_allclose, assertDictAlmostEqual, sparkDataFrameEqual
 
 
 @pytest.fixture
