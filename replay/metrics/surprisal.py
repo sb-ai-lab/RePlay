@@ -40,18 +40,14 @@ class Surprisal(RecOnlyMetric):
         Surprisal@K = \\frac {\sum_{i=1}^{N}Surprisal@K(i)}{N}
     """
 
-    _scala_udf_name = "getSurprisalMetricValue"
-
     def __init__(
         self, log: AnyDataFrame,
-        use_scala_udf: bool = False
     ):  # pylint: disable=super-init-not-called
         """
         Here we calculate self-information for each item
 
         :param log: historical data
         """
-        self._use_scala_udf = use_scala_udf
         self.log = convert2spark(log)
         n_users = self.log.select("user_idx").distinct().count()  # type: ignore
         self.item_weights = self.log.groupby("item_idx").agg(

@@ -33,6 +33,10 @@ def test_works(preprocessed_log, model):
     model.item_popularity.count()
 
 
+def test_tsampling_init_args(model):
+    assert model._init_args["seed"] == 42
+
+
 @pytest.mark.parametrize(
     "sample,seed",
     [(False, None), (True, None)],

@@ -3,11 +3,12 @@
 import pytest
 from pyspark.sql import functions as sf
 
-from replay.models import ALSWrap, ItemKNN, PopRec, LightFMWrap
-from replay.scenarios import TwoStagesScenario
+from replay.models import ItemKNN, PopRec
+from replay.experimental.models import ScalaALSWrap as ALSWrap, LightFMWrap
+from replay.experimental.scenarios import TwoStagesScenario
 from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.preprocessing.data_preparator import ToNumericFeatureTransformer
-from replay.scenarios.two_stages.reranker import LamaWrap
+from replay.experimental.scenarios.two_stages.reranker import LamaWrap
 from replay.splitters import DateSplitter
 
 from tests.utils import (
@@ -94,7 +95,7 @@ def test_fit(
         item_features=item_features,
     )
     assert res.count() == short_log_with_features.count()
-    assert "rel_0_ALSWrap" in res.columns
+    assert "rel_0_ScalaALSWrap" in res.columns
     assert "m_2_fm_0" in res.columns
     assert "u_pop_by_class" in res.columns
     assert "age" in res.columns

@@ -676,7 +676,7 @@ class ALSModel(JavaModel, _ALSModelParams, JavaMLWritable, ALSModelJavaMLReadabl
             for comp in parts[1:]:
                 m = getattr(m, comp)
             return m
-        stage_name = "replay.models.extensions.spark_custom_models.als_extension.ALSModel"
+        stage_name = "replay.experimental.models.extensions.spark_custom_models.als_extension.ALSModel"
         # Generate a default new instance from the stage_name class.
         py_type = __get_class(stage_name)
         if issubclass(py_type, JavaParams):

@@ -97,6 +97,11 @@ def bm25_model():
     return model
 
 
+def test_invalid_weighting(log):
+    with pytest.raises(ValueError):
+        ItemKNN(1, weighting="invalid_weighting")
+
+
 def test_works(log, model):
     model.fit(log)
     recs = model.predict(log, k=1, users=[0, 1]).toPandas()

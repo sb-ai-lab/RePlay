@@ -15,10 +15,11 @@ from pyspark.sql import functions as sf
 
 from replay.preprocessing.data_preparator import DataPreparator, Indexer
 from replay.metrics.experiment import Experiment
-from replay.models.cql import MdpDatasetBuilder
+from replay.experimental.models.cql import MdpDatasetBuilder
 from replay.metrics import HitRate, NDCG, MAP, MRR, Coverage, Surprisal
 from replay.utils.model_handler import save, load
-from replay.models import UCB, CQL, Wilson, Recommender, ALSWrap, ItemKNN, LightFMWrap, SLIM
+from replay.models import UCB, Wilson, Recommender, ItemKNN, SLIM, ALSWrap
+from replay.experimental.models import LightFMWrap, CQL
 from replay.utils.session_handler import State, get_spark_session
 from replay.splitters import DateSplitter
 from replay.utils import get_log_info

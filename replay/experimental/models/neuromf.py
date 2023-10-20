@@ -16,7 +16,7 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, TensorDataset
 
-from replay.models.base_torch_rec import TorchRecommender
+from replay.experimental.models.base_torch_rec import TorchRecommender
 
 EMBED_DIM = 128
 

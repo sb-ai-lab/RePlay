@@ -4,25 +4,17 @@ import numpy as np
 
 from pyspark.sql import functions as sf
 
-from replay.data import LOG_SCHEMA
-from replay.models.cql import MdpDatasetBuilder
 from replay.models import (
     ALSWrap,
-    ADMMSLIM,
     ClusterRec,
     ItemKNN,
-    LightFMWrap,
-    NeuroMF,
     PopRec,
     RandomRec,
     SLIM,
-    MultVAE,
     UCB,
     Wilson,
     Word2VecRec,
-    DDPG,
     AssociationRulesItemRec,
-    CQL,
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
 
@@ -42,27 +34,17 @@ SEED = 123
     "model",
     [
         ALSWrap(seed=SEED),
-        ADMMSLIM(seed=SEED),
         ItemKNN(),
-        LightFMWrap(random_state=SEED),
-        MultVAE(),
-        NeuroMF(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
-        CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=3), batch_size=512),
     ],
     ids=[
         "als",
-        "admm_slim",
         "knn",
-        "lightfm",
-        "multvae",
-        "neuromf",
         "slim",
         "word2vec",
         "association_rules",
-        "cql",
     ],
 )
 def test_predict_pairs_warm_items_only(log, log_to_pred, model):
@@ -105,11 +87,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
     "model",
     [
         ALSWrap(seed=SEED),
-        ADMMSLIM(seed=SEED),
         ItemKNN(),
-        LightFMWrap(random_state=SEED),
-        MultVAE(),
-        NeuroMF(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
@@ -118,11 +96,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
     ],
     ids=[
         "als",
-        "admm_slim",
         "knn",
-        "lightfm",
-        "multvae",
-        "neuromf",
         "slim",
         "word2vec",
         "association_rules",
@@ -166,11 +140,7 @@ def test_predict_pairs_k(log, model):
     "model",
     [
         ALSWrap(seed=SEED),
-        ADMMSLIM(seed=SEED),
         ItemKNN(),
-        LightFMWrap(random_state=SEED),
-        MultVAE(),
-        NeuroMF(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
@@ -179,11 +149,7 @@ def test_predict_pairs_k(log, model):
     ],
     ids=[
         "als",
-        "admm_slim",
         "knn",
-        "lightfm",
-        "multvae",
-        "neuromf",
         "slim",
         "word2vec",
         "association_rules",
@@ -199,14 +165,12 @@ def test_predict_empty_log(log, model):
 @pytest.mark.parametrize(
     "model",
     [
-        ADMMSLIM(seed=SEED),
         ItemKNN(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
     ],
     ids=[
-        "admm_slim",
         "knn",
         "slim",
         "word2vec",
@@ -219,13 +183,6 @@ def test_predict_pairs_raises(log, model):
         model.predict_pairs(log.select("user_idx", "item_idx"))
 
 
-def test_predict_pairs_raises_pairs_format(log):
-    model = ALSWrap(seed=SEED)
-    with pytest.raises(ValueError, match="pairs must be a dataframe with .*"):
-        model.fit(log)
-        model.predict_pairs(log, log)
-
-
 # for NeighbourRec and ItemVectorModel
 @pytest.mark.parametrize(
     "model, metric",
@@ -234,7 +191,6 @@ def test_predict_pairs_raises_pairs_format(log):
         (ALSWrap(seed=SEED), "dot_product"),
         (ALSWrap(seed=SEED), "cosine_similarity"),
         (Word2VecRec(seed=SEED, min_count=0), "cosine_similarity"),
-        (ADMMSLIM(seed=SEED), None),
         (ItemKNN(), None),
         (SLIM(seed=SEED), None),
         (AssociationRulesItemRec(min_item_count=1, min_pair_count=0), "lift"),
@@ -252,7 +208,6 @@ def test_predict_pairs_raises_pairs_format(log):
         "als_dot",
         "als_cosine",
         "w2v_cosine",
-        "admm_slim",
         "knn",
         "slim",
         "association_rules_lift",
@@ -291,22 +246,6 @@ def test_get_nearest_items(log, model, metric):
     )
 
 
-@pytest.mark.parametrize("metric", ["absent", None])
-def test_nearest_items_raises(log, metric):
-    model = AssociationRulesItemRec()
-    model.fit(log.filter(sf.col("item_idx") != 3))
-    with pytest.raises(
-        ValueError, match=r"Select one of the valid distance metrics.*"
-    ):
-        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
-    model = ALSWrap()
-    model.fit(log)
-    with pytest.raises(
-        ValueError, match=r"Select one of the valid distance metrics.*"
-    ):
-        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
-
-
 def test_filter_seen(log):
     model = PopRec()
     # filter seen works with empty log to filter (cold_user)
@@ -334,30 +273,22 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
 @pytest.mark.parametrize(
     "model",
     [
-        ADMMSLIM(seed=SEED),
         ClusterRec(num_clusters=2),
         ItemKNN(),
-        LightFMWrap(random_state=SEED, no_components=4),
-        MultVAE(),
         SLIM(seed=SEED),
         PopRec(),
         RandomRec(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
-        CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=1), batch_size=512),
     ],
     ids=[
-        "admm_slim",
         "cluster",
         "knn",
-        "lightfm",
-        "multvae",
         "slim",
         "pop_rec",
         "random_rec",
         "word2vec",
         "association_rules",
-        "cql",
     ],
 )
 def test_predict_new_users(model, long_log_with_features, user_features):
@@ -376,13 +307,11 @@ def test_predict_new_users(model, long_log_with_features, user_features):
     "model",
     [
         ClusterRec(num_clusters=2),
-        LightFMWrap(random_state=SEED, no_components=4),
         PopRec(),
         RandomRec(seed=SEED),
     ],
     ids=[
         "cluster",
-        "lightfm",
         "pop_rec",
         "random_rec",
     ],
@@ -404,24 +333,16 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
     [
         ALSWrap(rank=2, seed=SEED),
         ItemKNN(),
-        LightFMWrap(),
-        MultVAE(),
-        NeuroMF(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
-        CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=3), batch_size=512),
     ],
     ids=[
         "als",
         "knn",
-        "lightfm_no_feat",
-        "multvae",
-        "neuromf",
         "slim",
         "word2vec",
         "association_rules",
-        "cql",
     ],
 )
 def test_predict_cold_and_new_filter_out(model, long_log_with_features):
@@ -433,7 +354,7 @@ def test_predict_cold_and_new_filter_out(model, long_log_with_features):
         users=[0, 3],
     )
     # assert new/cold users are filtered out in `predict`
-    if isinstance(model, LightFMWrap) or not model.can_predict_cold_users:
+    if not model.can_predict_cold_users:
         assert pred.count() == 0
     else:
         assert 1 <= pred.count() <= 2
@@ -442,16 +363,14 @@ def test_predict_cold_and_new_filter_out(model, long_log_with_features):
 @pytest.mark.parametrize(
     "model",
     [
-        PopRec(),
         ALSWrap(rank=2, seed=SEED),
+        PopRec(),
         ItemKNN(),
-        DDPG(seed=SEED, user_num=6, item_num=6),
     ],
     ids=[
-        "pop_rec",
         "als",
+        "pop_rec",
         "knn",
-        "ddpg",
     ],
 )
 def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
@@ -478,16 +397,14 @@ def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
 @pytest.mark.parametrize(
     "model",
     [
-        PopRec(),
         ALSWrap(rank=2, seed=SEED),
+        PopRec(),
         ItemKNN(),
-        DDPG(seed=SEED, user_num=6, item_num=6),
     ],
     ids=[
-        "pop_rec",
         "als",
+        "pop_rec",
         "knn",
-        "ddpg",
     ],
 )
 def test_predict_to_file(spark, model, long_log_with_features, tmp_path):

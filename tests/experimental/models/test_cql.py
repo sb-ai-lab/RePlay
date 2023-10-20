@@ -3,11 +3,27 @@ import numpy as np
 from _pytest.python_api import approx
 from pytest import approx
 from pyspark.sql import DataFrame
+from pyspark.sql import functions as sf
 
-from replay.data import LOG_SCHEMA
-from replay.models.cql import MdpDatasetBuilder
-from replay.models import CQL
-from tests.utils import spark, log
+from replay.experimental.models.cql import MdpDatasetBuilder
+from replay.experimental.models import CQL
+from tests.utils import (
+    spark,
+    log,
+    log_to_pred,
+    long_log_with_features,
+    user_features,
+    sparkDataFrameEqual,
+)
+from replay.models.base_rec import HybridRecommender, UserRecommender
+
+
+def fit_predict_selected(model, train_log, inf_log, user_features, users):
+    kwargs = {}
+    if isinstance(model, (HybridRecommender, UserRecommender)):
+        kwargs = {"user_features": user_features}
+    model.fit(train_log, **kwargs)
+    return model.predict(log=inf_log, users=users, k=1, **kwargs)
 
 
 def test_predict_filters_out_seen_items(log: DataFrame):
@@ -89,3 +105,69 @@ def test_mdp_dataset_builder(log: DataFrame):
     assert mdp_dataset.actions[:n].flatten() == approx(gt_actions, abs=1e-2)
     assert mdp_dataset.rewards[:n] == approx(gt_rewards)
     assert mdp_dataset.terminals[:n] == approx(gt_terminals)
+
+
+def test_predict_pairs_warm_items_only(log, log_to_pred):
+    model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=3), batch_size=512)
+    model.fit(log)
+    recs = model.predict(
+        log.unionByName(log_to_pred),
+        k=3,
+        users=log_to_pred.select("user_idx").distinct(),
+        items=log_to_pred.select("item_idx").distinct(),
+        filter_seen_items=False,
+    )
+
+    pairs_pred = model.predict_pairs(
+        pairs=log_to_pred.select("user_idx", "item_idx"),
+        log=log.unionByName(log_to_pred),
+    )
+
+    condition = ~sf.col("item_idx").isin([4, 5])
+    if not model.can_predict_cold_users:
+        condition = condition & (sf.col("user_idx") != 4)
+
+    sparkDataFrameEqual(
+        pairs_pred.select("user_idx", "item_idx"),
+        log_to_pred.filter(condition).select("user_idx", "item_idx"),
+    )
+
+    recs_joined = (
+        pairs_pred.withColumnRenamed("relevance", "pairs_relevance")
+        .join(recs, on=["user_idx", "item_idx"], how="left")
+        .sort("user_idx", "item_idx")
+    )
+
+    assert np.allclose(
+        recs_joined.select("relevance").toPandas().to_numpy(),
+        recs_joined.select("pairs_relevance").toPandas().to_numpy(),
+    )
+
+
+def test_predict_new_users(long_log_with_features, user_features):
+    model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=1), batch_size=512)
+    pred = fit_predict_selected(
+        model,
+        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+        inf_log=long_log_with_features,
+        user_features=user_features.drop("gender"),
+        users=[0],
+    )
+    assert pred.count() == 1
+    assert pred.collect()[0][0] == 0
+
+
+def test_predict_cold_and_new_filter_out(long_log_with_features):
+    model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=3), batch_size=512)
+    pred = fit_predict_selected(
+        model,
+        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+        inf_log=long_log_with_features,
+        user_features=None,
+        users=[0, 3],
+    )
+    # assert new/cold users are filtered out in `predict`
+    if not model.can_predict_cold_users:
+        assert pred.count() == 0
+    else:
+        assert 1 <= pred.count() <= 2

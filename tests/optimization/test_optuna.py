@@ -1,13 +1,26 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
 
-from replay.models import ALSWrap, SLIM, ItemKNN
+from replay.models import SLIM, ItemKNN, ALSWrap
 from tests.utils import log, spark
 
 
 @pytest.fixture
 def model():
     return ALSWrap()
+
+
+@pytest.mark.parametrize("borders", [{"beta": [1, 2]}, {"lambda_": [1, 2]}])
+def test_partial_borders(borders):
+    model = SLIM()
+    res = model._prepare_param_borders(borders)
+    assert len(res) == len(model._search_space)
+
+
+def test_ItemKNN(log):
+    model = ItemKNN()
+    res = model.optimize(log, log, k=2, budget=1)
+    assert isinstance(res["num_neighbours"], int)
 
 
 @pytest.mark.parametrize(
@@ -41,13 +54,6 @@ def test_correct_borders(model, borders):
     assert res["rank"].keys() == model._search_space["rank"].keys()
 
 
-@pytest.mark.parametrize("borders", [{"beta": [1, 2]}, {"lambda_": [1, 2]}])
-def test_partial_borders(borders):
-    model = SLIM()
-    res = model._prepare_param_borders(borders)
-    assert len(res) == len(model._search_space)
-
-
 @pytest.mark.parametrize(
     "borders,answer", [(None, True), ({"rank": [-10, -1]}, False)]
 )
@@ -65,9 +71,3 @@ def test_it_works(model, log):
     assert len(model.study.trials) == 1
     model.optimize(log, log, k=2, budget=1, new_study=False)
     assert len(model.study.trials) == 2
-
-
-def test_ItemKNN(log):
-    model = ItemKNN()
-    res = model.optimize(log, log, k=2, budget=1)
-    assert isinstance(res["num_neighbours"], int)

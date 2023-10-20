@@ -17,7 +17,7 @@ class BaseScenario(BaseRecommender):
 
     can_predict_cold_users: bool = False
 
-    def __init__(self, cold_model, threshold=5):
+    def __init__(self, cold_model, threshold=5):    # pragma: no cover
         self.threshold = threshold
         self.cold_model = cold_model
         self.hot_users = None
@@ -228,5 +228,5 @@ class BaseScenario(BaseRecommender):
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
-    ):
+    ):  # pragma: no cover
         pass

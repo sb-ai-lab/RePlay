@@ -1,4 +1,4 @@
 [run]
 omit =
         replay/models/extensions/ann/index_stores/hdfs_index_store.py
-        replay/models/extensions/spark_custom_models/*
+        replay/experimental/*
