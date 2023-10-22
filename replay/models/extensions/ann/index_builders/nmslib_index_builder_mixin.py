@@ -1,8 +1,8 @@
 import pandas as pd
 from scipy.sparse import csr_matrix
 
-from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.models.extensions.ann.index_stores.base_index_store import IndexStore
+from replay.models.extensions.ann.entities import NmslibHnswParam
+from replay.models.extensions.ann.index_stores import IndexStore
 from replay.models.extensions.ann.utils import create_nmslib_index_instance
 
 

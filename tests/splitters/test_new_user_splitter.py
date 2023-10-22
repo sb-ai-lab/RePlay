@@ -1,8 +1,8 @@
 # pylint: disable-all
 from datetime import datetime
 
-import numpy as np
 import pytest
+import numpy as np
 
 from replay.data import LOG_SCHEMA
 from replay.splitters import NewUsersSplitter
@@ -37,6 +37,6 @@ def test_users_are_cold(log):
 
 
 @pytest.mark.parametrize("test_size", [-1.0, 2.0])
-def test_bad_test_size(test_size):
+def test_bad_test_size(log, test_size):
     with pytest.raises(ValueError):
         NewUsersSplitter(test_size)

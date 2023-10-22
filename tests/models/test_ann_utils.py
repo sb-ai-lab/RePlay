@@ -5,7 +5,7 @@ import pyspark.sql.functions as sf
 from replay.models.extensions.ann.index_inferers.utils import get_csr_matrix
 
 
-def test_get_csr_matrix(spark, log2):
+def test_get_csr_matrix(log2):
     grouped_log = log2.groupBy("user_idx").agg(
         sf.collect_list("item_idx").alias("vector_items"),
         sf.collect_list("relevance").alias("vector_relevances"),
@@ -21,6 +21,8 @@ def test_get_csr_matrix(spark, log2):
 
     actual_array = csr_matrix.toarray()
 
-    expected_array = np.array([[3.0, 1.0, 2.0, 0.0], [3.0, 0.0, 0.0, 4.0], [0.0, 3.0, 0.0, 0.0]])
+    expected_array = np.array(
+        [[3.0, 1.0, 2.0, 0.0], [3.0, 0.0, 0.0, 4.0], [0.0, 3.0, 0.0, 0.0]]
+    )
 
     assert np.array_equal(actual_array, expected_array)

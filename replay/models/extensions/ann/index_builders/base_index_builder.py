@@ -3,9 +3,9 @@ from typing import Optional
 
 from pyspark.sql import DataFrame
 
-from replay.models.extensions.ann.entities.base_hnsw_param import BaseHnswParam
-from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
-from replay.models.extensions.ann.index_stores.base_index_store import IndexStore
+from replay.models.extensions.ann.entities import BaseHnswParam
+from replay.models.extensions.ann.index_inferers import IndexInferer
+from replay.models.extensions.ann.index_stores import IndexStore
 
 
 class IndexBuilder(ABC):

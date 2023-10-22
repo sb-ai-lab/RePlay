@@ -1,14 +1,14 @@
 # pylint: disable-all
 from datetime import datetime
 
-import numpy as np
 import pytest
+import numpy as np
 
-from replay.data import LOG_SCHEMA
-from replay.models import ItemKNN
 from replay.models.extensions.ann.entities import NmslibHnswParam
 from replay.models.extensions.ann.index_builders import DriverNmslibIndexBuilder
 from replay.models.extensions.ann.index_stores import SparkFilesIndexStore
+from replay.data import LOG_SCHEMA
+from replay.models import ItemKNN
 
 
 @pytest.fixture
@@ -74,7 +74,9 @@ def model_with_ann(tmp_path):
     return ItemKNN(
         1,
         weighting=None,
-        index_builder=DriverNmslibIndexBuilder(index_params=nmslib_hnsw_params, index_store=SparkFilesIndexStore()),
+        index_builder=DriverNmslibIndexBuilder(
+            index_params=nmslib_hnsw_params, index_store=SparkFilesIndexStore()
+        ),
     )
 
 
@@ -160,8 +162,12 @@ def test_knn_predict_filter_seen_items(log, model, model_with_ann):
     model_with_ann.fit(log)
     recs2 = model_with_ann.predict(log, k=1, filter_seen_items=True)
 
-    recs1 = recs1.toPandas().sort_values(["user_idx", "item_idx"], ascending=False)
-    recs2 = recs2.toPandas().sort_values(["user_idx", "item_idx"], ascending=False)
+    recs1 = recs1.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+    recs2 = recs2.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
     assert recs1.user_idx.equals(recs2.user_idx)
     assert recs1.item_idx.equals(recs2.item_idx)
 
@@ -171,9 +177,15 @@ def test_knn_predict(log_2items_per_user, model, model_with_ann):
     recs1 = model.predict(log_2items_per_user, k=2, filter_seen_items=False)
 
     model_with_ann.fit(log_2items_per_user)
-    recs2 = model_with_ann.predict(log_2items_per_user, k=2, filter_seen_items=False)
+    recs2 = model_with_ann.predict(
+        log_2items_per_user, k=2, filter_seen_items=False
+    )
 
-    recs1 = recs1.toPandas().sort_values(["user_idx", "item_idx"], ascending=False)
-    recs2 = recs2.toPandas().sort_values(["user_idx", "item_idx"], ascending=False)
+    recs1 = recs1.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
+    recs2 = recs2.toPandas().sort_values(
+        ["user_idx", "item_idx"], ascending=False
+    )
     assert all(recs1.user_idx.values == recs2.user_idx.values)
     assert all(recs1.item_idx.values == recs2.item_idx.values)

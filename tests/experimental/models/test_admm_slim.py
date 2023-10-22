@@ -1,15 +1,16 @@
 # pylint: disable-all
 from datetime import datetime
 
-import numpy as np
 import pytest
+import numpy as np
 from pyspark.sql import functions as sf
 
 from replay.data import LOG_SCHEMA
 from replay.experimental.models import ADMMSLIM
 from replay.models.base_rec import HybridRecommender, UserRecommender
-from replay.utils.model_handler import load, save
+from replay.utils.model_handler import save, load
 from tests.utils import sparkDataFrameEqual
+
 
 SEED = 123
 
@@ -76,7 +77,9 @@ def test_predict(simple_log, model):
     assert recs.count() == 4
 
 
-@pytest.mark.parametrize("lambda_1,lambda_2", [(0.0, 0.0), (-0.1, 0.1), (0.1, -0.1)])
+@pytest.mark.parametrize(
+    "lambda_1,lambda_2", [(0.0, 0.0), (-0.1, 0.1), (0.1, -0.1)]
+)
 def test_exceptions(lambda_1, lambda_2):
     with pytest.raises(ValueError):
         ADMMSLIM(lambda_1, lambda_2)
@@ -135,9 +138,21 @@ def test_predict_pairs_k(log):
         k=None,
     )
 
-    assert pairs_pred_k.groupBy("user_idx").count().filter(sf.col("count") > 1).count() == 0
+    assert (
+        pairs_pred_k.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        == 0
+    )
 
-    assert pairs_pred.groupBy("user_idx").count().filter(sf.col("count") > 1).count() > 0
+    assert (
+        pairs_pred.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        > 0
+    )
 
 
 def test_predict_empty_log(log):
@@ -175,7 +190,14 @@ def test_get_nearest_items(log):
         candidates=[0, 3],
     )
     assert res.count() == 1
-    assert len(set(res.toPandas().to_dict()["item_idx"].values()).difference({0, 1})) == 0
+    assert (
+        len(
+            set(res.toPandas().to_dict()["item_idx"].values()).difference(
+                {0, 1}
+            )
+        )
+        == 0
+    )
 
 
 def test_predict_new_users(long_log_with_features, user_features):

@@ -1,6 +1,6 @@
 # pylint: disable-all
-import numpy as np
 import pytest
+import numpy as np
 
 from replay.splitters import RandomSplitter
 
@@ -36,6 +36,6 @@ def test_nothing_is_lost(test_size, log):
 
 
 @pytest.mark.parametrize("test_size", [-1.0, 2.0])
-def test_bad_test_size(test_size):
+def test_bad_test_size(log, test_size):
     with pytest.raises(ValueError):
         RandomSplitter(test_size)

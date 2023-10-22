@@ -1,5 +1,6 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
+
 from pyspark.sql import functions as sf
 
 from replay.models import ThompsonSampling
@@ -7,7 +8,9 @@ from replay.models import ThompsonSampling
 
 @pytest.fixture
 def preprocessed_log(log):
-    return log.withColumn("relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1))
+    return log.withColumn(
+        "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
+    )
 
 
 @pytest.fixture
@@ -44,7 +47,9 @@ def test_predict_empty_log(fitted_model, preprocessed_log, sample, seed):
     fitted_model.sample = sample
 
     users = preprocessed_log.select("user_idx").distinct()
-    pred = fitted_model.predict(log=None, users=users, items=list(range(10)), k=1)
+    pred = fitted_model.predict(
+        log=None, users=users, items=list(range(10)), k=1
+    )
     assert pred.count() == users.count()
 
 
@@ -52,4 +57,9 @@ def test_predict(preprocessed_log, model):
     model.fit(preprocessed_log)
     recs = model.predict(preprocessed_log, k=1, users=[1, 0], items=[3, 2])
     assert recs.count() == 2
-    assert recs.select(sf.sum(sf.col("user_idx").isin([1, 0]).astype("int"))).collect()[0][0] == 2
+    assert (
+        recs.select(
+            sf.sum(sf.col("user_idx").isin([1, 0]).astype("int"))
+        ).collect()[0][0]
+        == 2
+    )

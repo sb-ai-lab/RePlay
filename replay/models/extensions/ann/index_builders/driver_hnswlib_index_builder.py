@@ -4,7 +4,7 @@ from typing import Optional
 import numpy as np
 from pyspark.sql import DataFrame
 
-from . import IndexBuilder
+from .base_index_builder import IndexBuilder
 from replay.models.extensions.ann.index_inferers import (
     IndexInferer,
     HnswlibFilterIndexInferer,

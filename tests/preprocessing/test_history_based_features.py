@@ -4,6 +4,7 @@ import math
 from datetime import datetime
 
 import pytest
+
 from pyspark.sql import functions as sf
 
 from replay.preprocessing.history_based_fp import (
@@ -46,16 +47,16 @@ def log_for_feature_gen(spark):
 
 @pytest.fixture
 def user_features(spark):
-    return spark.createDataFrame([("u1", 2.0, 3.0, "M"), ("u2", 1.0, 4.0, "F")]).toDF(
-        "user_idx", "user_feature_1", "user_feature_2", "gender"
-    )
+    return spark.createDataFrame(
+        [("u1", 2.0, 3.0, "M"), ("u2", 1.0, 4.0, "F")]
+    ).toDF("user_idx", "user_feature_1", "user_feature_2", "gender")
 
 
 @pytest.fixture
 def item_features(spark):
-    return spark.createDataFrame([("i1", 4.0, "cat"), ("i2", 10.0, "dog"), ("i4", 0.0, "cat")]).toDF(
-        "item_idx", "item_feature_1", "class"
-    )
+    return spark.createDataFrame(
+        [("i1", 4.0, "cat"), ("i2", 10.0, "dog"), ("i4", 0.0, "cat")]
+    ).toDF("item_idx", "item_feature_1", "class")
 
 
 @pytest.fixture()
@@ -70,7 +71,9 @@ def test_log_proc_no_ts_rel(spark, log_proc, log_for_feature_gen):
         )
     )
 
-    assert sorted(log_proc.user_log_features.columns) == sorted(["user_idx"] + simple_u_columns)
+    assert sorted(log_proc.user_log_features.columns) == sorted(
+        ["user_idx"] + simple_u_columns
+    )
     gt_user_features = spark.createDataFrame(
         data=[
             ["u1", math.log(2), (math.log(2) + math.log(2)) / 2],
@@ -81,7 +84,9 @@ def test_log_proc_no_ts_rel(spark, log_proc, log_for_feature_gen):
     )
     sparkDataFrameEqual(gt_user_features, log_proc.user_log_features)
 
-    assert sorted(log_proc.item_log_features.columns) == sorted(["item_idx"] + simple_i_columns)
+    assert sorted(log_proc.item_log_features.columns) == sorted(
+        ["item_idx"] + simple_i_columns
+    )
     gt_item_features = spark.createDataFrame(
         data=[
             ["i1", math.log(2), (math.log(2) + math.log(2)) / 2],
@@ -124,7 +129,9 @@ def test_log_proc_ts_no_rel(spark, log_proc, log_for_feature_gen):
     )
     sparkDataFrameEqual(
         gt_user_time_features,
-        log_proc.user_log_features.select(*(["user_idx"] + ["u_" + col for col in time_columns])),
+        log_proc.user_log_features.select(
+            *(["user_idx"] + ["u_" + col for col in time_columns])
+        ),
     )
 
 
@@ -132,10 +139,15 @@ def test_log_proc_relevance_ts(spark, log_proc, log_for_feature_gen):
     log_proc.fit(log_for_feature_gen)
 
     assert sorted(log_proc.user_log_features.columns) == sorted(
-        ["user_idx"] + simple_u_columns + ["u_" + col for col in time_columns + relevance_columns] + abnormality_columns
+        ["user_idx"]
+        + simple_u_columns
+        + ["u_" + col for col in time_columns + relevance_columns]
+        + abnormality_columns
     )
     assert sorted(log_proc.item_log_features.columns) == sorted(
-        ["item_idx"] + simple_i_columns + ["i_" + col for col in time_columns + relevance_columns]
+        ["item_idx"]
+        + simple_i_columns
+        + ["i_" + col for col in time_columns + relevance_columns]
     )
 
     gt_item_rel_features = spark.createDataFrame(
@@ -163,7 +175,9 @@ def test_log_proc_relevance_ts(spark, log_proc, log_for_feature_gen):
     )
     sparkDataFrameEqual(
         gt_item_rel_features,
-        log_proc.item_log_features.select(*(["item_idx"] + ["i_" + col for col in relevance_columns])),
+        log_proc.item_log_features.select(
+            *(["item_idx"] + ["i_" + col for col in relevance_columns])
+        ),
     )
 
     gt_user_abnorm_features = spark.createDataFrame(
@@ -180,12 +194,17 @@ def test_log_proc_relevance_ts(spark, log_proc, log_for_feature_gen):
     )
     sparkDataFrameEqual(
         gt_user_abnorm_features,
-        log_proc.user_log_features.select(*(["user_idx"] + abnormality_columns)),
+        log_proc.user_log_features.select(
+            *(["user_idx"] + abnormality_columns)
+        ),
     )
 
 
 def test_conditional_features(spark, log_for_feature_gen, user_features):
-    cond_pop_proc = ConditionalPopularityProcessor(cat_features_list=["gender"])
+
+    cond_pop_proc = ConditionalPopularityProcessor(
+        cat_features_list=["gender"]
+    )
     cond_pop_proc.fit(log=log_for_feature_gen, features=user_features)
 
     gt_item_feat = spark.createDataFrame(
@@ -194,7 +213,9 @@ def test_conditional_features(spark, log_for_feature_gen, user_features):
     )
     sparkDataFrameEqual(
         gt_item_feat,
-        cond_pop_proc.conditional_pop_dict["gender"].filter(sf.col("item_idx").isin(["i1", "i2"])),
+        cond_pop_proc.conditional_pop_dict["gender"].filter(
+            sf.col("item_idx").isin(["i1", "i2"])
+        ),
     )
 
 
@@ -210,9 +231,18 @@ def test_history_based_fp_fit_transform(
     history_based_fp.fit(log_for_feature_gen, user_features, item_features)
     assert history_based_fp.log_processor.user_log_features is not None
     assert history_based_fp.user_cond_pop_proc.conditional_pop_dict is not None
-    assert "i_pop_by_gender" in history_based_fp.user_cond_pop_proc.conditional_pop_dict["gender"].columns
+    assert (
+        "i_pop_by_gender"
+        in history_based_fp.user_cond_pop_proc.conditional_pop_dict[
+            "gender"
+        ].columns
+    )
     res = history_based_fp.transform(
-        (log_for_feature_gen.join(user_features, on="user_idx").join(item_features, on="item_idx"))
+        (
+            log_for_feature_gen.join(user_features, on="user_idx").join(
+                item_features, on="item_idx"
+            )
+        )
     )
     assert "gender" in res.columns
     assert "i_pop_by_gender" in res.columns
@@ -220,9 +250,20 @@ def test_history_based_fp_fit_transform(
 
 
 def test_history_based_fp_one_features_df(log_for_feature_gen, user_features):
-    history_based_fp = HistoryBasedFeaturesProcessor(user_cat_features_list=["gender"])
+    history_based_fp = HistoryBasedFeaturesProcessor(
+        user_cat_features_list=["gender"]
+    )
     history_based_fp.fit(log=log_for_feature_gen, user_features=user_features)
-    assert isinstance(history_based_fp.item_cond_pop_proc, EmptyFeatureProcessor)
-    assert "i_pop_by_gender" in history_based_fp.user_cond_pop_proc.conditional_pop_dict["gender"].columns
-    res = history_based_fp.transform(log_for_feature_gen.join(user_features, on="user_idx"))
+    assert isinstance(
+        history_based_fp.item_cond_pop_proc, EmptyFeatureProcessor
+    )
+    assert (
+        "i_pop_by_gender"
+        in history_based_fp.user_cond_pop_proc.conditional_pop_dict[
+            "gender"
+        ].columns
+    )
+    res = history_based_fp.transform(
+        log_for_feature_gen.join(user_features, on="user_idx")
+    )
     assert "i_pop_by_gender" in res.columns

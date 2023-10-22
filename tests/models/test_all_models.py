@@ -1,21 +1,23 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-import numpy as np
 import pytest
+import numpy as np
+
 from pyspark.sql import functions as sf
 
 from replay.models import (
-    SLIM,
-    UCB,
     ALSWrap,
-    AssociationRulesItemRec,
     ClusterRec,
     ItemKNN,
     PopRec,
     RandomRec,
+    SLIM,
+    UCB,
     Wilson,
     Word2VecRec,
+    AssociationRulesItemRec,
 )
 from replay.models.base_rec import HybridRecommender, UserRecommender
+
 from tests.utils import sparkDataFrameEqual
 
 SEED = 123
@@ -110,9 +112,21 @@ def test_predict_pairs_k(log, model):
         k=None,
     )
 
-    assert pairs_pred_k.groupBy("user_idx").count().filter(sf.col("count") > 1).count() == 0
+    assert (
+        pairs_pred_k.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        == 0
+    )
 
-    assert pairs_pred.groupBy("user_idx").count().filter(sf.col("count") > 1).count() > 0
+    assert (
+        pairs_pred.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        > 0
+    )
 
 
 @pytest.mark.parametrize(
@@ -215,7 +229,14 @@ def test_get_nearest_items(log, model, metric):
         candidates=[0, 3],
     )
     assert res.count() == 1
-    assert len(set(res.toPandas().to_dict()["item_idx"].values()).difference({0, 1})) == 0
+    assert (
+        len(
+            set(res.toPandas().to_dict()["item_idx"].values()).difference(
+                {0, 1}
+            )
+        )
+        == 0
+    )
 
 
 def test_filter_seen(log):
@@ -350,12 +371,16 @@ def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
     model.fit(long_log_with_features)
     model.predict_pairs(
         log=long_log_with_features,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
+            "user_idx", "item_idx"
+        ),
         recs_file_path=path,
     )
     pred_cached = model.predict_pairs(
         log=long_log_with_features,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
+            "user_idx", "item_idx"
+        ),
         recs_file_path=None,
     )
     pred_from_file = spark.read.parquet(path)
@@ -378,7 +403,9 @@ def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
 def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
     path = str((tmp_path / "pred.parquet").resolve().absolute())
     model.fit_predict(long_log_with_features, k=10, recs_file_path=path)
-    pred_cached = model.predict(long_log_with_features, k=10, recs_file_path=None)
+    pred_cached = model.predict(
+        long_log_with_features, k=10, recs_file_path=None
+    )
     pred_from_file = spark.read.parquet(path)
     sparkDataFrameEqual(pred_cached, pred_from_file)
 
@@ -404,7 +431,9 @@ def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
         "UCB",
     ],
 )
-def test_add_cold_items_for_nonpersonalized(model, add_cold_items, predict_cold_only, long_log_with_features):
+def test_add_cold_items_for_nonpersonalized(
+    model, add_cold_items, predict_cold_only, long_log_with_features
+):
     num_warm = 5
     # k is greater than the number of warm items to check if
     # the cold items are presented in prediction
@@ -412,7 +441,9 @@ def test_add_cold_items_for_nonpersonalized(model, add_cold_items, predict_cold_
     log = (
         long_log_with_features
         if not isinstance(model, (Wilson, UCB))
-        else long_log_with_features.withColumn("relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1))
+        else long_log_with_features.withColumn(
+            "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
+        )
     )
     train_log = log.filter(sf.col("item_idx") < num_warm)
     model.fit(train_log)
@@ -446,7 +477,10 @@ def test_add_cold_items_for_nonpersonalized(model, add_cold_items, predict_cold_
             assert pred.select(sf.max("item_idx")).collect()[0][0] < num_warm
             assert pred.count() == min(
                 k,
-                train_log.select("item_idx").distinct().join(items, on="item_idx").count(),
+                train_log.select("item_idx")
+                .distinct()
+                .join(items, on="item_idx")
+                .count(),
             )
 
 

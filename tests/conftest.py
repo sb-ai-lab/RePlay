@@ -1,5 +1,4 @@
 from datetime import datetime
-
 import pytest
 
 from replay.data import LOG_SCHEMA

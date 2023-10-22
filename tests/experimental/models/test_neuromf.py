@@ -1,16 +1,18 @@
 # pylint: disable-all
 from datetime import datetime
 
-import numpy as np
 import pytest
 import torch
+import numpy as np
 from pyspark.sql import functions as sf
 
 from replay.data import LOG_SCHEMA
 from replay.experimental.models import NeuroMF
+from replay.experimental.models.neuromf import NMF
 from replay.models.base_rec import HybridRecommender, UserRecommender
-from replay.utils.model_handler import load, save
 from tests.utils import sparkDataFrameEqual
+from replay.utils.model_handler import save, load
+
 
 SEED = 123
 
@@ -212,9 +214,21 @@ def test_predict_pairs_k(log):
         k=None,
     )
 
-    assert pairs_pred_k.groupBy("user_idx").count().filter(sf.col("count") > 1).count() == 0
+    assert (
+        pairs_pred_k.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        == 0
+    )
 
-    assert pairs_pred.groupBy("user_idx").count().filter(sf.col("count") > 1).count() > 0
+    assert (
+        pairs_pred.groupBy("user_idx")
+        .count()
+        .filter(sf.col("count") > 1)
+        .count()
+        > 0
+    )
 
 
 def test_predict_empty_log(log):

@@ -1,14 +1,14 @@
 # pylint: disable-all
 import numpy as np
 from _pytest.python_api import approx
+from pytest import approx
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-from pytest import approx
 
-from replay.experimental.models import CQL
 from replay.experimental.models.cql import MdpDatasetBuilder
-from replay.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.models import CQL
 from tests.utils import sparkDataFrameEqual
+from replay.models.base_rec import HybridRecommender, UserRecommender
 
 
 def fit_predict_selected(model, train_log, inf_log, user_features, users):
@@ -53,18 +53,10 @@ def test_serialize_deserialize_policy(log: DataFrame):
     model.fit(log)
 
     # arbitrary batch of user-item pairs as we test exact relevance for each one
-    user_item_batch = np.array(
-        [
-            [0, 0],
-            [0, 1],
-            [0, 2],
-            [0, 3],
-            [1, 0],
-            [1, 1],
-            [1, 2],
-            [1, 3],
-        ]
-    )
+    user_item_batch = np.array([
+        [0, 0], [0, 1], [0, 2], [0, 3],
+        [1, 0], [1, 1], [1, 2], [1, 3],
+    ])
 
     # predict user-item relevance with the original model
     relevance = model.model.predict(user_item_batch)
@@ -81,34 +73,22 @@ def test_mdp_dataset_builder(log: DataFrame):
     mdp_dataset = MdpDatasetBuilder(top_k=1, action_randomization_scale=1e-9).build(log)
 
     # we test only users {0, 1} as for the rest log has non-deterministic order (see log dates)
-    gt_observations = np.array(
-        [
-            [0, 0],
-            [0, 2],
-            [0, 1],
-            [1, 3],
-            [1, 0],
-        ]
-    )
-    gt_actions = np.array([4, 3, 2, 3, 4])
-    gt_rewards = np.array(
-        [
-            1,
-            0,
-            0,
-            0,
-            1,
-        ]
-    )
-    gt_terminals = np.array(
-        [
-            0,
-            0,
-            1,
-            0,
-            1,
-        ]
-    )
+    gt_observations = np.array([
+        [0, 0], [0, 2], [0, 1],
+        [1, 3], [1, 0],
+    ])
+    gt_actions = np.array([
+        4, 3, 2,
+        3, 4
+    ])
+    gt_rewards = np.array([
+        1, 0, 0,
+        0, 1,
+    ])
+    gt_terminals = np.array([
+        0, 0, 1,
+        0, 1,
+    ])
     n = 5
 
     # as we do not guarantee and require that MDP preparation should keep ints as ints

@@ -4,7 +4,8 @@ from typing import Optional, Iterator
 import pandas as pd
 from pyspark.sql import DataFrame
 
-from . import IndexBuilder, NmslibIndexBuilderMixin
+from .base_index_builder import IndexBuilder
+from .nmslib_index_builder_mixin import NmslibIndexBuilderMixin
 from replay.models.extensions.ann.index_inferers import (
     IndexInferer,
     NmslibFilterIndexInferer,

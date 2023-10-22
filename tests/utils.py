@@ -1,6 +1,7 @@
 # pylint: skip-file
 import os
 import re
+
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -31,11 +32,17 @@ def unify_dataframe(data_frame: DataFrame):
             }:
                 columns_to_sort_by.append(column)
 
-    return pandas_df[sorted(data_frame.columns)].sort_values(by=sorted(columns_to_sort_by)).reset_index(drop=True)
+    return (
+        pandas_df[sorted(data_frame.columns)]
+        .sort_values(by=sorted(columns_to_sort_by))
+        .reset_index(drop=True)
+    )
 
 
 def sparkDataFrameEqual(df1: DataFrame, df2: DataFrame):
-    return pd.testing.assert_frame_equal(unify_dataframe(df1), unify_dataframe(df2), check_like=True)
+    return pd.testing.assert_frame_equal(
+        unify_dataframe(df1), unify_dataframe(df2), check_like=True
+    )
 
 
 def sparkDataFrameNotEqual(df1: DataFrame, df2: DataFrame):

@@ -1,6 +1,8 @@
 # pylint: disable-all
-import numpy as np
+from datetime import datetime
+
 import pytest
+import numpy as np
 
 from replay.splitters import ColdUserRandomSplitter
 
@@ -27,4 +29,6 @@ def test(log):
     train_users = train.toPandas().user_idx.unique()
     assert not np.isin(test_users, train_users).any()
     real_ratio = len(test_users) / len(log)
-    assert np.isclose(real_ratio, ratio, atol=0.01)  # Spark weights are random ¯\_(ツ)_/¯
+    assert np.isclose(
+        real_ratio, ratio, atol=0.01
+    )  # Spark weights are random ¯\_(ツ)_/¯

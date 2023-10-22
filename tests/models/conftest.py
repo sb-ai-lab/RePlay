@@ -1,7 +1,6 @@
 import pytest
 
-
-@pytest.fixture
+@pytest.fixture(scope="module")
 def cat_tree(spark):
     return spark.createDataFrame(
         data=[
@@ -16,7 +15,7 @@ def cat_tree(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def cat_log(spark):
     # assume item 1 is an apple-banana mix and item 2 is a banana
     return spark.createDataFrame(
@@ -30,7 +29,7 @@ def cat_log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def requested_cats(spark):
     return spark.createDataFrame(
         data=[
