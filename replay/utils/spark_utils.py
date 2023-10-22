@@ -1,7 +1,7 @@
 import collections
+import pickle
 import logging
 import os
-import pickle
 from typing import Any, Iterable, List, Optional, Set, Tuple, Union
 
 import numpy as np
@@ -9,14 +9,13 @@ import pandas as pd
 import pyspark.sql.types as st
 from numpy.random import default_rng
 from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
-from pyspark.sql import Column, DataFrame, SparkSession, Window
-from pyspark.sql import functions as sf
+from pyspark.sql import SparkSession, Column, DataFrame, Window, functions as sf
 from pyspark.sql.column import _to_java_column, _to_seq
 from scipy.sparse import csr_matrix
 
-from replay.data import REC_SCHEMA, AnyDataFrame, NumType
-
 from .session_handler import State
+from replay.data import AnyDataFrame, NumType, REC_SCHEMA
+
 
 # pylint: disable=invalid-name
 
@@ -36,7 +35,9 @@ def convert2spark(data_frame: Optional[AnyDataFrame]) -> Optional[DataFrame]:
     return spark.createDataFrame(data_frame)  # type: ignore
 
 
-def get_distinct_values_in_column(dataframe: DataFrame, column: str) -> Set[Any]:
+def get_distinct_values_in_column(
+    dataframe: DataFrame, column: str
+) -> Set[Any]:
     """
     Get unique values from a column as a set.
 
@@ -44,7 +45,9 @@ def get_distinct_values_in_column(dataframe: DataFrame, column: str) -> Set[Any]
     :param column: column name
     :return: set of unique values
     """
-    return {row[column] for row in (dataframe.select(column).distinct().collect())}
+    return {
+        row[column] for row in (dataframe.select(column).distinct().collect())
+    }
 
 
 def func_get(vector: np.ndarray, i: int) -> float:
@@ -102,7 +105,9 @@ def get_top_k(
     return (
         dataframe.withColumn(
             "temp_rank",
-            sf.row_number().over(Window.partitionBy(partition_by_col).orderBy(*order_by_col)),
+            sf.row_number().over(
+                Window.partitionBy(partition_by_col).orderBy(*order_by_col)
+            ),
         )
         .filter(sf.col("temp_rank") <= k)
         .drop("temp_rank")
@@ -167,7 +172,9 @@ def vector_dot(one: DenseVector, two: DenseVector) -> float:
 
 
 @sf.udf(returnType=VectorUDT())  # type: ignore
-def vector_mult(one: Union[DenseVector, NumType], two: DenseVector) -> DenseVector:
+def vector_mult(
+    one: Union[DenseVector, NumType], two: DenseVector
+) -> DenseVector:
     """
     elementwise vector multiplication
 
@@ -257,7 +264,9 @@ def array_mult(first: st.ArrayType, second: st.ArrayType):
     return [first[i] * second[i] for i in range(len(first))]
 
 
-def get_log_info(log: DataFrame, user_col="user_idx", item_col="item_idx") -> str:
+def get_log_info(
+    log: DataFrame, user_col="user_idx", item_col="item_idx"
+) -> str:
     """
     Basic log statistics
 
@@ -294,7 +303,9 @@ def get_log_info(log: DataFrame, user_col="user_idx", item_col="item_idx") -> st
     )
 
 
-def get_stats(log: DataFrame, group_by: str = "user_id", target_column: str = "relevance") -> DataFrame:
+def get_stats(
+    log: DataFrame, group_by: str = "user_id", target_column: str = "relevance"
+) -> DataFrame:
     """
     Calculate log statistics: min, max, mean, median ratings, number of ratings.
     >>> from replay.utils.session_handler import get_spark_session, State
@@ -333,9 +344,14 @@ def get_stats(log: DataFrame, group_by: str = "user_id", target_column: str = "r
         "count": sf.count,
     }
     agg_functions_list = [
-        func(target_column).alias(str(name + "_" + target_column)) for name, func in agg_functions.items()
+        func(target_column).alias(str(name + "_" + target_column))
+        for name, func in agg_functions.items()
     ]
-    agg_functions_list.append(sf.expr(f"percentile_approx({target_column}, 0.5)").alias("median_" + target_column))
+    agg_functions_list.append(
+        sf.expr(f"percentile_approx({target_column}, 0.5)").alias(
+            "median_" + target_column
+        )
+    )
 
     return log.groupBy(group_by).agg(*agg_functions_list)
 
@@ -346,7 +362,9 @@ def check_numeric(feature_table: DataFrame) -> None:
     :param feature_table: spark DataFrame
     """
     for column in feature_table.columns:
-        if not isinstance(feature_table.schema[column].dataType, st.NumericType):
+        if not isinstance(
+            feature_table.schema[column].dataType, st.NumericType
+        ):
             raise ValueError(
                 f"""Column {column} has type {feature_table.schema[
             column].dataType}, that is not numeric."""
@@ -385,8 +403,16 @@ def to_csr(
             shape=(0, 0),
         )
 
-    row_count = int(user_count if user_count is not None else pandas_df["user_idx"].max() + 1)
-    col_count = int(item_count if item_count is not None else pandas_df["item_idx"].max() + 1)
+    row_count = int(
+        user_count
+        if user_count is not None
+        else pandas_df["user_idx"].max() + 1
+    )
+    col_count = int(
+        item_count
+        if item_count is not None
+        else pandas_df["item_idx"].max() + 1
+    )
     return csr_matrix(
         (
             pandas_df["relevance"],
@@ -438,7 +464,10 @@ def horizontal_explode(
     num_columns = len(data_frame.select(column_to_explode).head()[0])
     return data_frame.select(
         *other_columns,
-        *[sf.element_at(column_to_explode, i + 1).alias(f"{prefix}_{i}") for i in range(num_columns)],
+        *[
+            sf.element_at(column_to_explode, i + 1).alias(f"{prefix}_{i}")
+            for i in range(num_columns)
+        ],
     )
 
 
@@ -457,7 +486,9 @@ def join_or_return(first, second, on, how):
     return first.join(second, on=on, how=how)
 
 
-def fallback(base: DataFrame, fill: DataFrame, k: int, id_type: str = "idx") -> DataFrame:
+def fallback(
+    base: DataFrame, fill: DataFrame, k: int, id_type: str = "idx"
+) -> DataFrame:
     """
     Fill missing recommendations for users that have less than ``k`` recommended items.
     Score values for the fallback model may be decreased to preserve sorting.
@@ -478,11 +509,15 @@ def fallback(base: DataFrame, fill: DataFrame, k: int, id_type: str = "idx") -> 
     diff = max_in_fill - min_in_base
     fill = fill.withColumnRenamed("relevance", "relevance_fallback")
     if diff >= 0:
-        fill = fill.withColumn("relevance_fallback", sf.col("relevance_fallback") - diff - margin)
-    recs = base.join(fill, on=["user_" + id_type, "item_" + id_type], how="full_outer")
-    recs = recs.withColumn("relevance", sf.coalesce("relevance", "relevance_fallback")).select(
-        "user_" + id_type, "item_" + id_type, "relevance"
+        fill = fill.withColumn(
+            "relevance_fallback", sf.col("relevance_fallback") - diff - margin
+        )
+    recs = base.join(
+        fill, on=["user_" + id_type, "item_" + id_type], how="full_outer"
     )
+    recs = recs.withColumn(
+        "relevance", sf.coalesce("relevance", "relevance_fallback")
+    ).select("user_" + id_type, "item_" + id_type, "relevance")
     recs = get_top_k_recs(recs, k, id_type)
     return recs
 
@@ -540,7 +575,9 @@ def join_with_col_renaming(
             right = right.withColumnRenamed(name, f"{name}_{suffix}")
         on_condition &= sf.col(name) == sf.col(f"{name}_{suffix}")
 
-    return (left.join(right, on=on_condition, how=how)).drop(*[f"{name}_{suffix}" for name in on_col_name])
+    return (left.join(right, on=on_condition, how=how)).drop(
+        *[f"{name}_{suffix}" for name in on_col_name]
+    )
 
 
 def add_to_date(
@@ -590,7 +627,9 @@ def add_to_date(
     :return: dataframe with new ``column_name`` converted to TimestampType
     """
     dataframe = (
-        dataframe.withColumn("tmp", sf.to_timestamp(sf.lit(base_date), format=base_date_format))
+        dataframe.withColumn(
+            "tmp", sf.to_timestamp(sf.lit(base_date), format=base_date_format)
+        )
         .withColumn(
             column_name,
             sf.to_timestamp(sf.expr(f"date_add(tmp, {column_name})")),
@@ -628,7 +667,9 @@ def process_timestamp_column(
 
     # unix timestamp
     if isinstance(dataframe.schema[column_name].dataType, st.NumericType):
-        return dataframe.withColumn(column_name, sf.to_timestamp(sf.from_unixtime(sf.col(column_name))))
+        return dataframe.withColumn(
+            column_name, sf.to_timestamp(sf.from_unixtime(sf.col(column_name)))
+        )
 
     # datetime in string format
     dataframe = dataframe.withColumn(
@@ -660,7 +701,9 @@ def vector_squared_distance(first: DenseVector, second: DenseVector) -> float:
 
 
 @sf.udf(returnType=st.FloatType())
-def vector_euclidean_distance_similarity(first: DenseVector, second: DenseVector) -> float:
+def vector_euclidean_distance_similarity(
+    first: DenseVector, second: DenseVector
+) -> float:
     """
     :param first: first vector
     :param second: second vector
@@ -716,7 +759,8 @@ def sample_top_k_recs(pairs: DataFrame, k: int, seed: int = None):
     """
     pairs = pairs.withColumn(
         "probability",
-        sf.col("relevance") / sf.sum("relevance").over(Window.partitionBy("user_idx")),
+        sf.col("relevance")
+        / sf.sum("relevance").over(Window.partitionBy("user_idx")),
     )
 
     def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
@@ -765,12 +809,19 @@ def filter_cold(
     if df is None:
         return 0, df
 
-    num_cold = df.select(col_name).distinct().join(warm_df, on=col_name, how="anti").count()
+    num_cold = (
+        df.select(col_name)
+        .distinct()
+        .join(warm_df, on=col_name, how="anti")
+        .count()
+    )
 
     if num_cold == 0:
         return 0, df
 
-    return num_cold, df.join(warm_df.select(col_name), on=col_name, how="inner")
+    return num_cold, df.join(
+        warm_df.select(col_name), on=col_name, how="inner"
+    )
 
 
 def get_unique_entities(
@@ -787,13 +838,17 @@ def get_unique_entities(
     if isinstance(df, DataFrame):
         unique = df.select(column).distinct()
     elif isinstance(df, collections.abc.Iterable):
-        unique = spark.createDataFrame(data=pd.DataFrame(pd.unique(list(df)), columns=[column]))
+        unique = spark.createDataFrame(
+            data=pd.DataFrame(pd.unique(list(df)), columns=[column])
+        )
     else:
         raise ValueError(f"Wrong type {type(df)}")
     return unique
 
 
-def return_recs(recs: DataFrame, recs_file_path: Optional[str] = None) -> Optional[DataFrame]:
+def return_recs(
+    recs: DataFrame, recs_file_path: Optional[str] = None
+) -> Optional[DataFrame]:
     """
     Save dataframe `recs` to `recs_file_path` if presents otherwise cache
     and materialize the dataframe.
@@ -850,9 +905,9 @@ def assert_omp_single_thread():
     PyTorch uses multithreading for cpu math operations via OpenMP library. Sometimes this
     leads to failures when OpenMP multithreading is mixed with multiprocessing.
     """
-    omp_num_threads = os.environ.get("OMP_NUM_THREADS", None)
-    if omp_num_threads != "1":
+    omp_num_threads = os.environ.get('OMP_NUM_THREADS', None)
+    if omp_num_threads != '1':
         logging.getLogger("replay").warning(
-            'Environment variable "OMP_NUM_THREADS" is set to "%s". ' "Set it to 1 if the working process freezes.",
-            omp_num_threads,
+            'Environment variable "OMP_NUM_THREADS" is set to "%s". '
+            'Set it to 1 if the working process freezes.', omp_num_threads
         )

@@ -83,7 +83,9 @@ class PopRec(NonPersonalizedRecommender):
             `Cold_weight` value should be in interval (0, 1].
         """
         self.use_relevance = use_relevance
-        super().__init__(add_cold_items=add_cold_items, cold_weight=cold_weight)
+        super().__init__(
+            add_cold_items=add_cold_items, cold_weight=cold_weight
+        )
 
     @property
     def _init_args(self):
@@ -99,6 +101,7 @@ class PopRec(NonPersonalizedRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
+
         agg_func = sf.countDistinct("user_idx").alias("relevance")
         if self.use_relevance:
             agg_func = sf.sum("relevance").alias("relevance")
@@ -106,7 +109,9 @@ class PopRec(NonPersonalizedRecommender):
         self.item_popularity = (
             log.groupBy("item_idx")
             .agg(agg_func)
-            .withColumn("relevance", sf.col("relevance") / sf.lit(self.users_count))
+            .withColumn(
+                "relevance", sf.col("relevance") / sf.lit(self.users_count)
+            )
         )
 
         self.item_popularity.cache().count()

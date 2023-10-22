@@ -1,4 +1,11 @@
-from pyspark.sql.types import DoubleType, IntegerType, StructField, StructType, TimestampType
+from pyspark.sql.types import (
+    DoubleType,
+    IntegerType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
 
 LOG_SCHEMA = StructType(
     [

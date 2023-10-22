@@ -141,13 +141,17 @@ class RandomRec(NonPersonalizedRecommender):
             `Cold_weight` value should be in interval (0, 1].
         """
         if distribution not in ("popular_based", "relevance", "uniform"):
-            raise ValueError("distribution can be one of [popular_based, relevance, uniform]")
+            raise ValueError(
+                "distribution can be one of [popular_based, relevance, uniform]"
+            )
         if alpha <= -1.0 and distribution == "popular_based":
             raise ValueError("alpha must be bigger than -1")
         self.distribution = distribution
         self.alpha = alpha
         self.seed = seed
-        super().__init__(add_cold_items=add_cold_items, cold_weight=cold_weight)
+        super().__init__(
+            add_cold_items=add_cold_items, cold_weight=cold_weight
+        )
 
     @property
     def _init_args(self):
@@ -171,18 +175,28 @@ class RandomRec(NonPersonalizedRecommender):
                 .agg(sf.countDistinct("user_idx").alias("user_count"))
                 .select(
                     sf.col("item_idx"),
-                    (sf.col("user_count").astype("float") + sf.lit(self.alpha)).alias("relevance"),
+                    (
+                        sf.col("user_count").astype("float")
+                        + sf.lit(self.alpha)
+                    ).alias("relevance"),
                 )
             )
         elif self.distribution == "relevance":
             self.item_popularity = (
-                log.groupBy("item_idx").agg(sf.sum("relevance").alias("relevance")).select("item_idx", "relevance")
+                log.groupBy("item_idx")
+                .agg(sf.sum("relevance").alias("relevance"))
+                .select("item_idx", "relevance")
             )
         else:
-            self.item_popularity = log.select("item_idx").distinct().withColumn("relevance", sf.lit(1.0))
+            self.item_popularity = (
+                log.select("item_idx")
+                .distinct()
+                .withColumn("relevance", sf.lit(1.0))
+            )
         self.item_popularity = self.item_popularity.withColumn(
             "relevance",
-            sf.col("relevance") / self.item_popularity.agg(sf.sum("relevance")).first()[0],
+            sf.col("relevance")
+            / self.item_popularity.agg(sf.sum("relevance")).first()[0],
         )
         self.item_popularity.cache().count()
         self.fill = self._calc_fill(self.item_popularity, self.cold_weight)

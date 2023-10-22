@@ -4,12 +4,13 @@ import pandas as pd
 import seaborn as sns
 from pyspark.sql import functions as sf
 
+from .spark_utils import convert2spark, get_top_k_recs
 from replay.data import AnyDataFrame
 
-from .spark_utils import convert2spark, get_top_k_recs
 
-
-def plot_user_dist(user_dist: pd.DataFrame, window: int = 1, title: str = ""):  # pragma: no cover
+def plot_user_dist(
+    user_dist: pd.DataFrame, window: int = 1, title: str = ""
+):  # pragma: no cover
     """
     Plot mean metric value by the number of user ratings
 
@@ -18,7 +19,9 @@ def plot_user_dist(user_dist: pd.DataFrame, window: int = 1, title: str = ""):  
     :param title: plot title
     :return: plot object
     """
-    user_dist["smoothed"] = user_dist["value"].rolling(window, center=True).mean()
+    user_dist["smoothed"] = (
+        user_dist["value"].rolling(window, center=True).mean()
+    )
     plot = sns.lineplot(x="count", y="smoothed", data=user_dist)
     plot.set(
         xlabel="# of ratings",
@@ -29,7 +32,9 @@ def plot_user_dist(user_dist: pd.DataFrame, window: int = 1, title: str = ""):  
     return plot
 
 
-def plot_item_dist(item_dist: pd.DataFrame, palette: str = "magma", col: str = "rec_count"):  # pragma: no cover
+def plot_item_dist(
+    item_dist: pd.DataFrame, palette: str = "magma", col: str = "rec_count"
+):  # pragma: no cover
     """
     Show the results of  ``item_distribution`` method
 
@@ -54,7 +59,9 @@ def plot_item_dist(item_dist: pd.DataFrame, palette: str = "magma", col: str = "
     return plot
 
 
-def item_distribution(log: AnyDataFrame, recommendations: AnyDataFrame, k: int) -> pd.DataFrame:
+def item_distribution(
+    log: AnyDataFrame, recommendations: AnyDataFrame, k: int
+) -> pd.DataFrame:
     """
     Calculate item distribution in ``log`` and ``recommendations``.
 
@@ -64,11 +71,24 @@ def item_distribution(log: AnyDataFrame, recommendations: AnyDataFrame, k: int) 
     :return: DataFrame with results
     """
     log = convert2spark(log)
-    res = log.groupBy("item_idx").agg(sf.countDistinct("user_idx").alias("user_count")).select("item_idx", "user_count")
+    res = (
+        log.groupBy("item_idx")
+        .agg(sf.countDistinct("user_idx").alias("user_count"))
+        .select("item_idx", "user_count")
+    )
 
     rec = convert2spark(recommendations)
     rec = get_top_k_recs(rec, k)
-    rec = rec.groupBy("item_idx").agg(sf.countDistinct("user_idx").alias("rec_count")).select("item_idx", "rec_count")
+    rec = (
+        rec.groupBy("item_idx")
+        .agg(sf.countDistinct("user_idx").alias("rec_count"))
+        .select("item_idx", "rec_count")
+    )
 
-    res = res.join(rec, on="item_idx", how="outer").fillna(0).orderBy(["user_count", "item_idx"]).toPandas()
+    res = (
+        res.join(rec, on="item_idx", how="outer")
+        .fillna(0)
+        .orderBy(["user_count", "item_idx"])
+        .toPandas()
+    )
     return res

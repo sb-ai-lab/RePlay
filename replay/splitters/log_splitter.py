@@ -13,7 +13,10 @@ from typing import Optional, Union
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame, Window
 
-from .base_splitter import Splitter, SplitterReturnType
+from .base_splitter import (
+    Splitter,
+    SplitterReturnType,
+)
 
 
 # pylint: disable=too-few-public-methods
@@ -70,7 +73,11 @@ class DateSplitter(Splitter):
                 "_row_number_by_ts", sf.row_number().over(Window.orderBy(self.date_col))
             )
             test_start = int(dates.count() * (1 - self.test_start)) + 1
-            test_start = dates.filter(sf.col("_row_number_by_ts") == test_start).select(self.date_col).collect()[0][0]
+            test_start = (
+                dates.filter(sf.col("_row_number_by_ts") == test_start)
+                .select(self.date_col)
+                .collect()[0][0]
+            )
         else:
             dtype = dict(log.dtypes)[self.date_col]
             test_start = sf.lit(self.test_start).cast(self.date_col).cast(dtype)
@@ -131,7 +138,9 @@ class RandomSplitter(Splitter):
             raise ValueError("test_size must be 0 to 1")
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
-        train, test = log.randomSplit([1 - self.test_size, self.test_size], self.seed)
+        train, test = log.randomSplit(
+            [1 - self.test_size, self.test_size], self.seed
+        )
         return train, test
 
 
@@ -188,14 +197,12 @@ class NewUsersSplitter(Splitter):
     <BLANKLINE>
     """
 
-    _init_arg_names = [
-        "test_size",
-        "drop_cold_items",
-        "drop_zero_rel_in_test",
-        "user_col",
-        "item_col",
-        "date_col",
-    ]
+    _init_arg_names = ["test_size",
+                       "drop_cold_items",
+                       "drop_zero_rel_in_test",
+                       "user_col",
+                       "item_col",
+                       "date_col",]
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -229,7 +236,9 @@ class NewUsersSplitter(Splitter):
             raise ValueError("test_size must be 0 to 1")
 
     def _core_split(self, log: DataFrame) -> SplitterReturnType:
-        start_date_by_user = log.groupby(self.user_col).agg(sf.min(self.date_col).alias("_start_dt_by_user"))
+        start_date_by_user = log.groupby(self.user_col).agg(
+            sf.min(self.date_col).alias("_start_dt_by_user")
+        )
         test_start_date = (
             start_date_by_user.groupby("_start_dt_by_user")
             .agg(sf.count(self.user_col).alias("_num_users_by_start_date"))

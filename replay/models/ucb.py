@@ -1,12 +1,12 @@
 import math
+
 from typing import Any, Dict, List, Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from replay.metrics import NDCG, Metric
-
 from .base_rec import NonPersonalizedRecommender
+from replay.metrics import Metric, NDCG
 
 
 class UCB(NonPersonalizedRecommender):
@@ -108,7 +108,8 @@ class UCB(NonPersonalizedRecommender):
         :return: dictionary with best parameters
         """
         self.logger.warning(
-            "The UCB model has only exploration coefficient parameter, " "which cannot not be directly optimized"
+            "The UCB model has only exploration coefficient parameter, "
+            "which cannot not be directly optimized"
         )
 
     def _fit(
@@ -117,6 +118,7 @@ class UCB(NonPersonalizedRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
+
         self._check_relevance(log)
 
         # we save this dataframe for the refit() method
@@ -162,9 +164,17 @@ class UCB(NonPersonalizedRecommender):
         self._calc_item_popularity()
 
     def _calc_item_popularity(self):
+
         items_counts = self.items_counts_aggr.withColumn(
             "relevance",
-            (sf.col("pos") / sf.col("total") + sf.sqrt(self.coef * sf.log(sf.lit(self.full_count)) / sf.col("total"))),
+            (
+                sf.col("pos") / sf.col("total")
+                + sf.sqrt(
+                    self.coef
+                    * sf.log(sf.lit(self.full_count))
+                    / sf.col("total")
+                )
+            ),
         )
 
         self.item_popularity = items_counts.drop("pos", "total")

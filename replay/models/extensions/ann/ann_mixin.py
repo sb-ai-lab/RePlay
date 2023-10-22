@@ -1,16 +1,17 @@
 import importlib
 import logging
 from abc import abstractmethod
-from typing import Any, Dict, Iterable, Optional, Union
+from typing import Optional, Dict, Any, Union, Iterable
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
+from replay.models.extensions.ann.index_builders import IndexBuilder
+from replay.models.extensions.ann.index_stores import (
+    SparkFilesIndexStore,
+)
 from replay.models.base_rec import BaseRecommender
 from replay.utils.spark_utils import get_top_k_recs, return_recs
-
-from .index_builders import IndexBuilder
-from .index_stores import SparkFilesIndexStore
 
 logger = logging.getLogger("replay")
 
@@ -86,7 +87,9 @@ class ANNMixin(BaseRecommender):
             self.index_builder.build_index(vectors, **ann_params)
 
     @abstractmethod
-    def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
+    def _get_vectors_to_infer_ann_inner(
+        self, log: DataFrame, users: DataFrame
+    ) -> DataFrame:
         """Implementations of this method must return a dataframe with user vectors.
         User vectors from this method are used to infer the index.
 
@@ -98,7 +101,9 @@ class ANNMixin(BaseRecommender):
         Vector column name in dataframe can be anything.
         """
 
-    def _get_vectors_to_infer_ann(self, log: DataFrame, users: DataFrame, filter_seen_items: bool) -> DataFrame:
+    def _get_vectors_to_infer_ann(
+        self, log: DataFrame, users: DataFrame, filter_seen_items: bool
+    ) -> DataFrame:
         """This method wraps `_get_vectors_to_infer_ann_inner`
         and adds seen items to dataframe with user vectors by flag.
 
@@ -146,10 +151,14 @@ class ANNMixin(BaseRecommender):
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
     ) -> Optional[DataFrame]:
-        log, users, items = self._filter_log_users_items_dataframes(log, k, users, items)
+        log, users, items = self._filter_log_users_items_dataframes(
+            log, k, users, items
+        )
 
         if self._use_ann:
-            vectors = self._get_vectors_to_infer_ann(log, users, filter_seen_items)
+            vectors = self._get_vectors_to_infer_ann(
+                log, users, filter_seen_items
+            )
             ann_params = self._get_ann_infer_params()
             inferer = self.index_builder.produce_inferer(filter_seen_items)
             recs = inferer.infer(vectors, ann_params["features_col"], k)
@@ -168,7 +177,9 @@ class ANNMixin(BaseRecommender):
             if filter_seen_items and log:
                 recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
 
-            recs = get_top_k_recs(recs, k=k).select("user_idx", "item_idx", "relevance")
+            recs = get_top_k_recs(recs, k=k).select(
+                "user_idx", "item_idx", "relevance"
+            )
 
         output = return_recs(recs, recs_file_path)
         self._clear_model_temp_view("filter_seen_users_log")

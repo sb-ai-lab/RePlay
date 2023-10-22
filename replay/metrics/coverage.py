@@ -1,11 +1,10 @@
 from typing import Dict, Optional, Union
 
-from pyspark.sql import DataFrame, Window
+from pyspark.sql import Window, DataFrame
 from pyspark.sql import functions as sf
 
 from replay.data import AnyDataFrame, IntOrList, NumType
 from replay.utils.spark_utils import convert2spark
-
 from .base_metric import RecOnlyMetric, process_k
 
 
@@ -20,16 +19,20 @@ class Coverage(RecOnlyMetric):
 
     """
 
-    def __init__(self, log: AnyDataFrame):  # pylint: disable=super-init-not-called
+    def __init__(
+        self, log: AnyDataFrame
+    ):  # pylint: disable=super-init-not-called
         """
         :param log: pandas or Spark DataFrame
                     It is important for ``log`` to contain all available items.
         """
-        self.items = convert2spark(log).select("item_idx").distinct()  # type: ignore
+        self.items = (
+            convert2spark(log).select("item_idx").distinct()  # type: ignore
+        )
         self.item_count = self.items.count()
 
     @staticmethod
-    def _get_metric_value_by_user(k, *args):  # pragma: no cover
+    def _get_metric_value_by_user(k, *args):    # pragma: no cover
         # not averaged by users
         pass
 
@@ -44,7 +47,9 @@ class Coverage(RecOnlyMetric):
         recommendations = convert2spark(recommendations)
         if ground_truth_users is not None:
             ground_truth_users = convert2spark(ground_truth_users)
-            return recommendations.join(ground_truth_users, on="user_idx", how="inner")
+            return recommendations.join(
+                ground_truth_users, on="user_idx", how="inner"
+            )
         return recommendations
 
     def _conf_interval(
@@ -70,7 +75,12 @@ class Coverage(RecOnlyMetric):
         recs: DataFrame,
         k_list: list,
     ) -> Union[Dict[int, NumType], NumType]:
-        unknown_item_count = recs.select("item_idx").distinct().exceptAll(self.items).count()  # type: ignore
+        unknown_item_count = (
+            recs.select("item_idx")  # type: ignore
+            .distinct()
+            .exceptAll(self.items)
+            .count()
+        )
         if unknown_item_count > 0:
             self.logger.warning(
                 "Recommendations contain items that were not present in the log. "
@@ -80,7 +90,11 @@ class Coverage(RecOnlyMetric):
         best_positions = (
             recs.withColumn(
                 "row_num",
-                sf.row_number().over(Window.partitionBy("user_idx").orderBy(sf.desc("relevance"))),
+                sf.row_number().over(
+                    Window.partitionBy("user_idx").orderBy(
+                        sf.desc("relevance")
+                    )
+                ),
             )
             .select("item_idx", "row_num")
             .groupBy("item_idx")
@@ -90,7 +104,12 @@ class Coverage(RecOnlyMetric):
 
         res = {}
         for current_k in k_list:
-            res[current_k] = best_positions.filter(sf.col("best_position") <= current_k).count() / self.item_count
+            res[current_k] = (
+                best_positions.filter(
+                    sf.col("best_position") <= current_k
+                ).count()
+                / self.item_count
+            )
 
         best_positions.unpersist()
         return res

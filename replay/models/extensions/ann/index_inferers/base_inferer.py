@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from replay.models.extensions.ann.entities.base_hnsw_param import BaseHnswParam
-from replay.models.extensions.ann.index_stores.base_index_store import IndexStore
+from replay.models.extensions.ann.entities import BaseHnswParam
+from replay.models.extensions.ann.index_stores import IndexStore
 
 
 # pylint: disable=too-few-public-methods
@@ -20,7 +20,9 @@ class IndexInferer(ABC):
         self.index_store = index_store
 
     @abstractmethod
-    def infer(self, vectors: DataFrame, features_col: str, k: int) -> DataFrame:
+    def infer(
+        self, vectors: DataFrame, features_col: str, k: int
+    ) -> DataFrame:
         """Infers index"""
 
     @staticmethod
@@ -48,7 +50,9 @@ class IndexInferer(ABC):
         """
         res = inference_result.select(
             "user_idx",
-            sf.explode(sf.arrays_zip("neighbours.item_idx", "neighbours.distance")).alias("zip_exp"),
+            sf.explode(
+                sf.arrays_zip("neighbours.item_idx", "neighbours.distance")
+            ).alias("zip_exp"),
         )
 
         # Fix arrays_zip random behavior.
@@ -60,6 +64,8 @@ class IndexInferer(ABC):
         res = res.select(
             "user_idx",
             sf.col(f"zip_exp.{item_idx_field_name}").alias("item_idx"),
-            (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias("relevance"),
+            (sf.lit(-1.0) * sf.col(f"zip_exp.{distance_field_name}")).alias(
+                "relevance"
+            ),
         )
         return res

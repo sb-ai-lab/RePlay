@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 
 import numba as nb
 import numpy as np
@@ -6,8 +6,8 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from scipy.sparse import coo_matrix, csr_matrix
 
+from replay.models.extensions.ann.index_builders import IndexBuilder
 from replay.models.base_neighbour_rec import NeighbourRec
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.utils.session_handler import State
 
 
@@ -27,6 +27,7 @@ def _main_iteration(
     threshold,
     multiplicator,
 ):  # pragma: no cover
+
     # calculate mat_b
     mat_b = p_x + np.dot(inv_matrix, rho * mat_c - mat_gamma)
     vec_gamma = np.diag(mat_b) / np.diag(inv_matrix)
@@ -44,7 +45,9 @@ def _main_iteration(
     # calculate residuals
     r_primal = np.linalg.norm(mat_b - mat_c)
     r_dual = np.linalg.norm(-rho * (mat_c - prev_mat_c))
-    eps_primal = eps_abs * items_count + eps_rel * max(np.linalg.norm(mat_b), np.linalg.norm(mat_c))
+    eps_primal = eps_abs * items_count + eps_rel * max(
+        np.linalg.norm(mat_b), np.linalg.norm(mat_c)
+    )
     eps_dual = eps_abs * items_count + eps_rel * np.linalg.norm(mat_gamma)
     if r_primal > threshold * r_dual:
         rho *= multiplicator
@@ -143,7 +146,9 @@ class ADMMSLIM(NeighbourRec):
         self.logger.debug("Gram matrix")
         xtx = (interactions_matrix.T @ interactions_matrix).toarray()
         self.logger.debug("Inverse matrix")
-        inv_matrix = np.linalg.inv(xtx + (self.lambda_2 + self.rho) * np.eye(self._item_dim))
+        inv_matrix = np.linalg.inv(
+            xtx + (self.lambda_2 + self.rho) * np.eye(self._item_dim)
+        )
         self.logger.debug("Main calculations")
         p_x = inv_matrix @ xtx
         mat_b, mat_c, mat_gamma = self._init_matrix(self._item_dim)
@@ -151,7 +156,9 @@ class ADMMSLIM(NeighbourRec):
         r_dual = np.linalg.norm(self.rho * mat_c)
         eps_primal, eps_dual = 0.0, 0.0
         iteration = 0
-        while (r_primal > eps_primal or r_dual > eps_dual) and iteration < self.max_iteration:
+        while (
+            r_primal > eps_primal or r_dual > eps_dual
+        ) and iteration < self.max_iteration:
             iteration += 1
             (
                 mat_b,
@@ -197,7 +204,9 @@ class ADMMSLIM(NeighbourRec):
         )
         self.similarity.cache().count()
 
-    def _init_matrix(self, size: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _init_matrix(
+        self, size: int
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Matrix initialization"""
         if self.seed is not None:
             np.random.seed(self.seed)

@@ -3,9 +3,13 @@ from typing import Iterable, Optional, Union
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
-from replay.utils.spark_utils import filter_cold, get_top_k, get_unique_entities, return_recs
-
 from .base_rec import IsSavable, RecommenderCommons
+from replay.utils.spark_utils import (
+    get_top_k,
+    get_unique_entities,
+    filter_cold,
+    return_recs,
+)
 
 
 class CatPopRec(IsSavable, RecommenderCommons):
@@ -24,7 +28,9 @@ class CatPopRec(IsSavable, RecommenderCommons):
     can_predict_cold_items: bool = False
     fit_items: DataFrame
 
-    def _generate_mapping(self, cat_tree: DataFrame, max_iter: int = 20) -> DataFrame:
+    def _generate_mapping(
+        self, cat_tree: DataFrame, max_iter: int = 20
+    ) -> DataFrame:
         """
         Create DataFrame with mapping [`category`, `leaf_cat`]
         where `leaf_cat` is the lowest level categories of category tree,
@@ -36,7 +42,9 @@ class CatPopRec(IsSavable, RecommenderCommons):
         :param max_iter: maximal number of iteration of descend through the category tree
         :return: DataFrame with mapping [`category`, `leaf_cat`]
         """
-        current_res = cat_tree.select(sf.col("category"), sf.col("category").alias("leaf_cat"))
+        current_res = cat_tree.select(
+            sf.col("category"), sf.col("category").alias("leaf_cat")
+        )
 
         i = 0
         res_size_growth = current_res.count()
@@ -93,7 +101,9 @@ class CatPopRec(IsSavable, RecommenderCommons):
         """
         self.max_iter = max_iter
         if cat_tree is not None:
-            self.leaf_cat_mapping = self._generate_mapping(cat_tree, max_iter=max_iter)
+            self.leaf_cat_mapping = self._generate_mapping(
+                cat_tree, max_iter=max_iter
+            )
 
     @property
     def _init_args(self):
@@ -128,9 +138,13 @@ class CatPopRec(IsSavable, RecommenderCommons):
         log: DataFrame,
     ) -> None:
         if "relevance" in log.columns:
-            self.cat_item_popularity = log.groupBy("category", "item_idx").agg(sf.sum("relevance").alias("relevance"))
+            self.cat_item_popularity = log.groupBy("category", "item_idx").agg(
+                sf.sum("relevance").alias("relevance")
+            )
         else:
-            self.cat_item_popularity = log.groupBy("category", "item_idx").agg(sf.count("item_idx").alias("relevance"))
+            self.cat_item_popularity = log.groupBy("category", "item_idx").agg(
+                sf.count("item_idx").alias("relevance")
+            )
 
         self.cat_item_popularity.cache()
         self.cat_item_popularity.count()
@@ -195,7 +209,9 @@ class CatPopRec(IsSavable, RecommenderCommons):
         item_data = items or self.fit_items
         items = get_unique_entities(item_data, "item_idx")
 
-        num_new, items = filter_cold(items, self.fit_items, col_name="item_idx")
+        num_new, items = filter_cold(
+            items, self.fit_items, col_name="item_idx"
+        )
         if num_new > 0:
             self.logger.info(
                 "%s model can't predict cold items, they will be ignored",
@@ -241,7 +257,9 @@ class CatPopRec(IsSavable, RecommenderCommons):
         # find number of interactions in all leaf categories after filtering
         num_interactions_in_cat = (
             res.join(
-                unique_leaf_cat_items.groupBy("leaf_cat").agg(sf.sum("relevance").alias("sum_relevance")),
+                unique_leaf_cat_items.groupBy("leaf_cat").agg(
+                    sf.sum("relevance").alias("sum_relevance")
+                ),
                 on="leaf_cat",
             )
             .groupBy("category")
@@ -256,5 +274,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
             .groupBy("category", "item_idx")
             .agg(sf.sum("relevance").alias("relevance"))
             .join(num_interactions_in_cat, on="category")
-            .withColumn("relevance", sf.col("relevance") / sf.col("sum_relevance"))
+            .withColumn(
+                "relevance", sf.col("relevance") / sf.col("sum_relevance")
+            )
         )

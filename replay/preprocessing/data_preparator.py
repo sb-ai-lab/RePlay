@@ -12,12 +12,24 @@ import string
 from os.path import join
 from typing import Dict, List, Optional
 
-from pyspark.ml import Estimator, Transformer
-from pyspark.ml.feature import IndexToString, StringIndexer, StringIndexerModel
-from pyspark.ml.util import DefaultParamsWriter, MLReadable, MLReader, MLWritable, MLWriter
+from pyspark.ml import Transformer, Estimator
+from pyspark.ml.feature import StringIndexerModel, IndexToString, StringIndexer
+from pyspark.ml.util import (
+    MLWriter,
+    MLWritable,
+    MLReader,
+    MLReadable,
+    DefaultParamsWriter,
+)
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-from pyspark.sql.types import DoubleType, IntegerType, NumericType, StructField, StructType
+from pyspark.sql.types import (
+    DoubleType,
+    NumericType,
+    StructField,
+    StructType,
+    IntegerType,
+)
 
 from replay.data import AnyDataFrame
 from replay.utils.session_handler import State
@@ -64,14 +76,26 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
         :param items: DataFrame containing item column
         :return:
         """
-        users = users.select(self.user_col).withColumnRenamed(self.user_col, f"{self.user_col}_{self.suffix}")
-        items = items.select(self.item_col).withColumnRenamed(self.item_col, f"{self.item_col}_{self.suffix}")
+        users = users.select(self.user_col).withColumnRenamed(
+            self.user_col, f"{self.user_col}_{self.suffix}"
+        )
+        items = items.select(self.item_col).withColumnRenamed(
+            self.item_col, f"{self.item_col}_{self.suffix}"
+        )
 
-        self.user_type = users.schema[f"{self.user_col}_{self.suffix}"].dataType
-        self.item_type = items.schema[f"{self.item_col}_{self.suffix}"].dataType
+        self.user_type = users.schema[
+            f"{self.user_col}_{self.suffix}"
+        ].dataType
+        self.item_type = items.schema[
+            f"{self.item_col}_{self.suffix}"
+        ].dataType
 
-        self.user_indexer = StringIndexer(inputCol=f"{self.user_col}_{self.suffix}", outputCol="user_idx").fit(users)
-        self.item_indexer = StringIndexer(inputCol=f"{self.item_col}_{self.suffix}", outputCol="item_idx").fit(items)
+        self.user_indexer = StringIndexer(
+            inputCol=f"{self.user_col}_{self.suffix}", outputCol="user_idx"
+        ).fit(users)
+        self.item_indexer = StringIndexer(
+            inputCol=f"{self.item_col}_{self.suffix}", outputCol="item_idx"
+        ).fit(items)
         self.inv_user_indexer = IndexToString(
             inputCol=f"{self.user_col}_{self.suffix}",
             outputCol=self.user_col,
@@ -92,7 +116,9 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
         """
         if self.item_col in df.columns:
             remaining_cols = df.drop(self.item_col).columns
-            df = df.withColumnRenamed(self.item_col, f"{self.item_col}_{self.suffix}")
+            df = df.withColumnRenamed(
+                self.item_col, f"{self.item_col}_{self.suffix}"
+            )
             self._reindex(df, "item")
             df = self.item_indexer.transform(df).select(
                 sf.col("item_idx").cast("int").alias("item_idx"),
@@ -100,7 +126,9 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
             )
         if self.user_col in df.columns:
             remaining_cols = df.drop(self.user_col).columns
-            df = df.withColumnRenamed(self.user_col, f"{self.user_col}_{self.suffix}")
+            df = df.withColumnRenamed(
+                self.user_col, f"{self.user_col}_{self.suffix}"
+            )
             self._reindex(df, "user")
             df = self.user_indexer.transform(df).select(
                 sf.col("user_idx").cast("int").alias("user_idx"),
@@ -119,17 +147,25 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
         if "item_idx" in df.columns:
             remaining_cols = res.drop("item_idx").columns
             res = self.inv_item_indexer.transform(
-                res.withColumnRenamed("item_idx", f"{self.item_col}_{self.suffix}")
+                res.withColumnRenamed(
+                    "item_idx", f"{self.item_col}_{self.suffix}"
+                )
             ).select(
-                sf.col(self.item_col).cast(self.item_type).alias(self.item_col),
+                sf.col(self.item_col)
+                .cast(self.item_type)
+                .alias(self.item_col),
                 *remaining_cols,
             )
         if "user_idx" in df.columns:
             remaining_cols = res.drop("user_idx").columns
             res = self.inv_user_indexer.transform(
-                res.withColumnRenamed("user_idx", f"{self.user_col}_{self.suffix}")
+                res.withColumnRenamed(
+                    "user_idx", f"{self.user_col}_{self.suffix}"
+                )
             ).select(
-                sf.col(self.user_col).cast(self.user_type).alias(self.user_col),
+                sf.col(self.user_col)
+                .cast(self.user_type)
+                .alias(self.user_col),
                 *remaining_cols,
             )
         return res
@@ -146,7 +182,9 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
         new_objects = set(
             map(
                 str,
-                df.select(indexer.getInputCol()).distinct().toPandas()[indexer.getInputCol()],
+                df.select(indexer.getInputCol())
+                .distinct()
+                .toPandas()[indexer.getInputCol()],
             )
         ).difference(indexer.labels)
         if new_objects:
@@ -185,15 +223,16 @@ class JoinIndexerMLWriter(DefaultParamsWriter):
         df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
         df.coalesce(1).write.mode("overwrite").json(join(path, "init_args.json"))
 
-        self.instance.user_col_2_index_map.write.mode("overwrite").save(join(path, "user_col_2_index_map.parquet"))
-        self.instance.item_col_2_index_map.write.mode("overwrite").save(join(path, "item_col_2_index_map.parquet"))
+        self.instance.user_col_2_index_map.write.mode("overwrite")\
+            .save(join(path, "user_col_2_index_map.parquet"))
+        self.instance.item_col_2_index_map.write.mode("overwrite")\
+            .save(join(path, "item_col_2_index_map.parquet"))
 
 
 class JoinIndexerMLReader(MLReader):
     """Implements reading the JoinIndexerTransformer instance from disk.
     Used when loading a trained pipeline.
     """
-
     def load(self, path):
         """Load the ML instance from the input path."""
         spark = State().session
@@ -249,7 +288,7 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
             "user_type": self.user_type,
             "item_type": self.item_type,
             "update_map_on_transform": self.update_map_on_transform,
-            "force_broadcast_on_mapping_joins": self.force_broadcast_on_mapping_joins,
+            "force_broadcast_on_mapping_joins": self.force_broadcast_on_mapping_joins
         }
 
     def set_update_map_on_transform(self, value: bool):
@@ -284,21 +323,26 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
         return JoinIndexerMLReader()
 
     def _update_maps(self, df: DataFrame):
+
         new_items = (
-            df.join(self._get_item_mapping(), on=self.item_col, how="left_anti").select(self.item_col).distinct()
+            df.join(self._get_item_mapping(), on=self.item_col, how="left_anti")
+            .select(self.item_col).distinct()
         )
         prev_item_count = self.item_col_2_index_map.count()
-        new_items_map = JoinBasedIndexerEstimator.get_map(new_items, self.item_col, "item_idx").select(
-            self.item_col, (sf.col("item_idx") + prev_item_count).alias("item_idx")
+        new_items_map = (
+            JoinBasedIndexerEstimator.get_map(new_items, self.item_col, "item_idx")
+            .select(self.item_col, (sf.col("item_idx") + prev_item_count).alias("item_idx"))
         )
         self.item_col_2_index_map = self.item_col_2_index_map.union(new_items_map)
 
         new_users = (
-            df.join(self._get_user_mapping(), on=self.user_col, how="left_anti").select(self.user_col).distinct()
+            df.join(self._get_user_mapping(), on=self.user_col, how="left_anti")
+            .select(self.user_col).distinct()
         )
         prev_user_count = self.user_col_2_index_map.count()
-        new_users_map = JoinBasedIndexerEstimator.get_map(new_users, self.user_col, "user_idx").select(
-            self.user_col, (sf.col("user_idx") + prev_user_count).alias("user_idx")
+        new_users_map = (
+            JoinBasedIndexerEstimator.get_map(new_users, self.user_col, "user_idx")
+            .select(self.user_col, (sf.col("user_idx") + prev_user_count).alias("user_idx"))
         )
         self.user_col_2_index_map = self.user_col_2_index_map.union(new_users_map)
 
@@ -329,13 +373,17 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
         """
         if "item_idx" in df.columns:
             remaining_cols = df.drop("item_idx").columns
-            df = df.join(self._get_item_mapping(), on="item_idx", how="left").select(
+            df = df.join(
+                self._get_item_mapping(), on="item_idx", how="left"
+            ).select(
                 self.item_col,
                 *remaining_cols,
             )
         if "user_idx" in df.columns:
             remaining_cols = df.drop("user_idx").columns
-            df = df.join(self._get_user_mapping(), on="user_idx", how="left").select(
+            df = df.join(
+                self._get_user_mapping(), on="user_idx", how="left"
+            ).select(
                 self.user_col,
                 *remaining_cols,
             )
@@ -368,7 +416,12 @@ class JoinBasedIndexerEstimator(Estimator):
         :param idx_col_name: column name with indexes
         :return: DataFrame with map "col_name" -> "idx_col_name"
         """
-        uid_rdd = df.select(col_name).distinct().rdd.map(lambda x: x[col_name]).zipWithIndex()
+        uid_rdd = (
+            df.select(col_name)
+            .distinct()
+            .rdd.map(lambda x: x[col_name])
+            .zipWithIndex()
+        )
 
         return uid_rdd.toDF(
             StructType(
@@ -389,8 +442,12 @@ class JoinBasedIndexerEstimator(Estimator):
         self.user_col_2_index_map = self.get_map(dataset, self.user_col, "user_idx")
         self.item_col_2_index_map = self.get_map(dataset, self.item_col, "item_idx")
 
-        self.user_type = dataset.schema[self.user_col].dataType
-        self.item_type = dataset.schema[self.item_col].dataType
+        self.user_type = dataset.schema[
+            self.user_col
+        ].dataType
+        self.item_type = dataset.schema[
+            self.item_col
+        ].dataType
 
         return JoinBasedIndexerTransformer(
             user_col=self.user_col,
@@ -398,7 +455,7 @@ class JoinBasedIndexerEstimator(Estimator):
             item_col=self.item_col,
             item_type=str(self.item_type),
             user_col_2_index_map=self.user_col_2_index_map,
-            item_col_2_index_map=self.item_col_2_index_map,
+            item_col_2_index_map=self.item_col_2_index_map
         )
 
 
@@ -504,12 +561,16 @@ class DataPreparator:
             elif format_type == "table":
                 dataframe = spark.read.table(path)
             else:
-                raise ValueError(f"Invalid value of format_type='{format_type}'")
+                raise ValueError(
+                    f"Invalid value of format_type='{format_type}'"
+                )
         else:
             raise ValueError("Either data or path parameters must not be None")
         return dataframe
 
-    def check_df(self, dataframe: DataFrame, columns_mapping: Dict[str, str]) -> None:
+    def check_df(
+        self, dataframe: DataFrame, columns_mapping: Dict[str, str]
+    ) -> None:
         """
         Check:
         - if dataframe is not empty,
@@ -533,7 +594,9 @@ class DataPreparator:
 
         for value in columns_mapping.values():
             if value not in dataframe.columns:
-                raise ValueError(f"Column `{value}` stated in mapping is absent in dataframe")
+                raise ValueError(
+                    f"Column `{value}` stated in mapping is absent in dataframe"
+                )
 
         for column in columns_mapping.values():
             if dataframe.where(sf.col(column).isNull()).count() > 0:
@@ -543,7 +606,10 @@ class DataPreparator:
                     column,
                 )
 
-        if "user_id" in columns_mapping.keys() and "item_id" in columns_mapping.keys():
+        if (
+            "user_id" in columns_mapping.keys()
+            and "item_id" in columns_mapping.keys()
+        ):
             absent_cols = set(LOG_COLUMNS).difference(columns_mapping.keys())
             if len(absent_cols) > 0:
                 self.logger.info(
@@ -583,9 +649,13 @@ class DataPreparator:
         """
         absent_cols = set(LOG_COLUMNS).difference(columns_mapping.keys())
         if "relevance" in absent_cols:
-            dataframe = dataframe.withColumn("relevance", sf.lit(default_relevance).cast(DoubleType()))
+            dataframe = dataframe.withColumn(
+                "relevance", sf.lit(default_relevance).cast(DoubleType())
+            )
         if "timestamp" in absent_cols:
-            dataframe = dataframe.withColumn("timestamp", sf.to_timestamp(sf.lit(default_ts)))
+            dataframe = dataframe.withColumn(
+                "timestamp", sf.to_timestamp(sf.lit(default_ts))
+            )
         return dataframe
 
     @staticmethod
@@ -641,26 +711,40 @@ class DataPreparator:
         :return: processed DataFrame
         """
         is_log = False
-        if "user_id" in columns_mapping.keys() and "item_id" in columns_mapping.keys():
+        if (
+            "user_id" in columns_mapping.keys()
+            and "item_id" in columns_mapping.keys()
+        ):
             self.logger.info(
                 "Columns with ids of users or items are present in mapping. "
                 "The dataframe will be treated as an interactions log."
             )
             is_log = True
-        elif "user_id" not in columns_mapping.keys() and "item_id" not in columns_mapping.keys():
-            raise ValueError("Mapping either for user ids or for item ids is not stated in `columns_mapping`")
+        elif (
+            "user_id" not in columns_mapping.keys()
+            and "item_id" not in columns_mapping.keys()
+        ):
+            raise ValueError(
+                "Mapping either for user ids or for item ids is not stated in `columns_mapping`"
+            )
         else:
             self.logger.info(
                 "Column with ids of users or items is absent in mapping. "
                 "The dataframe will be treated as a users'/items' features dataframe."
             )
         reader_kwargs = {} if reader_kwargs is None else reader_kwargs
-        dataframe = self.read_as_spark_df(data=data, path=path, format_type=format_type, **reader_kwargs)
+        dataframe = self.read_as_spark_df(
+            data=data, path=path, format_type=format_type, **reader_kwargs
+        )
         self.check_df(dataframe, columns_mapping=columns_mapping)
         dataframe = self._rename(df=dataframe, mapping=columns_mapping)
         if is_log:
-            dataframe = self.add_absent_log_cols(dataframe=dataframe, columns_mapping=columns_mapping)
-            dataframe = dataframe.withColumn("relevance", sf.col("relevance").cast(DoubleType()))
+            dataframe = self.add_absent_log_cols(
+                dataframe=dataframe, columns_mapping=columns_mapping
+            )
+            dataframe = dataframe.withColumn(
+                "relevance", sf.col("relevance").cast(DoubleType())
+            )
             dataframe = process_timestamp_column(
                 dataframe=dataframe,
                 column_name="timestamp",
@@ -696,7 +780,10 @@ class CatFeaturesTransformer:
             return
 
         cat_feat_values_dict = {
-            name: (spark_df.select(sf.collect_set(sf.col(name))).collect()[0][0]) for name in self.cat_cols_list
+            name: (
+                spark_df.select(sf.collect_set(sf.col(name))).collect()[0][0]
+            )
+            for name in self.cat_cols_list
         }
         self.expressions_list = [
             sf.when(sf.col(col_name) == cur_name, 1)
@@ -721,7 +808,9 @@ class CatFeaturesTransformer:
         """
         if spark_df is None:
             return None
-        return spark_df.select(*spark_df.columns, *self.expressions_list).drop(*self.cat_cols_list)
+        return spark_df.select(*spark_df.columns, *self.expressions_list).drop(
+            *self.cat_cols_list
+        )
 
 
 class ToNumericFeatureTransformer:
@@ -763,7 +852,8 @@ class ToNumericFeatureTransformer:
         spark_df_non_numeric_cols = [
             col
             for col in features.columns
-            if (not isinstance(features.schema[col].dataType, NumericType)) and (col not in {"user_idx", "item_idx"})
+            if (not isinstance(features.schema[col].dataType, NumericType))
+            and (col not in {"user_idx", "item_idx"})
         ]
 
         # numeric only
@@ -775,22 +865,36 @@ class ToNumericFeatureTransformer:
             self.cols_to_ohe = spark_df_non_numeric_cols
         else:
             counts_pd = (
-                features.agg(*[sf.approx_count_distinct(sf.col(c)).alias(c) for c in spark_df_non_numeric_cols])
+                features.agg(
+                    *[
+                        sf.approx_count_distinct(sf.col(c)).alias(c)
+                        for c in spark_df_non_numeric_cols
+                    ]
+                )
                 .toPandas()
                 .T
             )
-            self.cols_to_ohe = (counts_pd[counts_pd[0] <= self.threshold]).index.values
+            self.cols_to_ohe = (
+                counts_pd[counts_pd[0] <= self.threshold]
+            ).index.values
 
-            self.cols_to_del = [col for col in spark_df_non_numeric_cols if col not in set(self.cols_to_ohe)]
+            self.cols_to_del = [
+                col
+                for col in spark_df_non_numeric_cols
+                if col not in set(self.cols_to_ohe)
+            ]
 
             if self.cols_to_del:
                 State().logger.warning(
-                    "%s columns contain more that threshold unique " "values and will be deleted",
+                    "%s columns contain more that threshold unique "
+                    "values and will be deleted",
                     self.cols_to_del,
                 )
 
         if len(self.cols_to_ohe) > 0:
-            self.cat_feat_transformer = CatFeaturesTransformer(cat_cols_list=self.cols_to_ohe)
+            self.cat_feat_transformer = CatFeaturesTransformer(
+                cat_cols_list=self.cols_to_ohe
+            )
             self.cat_feat_transformer.fit(features.drop(*self.cols_to_del))
 
     def transform(self, spark_df: Optional[DataFrame]) -> Optional[DataFrame]:
@@ -818,7 +922,9 @@ class ToNumericFeatureTransformer:
                 f"Transform columns: {spark_df.columns}"
             )
 
-        return self.cat_feat_transformer.transform(spark_df.drop(*self.cols_to_del))
+        return self.cat_feat_transformer.transform(
+            spark_df.drop(*self.cols_to_del)
+        )
 
     def fit_transform(self, spark_df: DataFrame) -> DataFrame:
         """

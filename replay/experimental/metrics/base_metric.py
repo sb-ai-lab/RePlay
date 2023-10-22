@@ -2,14 +2,15 @@
 Base classes for quality and diversity metrics.
 """
 from abc import abstractmethod
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union, Optional
 
-from pyspark.sql import Column, DataFrame
+from pyspark.sql import Column
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.column import _to_java_column, _to_seq
 
-from replay.data import AnyDataFrame, IntOrList, NumType
 from replay.metrics.base_metric import Metric
+from replay.data import AnyDataFrame, IntOrList, NumType
 from replay.utils.session_handler import State
 
 
@@ -32,9 +33,9 @@ class ScalaMetric(Metric):
         :param k: depth cut-off
         :return: metric distribution for different cut-offs and users
         """
-        metric_value_col = self.get_scala_udf(self.scala_udf_name, [sf.lit(k).alias("k"), *recs.columns[1:]]).alias(
-            "value"
-        )
+        metric_value_col = self.get_scala_udf(
+            self.scala_udf_name, [sf.lit(k).alias("k"), *recs.columns[1:]]
+        ).alias("value")
         return recs.select("user_idx", metric_value_col)
 
     @staticmethod
@@ -59,7 +60,9 @@ class ScalaMetric(Metric):
         :return: column expression
         """
         sc = State().session.sparkContext  # pylint: disable=invalid-name
-        scala_udf = getattr(sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs, udf_name)()
+        scala_udf = getattr(
+            sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs, udf_name
+        )()
         return Column(scala_udf.apply(_to_seq(sc, params, _to_java_column)))
 
 

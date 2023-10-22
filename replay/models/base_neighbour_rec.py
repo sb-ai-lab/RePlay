@@ -5,14 +5,20 @@ Part of set of abstract classes (from base_rec.py)
 """
 
 from abc import ABC
-from typing import Any, Dict, Iterable, Optional, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Optional,
+    Union,
+)
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.column import Column
 
-from .base_rec import Recommender
 from .extensions.ann import ANNMixin
+from .base_rec import Recommender
 
 
 class NeighbourRec(Recommender, ANNMixin, ABC):
@@ -41,9 +47,14 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
     @similarity_metric.setter
     def similarity_metric(self, value):
         if not self.can_change_metric:
-            raise ValueError("This class does not support changing similarity metrics")
+            raise ValueError(
+                "This class does not support changing similarity metrics"
+            )
         if value not in self.item_to_item_metrics:
-            raise ValueError(f"Select one of the valid metrics for predict: " f"{self.item_to_item_metrics}")
+            raise ValueError(
+                f"Select one of the valid metrics for predict: "
+                f"{self.item_to_item_metrics}"
+            )
         self._similarity_metric = value
 
     def _predict_pairs_inner(
@@ -67,7 +78,9 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         :return: DataFrame ``[user_idx, item_idx, relevance]``
         """
         if log is None:
-            raise ValueError("log is not provided, but it is required for prediction")
+            raise ValueError(
+                "log is not provided, but it is required for prediction"
+            )
 
         recs = (
             log.join(users, how="inner", on="user_idx")
@@ -98,6 +111,7 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
+
         return self._predict_pairs_inner(
             log=log,
             filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
@@ -112,13 +126,18 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
+
         if log is None:
-            raise ValueError("log is not provided, but it is required for prediction")
+            raise ValueError(
+                "log is not provided, but it is required for prediction"
+            )
 
         return self._predict_pairs_inner(
             log=log,
             filter_df=(
-                pairs.withColumnRenamed("user_idx", "user_idx_filter").withColumnRenamed("item_idx", "item_idx_filter")
+                pairs.withColumnRenamed(
+                    "user_idx", "user_idx_filter"
+                ).withColumnRenamed("item_idx", "item_idx_filter")
             ),
             condition=(sf.col("user_idx") == sf.col("user_idx_filter"))
             & (sf.col("item_idx_two") == sf.col("item_idx_filter")),
@@ -166,6 +185,7 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         metric: Optional[str] = None,
         candidates: Optional[DataFrame] = None,
     ) -> DataFrame:
+
         similarity_filtered = self.similarity.join(
             items.withColumnRenamed("item_idx", "item_idx_one"),
             on="item_idx_one",
@@ -190,11 +210,18 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         }
 
     def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
-        similarity_df = self.similarity.select("similarity", "item_idx_one", "item_idx_two")
+        similarity_df = self.similarity.select(
+            "similarity", "item_idx_one", "item_idx_two"
+        )
         return similarity_df
 
-    def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
-        user_vectors = log.groupBy("user_idx").agg(
-            sf.collect_list("item_idx").alias("vector_items"), sf.collect_list("relevance").alias("vector_relevances")
+    def _get_vectors_to_infer_ann_inner(
+            self, log: DataFrame, users: DataFrame
+    ) -> DataFrame:
+
+        user_vectors = (
+            log.groupBy("user_idx").agg(
+                sf.collect_list("item_idx").alias("vector_items"),
+                sf.collect_list("relevance").alias("vector_relevances"))
         )
         return user_vectors

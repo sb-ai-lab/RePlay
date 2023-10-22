@@ -1,13 +1,12 @@
-from typing import Any, Dict, Optional
+from typing import Optional, Dict, Any
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.window import Window
 
-from replay.optimization.optuna_objective import ItemKNNObjective
-
+from .extensions.ann.index_builders import IndexBuilder
 from .base_neighbour_rec import NeighbourRec
-from .extensions.ann.index_builders.base_index_builder import IndexBuilder
+from replay.optimization.optuna_objective import ItemKNNObjective
 
 
 # pylint: disable=too-many-ancestors
@@ -28,7 +27,7 @@ class ItemKNN(NeighbourRec):
     _search_space = {
         "num_neighbours": {"type": "int", "args": [1, 100]},
         "shrink": {"type": "int", "args": [0, 100]},
-        "weighting": {"type": "categorical", "args": [None, "tf_idf", "bm25"]},
+        "weighting": {"type": "categorical", "args": [None, "tf_idf", "bm25"]}
     }
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -82,7 +81,8 @@ class ItemKNN(NeighbourRec):
     def _shrink(dot_products: DataFrame, shrink: float) -> DataFrame:
         return dot_products.withColumn(
             "similarity",
-            sf.col("dot_product") / (sf.col("norm1") * sf.col("norm2") + shrink),
+            sf.col("dot_product")
+            / (sf.col("norm1") * sf.col("norm2") + shrink),
         ).select("item_idx_one", "item_idx_two", "similarity")
 
     def _get_similarity(self, log: DataFrame) -> DataFrame:
@@ -122,19 +122,25 @@ class ItemKNN(NeighbourRec):
         :param log: DataFrame with interactions, `[user_idx, item_idx, relevance]`
         :return: log `[user_idx, item_idx, relevance]`
         """
-        item_stats = log.groupBy("item_idx").agg(sf.count("user_idx").alias("n_users_per_item"))
+        item_stats = log.groupBy("item_idx").agg(
+            sf.count("user_idx").alias("n_users_per_item")
+        )
         avgdl = item_stats.select(sf.mean("n_users_per_item")).take(1)[0][0]
         log = log.join(item_stats, how="inner", on="item_idx")
 
-        log = log.withColumn(
-            "relevance",
-            sf.col("relevance")
-            * (self.bm25_k1 + 1)
-            / (
-                sf.col("relevance")
-                + self.bm25_k1 * (1 - self.bm25_b + self.bm25_b * (sf.col("n_users_per_item") / avgdl))
-            ),
-        ).drop("n_users_per_item")
+        log = (
+            log.withColumn(
+                "relevance",
+                sf.col("relevance") * (self.bm25_k1 + 1) / (
+                    sf.col("relevance") + self.bm25_k1 * (
+                        1 - self.bm25_b + self.bm25_b * (
+                            sf.col("n_users_per_item") / avgdl
+                        )
+                    )
+                )
+            )
+            .drop("n_users_per_item")
+        )
 
         return log
 
@@ -150,12 +156,21 @@ class ItemKNN(NeighbourRec):
         n_items = log.select("item_idx").distinct().count()
 
         if self.weighting == "tf_idf":
-            idf = df.withColumn("idf", sf.log1p(sf.lit(n_items) / sf.col("DF"))).drop("DF")
+            idf = (
+                df.withColumn("idf", sf.log1p(sf.lit(n_items) / sf.col("DF")))
+                .drop("DF")
+            )
         elif self.weighting == "bm25":
-            idf = df.withColumn(
-                "idf",
-                sf.log1p((sf.lit(n_items) - sf.col("DF") + 0.5) / (sf.col("DF") + 0.5)),
-            ).drop("DF")
+            idf = (
+                df.withColumn(
+                    "idf",
+                    sf.log1p(
+                        (sf.lit(n_items) - sf.col("DF") + 0.5)
+                        / (sf.col("DF") + 0.5)
+                    ),
+                )
+                .drop("DF")
+            )
         else:
             raise ValueError("weighting must be one of ['tf_idf', 'bm25']")
 
@@ -171,8 +186,12 @@ class ItemKNN(NeighbourRec):
         if self.weighting:
             log = self._reweight_log(log)
 
-        left = log.withColumnRenamed("item_idx", "item_idx_one").withColumnRenamed("relevance", "rel_one")
-        right = log.withColumnRenamed("item_idx", "item_idx_two").withColumnRenamed("relevance", "rel_two")
+        left = log.withColumnRenamed(
+            "item_idx", "item_idx_one"
+        ).withColumnRenamed("relevance", "rel_one")
+        right = log.withColumnRenamed(
+            "item_idx", "item_idx_two"
+        ).withColumnRenamed("relevance", "rel_two")
 
         dot_products = (
             left.join(right, how="inner", on="user_idx")
@@ -188,11 +207,19 @@ class ItemKNN(NeighbourRec):
             .agg(sf.sum("relevance").alias("square_norm"))
             .select(sf.col("item_idx"), sf.sqrt("square_norm").alias("norm"))
         )
-        norm1 = item_norms.withColumnRenamed("item_idx", "item_id1").withColumnRenamed("norm", "norm1")
-        norm2 = item_norms.withColumnRenamed("item_idx", "item_id2").withColumnRenamed("norm", "norm2")
+        norm1 = item_norms.withColumnRenamed(
+            "item_idx", "item_id1"
+        ).withColumnRenamed("norm", "norm1")
+        norm2 = item_norms.withColumnRenamed(
+            "item_idx", "item_id2"
+        ).withColumnRenamed("norm", "norm2")
 
-        dot_products = dot_products.join(norm1, how="inner", on=sf.col("item_id1") == sf.col("item_idx_one"))
-        dot_products = dot_products.join(norm2, how="inner", on=sf.col("item_id2") == sf.col("item_idx_two"))
+        dot_products = dot_products.join(
+            norm1, how="inner", on=sf.col("item_id1") == sf.col("item_idx_one")
+        )
+        dot_products = dot_products.join(
+            norm2, how="inner", on=sf.col("item_id2") == sf.col("item_idx_two")
+        )
 
         return dot_products
 

@@ -4,10 +4,13 @@ from typing import Optional
 import numpy as np
 from pyspark.sql import DataFrame
 
-from replay.models.extensions.ann.index_inferers import HnswlibFilterIndexInferer, HnswlibIndexInferer, IndexInferer
+from . import IndexBuilder
+from replay.models.extensions.ann.index_inferers import (
+    IndexInferer,
+    HnswlibFilterIndexInferer,
+    HnswlibIndexInferer,
+)
 from replay.models.extensions.ann.utils import create_hnswlib_index_instance
-
-from .base_index_builder import IndexBuilder
 
 logger = logging.getLogger("replay")
 
@@ -19,7 +22,9 @@ class DriverHnswlibIndexBuilder(IndexBuilder):
 
     def produce_inferer(self, filter_seen_items: bool) -> IndexInferer:
         if filter_seen_items:
-            return HnswlibFilterIndexInferer(self.index_params, self.index_store)
+            return HnswlibFilterIndexInferer(
+                self.index_params, self.index_store
+            )
         else:
             return HnswlibIndexInferer(self.index_params, self.index_store)
 
@@ -39,4 +44,8 @@ class DriverHnswlibIndexBuilder(IndexBuilder):
         else:
             index.add_items(np.stack(vectors_np))
 
-        self.index_store.save_to_store(lambda path: index.save_index(path))  # pylint: disable=unnecessary-lambda)
+        self.index_store.save_to_store(
+            lambda path: index.save_index(  # pylint: disable=unnecessary-lambda)
+                path
+            )
+        )

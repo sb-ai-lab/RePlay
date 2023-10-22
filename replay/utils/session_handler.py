@@ -35,17 +35,15 @@ def get_spark_session(
         path_to_replay_jar = os.environ.get("REPLAY_JAR_PATH")
     else:
         if pyspark_version.startswith("3.1"):
-            path_to_replay_jar = (
-                "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
-            )
-        elif pyspark_version.startswith("3.2") or pyspark_version.startswith("3.3"):
+            path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
+        elif pyspark_version.startswith("3.2") or pyspark_version.startswith(
+            "3.3"
+        ):
             path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.2.0_als_metrics/replay_2.12-3.2.0_als_metrics.jar"
         elif pyspark_version.startswith("3.4"):
             path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.4.0_als_metrics/replay_2.12-3.4.0_als_metrics.jar"
         else:
-            path_to_replay_jar = (
-                "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
-            )
+            path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
             logging.warning(
                 "Replay ALS model support only spark 3.1-3.4 versions! "
                 "Replay will use 'https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar' in 'spark.jars' property."
@@ -134,7 +132,9 @@ class State(Borg):
         if device is None:
             if not hasattr(self, "device"):
                 if torch.cuda.is_available():
-                    self.device = torch.device(f"cuda:{torch.cuda.current_device()}")
+                    self.device = torch.device(
+                        f"cuda:{torch.cuda.current_device()}"
+                    )
                 else:
                     self.device = torch.device("cpu")
         else:

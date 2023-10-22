@@ -1,13 +1,15 @@
 from pyspark.ml import Transformer
-from pyspark.ml.param import Param, Params, TypeConverters
-from pyspark.ml.util import DefaultParamsReadable, DefaultParamsWritable
+from pyspark.ml.param import TypeConverters, Params, Param
+from pyspark.ml.util import DefaultParamsWritable, DefaultParamsReadable
 from pyspark.sql import DataFrame
 
 from .model_handler import get_fs
 from .session_handler import State
 
 
-class DataframeBucketizer(Transformer, DefaultParamsWritable, DefaultParamsReadable):  # pylint: disable=R0901
+class DataframeBucketizer(
+    Transformer, DefaultParamsWritable, DefaultParamsReadable
+):  # pylint: disable=R0901
     """
     Buckets the input dataframe, dumps it to spark warehouse directory,
     and returns a bucketed dataframe.
@@ -75,7 +77,9 @@ class DataframeBucketizer(Transformer, DefaultParamsWritable, DefaultParamsReada
         spark_warehouse_dir = self.getOrDefault(self.sparkWarehouseDir)
         table_name = self.getOrDefault(self.tableName)
         fs = get_fs(spark)  # pylint: disable=invalid-name
-        fs_path = spark._jvm.org.apache.hadoop.fs.Path(f"{spark_warehouse_dir}/{table_name}")
+        fs_path = spark._jvm.org.apache.hadoop.fs.Path(
+            f"{spark_warehouse_dir}/{table_name}"
+        )
         is_exists = fs.exists(fs_path)
         if is_exists:
             fs.delete(fs_path, True)
@@ -91,7 +95,10 @@ class DataframeBucketizer(Transformer, DefaultParamsWritable, DefaultParamsReada
         spark_warehouse_dir = self.getOrDefault(self.sparkWarehouseDir)
 
         if not table_name:
-            raise ValueError("Parameter 'table_name' is not set! " "Please set it via method 'set_table_name'.")
+            raise ValueError(
+                "Parameter 'table_name' is not set! "
+                "Please set it via method 'set_table_name'."
+            )
 
         (
             dataset.repartition(partition_num, bucketing_key)

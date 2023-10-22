@@ -1,13 +1,13 @@
 from typing import Optional, Tuple
 
 import pyspark.sql.functions as sf
+
 from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
 
+from .base_rec import Recommender, ItemVectorModel
 from replay.utils.spark_utils import list_to_vector_udf
-
-from .base_rec import ItemVectorModel, Recommender
 
 
 class ALSWrap(Recommender, ItemVectorModel):
@@ -105,8 +105,10 @@ class ALSWrap(Recommender, ItemVectorModel):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
+
         if (items.count() == self.fit_items.count()) and (
-            items.join(self.fit_items, on="item_idx", how="inner").count() == self.fit_items.count()
+            items.join(self.fit_items, on="item_idx", how="inner").count()
+            == self.fit_items.count()
         ):
             max_seen = 0
             if filter_seen_items and log is not None:
@@ -121,7 +123,9 @@ class ALSWrap(Recommender, ItemVectorModel):
 
             recs_als = self.model.recommendForUserSubset(users, k + max_seen)
             return (
-                recs_als.withColumn("recommendations", sf.explode("recommendations"))
+                recs_als.withColumn(
+                    "recommendations", sf.explode("recommendations")
+                )
                 .withColumn("item_idx", sf.col("recommendations.item_idx"))
                 .withColumn(
                     "relevance",
@@ -148,12 +152,14 @@ class ALSWrap(Recommender, ItemVectorModel):
             .drop("prediction")
         )
 
-    def _get_features(self, ids: DataFrame, features: Optional[DataFrame]) -> Tuple[Optional[DataFrame], Optional[int]]:
+    def _get_features(
+        self, ids: DataFrame, features: Optional[DataFrame]
+    ) -> Tuple[Optional[DataFrame], Optional[int]]:
         entity = "user" if "user_idx" in ids.columns else "item"
         als_factors = getattr(self.model, f"{entity}Factors")
-        als_factors = als_factors.withColumnRenamed("id", f"{entity}_idx").withColumnRenamed(
-            "features", f"{entity}_factors"
-        )
+        als_factors = als_factors.withColumnRenamed(
+            "id", f"{entity}_idx"
+        ).withColumnRenamed("features", f"{entity}_factors")
         return (
             als_factors.join(ids, how="right", on=f"{entity}_idx"),
             self.model.rank,
