@@ -7,7 +7,7 @@ from typing import Callable, Any
 
 from pyarrow import fs
 
-from . import IndexStore
+from .base_index_store import IndexStore
 
 
 logger = logging.getLogger("replay")

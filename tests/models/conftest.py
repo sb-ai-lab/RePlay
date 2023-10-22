@@ -1,5 +1,6 @@
 import pytest
 
+
 @pytest.fixture(scope="module")
 def cat_tree(spark):
     return spark.createDataFrame(

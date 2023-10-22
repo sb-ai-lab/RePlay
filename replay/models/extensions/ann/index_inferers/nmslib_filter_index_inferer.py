@@ -3,7 +3,7 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql.pandas.functions import pandas_udf
 
-from . import IndexInferer
+from .base_inferer import IndexInferer
 from .utils import (
     get_csr_matrix,
 )

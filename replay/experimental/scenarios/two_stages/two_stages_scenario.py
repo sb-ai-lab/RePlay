@@ -701,6 +701,7 @@ class TwoStagesScenario(HybridRecommender):
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
         filter_seen_items: bool = True,
+        recs_file_path: Optional[str] = None,
     ) -> DataFrame:
         """
         :param log: input DataFrame ``[user_id, item_id, timestamp, relevance]``
@@ -710,6 +711,8 @@ class TwoStagesScenario(HybridRecommender):
         :param user_features: user features``[user_id]`` + feature columns
         :param item_features: item features``[item_id]`` + feature columns
         :param filter_seen_items: flag to removed seen items from recommendations
+        :param recs_file_path: save recommendations at the given absolute path as parquet file.
+            If None, cached and materialized recommendations dataframe  will be returned
         :return: DataFrame ``[user_id, item_id, relevance]``
         """
         self.fit(log, user_features, item_features)
@@ -721,6 +724,7 @@ class TwoStagesScenario(HybridRecommender):
             user_features,
             item_features,
             filter_seen_items,
+            recs_file_path,
         )
 
     @staticmethod

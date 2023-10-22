@@ -6,7 +6,7 @@ from typing import Callable, Any
 
 from pyarrow import fs
 
-from . import IndexStore
+from .base_index_store import IndexStore
 from .utils import FileSystem, get_filesystem
 
 logger = logging.getLogger("replay")

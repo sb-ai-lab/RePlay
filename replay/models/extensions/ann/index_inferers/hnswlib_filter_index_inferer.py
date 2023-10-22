@@ -3,7 +3,7 @@ import pandas as pd
 from pyspark.sql import DataFrame
 from pyspark.sql.pandas.functions import pandas_udf
 
-from . import IndexInferer
+from .base_inferer import IndexInferer
 from replay.models.extensions.ann.utils import create_hnswlib_index_instance
 from replay.utils.session_handler import State
 

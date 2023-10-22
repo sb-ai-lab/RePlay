@@ -8,7 +8,7 @@ from typing import Callable, Any
 from pyarrow import fs
 from pyspark import SparkFiles
 
-from . import IndexStore
+from .base_index_store import IndexStore
 from .utils import FileSystem, get_filesystem
 from replay.utils.session_handler import State
 
