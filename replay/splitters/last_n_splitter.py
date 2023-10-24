@@ -87,7 +87,6 @@ class LastNSplitter(Splitter):
         strategy: str = "interactions",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
-        drop_zero_rel_in_test: bool = False,
         user_col: str = "user_id",
         item_col: str = "item_id",
         timestamp_col: str = "timestamp",
@@ -112,9 +111,6 @@ class LastNSplitter(Splitter):
                 which are not in train DataFrame, default: False.
             drop_cold_items (bool): Drop items from test DataFrame
                 which are not in train DataFrame, default: False.
-            drop_zero_rel_in_test (bool): Flag to remove entries with relevance <= 0
-                from the test part of the dataset.
-                Default: ``False``.
             user_col (str): Name of user interaction column.
                 If ``drop_cold_users`` is ``False``, then you can omit this parameter.
                 Default: ``user_id``.
@@ -134,7 +130,6 @@ class LastNSplitter(Splitter):
         super().__init__(
             drop_cold_users=drop_cold_users,
             drop_cold_items=drop_cold_items,
-            drop_zero_rel_in_test=drop_zero_rel_in_test,
             user_col=user_col,
             item_col=item_col,
             timestamp_col=timestamp_col,

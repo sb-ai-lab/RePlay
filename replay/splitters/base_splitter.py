@@ -17,7 +17,6 @@ class Splitter(ABC):
     _init_arg_names = [
         "drop_cold_users",
         "drop_cold_items",
-        "drop_zero_rel_in_test",
         "user_col",
         "item_col",
         "timestamp_col",
@@ -30,7 +29,6 @@ class Splitter(ABC):
         self,
         drop_cold_items: bool,
         drop_cold_users: bool,
-        drop_zero_rel_in_test: bool,
         user_col: str = "user_idx",
         item_col: Optional[str] = "item_idx",
         timestamp_col: Optional[str] = "timestamp",
@@ -41,8 +39,6 @@ class Splitter(ABC):
         """
         :param drop_cold_items: flag to remove items that are not in train data
         :param drop_cold_users: flag to remove users that are not in train data
-        :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
-            from the test part of the dataset
         :param user_col: user id column name
         :param item_col: item id column name
         :param timestamp_col: timestamp column name
@@ -54,7 +50,6 @@ class Splitter(ABC):
         """
         self.drop_cold_users = drop_cold_users
         self.drop_cold_items = drop_cold_items
-        self.drop_zero_rel_in_test = drop_zero_rel_in_test
         self.user_col = user_col
         self.item_col = item_col
         self.timestamp_col = timestamp_col
@@ -76,18 +71,6 @@ class Splitter(ABC):
 
     def __str__(self):
         return type(self).__name__
-
-    def _filter_zero_relevance(self, dataframe: AnyDataFrame) -> AnyDataFrame:
-        """
-        Removes records with zero relevance if required by
-        `drop_zero_rel_in_test` initialization parameter
-
-        :param dataframe: input DataFrame
-        :returns: filtered DataFrame
-        """
-        if self.drop_zero_rel_in_test and self.rating_col in dataframe.columns:
-            return dataframe.filter(f"{self.rating_col} > 0.0")
-        return dataframe
 
     # pylint: disable=too-many-arguments
     def _drop_cold_items_and_users(
@@ -160,7 +143,6 @@ class Splitter(ABC):
                 res[0],
                 res[i],
             )
-            res[i] = self._filter_zero_relevance(res[i])
         return res
 
     def _recalculate_with_session_id_column(self, data: AnyDataFrame) -> AnyDataFrame:

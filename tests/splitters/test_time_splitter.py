@@ -2,11 +2,14 @@ from typing import List
 from datetime import datetime
 
 import pytest
+import numpy as np
 import pandas as pd
 import pyspark.sql.functions as F
 
+from replay.data import LOG_SCHEMA
 from replay.splitters import TimeSplitter
 from replay.utils import get_spark_session
+from tests.utils import spark
 
 
 def _get_column_list(data, column: str) -> List[List]:
@@ -25,7 +28,7 @@ def _check_assert(user_ids, item_ids, user_answer, item_answer):
 
 @pytest.fixture(scope="module")
 def spark_dataframe_test():
-    columns = ["user_id", "item_id", "timestamp", "session_id"]
+    columns = ["user_idx", "item_idx", "timestamp", "session_id"]
     data = [
         (1, 1, "01-01-2020", 1),
         (1, 2, "02-01-2020", 1),
@@ -50,7 +53,7 @@ def spark_dataframe_test():
 
 @pytest.fixture(scope="module")
 def pandas_dataframe_test():
-    columns = ["user_id", "item_id", "timestamp", "session_id"]
+    columns = ["user_idx", "item_idx", "timestamp", "session_id"]
     data = [
         (1, 1, "01-01-2020", 1),
         (1, 2, "02-01-2020", 1),
@@ -73,6 +76,26 @@ def pandas_dataframe_test():
     dataframe["timestamp"] = pd.to_datetime(dataframe["timestamp"], format="%d-%m-%Y")
 
     return dataframe
+
+
+@pytest.fixture
+def log(spark):
+    return spark.createDataFrame(
+        data=[
+            [0, 0, datetime(2019, 9, 12), 1.0],
+            [0, 1, datetime(2019, 9, 13), 2.0],
+            [1, 0, datetime(2019, 9, 14), 3.0],
+            [1, 1, datetime(2019, 9, 15), 4.0],
+            [2, 0, datetime(2019, 9, 16), 5.0],
+            [0, 2, datetime(2019, 9, 17), 1.0],
+        ],
+        schema=LOG_SCHEMA,
+    )
+
+
+@pytest.fixture
+def log_pandas(log):
+    return log.toPandas()
 
 
 @pytest.mark.parametrize(
@@ -107,11 +130,11 @@ def test_time_splitter_without_drops(time_threshold, user_answer, item_answer, d
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_id")
-        user_ids = _get_column_list(filtered_dataframe, "user_id")
+        item_ids = _get_column_list(filtered_dataframe, "item_idx")
+        user_ids = _get_column_list(filtered_dataframe, "user_idx")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -149,11 +172,11 @@ def test_time_splitter_drop_users(time_threshold, user_answer, item_answer, data
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_id")
-        user_ids = _get_column_list(filtered_dataframe, "user_id")
+        item_ids = _get_column_list(filtered_dataframe, "item_idx")
+        user_ids = _get_column_list(filtered_dataframe, "user_idx")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -190,11 +213,11 @@ def test_time_splitter_drop_items(time_threshold, user_answer, item_answer, data
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_id")
-        user_ids = _get_column_list(filtered_dataframe, "user_id")
+        item_ids = _get_column_list(filtered_dataframe, "item_idx")
+        user_ids = _get_column_list(filtered_dataframe, "user_idx")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -231,11 +254,11 @@ def test_time_splitter_drop_both(time_threshold, user_answer, item_answer, datas
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_id")
-        user_ids = _get_column_list(filtered_dataframe, "user_id")
+        item_ids = _get_column_list(filtered_dataframe, "item_idx")
+        user_ids = _get_column_list(filtered_dataframe, "user_idx")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -278,11 +301,11 @@ def test_time_splitter_without_drops_with_sessions(
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_id")
-        user_ids = _get_column_list(filtered_dataframe, "user_id")
+        item_ids = _get_column_list(filtered_dataframe, "item_idx")
+        user_ids = _get_column_list(filtered_dataframe, "user_idx")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -305,3 +328,167 @@ def test_original_dataframe_not_change(pandas_dataframe_test):
     TimeSplitter([datetime.strptime("06-01-2020", "%d-%m-%Y")]).split(original_dataframe)
 
     assert original_dataframe.equals(pandas_dataframe_test)
+
+
+@pytest.fixture
+def split_date():
+    return datetime(2019, 9, 15)
+
+
+@pytest.mark.parametrize(
+    "dataset_type",
+    [
+        ("log"),
+        ("log_pandas"),
+    ],
+)
+def test_split(dataset_type, request, split_date):
+    log = request.getfixturevalue(dataset_type)
+    splitter = TimeSplitter(
+        [split_date], drop_cold_items=False, drop_cold_users=False
+    )
+    train, test = splitter.split(log)
+
+    if "_pandas" in dataset_type:
+        train_max_date = train["timestamp"].max()
+        test_min_date = test["timestamp"].min()
+    else:
+        train_max_date = train.toPandas().timestamp.max()
+        test_min_date = test.toPandas().timestamp.min()
+
+    assert train_max_date < split_date
+    assert test_min_date >= split_date
+
+
+@pytest.mark.parametrize(
+    "dataset_type",
+    [
+        ("log"),
+        ("log_pandas"),
+    ],
+)
+def test_string(dataset_type, request, split_date):
+    log = request.getfixturevalue(dataset_type)
+    splitter = TimeSplitter(
+        [split_date], drop_cold_items=False, drop_cold_users=False
+    )
+    train_by_date, test_by_date = splitter.split(log)
+
+    str_date = split_date.strftime("%Y-%m-%d")
+    splitter = TimeSplitter(
+        [str_date], drop_cold_items=False, drop_cold_users=False
+    )
+    train_by_str, test_by_str = splitter.split(log)
+
+    int_date = int(split_date.timestamp())
+    if "_pandas" in dataset_type:
+        log["timestamp"] = (log["timestamp"] - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
+    else:
+        log = log.withColumn("timestamp", log["timestamp"].cast('bigint'))
+    splitter = TimeSplitter(
+        [int_date], drop_cold_items=False, drop_cold_users=False
+    )
+    train_by_int, test_by_int = splitter.split(log)
+
+    if "_pandas" in dataset_type:
+        assert train_by_date.shape[0] == train_by_str.shape[0]
+        assert test_by_date.shape[0] == test_by_str.shape[0]
+
+        assert train_by_date.shape[0] == train_by_int.shape[0]
+        assert test_by_date.shape[0] == test_by_int.shape[0]
+    else:
+        assert train_by_date.count() == train_by_str.count()
+        assert test_by_date.count() == test_by_str.count()
+
+        assert train_by_date.count() == train_by_int.count()
+        assert test_by_date.count() == test_by_int.count()
+
+
+@pytest.mark.parametrize(
+    "dataset_type",
+    [
+        ("log"),
+        ("log_pandas"),
+    ],
+)
+def test_proportion(dataset_type, request):
+    log = request.getfixturevalue(dataset_type)
+    test_size = 0.15
+    splitter = TimeSplitter([test_size])
+    train, test = splitter.split(log)
+
+    if "_pandas" in dataset_type:
+        train_max_date = train["timestamp"].max()
+        test_min_date = test["timestamp"].min()
+    else:
+        train_max_date = train.toPandas().timestamp.max()
+        test_min_date = test.toPandas().timestamp.min()
+    
+    split_date = datetime(2019, 9, 17)
+
+    assert train_max_date < split_date
+    assert test_min_date >= split_date
+    if "_pandas" in dataset_type:
+        proportion = test.shape[0] / log.shape[0]
+    else:
+        proportion = test.count() / log.count()
+
+    assert np.isclose(proportion, test_size, atol=0.1)
+
+
+@pytest.mark.parametrize(
+    "dataset_type",
+    [
+        ("log"),
+        ("log_pandas"),
+    ],
+)
+def test_drop_cold_items(dataset_type, request, split_date):
+    log = request.getfixturevalue(dataset_type)
+    splitter = TimeSplitter(
+        [split_date], drop_cold_items=True, drop_cold_users=False
+    )
+    train, test = splitter.split(log)
+
+    if "_pandas" in dataset_type:
+        train_items = train["item_idx"]
+        test_items = test["item_idx"]
+    else:
+        train_items = train.toPandas().item_idx
+        test_items = test.toPandas().item_idx
+
+    assert np.isin(test_items, train_items).all()
+
+
+@pytest.mark.parametrize(
+    "dataset_type",
+    [
+        ("log"),
+        ("log_pandas"),
+    ],
+)
+def test_drop_cold_users(dataset_type, request, split_date):
+    log = request.getfixturevalue(dataset_type)
+    splitter = TimeSplitter(
+        [split_date], drop_cold_items=False, drop_cold_users=True
+    )
+    train, test = splitter.split(log)
+
+    if "_pandas" in dataset_type:
+        train_users = train["user_idx"]
+        test_users = test["user_idx"]
+    else:
+        train_users = train.toPandas().user_idx
+        test_users = test.toPandas().user_idx
+
+    assert np.isin(test_users, train_users).all()
+
+
+def test_different_split_types():
+    with pytest.raises(AssertionError):
+        TimeSplitter([1568494800, 0.3])
+
+
+def test_proportion_splitting_out_of_range():
+    with pytest.raises(ValueError):
+        TimeSplitter([0.5, 0.5])
