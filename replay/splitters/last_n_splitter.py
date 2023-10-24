@@ -97,36 +97,35 @@ class LastNSplitter(Splitter):
         session_id_processing_strategy: str = "test",
     ):
         """
-        Args:
-            N (array of int): Array of interactions/seconds to split.
-            divide_column (str): Name of column for dividing
-                in dataframe, default: ``user_id``.
-            time_column_format (str): Format of time_column,
-                needs for convert time_column into unix_timestamp type.
-                If strategy is set to 'interactions', then you can omit this parameter.
-                If time_column has already transformed into unix_timestamp type,
-                then you can omit this parameter.
-                default: ``yyyy-MM-dd HH:mm:ss``
-            strategy (StrategyName): Defines the type of data splitting.
-                Must be ``interactions`` or ``seconds``.
-                default: ``interactions``.
-            drop_cold_users (bool): Drop users from test DataFrame
-                which are not in train DataFrame, default: False.
-            drop_cold_items (bool): Drop items from test DataFrame
-                which are not in train DataFrame, default: False.
-            user_col (str): Name of user interaction column.
-                If ``drop_cold_users`` is ``False``, then you can omit this parameter.
-                Default: ``user_id``.
-            item_col (str): Name of item interaction column.
-                If ``drop_cold_items`` is ``False``, then you can omit this parameter.
-                Default: ``item_id``.
-            timestamp_col (str): Name of time column,
-                default: ``timestamp``.
-            session_id_column (str, optional): Name of session id column, which values can not be split,
-                default: ``None``.
-            session_id_processing_strategy (str): strategy of processing session if it is split,
-                Values: ``train, test``, train: whole split session goes to train. test: same but to test.
-                default: ``test``.
+        :param N: Array of interactions/seconds to split.
+        :param divide_column: Name of column for dividing
+            in dataframe, default: ``user_id``.
+        :param time_column_format: Format of time_column,
+            needs for convert time_column into unix_timestamp type.
+            If strategy is set to 'interactions', then you can omit this parameter.
+            If time_column has already transformed into unix_timestamp type,
+            then you can omit this parameter.
+            default: ``yyyy-MM-dd HH:mm:ss``
+        :param strategy: Defines the type of data splitting.
+            Must be ``interactions`` or ``seconds``.
+            default: ``interactions``.
+        :param user_col: Name of user interaction column.
+        :param drop_cold_users: Drop users from test DataFrame.
+            which are not in train DataFrame, default: False.
+        :param drop_cold_items: Drop items from test DataFrame
+            which are not in train DataFrame, default: False.
+        :param item_col: Name of item interaction column.
+            If ``drop_cold_items`` is ``False``, then you can omit this parameter.
+            Default: ``item_id``.
+        :param timestamp_col: Name of time column,
+            Default: ``timestamp``.
+        :param rating_col: Rating column name.
+            Default: ``relevance``.
+        :param session_id_col: Name of session id column, which values can not be split,
+            default: ``None``.
+        :param session_id_processing_strategy: strategy of processing session if it is split,
+            Values: ``train, test``, train: whole split session goes to train. test: same but to test.
+            default: ``test``.
         """
         if strategy not in ["interactions", "seconds"]:
             raise ValueError("strategy must be equal 'interactions' or 'seconds'")

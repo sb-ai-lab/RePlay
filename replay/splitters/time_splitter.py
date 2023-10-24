@@ -92,25 +92,24 @@ class TimeSplitter(Splitter):
         session_id_processing_strategy: str = "test",
     ):
         """
-        Args:
-            time_threshold (array[datetime, str, int, float]): Array of test threshold.
-            user_col (str): Name of user interaction column.
-            drop_cold_users (bool): Drop users from test DataFrame
-                which are not in train DataFrame, default: False.
-            drop_cold_items (bool): Drop items from test DataFrame
-                which are not in train DataFrame, default: False.
-            item_col (str): Name of item interaction column.
-                If ``drop_cold_items`` is ``False``, then you can omit this parameter.
-                Default: ``item_id``.
-            timestamp_col (str): Name of time column,
-                Default: ``timestamp``.
-            rating_col (str): Rating column name.
-                Default: ``relevance``.
-            session_id_col (str, optional): Name of session id column, which values can not be split,
-                default: ``None``.
-            session_id_processing_strategy (str): strategy of processing session if it is split,
-                Values: ``train, test``, train: whole split session goes to train. test: same but to test.
-                default: ``test``.
+        :param time_threshold: Array of test threshold.
+        :param user_col: Name of user interaction column.
+        :param drop_cold_users: Drop users from test DataFrame.
+            which are not in train DataFrame, default: False.
+        :param drop_cold_items: Drop items from test DataFrame
+            which are not in train DataFrame, default: False.
+        :param item_col: Name of item interaction column.
+            If ``drop_cold_items`` is ``False``, then you can omit this parameter.
+            Default: ``item_id``.
+        :param timestamp_col: Name of time column,
+            Default: ``timestamp``.
+        :param rating_col: Rating column name.
+            Default: ``relevance``.
+        :param session_id_col: Name of session id column, which values can not be split,
+            default: ``None``.
+        :param session_id_processing_strategy: strategy of processing session if it is split,
+            Values: ``train, test``, train: whole split session goes to train. test: same but to test.
+            default: ``test``.
         """
         super().__init__(
             drop_cold_users=drop_cold_users,
