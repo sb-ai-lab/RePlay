@@ -9,7 +9,6 @@ These kind of splitters process log as a whole:
 
 from typing import Optional, List, Union
 
-import numpy as np
 from pandas import DataFrame as PandasDataFrame
 from pyspark.sql import DataFrame as SparkDataFrame
 import pyspark.sql.functions as sf
@@ -108,7 +107,7 @@ class RandomSplitter(Splitter):
         test = test.drop("_index")
 
         return train, test
-    
+
     def _random_split_pandas(self, log: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
         train = log.sample(frac=(1 - threshold), random_state=self.seed)
         test = log.drop(train.index)
@@ -127,16 +126,16 @@ class RandomSplitter(Splitter):
         split_method = self._random_split_spark
         if isinstance(log, PandasDataFrame):
             split_method = self._random_split_pandas
-        
+
         sum_ratio = round(sum(self.test_size), self._precision)
         train, test = split_method(log, sum_ratio)
 
         res = []
-        for r in self.test_size:
-            test, test1 = split_method(test, round(r / sum_ratio, self._precision))
+        for ratio in self.test_size:
+            test, test1 = split_method(test, round(ratio / sum_ratio, self._precision))
             res.append(test1)
-            sum_ratio -= r
-            
+            sum_ratio -= ratio
+
         return [train] + list(reversed(res))
 
 
