@@ -104,7 +104,7 @@ def test_nothing_is_lost(test_size, dataset_type, request):
     else:
         real_test_size = test.count() / log.count()
         assert train.count() + test.count() == log.count()
-    
+
     assert np.isclose(real_test_size, test_size, atol=0.01)
 
 

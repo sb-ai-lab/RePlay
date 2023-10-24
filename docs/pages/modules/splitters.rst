@@ -22,9 +22,19 @@ k_folds
 .. autofunction:: replay.splitters.user_log_splitter.k_folds
 
 
-DateSplitter
+TimeSplitter
 -------------
-.. autoclass:: replay.splitters.log_splitter.DateSplitter
+.. autoclass:: replay.splitters.time_splitter.TimeSplitter
+   :special-members: __init__
+
+LastNSplitter
+-------------
+.. autoclass:: replay.splitters.last_n_splitter.LastNSplitter
+   :special-members: __init__
+
+RatioSplitter
+-------------
+.. autoclass:: replay.splitters.ratio_splitter.RatioSplitter
    :special-members: __init__
 
 RandomSplitter
