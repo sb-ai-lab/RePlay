@@ -121,7 +121,7 @@ Also if you develop new functionality, please add your own tests.
 
 To contribute your changes directly to the repository, do the following:
 - Cover your code by [unit tests](https://github.com/sb-ai-lab/RePlay/tree/main/tests). 
-- For a larger feature, provide a relevant [example](https://github.com/sb-ai-lab/RePlay/tree/main/experiments).
+- For a larger feature, provide a relevant [example](https://github.com/sb-ai-lab/RePlay/tree/main/examples).
 - [Document](#documentation-guidelines) your code.
 - [Submit](https://github.com/sb-ai-lab/RePlay/pulls) a pull request into the `main` branch.
 
