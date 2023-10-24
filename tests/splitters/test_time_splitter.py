@@ -423,7 +423,7 @@ def test_proportion(dataset_type, request):
     else:
         train_max_date = train.toPandas().timestamp.max()
         test_min_date = test.toPandas().timestamp.min()
-    
+
     split_date = datetime(2019, 9, 17)
 
     assert train_max_date < split_date
