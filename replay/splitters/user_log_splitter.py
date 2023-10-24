@@ -90,7 +90,6 @@ class UserSplitter(Splitter):
         "shuffle",
         "drop_cold_users",
         "drop_cold_items",
-        "drop_zero_rel_in_test",
         "seed",
         "user_col",
         "item_col",
@@ -107,7 +106,6 @@ class UserSplitter(Splitter):
         shuffle=False,
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
-        drop_zero_rel_in_test: bool = True,
         seed: Optional[int] = None,
         user_col: str = "user_idx",
         item_col: Optional[str] = "item_idx",
@@ -124,8 +122,6 @@ class UserSplitter(Splitter):
         :param shuffle: take random items and not last based on ``timestamp``.
         :param drop_cold_items: flag to drop cold items from test
         :param drop_cold_users: flag to drop cold users from test
-        :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
-            from the test part of the dataset
         :param seed: random seed
         :param user_col: user id column name
         :param item_col: item id column name
@@ -139,7 +135,6 @@ class UserSplitter(Splitter):
         super().__init__(
             drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
-            drop_zero_rel_in_test=drop_zero_rel_in_test,
             user_col=user_col,
             item_col=item_col,
             timestamp_col=timestamp_col,
