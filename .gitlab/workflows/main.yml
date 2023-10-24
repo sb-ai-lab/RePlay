@@ -30,6 +30,7 @@ stages:
   - resolve
   - code_quality
   - test
+  - examples
   - build package
 
 resolve-job:
@@ -74,6 +75,13 @@ test-job:
   stage: test
   script:
     - pytest
+
+examples-execute-job:
+  <<: *install_replay
+  stage: examples
+  script:
+    - cd examples
+    - for i in *.ipynb; do jupyter nbconvert --to notebook --execute $i; done
 
 build-production-package:
   rules:
