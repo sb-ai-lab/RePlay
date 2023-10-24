@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Literal
 
 import pandas as pd
 import numpy as np
@@ -8,6 +8,9 @@ from pyspark.sql import DataFrame as SparkDataFrame, Window
 
 from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter
+
+
+StrategyName = Literal["interactions", "seconds"]
 
 
 # pylint: disable=too-few-public-methods
@@ -84,7 +87,7 @@ class LastNSplitter(Splitter):
         N: List[int],
         divide_column: str = "user_id",
         time_column_format: str = "yyyy-MM-dd HH:mm:ss",
-        strategy: str = "interactions",
+        strategy: StrategyName = "interactions",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
         user_col: str = "user_id",
@@ -104,7 +107,7 @@ class LastNSplitter(Splitter):
                 If time_column has already transformed into unix_timestamp type,
                 then you can omit this parameter.
                 default: ``yyyy-MM-dd HH:mm:ss``
-            strategy (str): Defines the type of data splitting.
+            strategy (StrategyName): Defines the type of data splitting.
                 Must be ``interactions`` or ``seconds``.
                 default: ``interactions``.
             drop_cold_users (bool): Drop users from test DataFrame

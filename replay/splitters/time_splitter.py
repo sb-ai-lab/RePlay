@@ -154,11 +154,9 @@ class TimeSplitter(Splitter):
         res = interactions.copy(deep=True)
         if isinstance(threshold, float):
             res.sort_values(self.timestamp_col, inplace=True)
-            res["_row_number_by_ts"] = range(1, len(res) + 1)
-            test_start = int(res.shape[0] * (1 - threshold)) + 1
-            test_start = res[res['_row_number_by_ts'] == test_start][self.timestamp_col].item()
-            res["is_test"] = (res[self.timestamp_col] >= test_start)
-            res.drop(columns=["_row_number_by_ts"], inplace=True)
+            test_start_ind = int(res.shape[0] * (1 - threshold))
+            test_start = res.iloc[test_start_ind][self.timestamp_col]
+            res["is_test"] = res[self.timestamp_col] >= test_start
         else:
             res["is_test"] = res[self.timestamp_col] >= threshold
 

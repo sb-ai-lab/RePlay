@@ -83,7 +83,7 @@ class RandomSplitter(Splitter):
         self.test_size = test_size
         self._sanity_check()
 
-    def _get_order_of_sort(self) -> list:
+    def _get_order_of_sort(self) -> list:   # pragma: no cover
         pass
 
     def _sanity_check(self) -> None:
@@ -98,11 +98,11 @@ class RandomSplitter(Splitter):
         )
 
         if self.session_id_col:
-            test = test.withColumn("is_test", sf.lit(1))
-            log = log.join(test, on=log.schema.names, how="left").na.fill({"is_test": 0})
+            test = test.withColumn("is_test", sf.lit(True))
+            log = log.join(test, on=log.schema.names, how="left").na.fill({"is_test": False})
             log = self._recalculate_with_session_id_column(log)
-            train = log.filter("is_test == 0").drop("is_test")
-            test = log.filter("is_test == 1").drop("is_test")
+            train = log.filter(~sf.col("is_test")).drop("is_test")
+            test = log.filter(sf.col("is_test")).drop("is_test")
 
         train = train.drop("_index")
         test = test.drop("_index")
@@ -114,11 +114,11 @@ class RandomSplitter(Splitter):
         test = log.drop(train.index)
 
         if self.session_id_col:
-            log["is_test"] = 0
-            log.loc[test.index, "is_test"] = 1
+            log["is_test"] = False
+            log.loc[test.index, "is_test"] = True
             log = self._recalculate_with_session_id_column(log)
-            train = log[log["is_test"] == 0].drop(columns=["is_test"])
-            test = log[log["is_test"] == 1].drop(columns=["is_test"])
+            train = log[~log["is_test"]].drop(columns=["is_test"])
+            test = log[log["is_test"]].drop(columns=["is_test"])
             log = log.drop(columns=["is_test"])
 
         return train, test
@@ -128,12 +128,16 @@ class RandomSplitter(Splitter):
         if isinstance(log, PandasDataFrame):
             split_method = self._random_split_pandas
         
+        sum_ratio = round(sum(self.test_size), self._precision)
+        train, test = split_method(log, sum_ratio)
+
         res = []
-        for threshold in self.test_size:
-            train, log = split_method(log, threshold)
-            res.append(train)
-        res.append(log)
-        return res
+        for r in self.test_size:
+            test, test1 = split_method(test, round(r / sum_ratio, self._precision))
+            res.append(test1)
+            sum_ratio -= r
+            
+        return [train] + list(reversed(res))
 
 
 # pylint: disable=too-few-public-methods

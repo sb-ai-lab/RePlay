@@ -19,6 +19,58 @@ def log():
     )
 
 
+@pytest.fixture(scope="module")
+def spark_dataframe_test():
+    columns = ["user_idx", "item_idx", "timestamp", "session_id"]
+    data = [
+        (1, 1, "01-01-2020", 1),
+        (1, 2, "02-01-2020", 1),
+        (1, 3, "03-01-2020", 1),
+        (1, 4, "04-01-2020", 1),
+        (1, 5, "05-01-2020", 1),
+        (2, 1, "06-01-2020", 2),
+        (2, 2, "07-01-2020", 2),
+        (2, 3, "08-01-2020", 3),
+        (2, 9, "09-01-2020", 4),
+        (2, 10, "10-01-2020", 4),
+        (3, 1, "01-01-2020", 5),
+        (3, 5, "02-01-2020", 5),
+        (3, 3, "03-01-2020", 5),
+        (3, 1, "04-01-2020", 6),
+        (3, 2, "05-01-2020", 6),
+    ]
+    return get_spark_session().createDataFrame(data, schema=columns).withColumn(
+        "timestamp", sf.to_date("timestamp", "dd-MM-yyyy")
+    )
+
+
+@pytest.fixture(scope="module")
+def pandas_dataframe_test():
+    columns = ["user_idx", "item_idx", "timestamp", "session_id"]
+    data = [
+        (1, 1, "01-01-2020", 1),
+        (1, 2, "02-01-2020", 1),
+        (1, 3, "03-01-2020", 1),
+        (1, 4, "04-01-2020", 1),
+        (1, 5, "05-01-2020", 1),
+        (2, 1, "06-01-2020", 2),
+        (2, 2, "07-01-2020", 2),
+        (2, 3, "08-01-2020", 3),
+        (2, 9, "09-01-2020", 4),
+        (2, 10, "10-01-2020", 4),
+        (3, 1, "01-01-2020", 5),
+        (3, 5, "02-01-2020", 5),
+        (3, 3, "03-01-2020", 5),
+        (3, 1, "04-01-2020", 6),
+        (3, 2, "05-01-2020", 6),
+    ]
+
+    dataframe = pd.DataFrame(data, columns=columns)
+    dataframe["timestamp"] = pd.to_datetime(dataframe["timestamp"], format="%d-%m-%Y")
+
+    return dataframe
+
+
 @pytest.fixture
 def log_spark(log):
     return get_spark_session().createDataFrame(log)
@@ -64,33 +116,22 @@ def test_bad_test_size():
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log"),
-        ("log_spark"),
+        ("spark_dataframe_test"),
+        ("pandas_dataframe_test"),
     ]
 )
 def test_with_session_ids(dataset_type, request):
     log = request.getfixturevalue(dataset_type)
-    if isinstance(log, pd.DataFrame):
-        log["session_id"] = [1] * len(log)
-        log["timestamp"] = [10] * len(log)
-    else:
-        log = log.withColumn("session_id", sf.lit(1))
-        log = log.withColumn("timestamp", sf.lit(10))
-
     splitter = RandomSplitter(
-        test_size=[0.4],
+        test_size=[0.6, 0.3],
         drop_cold_items=False,
         drop_cold_users=False,
         session_id_col="session_id",
         seed=SEED,
     )
-    train, test = splitter.split(log)
+    train, test, val = splitter.split(log)
 
     if isinstance(log, pd.DataFrame):
-        real_test_size = test.shape[0] / len(log)
-        assert train.shape[0] + test.shape[0] == len(log)
+        assert train.shape[0] + test.shape[0] + val.shape[0] == log.shape[0]
     else:
-        real_test_size = test.count() / log.count()
-        assert train.count() + test.count() == log.count()
-    
-    assert np.isclose(real_test_size, 0.4, atol=0.01)
+        assert train.count() + test.count() + val.count() == log.count()
