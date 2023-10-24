@@ -80,18 +80,31 @@ class LastNSplitter(Splitter):
     14        3        2 2020-01-05
     <BLANKLINE>
     """
+    _init_arg_names = [
+        "N",
+        "divide_column",
+        "timestamp_col_format",
+        "strategy",
+        "drop_cold_users",
+        "drop_cold_items",
+        "user_col",
+        "item_col",
+        "timestamp_col",
+        "session_id_col",
+        "session_id_processing_strategy",
+    ]
 
     # pylint: disable=invalid-name, too-many-arguments
     def __init__(
         self,
         N: List[int],
-        divide_column: str = "user_id",
+        divide_column: str = "user_idx",
         time_column_format: str = "yyyy-MM-dd HH:mm:ss",
         strategy: StrategyName = "interactions",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
-        user_col: str = "user_id",
-        item_col: str = "item_id",
+        user_col: str = "user_idx",
+        item_col: str = "item_idx",
         timestamp_col: str = "timestamp",
         session_id_col: Optional[str] = None,
         session_id_processing_strategy: str = "test",
@@ -141,6 +154,7 @@ class LastNSplitter(Splitter):
         self.N = list(reversed(N))
         self.strategy = strategy
         self.divide_column = divide_column
+        self.timestamp_col_format = None
         if self.strategy == "seconds":
             self.timestamp_col_format = time_column_format
 

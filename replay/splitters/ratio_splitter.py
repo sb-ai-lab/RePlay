@@ -75,17 +75,30 @@ class RatioSplitter(Splitter):
     14        3        2 2020-01-05
     <BLANKLINE>
     """
+    _init_arg_names = [
+        "ratio",
+        "divide_column",
+        "drop_cold_users",
+        "drop_cold_items",
+        "user_col",
+        "item_col",
+        "timestamp_col",
+        "min_interactions_per_group",
+        "split_by_fraqtions",
+        "session_id_col",
+        "session_id_processing_strategy",
+    ]
 
     # pylint: disable=too-many-arguments
     def __init__(
         self,
         ratio: List[float],
-        divide_column: str = "user_id",
+        divide_column: str = "user_idx",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
-        user_column: str = "user_id",
-        item_column: str = "item_id",
-        time_column: str = "timestamp",
+        user_col: str = "user_idx",
+        item_col: str = "item_idx",
+        timestamp_col: str = "timestamp",
         min_interactions_per_group: Optional[int] = None,
         split_by_fraqtions: bool = True,
         session_id_column: Optional[str] = None,
@@ -99,13 +112,13 @@ class RatioSplitter(Splitter):
             which are not in train DataFrame, default: False.
         :param drop_cold_items: Drop items from test DataFrame
             which are not in train DataFrame, default: False.
-        :param user_column: Name of user interaction column.
+        :param user_col: Name of user interaction column.
             If ``drop_cold_users`` is ``False``, then you can omit this parameter.
             Default: ``user_id``.
-        :param item_column: Name of item interaction column.
+        :param item_col: Name of item interaction column.
             If ``drop_cold_items`` is ``False``, then you can omit this parameter.
             Default: ``item_id``.
-        :param time_column: Name of time column,
+        :param timestamp_col: Name of time column,
             Default: ``timestamp``.
         :param rating_col: Rating column name.
             Default: ``relevance``.
@@ -131,9 +144,9 @@ class RatioSplitter(Splitter):
         super().__init__(
             drop_cold_users=drop_cold_users,
             drop_cold_items=drop_cold_items,
-            user_col=user_column,
-            item_col=item_column,
-            timestamp_col=time_column,
+            user_col=user_col,
+            item_col=item_col,
+            timestamp_col=timestamp_col,
             session_id_col=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy,
         )
