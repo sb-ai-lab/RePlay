@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 
 from replay.utils import State
-from replay.splitters import DateSplitter
+from replay.splitters import TimeSplitter
 from rs_datasets import MovieLens
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -134,8 +134,8 @@ def main():
     indexer.fit(users=log.select("user_id"), items=log.select("item_id"))
     log_replay = indexer.transform(df=only_positives_log)
 
-    train_spl = DateSplitter(
-        test_start=0.2,
+    train_spl = TimeSplitter(
+        test_start=[0.2],
         drop_cold_items=True,
         drop_cold_users=True,
     )

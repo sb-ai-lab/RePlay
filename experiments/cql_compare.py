@@ -20,7 +20,7 @@ from replay.metrics import HitRate, NDCG, MAP, MRR, Coverage, Surprisal
 from replay.utils.model_handler import save, load
 from replay.models import UCB, CQL, Wilson, Recommender, ALSWrap, ItemKNN, LightFMWrap, SLIM
 from replay.utils.session_handler import State, get_spark_session
-from replay.splitters import DateSplitter
+from replay.splitters import TimeSplitter
 from replay.utils import get_log_info
 
 
@@ -124,8 +124,8 @@ def main():
     pos_log = indexer.transform(df=only_positives_log)
 
     # train/test split
-    date_splitter = DateSplitter(
-        test_start=0.2,
+    date_splitter = TimeSplitter(
+        test_start=[0.2],
         drop_cold_items=True,
         drop_cold_users=True,
         drop_zero_rel_in_test=True,
