@@ -92,40 +92,41 @@ class RatioSplitter(Splitter):
         session_id_processing_strategy: str = "test",
     ):
         """
-        Args:
-            ratio (array of float): Array of test size. Sum must be in :math:`(0, 1)`.
-            divide_column (str): Name of column for dividing
-                in dataframe, default: ``user_id``.
-            drop_cold_users (bool): Drop users from test DataFrame
-                which are not in train DataFrame, default: False.
-            drop_cold_items (bool): Drop items from test DataFrame
-                which are not in train DataFrame, default: False.
-            user_column (str): Name of user interaction column.
-                If ``drop_cold_users`` is ``False``, then you can omit this parameter.
-                Default: ``user_id``.
-            item_column (str): Name of item interaction column.
-                If ``drop_cold_items`` is ``False``, then you can omit this parameter.
-                Default: ``item_id``.
-            time_column (str): Name of time column,
-                default: ``timestamp``.
-            min_interactions_per_group (int, optional): minimal required interactions per group to make first split.
-                if value is less than min_interactions_per_group, than whole group goes to train.
-                If not set, than any amount of interactions will be split.
-                default: ``None``.
-            split_by_fraqtions (bool): the variable that is responsible for using the split by fractions.
-                Split by fractions means that each line is marked with its fraq (line number / number of lines)
-                and only those lines with a fraq > test_ratio get into the test.
-                Split not by fractions means that the number of rows in the train is calculated by rounding the formula:
-                the total number of rows minus the number of rows multiplied by the test ratio.
-                The difference between these two methods is that due to rounding in the second method,
-                1 more interaction in each group (1 item for each user) falls into the train.
-                When split by fractions, these items fall into the test.
-                default: ``True``.
-            session_id_column (str, optional): Name of session id column, which values can not be split,
-                default: ``None``.
-            session_id_processing_strategy (str): strategy of processing session if it is split,
-                Values: ``train, test``, train: whole split session goes to train. test: same but to test.
-                default: ``test``.
+        :param ratio: Array of test size. Sum must be in :math:`(0, 1)`.
+        :param divide_column: Name of column for dividing
+            in dataframe, default: ``user_id``.
+        :param drop_cold_users: Drop users from test DataFrame.
+            which are not in train DataFrame, default: False.
+        :param drop_cold_items: Drop items from test DataFrame
+            which are not in train DataFrame, default: False.
+        :param user_column: Name of user interaction column.
+            If ``drop_cold_users`` is ``False``, then you can omit this parameter.
+            Default: ``user_id``.
+        :param item_column: Name of item interaction column.
+            If ``drop_cold_items`` is ``False``, then you can omit this parameter.
+            Default: ``item_id``.
+        :param time_column: Name of time column,
+            Default: ``timestamp``.
+        :param rating_col: Rating column name.
+            Default: ``relevance``.
+        :param min_interactions_per_group: minimal required interactions per group to make first split.
+            if value is less than min_interactions_per_group, than whole group goes to train.
+            If not set, than any amount of interactions will be split.
+            default: ``None``.
+        :param split_by_fraqtions: the variable that is responsible for using the split by fractions.
+            Split by fractions means that each line is marked with its fraq (line number / number of lines)
+            and only those lines with a fraq > test_ratio get into the test.
+            Split not by fractions means that the number of rows in the train is calculated by rounding the formula:
+            the total number of rows minus the number of rows multiplied by the test ratio.
+            The difference between these two methods is that due to rounding in the second method,
+            1 more interaction in each group (1 item for each user) falls into the train.
+            When split by fractions, these items fall into the test.
+            default: ``True``.
+        :param session_id_col: Name of session id column, which values can not be split,
+            default: ``None``.
+        :param session_id_processing_strategy: strategy of processing session if it is split,
+            Values: ``train, test``, train: whole split session goes to train. test: same but to test.
+            default: ``test``.
         """
         super().__init__(
             drop_cold_users=drop_cold_users,
