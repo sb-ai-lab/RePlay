@@ -135,3 +135,33 @@ def test_with_session_ids(dataset_type, request):
         assert train.shape[0] + test.shape[0] + val.shape[0] == log.shape[0]
     else:
         assert train.count() + test.count() + val.count() == log.count()
+
+
+@pytest.mark.parametrize(
+    "dataset_type",
+    [
+        ("log_spark"),
+        ("log"),
+    ]
+)
+def test_with_multiple_splitting(dataset_type, request):
+    log = request.getfixturevalue(dataset_type)
+    splitter = RandomSplitter(
+        test_size=[0.6, 0.3],
+        drop_cold_items=False,
+        drop_cold_users=False,
+        seed=SEED,
+    )
+    train, test, val = splitter.split(log)
+
+    if isinstance(log, pd.DataFrame):
+        real_test_size = test.shape[0] / len(log)
+        real_val_size = val.shape[0] / len(log)
+        assert train.shape[0] + test.shape[0] + val.shape[0] == log.shape[0]
+    else:
+        real_test_size = test.count() / log.count()
+        real_val_size = val.count() / log.count()
+        assert train.count() + test.count() + val.count() == log.count()
+
+    assert np.isclose(real_test_size, 0.3, atol=0.015)
+    assert np.isclose(real_val_size, 0.6, atol=0.015)
