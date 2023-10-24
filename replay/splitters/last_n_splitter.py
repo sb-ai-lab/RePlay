@@ -58,7 +58,14 @@ class LastNSplitter(Splitter):
     12        3        3 2020-01-03
     13        3        1 2020-01-04
     14        3        2 2020-01-05
-    >>> train, test = LastNSplitter(N=[2], time_column_format="yyyy-MM-dd").split(dataset)
+    >>> splitter = LastNSplitter(
+    ...     N=[2],
+    ...     divide_column="user_id",
+    ...     time_column_format="yyyy-MM-dd",
+    ...     user_col="user_id",
+    ...     item_col="item_id"
+    ... )
+    >>> train, test = splitter.split(dataset)
     >>> train
         user_id  item_id  timestamp
     0         1        1 2020-01-01

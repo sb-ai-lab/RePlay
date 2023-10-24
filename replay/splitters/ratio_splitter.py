@@ -53,7 +53,13 @@ class RatioSplitter(Splitter):
     12        3        3 2020-01-03
     13        3        1 2020-01-04
     14        3        2 2020-01-05
-    >>> train, test = RatioSplitter(ratio=[0.5]).split(dataset)
+    >>> splitter = RatioSplitter(
+    ...     ratio=[0.5],
+    ...     divide_column="user_id",
+    ...     user_col="user_id",
+    ...     item_col="item_id"
+    ... )
+    >>> train, test = splitter.split(dataset)
     >>> train
         user_id  item_id  timestamp
     0         1        1 2020-01-01
@@ -114,10 +120,10 @@ class RatioSplitter(Splitter):
             which are not in train DataFrame, default: False.
         :param user_col: Name of user interaction column.
             If ``drop_cold_users`` is ``False``, then you can omit this parameter.
-            Default: ``user_id``.
+            Default: ``user_idx``.
         :param item_col: Name of item interaction column.
             If ``drop_cold_items`` is ``False``, then you can omit this parameter.
-            Default: ``item_id``.
+            Default: ``item_idx``.
         :param timestamp_col: Name of time column,
             Default: ``timestamp``.
         :param rating_col: Rating column name.
