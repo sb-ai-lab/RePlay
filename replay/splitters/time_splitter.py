@@ -77,6 +77,17 @@ class TimeSplitter(Splitter):
     14        3        2 2020-01-05
     <BLANKLINE>
     """
+    _init_arg_names = [
+        "time_threshold",
+        "drop_cold_users",
+        "drop_cold_items",
+        "user_col",
+        "item_col",
+        "timestamp_col",
+        "rating_col",
+        "session_id_col",
+        "session_id_processing_strategy",
+    ]
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -191,10 +202,29 @@ class TimeSplitter(Splitter):
 
         return train, test
 
-    def _core_split(self, log: AnyDataFrame) -> List[AnyDataFrame]:
+    def _core_split_by_proportion(self, log: AnyDataFrame) -> List[AnyDataFrame]:
+        sum_ratio = round(sum(self.time_threshold), self._precision)
+        train, test = self._partial_split(log, sum_ratio)
+
+        res = []
+        for ratio in self.time_threshold:
+            test, test1 = self._partial_split(test, round(ratio / sum_ratio, self._precision))
+            res.append(test1)
+            sum_ratio -= ratio
+
+        return [train] + list(reversed(res))
+
+    def _core_split_by_time_threshold(self, log: AnyDataFrame) -> List[AnyDataFrame]:
         res = []
         for threshold in self.time_threshold:
             train, log = self._partial_split(log, threshold)
             res.append(train)
         res.append(log)
+
         return res
+
+    def _core_split(self, log: AnyDataFrame) -> List[AnyDataFrame]:
+        if isinstance(self.time_threshold[0], float):
+            return self._core_split_by_proportion(log)
+        else:
+            return self._core_split_by_time_threshold(log)
