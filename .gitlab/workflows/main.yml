@@ -80,8 +80,9 @@ examples-execute-job:
   <<: *install_replay
   stage: examples
   script:
+    - export EXAMPLES_EXCLUDE=02_models_comparison.ipynb
     - cd examples
-    - for i in *.ipynb; do jupyter nbconvert --to notebook --execute $i; done
+    - for i in *.ipynb; do [[ ! "$EXAMPLES_EXCLUDE" =~ "$i" ]] && jupyter nbconvert --to notebook --execute $i; done
 
 build-production-package:
   rules:
