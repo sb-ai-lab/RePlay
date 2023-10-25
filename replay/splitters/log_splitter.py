@@ -162,7 +162,7 @@ class NewUsersSplitter(Splitter):
     3         2         1          4         30
     4         3         2          5         10
     5         4         3          6         40
-    >>> train, test = NewUsersSplitter(test_size=0.1).split(data_frame_spark)
+    >>> train, test = NewUsersSplitter(test_size=[0.1]).split(data_frame_spark)
     >>> train.show()
     +--------+--------+---------+---------+
     |user_idx|item_idx|relevance|timestamp|
@@ -184,7 +184,7 @@ class NewUsersSplitter(Splitter):
     Train DataFrame can be drastically reduced even with moderate
     `test_size` if the amount of new users is small.
 
-    >>> train, test = NewUsersSplitter(test_size=0.3).split(data_frame_spark)
+    >>> train, test = NewUsersSplitter(test_size=[0.3]).split(data_frame_spark)
     >>> train.show()
     +--------+--------+---------+---------+
     |user_idx|item_idx|relevance|timestamp|
@@ -209,7 +209,7 @@ class NewUsersSplitter(Splitter):
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        test_size: float,
+        test_size: List[float],
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         user_col: str = "user_idx",
@@ -242,13 +242,21 @@ class NewUsersSplitter(Splitter):
             session_id_processing_strategy=session_id_processing_strategy
         )
         self.test_size = test_size
-        if test_size < 0 or test_size > 1:
-            raise ValueError("test_size must be 0 to 1")
+        self._precision = 3
+        self._sanity_check()
+
+    def _sanity_check(self) -> None:
+        sum_ratio = round(sum(self.test_size), self._precision)
+        if sum_ratio <= 0 or sum_ratio >= 1:
+            raise ValueError(f"sum of `ratio` list must be in (0, 1); sum={sum_ratio}")
 
     def _get_order_of_sort(self) -> list:
         pass
 
-    def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
+    def _core_split_pandas(self, log: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
+        pass
+
+    def _core_split_spark(self, log: SparkDataFrame, threshold: float) -> Union[SparkDataFrame, SparkDataFrame]:
         start_date_by_user = log.groupby(self.user_col).agg(
             sf.min(self.timestamp_col).alias("_start_dt_by_user")
         )
@@ -262,19 +270,22 @@ class NewUsersSplitter(Splitter):
                 .alias("_cum_num_users_to_dt"),
                 sf.sum("_num_users_by_start_date").over(Window.orderBy(sf.lit(1))).alias("total"),
             )
-            .filter(sf.col("_cum_num_users_to_dt") >= sf.col("total") * self.test_size)
+            .filter(sf.col("_cum_num_users_to_dt") >= sf.col("total") * threshold)
             .agg(sf.max("_start_dt_by_user"))
             .head()[0]
         )
 
         train = log.filter(sf.col(self.timestamp_col) < test_start_date)
-
         test = log.join(
             start_date_by_user.filter(sf.col("_start_dt_by_user") >= test_start_date),
             how="inner",
             on=self.user_col,
         ).drop("_start_dt_by_user")
-        return [train, test]
+
+        return train, test
+
+    def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
+        
 
 
 # pylint: disable=too-few-public-methods
@@ -300,7 +311,7 @@ class ColdUserRandomSplitter(Splitter):
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        test_size: float,
+        test_size: List[float],
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         seed: Optional[int] = None,
@@ -336,20 +347,73 @@ class ColdUserRandomSplitter(Splitter):
             session_id_processing_strategy=session_id_processing_strategy
         )
         self.seed = seed
+        self._precision = 3
         self.test_size = test_size
-        if test_size < 0 or test_size > 1:
-            raise ValueError("test_size must be 0 to 1")
+        self._sanity_check()
 
-    def _get_order_of_sort(self) -> list:
+    def _sanity_check(self) -> None:
+        sum_ratio = round(sum(self.test_size), self._precision)
+        if sum_ratio <= 0 or sum_ratio >= 1:
+            raise ValueError(f"sum of `ratio` list must be in (0, 1); sum={sum_ratio}")
+
+    def _get_order_of_sort(self) -> list: # pragma: no cover
         pass
 
-    def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
-        log = convert2spark(log)
+    def _core_split_pandas(self, log: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
+        index_name = log.index.name
+        df = log.reset_index()
+        users = PandasDataFrame(df[self.user_col].unique(), columns=["user_idx"])
+        train_users = users.sample(frac=(1 - threshold), random_state=self.seed)
+        test_users = users.drop(train_users.index)
+
+        train = df.merge(train_users, on=self.user_col, how="inner")
+        test = df.merge(test_users, on=self.user_col, how="inner")
+        train.set_index("index", inplace=True)
+        test.set_index("index", inplace=True)
+
+        train.index.name = index_name
+        test.index.name = index_name
+
+        if self.session_id_col:
+            log["is_test"] = False
+            log.loc[test.index, "is_test"] = True
+            log = self._recalculate_with_session_id_column(log)
+            train = log[~log["is_test"]].drop(columns=["is_test"])
+            test = log[log["is_test"]].drop(columns=["is_test"])
+            log = log.drop(columns=["is_test"])
+
+        return train, test
+
+    def _core_split_spark(self, log: SparkDataFrame, threshold: float) -> Union[SparkDataFrame, SparkDataFrame]:
         users = log.select(self.user_col).distinct()
         train_users, test_users = users.randomSplit(
-            [1 - self.test_size, self.test_size],
+            [1 - threshold, threshold],
             seed=self.seed,
         )
         train = log.join(train_users, on=self.user_col, how="inner")
         test = log.join(test_users, on=self.user_col, how="inner")
-        return [train, test]
+
+        if self.session_id_col:
+            test = test.withColumn("is_test", sf.lit(True))
+            log = log.join(test, on=log.schema.names, how="left").na.fill({"is_test": False})
+            log = self._recalculate_with_session_id_column(log)
+            train = log.filter(~sf.col("is_test")).drop("is_test")
+            test = log.filter(sf.col("is_test")).drop("is_test")
+
+        return train, test
+
+    def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
+        split_method = self._core_split_spark
+        if isinstance(log, PandasDataFrame):
+            split_method = self._core_split_pandas
+
+        sum_ratio = round(sum(self.test_size), self._precision)
+        train, test = split_method(log, sum_ratio)
+
+        res = []
+        for ratio in self.test_size:
+            test, test1 = split_method(test, round(ratio / sum_ratio, self._precision))
+            res.append(test1)
+            sum_ratio -= ratio
+
+        return [train] + list(reversed(res))
