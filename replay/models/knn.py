@@ -8,6 +8,8 @@ from replay.models.extensions.ann.index_builders.base_index_builder import Index
 from replay.models.base_neighbour_rec import NeighbourRec
 from replay.optimization.optuna_objective import ItemKNNObjective
 
+from replay.data import Dataset
+
 
 # pylint: disable=too-many-ancestors
 class ItemKNN(NeighbourRec):
@@ -85,54 +87,54 @@ class ItemKNN(NeighbourRec):
             / (sf.col("norm1") * sf.col("norm2") + shrink),
         ).select("item_idx_one", "item_idx_two", "similarity")
 
-    def _get_similarity(self, log: DataFrame) -> DataFrame:
+    def _get_similarity(self, interactions: DataFrame) -> DataFrame:
         """
         Calculate item similarities
 
-        :param log: DataFrame with interactions, `[user_idx, item_idx, relevance]`
+        :param interactions: DataFrame with interactions, `[user_idx, item_idx, relevance]`
         :return: similarity matrix `[item_idx_one, item_idx_two, similarity]`
         """
-        dot_products = self._get_products(log)
+        dot_products = self._get_products(interactions)
         similarity = self._shrink(dot_products, self.shrink)
         return similarity
 
-    def _reweight_log(self, log: DataFrame):
+    def _reweight_interactions(self, interactions: DataFrame):
         """
         Reweight relevance according to TD-IDF or BM25 weighting.
 
-        :param log: DataFrame with interactions, `[user_idx, item_idx, relevance]`
-        :return: log `[user_idx, item_idx, relevance]`
+        :param interactions: DataFrame with interactions, `[user_idx, item_idx, relevance]`
+        :return: interactions `[user_idx, item_idx, relevance]`
         """
         if self.weighting == "bm25":
-            log = self._get_tf_bm25(log)
+            interactions = self._get_tf_bm25(interactions)
 
-        idf = self._get_idf(log)
+        idf = self._get_idf(interactions)
 
-        log = log.join(idf, how="inner", on="user_idx").withColumn(
-            "relevance",
-            sf.col("relevance") * sf.col("idf"),
+        interactions = interactions.join(idf, how="inner", on=self.query_col).withColumn(
+            self.rating_col,
+            sf.col(self.rating_col) * sf.col("idf"),
         )
 
-        return log
+        return interactions
 
-    def _get_tf_bm25(self, log: DataFrame):
+    def _get_tf_bm25(self, interactions: DataFrame):
         """
         Adjust relevance by BM25 term frequency.
 
-        :param log: DataFrame with interactions, `[user_idx, item_idx, relevance]`
-        :return: log `[user_idx, item_idx, relevance]`
+        :param interactions: DataFrame with interactions, `[user_idx, item_idx, relevance]`
+        :return: interactions `[user_idx, item_idx, relevance]`
         """
-        item_stats = log.groupBy("item_idx").agg(
-            sf.count("user_idx").alias("n_users_per_item")
+        item_stats = interactions.groupBy(self.item_col).agg(
+            sf.count(self.query_col).alias("n_users_per_item")
         )
         avgdl = item_stats.select(sf.mean("n_users_per_item")).take(1)[0][0]
-        log = log.join(item_stats, how="inner", on="item_idx")
+        interactions = interactions.join(item_stats, how="inner", on=self.item_col)
 
-        log = (
-            log.withColumn(
-                "relevance",
-                sf.col("relevance") * (self.bm25_k1 + 1) / (
-                    sf.col("relevance") + self.bm25_k1 * (
+        interactions = (
+            interactions.withColumn(
+                self.rating_col,
+                sf.col(self.rating_col) * (self.bm25_k1 + 1) / (
+                    sf.col(self.rating_col) + self.bm25_k1 * (
                         1 - self.bm25_b + self.bm25_b * (
                             sf.col("n_users_per_item") / avgdl
                         )
@@ -142,18 +144,18 @@ class ItemKNN(NeighbourRec):
             .drop("n_users_per_item")
         )
 
-        return log
+        return interactions
 
-    def _get_idf(self, log: DataFrame):
+    def _get_idf(self, interactions: DataFrame):
         """
         Return inverse document score for log reweighting.
 
-        :param log: DataFrame with interactions, `[user_idx, item_idx, relevance]`
+        :param interactions: DataFrame with interactions, `[user_idx, item_idx, relevance]`
         :return: idf `[idf]`
         :raises: ValueError if self.weighting not in ["tf_idf", "bm25"]
         """
-        df = log.groupBy("user_idx").agg(sf.count("item_idx").alias("DF"))
-        n_items = log.select("item_idx").distinct().count()
+        df = interactions.groupBy(self.query_col).agg(sf.count(self.item_col).alias("DF"))
+        n_items = interactions.select(self.item_col).distinct().count()
 
         if self.weighting == "tf_idf":
             idf = (
@@ -176,42 +178,42 @@ class ItemKNN(NeighbourRec):
 
         return idf
 
-    def _get_products(self, log: DataFrame) -> DataFrame:
+    def _get_products(self, interactions: DataFrame) -> DataFrame:
         """
         Calculate item dot products
 
-        :param log: DataFrame with interactions, `[user_idx, item_idx, relevance]`
+        :param interactions: DataFrame with interactions, `[user_idx, item_idx, relevance]`
         :return: similarity matrix `[item_idx_one, item_idx_two, norm1, norm2]`
         """
         if self.weighting:
-            log = self._reweight_log(log)
+            interactions = self._reweight_interactions(interactions)
 
-        left = log.withColumnRenamed(
-            "item_idx", "item_idx_one"
-        ).withColumnRenamed("relevance", "rel_one")
-        right = log.withColumnRenamed(
-            "item_idx", "item_idx_two"
-        ).withColumnRenamed("relevance", "rel_two")
+        left = interactions.withColumnRenamed(
+            self.item_col, "item_idx_one"
+        ).withColumnRenamed(self.rating_col, "rel_one")
+        right = interactions.withColumnRenamed(
+            self.item_col, "item_idx_two"
+        ).withColumnRenamed(self.rating_col, "rel_two")
 
         dot_products = (
-            left.join(right, how="inner", on="user_idx")
+            left.join(right, how="inner", on=self.query_col)
             .filter(sf.col("item_idx_one") != sf.col("item_idx_two"))
-            .withColumn("relevance", sf.col("rel_one") * sf.col("rel_two"))
+            .withColumn(self.rating_col, sf.col("rel_one") * sf.col("rel_two"))
             .groupBy("item_idx_one", "item_idx_two")
-            .agg(sf.sum("relevance").alias("dot_product"))
+            .agg(sf.sum(self.rating_col).alias("dot_product"))
         )
 
         item_norms = (
-            log.withColumn("relevance", sf.col("relevance") ** 2)
-            .groupBy("item_idx")
-            .agg(sf.sum("relevance").alias("square_norm"))
-            .select(sf.col("item_idx"), sf.sqrt("square_norm").alias("norm"))
+            interactions.withColumn(self.rating_col, sf.col(self.rating_col) ** 2)
+            .groupBy(self.item_col)
+            .agg(sf.sum(self.rating_col).alias("square_norm"))
+            .select(sf.col(self.item_col), sf.sqrt("square_norm").alias("norm"))
         )
         norm1 = item_norms.withColumnRenamed(
-            "item_idx", "item_id1"
+            self.item_col, "item_id1"
         ).withColumnRenamed("norm", "norm1")
         norm2 = item_norms.withColumnRenamed(
-            "item_idx", "item_id2"
+            self.item_col, "item_id2"
         ).withColumnRenamed("norm", "norm2")
 
         dot_products = dot_products.join(
@@ -246,13 +248,11 @@ class ItemKNN(NeighbourRec):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
-        df = log.select("user_idx", "item_idx", "relevance")
+        df = dataset.interactions.select(self.query_col, self.item_col, self.rating_col)
         if not self.use_relevance:
-            df = df.withColumn("relevance", sf.lit(1))
+            df = df.withColumn(self.rating_col, sf.lit(1))
 
         similarity_matrix = self._get_similarity(df)
         self.similarity = self._get_k_most_similar(similarity_matrix)

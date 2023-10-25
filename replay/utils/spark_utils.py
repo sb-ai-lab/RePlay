@@ -14,6 +14,7 @@ from pyspark.sql import SparkSession, Column, DataFrame, Window, functions as sf
 from pyspark.sql.column import _to_java_column, _to_seq
 
 from replay.data import AnyDataFrame, NumType, REC_SCHEMA
+from replay.data.dataset import Dataset
 from replay.utils.session_handler import State
 
 
@@ -138,7 +139,7 @@ def get_top_k(
     )
 
 
-def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "idx") -> DataFrame:
+def get_top_k_recs(recs: DataFrame, k: int, query_col: str, rating_col: str) -> DataFrame:
     """
     Get top k recommendations by `relevance`.
 
@@ -150,8 +151,8 @@ def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "idx") -> DataFrame:
     """
     return get_top_k(
         dataframe=recs,
-        partition_by_col=sf.col(f"user_{id_type}"),
-        order_by_col=[sf.col("relevance").desc()],
+        partition_by_col=sf.col(query_col),
+        order_by_col=[sf.col(rating_col).desc()],
         k=k,
     )
 

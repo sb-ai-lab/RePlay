@@ -10,6 +10,7 @@ from replay.utils.spark_utils import (
     filter_cold,
     return_recs,
 )
+from replay.data import Dataset
 
 
 class CatPopRec(IsSavable, RecommenderCommons):
@@ -116,7 +117,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
             "leaf_cat_mapping": self.leaf_cat_mapping,
         }
 
-    def fit(self, log: DataFrame) -> None:
+    def fit(self, dataset: Dataset) -> None:
         """
         Fit a recommendation model
 
@@ -128,22 +129,27 @@ class CatPopRec(IsSavable, RecommenderCommons):
             of interactions with the item and the `relevance` values are summed.
         """
         self.logger.debug("Starting fit %s", type(self).__name__)
-        self.fit_items = sf.broadcast(log.select("item_idx").distinct())
+        self.query_col = dataset.feature_schema.query_id_column
+        self.item_col = dataset.feature_schema.item_id_column
+        self.rating_col = dataset.feature_schema.interactions_rating_column
+        self.timestamp_col = dataset.feature_schema.interactions_timestamp_column
+
+        self.fit_items = sf.broadcast(dataset.interactions.select(self.item_col).distinct())
         self._fit(
-            log=log,
+            interactions=dataset.interactions,
         )
 
     def _fit(
         self,
-        log: DataFrame,
+        interactions: DataFrame,
     ) -> None:
-        if "relevance" in log.columns:
-            self.cat_item_popularity = log.groupBy("category", "item_idx").agg(
-                sf.sum("relevance").alias("relevance")
+        if self.rating_col in interactions.columns:
+            self.cat_item_popularity = interactions.groupBy("category", self.item_col).agg(
+                sf.sum(self.rating_col).alias(self.rating_col)
             )
         else:
-            self.cat_item_popularity = log.groupBy("category", "item_idx").agg(
-                sf.count("item_idx").alias("relevance")
+            self.cat_item_popularity = interactions.groupBy("category", self.item_col).agg(
+                sf.count(self.item_col).alias(self.rating_col)
             )
 
         self.cat_item_popularity.cache()
@@ -207,10 +213,10 @@ class CatPopRec(IsSavable, RecommenderCommons):
 
         categories = get_unique_entities(categories, "category")
         item_data = items or self.fit_items
-        items = get_unique_entities(item_data, "item_idx")
+        items = get_unique_entities(item_data, self.item_col)
 
         num_new, items = filter_cold(
-            items, self.fit_items, col_name="item_idx"
+            items, self.fit_items, col_name=self.item_col
         )
         if num_new > 0:
             self.logger.info(
@@ -233,10 +239,10 @@ class CatPopRec(IsSavable, RecommenderCommons):
             k=k,
             partition_by_col=sf.col("category"),
             order_by_col=[
-                sf.col("relevance").desc(),
-                sf.col("item_idx").desc(),
+                sf.col(self.rating_col).desc(),
+                sf.col(self.item_col).desc(),
             ],
-        ).select("category", "item_idx", "relevance")
+        ).select("category", self.item_col, self.rating_col)
 
         return return_recs(recs, recs_file_path)
 
@@ -251,14 +257,14 @@ class CatPopRec(IsSavable, RecommenderCommons):
         unique_leaf_cat_items = (
             self.cat_item_popularity.withColumnRenamed("category", "leaf_cat")
             .join(sf.broadcast(unique_leaf_cats), on="leaf_cat")
-            .join(sf.broadcast(items), on="item_idx")
+            .join(sf.broadcast(items), on=self.item_col)
         )
 
         # find number of interactions in all leaf categories after filtering
         num_interactions_in_cat = (
             res.join(
                 unique_leaf_cat_items.groupBy("leaf_cat").agg(
-                    sf.sum("relevance").alias("sum_relevance")
+                    sf.sum(self.rating_col).alias("sum_relevance")
                 ),
                 on="leaf_cat",
             )
@@ -271,10 +277,10 @@ class CatPopRec(IsSavable, RecommenderCommons):
         # divided by the number of interactions in all leaf categories of a category
         return (
             unique_leaf_cat_items.join(res, on="leaf_cat")
-            .groupBy("category", "item_idx")
-            .agg(sf.sum("relevance").alias("relevance"))
+            .groupBy("category", self.item_col)
+            .agg(sf.sum(self.rating_col).alias(self.rating_col))
             .join(num_interactions_in_cat, on="category")
             .withColumn(
-                "relevance", sf.col("relevance") / sf.col("sum_relevance")
+                self.rating_col, sf.col(self.rating_col) / sf.col("sum_relevance")
             )
         )

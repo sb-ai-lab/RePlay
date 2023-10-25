@@ -3,6 +3,7 @@ from typing import Optional
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from scipy.stats import norm
+from replay.data import Dataset
 
 from replay.models.pop_rec import PopRec
 
@@ -74,21 +75,19 @@ class Wilson(PopRec):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
 
-        self._check_relevance(log)
+        self._check_relevance(dataset)
 
-        items_counts = log.groupby("item_idx").agg(
-            sf.sum("relevance").alias("pos"),
-            sf.count("relevance").alias("total"),
+        items_counts = dataset.interactions.groupby(self.item_col).agg(
+            sf.sum(self.rating_col).alias("pos"),
+            sf.count(self.rating_col).alias("total"),
         )
         # https://en.wikipedia.org/w/index.php?title=Binomial_proportion_confidence_interval
         crit = norm.isf(self.alpha / 2.0)
         items_counts = items_counts.withColumn(
-            "relevance",
+            self.rating_col,
             (sf.col("pos") + sf.lit(0.5 * crit**2))
             / (sf.col("total") + sf.lit(crit**2))
             - sf.lit(crit)
@@ -103,4 +102,4 @@ class Wilson(PopRec):
 
         self.item_popularity = items_counts.drop("pos", "total")
         self.item_popularity.cache().count()
-        self.fill = self._calc_fill(self.item_popularity, self.cold_weight)
+        self.fill = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_col)

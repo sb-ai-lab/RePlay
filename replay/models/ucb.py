@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
+from replay.data.dataset import Dataset
 
 from replay.metrics import Metric, NDCG
 from replay.models.base_rec import NonPersonalizedRecommender
@@ -114,26 +115,24 @@ class UCB(NonPersonalizedRecommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
 
-        self._check_relevance(log)
+        self._check_relevance(dataset)
 
         # we save this dataframe for the refit() method
-        self.items_counts_aggr = log.groupby("item_idx").agg(
-            sf.sum("relevance").alias("pos"),
-            sf.count("relevance").alias("total"),
+        self.items_counts_aggr = dataset.interactions.groupby(self.item_col).agg(
+            sf.sum(self.rating_col).alias("pos"),
+            sf.count(self.rating_col).alias("total"),
         )
         # we save this variable for the refit() method
-        self.full_count = log.count()
+        self.full_count = dataset.interactions.count()
 
         self._calc_item_popularity()
 
     def refit(
         self,
-        log: DataFrame,
+        dataset: Dataset,
     ) -> None:
         """Iteratively refit with new part of log.
 
@@ -142,31 +141,31 @@ class UCB(NonPersonalizedRecommender):
         :return:
         """
 
-        self._check_relevance(log)
+        self._check_relevance(dataset)
 
         # aggregate new log part
-        items_counts_aggr = log.groupby("item_idx").agg(
-            sf.sum("relevance").alias("pos"),
-            sf.count("relevance").alias("total"),
+        items_counts_aggr = dataset.interactions.groupby(self.item_col).agg(
+            sf.sum(self.rating_col).alias("pos"),
+            sf.count(self.rating_col).alias("total"),
         )
         # combine old and new aggregations and aggregate
         self.items_counts_aggr = (
             self.items_counts_aggr.union(items_counts_aggr)
-            .groupby("item_idx")
+            .groupby(self.item_col)
             .agg(
                 sf.sum("pos").alias("pos"),
                 sf.sum("total").alias("total"),
             )
         )
         # sum old and new log lengths
-        self.full_count += log.count()
+        self.full_count += dataset.interactions.count()
 
         self._calc_item_popularity()
 
     def _calc_item_popularity(self):
 
         items_counts = self.items_counts_aggr.withColumn(
-            "relevance",
+            self.rating_col,
             (
                 sf.col("pos") / sf.col("total")
                 + sf.sqrt(

@@ -5,6 +5,7 @@ import pyspark.sql.functions as sf
 from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.sql import DataFrame
 from pyspark.sql.types import DoubleType
+from replay.data import Dataset
 
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.utils.spark_utils import list_to_vector_udf
@@ -64,26 +65,24 @@ class ALSWrap(Recommender, ItemVectorModel):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
         if self._num_item_blocks is None:
-            self._num_item_blocks = log.rdd.getNumPartitions()
+            self._num_item_blocks = dataset.interactions.rdd.getNumPartitions()
         if self._num_user_blocks is None:
-            self._num_user_blocks = log.rdd.getNumPartitions()
+            self._num_user_blocks = dataset.interactions.rdd.getNumPartitions()
 
         self.model = ALS(
             rank=self.rank,
             numItemBlocks=self._num_item_blocks,
             numUserBlocks=self._num_user_blocks,
-            userCol="user_idx",
-            itemCol="item_idx",
-            ratingCol="relevance",
+            userCol=self.query_col,
+            itemCol=self.item_col,
+            ratingCol=self.rating_col,
             implicitPrefs=self.implicit_prefs,
             seed=self._seed,
             coldStartStrategy="drop",
-        ).fit(log)
+        ).fit(dataset.interactions)
         self.model.itemFactors.cache()
         self.model.userFactors.cache()
         self.model.itemFactors.count()
@@ -97,25 +96,23 @@ class ALSWrap(Recommender, ItemVectorModel):
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: Optional[DataFrame],
+        dataset: Optional[Dataset],
         k: int,
         users: DataFrame,
         items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
 
         if (items.count() == self.fit_items.count()) and (
-            items.join(self.fit_items, on="item_idx", how="inner").count()
+            items.join(self.fit_items, on=self.item_col, how="inner").count()
             == self.fit_items.count()
         ):
             max_seen = 0
-            if filter_seen_items and log is not None:
+            if filter_seen_items and dataset.interactions is not None:
                 max_seen_in_log = (
-                    log.join(users, on="user_idx")
-                    .groupBy("user_idx")
-                    .agg(sf.count("user_idx").alias("num_seen"))
+                    dataset.interactions.join(users, on=self.query_col)
+                    .groupBy(self.query_col)
+                    .agg(sf.count(self.query_col).alias("num_seen"))
                     .select(sf.max("num_seen"))
                     .collect()[0][0]
                 )
@@ -126,47 +123,47 @@ class ALSWrap(Recommender, ItemVectorModel):
                 recs_als.withColumn(
                     "recommendations", sf.explode("recommendations")
                 )
-                .withColumn("item_idx", sf.col("recommendations.item_idx"))
+                .withColumn(self.item_col, sf.col(f"recommendations.{self.item_col}"))
                 .withColumn(
-                    "relevance",
-                    sf.col("recommendations.rating").cast(DoubleType()),
+                    self.rating_col,
+                    sf.col(f"recommendations.{self.rating_col}").cast(DoubleType()),
                 )
-                .select("user_idx", "item_idx", "relevance")
+                .select(self.query_col, self.item_col, self.rating_col)
             )
 
         return self._predict_pairs(
-            pairs=users.crossJoin(items).withColumn("relevance", sf.lit(1)),
-            log=log,
+            pairs=users.crossJoin(items).withColumn(self.rating_col, sf.lit(1)),
+            dataset=dataset,
         )
 
     def _predict_pairs(
         self,
         pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Optional[Dataset] = None,
     ) -> DataFrame:
         return (
             self.model.transform(pairs)
-            .withColumn("relevance", sf.col("prediction").cast(DoubleType()))
+            .withColumn(self.rating_col, sf.col("prediction").cast(DoubleType()))
             .drop("prediction")
         )
 
     def _get_features(
         self, ids: DataFrame, features: Optional[DataFrame]
     ) -> Tuple[Optional[DataFrame], Optional[int]]:
-        entity = "user" if "user_idx" in ids.columns else "item"
+        entity = "user" if self.query_col in ids.columns else "item"
+        entity_col = self.query_col if self.query_col in ids.columns else self.item_col
+
         als_factors = getattr(self.model, f"{entity}Factors")
         als_factors = als_factors.withColumnRenamed(
-            "id", f"{entity}_idx"
+            "id", entity_col
         ).withColumnRenamed("features", f"{entity}_factors")
         return (
-            als_factors.join(ids, how="right", on=f"{entity}_idx"),
+            als_factors.join(ids, how="right", on=entity_col),
             self.model.rank,
         )
 
     def _get_item_vectors(self):
         return self.model.itemFactors.select(
-            sf.col("id").alias("item_idx"),
+            sf.col("id").alias(self.item_col),
             list_to_vector_udf(sf.col("features")).alias("item_vector"),
         )

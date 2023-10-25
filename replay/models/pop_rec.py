@@ -2,6 +2,7 @@ from typing import Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
+from replay.data.dataset import Dataset
 
 from replay.models.base_rec import NonPersonalizedRecommender
 
@@ -97,22 +98,20 @@ class PopRec(NonPersonalizedRecommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
 
-        agg_func = sf.countDistinct("user_idx").alias("relevance")
+        agg_func = sf.countDistinct(self.query_col).alias(self.rating_col)
         if self.use_relevance:
-            agg_func = sf.sum("relevance").alias("relevance")
+            agg_func = sf.sum(self.rating_col).alias(self.rating_col)
 
         self.item_popularity = (
-            log.groupBy("item_idx")
+            dataset.interactions.groupBy(self.item_col)
             .agg(agg_func)
             .withColumn(
-                "relevance", sf.col("relevance") / sf.lit(self.users_count)
+                self.rating_col, sf.col(self.rating_col) / sf.lit(self.users_count)
             )
         )
 
         self.item_popularity.cache().count()
-        self.fill = self._calc_fill(self.item_popularity, self.cold_weight)
+        self.fill = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_col)

@@ -5,6 +5,7 @@ from pyspark.sql.types import (
     StructType,
     TimestampType,
 )
+from replay.data.dataset import Dataset
 
 
 LOG_SCHEMA = StructType(
@@ -18,8 +19,8 @@ LOG_SCHEMA = StructType(
 
 REC_SCHEMA = StructType(
     [
-        StructField("user_idx", IntegerType()),
-        StructField("item_idx", IntegerType()),
+        StructField("user_id", IntegerType()),
+        StructField("item_id", IntegerType()),
         StructField("relevance", DoubleType()),
     ]
 )
@@ -30,4 +31,14 @@ BASE_SCHEMA = StructType(
         StructField("user_idx", IntegerType()),
         StructField("item_idx", IntegerType()),
     ]
+)
+
+
+def get_rec_schema(dataset: Dataset):
+    return StructType(
+        [
+            StructField(dataset.feature_schema.query_id_column, IntegerType()),
+            StructField(dataset.feature_schema.item_id_column, IntegerType()),
+            StructField(dataset.feature_schema.interactions_rating_column, DoubleType()),
+        ]
 )

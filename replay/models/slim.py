@@ -11,6 +11,8 @@ from replay.models.extensions.ann.index_builders.base_index_builder import Index
 from replay.models.base_neighbour_rec import NeighbourRec
 from replay.utils.session_handler import State
 
+from replay.data import Dataset
+
 
 # pylint: disable=too-many-ancestors
 class SLIM(NeighbourRec):
@@ -70,19 +72,17 @@ class SLIM(NeighbourRec):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
-        pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
+        pandas_log = dataset.interactions.select(self.query_col, self.item_col, self.rating_col).toPandas()
 
         interactions_matrix = csc_matrix(
-            (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
+            (pandas_log[self.rating_col], (pandas_log[self.query_col], pandas_log[self.item_col])),
             shape=(self._user_dim, self._item_dim),
         )
         similarity = (
             State()
-            .session.createDataFrame(pandas_log.item_idx, st.IntegerType())
+            .session.createDataFrame(pandas_log[self.item_col], st.IntegerType())
             .withColumnRenamed("value", "item_idx_one")
         )
 

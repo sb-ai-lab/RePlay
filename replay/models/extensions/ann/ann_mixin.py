@@ -1,6 +1,7 @@
 import importlib
 import logging
 from abc import abstractmethod
+from struct import unpack_from
 from typing import Optional, Dict, Any, Union, Iterable
 
 from pyspark.sql import DataFrame
@@ -12,6 +13,7 @@ from replay.models.extensions.ann.index_stores.spark_files_index_store import (
 )
 from replay.models.base_rec import BaseRecommender
 from replay.utils.spark_utils import get_top_k_recs, return_recs
+from replay.data import Dataset
 
 logger = logging.getLogger("replay")
 
@@ -35,7 +37,7 @@ class ANNMixin(BaseRecommender):
         return self.index_builder is not None
 
     @abstractmethod
-    def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
+    def _get_vectors_to_build_ann(self, interactions: DataFrame) -> DataFrame:
         """Implementations of this method must return a dataframe with item vectors.
         Item vectors from this method are used to build the index.
 
@@ -47,7 +49,7 @@ class ANNMixin(BaseRecommender):
         """
 
     @abstractmethod
-    def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
+    def _get_ann_build_params(self, interactions: DataFrame) -> Dict[str, Any]:
         """Implementation of this method must return dictionary
         with arguments for `_build_ann_index` method.
 
@@ -64,9 +66,7 @@ class ANNMixin(BaseRecommender):
 
     def _fit_wrap(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
         """Wrapper extends `_fit_wrap`, adds construction of ANN index by flag.
 
@@ -79,16 +79,16 @@ class ANNMixin(BaseRecommender):
                 ``[item_idx, timestamp]`` + feature columns
 
         """
-        super()._fit_wrap(log, user_features, item_features)
+        super()._fit_wrap(dataset)
 
         if self._use_ann:
-            vectors = self._get_vectors_to_build_ann(log)
-            ann_params = self._get_ann_build_params(log)
+            vectors = self._get_vectors_to_build_ann(dataset.interactions)
+            ann_params = self._get_ann_build_params(dataset.interactions)
             self.index_builder.build_index(vectors, **ann_params)
 
     @abstractmethod
     def _get_vectors_to_infer_ann_inner(
-        self, log: DataFrame, users: DataFrame
+        self, interactions: DataFrame, users: DataFrame
     ) -> DataFrame:
         """Implementations of this method must return a dataframe with user vectors.
         User vectors from this method are used to infer the index.
@@ -102,7 +102,7 @@ class ANNMixin(BaseRecommender):
         """
 
     def _get_vectors_to_infer_ann(
-        self, log: DataFrame, users: DataFrame, filter_seen_items: bool
+        self, interactions: DataFrame, users: DataFrame, filter_seen_items: bool
     ) -> DataFrame:
         """This method wraps `_get_vectors_to_infer_ann_inner`
         and adds seen items to dataframe with user vectors by flag.
@@ -115,15 +115,15 @@ class ANNMixin(BaseRecommender):
         Returns:
 
         """
-        users = self._get_vectors_to_infer_ann_inner(log, users)
+        users = self._get_vectors_to_infer_ann_inner(interactions, users)
 
         # here we add `seen_item_idxs` to filter the viewed items in UDFs (see infer_index_udf)
         if filter_seen_items:
-            user_to_max_items = log.groupBy("user_idx").agg(
-                sf.count("item_idx").alias("num_items"),
-                sf.collect_set("item_idx").alias("seen_item_idxs"),
+            user_to_max_items = interactions.groupBy(self.query_col).agg(
+                sf.count(self.item_col).alias("num_items"),
+                sf.collect_set(self.item_col).alias("seen_item_idxs"),
             )
-            users = users.join(user_to_max_items, on="user_idx")
+            users = users.join(user_to_max_items, on=self.query_col)
 
         return users
 
@@ -142,43 +142,39 @@ class ANNMixin(BaseRecommender):
     # pylint: disable=too-many-arguments, too-many-locals
     def _predict_wrap(
         self,
-        log: Optional[DataFrame],
+        dataset: Optional[Dataset],
         k: int,
         users: Optional[Union[DataFrame, Iterable]] = None,
         items: Optional[Union[DataFrame, Iterable]] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
     ) -> Optional[DataFrame]:
-        log, users, items = self._filter_log_users_items_dataframes(
-            log, k, users, items
+        dataset, users, items = self._filter_log_users_items_dataframes(
+            dataset, k, users, items
         )
 
         if self._use_ann:
             vectors = self._get_vectors_to_infer_ann(
-                log, users, filter_seen_items
+                dataset.interactions, users, filter_seen_items
             )
             ann_params = self._get_ann_infer_params()
             inferer = self.index_builder.produce_inferer(filter_seen_items)
             recs = inferer.infer(vectors, ann_params["features_col"], k)
         else:
             recs = self._predict(
-                log,
+                dataset,
                 k,
                 users,
                 items,
-                user_features,
-                item_features,
                 filter_seen_items,
             )
 
         if not self._use_ann:
-            if filter_seen_items and log:
-                recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
+            if filter_seen_items and dataset.interactions:
+                recs = self._filter_seen(recs=recs, interactions=dataset.interactions, users=users, k=k)
 
-            recs = get_top_k_recs(recs, k=k).select(
-                "user_idx", "item_idx", "relevance"
+            recs = get_top_k_recs(recs, k=k, query_col=self.query_col, rating_col=self.rating_col).select(
+                self.query_col, self.item_col, self.rating_col
             )
 
         output = return_recs(recs, recs_file_path)

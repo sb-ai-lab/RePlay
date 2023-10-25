@@ -16,6 +16,7 @@ from typing import (
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.column import Column
+from replay.data.dataset import Dataset
 
 from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.models.base_rec import Recommender
@@ -59,7 +60,7 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
 
     def _predict_pairs_inner(
         self,
-        log: DataFrame,
+        interactions: DataFrame,
         filter_df: DataFrame,
         condition: Column,
         users: DataFrame,
@@ -77,44 +78,42 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         :param users: users to calculate recommendations for
         :return: DataFrame ``[user_idx, item_idx, relevance]``
         """
-        if log is None:
+        if interactions is None:
             raise ValueError(
                 "log is not provided, but it is required for prediction"
             )
 
         recs = (
-            log.join(users, how="inner", on="user_idx")
+            interactions.join(users, how="inner", on=self.query_col)
             .join(
                 self.similarity,
                 how="inner",
-                on=sf.col("item_idx") == sf.col("item_idx_one"),
+                on=sf.col(self.item_col) == sf.col("item_idx_one"),
             )
             .join(
                 filter_df,
                 how="inner",
                 on=condition,
             )
-            .groupby("user_idx", "item_idx_two")
-            .agg(sf.sum(self.similarity_metric).alias("relevance"))
-            .withColumnRenamed("item_idx_two", "item_idx")
+            .groupby(self.query_col, "item_idx_two")
+            .agg(sf.sum(self.similarity_metric).alias(self.rating_col))
+            .withColumnRenamed("item_idx_two", self.item_col)
         )
         return recs
 
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
         users: DataFrame,
         items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
 
         return self._predict_pairs_inner(
-            log=log,
-            filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
+            interactions=dataset.interactions,
+            filter_df=items.withColumnRenamed(self.item_col, "item_idx_filter"),
             condition=sf.col("item_idx_two") == sf.col("item_idx_filter"),
             users=users,
         )
@@ -122,26 +121,24 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
     def _predict_pairs(
         self,
         pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Optional[Dataset] = None,
     ) -> DataFrame:
 
-        if log is None:
+        if dataset is None:
             raise ValueError(
-                "log is not provided, but it is required for prediction"
+                "interactions is not provided, but it is required for prediction"
             )
 
         return self._predict_pairs_inner(
-            log=log,
+            interactions=dataset.interactions,
             filter_df=(
                 pairs.withColumnRenamed(
-                    "user_idx", "user_idx_filter"
-                ).withColumnRenamed("item_idx", "item_idx_filter")
+                    self.query_col, "user_idx_filter"
+                ).withColumnRenamed(self.item_col, "item_idx_filter")
             ),
-            condition=(sf.col("user_idx") == sf.col("user_idx_filter"))
+            condition=(sf.col(self.query_col) == sf.col("user_idx_filter"))
             & (sf.col("item_idx_two") == sf.col("item_idx_filter")),
-            users=pairs.select("user_idx").distinct(),
+            users=pairs.select(self.query_col).distinct(),
         )
 
     def get_nearest_items(
@@ -187,13 +184,13 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
     ) -> DataFrame:
 
         similarity_filtered = self.similarity.join(
-            items.withColumnRenamed("item_idx", "item_idx_one"),
+            items.withColumnRenamed(self.item_col, "item_idx_one"),
             on="item_idx_one",
         )
 
         if candidates is not None:
             similarity_filtered = similarity_filtered.join(
-                candidates.withColumnRenamed("item_idx", "item_idx_two"),
+                candidates.withColumnRenamed(self.item_col, "item_idx_two"),
                 on="item_idx_two",
             )
 
@@ -203,25 +200,25 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
             "similarity" if metric is None else metric,
         )
 
-    def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
-        self.index_builder.index_params.items_count = log.select(sf.max("item_idx")).first()[0] + 1
+    def _get_ann_build_params(self, interactions: DataFrame) -> Dict[str, Any]:
+        self.index_builder.index_params.items_count = interactions.select(sf.max(self.item_col)).first()[0] + 1
         return {
             "features_col": None,
         }
 
-    def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
+    def _get_vectors_to_build_ann(self, interactions: DataFrame) -> DataFrame:
         similarity_df = self.similarity.select(
             "similarity", "item_idx_one", "item_idx_two"
         )
         return similarity_df
 
     def _get_vectors_to_infer_ann_inner(
-            self, log: DataFrame, users: DataFrame
+            self, interactions: DataFrame, users: DataFrame
     ) -> DataFrame:
 
         user_vectors = (
-            log.groupBy("user_idx").agg(
-                sf.collect_list("item_idx").alias("vector_items"),
-                sf.collect_list("relevance").alias("vector_relevances"))
+            interactions.groupBy(self.query_col).agg(
+                sf.collect_list(self.item_col).alias("vector_items"),
+                sf.collect_list(self.rating_col).alias("vector_relevances"))
         )
         return user_vectors

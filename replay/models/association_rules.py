@@ -4,6 +4,7 @@ import numpy as np
 import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
+from replay.data import Dataset
 
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_neighbour_rec import NeighbourRec
@@ -118,7 +119,7 @@ class AssociationRulesItemRec(NeighbourRec):
         """
 
         self.session_col = (
-            session_col if session_col is not None else "user_idx"
+            session_col if session_col is not None else self.query_col
         )
         self.min_item_count = min_item_count
         self.min_pair_count = min_pair_count
@@ -143,48 +144,46 @@ class AssociationRulesItemRec(NeighbourRec):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
         """
         1) Filter log items by ``min_item_count`` threshold
         2) Calculate items support, pairs confidence, lift and confidence_gain defined as
             confidence(a, b)/confidence(!a, b).
         """
-        log = (
-            log.withColumn(
-                "relevance",
-                sf.col("relevance") if self.use_relevance else sf.lit(1),
+        interactions = (
+            dataset.interactions.withColumn(
+                self.rating_col,
+                sf.col(self.rating_col) if self.use_relevance else sf.lit(1),
             )
-            .select(self.session_col, "item_idx", "relevance")
+            .select(self.session_col, self.item_col, self.rating_col)
             .distinct()
         )
-        num_sessions = log.select(self.session_col).distinct().count()
+        num_sessions = interactions.select(self.session_col).distinct().count()
 
         frequent_items_cached = (
-            log.groupBy("item_idx")
+            interactions.groupBy(self.item_col)
             .agg(
-                sf.count("item_idx").alias("item_count"),
-                sf.sum("relevance").alias("item_relevance"),
+                sf.count(self.item_col).alias("item_count"),
+                sf.sum(self.rating_col).alias("item_relevance"),
             )
             .filter(sf.col("item_count") >= self.min_item_count)
             .drop("item_count")
         ).cache()
 
-        frequent_items_log = log.join(
-            frequent_items_cached.select("item_idx"), on="item_idx"
+        frequent_items_log = interactions.join(
+            frequent_items_cached.select(self.item_col), on=self.item_col
         )
 
         frequent_item_pairs = (
-            frequent_items_log.withColumnRenamed("item_idx", "antecedent")
-            .withColumnRenamed("relevance", "antecedent_rel")
+            frequent_items_log.withColumnRenamed(self.item_col, "antecedent")
+            .withColumnRenamed(self.rating_col, "antecedent_rel")
             .join(
                 frequent_items_log.withColumnRenamed(
                     self.session_col, self.session_col + "_cons"
                 )
-                .withColumnRenamed("item_idx", "consequent")
-                .withColumnRenamed("relevance", "consequent_rel"),
+                .withColumnRenamed(self.item_col, "consequent")
+                .withColumnRenamed(self.rating_col, "consequent_rel"),
                 on=[
                     sf.col(self.session_col)
                     == sf.col(self.session_col + "_cons"),
@@ -193,7 +192,7 @@ class AssociationRulesItemRec(NeighbourRec):
             )
             # taking minimal relevance of item for pair
             .withColumn(
-                "relevance",
+                self.rating_col,
                 sf.least(sf.col("consequent_rel"), sf.col("antecedent_rel")),
             )
             .drop(
@@ -205,7 +204,7 @@ class AssociationRulesItemRec(NeighbourRec):
             frequent_item_pairs.groupBy("antecedent", "consequent")
             .agg(
                 sf.count("consequent").alias("pair_count"),
-                sf.sum("relevance").alias("pair_relevance"),
+                sf.sum(self.rating_col).alias("pair_relevance"),
             )
             .filter(sf.col("pair_count") >= self.min_pair_count)
         ).drop("pair_count")
@@ -222,15 +221,15 @@ class AssociationRulesItemRec(NeighbourRec):
             frequent_items_cached.withColumnRenamed(
                 "item_relevance", "antecedent_relevance"
             ),
-            on=[sf.col("antecedent") == sf.col("item_idx")],
-        ).drop("item_idx")
+            on=[sf.col("antecedent") == sf.col(self.item_col)],
+        ).drop(self.item_col)
 
         pairs_metrics = pairs_metrics.join(
             frequent_items_cached.withColumnRenamed(
                 "item_relevance", "consequent_relevance"
             ),
-            on=[sf.col("consequent") == sf.col("item_idx")],
-        ).drop("item_idx")
+            on=[sf.col("consequent") == sf.col(self.item_col)],
+        ).drop(self.item_col)
 
         pairs_metrics = pairs_metrics.withColumn(
             "confidence",
@@ -337,13 +336,13 @@ class AssociationRulesItemRec(NeighbourRec):
         if candidates is not None:
             pairs_to_consider = self.similarity.join(
                 sf.broadcast(
-                    candidates.withColumnRenamed("item_idx", "item_idx_two")
+                    candidates.withColumnRenamed(self.item_col, "item_idx_two")
                 ),
                 on="item_idx_two",
             )
 
         return pairs_to_consider.join(
-            sf.broadcast(items.withColumnRenamed("item_idx", "item_idx_one")),
+            sf.broadcast(items.withColumnRenamed(self.item_col, "item_idx_one")),
             on="item_idx_one",
         )
 

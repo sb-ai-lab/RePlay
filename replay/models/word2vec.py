@@ -11,6 +11,7 @@ from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.utils.spark_utils import vector_dot, multiply_scala_udf, join_with_col_renaming
+from replay.data import Dataset
 
 
 # pylint: disable=too-many-instance-attributes, too-many-ancestors
@@ -29,25 +30,25 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         user_vectors = self._get_user_vectors(users, log)
         # converts to pandas_udf compatible format
         user_vectors = user_vectors.select(
-            "user_idx", vector_to_array("user_vector").alias("user_vector")
+            self.query_col, vector_to_array("user_vector").alias("user_vector")
         )
         return user_vectors
 
     def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
         self.index_builder.index_params.dim = self.rank
-        self.index_builder.index_params.max_elements = log.select("item_idx").distinct().count()
+        self.index_builder.index_params.max_elements = log.select(self.item_col).distinct().count()
         self.logger.debug("index 'num_elements' = %s", self.num_elements)
         return {
             "features_col": "item_vector",
-            "ids_col": "item_idx"
+            "ids_col": self.item_col
         }
 
-    def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
+    def _get_vectors_to_build_ann(self, interactions: DataFrame) -> DataFrame:
         item_vectors = self._get_item_vectors()
         item_vectors = (
             item_vectors
             .select(
-                "item_idx",
+                self.item_col,
                 vector_to_array("item_vector").alias("item_vector")
             )
         )
@@ -135,34 +136,32 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
         self.idf = (
-            log.groupBy("item_idx")
-            .agg(sf.countDistinct("user_idx").alias("count"))
+            dataset.interactions.groupBy(self.item_col)
+            .agg(sf.countDistinct(self.query_col).alias("count"))
             .withColumn(
                 "idf",
                 sf.log(sf.lit(self.users_count) / sf.col("count"))
                 if self.use_idf
                 else sf.lit(1.0),
             )
-            .select("item_idx", "idf")
+            .select(self.item_col, "idf")
         )
         self.idf.cache().count()
 
         log_by_users = (
-            log.groupBy("user_idx")
+            dataset.interactions.groupBy(self.query_col)
             .agg(
-                sf.collect_list(sf.struct("timestamp", "item_idx")).alias(
+                sf.collect_list(sf.struct(self.timestamp_col, self.item_col)).alias(
                     "ts_item_idx"
                 )
             )
             .withColumn("ts_item_idx", sf.array_sort("ts_item_idx"))
             .withColumn(
                 "items",
-                sf.col("ts_item_idx.item_idx").cast(
+                sf.col(f"ts_item_idx.{self.item_col}").cast(
                     st.ArrayType(st.StringType())
                 ),
             )
@@ -204,7 +203,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
     def _get_user_vectors(
         self,
         users: DataFrame,
-        log: DataFrame,
+        interactions: DataFrame,
     ) -> DataFrame:
         """
         :param users: user ids, dataframe ``[user_idx]``
@@ -214,77 +213,73 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
             ``[user_idx, user_vector]``
         """
         res = join_with_col_renaming(
-            log, users, on_col_name="user_idx", how="inner"
+            interactions, users, on_col_name=self.query_col, how="inner"
         )
         res = join_with_col_renaming(
-            res, self.idf, on_col_name="item_idx", how="inner"
+            res, self.idf, on_col_name=self.item_col, how="inner"
         )
         res = res.join(
             self.vectors.hint("broadcast"),
             how="inner",
-            on=sf.col("item_idx") == sf.col("item"),
+            on=sf.col(self.item_col) == sf.col("item"),
         ).drop("item")
         return (
-            res.groupby("user_idx")
+            res.groupby(self.query_col)
             .agg(
                 Summarizer.mean(
                     multiply_scala_udf(sf.col("idf"), sf.col("vector"))
                 ).alias("user_vector")
             )
-            .select("user_idx", "user_vector")
+            .select(self.query_col, "user_vector")
         )
 
     def _predict_pairs_inner(
         self,
         pairs: DataFrame,
-        log: DataFrame,
+        dataset: Dataset,
     ) -> DataFrame:
-        if log is None:
+        if dataset.interactions is None:
             raise ValueError(
                 f"log is not provided, {self} predict requires log."
             )
 
         user_vectors = self._get_user_vectors(
-            pairs.select("user_idx").distinct(), log
+            pairs.select(self.query_col).distinct(), dataset.interactions
         )
         pairs_with_vectors = join_with_col_renaming(
-            pairs, user_vectors, on_col_name="user_idx", how="inner"
+            pairs, user_vectors, on_col_name=self.query_col, how="inner"
         )
         pairs_with_vectors = pairs_with_vectors.join(
-            self.vectors, on=sf.col("item_idx") == sf.col("item"), how="inner"
+            self.vectors, on=sf.col(self.item_col) == sf.col("item"), how="inner"
         ).drop("item")
         return pairs_with_vectors.select(
-            "user_idx",
-            sf.col("item_idx"),
+            self.query_col,
+            sf.col(self.item_col),
             (
                 vector_dot(sf.col("vector"), sf.col("user_vector"))
                 + sf.lit(self.rank)
-            ).alias("relevance"),
+            ).alias(self.rating_col),
         )
 
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
         users: DataFrame,
         items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        return self._predict_pairs_inner(users.crossJoin(items), log)
+        return self._predict_pairs_inner(users.crossJoin(items), dataset)
 
     def _predict_pairs(
         self,
         pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Optional[Dataset] = None,
     ) -> DataFrame:
-        return self._predict_pairs_inner(pairs, log)
+        return self._predict_pairs_inner(pairs, dataset)
 
     def _get_item_vectors(self):
         return self.vectors.withColumnRenamed(
             "vector", "item_vector"
-        ).withColumnRenamed("item", "item_idx")
+        ).withColumnRenamed("item", self.item_col)

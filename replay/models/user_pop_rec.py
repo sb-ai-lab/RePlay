@@ -4,6 +4,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 
 from replay.models.base_rec import Recommender
+from replay.data import Dataset
 
 
 class UserPopRec(Recommender):
@@ -52,30 +53,28 @@ class UserPopRec(Recommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
 
         user_relevance_sum = (
-            log.groupBy("user_idx")
-            .agg(sf.sum("relevance").alias("user_rel_sum"))
-            .withColumnRenamed("user_idx", "user")
+            dataset.interactions.groupBy(self.query_col)
+            .agg(sf.sum(self.rating_col).alias("user_rel_sum"))
+            .withColumnRenamed(self.query_col, "user")
             .select("user", "user_rel_sum")
         )
         self.user_item_popularity = (
-            log.groupBy("user_idx", "item_idx")
-            .agg(sf.sum("relevance").alias("user_item_rel_sum"))
+            dataset.interactions.groupBy(self.query_col, self.item_col)
+            .agg(sf.sum(self.rating_col).alias("user_item_rel_sum"))
             .join(
                 user_relevance_sum,
                 how="inner",
-                on=sf.col("user_idx") == sf.col("user"),
+                on=sf.col(self.query_col) == sf.col("user"),
             )
             .select(
-                "user_idx",
-                "item_idx",
+                self.query_col,
+                self.item_col,
                 (sf.col("user_item_rel_sum") / sf.col("user_rel_sum")).alias(
-                    "relevance"
+                    self.rating_col
                 ),
             )
         )
@@ -88,12 +87,10 @@ class UserPopRec(Recommender):
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
         users: DataFrame,
         items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
         if filter_seen_items:
@@ -101,6 +98,6 @@ class UserPopRec(Recommender):
                 "UserPopRec can't predict new items, recommendations will not be filtered"
             )
 
-        return self.user_item_popularity.join(users, on="user_idx").join(
-            items, on="item_idx"
+        return self.user_item_popularity.join(users, on=self.query_col).join(
+            items, on=self.item_col
         )

@@ -4,6 +4,7 @@ from pandas import DataFrame
 from pyspark.ml.clustering import KMeans, KMeansModel
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import functions as sf
+from replay.data.dataset import Dataset
 
 from replay.models.base_rec import UserRecommender
 
@@ -37,22 +38,20 @@ class ClusterRec(UserRecommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
         kmeans = KMeans().setK(self.num_clusters).setFeaturesCol("features")
-        user_features_vector = self._transform_features(user_features)
+        user_features_vector = self._transform_features(dataset.query_features)
         self.model = kmeans.fit(user_features_vector)
         users_clusters = (
             self.model.transform(user_features_vector)
-            .select("user_idx", "prediction")
+            .select(self.query_col, "prediction")
             .withColumnRenamed("prediction", "cluster")
         )
 
-        log = log.join(users_clusters, on="user_idx", how="left")
-        self.item_rel_in_cluster = log.groupBy(["cluster", "item_idx"]).agg(
-            sf.count("item_idx").alias("item_count")
+        interactions = dataset.interactions.join(users_clusters, on=self.query_col, how="left")
+        self.item_rel_in_cluster = interactions.groupBy(["cluster", self.item_col]).agg(
+            sf.count(self.item_col).alias("item_count")
         )
 
         max_count_per_cluster = self.item_rel_in_cluster.groupby(
@@ -62,7 +61,7 @@ class ClusterRec(UserRecommender):
             max_count_per_cluster, on="cluster"
         )
         self.item_rel_in_cluster = self.item_rel_in_cluster.withColumn(
-            "relevance", sf.col("item_count") / sf.col("max_count_in_cluster")
+            self.rating_col, sf.col("item_count") / sf.col("max_count_in_cluster")
         ).drop("item_count", "max_count_in_cluster")
         self.item_rel_in_cluster.cache().count()
 
@@ -74,18 +73,18 @@ class ClusterRec(UserRecommender):
     def _dataframes(self):
         return {"item_rel_in_cluster": self.item_rel_in_cluster}
 
-    @staticmethod
-    def _transform_features(user_features):
-        feature_columns = user_features.drop("user_idx").columns
+    # @staticmethod
+    def _transform_features(self, user_features):
+        feature_columns = user_features.drop(self.query_col).columns
         vec = VectorAssembler(inputCols=feature_columns, outputCol="features")
-        return vec.transform(user_features).select("user_idx", "features")
+        return vec.transform(user_features).select(self.query_col, "features")
 
     def _make_user_clusters(self, users, user_features):
 
         usr_cnt_in_fv = (user_features
-                         .select("user_idx")
+                         .select(self.query_col)
                          .distinct()
-                         .join(users.distinct(), on="user_idx").count())
+                         .join(users.distinct(), on=self.query_col).count())
 
         user_cnt = users.distinct().count()
 
@@ -96,47 +95,43 @@ class ClusterRec(UserRecommender):
                              user_cnt - usr_cnt_in_fv)
 
         user_features_vector = self._transform_features(
-            user_features.join(users, on="user_idx")
+            user_features.join(users, on=self.query_col)
         )
         return (
             self.model.transform(user_features_vector)
-            .select("user_idx", "prediction")
+            .select(self.query_col, "prediction")
             .withColumnRenamed("prediction", "cluster")
         )
 
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
         users: DataFrame,
         items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
 
-        user_clusters = self._make_user_clusters(users, user_features)
-        filtered_items = self.item_rel_in_cluster.join(items, on="item_idx")
+        user_clusters = self._make_user_clusters(users, dataset.query_features)
+        filtered_items = self.item_rel_in_cluster.join(items, on=self.item_col)
         pred = user_clusters.join(filtered_items, on="cluster").drop("cluster")
         return pred
 
     def _predict_pairs(
         self,
         pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Optional[Dataset] = None,
     ) -> DataFrame:
 
-        if not user_features:
+        if not dataset.query_features:
             raise ValueError("User features are missing for predict")
 
-        user_clusters = self._make_user_clusters(pairs.select("user_idx").distinct(), user_features)
-        pairs_with_clusters = pairs.join(user_clusters, on="user_idx")
+        user_clusters = self._make_user_clusters(pairs.select(self.query_col).distinct(), dataset.query_features)
+        pairs_with_clusters = pairs.join(user_clusters, on=self.query_col)
         filtered_items = (self.item_rel_in_cluster
-                          .join(pairs.select("item_idx").distinct(), on="item_idx"))
+                          .join(pairs.select(self.item_col).distinct(), on=self.item_col))
         pred = (pairs_with_clusters
-                .join(filtered_items, on=["cluster", "item_idx"])
-                .select("user_idx","item_idx","relevance"))
+                .join(filtered_items, on=["cluster", self.item_col])
+                .select(self.query_col,self.item_col,self.rating_col))
         return pred
