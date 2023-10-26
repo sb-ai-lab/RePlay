@@ -26,17 +26,17 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
             "features_col": "user_vector",
         }
 
-    def _get_vectors_to_infer_ann_inner(self, log: DataFrame, users: DataFrame) -> DataFrame:
-        user_vectors = self._get_user_vectors(users, log)
+    def _get_vectors_to_infer_ann_inner(self, interactions: DataFrame, users: DataFrame) -> DataFrame:
+        user_vectors = self._get_user_vectors(users, interactions)
         # converts to pandas_udf compatible format
         user_vectors = user_vectors.select(
             self.query_col, vector_to_array("user_vector").alias("user_vector")
         )
         return user_vectors
 
-    def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
+    def _get_ann_build_params(self, interactions: DataFrame) -> Dict[str, Any]:
         self.index_builder.index_params.dim = self.rank
-        self.index_builder.index_params.max_elements = log.select(self.item_col).distinct().count()
+        self.index_builder.index_params.max_elements = interactions.select(self.item_col).distinct().count()
         self.logger.debug("index 'num_elements' = %s", self.num_elements)
         return {
             "features_col": "item_vector",
