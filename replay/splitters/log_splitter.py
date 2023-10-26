@@ -254,7 +254,36 @@ class NewUsersSplitter(Splitter):
         pass
 
     def _core_split_pandas(self, log: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
-        pass
+        start_date_by_user = log.groupby(self.user_col).agg(
+            _start_dt_by_user=(self.timestamp_col, "min")
+        ).reset_index()
+        test_start_date = (
+            start_date_by_user
+            .groupby("_start_dt_by_user")
+            .agg(_num_users_by_start_date=(self.user_col, "count")).reset_index()
+            .sort_values(by="_start_dt_by_user", ascending=False)
+        )
+        test_start_date["_cum_num_users_to_dt"] = test_start_date["_num_users_by_start_date"].cumsum()
+        test_start_date["total"] = sum(test_start_date["_num_users_by_start_date"])
+        test_start_date = test_start_date[test_start_date["_cum_num_users_to_dt"] >= threshold * test_start_date["total"]]
+        test_start = test_start_date["_start_dt_by_user"].max()
+
+        train = log[log[self.timestamp_col] < test_start]
+        test = log.merge(
+            start_date_by_user[start_date_by_user["_start_dt_by_user"] >= test_start], 
+            how="inner",
+            on=self.user_col).drop(columns=["_start_dt_by_user"]
+        )
+
+        if self.session_id_col:
+            log["is_test"] = False
+            log.loc[test.index, "is_test"] = True
+            log = self._recalculate_with_session_id_column(log)
+            train = log[~log["is_test"]].drop(columns=["is_test"])
+            test = log[log["is_test"]].drop(columns=["is_test"])
+            log = log.drop(columns=["is_test"])
+
+        return train, test
 
     def _core_split_spark(self, log: SparkDataFrame, threshold: float) -> Union[SparkDataFrame, SparkDataFrame]:
         start_date_by_user = log.groupby(self.user_col).agg(
@@ -282,10 +311,30 @@ class NewUsersSplitter(Splitter):
             on=self.user_col,
         ).drop("_start_dt_by_user")
 
+        if self.session_id_col:
+            test = test.withColumn("is_test", sf.lit(True))
+            log = log.join(test, on=log.schema.names, how="left").na.fill({"is_test": False})
+            log = self._recalculate_with_session_id_column(log)
+            train = log.filter(~sf.col("is_test")).drop("is_test")
+            test = log.filter(sf.col("is_test")).drop("is_test")
+
         return train, test
 
     def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
-        
+        split_method = self._core_split_spark
+        if isinstance(log, PandasDataFrame):
+            split_method = self._core_split_pandas
+
+        sum_ratio = round(sum(self.test_size), self._precision)
+        train, test = split_method(log, sum_ratio)
+
+        res = []
+        for ratio in self.test_size:
+            test, test1 = split_method(test, round(ratio / sum_ratio, self._precision))
+            res.append(test1)
+            sum_ratio -= ratio
+
+        return [train] + list(reversed(res))
 
 
 # pylint: disable=too-few-public-methods

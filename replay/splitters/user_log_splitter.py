@@ -4,7 +4,10 @@ This splitter split data for each user separately
 from typing import Optional, Union
 
 import pyspark.sql.functions as sf
-from pyspark.sql import DataFrame, Window
+from pyspark.sql import Window
+import pandas as pd
+from pandas import DataFrame as PandasDataFrame
+from pyspark.sql import DataFrame as SparkDataFrame
 
 from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter, SplitterReturnType
@@ -152,14 +155,19 @@ class UserSplitter(Splitter):
 
     def _get_test_users(
         self,
-        log: DataFrame,
-    ) -> DataFrame:
+        log: AnyDataFrame,
+    ) -> AnyDataFrame:
         """
         :param log: input DataFrame
         :return: Spark DataFrame with single column `user_id`
         """
-        all_users = log.select(self.user_col).distinct()
-        user_count = all_users.count()
+        if isinstance(log, SparkDataFrame):
+            all_users = log.select(self.user_col).distinct()
+            user_count = all_users.count()
+        else:
+            all_users = PandasDataFrame(log[self.user_col].unique(), columns=[self.user_col])
+            user_count = len(all_users)
+
         if self.user_test_size is not None:
             value_error = False
             if isinstance(self.user_test_size, int):
@@ -178,89 +186,161 @@ class UserSplitter(Splitter):
                 Invalid value for user_test_size: {self.user_test_size}
                 """
                 )
-            test_users = (
-                all_users.withColumn("_rand", sf.rand(self.seed))
-                .withColumn(
-                    "_row_num", sf.row_number().over(Window.orderBy("_rand"))
+            if isinstance(log, SparkDataFrame):
+                test_users = (
+                    all_users.withColumn("_rand", sf.rand(self.seed))
+                    .withColumn(
+                        "_row_num", sf.row_number().over(Window.orderBy("_rand"))
+                    )
+                    .filter(f"_row_num <= {test_user_count}")
+                    .drop("_rand", "_row_num")
                 )
-                .filter(f"_row_num <= {test_user_count}")
-                .drop("_rand", "_row_num")
-            )
+            else:
+                test_users = all_users.sample(n=int(test_user_count), random_state=self.seed)
         else:
             test_users = all_users
+
         return test_users
 
-    def _split_proportion(self, log: DataFrame) -> SplitterReturnType:
+    def _split_proportion_spark(self, log: SparkDataFrame) -> Union[SparkDataFrame, SparkDataFrame]:
+        counts = log.groupBy(self.user_col).count()
+        test_users = self._get_test_users(log).withColumn(
+            "is_test", sf.lit(True)
+        )
+        if self.shuffle:
+            res = self._add_random_partition_spark(
+                log.join(test_users, how="left", on=self.user_col)
+            )
+        else:
+            res = self._add_time_partition_spark(
+                log.join(test_users, how="left", on=self.user_col)
+            )
+
+        res = res.join(counts, on=self.user_col, how="left")
+        res = res.withColumn("_frac", sf.col("_row_num") / sf.col("count"))
+        res = res.na.fill({"is_test": False})
+        if self.session_id_col:
+            res = self._recalculate_with_session_id_column(res)
+
+        train = res.filter(
+            f"""
+                    _frac > {self.item_test_size} OR
+                    NOT is_test
+                """
+        ).drop("_rand", "_row_num", "count", "_frac", "is_test")
+        test = res.filter(
+            f"""
+                    _frac <= {self.item_test_size} AND
+                    is_test
+                """
+        ).drop("_rand", "_row_num", "count", "_frac", "is_test")
+
+        return train, test
+
+    def _split_proportion_pandas(self, log: PandasDataFrame) -> Union[PandasDataFrame, PandasDataFrame]:
+        counts = log.groupby(self.user_col).agg(count=(self.user_col, "count")).reset_index()
+        test_users = self._get_test_users(log)
+        test_users["is_test"] = True
+        if self.shuffle:
+            res = self._add_random_partition_pandas(
+                log.merge(test_users, how="left", on=self.user_col)
+            )
+        else:
+            res = self._add_time_partition_pandas(
+                log.merge(test_users, how="left", on=self.user_col)
+            )
+        res["is_test"].fillna(False, inplace=True)
+        res = res.merge(counts, on=self.user_col, how="left")
+        if self.session_id_col:
+            res = self._recalculate_with_session_id_column(res)
+        res["_frac"] = res["_row_num"] / res["count"]
+        train = res[(res["_frac"] > self.item_test_size) | (~res["is_test"])].drop(
+            columns=["_row_num", "count", "_frac", "is_test"]
+        )
+        test = res[(res["_frac"] <= self.item_test_size) & (res["is_test"])].drop(
+            columns=["_row_num", "count", "_frac", "is_test"]
+        )
+
+        return train, test
+
+    def _split_proportion(self, log: AnyDataFrame) -> SplitterReturnType:
         """
         Proportionate split
 
         :param log: input DataFrame `[self.user_col, self.item_col, self.date_col, relevance]`
         :return: train and test DataFrames
         """
+        if isinstance(log, SparkDataFrame):
+            return self._split_proportion_spark(log)
+        else:
+            return self._split_proportion_pandas(log)
 
-        counts = log.groupBy(self.user_col).count()
+    def _split_quantity_spark(self, log: SparkDataFrame) -> SparkDataFrame:
         test_users = self._get_test_users(log).withColumn(
-            "test_user", sf.lit(1)
+            "is_test", sf.lit(True)
         )
         if self.shuffle:
-            res = self._add_random_partition(
+            res = self._add_random_partition_spark(
                 log.join(test_users, how="left", on=self.user_col)
             )
         else:
-            res = self._add_time_partition(
+            res = self._add_time_partition_spark(
                 log.join(test_users, how="left", on=self.user_col)
             )
-
-        res = res.join(counts, on=self.user_col, how="left")
-        res = res.withColumn("_frac", sf.col("_row_num") / sf.col("count"))
+        res = res.na.fill({"is_test": False})
+        if self.session_id_col:
+            res = self._recalculate_with_session_id_column(res)
         train = res.filter(
             f"""
-                    _frac > {self.item_test_size} OR
-                    test_user IS NULL
+                    _row_num > {self.item_test_size} OR
+                    NOT is_test
                 """
-        ).drop("_rand", "_row_num", "count", "_frac", "test_user")
+        ).drop("_rand", "_row_num", "is_test")
         test = res.filter(
             f"""
-                    _frac <= {self.item_test_size} AND
-                    test_user IS NOT NULL
+                    _row_num <= {self.item_test_size} AND
+                    is_test
                 """
-        ).drop("_rand", "_row_num", "count", "_frac", "test_user")
+        ).drop("_rand", "_row_num", "is_test")
+
+        return train, test
+    
+    def _split_quantity_pandas(self, log: PandasDataFrame) -> PandasDataFrame:
+        test_users = self._get_test_users(log)
+        test_users["is_test"] = True
+        if self.shuffle:
+            res = self._add_random_partition_pandas(
+                log.merge(test_users, how="left", on=self.user_col)
+            )
+        else:
+            res = self._add_time_partition_pandas(
+                log.merge(test_users, how="left", on=self.user_col)
+            )
+        res["is_test"].fillna(False, inplace=True)
+        if self.session_id_col:
+            res = self._recalculate_with_session_id_column(res)
+        train = res[(res["_row_num"] > self.item_test_size) | (~res["is_test"])].drop(
+            columns=["_row_num", "is_test"]
+        )
+        test = res[(res["_row_num"] <= self.item_test_size) & (res["is_test"])].drop(
+            columns=["_row_num", "is_test"]
+        )
+
         return train, test
 
-    def _split_quantity(self, log: DataFrame) -> SplitterReturnType:
+    def _split_quantity(self, log: AnyDataFrame) -> SplitterReturnType:
         """
         Split by quantity
 
         :param log: input DataFrame `[self.user_col, self.item_col, self.date_col, relevance]`
         :return: train and test DataFrames
         """
-
-        test_users = self._get_test_users(log).withColumn(
-            "test_user", sf.lit(1)
-        )
-        if self.shuffle:
-            res = self._add_random_partition(
-                log.join(test_users, how="left", on=self.user_col)
-            )
+        if isinstance(log, SparkDataFrame):
+            return self._split_quantity_spark(log)
         else:
-            res = self._add_time_partition(
-                log.join(test_users, how="left", on=self.user_col)
-            )
-        train = res.filter(
-            f"""
-                    _row_num > {self.item_test_size} OR
-                    test_user IS NULL
-                """
-        ).drop("_rand", "_row_num", "test_user")
-        test = res.filter(
-            f"""
-                    _row_num <= {self.item_test_size} AND
-                    test_user IS NOT NULL
-                """
-        ).drop("_rand", "_row_num", "test_user")
-        return train, test
-
-    def _core_split(self, log: DataFrame) -> SplitterReturnType:
+            return self._split_quantity_pandas(log)
+        
+    def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
         if 0 <= self.item_test_size < 1.0:
             train, test = self._split_proportion(log)
         elif self.item_test_size >= 1 and isinstance(self.item_test_size, int):
@@ -274,7 +354,7 @@ class UserSplitter(Splitter):
 
         return [train, test]
 
-    def _add_random_partition(self, dataframe: DataFrame) -> DataFrame:
+    def _add_random_partition_spark(self, dataframe: SparkDataFrame) -> SparkDataFrame:
         """
         Adds `_rand` column and a user index column `_row_num` based on `_rand`.
 
@@ -289,13 +369,19 @@ class UserSplitter(Splitter):
             ),
         )
         return dataframe
+    
+    def _add_random_partition_pandas(self, dataframe: PandasDataFrame) -> PandasDataFrame:
+        res = dataframe.sample(frac=1, random_state=self.seed).sort_values(self.user_col)
+        res["_row_num"] = res.groupby(self.user_col, sort=False).cumcount() + 1
+
+        return res
 
     @staticmethod
-    def _add_time_partition(
-            dataframe: DataFrame,
+    def _add_time_partition_spark(
+            dataframe: SparkDataFrame,
             user_col: str = "user_idx",
             date_col: str = "timestamp",
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         """
         Adds user index `_row_num` based on `timestamp`.
 
@@ -312,6 +398,17 @@ class UserSplitter(Splitter):
                 )
             ),
         )
+        return res
+    
+    @staticmethod
+    def _add_time_partition_pandas(
+            dataframe: PandasDataFrame,
+            user_col: str = "user_idx",
+            date_col: str = "timestamp",
+    ) -> PandasDataFrame:
+        res = dataframe.copy(deep=True)
+        res.sort_values([user_col, date_col], ascending=[True, False], inplace=True)
+        res["_row_num"] = res.groupby(user_col, sort=False).cumcount() + 1
         return res
 
 

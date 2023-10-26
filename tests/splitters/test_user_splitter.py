@@ -156,3 +156,13 @@ def test_split_proportion(log2):
     num_items = test.toPandas().user_idx.value_counts()
     assert num_items[1] == 2
     assert num_items[0] == 1 and num_items[2] == 1
+
+
+@pytest.fixture
+def pd_log(big_log):
+    return big_log.toPandas()
+
+
+def test_pand(pd_log):
+    split = UserSplitter(0.5, seed=13)
+    print(split._split_proportion_pandas(pd_log))
