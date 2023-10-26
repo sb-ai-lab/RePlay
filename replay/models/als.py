@@ -126,7 +126,7 @@ class ALSWrap(Recommender, ItemVectorModel):
                 .withColumn(self.item_col, sf.col(f"recommendations.{self.item_col}"))
                 .withColumn(
                     self.rating_col,
-                    sf.col(f"recommendations.{self.rating_col}").cast(DoubleType()),
+                    sf.col(f"recommendations.rating").cast(DoubleType()),
                 )
                 .select(self.query_col, self.item_col, self.rating_col)
             )
