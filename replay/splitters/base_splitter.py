@@ -137,13 +137,16 @@ class Splitter(ABC):
         :param log: input DataFrame ``[timestamp, user_id, item_id, relevance]``
         :returns: List of splitted DataFrames
         """
-        res = self._core_split(log)
-        for i in range(1, len(res)):
-            res[i] = self._drop_cold_items_and_users(
-                res[0],
-                res[i],
-            )
-        return res
+        train, test = self._core_split(log)
+        test = self._drop_cold_items_and_users(train, test)
+
+        return train, test
+        # for i in range(1, len(res)):
+        #     res[i] = self._drop_cold_items_and_users(
+        #         res[0],
+        #         res[i],
+        #     )
+        # return res
 
     def _recalculate_with_session_id_column(self, data: AnyDataFrame) -> AnyDataFrame:
         if isinstance(data, SparkDataFrame):

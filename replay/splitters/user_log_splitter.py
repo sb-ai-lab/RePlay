@@ -4,14 +4,11 @@ This splitter split data for each user separately
 from typing import Optional, Union
 
 import pyspark.sql.functions as sf
-from pyspark.sql import Window
-import pandas as pd
 from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import DataFrame as SparkDataFrame
+from pyspark.sql import DataFrame as SparkDataFrame, Window
 
 from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter, SplitterReturnType
-from replay.utils.spark_utils import convert2spark
 
 
 # pylint: disable=too-few-public-methods
@@ -150,7 +147,7 @@ class UserSplitter(Splitter):
         self.shuffle = shuffle
         self.seed = seed
 
-    def _get_order_of_sort(self) -> list:
+    def _get_order_of_sort(self) -> list:   # pragma: no cover
         pass
 
     def _get_test_users(
@@ -304,7 +301,7 @@ class UserSplitter(Splitter):
         ).drop("_rand", "_row_num", "is_test")
 
         return train, test
-    
+
     def _split_quantity_pandas(self, log: PandasDataFrame) -> PandasDataFrame:
         test_users = self._get_test_users(log)
         test_users["is_test"] = True
@@ -339,7 +336,7 @@ class UserSplitter(Splitter):
             return self._split_quantity_spark(log)
         else:
             return self._split_quantity_pandas(log)
-        
+
     def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
         if 0 <= self.item_test_size < 1.0:
             train, test = self._split_proportion(log)
@@ -369,7 +366,7 @@ class UserSplitter(Splitter):
             ),
         )
         return dataframe
-    
+
     def _add_random_partition_pandas(self, dataframe: PandasDataFrame) -> PandasDataFrame:
         res = dataframe.sample(frac=1, random_state=self.seed).sort_values(self.user_col)
         res["_row_num"] = res.groupby(self.user_col, sort=False).cumcount() + 1
@@ -399,7 +396,7 @@ class UserSplitter(Splitter):
             ),
         )
         return res
-    
+
     @staticmethod
     def _add_time_partition_pandas(
             dataframe: PandasDataFrame,
@@ -429,18 +426,27 @@ def k_folds(
     :param user_col: user id column name
     :return: yields train and test DataFrames by folds
     """
+
     if splitter not in {"user"}:
         raise ValueError(f"Wrong splitter parameter: {splitter}")
     if splitter == "user":
-        dataframe = convert2spark(log).withColumn("_rand", sf.rand(seed))
-        dataframe = dataframe.withColumn(
-            "fold",
-            sf.row_number().over(
-                Window.partitionBy(user_col).orderBy("_rand")
-            )
-            % n_folds,
-        ).drop("_rand")
-        for i in range(n_folds):
-            train = dataframe.filter(f"fold != {i}").drop("fold")
-            test = dataframe.filter(f"fold == {i}").drop("fold")
-            yield train, test
+        if isinstance(log, SparkDataFrame):
+            dataframe = log.withColumn("_rand", sf.rand(seed))
+            dataframe = dataframe.withColumn(
+                "fold",
+                sf.row_number().over(
+                    Window.partitionBy(user_col).orderBy("_rand")
+                )
+                % n_folds,
+            ).drop("_rand")
+            for i in range(n_folds):
+                train = dataframe.filter(f"fold != {i}").drop("fold")
+                test = dataframe.filter(f"fold == {i}").drop("fold")
+                yield train, test
+        else:
+            dataframe = log.sample(frac=1, random_state=seed).sort_values(user_col)
+            dataframe["fold"] = (dataframe.groupby(user_col, sort=False).cumcount() + 1) % n_folds
+            for i in range(n_folds):
+                train = dataframe[dataframe["fold"] != i].drop(columns=["fold"])
+                test = dataframe[dataframe["fold"] == i].drop(columns=["fold"])
+                yield train, test

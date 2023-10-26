@@ -54,7 +54,7 @@ class TimeSplitter(Splitter):
     13        3        1 2020-01-04
     14        3        2 2020-01-05
     >>> train, test = TimeSplitter(
-    ...     time_threshold=[datetime.strptime("2020-01-04", "%Y-%M-%d")]
+    ...     time_threshold=datetime.strptime("2020-01-04", "%Y-%M-%d")
     ... ).split(dataset)
     >>> train
         user_id  item_id  timestamp
@@ -92,7 +92,7 @@ class TimeSplitter(Splitter):
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        time_threshold: List[Union[datetime, str, int, float]],
+        time_threshold: Union[datetime, str, int, float],
         user_col: str = "user_idx",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
@@ -133,19 +133,10 @@ class TimeSplitter(Splitter):
             session_id_processing_strategy=session_id_processing_strategy,
         )
         self._precision = 3
+        if isinstance(time_threshold, float) and (time_threshold < 0 or time_threshold > 1):
+            raise ValueError("test_size must be 0 to 1")
         self.time_threshold = time_threshold
-        v_type = type(time_threshold[0])
-        assert all(isinstance(x, v_type) for x in time_threshold) is True, "All thresholds must be the same type"
-
-        if isinstance(self.time_threshold[0], float):
-            self._sanity_check()
-
         self.user_column = user_col
-
-    def _sanity_check(self) -> None:
-        sum_ratio = round(sum(self.time_threshold), self._precision)
-        if sum_ratio <= 0 or sum_ratio >= 1:
-            raise ValueError(f"sum of `ratio` list must be in (0, 1); sum={sum_ratio}")
 
     def _get_order_of_sort(self) -> list:
         return [self.user_column, self.timestamp_col]
@@ -202,29 +193,5 @@ class TimeSplitter(Splitter):
 
         return train, test
 
-    def _core_split_by_proportion(self, log: AnyDataFrame) -> List[AnyDataFrame]:
-        sum_ratio = round(sum(self.time_threshold), self._precision)
-        train, test = self._partial_split(log, sum_ratio)
-
-        res = []
-        for ratio in self.time_threshold:
-            test, test1 = self._partial_split(test, round(ratio / sum_ratio, self._precision))
-            res.append(test1)
-            sum_ratio -= ratio
-
-        return [train] + list(reversed(res))
-
-    def _core_split_by_time_threshold(self, log: AnyDataFrame) -> List[AnyDataFrame]:
-        res = []
-        for threshold in self.time_threshold:
-            train, log = self._partial_split(log, threshold)
-            res.append(train)
-        res.append(log)
-
-        return res
-
     def _core_split(self, log: AnyDataFrame) -> List[AnyDataFrame]:
-        if isinstance(self.time_threshold[0], float):
-            return self._core_split_by_proportion(log)
-        else:
-            return self._core_split_by_time_threshold(log)
+        return self._partial_split(log, self.time_threshold)

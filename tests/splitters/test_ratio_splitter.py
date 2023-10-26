@@ -77,50 +77,32 @@ def pandas_dataframe_test():
 @pytest.mark.parametrize("strategy", ["TRAIN", "TEST", "validation"])
 def test_splitter_wrong_session_id_strategy(strategy):
     with pytest.raises(NotImplementedError):
-        RatioSplitter([0.5], session_id_processing_strategy=strategy)
+        RatioSplitter(0.5, session_id_processing_strategy=strategy)
 
 
 @pytest.mark.parametrize(
     "ratio, user_answer, item_answer, split_by_fraqtions",
     [
         (
-            [0.2, 0.2, 0.2],
-            [[1, 1, 2, 2, 3, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]],
-            [[1, 2, 1, 2, 1, 5], [3, 3, 3], [4, 9, 1], [5, 10, 2]],
-            True,
-        ),
-        (
-            [0.5],
+            0.5,
             [[1, 1, 2, 2, 3, 3], [1, 1, 1, 2, 2, 2, 3, 3, 3]],
             [[1, 2, 1, 2, 1, 5], [3, 4, 5, 3, 9, 10, 3, 1, 2]],
             True,
         ),
         (
-            [0.4, 0.3],
-            [[1, 2, 3], [1, 1, 2, 2, 3, 3], [1, 1, 2, 2, 3, 3]],
-            [[1, 1, 1], [2, 3, 2, 3, 5, 3], [4, 5, 9, 10, 1, 2]],
-            True,
-        ),
-        (
-            [0.1],
+            0.1,
             [[1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3], [1, 2, 3]],
             [[1, 2, 3, 4, 1, 2, 3, 9, 1, 5, 3, 1], [5, 10, 2]],
             True,
         ),
         (
-            [0.5],
+            0.5,
             [[1, 1, 1, 2, 2, 2, 3, 3, 3], [1, 1, 2, 2, 3, 3]],
             [[1, 2, 3, 1, 2, 3, 1, 5, 3], [4, 5, 9, 10, 1, 2]],
             False,
         ),
         (
-            [0.4, 0.3],
-            [[1, 1, 2, 2, 3, 3], [1, 1, 2, 2, 3, 3], [1, 2, 3]],
-            [[1, 2, 1, 2, 1, 5], [3, 4, 3, 9, 3, 1], [5, 10, 2]],
-            False,
-        ),
-        (
-            [0.1],
+            0.1,
             [[1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3], [1, 2, 3]],
             [[1, 2, 3, 4, 1, 2, 3, 9, 1, 5, 3, 1], [5, 10, 2]],
             False,
@@ -138,7 +120,7 @@ def test_ratio_splitter_without_drops(ratio, user_answer, item_answer, split_by_
     dataframe = request.getfixturevalue(dataset_type)
 
     filtered_dataframe = RatioSplitter(
-        ratio=ratio,
+        test_size=ratio,
         drop_cold_users=False,
         drop_cold_items=False,
         split_by_fraqtions=split_by_fraqtions,
@@ -158,58 +140,30 @@ def test_ratio_splitter_without_drops(ratio, user_answer, item_answer, split_by_
     "ratio, user_answer, item_answer, min_interactions_per_group, split_by_fraqtions",
     [
         (
-            [0.5],
+            0.5,
             [[1, 1, 2, 2, 3, 3], [1, 1, 1, 2, 2, 2, 3, 3, 3]],
             [[1, 2, 1, 2, 1, 5], [3, 4, 5, 3, 9, 10, 3, 1, 2]],
             5,
             True,
         ),
         (
-            [0.5],
+            0.5,
             [[1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3], []],
             [[1, 2, 3, 4, 5, 1, 2, 3, 9, 10, 1, 5, 3, 1, 2], []],
             6,
             True,
         ),
         (
-            [0.4, 0.3],
-            [[1, 2, 3], [1, 1, 2, 2, 3, 3], [1, 1, 2, 2, 3, 3]],
-            [[1, 1, 1], [2, 3, 2, 3, 5, 3], [4, 5, 9, 10, 1, 2]],
-            3,
-            True,
-        ),
-        (
-            [0.4, 0.3],
-            [[1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3], [], []],
-            [[1, 2, 3, 4, 5, 1, 2, 3, 9, 10, 1, 5, 3, 1, 2], [], []],
-            6,
-            True,
-        ),
-        (
-            [0.5],
+            0.5,
             [[1, 1, 1, 2, 2, 2, 3, 3, 3], [1, 1, 2, 2, 3, 3]],
             [[1, 2, 3, 1, 2, 3, 1, 5, 3], [4, 5, 9, 10, 1, 2]],
             5,
             False,
         ),
         (
-            [0.5],
+            0.5,
             [[1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3], []],
             [[1, 2, 3, 4, 5, 1, 2, 3, 9, 10, 1, 5, 3, 1, 2], []],
-            6,
-            False,
-        ),
-        (
-            [0.4, 0.3],
-            [[1, 1, 2, 2, 3, 3], [1, 1, 2, 2, 3, 3], [1, 2, 3]],
-            [[1, 2, 1, 2, 1, 5], [3, 4, 3, 9, 3, 1], [5, 10, 2]],
-            3,
-            False,
-        ),
-        (
-            [0.4, 0.3],
-            [[1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3], [], []],
-            [[1, 2, 3, 4, 5, 1, 2, 3, 9, 10, 1, 5, 3, 1, 2], [], []],
             6,
             False,
         ),
@@ -228,7 +182,7 @@ def test_ratio_splitter_min_user_interactions(
     dataframe = request.getfixturevalue(dataset_type)
 
     filtered_dataframe = RatioSplitter(
-        ratio=ratio,
+        test_size=ratio,
         drop_cold_users=False,
         drop_cold_items=False,
         min_interactions_per_group=min_interactions_per_group,
@@ -249,22 +203,12 @@ def test_ratio_splitter_min_user_interactions(
     "ratio, user_answer, item_answer",
     [
         (
-            [0.2, 0.2, 0.2],
-            [[1, 1, 2, 2, 3, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]],
-            [[1, 2, 1, 2, 1, 5], [3, 3, 3], [4, 9, 1], [5, 10, 2]],
-        ),
-        (
-            [0.5],
+            0.5,
             [[1, 1, 2, 2, 3, 3], [1, 1, 1, 2, 2, 2, 3, 3, 3]],
             [[1, 2, 1, 2, 1, 5], [3, 4, 5, 3, 9, 10, 3, 1, 2]],
         ),
         (
-            [0.4, 0.3],
-            [[1, 2, 3], [1, 1, 2, 2, 3, 3], [1, 1, 2, 2, 3, 3]],
-            [[1, 1, 1], [2, 3, 2, 3, 5, 3], [4, 5, 9, 10, 1, 2]],
-        ),
-        (
-            [0.8],
+            0.8,
             [[1, 2, 3], [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]],
             [[1, 1, 1], [2, 3, 4, 5, 2, 3, 9, 10, 5, 3, 1, 2]],
         ),
@@ -281,7 +225,7 @@ def test_ratio_splitter_drop_users(ratio, user_answer, item_answer, dataset_type
     dataframe = request.getfixturevalue(dataset_type)
 
     filtered_dataframe = RatioSplitter(
-        ratio=ratio,
+        test_size=ratio,
         drop_cold_users=True,
         drop_cold_items=False,
     ).split(dataframe)
@@ -300,19 +244,9 @@ def test_ratio_splitter_drop_users(ratio, user_answer, item_answer, dataset_type
     "ratio, user_answer, item_answer",
     [
         (
-            [0.2, 0.2, 0.2],
-            [[1, 1, 2, 2, 3, 3], [], [3], [1, 3]],
-            [[1, 2, 1, 2, 1, 5], [], [1], [5, 2]],
-        ),
-        (
-            [0.5],
+            0.5,
             [[1, 1, 2, 2, 3, 3], [1, 3, 3]],
             [[1, 2, 1, 2, 1, 5], [5, 1, 2]],
-        ),
-        (
-            [0.4, 0.3],
-            [[1, 2, 3], [], [3]],
-            [[1, 1, 1], [], [1]],
         ),
     ],
 )
@@ -327,7 +261,7 @@ def test_ratio_splitter_drop_items(ratio, user_answer, item_answer, dataset_type
     dataframe = request.getfixturevalue(dataset_type)
 
     filtered_dataframe = RatioSplitter(
-        ratio=ratio,
+        test_size=ratio,
         drop_cold_users=False,
         drop_cold_items=True,
     ).split(dataframe)
@@ -342,79 +276,42 @@ def test_ratio_splitter_drop_items(ratio, user_answer, item_answer, dataset_type
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
 
-@pytest.mark.parametrize(
-    "ratio, user_answer, item_answer",
-    [
-        (
-            [0.4, 0.3],
-            [[1, 2, 3], [], [3]],
-            [[1, 1, 1], [], [1]],
-        ),
-    ],
-)
-@pytest.mark.parametrize(
-    "dataset_type",
-    [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
-    ],
-)
-def test_ratio_splitter_drop_both(ratio, user_answer, item_answer, dataset_type, request):
-    dataframe = request.getfixturevalue(dataset_type)
-
-    filtered_dataframe = RatioSplitter(
-        ratio=ratio,
-        drop_cold_users=True,
-        drop_cold_items=True,
-    ).split(dataframe)
-
-    if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
-    else:
-        item_ids = _get_column_list(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list(filtered_dataframe, "user_idx")
-
-    _check_assert(user_ids, item_ids, user_answer, item_answer)
-
-
-@pytest.mark.parametrize("ratio", [[0.4, 0.7], [1.1], [0.1, 0.2, 0.3, 0.9]])
-def test_ratio_splitter_sanity_check(ratio):
+def test_ratio_splitter_sanity_check():
     with pytest.raises(ValueError):
-        RatioSplitter(ratio=ratio)
+        RatioSplitter(test_size=1.4)
 
 
 def test_datasets_types_mismatch(spark_dataframe_test, pandas_dataframe_test):
     with pytest.raises(TypeError):
-        RatioSplitter([0.1])._drop_cold_items_and_users(spark_dataframe_test, pandas_dataframe_test)
+        RatioSplitter(0.1)._drop_cold_items_and_users(spark_dataframe_test, pandas_dataframe_test)
 
 
 @pytest.mark.parametrize(
     "ratio, user_answer, item_answer, split_by_fraqtions, session_id_processing_strategy",
     [
         (
-            [0.1],
+            0.1,
             [[1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3], []],
             [[1, 2, 3, 4, 5, 1, 2, 3, 9, 10, 1, 5, 3, 1, 2], []],
             True,
             "train",
         ),
         (
-            [0.1],
+            0.1,
             [[2, 2, 2, 3, 3, 3], [1, 1, 1, 1, 1, 2, 2, 3, 3]],
             [[1, 2, 3, 1, 5, 3], [1, 2, 3, 4, 5, 9, 10, 1, 2]],
             True,
             "test",
         ),
         (
-            [0.5],
+            0.5,
             [[1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3], [2, 2, 3, 3]],
             [[1, 2, 3, 4, 5, 1, 2, 3, 1, 5, 3], [9, 10, 1, 2]],
             False,
             "train",
         ),
         (
-            [0.5],
+            0.5,
             [[2, 2, 2, 3, 3, 3], [1, 1, 1, 1, 1, 2, 2, 3, 3]],
             [[1, 2, 3, 1, 5, 3], [1, 2, 3, 4, 5, 9, 10, 1, 2]],
             False,
@@ -435,7 +332,7 @@ def test_ratio_splitter_without_drops_with_sessions(
     dataframe = request.getfixturevalue(dataset_type)
 
     filtered_dataframe = RatioSplitter(
-        ratio=ratio,
+        test_size=ratio,
         drop_cold_users=False,
         drop_cold_items=False,
         split_by_fraqtions=split_by_fraqtions,
@@ -456,6 +353,6 @@ def test_ratio_splitter_without_drops_with_sessions(
 def test_original_dataframe_not_change(pandas_dataframe_test):
     original_dataframe = pandas_dataframe_test.copy(deep=True)
 
-    RatioSplitter([0.5]).split(original_dataframe)
+    RatioSplitter(0.5).split(original_dataframe)
 
     assert original_dataframe.equals(pandas_dataframe_test)

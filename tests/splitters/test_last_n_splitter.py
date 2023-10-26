@@ -78,26 +78,16 @@ def pandas_dataframe_test():
 @pytest.mark.parametrize("strategy", ["interacitons", "INTERACTIONS", "interaction", "second"])
 def test_lastnsplitter_wrong_strategy(strategy):
     with pytest.raises(ValueError):
-        LastNSplitter(N=[123], strategy=strategy)
+        LastNSplitter(N=1, strategy=strategy)
 
 
 @pytest.mark.parametrize(
     "n, user_answer, item_answer",
     [
         (
-            [5],
+            5,
             [[], [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3]],
             [[], [1, 2, 3, 4, 5, 1, 2, 3, 9, 10, 1, 5, 3, 1, 2]],
-        ),
-        (
-            [3, 3],
-            [[], [1, 1, 2, 2, 3, 3], [1, 1, 1, 2, 2, 2, 3, 3, 3]],
-            [[], [1, 2, 1, 2, 1, 5], [3, 4, 5, 3, 9, 10, 3, 1, 2]],
-        ),
-        (
-            [2, 4],
-            [[], [1, 2, 3], [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]],
-            [[], [1, 1, 1], [2, 3, 4, 5, 2, 3, 9, 10, 5, 3, 1, 2]],
         ),
     ],
 )
@@ -132,14 +122,9 @@ def test_last_n_interactions_splitter_without_drops(n, user_answer, item_answer,
     "n, user_answer, item_answer",
     [
         (
-            [5],
+            5,
             [[], []],
             [[], []],
-        ),
-        (
-            [2, 1],
-            [[1, 1, 2, 2, 3, 3], [1, 1, 2, 2, 3, 3], [1, 2, 3]],
-            [[1, 2, 1, 2, 1, 5], [3, 4, 3, 9, 3, 1], [5, 10, 2]],
         ),
     ],
 )
@@ -174,17 +159,12 @@ def test_last_n_interactions_splitter_drop_users(n, user_answer, item_answer, da
     "n, user_answer, item_answer",
     [
         (
-            [3],
+            3,
             [[1, 1, 2, 2, 3, 3], [1, 3, 3]],
             [[1, 2, 1, 2, 1, 5], [5, 1, 2]],
         ),
         (
-            [1, 2],
-            [[1, 1, 2, 2, 3, 3], [], [1, 3, 3]],
-            [[1, 2, 1, 2, 1, 5], [], [5, 1, 2]],
-        ),
-        (
-            [4],
+            4,
             [[1, 2, 3], [3]],
             [[1, 1, 1], [1]],
         ),
@@ -221,12 +201,7 @@ def test_last_n_interactions_splitter_drop_items(n, user_answer, item_answer, da
     "n, user_answer, item_answer",
     [
         (
-            [3, 2],
-            [[], [], []],
-            [[], [], []],
-        ),
-        (
-            [4],
+            4,
             [[1, 2, 3], [3]],
             [[1, 1, 1], [1]],
         ),
@@ -263,14 +238,9 @@ def test_last_n_interactions_splitter_drop_both(n, user_answer, item_answer, dat
     "seconds, user_answer, item_answer",
     [
         (
-            [86400],
+            86400,
             [[1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3], [1, 2, 3]],
             [[1, 2, 3, 4, 1, 2, 3, 9, 1, 5, 3, 1], [5, 10, 2]],
-        ),
-        (
-            [86400, 86400 * 2],
-            [[1, 1, 2, 2, 3, 3], [1, 2, 3], [1, 1, 2, 2, 3, 3]],
-            [[1, 2, 1, 2, 1, 5], [3, 3, 3], [4, 5, 9, 10, 1, 2]],
         ),
     ],
 )
@@ -314,14 +284,9 @@ def test_last_n_seconds_splitter_without_drops(
     "seconds, user_answer, item_answer",
     [
         (
-            [86400],
+            86400,
             [[1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3], [1, 2, 3]],
             [[1, 2, 3, 4, 1, 2, 3, 9, 1, 5, 3, 1], [5, 10, 2]],
-        ),
-        (
-            [86400 * 2, 86400 * 2],
-            [[1, 2, 3], [1, 1, 2, 2, 3, 3], [1, 1, 2, 2, 3, 3]],
-            [[1, 1, 1], [2, 3, 2, 3, 5, 3], [4, 5, 9, 10, 1, 2]],
         ),
     ],
 )
@@ -357,14 +322,9 @@ def test_last_n_seconds_splitter_drop_users(seconds, user_answer, item_answer, d
     "seconds, user_answer, item_answer",
     [
         (
-            [86400],
+            86400,
             [[1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3], [1, 3]],
             [[1, 2, 3, 4, 1, 2, 3, 9, 1, 5, 3, 1], [5, 2]],
-        ),
-        (
-            [86400 * 2, 86400 * 2],
-            [[1, 2, 3], [], [3]],
-            [[1, 1, 1], [], [1]],
         ),
     ],
 )
@@ -400,14 +360,9 @@ def test_last_n_seconds_splitter_drop_items(seconds, user_answer, item_answer, d
     "seconds, user_answer, item_answer",
     [
         (
-            [86400 * 3],
+            86400 * 3,
             [[1, 1, 2, 2, 3, 3], [1, 3, 3]],
             [[1, 2, 1, 2, 1, 5], [5, 1, 2]],
-        ),
-        (
-            [86400 * 2, 86400 * 2],
-            [[1, 2, 3], [], [3]],
-            [[1, 1, 1], [], [1]],
         ),
     ],
 )
@@ -443,13 +398,13 @@ def test_last_n_seconds_splitter_drop_both(seconds, user_answer, item_answer, da
     "n, user_answer, item_answer, session_id_processing_strategy",
     [
         (
-            [5],
+            5,
             [[], [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3]],
             [[], [1, 2, 3, 4, 5, 1, 2, 3, 9, 10, 1, 5, 3, 1, 2]],
             "train",
         ),
         (
-            [5],
+            5,
             [[], [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3]],
             [[], [1, 2, 3, 4, 5, 1, 2, 3, 9, 10, 1, 5, 3, 1, 2]],
             "test",
@@ -491,13 +446,13 @@ def test_last_n_interactions_splitter_without_drops_with_sessions(
     "seconds, user_answer, item_answer, session_id_processing_strategy",
     [
         (
-            [86400],
+            86400,
             [[1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3], []],
             [[1, 2, 3, 4, 5, 1, 2, 9, 10, 3, 1, 5, 3, 1, 2], []],
             "train",
         ),
         (
-            [86400],
+            86400,
             [[2, 2, 2, 3, 3, 3], [1, 1, 1, 1, 1, 2, 2, 3, 3]],
             [[1, 2, 3, 1, 5, 3], [1, 2, 3, 4, 5, 9, 10, 1, 2]],
             "test",
@@ -547,7 +502,7 @@ def test_last_n_seconds_to_unix_timestamp(dataset_type, result_type, request):
     dataframe = request.getfixturevalue(dataset_type)
 
     dataframe_splitted = LastNSplitter(
-        N=[86400],
+        N=86400,
         strategy="seconds",
         timestamp_col="timestamp",
         time_column_format="dd-MM-yyyy",
@@ -561,7 +516,7 @@ def test_last_n_seconds_to_unix_timestamp(dataset_type, result_type, request):
 
 def test_invalid_unix_timestamp(pandas_dataframe_test):
     pandas_dataframe_test_formated_time = LastNSplitter(
-        N=[86400],
+        N=86400,
         strategy="seconds",
         timestamp_col="item_idx",
         time_column_format="dd-MM-yyyy",
@@ -576,6 +531,6 @@ def test_invalid_unix_timestamp(pandas_dataframe_test):
 def test_original_dataframe_not_change(pandas_dataframe_test):
     original_dataframe = pandas_dataframe_test.copy(deep=True)
 
-    LastNSplitter([5]).split(original_dataframe)
+    LastNSplitter(5).split(original_dataframe)
 
     assert original_dataframe.equals(pandas_dataframe_test)

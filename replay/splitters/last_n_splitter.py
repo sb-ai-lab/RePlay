@@ -59,7 +59,7 @@ class LastNSplitter(Splitter):
     13        3        1 2020-01-04
     14        3        2 2020-01-05
     >>> splitter = LastNSplitter(
-    ...     N=[2],
+    ...     N=2,
     ...     divide_column="user_id",
     ...     time_column_format="yyyy-MM-dd",
     ...     user_col="user_id",
@@ -104,7 +104,7 @@ class LastNSplitter(Splitter):
     # pylint: disable=invalid-name, too-many-arguments
     def __init__(
         self,
-        N: List[int],
+        N: int,
         divide_column: str = "user_idx",
         time_column_format: str = "yyyy-MM-dd HH:mm:ss",
         strategy: StrategyName = "interactions",
@@ -158,7 +158,7 @@ class LastNSplitter(Splitter):
             session_id_col=session_id_col,
             session_id_processing_strategy=session_id_processing_strategy,
         )
-        self.N = list(reversed(N))
+        self.N = N
         self.strategy = strategy
         self.divide_column = divide_column
         self.timestamp_col_format = None
@@ -298,11 +298,6 @@ class LastNSplitter(Splitter):
     def _core_split(self, log: AnyDataFrame) -> List[AnyDataFrame]:
         if self.strategy == "seconds":
             log = self._to_unix_timestamp(log)
-        train, test = getattr(self, "_partial_split_" + self.strategy)(log, self.N[0])
-        res = []
-        for r in self.N[1:]:
-            train, train1 = getattr(self, "_partial_split_" + self.strategy)(train, r)
-            res.append(train1)
-        res.append(train)
-        res = res[::-1] + [test]
-        return res
+        train, test = getattr(self, "_partial_split_" + self.strategy)(log, self.N)
+
+        return train, test

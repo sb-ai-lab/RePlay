@@ -7,13 +7,12 @@ These kind of splitters process log as a whole:
 
 """
 
-from typing import Optional, List, Union
+from typing import Optional, Union
 
 from pandas import DataFrame as PandasDataFrame
 from pyspark.sql import DataFrame as SparkDataFrame
 import pyspark.sql.functions as sf
 from pyspark.sql import Window
-from replay.utils.spark_utils import convert2spark
 
 from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import (
@@ -42,7 +41,7 @@ class RandomSplitter(Splitter):
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        test_size: List[float],
+        test_size: float,
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         seed: Optional[int] = None,
@@ -77,18 +76,13 @@ class RandomSplitter(Splitter):
             session_id_col=session_id_col,
             session_id_processing_strategy=session_id_processing_strategy
         )
-        self._precision = 3
         self.seed = seed
+        if test_size < 0 or test_size > 1:
+            raise ValueError("test_size must be 0 to 1")
         self.test_size = test_size
-        self._sanity_check()
 
     def _get_order_of_sort(self) -> list:   # pragma: no cover
         pass
-
-    def _sanity_check(self) -> None:
-        sum_ratio = round(sum(self.test_size), self._precision)
-        if sum_ratio <= 0 or sum_ratio >= 1:
-            raise ValueError(f"sum of `ratio` list must be in (0, 1); sum={sum_ratio}")
 
     def _random_split_spark(self, log: SparkDataFrame, threshold: float) -> Union[SparkDataFrame, SparkDataFrame]:
         log = log.withColumn("_index", sf.row_number().over(Window.orderBy(self.user_col)))
@@ -127,16 +121,7 @@ class RandomSplitter(Splitter):
         if isinstance(log, PandasDataFrame):
             split_method = self._random_split_pandas
 
-        sum_ratio = round(sum(self.test_size), self._precision)
-        train, test = split_method(log, sum_ratio)
-
-        res = []
-        for ratio in self.test_size:
-            test, test1 = split_method(test, round(ratio / sum_ratio, self._precision))
-            res.append(test1)
-            sum_ratio -= ratio
-
-        return [train] + list(reversed(res))
+        return split_method(log, self.test_size)
 
 
 # pylint: disable=too-few-public-methods
@@ -162,7 +147,7 @@ class NewUsersSplitter(Splitter):
     3         2         1          4         30
     4         3         2          5         10
     5         4         3          6         40
-    >>> train, test = NewUsersSplitter(test_size=[0.1]).split(data_frame_spark)
+    >>> train, test = NewUsersSplitter(test_size=0.1).split(data_frame_spark)
     >>> train.show()
     +--------+--------+---------+---------+
     |user_idx|item_idx|relevance|timestamp|
@@ -184,7 +169,7 @@ class NewUsersSplitter(Splitter):
     Train DataFrame can be drastically reduced even with moderate
     `test_size` if the amount of new users is small.
 
-    >>> train, test = NewUsersSplitter(test_size=[0.3]).split(data_frame_spark)
+    >>> train, test = NewUsersSplitter(test_size=0.3).split(data_frame_spark)
     >>> train.show()
     +--------+--------+---------+---------+
     |user_idx|item_idx|relevance|timestamp|
@@ -209,7 +194,7 @@ class NewUsersSplitter(Splitter):
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        test_size: List[float],
+        test_size: float,
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         user_col: str = "user_idx",
@@ -241,16 +226,11 @@ class NewUsersSplitter(Splitter):
             session_id_col=session_id_col,
             session_id_processing_strategy=session_id_processing_strategy
         )
+        if test_size < 0 or test_size > 1:
+            raise ValueError("test_size must be 0 to 1")
         self.test_size = test_size
-        self._precision = 3
-        self._sanity_check()
 
-    def _sanity_check(self) -> None:
-        sum_ratio = round(sum(self.test_size), self._precision)
-        if sum_ratio <= 0 or sum_ratio >= 1:
-            raise ValueError(f"sum of `ratio` list must be in (0, 1); sum={sum_ratio}")
-
-    def _get_order_of_sort(self) -> list:
+    def _get_order_of_sort(self) -> list:   # pragma: no cover
         pass
 
     def _core_split_pandas(self, log: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
@@ -265,15 +245,17 @@ class NewUsersSplitter(Splitter):
         )
         test_start_date["_cum_num_users_to_dt"] = test_start_date["_num_users_by_start_date"].cumsum()
         test_start_date["total"] = sum(test_start_date["_num_users_by_start_date"])
-        test_start_date = test_start_date[test_start_date["_cum_num_users_to_dt"] >= threshold * test_start_date["total"]]
+        test_start_date = test_start_date[
+            test_start_date["_cum_num_users_to_dt"] >= threshold * test_start_date["total"]
+        ]
         test_start = test_start_date["_start_dt_by_user"].max()
 
         train = log[log[self.timestamp_col] < test_start]
         test = log.merge(
-            start_date_by_user[start_date_by_user["_start_dt_by_user"] >= test_start], 
+            start_date_by_user[start_date_by_user["_start_dt_by_user"] >= test_start],
             how="inner",
-            on=self.user_col).drop(columns=["_start_dt_by_user"]
-        )
+            on=self.user_col
+        ).drop(columns=["_start_dt_by_user"])
 
         if self.session_id_col:
             log["is_test"] = False
@@ -325,16 +307,7 @@ class NewUsersSplitter(Splitter):
         if isinstance(log, PandasDataFrame):
             split_method = self._core_split_pandas
 
-        sum_ratio = round(sum(self.test_size), self._precision)
-        train, test = split_method(log, sum_ratio)
-
-        res = []
-        for ratio in self.test_size:
-            test, test1 = split_method(test, round(ratio / sum_ratio, self._precision))
-            res.append(test1)
-            sum_ratio -= ratio
-
-        return [train] + list(reversed(res))
+        return split_method(log, self.test_size)
 
 
 # pylint: disable=too-few-public-methods
@@ -360,7 +333,7 @@ class ColdUserRandomSplitter(Splitter):
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        test_size: List[float],
+        test_size: float,
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         seed: Optional[int] = None,
@@ -396,16 +369,11 @@ class ColdUserRandomSplitter(Splitter):
             session_id_processing_strategy=session_id_processing_strategy
         )
         self.seed = seed
-        self._precision = 3
+        if test_size < 0 or test_size > 1:
+            raise ValueError("test_size must be 0 to 1")
         self.test_size = test_size
-        self._sanity_check()
 
-    def _sanity_check(self) -> None:
-        sum_ratio = round(sum(self.test_size), self._precision)
-        if sum_ratio <= 0 or sum_ratio >= 1:
-            raise ValueError(f"sum of `ratio` list must be in (0, 1); sum={sum_ratio}")
-
-    def _get_order_of_sort(self) -> list: # pragma: no cover
+    def _get_order_of_sort(self) -> list:   # pragma: no cover
         pass
 
     def _core_split_pandas(self, log: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
@@ -456,13 +424,4 @@ class ColdUserRandomSplitter(Splitter):
         if isinstance(log, PandasDataFrame):
             split_method = self._core_split_pandas
 
-        sum_ratio = round(sum(self.test_size), self._precision)
-        train, test = split_method(log, sum_ratio)
-
-        res = []
-        for ratio in self.test_size:
-            test, test1 = split_method(test, round(ratio / sum_ratio, self._precision))
-            res.append(test1)
-            sum_ratio -= ratio
-
-        return [train] + list(reversed(res))
+        return split_method(log, self.test_size)

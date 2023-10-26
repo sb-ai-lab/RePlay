@@ -91,7 +91,7 @@ test_sizes = [0.1, 0.3, 0.5, 0.7, 0.9]
 def test_nothing_is_lost(test_size, dataset_type, request):
     log = request.getfixturevalue(dataset_type)
     splitter = RandomSplitter(
-        test_size=[test_size],
+        test_size=test_size,
         drop_cold_items=False,
         drop_cold_users=False,
         seed=SEED,
@@ -110,7 +110,7 @@ def test_nothing_is_lost(test_size, dataset_type, request):
 
 def test_bad_test_size():
     with pytest.raises(ValueError):
-        RandomSplitter([-1.0, 2.0])
+        RandomSplitter(1.2)
 
 
 @pytest.mark.parametrize(
@@ -123,18 +123,18 @@ def test_bad_test_size():
 def test_with_session_ids(dataset_type, request):
     log = request.getfixturevalue(dataset_type)
     splitter = RandomSplitter(
-        test_size=[0.6, 0.3],
+        test_size=0.3,
         drop_cold_items=False,
         drop_cold_users=False,
         session_id_col="session_id",
         seed=SEED,
     )
-    train, test, val = splitter.split(log)
+    train, test = splitter.split(log)
 
     if isinstance(log, pd.DataFrame):
-        assert train.shape[0] + test.shape[0] + val.shape[0] == log.shape[0]
+        assert train.shape[0] + test.shape[0] == log.shape[0]
     else:
-        assert train.count() + test.count() + val.count() == log.count()
+        assert train.count() + test.count() == log.count()
 
 
 @pytest.mark.parametrize(
@@ -147,21 +147,18 @@ def test_with_session_ids(dataset_type, request):
 def test_with_multiple_splitting(dataset_type, request):
     log = request.getfixturevalue(dataset_type)
     splitter = RandomSplitter(
-        test_size=[0.6, 0.3],
+        test_size=0.6,
         drop_cold_items=False,
         drop_cold_users=False,
         seed=SEED,
     )
-    train, test, val = splitter.split(log)
+    train, test = splitter.split(log)
 
     if isinstance(log, pd.DataFrame):
         real_test_size = test.shape[0] / len(log)
-        real_val_size = val.shape[0] / len(log)
-        assert train.shape[0] + test.shape[0] + val.shape[0] == log.shape[0]
+        assert train.shape[0] + test.shape[0] == log.shape[0]
     else:
         real_test_size = test.count() / log.count()
-        real_val_size = val.count() / log.count()
-        assert train.count() + test.count() + val.count() == log.count()
+        assert train.count() + test.count() == log.count()
 
-    assert np.isclose(real_test_size, 0.3, atol=0.015)
-    assert np.isclose(real_val_size, 0.6, atol=0.015)
+    assert np.isclose(real_test_size, 0.6, atol=0.015)

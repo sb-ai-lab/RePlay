@@ -54,7 +54,7 @@ class RatioSplitter(Splitter):
     13        3        1 2020-01-04
     14        3        2 2020-01-05
     >>> splitter = RatioSplitter(
-    ...     ratio=[0.5],
+    ...     test_size=0.5,
     ...     divide_column="user_id",
     ...     user_col="user_id",
     ...     item_col="item_id"
@@ -82,7 +82,7 @@ class RatioSplitter(Splitter):
     <BLANKLINE>
     """
     _init_arg_names = [
-        "ratio",
+        "test_size",
         "divide_column",
         "drop_cold_users",
         "drop_cold_items",
@@ -98,7 +98,7 @@ class RatioSplitter(Splitter):
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        ratio: List[float],
+        test_size: float,
         divide_column: str = "user_idx",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
@@ -111,7 +111,7 @@ class RatioSplitter(Splitter):
         session_id_processing_strategy: str = "test",
     ):
         """
-        :param ratio: Array of test size. Sum must be in :math:`(0, 1)`.
+        :param ratio: test size, must be in :math:`(0, 1)`.
         :param divide_column: Name of column for dividing
             in dataframe, default: ``user_id``.
         :param drop_cold_users: Drop users from test DataFrame.
@@ -156,20 +156,16 @@ class RatioSplitter(Splitter):
             session_id_col=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy,
         )
-        self.ratio = list(reversed(ratio))
         self.divide_column = divide_column
         self._precision = 3
         self.min_interactions_per_group = min_interactions_per_group
         self.split_by_fraqtions = split_by_fraqtions
-        self._sanity_check()
+        if test_size < 0 or test_size > 1:
+            raise ValueError("test_size must be 0 to 1")
+        self.test_size = test_size
 
     def _get_order_of_sort(self) -> list:
         return [self.divide_column, self.timestamp_col]
-
-    def _sanity_check(self) -> None:
-        sum_ratio = round(sum(self.ratio), self._precision)
-        if sum_ratio <= 0 or sum_ratio >= 1:
-            raise ValueError(f"sum of `ratio` list must be in (0, 1); sum={sum_ratio}")
 
     def _add_time_partition(self, interactions: AnyDataFrame) -> AnyDataFrame:
         if isinstance(interactions, SparkDataFrame):
@@ -316,19 +312,7 @@ class RatioSplitter(Splitter):
 
     # pylint: disable=invalid-name
     def _core_split(self, log: AnyDataFrame) -> List[AnyDataFrame]:
-        sum_ratio = round(sum(self.ratio), self._precision)
         if self.split_by_fraqtions:
-            train, test = self._partial_split_fraqtions(log, sum_ratio)
+            return self._partial_split_fraqtions(log, self.test_size)
         else:
-            train, test = self._partial_split(log, sum_ratio)
-
-        self.min_interactions_per_group = None  # Needed only at first split
-        res = []
-        for r in self.ratio:
-            if self.split_by_fraqtions:
-                test, test1 = self._partial_split_fraqtions(test, round(r / sum_ratio, self._precision))
-            else:
-                test, test1 = self._partial_split(test, round(r / sum_ratio, self._precision))
-            res.append(test1)
-            sum_ratio -= r
-        return [train] + list(reversed(res))
+            return self._partial_split(log, self.test_size)
