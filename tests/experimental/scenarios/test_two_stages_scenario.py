@@ -29,7 +29,7 @@ def two_stages_kwargs():
             ItemKNN(num_neighbours=4),
             LightFMWrap(no_components=4),
         ],
-        "train_splitter": TimeSplitter(time_threshold=[0.1]),
+        "train_splitter": TimeSplitter(time_threshold=0.1),
         "use_first_level_models_feat": True,
         "second_model_params": {
             "timeout": 30,
