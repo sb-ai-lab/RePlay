@@ -295,9 +295,9 @@ class LastNSplitter(Splitter):
 
         return train, test
 
-    def _core_split(self, log: AnyDataFrame) -> List[AnyDataFrame]:
+    def _core_split(self, interactions: AnyDataFrame) -> List[AnyDataFrame]:
         if self.strategy == "seconds":
-            log = self._to_unix_timestamp(log)
-        train, test = getattr(self, "_partial_split_" + self.strategy)(log, self.N)
+            interactions = self._to_unix_timestamp(interactions)
+        train, test = getattr(self, "_partial_split_" + self.strategy)(interactions, self.N)
 
         return train, test

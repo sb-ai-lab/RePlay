@@ -151,7 +151,9 @@ class Splitter(ABC):
     def _recalculate_with_session_id_column_pandas(self, data: PandasDataFrame) -> PandasDataFrame:
         agg_function_name = "first" if self.session_id_processing_strategy == "train" else "last"
         res = data.copy()
-        res["is_test"] = res.groupby([self.query_column, self.session_id_column])["is_test"].transform(agg_function_name)
+        res["is_test"] = res.groupby(
+            [self.query_column, self.session_id_column]
+        )["is_test"].transform(agg_function_name)
 
         return res
 

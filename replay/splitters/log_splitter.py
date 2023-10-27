@@ -84,7 +84,11 @@ class RandomSplitter(Splitter):
     def _get_order_of_sort(self) -> list:   # pragma: no cover
         pass
 
-    def _random_split_spark(self, interactions: SparkDataFrame, threshold: float) -> Union[SparkDataFrame, SparkDataFrame]:
+    def _random_split_spark(
+        self,
+        interactions: SparkDataFrame,
+        threshold: float
+    ) -> Union[SparkDataFrame, SparkDataFrame]:
         interactions = interactions.withColumn("_index", sf.row_number().over(Window.orderBy(self.query_column)))
         train, test = interactions.randomSplit(
             [1 - threshold, threshold], self.seed
@@ -102,7 +106,11 @@ class RandomSplitter(Splitter):
 
         return train, test
 
-    def _random_split_pandas(self, interactions: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
+    def _random_split_pandas(
+        self,
+        interactions: PandasDataFrame,
+        threshold: float
+    ) -> Union[PandasDataFrame, PandasDataFrame]:
         train = interactions.sample(frac=(1 - threshold), random_state=self.seed)
         test = interactions.drop(train.index)
 
@@ -222,7 +230,11 @@ class NewUsersSplitter(Splitter):
     def _get_order_of_sort(self) -> list:   # pragma: no cover
         pass
 
-    def _core_split_pandas(self, interactions: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
+    def _core_split_pandas(
+        self,
+        interactions: PandasDataFrame,
+        threshold: float
+    ) -> Union[PandasDataFrame, PandasDataFrame]:
         start_date_by_user = interactions.groupby(self.query_column).agg(
             _start_dt_by_user=(self.timestamp_column, "min")
         ).reset_index()
@@ -256,7 +268,11 @@ class NewUsersSplitter(Splitter):
 
         return train, test
 
-    def _core_split_spark(self, interactions: SparkDataFrame, threshold: float) -> Union[SparkDataFrame, SparkDataFrame]:
+    def _core_split_spark(
+        self,
+        interactions: SparkDataFrame,
+        threshold: float
+    ) -> Union[SparkDataFrame, SparkDataFrame]:
         start_date_by_user = interactions.groupby(self.query_column).agg(
             sf.min(self.timestamp_column).alias("_start_dt_by_user")
         )
@@ -366,7 +382,11 @@ class ColdUserRandomSplitter(Splitter):
     def _get_order_of_sort(self) -> list:   # pragma: no cover
         pass
 
-    def _core_split_pandas(self, interactions: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
+    def _core_split_pandas(
+        self,
+        interactions: PandasDataFrame,
+        threshold: float
+    ) -> Union[PandasDataFrame, PandasDataFrame]:
         index_name = interactions.index.name
         df = interactions.reset_index()
         users = PandasDataFrame(df[self.query_column].unique(), columns=[self.query_column])
@@ -391,7 +411,11 @@ class ColdUserRandomSplitter(Splitter):
 
         return train, test
 
-    def _core_split_spark(self, interactions: SparkDataFrame, threshold: float) -> Union[SparkDataFrame, SparkDataFrame]:
+    def _core_split_spark(
+        self,
+        interactions: SparkDataFrame,
+        threshold: float
+    ) -> Union[SparkDataFrame, SparkDataFrame]:
         users = interactions.select(self.query_column).distinct()
         train_users, test_users = users.randomSplit(
             [1 - threshold, threshold],

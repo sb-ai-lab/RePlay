@@ -17,7 +17,7 @@ class TwoStageSplitter(Splitter):
     Split data by two columns.
     First step: takes `first_divide_size` of `first_divide_column` to the test split.
     Second step: takes `second_divide_size` of `second_divide_column` among the data
-        provided after first step to the test split.
+    provided after first step to the test split.
 
     Example:
 
@@ -143,7 +143,9 @@ class TwoStageSplitter(Splitter):
             all_users = interactions.select(self.first_divide_column).distinct()
             user_count = all_users.count()
         else:
-            all_users = PandasDataFrame(interactions[self.first_divide_column].unique(), columns=[self.first_divide_column])
+            all_users = PandasDataFrame(
+                interactions[self.first_divide_column].unique(), columns=[self.first_divide_column]
+            )
             user_count = len(all_users)
 
         value_error = False
