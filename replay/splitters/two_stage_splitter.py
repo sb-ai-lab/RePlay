@@ -215,7 +215,9 @@ class TwoStageSplitter(Splitter):
         return train, test
 
     def _split_proportion_pandas(self, interactions: PandasDataFrame) -> Union[PandasDataFrame, PandasDataFrame]:
-        counts = interactions.groupby(self.first_divide_column).agg(count=(self.first_divide_column, "count")).reset_index()
+        counts = interactions.groupby(self.first_divide_column).agg(
+            count=(self.first_divide_column, "count")
+        ).reset_index()
         test_users = self._get_test_users(interactions)
         test_users["is_test"] = True
         if self.shuffle:
