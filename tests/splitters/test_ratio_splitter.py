@@ -24,7 +24,7 @@ def _check_assert(user_ids, item_ids, user_answer, item_answer):
 
 @pytest.fixture(scope="module")
 def spark_dataframe_test():
-    columns = ["user_idx", "item_idx", "timestamp", "session_id"]
+    columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
         (1, 1, "01-01-2020", 1),
         (1, 2, "02-01-2020", 1),
@@ -49,7 +49,7 @@ def spark_dataframe_test():
 
 @pytest.fixture(scope="module")
 def pandas_dataframe_test():
-    columns = ["user_idx", "item_idx", "timestamp", "session_id"]
+    columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
         (1, 1, "01-01-2020", 1),
         (1, 2, "02-01-2020", 1),
@@ -127,11 +127,11 @@ def test_ratio_splitter_without_drops(ratio, user_answer, item_answer, split_by_
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list(filtered_dataframe, "item_id")
+        user_ids = _get_column_list(filtered_dataframe, "user_id")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -190,11 +190,11 @@ def test_ratio_splitter_min_user_interactions(
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list(filtered_dataframe, "item_id")
+        user_ids = _get_column_list(filtered_dataframe, "user_id")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -231,11 +231,11 @@ def test_ratio_splitter_drop_users(ratio, user_answer, item_answer, dataset_type
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list(filtered_dataframe, "item_id")
+        user_ids = _get_column_list(filtered_dataframe, "user_id")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -267,11 +267,11 @@ def test_ratio_splitter_drop_items(ratio, user_answer, item_answer, dataset_type
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list(filtered_dataframe, "item_id")
+        user_ids = _get_column_list(filtered_dataframe, "user_id")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -341,11 +341,11 @@ def test_ratio_splitter_without_drops_with_sessions(
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list(filtered_dataframe, "item_id")
+        user_ids = _get_column_list(filtered_dataframe, "user_id")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 

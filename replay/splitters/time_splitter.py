@@ -81,11 +81,11 @@ class TimeSplitter(Splitter):
         "time_threshold",
         "drop_cold_users",
         "drop_cold_items",
-        "user_col",
-        "item_col",
-        "timestamp_col",
-        "rating_col",
-        "session_id_col",
+        "query_column",
+        "item_column",
+        "timestamp_column",
+        "rating_column",
+        "session_id_column",
         "session_id_processing_strategy",
     ]
 
@@ -93,30 +93,30 @@ class TimeSplitter(Splitter):
     def __init__(
         self,
         time_threshold: Union[datetime, str, int, float],
-        user_col: str = "user_idx",
+        query_column: str = "user_id",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
-        item_col: str = "item_idx",
-        timestamp_col: str = "timestamp",
-        rating_col: Optional[str] = "relevance",
-        session_id_col: Optional[str] = None,
+        item_column: str = "item_id",
+        timestamp_column: str = "timestamp",
+        rating_column: Optional[str] = "relevance",
+        session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
     ):
         """
         :param time_threshold: Array of test threshold.
-        :param user_col: Name of user interaction column.
+        :param query_column: Name of user interaction column.
         :param drop_cold_users: Drop users from test DataFrame.
             which are not in train DataFrame, default: False.
         :param drop_cold_items: Drop items from test DataFrame
             which are not in train DataFrame, default: False.
-        :param item_col: Name of item interaction column.
+        :param item_column: Name of item interaction column.
             If ``drop_cold_items`` is ``False``, then you can omit this parameter.
             Default: ``item_id``.
-        :param timestamp_col: Name of time column,
+        :param timestamp_column: Name of time column,
             Default: ``timestamp``.
-        :param rating_col: Rating column name.
+        :param rating_column: Rating column name.
             Default: ``relevance``.
-        :param session_id_col: Name of session id column, which values can not be split,
+        :param session_id_column: Name of session id column, which values can not be split,
             default: ``None``.
         :param session_id_processing_strategy: strategy of processing session if it is split,
             Values: ``train, test``, train: whole split session goes to train. test: same but to test.
@@ -125,21 +125,20 @@ class TimeSplitter(Splitter):
         super().__init__(
             drop_cold_users=drop_cold_users,
             drop_cold_items=drop_cold_items,
-            user_col=user_col,
-            item_col=item_col,
-            timestamp_col=timestamp_col,
-            session_id_col=session_id_col,
-            rating_col=rating_col,
+            query_column=query_column,
+            item_column=item_column,
+            timestamp_column=timestamp_column,
+            session_id_column=session_id_column,
+            rating_column=rating_column,
             session_id_processing_strategy=session_id_processing_strategy,
         )
         self._precision = 3
         if isinstance(time_threshold, float) and (time_threshold < 0 or time_threshold > 1):
             raise ValueError("test_size must be 0 to 1")
         self.time_threshold = time_threshold
-        self.user_column = user_col
 
     def _get_order_of_sort(self) -> list:
-        return [self.user_column, self.timestamp_col]
+        return [self.query_column, self.timestamp_column]
 
     def _partial_split(
         self, interactions: AnyDataFrame, threshold: Union[datetime, str, int]
@@ -154,14 +153,14 @@ class TimeSplitter(Splitter):
     ) -> Tuple[PandasDataFrame, PandasDataFrame]:
         res = interactions.copy(deep=True)
         if isinstance(threshold, float):
-            res.sort_values(self.timestamp_col, inplace=True)
+            res.sort_values(self.timestamp_column, inplace=True)
             test_start_ind = int(res.shape[0] * (1 - threshold))
-            test_start = res.iloc[test_start_ind][self.timestamp_col]
-            res["is_test"] = res[self.timestamp_col] >= test_start
+            test_start = res.iloc[test_start_ind][self.timestamp_column]
+            res["is_test"] = res[self.timestamp_column] >= test_start
         else:
-            res["is_test"] = res[self.timestamp_col] >= threshold
+            res["is_test"] = res[self.timestamp_column] >= threshold
 
-        if self.session_id_col:
+        if self.session_id_column:
             res = self._recalculate_with_session_id_column(res)
 
         train = res[~res["is_test"]].drop(columns=["is_test"])
@@ -173,25 +172,25 @@ class TimeSplitter(Splitter):
         self, interactions: SparkDataFrame, threshold: Union[datetime, str, int]
     ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         if isinstance(threshold, float):
-            dates = interactions.select(self.timestamp_col).withColumn(
-                "_row_number_by_ts", sf.row_number().over(Window.orderBy(self.timestamp_col))
+            dates = interactions.select(self.timestamp_column).withColumn(
+                "_row_number_by_ts", sf.row_number().over(Window.orderBy(self.timestamp_column))
             )
             test_start = int(dates.count() * (1 - threshold)) + 1
             test_start = (
                 dates.filter(sf.col("_row_number_by_ts") == test_start)
-                .select(self.timestamp_col)
+                .select(self.timestamp_column)
                 .collect()[0][0]
             )
-            res = interactions.withColumn("is_test", sf.col(self.timestamp_col) >= test_start)
+            res = interactions.withColumn("is_test", sf.col(self.timestamp_column) >= test_start)
         else:
-            res = interactions.withColumn("is_test", sf.col(self.timestamp_col) >= threshold)
+            res = interactions.withColumn("is_test", sf.col(self.timestamp_column) >= threshold)
 
-        if self.session_id_col:
+        if self.session_id_column:
             res = self._recalculate_with_session_id_column(res)
         train = res.filter("is_test == 0").drop("is_test")
         test = res.filter("is_test").drop("is_test")
 
         return train, test
 
-    def _core_split(self, log: AnyDataFrame) -> List[AnyDataFrame]:
-        return self._partial_split(log, self.time_threshold)
+    def _core_split(self, interactions: AnyDataFrame) -> List[AnyDataFrame]:
+        return self._partial_split(interactions, self.time_threshold)

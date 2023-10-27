@@ -1,5 +1,5 @@
 """
-These kind of splitters process log as a whole:
+These kind of splitters process interactions as a whole:
 
 - by time
 - at random by test size
@@ -30,11 +30,11 @@ class RandomSplitter(Splitter):
         "drop_cold_users",
         "drop_cold_items",
         "seed",
-        "user_col",
-        "item_col",
-        "timestamp_col",
-        "rating_col",
-        "session_id_col",
+        "query_column",
+        "item_column",
+        "timestamp_column",
+        "rating_column",
+        "session_id_column",
         "session_id_processing_strategy",
     ]
 
@@ -45,11 +45,11 @@ class RandomSplitter(Splitter):
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         seed: Optional[int] = None,
-        user_col: str = "user_idx",
-        item_col: Optional[str] = "item_idx",
-        timestamp_col: Optional[str] = "timestamp",
-        rating_col: Optional[str] = "relevance",
-        session_id_col: Optional[str] = None,
+        query_column: str = "user_id",
+        item_column: Optional[str] = "item_id",
+        timestamp_column: Optional[str] = "timestamp",
+        rating_column: Optional[str] = "relevance",
+        session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
     ):
         """
@@ -57,11 +57,11 @@ class RandomSplitter(Splitter):
         :param drop_cold_items: flag to drop cold items from test
         :param drop_cold_users: flag to drop cold users from test
         :param seed: random seed
-        :param user_col: user id column name
-        :param item_col: item id column name
-        :param timestamp_col: timestamp column name
-        :param rating_col: rating column name
-        :param session_id_col: name of session id column, which values can not be split.
+        :param query_column: query id column name
+        :param item_column: item id column name
+        :param timestamp_column: timestamp column name
+        :param rating_column: rating column name
+        :param session_id_column: name of session id column, which values can not be split.
         :param session_id_processing_strategy: strategy of processing session if it is split,
             values: ``train, test``, train: whole split session goes to train. test: same but to test.
             default: ``test``.
@@ -69,11 +69,11 @@ class RandomSplitter(Splitter):
         super().__init__(
             drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
-            user_col=user_col,
-            item_col=item_col,
-            timestamp_col=timestamp_col,
-            rating_col=rating_col,
-            session_id_col=session_id_col,
+            query_column=query_column,
+            item_column=item_column,
+            timestamp_column=timestamp_column,
+            rating_column=rating_column,
+            session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy
         )
         self.seed = seed
@@ -84,98 +84,87 @@ class RandomSplitter(Splitter):
     def _get_order_of_sort(self) -> list:   # pragma: no cover
         pass
 
-    def _random_split_spark(self, log: SparkDataFrame, threshold: float) -> Union[SparkDataFrame, SparkDataFrame]:
-        log = log.withColumn("_index", sf.row_number().over(Window.orderBy(self.user_col)))
-        train, test = log.randomSplit(
+    def _random_split_spark(self, interactions: SparkDataFrame, threshold: float) -> Union[SparkDataFrame, SparkDataFrame]:
+        interactions = interactions.withColumn("_index", sf.row_number().over(Window.orderBy(self.query_column)))
+        train, test = interactions.randomSplit(
             [1 - threshold, threshold], self.seed
         )
 
-        if self.session_id_col:
+        if self.session_id_column:
             test = test.withColumn("is_test", sf.lit(True))
-            log = log.join(test, on=log.schema.names, how="left").na.fill({"is_test": False})
-            log = self._recalculate_with_session_id_column(log)
-            train = log.filter(~sf.col("is_test")).drop("is_test")
-            test = log.filter(sf.col("is_test")).drop("is_test")
+            interactions = interactions.join(test, on=interactions.schema.names, how="left").na.fill({"is_test": False})
+            interactions = self._recalculate_with_session_id_column(interactions)
+            train = interactions.filter(~sf.col("is_test")).drop("is_test")
+            test = interactions.filter(sf.col("is_test")).drop("is_test")
 
         train = train.drop("_index")
         test = test.drop("_index")
 
         return train, test
 
-    def _random_split_pandas(self, log: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
-        train = log.sample(frac=(1 - threshold), random_state=self.seed)
-        test = log.drop(train.index)
+    def _random_split_pandas(self, interactions: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
+        train = interactions.sample(frac=(1 - threshold), random_state=self.seed)
+        test = interactions.drop(train.index)
 
-        if self.session_id_col:
-            log["is_test"] = False
-            log.loc[test.index, "is_test"] = True
-            log = self._recalculate_with_session_id_column(log)
-            train = log[~log["is_test"]].drop(columns=["is_test"])
-            test = log[log["is_test"]].drop(columns=["is_test"])
-            log = log.drop(columns=["is_test"])
+        if self.session_id_column:
+            interactions["is_test"] = False
+            interactions.loc[test.index, "is_test"] = True
+            interactions = self._recalculate_with_session_id_column(interactions)
+            train = interactions[~interactions["is_test"]].drop(columns=["is_test"])
+            test = interactions[interactions["is_test"]].drop(columns=["is_test"])
+            interactions = interactions.drop(columns=["is_test"])
 
         return train, test
 
-    def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
+    def _core_split(self, interactions: AnyDataFrame) -> SplitterReturnType:
         split_method = self._random_split_spark
-        if isinstance(log, PandasDataFrame):
+        if isinstance(interactions, PandasDataFrame):
             split_method = self._random_split_pandas
 
-        return split_method(log, self.test_size)
+        return split_method(interactions, self.test_size)
 
 
 # pylint: disable=too-few-public-methods
 class NewUsersSplitter(Splitter):
     """
     Only new users will be assigned to test set.
-    Splits log by timestamp so that test has `test_size` fraction of most recent users.
+    Splits interactions by timestamp so that test has `test_size` fraction of most recent users.
 
 
     >>> from replay.splitters import NewUsersSplitter
-    >>> from pyspark.sql import SparkSession
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_idx": [1,1,2,2,3,4],
-    ...    "item_idx": [1,2,3,1,2,3],
+    >>> data_frame = pd.DataFrame({"user_id": [1,1,2,2,3,4],
+    ...    "item_id": [1,2,3,1,2,3],
     ...    "relevance": [1,2,3,4,5,6],
     ...    "timestamp": [20,40,20,30,10,40]})
-    >>> data_frame_spark = SparkSession.builder.getOrCreate().createDataFrame(data_frame)
     >>> data_frame
-       user_idx  item_idx  relevance  timestamp
+        user_id   item_id  relevance  timestamp
     0         1         1          1         20
     1         1         2          2         40
     2         2         3          3         20
     3         2         1          4         30
     4         3         2          5         10
     5         4         3          6         40
-    >>> train, test = NewUsersSplitter(test_size=0.1).split(data_frame_spark)
-    >>> train.show()
-    +--------+--------+---------+---------+
-    |user_idx|item_idx|relevance|timestamp|
-    +--------+--------+---------+---------+
-    |       1|       1|        1|       20|
-    |       2|       3|        3|       20|
-    |       2|       1|        4|       30|
-    |       3|       2|        5|       10|
-    +--------+--------+---------+---------+
+    >>> train, test = NewUsersSplitter(test_size=0.1).split(data_frame)
+    >>> train
+       user_id  item_id  relevance  timestamp
+    0        1        1          1         20
+    2        2        3          3         20
+    3        2        1          4         30
+    4        3        2          5         10
     <BLANKLINE>
-    >>> test.show()
-    +--------+--------+---------+---------+
-    |user_idx|item_idx|relevance|timestamp|
-    +--------+--------+---------+---------+
-    |       4|       3|        6|       40|
-    +--------+--------+---------+---------+
+    >>> test
+       user_id  item_id  relevance  timestamp
+    0        4        3          6         40
     <BLANKLINE>
 
     Train DataFrame can be drastically reduced even with moderate
     `test_size` if the amount of new users is small.
 
-    >>> train, test = NewUsersSplitter(test_size=0.3).split(data_frame_spark)
-    >>> train.show()
-    +--------+--------+---------+---------+
-    |user_idx|item_idx|relevance|timestamp|
-    +--------+--------+---------+---------+
-    |       3|       2|        5|       10|
-    +--------+--------+---------+---------+
+    >>> train, test = NewUsersSplitter(test_size=0.3).split(data_frame)
+    >>> train
+       user_id  item_id  relevance  timestamp
+    4        3        2          5         10
     <BLANKLINE>
     """
 
@@ -183,11 +172,11 @@ class NewUsersSplitter(Splitter):
         "test_size",
         "drop_cold_users",
         "drop_cold_items",
-        "user_col",
-        "item_col",
-        "timestamp_col",
-        "rating_col",
-        "session_id_col",
+        "query_column",
+        "item_column",
+        "timestamp_column",
+        "rating_column",
+        "session_id_column",
         "session_id_processing_strategy",
     ]
 
@@ -197,21 +186,21 @@ class NewUsersSplitter(Splitter):
         test_size: float,
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
-        user_col: str = "user_idx",
-        item_col: Optional[str] = "item_idx",
-        timestamp_col: Optional[str] = "timestamp",
-        rating_col: Optional[str] = "relevance",
-        session_id_col: Optional[str] = None,
+        query_column: str = "user_id",
+        item_column: Optional[str] = "item_id",
+        timestamp_column: Optional[str] = "timestamp",
+        rating_column: Optional[str] = "relevance",
+        session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
     ):
         """
         :param test_size: test size 0 to 1
         :param drop_cold_items: flag to drop cold items from test
-        :param user_col: user id column name
-        :param item_col: item id column name
-        :param timestamp_col: timestamp column name
-        :param rating_col: rating column name
-        :param session_id_col: name of session id column, which values can not be split.
+        :param query_column: query id column name
+        :param item_column: item id column name
+        :param timestamp_column: timestamp column name
+        :param rating_column: rating column name
+        :param session_id_column: name of session id column, which values can not be split.
         :param session_id_processing_strategy: strategy of processing session if it is split,
             values: ``train, test``, train: whole split session goes to train. test: same but to test.
             default: ``test``.
@@ -219,11 +208,11 @@ class NewUsersSplitter(Splitter):
         super().__init__(
             drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
-            user_col=user_col,
-            item_col=item_col,
-            timestamp_col=timestamp_col,
-            rating_col=rating_col,
-            session_id_col=session_id_col,
+            query_column=query_column,
+            item_column=item_column,
+            timestamp_column=timestamp_column,
+            rating_column=rating_column,
+            session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy
         )
         if test_size < 0 or test_size > 1:
@@ -233,14 +222,14 @@ class NewUsersSplitter(Splitter):
     def _get_order_of_sort(self) -> list:   # pragma: no cover
         pass
 
-    def _core_split_pandas(self, log: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
-        start_date_by_user = log.groupby(self.user_col).agg(
-            _start_dt_by_user=(self.timestamp_col, "min")
+    def _core_split_pandas(self, interactions: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
+        start_date_by_user = interactions.groupby(self.query_column).agg(
+            _start_dt_by_user=(self.timestamp_column, "min")
         ).reset_index()
         test_start_date = (
             start_date_by_user
             .groupby("_start_dt_by_user")
-            .agg(_num_users_by_start_date=(self.user_col, "count")).reset_index()
+            .agg(_num_users_by_start_date=(self.query_column, "count")).reset_index()
             .sort_values(by="_start_dt_by_user", ascending=False)
         )
         test_start_date["_cum_num_users_to_dt"] = test_start_date["_num_users_by_start_date"].cumsum()
@@ -250,30 +239,30 @@ class NewUsersSplitter(Splitter):
         ]
         test_start = test_start_date["_start_dt_by_user"].max()
 
-        train = log[log[self.timestamp_col] < test_start]
-        test = log.merge(
+        train = interactions[interactions[self.timestamp_column] < test_start]
+        test = interactions.merge(
             start_date_by_user[start_date_by_user["_start_dt_by_user"] >= test_start],
             how="inner",
-            on=self.user_col
+            on=self.query_column
         ).drop(columns=["_start_dt_by_user"])
 
-        if self.session_id_col:
-            log["is_test"] = False
-            log.loc[test.index, "is_test"] = True
-            log = self._recalculate_with_session_id_column(log)
-            train = log[~log["is_test"]].drop(columns=["is_test"])
-            test = log[log["is_test"]].drop(columns=["is_test"])
-            log = log.drop(columns=["is_test"])
+        if self.session_id_column:
+            interactions["is_test"] = False
+            interactions.loc[test.index, "is_test"] = True
+            interactions = self._recalculate_with_session_id_column(interactions)
+            train = interactions[~interactions["is_test"]].drop(columns=["is_test"])
+            test = interactions[interactions["is_test"]].drop(columns=["is_test"])
+            interactions = interactions.drop(columns=["is_test"])
 
         return train, test
 
-    def _core_split_spark(self, log: SparkDataFrame, threshold: float) -> Union[SparkDataFrame, SparkDataFrame]:
-        start_date_by_user = log.groupby(self.user_col).agg(
-            sf.min(self.timestamp_col).alias("_start_dt_by_user")
+    def _core_split_spark(self, interactions: SparkDataFrame, threshold: float) -> Union[SparkDataFrame, SparkDataFrame]:
+        start_date_by_user = interactions.groupby(self.query_column).agg(
+            sf.min(self.timestamp_column).alias("_start_dt_by_user")
         )
         test_start_date = (
             start_date_by_user.groupby("_start_dt_by_user")
-            .agg(sf.count(self.user_col).alias("_num_users_by_start_date"))
+            .agg(sf.count(self.query_column).alias("_num_users_by_start_date"))
             .select(
                 "_start_dt_by_user",
                 sf.sum("_num_users_by_start_date")
@@ -286,28 +275,28 @@ class NewUsersSplitter(Splitter):
             .head()[0]
         )
 
-        train = log.filter(sf.col(self.timestamp_col) < test_start_date)
-        test = log.join(
+        train = interactions.filter(sf.col(self.timestamp_column) < test_start_date)
+        test = interactions.join(
             start_date_by_user.filter(sf.col("_start_dt_by_user") >= test_start_date),
             how="inner",
-            on=self.user_col,
+            on=self.query_column,
         ).drop("_start_dt_by_user")
 
-        if self.session_id_col:
+        if self.session_id_column:
             test = test.withColumn("is_test", sf.lit(True))
-            log = log.join(test, on=log.schema.names, how="left").na.fill({"is_test": False})
-            log = self._recalculate_with_session_id_column(log)
-            train = log.filter(~sf.col("is_test")).drop("is_test")
-            test = log.filter(sf.col("is_test")).drop("is_test")
+            interactions = interactions.join(test, on=interactions.schema.names, how="left").na.fill({"is_test": False})
+            interactions = self._recalculate_with_session_id_column(interactions)
+            train = interactions.filter(~sf.col("is_test")).drop("is_test")
+            test = interactions.filter(sf.col("is_test")).drop("is_test")
 
         return train, test
 
-    def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
+    def _core_split(self, interactions: AnyDataFrame) -> SplitterReturnType:
         split_method = self._core_split_spark
-        if isinstance(log, PandasDataFrame):
+        if isinstance(interactions, PandasDataFrame):
             split_method = self._core_split_pandas
 
-        return split_method(log, self.test_size)
+        return split_method(interactions, self.test_size)
 
 
 # pylint: disable=too-few-public-methods
@@ -323,10 +312,11 @@ class ColdUserRandomSplitter(Splitter):
         "drop_cold_users",
         "drop_cold_items",
         "seed",
-        "user_col",
-        "item_col",
-        "timestamp_col",
-        "session_id_col",
+        "query_column",
+        "item_column",
+        "timestamp_column",
+        "rating_column",
+        "session_id_column",
         "session_id_processing_strategy",
     ]
 
@@ -337,11 +327,11 @@ class ColdUserRandomSplitter(Splitter):
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         seed: Optional[int] = None,
-        user_col: str = "user_idx",
-        item_col: Optional[str] = "item_idx",
-        timestamp_col: Optional[str] = "timestamp",
-        rating_col: Optional[str] = "relevance",
-        session_id_col: Optional[str] = None,
+        query_column: str = "user_id",
+        item_column: Optional[str] = "item_id",
+        timestamp_column: Optional[str] = "timestamp",
+        rating_column: Optional[str] = "relevance",
+        session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
     ):
         """
@@ -349,11 +339,11 @@ class ColdUserRandomSplitter(Splitter):
         :param drop_cold_items: flag to drop cold items from test
         :param drop_cold_users: flag to drop cold users from test
         :param seed: random seed
-        :param user_col: user id column name
-        :param item_col: item id column name
-        :param timestamp_col: timestamp column name
-        :param rating_col: rating column name
-        :param session_id_col: name of session id column, which values can not be split.
+        :param query_column: query id column name
+        :param item_column: item id column name
+        :param timestamp_column: timestamp column name
+        :param rating_column: rating column name
+        :param session_id_column: name of session id column, which values can not be split.
         :param session_id_processing_strategy: strategy of processing session if it is split,
             values: ``train, test``, train: whole split session goes to train. test: same but to test.
             default: ``test``.
@@ -361,11 +351,11 @@ class ColdUserRandomSplitter(Splitter):
         super().__init__(
             drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
-            user_col=user_col,
-            item_col=item_col,
-            timestamp_col=timestamp_col,
-            rating_col=rating_col,
-            session_id_col=session_id_col,
+            query_column=query_column,
+            item_column=item_column,
+            timestamp_column=timestamp_column,
+            rating_column=rating_column,
+            session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy
         )
         self.seed = seed
@@ -376,52 +366,52 @@ class ColdUserRandomSplitter(Splitter):
     def _get_order_of_sort(self) -> list:   # pragma: no cover
         pass
 
-    def _core_split_pandas(self, log: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
-        index_name = log.index.name
-        df = log.reset_index()
-        users = PandasDataFrame(df[self.user_col].unique(), columns=["user_idx"])
+    def _core_split_pandas(self, interactions: PandasDataFrame, threshold: float) -> Union[PandasDataFrame, PandasDataFrame]:
+        index_name = interactions.index.name
+        df = interactions.reset_index()
+        users = PandasDataFrame(df[self.query_column].unique(), columns=[self.query_column])
         train_users = users.sample(frac=(1 - threshold), random_state=self.seed)
         test_users = users.drop(train_users.index)
 
-        train = df.merge(train_users, on=self.user_col, how="inner")
-        test = df.merge(test_users, on=self.user_col, how="inner")
+        train = df.merge(train_users, on=self.query_column, how="inner")
+        test = df.merge(test_users, on=self.query_column, how="inner")
         train.set_index("index", inplace=True)
         test.set_index("index", inplace=True)
 
         train.index.name = index_name
         test.index.name = index_name
 
-        if self.session_id_col:
-            log["is_test"] = False
-            log.loc[test.index, "is_test"] = True
-            log = self._recalculate_with_session_id_column(log)
-            train = log[~log["is_test"]].drop(columns=["is_test"])
-            test = log[log["is_test"]].drop(columns=["is_test"])
-            log = log.drop(columns=["is_test"])
+        if self.session_id_column:
+            interactions["is_test"] = False
+            interactions.loc[test.index, "is_test"] = True
+            interactions = self._recalculate_with_session_id_column(interactions)
+            train = interactions[~interactions["is_test"]].drop(columns=["is_test"])
+            test = interactions[interactions["is_test"]].drop(columns=["is_test"])
+            interactions = interactions.drop(columns=["is_test"])
 
         return train, test
 
-    def _core_split_spark(self, log: SparkDataFrame, threshold: float) -> Union[SparkDataFrame, SparkDataFrame]:
-        users = log.select(self.user_col).distinct()
+    def _core_split_spark(self, interactions: SparkDataFrame, threshold: float) -> Union[SparkDataFrame, SparkDataFrame]:
+        users = interactions.select(self.query_column).distinct()
         train_users, test_users = users.randomSplit(
             [1 - threshold, threshold],
             seed=self.seed,
         )
-        train = log.join(train_users, on=self.user_col, how="inner")
-        test = log.join(test_users, on=self.user_col, how="inner")
+        train = interactions.join(train_users, on=self.query_column, how="inner")
+        test = interactions.join(test_users, on=self.query_column, how="inner")
 
-        if self.session_id_col:
+        if self.session_id_column:
             test = test.withColumn("is_test", sf.lit(True))
-            log = log.join(test, on=log.schema.names, how="left").na.fill({"is_test": False})
-            log = self._recalculate_with_session_id_column(log)
-            train = log.filter(~sf.col("is_test")).drop("is_test")
-            test = log.filter(sf.col("is_test")).drop("is_test")
+            interactions = interactions.join(test, on=interactions.schema.names, how="left").na.fill({"is_test": False})
+            interactions = self._recalculate_with_session_id_column(interactions)
+            train = interactions.filter(~sf.col("is_test")).drop("is_test")
+            test = interactions.filter(sf.col("is_test")).drop("is_test")
 
         return train, test
 
-    def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
+    def _core_split(self, interactions: AnyDataFrame) -> SplitterReturnType:
         split_method = self._core_split_spark
-        if isinstance(log, PandasDataFrame):
+        if isinstance(interactions, PandasDataFrame):
             split_method = self._core_split_pandas
 
-        return split_method(log, self.test_size)
+        return split_method(interactions, self.test_size)

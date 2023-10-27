@@ -13,8 +13,8 @@ from replay.utils import get_spark_session
 def log():
     return pd.DataFrame(
         {
-            "user_idx": list(range(5000)),
-            "item_idx": list(range(5000)),
+            "user_id": list(range(5000)),
+            "item_id": list(range(5000)),
             "session_id": [1] * 5000,
             "relevance": [1] * 5000,
             "timestamp": [1] * 5000,
@@ -37,17 +37,17 @@ def log_spark(log):
 def test_splitting(dataset_type, request):
     ratio = 0.25
     log = request.getfixturevalue(dataset_type)
-    cold_user_splitter = ColdUserRandomSplitter(ratio, session_id_col="session_id")
+    cold_user_splitter = ColdUserRandomSplitter(ratio, session_id_column="session_id")
     cold_user_splitter.seed = 27
     train, test = cold_user_splitter.split(log)
 
     if isinstance(log, pd.DataFrame):
-        test_users = test.user_idx.unique()
-        train_users = train.user_idx.unique()
+        test_users = test.user_id.unique()
+        train_users = train.user_id.unique()
         real_ratio = len(test_users) / len(log)
     else:
-        test_users = test.toPandas().user_idx.unique()
-        train_users = train.toPandas().user_idx.unique()
+        test_users = test.toPandas().user_id.unique()
+        train_users = train.toPandas().user_id.unique()
         real_ratio = len(test_users) / log.count()
 
     assert not np.isin(test_users, train_users).any()

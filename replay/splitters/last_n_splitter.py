@@ -62,8 +62,8 @@ class LastNSplitter(Splitter):
     ...     N=2,
     ...     divide_column="user_id",
     ...     time_column_format="yyyy-MM-dd",
-    ...     user_col="user_id",
-    ...     item_col="item_id"
+    ...     query_column="user_id",
+    ...     item_column="item_id"
     ... )
     >>> train, test = splitter.split(dataset)
     >>> train
@@ -94,10 +94,10 @@ class LastNSplitter(Splitter):
         "strategy",
         "drop_cold_users",
         "drop_cold_items",
-        "user_col",
-        "item_col",
-        "timestamp_col",
-        "session_id_col",
+        "query_column",
+        "item_column",
+        "timestamp_column",
+        "session_id_column",
         "session_id_processing_strategy",
     ]
 
@@ -105,15 +105,15 @@ class LastNSplitter(Splitter):
     def __init__(
         self,
         N: int,
-        divide_column: str = "user_idx",
+        divide_column: str = "user_id",
         time_column_format: str = "yyyy-MM-dd HH:mm:ss",
         strategy: StrategyName = "interactions",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
-        user_col: str = "user_idx",
-        item_col: str = "item_idx",
-        timestamp_col: str = "timestamp",
-        session_id_col: Optional[str] = None,
+        query_column: str = "user_id",
+        item_column: str = "item_id",
+        timestamp_column: str = "timestamp",
+        session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
     ):
         """
@@ -129,19 +129,19 @@ class LastNSplitter(Splitter):
         :param strategy: Defines the type of data splitting.
             Must be ``interactions`` or ``seconds``.
             default: ``interactions``.
-        :param user_col: Name of user interaction column.
+        :param query_column: Name of query interaction column.
         :param drop_cold_users: Drop users from test DataFrame.
             which are not in train DataFrame, default: False.
         :param drop_cold_items: Drop items from test DataFrame
             which are not in train DataFrame, default: False.
-        :param item_col: Name of item interaction column.
+        :param item_column: Name of item interaction column.
             If ``drop_cold_items`` is ``False``, then you can omit this parameter.
             Default: ``item_id``.
-        :param timestamp_col: Name of time column,
+        :param timestamp_column: Name of time column,
             Default: ``timestamp``.
-        :param rating_col: Rating column name.
+        :param rating_column: Rating column name.
             Default: ``relevance``.
-        :param session_id_col: Name of session id column, which values can not be split,
+        :param session_id_column: Name of session id column, which values can not be split,
             default: ``None``.
         :param session_id_processing_strategy: strategy of processing session if it is split,
             Values: ``train, test``, train: whole split session goes to train. test: same but to test.
@@ -152,10 +152,10 @@ class LastNSplitter(Splitter):
         super().__init__(
             drop_cold_users=drop_cold_users,
             drop_cold_items=drop_cold_items,
-            user_col=user_col,
-            item_col=item_col,
-            timestamp_col=timestamp_col,
-            session_id_col=session_id_col,
+            query_column=query_column,
+            item_column=item_column,
+            timestamp_column=timestamp_column,
+            session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy,
         )
         self.N = N
@@ -166,7 +166,7 @@ class LastNSplitter(Splitter):
             self.timestamp_col_format = time_column_format
 
     def _get_order_of_sort(self) -> list:
-        return [self.divide_column, self.timestamp_col]
+        return [self.divide_column, self.timestamp_column]
 
     def _add_time_partition(self, interactions: AnyDataFrame) -> AnyDataFrame:
         if isinstance(interactions, SparkDataFrame):
@@ -176,7 +176,7 @@ class LastNSplitter(Splitter):
 
     def _add_time_partition_to_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
         res = interactions.copy(deep=True)
-        res.sort_values(by=[self.divide_column, self.timestamp_col], inplace=True)
+        res.sort_values(by=[self.divide_column, self.timestamp_column], inplace=True)
         res["row_num"] = res.groupby(self.divide_column, sort=False).cumcount() + 1
 
         return res
@@ -184,7 +184,7 @@ class LastNSplitter(Splitter):
     def _add_time_partition_to_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
         res = interactions.withColumn(
             "row_num",
-            sf.row_number().over(Window.partitionBy(self.divide_column).orderBy(sf.col(self.timestamp_col))),
+            sf.row_number().over(Window.partitionBy(self.divide_column).orderBy(sf.col(self.timestamp_column))),
         )
 
         return res
@@ -196,20 +196,20 @@ class LastNSplitter(Splitter):
         return self._to_unix_timestamp_pandas(interactions)
 
     def _to_unix_timestamp_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
-        time_column_type = dict(interactions.dtypes)[self.timestamp_col]
+        time_column_type = dict(interactions.dtypes)[self.timestamp_column]
         if time_column_type == np.dtype("datetime64[ns]"):
             interactions = interactions.copy(deep=True)
-            interactions[self.timestamp_col] = (
-                interactions[self.timestamp_col] - pd.Timestamp("1970-01-01")
+            interactions[self.timestamp_column] = (
+                interactions[self.timestamp_column] - pd.Timestamp("1970-01-01")
             ) // pd.Timedelta("1s")
 
         return interactions
 
     def _to_unix_timestamp_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
-        time_column_type = dict(interactions.dtypes)[self.timestamp_col]
+        time_column_type = dict(interactions.dtypes)[self.timestamp_column]
         if time_column_type == "date":
             interactions = interactions.withColumn(
-                self.timestamp_col, sf.unix_timestamp(self.timestamp_col, self.timestamp_col_format)
+                self.timestamp_column, sf.unix_timestamp(self.timestamp_column, self.timestamp_col_format)
             )
 
         return interactions
@@ -227,7 +227,7 @@ class LastNSplitter(Splitter):
     ) -> Tuple[PandasDataFrame, PandasDataFrame]:
         interactions["count"] = interactions.groupby(self.divide_column, sort=False)[self.divide_column].transform(len)
         interactions["is_test"] = interactions["row_num"] > (interactions["count"] - float(N))
-        if self.session_id_col:
+        if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
         train = interactions[~interactions["is_test"]].drop(columns=["row_num", "count", "is_test"])
@@ -239,12 +239,12 @@ class LastNSplitter(Splitter):
         self, interactions: SparkDataFrame, N: int
     ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         interactions = interactions.withColumn(
-            "count", sf.count(self.timestamp_col).over(Window.partitionBy(self.divide_column))
+            "count", sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column))
         )
         # float(n) - because DataFrame.filter is changing order
         # of sorted DataFrame to descending
         interactions = interactions.withColumn("is_test", sf.col("row_num") > sf.col("count") - sf.lit(float(N)))
-        if self.session_id_col:
+        if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
         train = interactions.filter("is_test == 0").drop("row_num", "count", "is_test")
@@ -263,10 +263,10 @@ class LastNSplitter(Splitter):
     ) -> Tuple[PandasDataFrame, PandasDataFrame]:
         res = interactions.copy(deep=True)
         res["diff_timestamp"] = (
-            res.groupby(self.divide_column)[self.timestamp_col].transform(max) - res[self.timestamp_col]
+            res.groupby(self.divide_column)[self.timestamp_column].transform(max) - res[self.timestamp_column]
         )
         res["is_test"] = res["diff_timestamp"] < seconds
-        if self.session_id_col:
+        if self.session_id_column:
             res = self._recalculate_with_session_id_column(res)
 
         train = res[~res["is_test"]].drop(columns=["diff_timestamp", "is_test"])
@@ -278,16 +278,16 @@ class LastNSplitter(Splitter):
         self, interactions: SparkDataFrame, seconds: int
     ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         inter_with_max_time = interactions.withColumn(
-            "max_timestamp", sf.max(self.timestamp_col).over(Window.partitionBy(self.divide_column))
+            "max_timestamp", sf.max(self.timestamp_column).over(Window.partitionBy(self.divide_column))
         )
         inter_with_diff = inter_with_max_time.withColumn(
-            "diff_timestamp", sf.col("max_timestamp") - sf.col(self.timestamp_col)
+            "diff_timestamp", sf.col("max_timestamp") - sf.col(self.timestamp_column)
         )
         # drop unnecessary column
         inter_with_diff = inter_with_diff.drop("max_timestamp")
 
         res = inter_with_diff.withColumn("is_test", sf.col("diff_timestamp") < sf.lit(seconds))
-        if self.session_id_col:
+        if self.session_id_column:
             res = self._recalculate_with_session_id_column(res)
 
         train = res.filter("is_test == 0").drop("diff_timestamp", "is_test")

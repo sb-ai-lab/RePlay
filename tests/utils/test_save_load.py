@@ -67,6 +67,7 @@ def test_indexer(df, tmp_path):
 def test_splitter(splitter, init_args, df, tmp_path):
     path = (tmp_path / "splitter").resolve()
     splitter = splitter(**init_args)
+    df = df.withColumnRenamed('user_idx', 'user_id').withColumnRenamed('item_idx', 'item_id')
     save_splitter(splitter, path)
     train, test = splitter.split(df)
     restored_splitter = load_splitter(path)

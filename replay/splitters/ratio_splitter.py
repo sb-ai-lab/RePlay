@@ -56,8 +56,8 @@ class RatioSplitter(Splitter):
     >>> splitter = RatioSplitter(
     ...     test_size=0.5,
     ...     divide_column="user_id",
-    ...     user_col="user_id",
-    ...     item_col="item_id"
+    ...     query_column="user_id",
+    ...     item_column="item_id"
     ... )
     >>> train, test = splitter.split(dataset)
     >>> train
@@ -86,12 +86,12 @@ class RatioSplitter(Splitter):
         "divide_column",
         "drop_cold_users",
         "drop_cold_items",
-        "user_col",
-        "item_col",
-        "timestamp_col",
+        "query_column",
+        "item_column",
+        "timestamp_column",
         "min_interactions_per_group",
         "split_by_fraqtions",
-        "session_id_col",
+        "session_id_column",
         "session_id_processing_strategy",
     ]
 
@@ -99,12 +99,12 @@ class RatioSplitter(Splitter):
     def __init__(
         self,
         test_size: float,
-        divide_column: str = "user_idx",
+        divide_column: str = "user_id",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
-        user_col: str = "user_idx",
-        item_col: str = "item_idx",
-        timestamp_col: str = "timestamp",
+        query_column: str = "user_id",
+        item_column: str = "item_id",
+        timestamp_column: str = "timestamp",
         min_interactions_per_group: Optional[int] = None,
         split_by_fraqtions: bool = True,
         session_id_column: Optional[str] = None,
@@ -113,18 +113,18 @@ class RatioSplitter(Splitter):
         """
         :param ratio: test size, must be in :math:`(0, 1)`.
         :param divide_column: Name of column for dividing
-            in dataframe, default: ``user_idx``.
+            in dataframe, default: ``user_id``.
         :param drop_cold_users: Drop users from test DataFrame.
             which are not in train DataFrame, default: False.
         :param drop_cold_items: Drop items from test DataFrame
             which are not in train DataFrame, default: False.
-        :param user_col: Name of user interaction column.
+        :param query_column: Name of query interaction column.
             If ``drop_cold_users`` is ``False``, then you can omit this parameter.
-            Default: ``user_idx``.
-        :param item_col: Name of item interaction column.
+            Default: ``user_id``.
+        :param item_column: Name of item interaction column.
             If ``drop_cold_items`` is ``False``, then you can omit this parameter.
-            Default: ``item_idx``.
-        :param timestamp_col: Name of time column,
+            Default: ``item_id``.
+        :param timestamp_column: Name of time column,
             Default: ``timestamp``.
         :param rating_col: Rating column name.
             Default: ``relevance``.
@@ -141,7 +141,7 @@ class RatioSplitter(Splitter):
             1 more interaction in each group (1 item for each user) falls into the train.
             When split by fractions, these items fall into the test.
             default: ``True``.
-        :param session_id_col: Name of session id column, which values can not be split,
+        :param session_id_column: Name of session id column, which values can not be split,
             default: ``None``.
         :param session_id_processing_strategy: strategy of processing session if it is split,
             Values: ``train, test``, train: whole split session goes to train. test: same but to test.
@@ -150,10 +150,10 @@ class RatioSplitter(Splitter):
         super().__init__(
             drop_cold_users=drop_cold_users,
             drop_cold_items=drop_cold_items,
-            user_col=user_col,
-            item_col=item_col,
-            timestamp_col=timestamp_col,
-            session_id_col=session_id_column,
+            query_column=query_column,
+            item_column=item_column,
+            timestamp_column=timestamp_column,
+            session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy,
         )
         self.divide_column = divide_column
@@ -165,7 +165,7 @@ class RatioSplitter(Splitter):
         self.test_size = test_size
 
     def _get_order_of_sort(self) -> list:
-        return [self.divide_column, self.timestamp_col]
+        return [self.divide_column, self.timestamp_column]
 
     def _add_time_partition(self, interactions: AnyDataFrame) -> AnyDataFrame:
         if isinstance(interactions, SparkDataFrame):
@@ -175,7 +175,7 @@ class RatioSplitter(Splitter):
 
     def _add_time_partition_to_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
         res = interactions.copy(deep=True)
-        res.sort_values(by=[self.divide_column, self.timestamp_col], inplace=True)
+        res.sort_values(by=[self.divide_column, self.timestamp_column], inplace=True)
         res["row_num"] = res.groupby(self.divide_column, sort=False).cumcount() + 1
 
         return res
@@ -183,7 +183,7 @@ class RatioSplitter(Splitter):
     def _add_time_partition_to_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
         res = interactions.withColumn(
             "row_num",
-            sf.row_number().over(Window.partitionBy(self.divide_column).orderBy(sf.col(self.timestamp_col))),
+            sf.row_number().over(Window.partitionBy(self.divide_column).orderBy(sf.col(self.timestamp_column))),
         )
 
         return res
@@ -208,7 +208,7 @@ class RatioSplitter(Splitter):
             interactions["frac"].where(interactions["count"] >= self.min_interactions_per_group, 0, inplace=True)
 
         interactions["is_test"] = interactions["frac"] > train_size
-        if self.session_id_col:
+        if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
         train = interactions[~interactions["is_test"]].drop(columns=["row_num", "count", "frac", "is_test"])
@@ -220,7 +220,7 @@ class RatioSplitter(Splitter):
         self, interactions: SparkDataFrame, train_size: float
     ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         interactions = interactions.withColumn(
-            "count", sf.count(self.timestamp_col).over(Window.partitionBy(self.divide_column))
+            "count", sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column))
         )
         if self.min_interactions_per_group is not None:
             interactions = interactions.withColumn(
@@ -236,7 +236,7 @@ class RatioSplitter(Splitter):
             )
 
         interactions = interactions.withColumn("is_test", sf.col("frac") > train_size)
-        if self.session_id_col:
+        if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
         train = interactions.filter("is_test == 0").drop("row_num", "count", "frac", "is_test")
@@ -271,7 +271,7 @@ class RatioSplitter(Splitter):
             )  # pylint: disable=C0325
 
         interactions["is_test"] = interactions["row_num"] > interactions["train_size"]
-        if self.session_id_col:
+        if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
         train = interactions[~interactions["is_test"]].drop(columns=["row_num", "count", "train_size", "is_test"])
@@ -281,7 +281,7 @@ class RatioSplitter(Splitter):
 
     def _partial_split_spark(self, interactions: SparkDataFrame, ratio: float) -> Tuple[SparkDataFrame, SparkDataFrame]:
         interactions = interactions.withColumn(
-            "count", sf.count(self.timestamp_col).over(Window.partitionBy(self.divide_column))
+            "count", sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column))
         )
         if self.min_interactions_per_group is not None:
             interactions = interactions.withColumn(
@@ -302,7 +302,7 @@ class RatioSplitter(Splitter):
                 ).otherwise(sf.col("train_size")),
             )
         interactions = interactions.withColumn("is_test", sf.col("row_num") > sf.col("train_size"))
-        if self.session_id_col:
+        if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
         train = interactions.filter("is_test == 0").drop("row_num", "count", "train_size", "is_test")
@@ -311,8 +311,8 @@ class RatioSplitter(Splitter):
         return train, test
 
     # pylint: disable=invalid-name
-    def _core_split(self, log: AnyDataFrame) -> List[AnyDataFrame]:
+    def _core_split(self, interactions: AnyDataFrame) -> List[AnyDataFrame]:
         if self.split_by_fraqtions:
-            return self._partial_split_fraqtions(log, self.test_size)
+            return self._partial_split_fraqtions(interactions, self.test_size)
         else:
-            return self._partial_split(log, self.test_size)
+            return self._partial_split(interactions, self.test_size)

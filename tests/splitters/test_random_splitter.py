@@ -12,8 +12,8 @@ from replay.utils import get_spark_session
 def log():
     return pd.DataFrame(
         {
-            "user_idx": list(range(5000)),
-            "item_idx": list(range(5000)),
+            "user_id": list(range(5000)),
+            "item_id": list(range(5000)),
             "relevance": [1] * 5000,
         }
     )
@@ -21,7 +21,7 @@ def log():
 
 @pytest.fixture(scope="module")
 def spark_dataframe_test():
-    columns = ["user_idx", "item_idx", "timestamp", "session_id"]
+    columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
         (1, 1, "01-01-2020", 1),
         (1, 2, "02-01-2020", 1),
@@ -46,7 +46,7 @@ def spark_dataframe_test():
 
 @pytest.fixture(scope="module")
 def pandas_dataframe_test():
-    columns = ["user_idx", "item_idx", "timestamp", "session_id"]
+    columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
         (1, 1, "01-01-2020", 1),
         (1, 2, "02-01-2020", 1),
@@ -126,7 +126,7 @@ def test_with_session_ids(dataset_type, request):
         test_size=0.3,
         drop_cold_items=False,
         drop_cold_users=False,
-        session_id_col="session_id",
+        session_id_column="session_id",
         seed=SEED,
     )
     train, test = splitter.split(log)

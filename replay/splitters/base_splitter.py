@@ -17,10 +17,10 @@ class Splitter(ABC):
     _init_arg_names = [
         "drop_cold_users",
         "drop_cold_items",
-        "user_col",
-        "item_col",
-        "timestamp_col",
-        "session_id_col",
+        "query_column",
+        "item_column",
+        "timestamp_column",
+        "session_id_column",
         "session_id_processing_strategy",
     ]
 
@@ -29,33 +29,33 @@ class Splitter(ABC):
         self,
         drop_cold_items: bool,
         drop_cold_users: bool,
-        user_col: str = "user_idx",
-        item_col: Optional[str] = "item_idx",
-        timestamp_col: Optional[str] = "timestamp",
-        rating_col: Optional[str] = "relevance",
-        session_id_col: Optional[str] = None,
+        query_column: str = "user_id",
+        item_column: Optional[str] = "item_id",
+        timestamp_column: Optional[str] = "timestamp",
+        rating_column: Optional[str] = "relevance",
+        session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
     ):
         """
         :param drop_cold_items: flag to remove items that are not in train data
         :param drop_cold_users: flag to remove users that are not in train data
-        :param user_col: user id column name
-        :param item_col: item id column name
-        :param timestamp_col: timestamp column name
-        :param rating_col: rating column name
-        :param session_id_col: name of session id column, which values can not be split.
+        :param query_column: query id column name
+        :param item_column: item id column name
+        :param timestamp_column: timestamp column name
+        :param rating_column: rating column name
+        :param session_id_column: name of session id column, which values can not be split.
         :param session_id_processing_strategy: strategy of processing session if it is split,
             values: ``train, test``, train: whole split session goes to train. test: same but to test.
             default: ``test``.
         """
         self.drop_cold_users = drop_cold_users
         self.drop_cold_items = drop_cold_items
-        self.user_col = user_col
-        self.item_col = item_col
-        self.timestamp_col = timestamp_col
-        self.rating_col = rating_col
+        self.query_column = query_column
+        self.item_column = item_column
+        self.timestamp_column = timestamp_column
+        self.rating_column = rating_column
 
-        self.session_id_col = session_id_col
+        self.session_id_column = session_id_column
         self.session_id_processing_strategy = session_id_processing_strategy
 
         if session_id_processing_strategy not in ["train", "test"]:
@@ -92,10 +92,10 @@ class Splitter(ABC):
         test: PandasDataFrame,
     ) -> PandasDataFrame:
         if self.drop_cold_items:
-            test = test[test[self.item_col].isin(train[self.item_col])]
+            test = test[test[self.item_column].isin(train[self.item_column])]
 
         if self.drop_cold_users:
-            test = test[test[self.user_col].isin(train[self.user_col])]
+            test = test[test[self.query_column].isin(train[self.query_column])]
 
         if self.drop_cold_users or self.drop_cold_items:
             test = test.sort_values(self._get_order_of_sort())
@@ -109,12 +109,12 @@ class Splitter(ABC):
     ) -> SparkDataFrame:
 
         if self.drop_cold_items:
-            train_tmp = train.select(sf.col(self.item_col).alias("item")).distinct()
-            test = test.join(train_tmp, train_tmp["item"] == test[self.item_col]).drop("item")
+            train_tmp = train.select(sf.col(self.item_column).alias("item")).distinct()
+            test = test.join(train_tmp, train_tmp["item"] == test[self.item_column]).drop("item")
 
         if self.drop_cold_users:
-            train_tmp = train.select(sf.col(self.user_col).alias("user")).distinct()
-            test = test.join(train_tmp, train_tmp["user"] == test[self.user_col]).drop("user")
+            train_tmp = train.select(sf.col(self.query_column).alias("user")).distinct()
+            test = test.join(train_tmp, train_tmp["user"] == test[self.query_column]).drop("user")
 
         if self.drop_cold_users or self.drop_cold_items:
             test = test.sort(self._get_order_of_sort())
@@ -122,31 +122,25 @@ class Splitter(ABC):
         return test
 
     @abstractmethod
-    def _core_split(self, log: AnyDataFrame) -> SplitterReturnType:
+    def _core_split(self, interactions: AnyDataFrame) -> SplitterReturnType:
         """
         This method implements split strategy
 
-        :param log: input DataFrame `[timestamp, user_id, item_id, relevance]`
+        :param interactions: input DataFrame `[timestamp, user_id, item_id, relevance]`
         :returns: `train` and `test DataFrames
         """
 
-    def split(self, log: AnyDataFrame) -> SplitterReturnType:
+    def split(self, interactions: AnyDataFrame) -> SplitterReturnType:
         """
         Splits input DataFrame into train and test
 
-        :param log: input DataFrame ``[timestamp, user_id, item_id, relevance]``
+        :param interactions: input DataFrame ``[timestamp, user_id, item_id, relevance]``
         :returns: List of splitted DataFrames
         """
-        train, test = self._core_split(log)
+        train, test = self._core_split(interactions)
         test = self._drop_cold_items_and_users(train, test)
 
         return train, test
-        # for i in range(1, len(res)):
-        #     res[i] = self._drop_cold_items_and_users(
-        #         res[0],
-        #         res[i],
-        #     )
-        # return res
 
     def _recalculate_with_session_id_column(self, data: AnyDataFrame) -> AnyDataFrame:
         if isinstance(data, SparkDataFrame):
@@ -157,7 +151,7 @@ class Splitter(ABC):
     def _recalculate_with_session_id_column_pandas(self, data: PandasDataFrame) -> PandasDataFrame:
         agg_function_name = "first" if self.session_id_processing_strategy == "train" else "last"
         res = data.copy()
-        res["is_test"] = res.groupby([self.user_col, self.session_id_col])["is_test"].transform(agg_function_name)
+        res["is_test"] = res.groupby([self.query_column, self.session_id_column])["is_test"].transform(agg_function_name)
 
         return res
 
@@ -166,8 +160,8 @@ class Splitter(ABC):
         res = data.withColumn(
             "is_test",
             agg_function("is_test").over(
-                Window.orderBy(self.timestamp_col)
-                .partitionBy(self.user_col, self.session_id_col)  # type: ignore
+                Window.orderBy(self.timestamp_column)
+                .partitionBy(self.query_column, self.session_id_column)  # type: ignore
                 .rowsBetween(Window.unboundedPreceding, Window.unboundedFollowing)
             ),
         )

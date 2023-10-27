@@ -24,7 +24,7 @@ def log(spark):
             [2, 3, datetime(2019, 9, 16), 5.0, 1],
             [0, 2, datetime(2019, 9, 17), 1.0, 1],
         ],
-        schema=["user_idx", "item_idx", "timestamp", "relevance", "session_id"],
+        schema=["user_id", "item_id", "timestamp", "relevance", "session_id"],
     )
 
 
@@ -42,15 +42,15 @@ def log_pandas(log):
 )
 def test_users_are_cold(dataset_type, request):
     log = request.getfixturevalue(dataset_type)
-    splitter = NewUsersSplitter(test_size=0.25, drop_cold_items=False, session_id_col="session_id")
+    splitter = NewUsersSplitter(test_size=0.25, drop_cold_items=False, session_id_column="session_id")
     train, test = splitter.split(log)
 
     if isinstance(log, pd.DataFrame):
-        train_users = train.user_idx
-        test_users = test.user_idx
+        train_users = train.user_id
+        test_users = test.user_id
     else:
-        train_users = train.toPandas().user_idx
-        test_users = test.toPandas().user_idx
+        train_users = train.toPandas().user_id
+        test_users = test.toPandas().user_id
 
     assert not np.isin(test_users, train_users).any()
 

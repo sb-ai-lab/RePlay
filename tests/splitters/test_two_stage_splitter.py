@@ -24,7 +24,7 @@ def log(spark):
             [3, 8, datetime(2019, 9, 17), 1.0, 1],
             [4, 0, datetime(2019, 9, 17), 1.0, 1],
         ],
-        schema=["user_idx", "item_idx", "timestamp", "relevance", "session_id"],
+        schema=["user_id", "item_id", "timestamp", "relevance", "session_id"],
     )
 
 
@@ -48,17 +48,17 @@ def test_get_test_users(dataset_type, request, fraction):
         second_divide_size=1,
         drop_cold_items=False,
         drop_cold_users=False,
-        session_id_col="session_id",
+        session_id_column="session_id",
         seed=1234,
     )
     test_users = splitter._get_test_users(log)
     if isinstance(log, pd.DataFrame):
         assert test_users.shape[0] == 3
-        assert np.isin([0, 1, 4], test_users.user_idx).all()
+        assert np.isin([0, 1, 4], test_users.user_id).all()
 
     else:
         assert test_users.count() == 3
-        assert np.isin([0, 2, 3], test_users.toPandas().user_idx).all()
+        assert np.isin([0, 2, 3], test_users.toPandas().user_id).all()
 
 
 @pytest.mark.parametrize(
@@ -76,7 +76,7 @@ def test_user_test_size_exception(dataset_type, request, fraction):
         second_divide_size=1,
         drop_cold_items=False,
         drop_cold_users=False,
-        session_id_col="session_id",
+        session_id_column="session_id",
     )
     with pytest.raises(ValueError):
         splitter._get_test_users(log)
@@ -108,7 +108,7 @@ def big_log(spark):
             [3, 3, datetime(2019, 9, 20), 4.0, 1],
             [3, 0, datetime(2019, 9, 21), 4.0, 1],
         ],
-        schema=["user_idx", "item_idx", "timestamp", "relevance", "session_id"],
+        schema=["user_id", "item_id", "timestamp", "relevance", "session_id"],
     )
 
 
@@ -137,18 +137,18 @@ def test_random_split(dataset_type, request, item_test_size, shuffle):
         drop_cold_items=False,
         drop_cold_users=False,
         seed=1234,
-        session_id_col="session_id",
+        session_id_column="session_id",
         shuffle=shuffle,
     )
     train, test = splitter.split(big_log)
 
     if isinstance(big_log, pd.DataFrame):
         assert train.shape[0] + test.shape[0] == big_log.shape[0]
-        assert len(train.merge(test, on=["user_idx", "item_idx", "timestamp", "session_id"], how="inner")) == 0
+        assert len(train.merge(test, on=["user_id", "item_id", "timestamp", "session_id"], how="inner")) == 0
 
         if isinstance(item_test_size, int):
             #  it's a rough check. for it to be true, item_test_size must be bigger than log length for every user
-            num_users = big_log["user_idx"].nunique() * 0.5     # only half of users go to test
+            num_users = big_log["user_id"].nunique() * 0.5     # only half of users go to test
             assert num_users * item_test_size == test.shape[0]
             assert big_log.shape[0] - num_users * item_test_size == train.shape[0]
     else:
@@ -157,7 +157,7 @@ def test_random_split(dataset_type, request, item_test_size, shuffle):
 
         if isinstance(item_test_size, int):
             #  it's a rough check. for it to be true, item_test_size must be bigger than log length for every user
-            num_users = big_log.select("user_idx").distinct().count() * 0.5
+            num_users = big_log.select("user_id").distinct().count() * 0.5
             assert num_users * item_test_size == test.count()
             assert big_log.count() - num_users * item_test_size == train.count()
 
@@ -178,7 +178,7 @@ def test_item_test_size_exception(dataset_type, request, item_test_size):
         drop_cold_items=False,
         drop_cold_users=False,
         seed=1234,
-        session_id_col="session_id",
+        session_id_column="session_id",
     )
     with pytest.raises(ValueError):
         splitter.split(big_log)
@@ -201,7 +201,7 @@ def log2(spark):
             [2, 1, datetime(1995, 1, 2), 1.0, 1],
             [2, 2, datetime(1995, 1, 3), 1.0, 1],
         ],
-        schema=["user_idx", "item_idx", "timestamp", "relevance", "session_id"],
+        schema=["user_id", "item_id", "timestamp", "relevance", "session_id"],
     )
 
 
@@ -227,9 +227,9 @@ def test_split_quantity(dataset_type, request):
     )
     train, test = splitter.split(log2)
     if isinstance(log2, pd.DataFrame):
-        num_items = test.user_idx.value_counts()
+        num_items = test.user_id.value_counts()
     else:
-        num_items = test.toPandas().user_idx.value_counts()
+        num_items = test.toPandas().user_id.value_counts()
 
     assert num_items.nunique() == 1
     assert num_items.unique()[0] == 2
@@ -253,8 +253,8 @@ def test_split_proportion(dataset_type, request):
     )
     train, test = splitter.split(log2)
     if isinstance(log2, pd.DataFrame):
-        num_items = test.user_idx.value_counts()
+        num_items = test.user_id.value_counts()
         assert num_items[1] == 2
     else:
-        num_items = test.toPandas().user_idx.value_counts()
+        num_items = test.toPandas().user_id.value_counts()
         assert num_items[0] == 1

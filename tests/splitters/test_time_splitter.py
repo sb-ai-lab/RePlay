@@ -28,7 +28,7 @@ def _check_assert(user_ids, item_ids, user_answer, item_answer):
 
 @pytest.fixture(scope="module")
 def spark_dataframe_test():
-    columns = ["user_idx", "item_idx", "timestamp", "session_id"]
+    columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
         (1, 1, "01-01-2020", 1),
         (1, 2, "02-01-2020", 1),
@@ -53,7 +53,7 @@ def spark_dataframe_test():
 
 @pytest.fixture(scope="module")
 def pandas_dataframe_test():
-    columns = ["user_idx", "item_idx", "timestamp", "session_id"]
+    columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
         (1, 1, "01-01-2020", 1),
         (1, 2, "02-01-2020", 1),
@@ -89,7 +89,7 @@ def log(spark):
             [2, 0, datetime(2019, 9, 16), 5.0],
             [0, 2, datetime(2019, 9, 17), 1.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=["user_id", "item_id", "timestamp", "relevance"],
     )
 
 
@@ -125,11 +125,11 @@ def test_time_splitter_without_drops(time_threshold, user_answer, item_answer, d
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list(filtered_dataframe, "item_id")
+        user_ids = _get_column_list(filtered_dataframe, "user_id")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -161,11 +161,11 @@ def test_time_splitter_drop_users(time_threshold, user_answer, item_answer, data
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list(filtered_dataframe, "item_id")
+        user_ids = _get_column_list(filtered_dataframe, "user_id")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -197,11 +197,11 @@ def test_time_splitter_drop_items(time_threshold, user_answer, item_answer, data
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list(filtered_dataframe, "item_id")
+        user_ids = _get_column_list(filtered_dataframe, "user_id")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -233,11 +233,11 @@ def test_time_splitter_drop_both(time_threshold, user_answer, item_answer, datas
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list(filtered_dataframe, "item_id")
+        user_ids = _get_column_list(filtered_dataframe, "user_id")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -269,16 +269,16 @@ def test_time_splitter_without_drops_with_sessions(
         time_threshold=time_threshold,
         drop_cold_users=False,
         drop_cold_items=False,
-        session_id_col="session_id",
+        session_id_column="session_id",
         session_id_processing_strategy=session_id_processing_strategy,
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
-        item_ids = _get_column_list_pandas(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list_pandas(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
     else:
-        item_ids = _get_column_list(filtered_dataframe, "item_idx")
-        user_ids = _get_column_list(filtered_dataframe, "user_idx")
+        item_ids = _get_column_list(filtered_dataframe, "item_id")
+        user_ids = _get_column_list(filtered_dataframe, "user_id")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
@@ -290,7 +290,7 @@ def test_splitter_with_sessions_error(spark_dataframe_test):
             time_threshold="04-01-2020",
             drop_cold_users=False,
             drop_cold_items=False,
-            session_id_col="session_id",
+            session_id_column="session_id",
             session_id_processing_strategy="smth",
         ).split(spark_dataframe_test)
 
@@ -424,11 +424,11 @@ def test_drop_cold_items(dataset_type, request, split_date):
     train, test = splitter.split(log)
 
     if "_pandas" in dataset_type:
-        train_items = train["item_idx"]
-        test_items = test["item_idx"]
+        train_items = train["item_id"]
+        test_items = test["item_id"]
     else:
-        train_items = train.toPandas().item_idx
-        test_items = test.toPandas().item_idx
+        train_items = train.toPandas().item_id
+        test_items = test.toPandas().item_id
 
     assert np.isin(test_items, train_items).all()
 
@@ -448,11 +448,11 @@ def test_drop_cold_users(dataset_type, request, split_date):
     train, test = splitter.split(log)
 
     if "_pandas" in dataset_type:
-        train_users = train["user_idx"]
-        test_users = test["user_idx"]
+        train_users = train["user_id"]
+        test_users = test["user_id"]
     else:
-        train_users = train.toPandas().user_idx
-        test_users = test.toPandas().user_idx
+        train_users = train.toPandas().user_id
+        test_users = test.toPandas().user_id
 
     assert np.isin(test_users, train_users).all()
 
