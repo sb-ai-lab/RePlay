@@ -11,7 +11,7 @@ Splits are returned with ``split`` method.
 
 
 TwoStageSplitter
--------------
+----------------
 
 .. autoclass:: replay.splitters.two_stage_splitter.TwoStageSplitter
    :special-members: __init__
