@@ -2,7 +2,7 @@
 import pytest
 import pandas as pd
 
-from replay.splitters.user_log_splitter import k_folds
+from replay.splitters.two_stage_splitter import k_folds
 from tests.utils import spark
 
 

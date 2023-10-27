@@ -10,16 +10,16 @@ Splits are returned with ``split`` method.
 .. autofunction:: replay.splitters.base_splitter.Splitter.split
 
 
-UserSplitter
+TwoStageSplitter
 -------------
 
-.. autoclass:: replay.splitters.user_log_splitter.UserSplitter
+.. autoclass:: replay.splitters.two_stage_splitter.TwoStageSplitter
    :special-members: __init__
 
 k_folds
 ---------
 
-.. autofunction:: replay.splitters.user_log_splitter.k_folds
+.. autofunction:: replay.splitters.two_stage_splitter.k_folds
 
 
 TimeSplitter

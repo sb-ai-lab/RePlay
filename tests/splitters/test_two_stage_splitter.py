@@ -5,7 +5,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from replay.splitters import UserSplitter
+from replay.splitters import TwoStageSplitter
 from tests.utils import spark
 
 
@@ -43,10 +43,11 @@ def log_pandas(log):
 @pytest.mark.parametrize("fraction", [3, 0.6])
 def test_get_test_users(dataset_type, request, fraction):
     log = request.getfixturevalue(dataset_type)
-    splitter = UserSplitter(
+    splitter = TwoStageSplitter(
+        first_divide_size=fraction,
+        second_divide_size=1,
         drop_cold_items=False,
         drop_cold_users=False,
-        user_test_size=fraction,
         session_id_col="session_id",
         seed=1234,
     )
@@ -70,11 +71,11 @@ def test_get_test_users(dataset_type, request, fraction):
 @pytest.mark.parametrize("fraction", [5, 1.0])
 def test_user_test_size_exception(dataset_type, request, fraction):
     log = request.getfixturevalue(dataset_type)
-    splitter = UserSplitter(
+    splitter = TwoStageSplitter(
+        first_divide_size=fraction,
+        second_divide_size=1,
         drop_cold_items=False,
         drop_cold_users=False,
-        item_test_size=1,
-        user_test_size=fraction,
         session_id_col="session_id",
     )
     with pytest.raises(ValueError):
@@ -130,10 +131,11 @@ test_sizes = np.arange(0.1, 1, 0.25).tolist() + list(range(1, 5))
 @pytest.mark.parametrize("shuffle", [True, False])
 def test_random_split(dataset_type, request, item_test_size, shuffle):
     big_log = request.getfixturevalue(dataset_type)
-    splitter = UserSplitter(
+    splitter = TwoStageSplitter(
+        first_divide_size=0.5,
+        second_divide_size=item_test_size,
         drop_cold_items=False,
         drop_cold_users=False,
-        item_test_size=item_test_size,
         seed=1234,
         session_id_col="session_id",
         shuffle=shuffle,
@@ -146,7 +148,7 @@ def test_random_split(dataset_type, request, item_test_size, shuffle):
 
         if isinstance(item_test_size, int):
             #  it's a rough check. for it to be true, item_test_size must be bigger than log length for every user
-            num_users = big_log["user_idx"].nunique()
+            num_users = big_log["user_idx"].nunique() * 0.5     # only half of users go to test
             assert num_users * item_test_size == test.shape[0]
             assert big_log.shape[0] - num_users * item_test_size == train.shape[0]
     else:
@@ -155,7 +157,7 @@ def test_random_split(dataset_type, request, item_test_size, shuffle):
 
         if isinstance(item_test_size, int):
             #  it's a rough check. for it to be true, item_test_size must be bigger than log length for every user
-            num_users = big_log.select("user_idx").distinct().count()
+            num_users = big_log.select("user_idx").distinct().count() * 0.5
             assert num_users * item_test_size == test.count()
             assert big_log.count() - num_users * item_test_size == train.count()
 
@@ -170,10 +172,11 @@ def test_random_split(dataset_type, request, item_test_size, shuffle):
 @pytest.mark.parametrize("item_test_size", [2.0, -1, -50, 2.1, -0.01])
 def test_item_test_size_exception(dataset_type, request, item_test_size):
     big_log = request.getfixturevalue(dataset_type)
-    splitter = UserSplitter(
+    splitter = TwoStageSplitter(
+        first_divide_size=2,
+        second_divide_size=item_test_size,
         drop_cold_items=False,
         drop_cold_users=False,
-        item_test_size=item_test_size,
         seed=1234,
         session_id_col="session_id",
     )
@@ -216,8 +219,11 @@ def log2_pandas(log2):
 )
 def test_split_quantity(dataset_type, request):
     log2 = request.getfixturevalue(dataset_type)
-    splitter = UserSplitter(
-        drop_cold_items=False, drop_cold_users=False, item_test_size=2,
+    splitter = TwoStageSplitter(
+        first_divide_size=0.5,
+        second_divide_size=2,
+        drop_cold_items=False,
+        drop_cold_users=False,
     )
     train, test = splitter.split(log2)
     if isinstance(log2, pd.DataFrame):
@@ -238,13 +244,17 @@ def test_split_quantity(dataset_type, request):
 )
 def test_split_proportion(dataset_type, request):
     log2 = request.getfixturevalue(dataset_type)
-    splitter = UserSplitter(
-        drop_cold_items=False, drop_cold_users=False, item_test_size=0.4,
+    splitter = TwoStageSplitter(
+        first_divide_size=1,
+        second_divide_size=0.4,
+        drop_cold_items=False,
+        drop_cold_users=False,
+        seed=13,
     )
     train, test = splitter.split(log2)
     if isinstance(log2, pd.DataFrame):
         num_items = test.user_idx.value_counts()
+        assert num_items[1] == 2
     else:
         num_items = test.toPandas().user_idx.value_counts()
-    assert num_items[1] == 2
-    assert num_items[0] == 1 and num_items[2] == 1
+        assert num_items[0] == 1

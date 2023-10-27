@@ -59,8 +59,8 @@ def test_indexer(df, tmp_path):
         (NewUsersSplitter, {"test_size": 0.8}),
         (ColdUserRandomSplitter, {"test_size": 0.8, "seed": 123}),
         (
-            UserSplitter,
-            {"item_test_size": 1, "user_test_size": 0.2, "seed": 123},
+            TwoStageSplitter,
+            {"second_divide_size": 1, "first_divide_size": 0.2, "seed": 123},
         ),
     ],
 )

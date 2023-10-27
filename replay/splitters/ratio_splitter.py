@@ -113,7 +113,7 @@ class RatioSplitter(Splitter):
         """
         :param ratio: test size, must be in :math:`(0, 1)`.
         :param divide_column: Name of column for dividing
-            in dataframe, default: ``user_id``.
+            in dataframe, default: ``user_idx``.
         :param drop_cold_users: Drop users from test DataFrame.
             which are not in train DataFrame, default: False.
         :param drop_cold_items: Drop items from test DataFrame
