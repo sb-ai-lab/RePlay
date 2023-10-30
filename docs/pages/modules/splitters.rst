@@ -39,15 +39,15 @@ RatioSplitter
 
 RandomSplitter
 ----------------
-.. autoclass:: replay.splitters.log_splitter.RandomSplitter
+.. autoclass:: replay.splitters.random_splitter.RandomSplitter
    :special-members: __init__
 
 NewUsersSplitter
 -----------------
-.. autoclass:: replay.splitters.log_splitter.NewUsersSplitter
+.. autoclass:: replay.splitters.new_users_splitter.NewUsersSplitter
    :special-members: __init__
 
 ColdUserRandomSplitter
 ------------------------
-.. autoclass:: replay.splitters.log_splitter.ColdUserRandomSplitter
+.. autoclass:: replay.splitters.cold_user_random_splitter.ColdUserRandomSplitter
    :special-members: __init__
