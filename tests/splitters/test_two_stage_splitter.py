@@ -41,7 +41,7 @@ def log_pandas(log):
     ]
 )
 @pytest.mark.parametrize("fraction", [3, 0.6])
-def test_get_test_users(dataset_type, request, fraction):
+def test_get_test_values(dataset_type, request, fraction):
     log = request.getfixturevalue(dataset_type)
     splitter = TwoStageSplitter(
         first_divide_size=fraction,
@@ -51,7 +51,7 @@ def test_get_test_users(dataset_type, request, fraction):
         session_id_column="session_id",
         seed=1234,
     )
-    test_users = splitter._get_test_users(log)
+    test_users = splitter._get_test_values(log)
     if isinstance(log, pd.DataFrame):
         assert test_users.shape[0] == 3
         assert np.isin([0, 1, 4], test_users.user_id).all()
@@ -79,7 +79,7 @@ def test_user_test_size_exception(dataset_type, request, fraction):
         session_id_column="session_id",
     )
     with pytest.raises(ValueError):
-        splitter._get_test_users(log)
+        splitter._get_test_values(log)
 
 
 @pytest.fixture

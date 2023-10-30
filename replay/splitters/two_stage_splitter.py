@@ -1,5 +1,5 @@
 """
-This splitter split data for each user separately
+This splitter split data by two columns.
 """
 from typing import Optional, Union
 
@@ -15,7 +15,7 @@ from replay.splitters.base_splitter import Splitter, SplitterReturnType
 class TwoStageSplitter(Splitter):
     """
     Split data by two columns.
-    First step: takes `first_divide_size` of `first_divide_column` to the test split.
+    First step: takes `first_divide_size` distinct values of `first_divide_column` to the test split.
     Second step: takes `second_divide_size` of `second_divide_column` among the data
     provided after first step to the test split.
 
@@ -131,22 +131,22 @@ class TwoStageSplitter(Splitter):
     def _get_order_of_sort(self) -> list:   # pragma: no cover
         pass
 
-    def _get_test_users(
+    def _get_test_values(
         self,
         interactions: AnyDataFrame,
     ) -> AnyDataFrame:
         """
         :param interactions: input DataFrame
-        :return: Spark DataFrame with single column `user_id`
+        :return: Spark DataFrame with single column `first_divide_column`
         """
         if isinstance(interactions, SparkDataFrame):
-            all_users = interactions.select(self.first_divide_column).distinct()
-            user_count = all_users.count()
+            all_values = interactions.select(self.first_divide_column).distinct()
+            user_count = all_values.count()
         else:
-            all_users = PandasDataFrame(
+            all_values = PandasDataFrame(
                 interactions[self.first_divide_column].unique(), columns=[self.first_divide_column]
             )
-            user_count = len(all_users)
+            user_count = len(all_values)
 
         value_error = False
         if isinstance(self.first_divide_size, int):
@@ -167,7 +167,7 @@ class TwoStageSplitter(Splitter):
             )
         if isinstance(interactions, SparkDataFrame):
             test_users = (
-                all_users.withColumn("_rand", sf.rand(self.seed))
+                all_values.withColumn("_rand", sf.rand(self.seed))
                 .withColumn(
                     "_row_num", sf.row_number().over(Window.orderBy("_rand"))
                 )
@@ -175,13 +175,13 @@ class TwoStageSplitter(Splitter):
                 .drop("_rand", "_row_num")
             )
         else:
-            test_users = all_users.sample(n=int(test_user_count), random_state=self.seed)
+            test_users = all_values.sample(n=int(test_user_count), random_state=self.seed)
 
         return test_users
 
     def _split_proportion_spark(self, interactions: SparkDataFrame) -> Union[SparkDataFrame, SparkDataFrame]:
         counts = interactions.groupBy(self.first_divide_column).count()
-        test_users = self._get_test_users(interactions).withColumn(
+        test_users = self._get_test_values(interactions).withColumn(
             "is_test", sf.lit(True)
         )
         if self.shuffle:
@@ -218,7 +218,7 @@ class TwoStageSplitter(Splitter):
         counts = interactions.groupby(self.first_divide_column).agg(
             count=(self.first_divide_column, "count")
         ).reset_index()
-        test_users = self._get_test_users(interactions)
+        test_users = self._get_test_values(interactions)
         test_users["is_test"] = True
         if self.shuffle:
             res = self._add_random_partition_pandas(
@@ -255,7 +255,7 @@ class TwoStageSplitter(Splitter):
             return self._split_proportion_pandas(interactions)
 
     def _split_quantity_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
-        test_users = self._get_test_users(interactions).withColumn(
+        test_users = self._get_test_values(interactions).withColumn(
             "is_test", sf.lit(True)
         )
         if self.shuffle:
@@ -285,7 +285,7 @@ class TwoStageSplitter(Splitter):
         return train, test
 
     def _split_quantity_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
-        test_users = self._get_test_users(interactions)
+        test_users = self._get_test_values(interactions)
         test_users["is_test"] = True
         if self.shuffle:
             res = self._add_random_partition_pandas(
@@ -389,46 +389,3 @@ class TwoStageSplitter(Splitter):
         res.sort_values([query_column, date_column], ascending=[True, False], inplace=True)
         res["_row_num"] = res.groupby(query_column, sort=False).cumcount() + 1
         return res
-
-
-def k_folds(
-    interactions: AnyDataFrame,
-    n_folds: Optional[int] = 5,
-    seed: Optional[int] = None,
-    splitter: Optional[str] = "user",
-    query_column: str = "user_id",
-) -> SplitterReturnType:
-    """
-    Splits interactions inside each user into folds at random
-
-    :param interactions: input DataFrame
-    :param n_folds: number of folds
-    :param seed: random seed
-    :param splitter: splitting strategy. Only user variant is available atm.
-    :param query_column: user id column name
-    :return: yields train and test DataFrames by folds
-    """
-
-    if splitter not in {"user"}:
-        raise ValueError(f"Wrong splitter parameter: {splitter}")
-    if splitter == "user":
-        if isinstance(interactions, SparkDataFrame):
-            dataframe = interactions.withColumn("_rand", sf.rand(seed))
-            dataframe = dataframe.withColumn(
-                "fold",
-                sf.row_number().over(
-                    Window.partitionBy(query_column).orderBy("_rand")
-                )
-                % n_folds,
-            ).drop("_rand")
-            for i in range(n_folds):
-                train = dataframe.filter(f"fold != {i}").drop("fold")
-                test = dataframe.filter(f"fold == {i}").drop("fold")
-                yield train, test
-        else:
-            dataframe = interactions.sample(frac=1, random_state=seed).sort_values(query_column)
-            dataframe["fold"] = (dataframe.groupby(query_column, sort=False).cumcount() + 1) % n_folds
-            for i in range(n_folds):
-                train = dataframe[dataframe["fold"] != i].drop(columns=["fold"])
-                test = dataframe[dataframe["fold"] == i].drop(columns=["fold"])
-                yield train, test

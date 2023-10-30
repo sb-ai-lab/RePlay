@@ -16,10 +16,10 @@ TwoStageSplitter
 .. autoclass:: replay.splitters.two_stage_splitter.TwoStageSplitter
    :special-members: __init__
 
-k_folds
+KFolds
 ---------
 
-.. autofunction:: replay.splitters.two_stage_splitter.k_folds
+.. autofunction:: replay.splitters.k_folds.KFolds
 
 
 TimeSplitter
