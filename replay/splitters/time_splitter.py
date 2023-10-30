@@ -87,6 +87,7 @@ class TimeSplitter(Splitter):
         "rating_column",
         "session_id_column",
         "session_id_processing_strategy",
+        "time_column_format",
     ]
 
     # pylint: disable=too-many-arguments
@@ -101,6 +102,7 @@ class TimeSplitter(Splitter):
         rating_column: Optional[str] = "relevance",
         session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
+        time_column_format: str = "%Y-%m-%d %H:%M:%S",
     ):
         """
         :param time_threshold: Array of test threshold.
@@ -133,6 +135,7 @@ class TimeSplitter(Splitter):
             session_id_processing_strategy=session_id_processing_strategy,
         )
         self._precision = 3
+        self.time_column_format = time_column_format
         if isinstance(time_threshold, float) and (time_threshold < 0 or time_threshold > 1):
             raise ValueError("test_size must be 0 to 1")
         self.time_threshold = time_threshold
@@ -143,6 +146,8 @@ class TimeSplitter(Splitter):
     def _partial_split(
         self, interactions: AnyDataFrame, threshold: Union[datetime, str, int]
     ) -> Tuple[AnyDataFrame, AnyDataFrame]:
+        if isinstance(threshold, str):
+            threshold = datetime.strptime(threshold, self.time_column_format)
         if isinstance(interactions, SparkDataFrame):
             return self._partial_split_spark(interactions, threshold)
 

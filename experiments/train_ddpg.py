@@ -135,7 +135,7 @@ def main():
     log_replay = indexer.transform(df=only_positives_log)
 
     train_spl = TimeSplitter(
-        test_start=[0.2],
+        test_start=0.2,
         drop_cold_items=True,
         drop_cold_users=True,
     )

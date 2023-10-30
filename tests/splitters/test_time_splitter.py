@@ -349,7 +349,7 @@ def test_string(dataset_type, request, split_date):
 
     str_date = split_date.strftime("%Y-%m-%d")
     splitter = TimeSplitter(
-        str_date, drop_cold_items=False, drop_cold_users=False
+        str_date, drop_cold_items=False, drop_cold_users=False, time_column_format="%Y-%m-%d"
     )
     train_by_str, test_by_str = splitter.split(log)
 
@@ -460,3 +460,20 @@ def test_drop_cold_users(dataset_type, request, split_date):
 def test_proportion_splitting_out_of_range():
     with pytest.raises(ValueError):
         TimeSplitter(1.2)
+
+
+@pytest.mark.parametrize(
+    "dataset_type",
+    [
+        ("log"),
+        ("log_pandas"),
+    ],
+)
+def test_wrong_threshold_format_passed(dataset_type, request, split_date):
+    log = request.getfixturevalue(dataset_type)
+    str_date = split_date.strftime("%Y-%m-%d")
+    splitter = TimeSplitter(
+        str_date, drop_cold_items=False, drop_cold_users=False
+    )
+    with pytest.raises(ValueError):
+        splitter.split(log)

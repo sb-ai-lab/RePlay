@@ -126,7 +126,7 @@ def main():
 
     # train/test split
     date_splitter = TimeSplitter(
-        test_start=[0.2],
+        test_start=0.2,
         drop_cold_items=True,
         drop_cold_users=True,
         drop_zero_rel_in_test=True,
