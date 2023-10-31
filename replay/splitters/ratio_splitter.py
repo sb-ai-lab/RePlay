@@ -16,7 +16,7 @@ class RatioSplitter(Splitter):
 
     >>> from datetime import datetime
     >>> import pandas as pd
-    >>> columns = ["user_id", "item_id", "timestamp"]
+    >>> columns = ["query_id", "item_id", "timestamp"]
     >>> data = [
     ...     (1, 1, "01-01-2020"),
     ...     (1, 2, "02-01-2020"),
@@ -37,7 +37,7 @@ class RatioSplitter(Splitter):
     >>> dataset = pd.DataFrame(data, columns=columns)
     >>> dataset["timestamp"] = pd.to_datetime(dataset["timestamp"], format="%d-%m-%Y")
     >>> dataset
-        user_id  item_id  timestamp
+        query_id  item_id  timestamp
     0         1        1 2020-01-01
     1         1        2 2020-01-02
     2         1        3 2020-01-03
@@ -55,13 +55,13 @@ class RatioSplitter(Splitter):
     14        3        2 2020-01-05
     >>> splitter = RatioSplitter(
     ...     test_size=0.5,
-    ...     divide_column="user_id",
-    ...     query_column="user_id",
+    ...     divide_column="query_id",
+    ...     query_column="query_id",
     ...     item_column="item_id"
     ... )
     >>> train, test = splitter.split(dataset)
     >>> train
-        user_id  item_id  timestamp
+       query_id  item_id  timestamp
     0         1        1 2020-01-01
     1         1        2 2020-01-02
     5         2        1 2020-01-06
@@ -69,7 +69,7 @@ class RatioSplitter(Splitter):
     10        3        1 2020-01-01
     11        3        5 2020-01-02
     >>> test
-        user_id  item_id  timestamp
+       query_id  item_id  timestamp
     2         1        3 2020-01-03
     3         1        4 2020-01-04
     4         1        5 2020-01-05
@@ -99,10 +99,10 @@ class RatioSplitter(Splitter):
     def __init__(
         self,
         test_size: float,
-        divide_column: str = "user_id",
+        divide_column: str = "query_id",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
-        query_column: str = "user_id",
+        query_column: str = "query_id",
         item_column: str = "item_id",
         timestamp_column: str = "timestamp",
         min_interactions_per_group: Optional[int] = None,
@@ -113,21 +113,19 @@ class RatioSplitter(Splitter):
         """
         :param ratio: test size, must be in :math:`(0, 1)`.
         :param divide_column: Name of column for dividing
-            in dataframe, default: ``user_id``.
+            in dataframe, default: ``query_id``.
         :param drop_cold_users: Drop users from test DataFrame.
             which are not in train DataFrame, default: False.
         :param drop_cold_items: Drop items from test DataFrame
             which are not in train DataFrame, default: False.
         :param query_column: Name of query interaction column.
             If ``drop_cold_users`` is ``False``, then you can omit this parameter.
-            Default: ``user_id``.
+            Default: ``query_id``.
         :param item_column: Name of item interaction column.
             If ``drop_cold_items`` is ``False``, then you can omit this parameter.
             Default: ``item_id``.
         :param timestamp_column: Name of time column,
             Default: ``timestamp``.
-        :param rating_col: Rating column name.
-            Default: ``relevance``.
         :param min_interactions_per_group: minimal required interactions per group to make first split.
             if value is less than min_interactions_per_group, than whole group goes to train.
             If not set, than any amount of interactions will be split.
@@ -163,9 +161,6 @@ class RatioSplitter(Splitter):
         if test_size < 0 or test_size > 1:
             raise ValueError("test_size must be 0 to 1")
         self.test_size = test_size
-
-    def _get_order_of_sort(self) -> list:
-        return [self.divide_column, self.timestamp_column]
 
     def _add_time_partition(self, interactions: AnyDataFrame) -> AnyDataFrame:
         if isinstance(interactions, SparkDataFrame):

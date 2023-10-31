@@ -78,7 +78,7 @@ def pandas_dataframe_test():
 @pytest.mark.parametrize("strategy", ["interacitons", "INTERACTIONS", "interaction", "second"])
 def test_lastnsplitter_wrong_strategy(strategy):
     with pytest.raises(ValueError):
-        LastNSplitter(N=1, strategy=strategy)
+        LastNSplitter(N=1, strategy=strategy, divide_column="user_id", query_column="user_id")
 
 
 @pytest.mark.parametrize(
@@ -103,6 +103,8 @@ def test_last_n_interactions_splitter_without_drops(n, user_answer, item_answer,
 
     filtered_dataframe = LastNSplitter(
         N=n,
+        divide_column="user_id",
+        query_column="user_id",
         strategy="interactions",
         drop_cold_users=False,
         drop_cold_items=False,
@@ -140,6 +142,8 @@ def test_last_n_interactions_splitter_drop_users(n, user_answer, item_answer, da
 
     filtered_dataframe = LastNSplitter(
         N=n,
+        divide_column="user_id",
+        query_column="user_id",
         strategy="interactions",
         drop_cold_users=True,
         drop_cold_items=False,
@@ -182,6 +186,8 @@ def test_last_n_interactions_splitter_drop_items(n, user_answer, item_answer, da
 
     filtered_dataframe = LastNSplitter(
         N=n,
+        divide_column="user_id",
+        query_column="user_id",
         strategy="interactions",
         drop_cold_users=False,
         drop_cold_items=True,
@@ -219,6 +225,8 @@ def test_last_n_interactions_splitter_drop_both(n, user_answer, item_answer, dat
 
     filtered_dataframe = LastNSplitter(
         N=n,
+        divide_column="user_id",
+        query_column="user_id",
         strategy="interactions",
         drop_cold_users=True,
         drop_cold_items=True,
@@ -264,6 +272,8 @@ def test_last_n_seconds_splitter_without_drops(
         )
     filtered_dataframe = LastNSplitter(
         N=seconds,
+        divide_column="user_id",
+        query_column="user_id",
         strategy="seconds",
         time_column_format="dd-MM-yyyy",
         drop_cold_users=False,
@@ -302,6 +312,8 @@ def test_last_n_seconds_splitter_drop_users(seconds, user_answer, item_answer, d
 
     filtered_dataframe = LastNSplitter(
         N=seconds,
+        divide_column="user_id",
+        query_column="user_id",
         strategy="seconds",
         time_column_format="dd-MM-yyyy",
         drop_cold_users=True,
@@ -340,6 +352,8 @@ def test_last_n_seconds_splitter_drop_items(seconds, user_answer, item_answer, d
 
     filtered_dataframe = LastNSplitter(
         N=seconds,
+        divide_column="user_id",
+        query_column="user_id",
         strategy="seconds",
         time_column_format="dd-MM-yyyy",
         drop_cold_users=False,
@@ -378,6 +392,8 @@ def test_last_n_seconds_splitter_drop_both(seconds, user_answer, item_answer, da
 
     filtered_dataframe = LastNSplitter(
         N=seconds,
+        divide_column="user_id",
+        query_column="user_id",
         strategy="seconds",
         time_column_format="dd-MM-yyyy",
         drop_cold_users=True,
@@ -425,6 +441,8 @@ def test_last_n_interactions_splitter_without_drops_with_sessions(
 
     filtered_dataframe = LastNSplitter(
         N=n,
+        divide_column="user_id",
+        query_column="user_id",
         strategy="interactions",
         drop_cold_users=False,
         drop_cold_items=False,
@@ -473,6 +491,8 @@ def test_last_n_seconds_splitter_without_drops_with_sessions(
 
     filtered_dataframe = LastNSplitter(
         N=seconds,
+        divide_column="user_id",
+        query_column="user_id",
         strategy="seconds",
         time_column_format="dd-MM-yyyy",
         drop_cold_users=False,
@@ -503,6 +523,8 @@ def test_last_n_seconds_to_unix_timestamp(dataset_type, result_type, request):
 
     dataframe_splitted = LastNSplitter(
         N=86400,
+        divide_column="user_id",
+        query_column="user_id",
         strategy="seconds",
         timestamp_column="timestamp",
         time_column_format="dd-MM-yyyy",
@@ -517,6 +539,8 @@ def test_last_n_seconds_to_unix_timestamp(dataset_type, result_type, request):
 def test_invalid_unix_timestamp(pandas_dataframe_test):
     pandas_dataframe_test_formated_time = LastNSplitter(
         N=86400,
+        divide_column="user_id",
+        query_column="user_id",
         strategy="seconds",
         timestamp_column="item_id",
         time_column_format="dd-MM-yyyy",
@@ -531,6 +555,6 @@ def test_invalid_unix_timestamp(pandas_dataframe_test):
 def test_original_dataframe_not_change(pandas_dataframe_test):
     original_dataframe = pandas_dataframe_test.copy(deep=True)
 
-    LastNSplitter(5).split(original_dataframe)
+    LastNSplitter(5, divide_column="user_id", query_column="user_id").split(original_dataframe)
 
     assert original_dataframe.equals(pandas_dataframe_test)

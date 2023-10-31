@@ -27,12 +27,11 @@ class Splitter(ABC):
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        drop_cold_items: bool,
-        drop_cold_users: bool,
-        query_column: str = "user_id",
+        drop_cold_items: bool = False,
+        drop_cold_users: bool = False,
+        query_column: str = "query_id",
         item_column: Optional[str] = "item_id",
         timestamp_column: Optional[str] = "timestamp",
-        rating_column: Optional[str] = "relevance",
         session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
     ):
@@ -42,7 +41,6 @@ class Splitter(ABC):
         :param query_column: query id column name
         :param item_column: item id column name
         :param timestamp_column: timestamp column name
-        :param rating_column: rating column name
         :param session_id_column: name of session id column, which values can not be split.
         :param session_id_processing_strategy: strategy of processing session if it is split,
             values: ``train, test``, train: whole split session goes to train. test: same but to test.
@@ -53,17 +51,12 @@ class Splitter(ABC):
         self.query_column = query_column
         self.item_column = item_column
         self.timestamp_column = timestamp_column
-        self.rating_column = rating_column
 
         self.session_id_column = session_id_column
         self.session_id_processing_strategy = session_id_processing_strategy
 
         if session_id_processing_strategy not in ["train", "test"]:
             raise NotImplementedError("session_id_processing_strategy can only be: 'train' or 'test'.")
-
-    @abstractmethod
-    def _get_order_of_sort(self) -> list:  # pragma: no cover
-        pass
 
     @property
     def _init_args(self):
@@ -97,9 +90,6 @@ class Splitter(ABC):
         if self.drop_cold_users:
             test = test[test[self.query_column].isin(train[self.query_column])]
 
-        if self.drop_cold_users or self.drop_cold_items:
-            test = test.sort_values(self._get_order_of_sort())
-
         return test
 
     def _drop_cold_items_and_users_from_spark(
@@ -115,9 +105,6 @@ class Splitter(ABC):
         if self.drop_cold_users:
             train_tmp = train.select(sf.col(self.query_column).alias("user")).distinct()
             test = test.join(train_tmp, train_tmp["user"] == test[self.query_column]).drop("user")
-
-        if self.drop_cold_users or self.drop_cold_items:
-            test = test.sort(self._get_order_of_sort())
 
         return test
 

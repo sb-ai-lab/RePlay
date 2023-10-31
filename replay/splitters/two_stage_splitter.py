@@ -27,12 +27,12 @@ class TwoStageSplitter(Splitter):
 
     >>> from replay.splitters import TwoStageSplitter
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_id": [1,1,1,2,2,2],
+    >>> data_frame = pd.DataFrame({"query_id": [1,1,1,2,2,2],
     ...    "item_id": [1,2,3,1,2,3],
     ...    "relevance": [1,2,3,4,5,6],
     ...    "timestamp": [1,2,3,3,2,1]})
     >>> data_frame
-        user_id  item_id  relevance  timestamp
+       query_id  item_id  relevance  timestamp
     0         1         1          1          1
     1         1         2          2          2
     2         1         3          3          3
@@ -41,19 +41,19 @@ class TwoStageSplitter(Splitter):
     5         2         3          6          1
     >>> train, test = TwoStageSplitter(first_divide_size=1, second_divide_size=2, seed=42).split(data_frame)
     >>> test
-        user_id  item_id  relevance  timestamp
+       query_id  item_id  relevance  timestamp
     3         2         1          4          3
     4         2         2          5          2
 
     >>> train, test = TwoStageSplitter(first_divide_size=0.5, second_divide_size=2, seed=42).split(data_frame)
     >>> test
-        user_id  item_id  relevance  timestamp
+       query_id  item_id  relevance  timestamp
     3         2         1          4          3
     4         2         2          5          2
 
     >>> train, test = TwoStageSplitter(first_divide_size=0.5, second_divide_size=0.7, seed=42).split(data_frame)
     >>> test
-        user_id  item_id  relevance  timestamp
+       query_id  item_id  relevance  timestamp
     3         2         1          4          3
     4         2         2          5          2
     """
@@ -70,7 +70,6 @@ class TwoStageSplitter(Splitter):
         "query_column",
         "item_column",
         "timestamp_column",
-        "rating_column",
         "session_id_column",
         "session_id_processing_strategy",
     ]
@@ -80,16 +79,15 @@ class TwoStageSplitter(Splitter):
         self,
         first_divide_size: Union[float, int],
         second_divide_size: Union[float, int],
-        first_divide_column: str = "user_id",
+        first_divide_column: str = "query_id",
         second_divide_column: str = "item_id",
         shuffle=False,
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         seed: Optional[int] = None,
-        query_column: str = "user_id",
+        query_column: str = "query_id",
         item_column: Optional[str] = "item_id",
         timestamp_column: Optional[str] = "timestamp",
-        rating_column: Optional[str] = "relevance",
         session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
     ):
@@ -105,7 +103,6 @@ class TwoStageSplitter(Splitter):
         :param query_column: query id column name
         :param item_column: item id column name
         :param timestamp_column: timestamp column name
-        :param rating_column: rating column name
         :param session_id_column: name of session id column, which values can not be split.
         :param session_id_processing_strategy: strategy of processing session if it is split,
             values: ``train, test``, train: whole split session goes to train. test: same but to test.
@@ -117,7 +114,6 @@ class TwoStageSplitter(Splitter):
             query_column=query_column,
             item_column=item_column,
             timestamp_column=timestamp_column,
-            rating_column=rating_column,
             session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy
         )
@@ -127,9 +123,6 @@ class TwoStageSplitter(Splitter):
         self.second_divide_size = second_divide_size
         self.shuffle = shuffle
         self.seed = seed
-
-    def _get_order_of_sort(self) -> list:   # pragma: no cover
-        pass
 
     def _get_test_values(
         self,
@@ -190,7 +183,8 @@ class TwoStageSplitter(Splitter):
             )
         else:
             res = self._add_time_partition_spark(
-                interactions.join(test_users, how="left", on=self.first_divide_column)
+                interactions.join(test_users, how="left", on=self.first_divide_column),
+                query_column=self.query_column,
             )
 
         res = res.join(counts, on=self.first_divide_column, how="left")
@@ -226,7 +220,8 @@ class TwoStageSplitter(Splitter):
             )
         else:
             res = self._add_time_partition_pandas(
-                interactions.merge(test_users, how="left", on=self.first_divide_column)
+                interactions.merge(test_users, how="left", on=self.first_divide_column),
+                query_column=self.query_column,
             )
         res["is_test"].fillna(False, inplace=True)
         res = res.merge(counts, on=self.first_divide_column, how="left")
@@ -264,7 +259,8 @@ class TwoStageSplitter(Splitter):
             )
         else:
             res = self._add_time_partition_spark(
-                interactions.join(test_users, how="left", on=self.first_divide_column)
+                interactions.join(test_users, how="left", on=self.first_divide_column),
+                query_column=self.query_column,
             )
         res = res.na.fill({"is_test": False})
         if self.session_id_column:
@@ -293,7 +289,8 @@ class TwoStageSplitter(Splitter):
             )
         else:
             res = self._add_time_partition_pandas(
-                interactions.merge(test_users, how="left", on=self.first_divide_column)
+                interactions.merge(test_users, how="left", on=self.first_divide_column),
+                query_column=self.query_column,
             )
         res["is_test"].fillna(False, inplace=True)
         if self.session_id_column:
@@ -337,7 +334,7 @@ class TwoStageSplitter(Splitter):
         """
         Adds `_rand` column and a user index column `_row_num` based on `_rand`.
 
-        :param dataframe: input DataFrame with `user_id` column
+        :param dataframe: input DataFrame with `query_id` column
         :returns: processed DataFrame
         """
         dataframe = dataframe.withColumn("_rand", sf.rand(self.seed))
@@ -358,13 +355,13 @@ class TwoStageSplitter(Splitter):
     @staticmethod
     def _add_time_partition_spark(
             dataframe: SparkDataFrame,
-            query_column: str = "user_id",
+            query_column: str = "query_id",
             date_column: str = "timestamp",
     ) -> SparkDataFrame:
         """
         Adds user index `_row_num` based on `timestamp`.
 
-        :param dataframe: input DataFrame with `[timestamp, user_id]`
+        :param dataframe: input DataFrame with `[timestamp, query_id]`
         :param query_column: user id column name
         :param date_column: timestamp column name
         :returns: processed DataFrame
@@ -382,7 +379,7 @@ class TwoStageSplitter(Splitter):
     @staticmethod
     def _add_time_partition_pandas(
             dataframe: PandasDataFrame,
-            query_column: str = "user_id",
+            query_column: str = "query_id",
             date_column: str = "timestamp",
     ) -> PandasDataFrame:
         res = dataframe.copy(deep=True)

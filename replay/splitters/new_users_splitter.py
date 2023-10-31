@@ -21,12 +21,12 @@ class NewUsersSplitter(Splitter):
 
     >>> from replay.splitters import NewUsersSplitter
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_id": [1,1,2,2,3,4],
+    >>> data_frame = pd.DataFrame({"query_id": [1,1,2,2,3,4],
     ...    "item_id": [1,2,3,1,2,3],
     ...    "relevance": [1,2,3,4,5,6],
     ...    "timestamp": [20,40,20,30,10,40]})
     >>> data_frame
-        user_id   item_id  relevance  timestamp
+       query_id   item_id  relevance  timestamp
     0         1         1          1         20
     1         1         2          2         40
     2         2         3          3         20
@@ -35,14 +35,14 @@ class NewUsersSplitter(Splitter):
     5         4         3          6         40
     >>> train, test = NewUsersSplitter(test_size=0.1).split(data_frame)
     >>> train
-       user_id  item_id  relevance  timestamp
+      query_id  item_id  relevance  timestamp
     0        1        1          1         20
     2        2        3          3         20
     3        2        1          4         30
     4        3        2          5         10
     <BLANKLINE>
     >>> test
-       user_id  item_id  relevance  timestamp
+      query_id  item_id  relevance  timestamp
     0        4        3          6         40
     <BLANKLINE>
 
@@ -51,19 +51,17 @@ class NewUsersSplitter(Splitter):
 
     >>> train, test = NewUsersSplitter(test_size=0.3).split(data_frame)
     >>> train
-       user_id  item_id  relevance  timestamp
+      query_id  item_id  relevance  timestamp
     4        3        2          5         10
     <BLANKLINE>
     """
 
     _init_arg_names = [
         "test_size",
-        "drop_cold_users",
         "drop_cold_items",
         "query_column",
         "item_column",
         "timestamp_column",
-        "rating_column",
         "session_id_column",
         "session_id_processing_strategy",
     ]
@@ -73,11 +71,9 @@ class NewUsersSplitter(Splitter):
         self,
         test_size: float,
         drop_cold_items: bool = False,
-        drop_cold_users: bool = False,
-        query_column: str = "user_id",
+        query_column: str = "query_id",
         item_column: Optional[str] = "item_id",
         timestamp_column: Optional[str] = "timestamp",
-        rating_column: Optional[str] = "relevance",
         session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
     ):
@@ -87,7 +83,6 @@ class NewUsersSplitter(Splitter):
         :param query_column: query id column name
         :param item_column: item id column name
         :param timestamp_column: timestamp column name
-        :param rating_column: rating column name
         :param session_id_column: name of session id column, which values can not be split.
         :param session_id_processing_strategy: strategy of processing session if it is split,
             values: ``train, test``, train: whole split session goes to train. test: same but to test.
@@ -95,20 +90,15 @@ class NewUsersSplitter(Splitter):
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
-            drop_cold_users=drop_cold_users,
             query_column=query_column,
             item_column=item_column,
             timestamp_column=timestamp_column,
-            rating_column=rating_column,
             session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy
         )
         if test_size < 0 or test_size > 1:
             raise ValueError("test_size must be 0 to 1")
         self.test_size = test_size
-
-    def _get_order_of_sort(self) -> list:   # pragma: no cover
-        pass
 
     def _core_split_pandas(
         self,

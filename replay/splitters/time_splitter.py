@@ -16,7 +16,7 @@ class TimeSplitter(Splitter):
 
     >>> from datetime import datetime
     >>> import pandas as pd
-    >>> columns = ["user_id", "item_id", "timestamp"]
+    >>> columns = ["query_id", "item_id", "timestamp"]
     >>> data = [
     ...     (1, 1, "01-01-2020"),
     ...     (1, 2, "02-01-2020"),
@@ -37,7 +37,7 @@ class TimeSplitter(Splitter):
     >>> dataset = pd.DataFrame(data, columns=columns)
     >>> dataset["timestamp"] = pd.to_datetime(dataset["timestamp"], format="%d-%m-%Y")
     >>> dataset
-        user_id  item_id  timestamp
+       query_id  item_id  timestamp
     0         1        1 2020-01-01
     1         1        2 2020-01-02
     2         1        3 2020-01-03
@@ -57,7 +57,7 @@ class TimeSplitter(Splitter):
     ...     time_threshold=datetime.strptime("2020-01-04", "%Y-%M-%d")
     ... ).split(dataset)
     >>> train
-        user_id  item_id  timestamp
+       query_id  item_id  timestamp
     0         1        1 2020-01-01
     1         1        2 2020-01-02
     2         1        3 2020-01-03
@@ -67,7 +67,7 @@ class TimeSplitter(Splitter):
     12        3        3 2020-01-03
     13        3        1 2020-01-04
     >>> test
-        user_id  item_id  timestamp
+       query_id  item_id  timestamp
     4         1        5 2020-01-05
     5         2        1 2020-01-06
     6         2        2 2020-01-07
@@ -84,7 +84,6 @@ class TimeSplitter(Splitter):
         "query_column",
         "item_column",
         "timestamp_column",
-        "rating_column",
         "session_id_column",
         "session_id_processing_strategy",
         "time_column_format",
@@ -94,12 +93,11 @@ class TimeSplitter(Splitter):
     def __init__(
         self,
         time_threshold: Union[datetime, str, int, float],
-        query_column: str = "user_id",
+        query_column: str = "query_id",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
         item_column: str = "item_id",
         timestamp_column: str = "timestamp",
-        rating_column: Optional[str] = "relevance",
         session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
         time_column_format: str = "%Y-%m-%d %H:%M:%S",
@@ -116,8 +114,6 @@ class TimeSplitter(Splitter):
             Default: ``item_id``.
         :param timestamp_column: Name of time column,
             Default: ``timestamp``.
-        :param rating_column: Rating column name.
-            Default: ``relevance``.
         :param session_id_column: Name of session id column, which values can not be split,
             default: ``None``.
         :param session_id_processing_strategy: strategy of processing session if it is split,
@@ -131,7 +127,6 @@ class TimeSplitter(Splitter):
             item_column=item_column,
             timestamp_column=timestamp_column,
             session_id_column=session_id_column,
-            rating_column=rating_column,
             session_id_processing_strategy=session_id_processing_strategy,
         )
         self._precision = 3
@@ -139,9 +134,6 @@ class TimeSplitter(Splitter):
         if isinstance(time_threshold, float) and (time_threshold < 0 or time_threshold > 1):
             raise ValueError("test_size must be 0 to 1")
         self.time_threshold = time_threshold
-
-    def _get_order_of_sort(self) -> list:
-        return [self.query_column, self.timestamp_column]
 
     def _partial_split(
         self, interactions: AnyDataFrame, threshold: Union[datetime, str, int]

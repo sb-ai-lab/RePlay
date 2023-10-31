@@ -77,7 +77,9 @@ def pandas_dataframe_test():
 @pytest.mark.parametrize("strategy", ["TRAIN", "TEST", "validation"])
 def test_splitter_wrong_session_id_strategy(strategy):
     with pytest.raises(NotImplementedError):
-        RatioSplitter(0.5, session_id_processing_strategy=strategy)
+        RatioSplitter(
+            0.5, query_column="user_id", divide_column="user_id", session_id_processing_strategy=strategy
+        )
 
 
 @pytest.mark.parametrize(
@@ -121,6 +123,8 @@ def test_ratio_splitter_without_drops(ratio, user_answer, item_answer, split_by_
 
     filtered_dataframe = RatioSplitter(
         test_size=ratio,
+        divide_column="user_id",
+        query_column="user_id",
         drop_cold_users=False,
         drop_cold_items=False,
         split_by_fraqtions=split_by_fraqtions,
@@ -183,6 +187,8 @@ def test_ratio_splitter_min_user_interactions(
 
     filtered_dataframe = RatioSplitter(
         test_size=ratio,
+        divide_column="user_id",
+        query_column="user_id",
         drop_cold_users=False,
         drop_cold_items=False,
         min_interactions_per_group=min_interactions_per_group,
@@ -226,6 +232,8 @@ def test_ratio_splitter_drop_users(ratio, user_answer, item_answer, dataset_type
 
     filtered_dataframe = RatioSplitter(
         test_size=ratio,
+        divide_column="user_id",
+        query_column="user_id",
         drop_cold_users=True,
         drop_cold_items=False,
     ).split(dataframe)
@@ -262,6 +270,8 @@ def test_ratio_splitter_drop_items(ratio, user_answer, item_answer, dataset_type
 
     filtered_dataframe = RatioSplitter(
         test_size=ratio,
+        divide_column="user_id",
+        query_column="user_id",
         drop_cold_users=False,
         drop_cold_items=True,
     ).split(dataframe)
@@ -278,12 +288,14 @@ def test_ratio_splitter_drop_items(ratio, user_answer, item_answer, dataset_type
 
 def test_ratio_splitter_sanity_check():
     with pytest.raises(ValueError):
-        RatioSplitter(test_size=1.4)
+        RatioSplitter(test_size=1.4, divide_column="user_id", query_column="user_id")
 
 
 def test_datasets_types_mismatch(spark_dataframe_test, pandas_dataframe_test):
     with pytest.raises(TypeError):
-        RatioSplitter(0.1)._drop_cold_items_and_users(spark_dataframe_test, pandas_dataframe_test)
+        RatioSplitter(0.1, divide_column="user_id", query_column="user_id")._drop_cold_items_and_users(
+            spark_dataframe_test, pandas_dataframe_test
+        )
 
 
 @pytest.mark.parametrize(
@@ -333,6 +345,8 @@ def test_ratio_splitter_without_drops_with_sessions(
 
     filtered_dataframe = RatioSplitter(
         test_size=ratio,
+        divide_column="user_id",
+        query_column="user_id",
         drop_cold_users=False,
         drop_cold_items=False,
         split_by_fraqtions=split_by_fraqtions,
@@ -353,6 +367,6 @@ def test_ratio_splitter_without_drops_with_sessions(
 def test_original_dataframe_not_change(pandas_dataframe_test):
     original_dataframe = pandas_dataframe_test.copy(deep=True)
 
-    RatioSplitter(0.5).split(original_dataframe)
+    RatioSplitter(0.5, query_column="user_id", divide_column="user_id",).split(original_dataframe)
 
     assert original_dataframe.equals(pandas_dataframe_test)

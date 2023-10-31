@@ -22,9 +22,6 @@ class RandomSplitter(Splitter):
         "drop_cold_items",
         "seed",
         "query_column",
-        "item_column",
-        "timestamp_column",
-        "rating_column",
         "session_id_column",
         "session_id_processing_strategy",
     ]
@@ -36,10 +33,7 @@ class RandomSplitter(Splitter):
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         seed: Optional[int] = None,
-        query_column: str = "user_id",
-        item_column: Optional[str] = "item_id",
-        timestamp_column: Optional[str] = "timestamp",
-        rating_column: Optional[str] = "relevance",
+        query_column: str = "query_id",
         session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
     ):
@@ -49,9 +43,6 @@ class RandomSplitter(Splitter):
         :param drop_cold_users: flag to drop cold users from test
         :param seed: random seed
         :param query_column: query id column name
-        :param item_column: item id column name
-        :param timestamp_column: timestamp column name
-        :param rating_column: rating column name
         :param session_id_column: name of session id column, which values can not be split.
         :param session_id_processing_strategy: strategy of processing session if it is split,
             values: ``train, test``, train: whole split session goes to train. test: same but to test.
@@ -61,9 +52,6 @@ class RandomSplitter(Splitter):
             drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
             query_column=query_column,
-            item_column=item_column,
-            timestamp_column=timestamp_column,
-            rating_column=rating_column,
             session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy
         )
@@ -71,9 +59,6 @@ class RandomSplitter(Splitter):
         if test_size < 0 or test_size > 1:
             raise ValueError("test_size must be 0 to 1")
         self.test_size = test_size
-
-    def _get_order_of_sort(self) -> list:   # pragma: no cover
-        pass
 
     def _random_split_spark(
         self,

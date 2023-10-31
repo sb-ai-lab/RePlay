@@ -92,6 +92,7 @@ def test_nothing_is_lost(test_size, dataset_type, request):
     log = request.getfixturevalue(dataset_type)
     splitter = RandomSplitter(
         test_size=test_size,
+        query_column="user_id",
         drop_cold_items=False,
         drop_cold_users=False,
         seed=SEED,
@@ -110,7 +111,7 @@ def test_nothing_is_lost(test_size, dataset_type, request):
 
 def test_bad_test_size():
     with pytest.raises(ValueError):
-        RandomSplitter(1.2)
+        RandomSplitter(1.2, query_column="user_id",)
 
 
 @pytest.mark.parametrize(
@@ -124,6 +125,7 @@ def test_with_session_ids(dataset_type, request):
     log = request.getfixturevalue(dataset_type)
     splitter = RandomSplitter(
         test_size=0.3,
+        query_column="user_id",
         drop_cold_items=False,
         drop_cold_users=False,
         session_id_column="session_id",
@@ -148,6 +150,7 @@ def test_with_multiple_splitting(dataset_type, request):
     log = request.getfixturevalue(dataset_type)
     splitter = RandomSplitter(
         test_size=0.6,
+        query_column="user_id",
         drop_cold_items=False,
         drop_cold_users=False,
         seed=SEED,

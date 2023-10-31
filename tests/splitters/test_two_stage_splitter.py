@@ -46,6 +46,8 @@ def test_get_test_values(dataset_type, request, fraction):
     splitter = TwoStageSplitter(
         first_divide_size=fraction,
         second_divide_size=1,
+        first_divide_column="user_id",
+        query_column="user_id",
         drop_cold_items=False,
         drop_cold_users=False,
         session_id_column="session_id",
@@ -74,6 +76,8 @@ def test_user_test_size_exception(dataset_type, request, fraction):
     splitter = TwoStageSplitter(
         first_divide_size=fraction,
         second_divide_size=1,
+        first_divide_column="user_id",
+        query_column="user_id",
         drop_cold_items=False,
         drop_cold_users=False,
         session_id_column="session_id",
@@ -134,6 +138,8 @@ def test_random_split(dataset_type, request, item_test_size, shuffle):
     splitter = TwoStageSplitter(
         first_divide_size=0.5,
         second_divide_size=item_test_size,
+        first_divide_column="user_id",
+        query_column="user_id",
         drop_cold_items=False,
         drop_cold_users=False,
         seed=1234,
@@ -175,6 +181,8 @@ def test_item_test_size_exception(dataset_type, request, item_test_size):
     splitter = TwoStageSplitter(
         first_divide_size=2,
         second_divide_size=item_test_size,
+        first_divide_column="user_id",
+        query_column="user_id",
         drop_cold_items=False,
         drop_cold_users=False,
         seed=1234,
@@ -222,6 +230,8 @@ def test_split_quantity(dataset_type, request):
     splitter = TwoStageSplitter(
         first_divide_size=0.5,
         second_divide_size=2,
+        first_divide_column="user_id",
+        query_column="user_id",
         drop_cold_items=False,
         drop_cold_users=False,
     )
@@ -247,6 +257,8 @@ def test_split_proportion(dataset_type, request):
     splitter = TwoStageSplitter(
         first_divide_size=1,
         second_divide_size=0.4,
+        first_divide_column="user_id",
+        query_column="user_id",
         drop_cold_items=False,
         drop_cold_users=False,
         seed=13,

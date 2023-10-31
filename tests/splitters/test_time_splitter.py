@@ -120,6 +120,7 @@ def test_time_splitter_without_drops(time_threshold, user_answer, item_answer, d
 
     filtered_dataframe = TimeSplitter(
         time_threshold=time_threshold,
+        query_column="user_id",
         drop_cold_users=False,
         drop_cold_items=False,
     ).split(dataframe)
@@ -156,6 +157,7 @@ def test_time_splitter_drop_users(time_threshold, user_answer, item_answer, data
 
     filtered_dataframe = TimeSplitter(
         time_threshold=time_threshold,
+        query_column="user_id",
         drop_cold_users=True,
         drop_cold_items=False,
     ).split(dataframe)
@@ -192,6 +194,7 @@ def test_time_splitter_drop_items(time_threshold, user_answer, item_answer, data
 
     filtered_dataframe = TimeSplitter(
         time_threshold=time_threshold,
+        query_column="user_id",
         drop_cold_users=False,
         drop_cold_items=True,
     ).split(dataframe)
@@ -228,6 +231,7 @@ def test_time_splitter_drop_both(time_threshold, user_answer, item_answer, datas
 
     filtered_dataframe = TimeSplitter(
         time_threshold=time_threshold,
+        query_column="user_id",
         drop_cold_users=True,
         drop_cold_items=True,
     ).split(dataframe)
@@ -267,6 +271,7 @@ def test_time_splitter_without_drops_with_sessions(
 
     filtered_dataframe = TimeSplitter(
         time_threshold=time_threshold,
+        query_column="user_id",
         drop_cold_users=False,
         drop_cold_items=False,
         session_id_column="session_id",
@@ -288,6 +293,7 @@ def test_splitter_with_sessions_error(spark_dataframe_test):
     with pytest.raises(NotImplementedError):
         TimeSplitter(
             time_threshold="04-01-2020",
+            query_column="user_id",
             drop_cold_users=False,
             drop_cold_items=False,
             session_id_column="session_id",
@@ -298,7 +304,9 @@ def test_splitter_with_sessions_error(spark_dataframe_test):
 def test_original_dataframe_not_change(pandas_dataframe_test):
     original_dataframe = pandas_dataframe_test.copy(deep=True)
 
-    TimeSplitter(datetime.strptime("06-01-2020", "%d-%m-%Y")).split(original_dataframe)
+    TimeSplitter(datetime.strptime("06-01-2020", "%d-%m-%Y"), query_column="user_id").split(
+        original_dataframe
+    )
 
     assert original_dataframe.equals(pandas_dataframe_test)
 
@@ -318,7 +326,7 @@ def split_date():
 def test_split(dataset_type, request, split_date):
     log = request.getfixturevalue(dataset_type)
     splitter = TimeSplitter(
-        split_date, drop_cold_items=False, drop_cold_users=False
+        split_date, drop_cold_items=False, drop_cold_users=False, query_column="user_id",
     )
     train, test = splitter.split(log)
 
@@ -343,13 +351,17 @@ def test_split(dataset_type, request, split_date):
 def test_string(dataset_type, request, split_date):
     log = request.getfixturevalue(dataset_type)
     splitter = TimeSplitter(
-        split_date, drop_cold_items=False, drop_cold_users=False
+        split_date, drop_cold_items=False, drop_cold_users=False, query_column="user_id",
     )
     train_by_date, test_by_date = splitter.split(log)
 
     str_date = split_date.strftime("%Y-%m-%d")
     splitter = TimeSplitter(
-        str_date, drop_cold_items=False, drop_cold_users=False, time_column_format="%Y-%m-%d"
+        str_date,
+        drop_cold_items=False,
+        drop_cold_users=False,
+        time_column_format="%Y-%m-%d",
+        query_column="user_id",
     )
     train_by_str, test_by_str = splitter.split(log)
 
@@ -359,7 +371,7 @@ def test_string(dataset_type, request, split_date):
     else:
         log = log.withColumn("timestamp", log["timestamp"].cast('bigint'))
     splitter = TimeSplitter(
-        int_date, drop_cold_items=False, drop_cold_users=False
+        int_date, drop_cold_items=False, drop_cold_users=False, query_column="user_id"
     )
     train_by_int, test_by_int = splitter.split(log)
 
@@ -387,7 +399,7 @@ def test_string(dataset_type, request, split_date):
 def test_proportion(dataset_type, request):
     log = request.getfixturevalue(dataset_type)
     test_size = 0.15
-    splitter = TimeSplitter(test_size)
+    splitter = TimeSplitter(test_size, query_column="user_id",)
     train, test = splitter.split(log)
 
     if "_pandas" in dataset_type:
@@ -419,7 +431,7 @@ def test_proportion(dataset_type, request):
 def test_drop_cold_items(dataset_type, request, split_date):
     log = request.getfixturevalue(dataset_type)
     splitter = TimeSplitter(
-        split_date, drop_cold_items=True, drop_cold_users=False
+        split_date, drop_cold_items=True, drop_cold_users=False, query_column="user_id"
     )
     train, test = splitter.split(log)
 
@@ -443,7 +455,7 @@ def test_drop_cold_items(dataset_type, request, split_date):
 def test_drop_cold_users(dataset_type, request, split_date):
     log = request.getfixturevalue(dataset_type)
     splitter = TimeSplitter(
-        split_date, drop_cold_items=False, drop_cold_users=True
+        split_date, drop_cold_items=False, drop_cold_users=True, query_column="user_id",
     )
     train, test = splitter.split(log)
 
@@ -459,7 +471,7 @@ def test_drop_cold_users(dataset_type, request, split_date):
 
 def test_proportion_splitting_out_of_range():
     with pytest.raises(ValueError):
-        TimeSplitter(1.2)
+        TimeSplitter(1.2, query_column="user_id",)
 
 
 @pytest.mark.parametrize(
@@ -473,7 +485,7 @@ def test_wrong_threshold_format_passed(dataset_type, request, split_date):
     log = request.getfixturevalue(dataset_type)
     str_date = split_date.strftime("%Y-%m-%d")
     splitter = TimeSplitter(
-        str_date, drop_cold_items=False, drop_cold_users=False
+        str_date, drop_cold_items=False, drop_cold_users=False, query_column="user_id"
     )
     with pytest.raises(ValueError):
         splitter.split(log)

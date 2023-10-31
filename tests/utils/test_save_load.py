@@ -52,15 +52,16 @@ def test_indexer(df, tmp_path):
 @pytest.mark.parametrize(
     "splitter, init_args",
     [
-        (TimeSplitter, {"time_threshold": 0.8}),
-        (LastNSplitter, {"N": 2}),
-        (RatioSplitter, {"test_size": 0.8}),
-        (RandomSplitter, {"test_size": 0.8, "seed": 123}),
-        (NewUsersSplitter, {"test_size": 0.8}),
-        (ColdUserRandomSplitter, {"test_size": 0.8, "seed": 123}),
+        (TimeSplitter, {"time_threshold": 0.8, "query_column": "user_id"}),
+        (LastNSplitter, {"N": 2, "query_column": "user_id", "divide_column": "user_id"}),
+        (RatioSplitter, {"test_size": 0.8, "query_column": "user_id", "divide_column": "user_id"}),
+        (RandomSplitter, {"test_size": 0.8, "seed": 123, "query_column": "user_id"}),
+        (NewUsersSplitter, {"test_size": 0.8, "query_column": "user_id"}),
+        (ColdUserRandomSplitter, {"test_size": 0.8, "seed": 123, "query_column": "user_id"}),
         (
             TwoStageSplitter,
-            {"second_divide_size": 1, "first_divide_size": 0.2, "seed": 123},
+            {"second_divide_size": 1, "first_divide_size": 0.2, "seed": 123, "query_column": "user_id",
+             "first_divide_column": "user_id"},
         ),
     ],
 )

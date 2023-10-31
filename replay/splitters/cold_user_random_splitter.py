@@ -27,7 +27,6 @@ class ColdUserRandomSplitter(Splitter):
         "query_column",
         "item_column",
         "timestamp_column",
-        "rating_column",
         "session_id_column",
         "session_id_processing_strategy",
     ]
@@ -39,10 +38,9 @@ class ColdUserRandomSplitter(Splitter):
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         seed: Optional[int] = None,
-        query_column: str = "user_id",
+        query_column: str = "query_id",
         item_column: Optional[str] = "item_id",
         timestamp_column: Optional[str] = "timestamp",
-        rating_column: Optional[str] = "relevance",
         session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
     ):
@@ -54,7 +52,6 @@ class ColdUserRandomSplitter(Splitter):
         :param query_column: query id column name
         :param item_column: item id column name
         :param timestamp_column: timestamp column name
-        :param rating_column: rating column name
         :param session_id_column: name of session id column, which values can not be split.
         :param session_id_processing_strategy: strategy of processing session if it is split,
             values: ``train, test``, train: whole split session goes to train. test: same but to test.
@@ -66,44 +63,32 @@ class ColdUserRandomSplitter(Splitter):
             query_column=query_column,
             item_column=item_column,
             timestamp_column=timestamp_column,
-            rating_column=rating_column,
             session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy
         )
         self.seed = seed
-        if test_size < 0 or test_size > 1:
+        if test_size <= 0 or test_size >= 1:
             raise ValueError("test_size must be 0 to 1")
         self.test_size = test_size
-
-    def _get_order_of_sort(self) -> list:   # pragma: no cover
-        pass
 
     def _core_split_pandas(
         self,
         interactions: PandasDataFrame,
         threshold: float
     ) -> Union[PandasDataFrame, PandasDataFrame]:
-        index_name = interactions.index.name
-        df = interactions.reset_index()
-        users = PandasDataFrame(df[self.query_column].unique(), columns=[self.query_column])
+        users = PandasDataFrame(interactions[self.query_column].unique(), columns=[self.query_column])
         train_users = users.sample(frac=(1 - threshold), random_state=self.seed)
-        test_users = users.drop(train_users.index)
+        train_users["is_test"] = False
 
-        train = df.merge(train_users, on=self.query_column, how="inner")
-        test = df.merge(test_users, on=self.query_column, how="inner")
-        train.set_index("index", inplace=True)
-        test.set_index("index", inplace=True)
-
-        train.index.name = index_name
-        test.index.name = index_name
+        interactions = interactions.merge(train_users, on=self.query_column, how="left")
+        interactions["is_test"].fillna(True, inplace=True)
 
         if self.session_id_column:
-            interactions["is_test"] = False
-            interactions.loc[test.index, "is_test"] = True
             interactions = self._recalculate_with_session_id_column(interactions)
-            train = interactions[~interactions["is_test"]].drop(columns=["is_test"])
-            test = interactions[interactions["is_test"]].drop(columns=["is_test"])
-            interactions = interactions.drop(columns=["is_test"])
+
+        train = interactions[~interactions["is_test"]].drop(columns=["is_test"])
+        test = interactions[interactions["is_test"]].drop(columns=["is_test"])
+        interactions = interactions.drop(columns=["is_test"])
 
         return train, test
 
@@ -113,19 +98,21 @@ class ColdUserRandomSplitter(Splitter):
         threshold: float
     ) -> Union[SparkDataFrame, SparkDataFrame]:
         users = interactions.select(self.query_column).distinct()
-        train_users, test_users = users.randomSplit(
+        train_users, _ = users.randomSplit(
             [1 - threshold, threshold],
             seed=self.seed,
         )
-        train = interactions.join(train_users, on=self.query_column, how="inner")
-        test = interactions.join(test_users, on=self.query_column, how="inner")
+        interactions = interactions.join(
+            train_users.withColumn("is_test", sf.lit(False)),
+            on=self.query_column,
+            how="left"
+        ).na.fill({"is_test": True})
 
         if self.session_id_column:
-            test = test.withColumn("is_test", sf.lit(True))
-            interactions = interactions.join(test, on=interactions.schema.names, how="left").na.fill({"is_test": False})
             interactions = self._recalculate_with_session_id_column(interactions)
-            train = interactions.filter(~sf.col("is_test")).drop("is_test")
-            test = interactions.filter(sf.col("is_test")).drop("is_test")
+
+        train = interactions.filter(~sf.col("is_test")).drop("is_test")
+        test = interactions.filter(sf.col("is_test")).drop("is_test")
 
         return train, test
 

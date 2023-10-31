@@ -42,7 +42,12 @@ def log_pandas(log):
 )
 def test_users_are_cold(dataset_type, request):
     log = request.getfixturevalue(dataset_type)
-    splitter = NewUsersSplitter(test_size=0.25, drop_cold_items=False, session_id_column="session_id")
+    splitter = NewUsersSplitter(
+        test_size=0.25,
+        query_column="user_id",
+        drop_cold_items=False,
+        session_id_column="session_id"
+    )
     train, test = splitter.split(log)
 
     if isinstance(log, pd.DataFrame):

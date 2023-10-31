@@ -24,7 +24,6 @@ class KFolds(Splitter):
         "query_column",
         "item_column",
         "timestamp_column",
-        "rating_column",
         "session_id_column",
         "session_id_processing_strategy",
     ]
@@ -37,10 +36,9 @@ class KFolds(Splitter):
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         seed: Optional[int] = None,
-        query_column: str = "user_id",
+        query_column: str = "query_id",
         item_column: Optional[str] = "item_id",
         timestamp_column: Optional[str] = "timestamp",
-        rating_column: Optional[str] = "relevance",
         session_id_column: Optional[str] = None,
         session_id_processing_strategy: str = "test",
     ):
@@ -53,7 +51,6 @@ class KFolds(Splitter):
         :param query_column: query id column name
         :param item_column: item id column name
         :param timestamp_column: timestamp column name
-        :param rating_column: rating column name
         :param session_id_column: name of session id column, which values can not be split.
         :param session_id_processing_strategy: strategy of processing session if it is split,
             values: ``train, test``, train: whole split session goes to train. test: same but to test.
@@ -65,7 +62,6 @@ class KFolds(Splitter):
             query_column=query_column,
             item_column=item_column,
             timestamp_column=timestamp_column,
-            rating_column=rating_column,
             session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy
         )
@@ -75,39 +71,37 @@ class KFolds(Splitter):
         self.strategy = strategy
         self.seed = seed
 
-    def _get_order_of_sort(self) -> list:   # pragma: no cover
-        pass
-
     def _core_split(self, interactions: AnyDataFrame) -> SplitterReturnType:
-        if isinstance(interactions, SparkDataFrame):
-            dataframe = interactions.withColumn("_rand", sf.rand(self.seed))
-            dataframe = dataframe.withColumn(
-                "fold",
-                sf.row_number().over(
-                    Window.partitionBy(self.query_column).orderBy("_rand")
-                )
-                % self.n_folds,
-            ).drop("_rand")
-            for i in range(self.n_folds):
+        if self.strategy == "query":
+            if isinstance(interactions, SparkDataFrame):
+                dataframe = interactions.withColumn("_rand", sf.rand(self.seed))
                 dataframe = dataframe.withColumn(
-                    "is_test",
-                    sf.when(sf.col("fold") != i, True).otherwise(False)
-                )
-                if self.session_id_column:
-                    dataframe = self._recalculate_with_session_id_column(dataframe)
+                    "fold",
+                    sf.row_number().over(
+                        Window.partitionBy(self.query_column).orderBy("_rand")
+                    )
+                    % self.n_folds,
+                ).drop("_rand")
+                for i in range(self.n_folds):
+                    dataframe = dataframe.withColumn(
+                        "is_test",
+                        sf.when(sf.col("fold") != i, True).otherwise(False)
+                    )
+                    if self.session_id_column:
+                        dataframe = self._recalculate_with_session_id_column(dataframe)
 
-                train = dataframe.filter(~sf.col("is_test")).drop("is_test", "fold")
-                test = dataframe.filter(sf.col("is_test")).drop("is_test", "fold")
-                yield train, test
-        else:
-            dataframe = interactions.sample(frac=1, random_state=self.seed).sort_values(self.query_column)
-            dataframe["fold"] = (dataframe.groupby(self.query_column, sort=False).cumcount() + 1) % self.n_folds
-            for i in range(self.n_folds):
-                dataframe["is_test"] = dataframe["fold"] == i
-                if self.session_id_column:
-                    dataframe = self._recalculate_with_session_id_column(dataframe)
+                    train = dataframe.filter(~sf.col("is_test")).drop("is_test", "fold")
+                    test = dataframe.filter(sf.col("is_test")).drop("is_test", "fold")
+                    yield train, test
+            else:
+                dataframe = interactions.sample(frac=1, random_state=self.seed).sort_values(self.query_column)
+                dataframe["fold"] = (dataframe.groupby(self.query_column, sort=False).cumcount() + 1) % self.n_folds
+                for i in range(self.n_folds):
+                    dataframe["is_test"] = dataframe["fold"] == i
+                    if self.session_id_column:
+                        dataframe = self._recalculate_with_session_id_column(dataframe)
 
-                train = dataframe[~dataframe["is_test"]].drop(columns=["is_test", "fold"])
-                test = dataframe[dataframe["is_test"]].drop(columns=["is_test", "fold"])
-                dataframe.drop(columns=["is_test"])
-                yield train, test
+                    train = dataframe[~dataframe["is_test"]].drop(columns=["is_test", "fold"])
+                    test = dataframe[dataframe["is_test"]].drop(columns=["is_test", "fold"])
+                    dataframe.drop(columns=["is_test"])
+                    yield train, test

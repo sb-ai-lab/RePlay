@@ -37,7 +37,7 @@ def log_spark(log):
 def test_splitting(dataset_type, request):
     ratio = 0.25
     log = request.getfixturevalue(dataset_type)
-    cold_user_splitter = ColdUserRandomSplitter(ratio, session_id_column="session_id")
+    cold_user_splitter = ColdUserRandomSplitter(ratio, query_column="user_id", session_id_column="session_id")
     cold_user_splitter.seed = 27
     train, test = cold_user_splitter.split(log)
 
@@ -58,4 +58,4 @@ def test_splitting(dataset_type, request):
 
 def test_invalid_test_size():
     with pytest.raises(ValueError):
-        ColdUserRandomSplitter(test_size=1.2)
+        ColdUserRandomSplitter(test_size=1.2, query_column="user_id")
