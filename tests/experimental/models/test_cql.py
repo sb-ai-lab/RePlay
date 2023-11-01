@@ -1,6 +1,7 @@
 # pylint: disable-all
 import numpy as np
 from _pytest.python_api import approx
+import pytest
 from pytest import approx
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
@@ -26,6 +27,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
     return model.predict(log=inf_log, users=users, k=1, **kwargs)
 
 
+@pytest.mark.experimental
 def test_predict_filters_out_seen_items(log: DataFrame):
     """Test that fit/predict works, and that the model correctly filters out seen items."""
     model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=1))
@@ -39,6 +41,7 @@ def test_predict_filters_out_seen_items(log: DataFrame):
     assert recs.loc[recs["user_idx"] == 2, "item_idx"].iloc[0] == 3
 
 
+@pytest.mark.experimental
 def test_recommend_correct_number_of_items(log: DataFrame):
     """Test that fit/predict_pairs works, and that the model outputs correct number of items."""
     top_k = 3
@@ -54,6 +57,7 @@ def test_recommend_correct_number_of_items(log: DataFrame):
     assert np.count_nonzero(recs["user_idx"] == 2) == 3
 
 
+@pytest.mark.experimental
 def test_serialize_deserialize_policy(log: DataFrame):
     """Test that serializing and deserializing the policy does not change relevance predictions."""
     model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=1))
@@ -75,6 +79,7 @@ def test_serialize_deserialize_policy(log: DataFrame):
     assert restored_relevance == approx(relevance)
 
 
+@pytest.mark.experimental
 def test_mdp_dataset_builder(log: DataFrame):
     """Test MDP dataset preparation is correct."""
     mdp_dataset = MdpDatasetBuilder(top_k=1, action_randomization_scale=1e-9).build(log)
@@ -107,6 +112,7 @@ def test_mdp_dataset_builder(log: DataFrame):
     assert mdp_dataset.terminals[:n] == approx(gt_terminals)
 
 
+@pytest.mark.experimental
 def test_predict_pairs_warm_items_only(log, log_to_pred):
     model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=3), batch_size=512)
     model.fit(log)
@@ -144,6 +150,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
     )
 
 
+@pytest.mark.experimental
 def test_predict_new_users(long_log_with_features, user_features):
     model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=1), batch_size=512)
     pred = fit_predict_selected(
@@ -157,6 +164,7 @@ def test_predict_new_users(long_log_with_features, user_features):
     assert pred.collect()[0][0] == 0
 
 
+@pytest.mark.experimental
 def test_predict_cold_and_new_filter_out(long_log_with_features):
     model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=3), batch_size=512)
     pred = fit_predict_selected(

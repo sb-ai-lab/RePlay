@@ -44,6 +44,7 @@ def two_stages_kwargs():
     }
 
 
+@pytest.mark.experimental
 def test_init(two_stages_kwargs):
 
     two_stages = TwoStagesScenario(**two_stages_kwargs)
@@ -70,6 +71,7 @@ def test_init(two_stages_kwargs):
         TwoStagesScenario(**two_stages_kwargs)
 
 
+@pytest.mark.experimental
 def test_fit(
     long_log_with_features,
     short_log_with_features,
@@ -103,6 +105,7 @@ def test_fit(
     two_stages.first_level_item_features_transformer.transform(item_features)
 
 
+@pytest.mark.experimental
 def test_predict(
     long_log_with_features, user_features, item_features, two_stages_kwargs,
 ):
@@ -127,6 +130,7 @@ def test_predict(
     ]
 
 
+@pytest.mark.experimental
 def test_optimize(
     long_log_with_features,
     short_log_with_features,
