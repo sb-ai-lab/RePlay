@@ -1,12 +1,9 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
-import os
-from functools import partial
 from os.path import dirname, join
 
 import pytest
 import pandas as pd
 
-from implicit.als import AlternatingLeastSquares
 from pyspark.sql import functions as sf
 
 import replay

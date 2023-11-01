@@ -188,6 +188,7 @@ def model(log):
     return model
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
 def test_critic_forward(ddpg_critic_param, batch_size):
     critic, param = ddpg_critic_param
@@ -202,6 +203,7 @@ def test_critic_forward(ddpg_critic_param, batch_size):
     assert out.shape == (batch_size, 1), "Wrong output shape of critic forward"
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
 def test_state_repr_forward(ddpg_state_repr_param, batch_size):
     state_repr, param = ddpg_state_repr_param
@@ -221,6 +223,7 @@ def test_state_repr_forward(ddpg_state_repr_param, batch_size):
     ), "Wrong output shape of state_repr forward"
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
 def test_actor_forward(ddpg_actor_param, batch_size):
     actor, param = ddpg_actor_param
@@ -240,6 +243,7 @@ def test_actor_forward(ddpg_actor_param, batch_size):
     ), "Wrong output shape of actor forward"
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
 def test_actor_get_action(ddpg_actor_param, batch_size):
     actor, param = ddpg_actor_param
@@ -258,12 +262,14 @@ def test_actor_get_action(ddpg_actor_param, batch_size):
     assert (action == discrete_actions).prod()
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize("df", DF_CASES)
 def test_fit_df(df):
     model = DDPG(n_jobs=1, use_gpu=True)
     model._fit_df(df)
 
 
+@pytest.mark.experimental
 def test_fit(log, model):
     model.fit(log)
     assert len(list(model.model.parameters())) == 10
@@ -283,6 +289,7 @@ def test_fit(log, model):
         assert param_shapes[i] == tuple(parameter.shape)
 
 
+@pytest.mark.experimental
 def test_predict(log, model):
     model.noise_type = "gauss"
     model.batch_size = 4
@@ -294,6 +301,7 @@ def test_predict(log, model):
         pytest.fail()
 
 
+@pytest.mark.experimental
 def test_save_load(log, model, user_num=5, item_num=5):
     spark_local_dir = "./logs/tmp/"
     pattern = "model_final.pt"
@@ -360,6 +368,7 @@ def test_save_load(log, model, user_num=5, item_num=5):
         )
 
 
+@pytest.mark.experimental
 def test_env_step(log, model, user=[0, 1, 2]):
     replay_buffer = ReplayBuffer(
         torch.device("cpu"),
@@ -420,6 +429,7 @@ def test_env_step(log, model, user=[0, 1, 2]):
     assert (model.model.environment.memory[user, -1] == global_action).prod()
 
 
+@pytest.mark.experimental
 def test_predict_pairs_to_file(spark, long_log_with_features, tmp_path):
     model = DDPG(seed=SEED, user_num=6, item_num=6)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
@@ -442,6 +452,7 @@ def test_predict_pairs_to_file(spark, long_log_with_features, tmp_path):
     sparkDataFrameEqual(pred_cached, pred_from_file)
 
 
+@pytest.mark.experimental
 def test_predict_to_file(spark, long_log_with_features, tmp_path):
     model = DDPG(seed=SEED, user_num=6, item_num=6)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
