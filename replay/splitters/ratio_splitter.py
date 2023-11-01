@@ -92,7 +92,7 @@ class RatioSplitter(Splitter):
         "min_interactions_per_group",
         "split_by_fraqtions",
         "session_id_column",
-        "session_id_to_train",
+        "session_id_processing_strategy",
     ]
 
     # pylint: disable=too-many-arguments
@@ -108,7 +108,7 @@ class RatioSplitter(Splitter):
         min_interactions_per_group: Optional[int] = None,
         split_by_fraqtions: bool = True,
         session_id_column: Optional[str] = None,
-        session_id_to_train: bool = False,
+        session_id_processing_strategy: str = "test",
     ):
         """
         :param ratio: test size, must be in :math:`(0, 1)`.
@@ -141,9 +141,9 @@ class RatioSplitter(Splitter):
             default: ``True``.
         :param session_id_column: Name of session id column, which values can not be split,
             default: ``None``.
-        :param session_id_to_train: strategy of processing session if it is split,
-            values: ``True, False``, True: whole split session goes to train. False: same but to test.
-            default: ``False``.
+        :param session_id_processing_strategy: strategy of processing session if it is split,
+            values: ``train, test``, train: whole split session goes to train. test: same but to test.
+            default: ``test``.
         """
         super().__init__(
             drop_cold_users=drop_cold_users,
@@ -152,7 +152,7 @@ class RatioSplitter(Splitter):
             item_column=item_column,
             timestamp_column=timestamp_column,
             session_id_column=session_id_column,
-            session_id_to_train=session_id_to_train,
+            session_id_processing_strategy=session_id_processing_strategy,
         )
         self.divide_column = divide_column
         self._precision = 3

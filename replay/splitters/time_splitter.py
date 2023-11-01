@@ -85,7 +85,7 @@ class TimeSplitter(Splitter):
         "item_column",
         "timestamp_column",
         "session_id_column",
-        "session_id_to_train",
+        "session_id_processing_strategy",
         "time_column_format",
     ]
 
@@ -99,7 +99,7 @@ class TimeSplitter(Splitter):
         item_column: str = "item_id",
         timestamp_column: str = "timestamp",
         session_id_column: Optional[str] = None,
-        session_id_to_train: bool = False,
+        session_id_processing_strategy: str = "test",
         time_column_format: str = "%Y-%m-%d %H:%M:%S",
     ):
         """
@@ -116,9 +116,9 @@ class TimeSplitter(Splitter):
             Default: ``timestamp``.
         :param session_id_column: Name of session id column, which values can not be split,
             default: ``None``.
-        :param session_id_to_train: strategy of processing session if it is split,
-            values: ``True, False``, True: whole split session goes to train. False: same but to test.
-            default: ``False``.
+        :param session_id_processing_strategy: strategy of processing session if it is split,
+            values: ``train, test``, train: whole split session goes to train. test: same but to test.
+            default: ``test``.
         """
         super().__init__(
             drop_cold_users=drop_cold_users,
@@ -127,7 +127,7 @@ class TimeSplitter(Splitter):
             item_column=item_column,
             timestamp_column=timestamp_column,
             session_id_column=session_id_column,
-            session_id_to_train=session_id_to_train,
+            session_id_processing_strategy=session_id_processing_strategy,
         )
         self._precision = 3
         self.time_column_format = time_column_format

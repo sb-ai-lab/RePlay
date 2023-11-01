@@ -411,19 +411,19 @@ def test_last_n_seconds_splitter_drop_both(seconds, user_answer, item_answer, da
 
 
 @pytest.mark.parametrize(
-    "n, user_answer, item_answer, session_id_to_train",
+    "n, user_answer, item_answer, session_id_processing_strategy",
     [
         (
             5,
             [[], [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3]],
             [[], [1, 2, 3, 4, 5, 1, 2, 3, 9, 10, 1, 5, 3, 1, 2]],
-            True,
+            "train",
         ),
         (
             5,
             [[], [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3]],
             [[], [1, 2, 3, 4, 5, 1, 2, 3, 9, 10, 1, 5, 3, 1, 2]],
-            False,
+            "test",
         ),
     ],
 )
@@ -435,7 +435,7 @@ def test_last_n_seconds_splitter_drop_both(seconds, user_answer, item_answer, da
     ],
 )
 def test_last_n_interactions_splitter_without_drops_with_sessions(
-    n, user_answer, item_answer, session_id_to_train, dataset_type, request
+    n, user_answer, item_answer, session_id_processing_strategy, dataset_type, request
 ):
     dataframe = request.getfixturevalue(dataset_type)
 
@@ -447,7 +447,7 @@ def test_last_n_interactions_splitter_without_drops_with_sessions(
         drop_cold_users=False,
         drop_cold_items=False,
         session_id_column="session_id",
-        session_id_to_train=session_id_to_train,
+        session_id_processing_strategy=session_id_processing_strategy,
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
@@ -461,19 +461,19 @@ def test_last_n_interactions_splitter_without_drops_with_sessions(
 
 
 @pytest.mark.parametrize(
-    "seconds, user_answer, item_answer, session_id_to_train",
+    "seconds, user_answer, item_answer, session_id_processing_strategy",
     [
         (
             86400,
             [[1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3], []],
             [[1, 2, 3, 4, 5, 1, 2, 9, 10, 3, 1, 5, 3, 1, 2], []],
-            True,
+            "train",
         ),
         (
             86400,
             [[2, 2, 2, 3, 3, 3], [1, 1, 1, 1, 1, 2, 2, 3, 3]],
             [[1, 2, 3, 1, 5, 3], [1, 2, 3, 4, 5, 9, 10, 1, 2]],
-            False,
+            "test",
         ),
     ],
 )
@@ -485,7 +485,7 @@ def test_last_n_interactions_splitter_without_drops_with_sessions(
     ],
 )
 def test_last_n_seconds_splitter_without_drops_with_sessions(
-    seconds, user_answer, item_answer, session_id_to_train, dataset_type, request
+    seconds, user_answer, item_answer, session_id_processing_strategy, dataset_type, request
 ):
     dataframe = request.getfixturevalue(dataset_type)
 
@@ -498,7 +498,7 @@ def test_last_n_seconds_splitter_without_drops_with_sessions(
         drop_cold_users=False,
         drop_cold_items=False,
         session_id_column="session_id",
-        session_id_to_train=session_id_to_train,
+        session_id_processing_strategy=session_id_processing_strategy,
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":

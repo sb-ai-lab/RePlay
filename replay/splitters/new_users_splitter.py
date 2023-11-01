@@ -63,7 +63,7 @@ class NewUsersSplitter(Splitter):
         "item_column",
         "timestamp_column",
         "session_id_column",
-        "session_id_to_train",
+        "session_id_processing_strategy",
     ]
 
     # pylint: disable=too-many-arguments
@@ -75,7 +75,7 @@ class NewUsersSplitter(Splitter):
         item_column: Optional[str] = "item_id",
         timestamp_column: Optional[str] = "timestamp",
         session_id_column: Optional[str] = None,
-        session_id_to_train: bool = False,
+        session_id_processing_strategy: str = "test",
     ):
         """
         :param test_size: test size 0 to 1
@@ -84,9 +84,9 @@ class NewUsersSplitter(Splitter):
         :param item_column: item id column name
         :param timestamp_column: timestamp column name
         :param session_id_column: name of session id column, which values can not be split.
-        :param session_id_to_train: strategy of processing session if it is split,
-            values: ``True, False``, True: whole split session goes to train. False: same but to test.
-            default: ``False``.
+        :param session_id_processing_strategy: strategy of processing session if it is split,
+            values: ``train, test``, train: whole split session goes to train. test: same but to test.
+            default: ``test``.
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
@@ -94,7 +94,7 @@ class NewUsersSplitter(Splitter):
             item_column=item_column,
             timestamp_column=timestamp_column,
             session_id_column=session_id_column,
-            session_id_to_train=session_id_to_train
+            session_id_processing_strategy=session_id_processing_strategy
         )
         if test_size < 0 or test_size > 1:
             raise ValueError("test_size must between 0 and 1")

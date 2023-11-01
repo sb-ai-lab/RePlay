@@ -247,13 +247,13 @@ def test_time_splitter_drop_both(time_threshold, user_answer, item_answer, datas
 
 
 @pytest.mark.parametrize(
-    "time_threshold, user_answer, item_answer, session_id_to_train",
+    "time_threshold, user_answer, item_answer, session_id_processing_strategy",
     [
         (
             datetime.strptime("06-01-2020", "%d-%m-%Y"),
             [[1, 1, 1, 1, 1, 3, 3, 3, 3, 3], [2, 2, 2, 2, 2]],
             [[1, 2, 3, 4, 5, 1, 5, 3, 1, 2], [1, 2, 3, 9, 10]],
-            True,
+            "train",
         ),
     ],
 )
@@ -265,7 +265,7 @@ def test_time_splitter_drop_both(time_threshold, user_answer, item_answer, datas
     ],
 )
 def test_time_splitter_without_drops_with_sessions(
-    time_threshold, user_answer, item_answer, session_id_to_train, dataset_type, request
+    time_threshold, user_answer, item_answer, session_id_processing_strategy, dataset_type, request
 ):
     dataframe = request.getfixturevalue(dataset_type)
 
@@ -275,7 +275,7 @@ def test_time_splitter_without_drops_with_sessions(
         drop_cold_users=False,
         drop_cold_items=False,
         session_id_column="session_id",
-        session_id_to_train=session_id_to_train,
+        session_id_processing_strategy=session_id_processing_strategy,
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
