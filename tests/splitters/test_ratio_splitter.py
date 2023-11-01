@@ -74,14 +74,6 @@ def pandas_dataframe_test():
     return dataframe
 
 
-@pytest.mark.parametrize("strategy", ["TRAIN", "TEST", "validation"])
-def test_splitter_wrong_session_id_strategy(strategy):
-    with pytest.raises(NotImplementedError):
-        RatioSplitter(
-            0.5, query_column="user_id", divide_column="user_id", session_id_processing_strategy=strategy
-        )
-
-
 @pytest.mark.parametrize(
     "ratio, user_answer, item_answer, split_by_fraqtions",
     [
@@ -299,35 +291,35 @@ def test_datasets_types_mismatch(spark_dataframe_test, pandas_dataframe_test):
 
 
 @pytest.mark.parametrize(
-    "ratio, user_answer, item_answer, split_by_fraqtions, session_id_processing_strategy",
+    "ratio, user_answer, item_answer, split_by_fraqtions, session_id_to_train",
     [
         (
             0.1,
             [[1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3], []],
             [[1, 2, 3, 4, 5, 1, 2, 3, 9, 10, 1, 5, 3, 1, 2], []],
             True,
-            "train",
+            True,
         ),
         (
             0.1,
             [[2, 2, 2, 3, 3, 3], [1, 1, 1, 1, 1, 2, 2, 3, 3]],
             [[1, 2, 3, 1, 5, 3], [1, 2, 3, 4, 5, 9, 10, 1, 2]],
             True,
-            "test",
+            False,
         ),
         (
             0.5,
             [[1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3], [2, 2, 3, 3]],
             [[1, 2, 3, 4, 5, 1, 2, 3, 1, 5, 3], [9, 10, 1, 2]],
             False,
-            "train",
+            True,
         ),
         (
             0.5,
             [[2, 2, 2, 3, 3, 3], [1, 1, 1, 1, 1, 2, 2, 3, 3]],
             [[1, 2, 3, 1, 5, 3], [1, 2, 3, 4, 5, 9, 10, 1, 2]],
             False,
-            "test",
+            False,
         ),
     ],
 )
@@ -339,7 +331,7 @@ def test_datasets_types_mismatch(spark_dataframe_test, pandas_dataframe_test):
     ],
 )
 def test_ratio_splitter_without_drops_with_sessions(
-    ratio, user_answer, item_answer, split_by_fraqtions, session_id_processing_strategy, dataset_type, request
+    ratio, user_answer, item_answer, split_by_fraqtions, session_id_to_train, dataset_type, request
 ):
     dataframe = request.getfixturevalue(dataset_type)
 
@@ -351,7 +343,7 @@ def test_ratio_splitter_without_drops_with_sessions(
         drop_cold_items=False,
         split_by_fraqtions=split_by_fraqtions,
         session_id_column="session_id",
-        session_id_processing_strategy=session_id_processing_strategy,
+        session_id_to_train=session_id_to_train,
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":

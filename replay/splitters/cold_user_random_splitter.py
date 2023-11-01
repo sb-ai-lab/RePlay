@@ -17,8 +17,6 @@ class ColdUserRandomSplitter(Splitter):
     Test set consists of all actions of randomly chosen users.
     """
 
-    # для использования в тестах
-
     _init_arg_names = [
         "test_size",
         "drop_cold_users",
@@ -28,7 +26,7 @@ class ColdUserRandomSplitter(Splitter):
         "item_column",
         "timestamp_column",
         "session_id_column",
-        "session_id_processing_strategy",
+        "session_id_to_train",
     ]
 
     # pylint: disable=too-many-arguments
@@ -41,8 +39,6 @@ class ColdUserRandomSplitter(Splitter):
         query_column: str = "query_id",
         item_column: Optional[str] = "item_id",
         timestamp_column: Optional[str] = "timestamp",
-        session_id_column: Optional[str] = None,
-        session_id_processing_strategy: str = "test",
     ):
         """
         :param test_size: fraction of users to be in test
@@ -52,10 +48,6 @@ class ColdUserRandomSplitter(Splitter):
         :param query_column: query id column name
         :param item_column: item id column name
         :param timestamp_column: timestamp column name
-        :param session_id_column: name of session id column, which values can not be split.
-        :param session_id_processing_strategy: strategy of processing session if it is split,
-            values: ``train, test``, train: whole split session goes to train. test: same but to test.
-            default: ``test``.
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
@@ -63,12 +55,10 @@ class ColdUserRandomSplitter(Splitter):
             query_column=query_column,
             item_column=item_column,
             timestamp_column=timestamp_column,
-            session_id_column=session_id_column,
-            session_id_processing_strategy=session_id_processing_strategy
         )
         self.seed = seed
         if test_size <= 0 or test_size >= 1:
-            raise ValueError("test_size must be 0 to 1")
+            raise ValueError("test_size must between 0 and 1")
         self.test_size = test_size
 
     def _core_split_pandas(
@@ -82,9 +72,6 @@ class ColdUserRandomSplitter(Splitter):
 
         interactions = interactions.merge(train_users, on=self.query_column, how="left")
         interactions["is_test"].fillna(True, inplace=True)
-
-        if self.session_id_column:
-            interactions = self._recalculate_with_session_id_column(interactions)
 
         train = interactions[~interactions["is_test"]].drop(columns=["is_test"])
         test = interactions[interactions["is_test"]].drop(columns=["is_test"])
@@ -107,9 +94,6 @@ class ColdUserRandomSplitter(Splitter):
             on=self.query_column,
             how="left"
         ).na.fill({"is_test": True})
-
-        if self.session_id_column:
-            interactions = self._recalculate_with_session_id_column(interactions)
 
         train = interactions.filter(~sf.col("is_test")).drop("is_test")
         test = interactions.filter(sf.col("is_test")).drop("is_test")

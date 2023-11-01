@@ -21,7 +21,7 @@ class Splitter(ABC):
         "item_column",
         "timestamp_column",
         "session_id_column",
-        "session_id_processing_strategy",
+        "session_id_to_train",
     ]
 
     # pylint: disable=too-many-arguments
@@ -33,7 +33,7 @@ class Splitter(ABC):
         item_column: Optional[str] = "item_id",
         timestamp_column: Optional[str] = "timestamp",
         session_id_column: Optional[str] = None,
-        session_id_processing_strategy: str = "test",
+        session_id_to_train: bool = False,
     ):
         """
         :param drop_cold_items: flag to remove items that are not in train data
@@ -42,9 +42,9 @@ class Splitter(ABC):
         :param item_column: item id column name
         :param timestamp_column: timestamp column name
         :param session_id_column: name of session id column, which values can not be split.
-        :param session_id_processing_strategy: strategy of processing session if it is split,
-            values: ``train, test``, train: whole split session goes to train. test: same but to test.
-            default: ``test``.
+        :param session_id_to_train: strategy of processing session if it is split,
+            values: ``True, False``, True: whole split session goes to train. False: same but to test.
+            default: ``False``.
         """
         self.drop_cold_users = drop_cold_users
         self.drop_cold_items = drop_cold_items
@@ -53,10 +53,7 @@ class Splitter(ABC):
         self.timestamp_column = timestamp_column
 
         self.session_id_column = session_id_column
-        self.session_id_processing_strategy = session_id_processing_strategy
-
-        if session_id_processing_strategy not in ["train", "test"]:
-            raise NotImplementedError("session_id_processing_strategy can only be: 'train' or 'test'.")
+        self.session_id_to_train = session_id_to_train
 
     @property
     def _init_args(self):
@@ -136,7 +133,7 @@ class Splitter(ABC):
         return self._recalculate_with_session_id_column_pandas(data)
 
     def _recalculate_with_session_id_column_pandas(self, data: PandasDataFrame) -> PandasDataFrame:
-        agg_function_name = "first" if self.session_id_processing_strategy == "train" else "last"
+        agg_function_name = "first" if self.session_id_to_train is True else "last"
         res = data.copy()
         res["is_test"] = res.groupby(
             [self.query_column, self.session_id_column]
@@ -145,7 +142,7 @@ class Splitter(ABC):
         return res
 
     def _recalculate_with_session_id_column_spark(self, data: SparkDataFrame) -> SparkDataFrame:
-        agg_function = sf.first if self.session_id_processing_strategy == "train" else sf.last
+        agg_function = sf.first if self.session_id_to_train is True else sf.last
         res = data.withColumn(
             "is_test",
             agg_function("is_test").over(

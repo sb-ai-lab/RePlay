@@ -247,13 +247,13 @@ def test_time_splitter_drop_both(time_threshold, user_answer, item_answer, datas
 
 
 @pytest.mark.parametrize(
-    "time_threshold, user_answer, item_answer, session_id_processing_strategy",
+    "time_threshold, user_answer, item_answer, session_id_to_train",
     [
         (
             datetime.strptime("06-01-2020", "%d-%m-%Y"),
             [[1, 1, 1, 1, 1, 3, 3, 3, 3, 3], [2, 2, 2, 2, 2]],
             [[1, 2, 3, 4, 5, 1, 5, 3, 1, 2], [1, 2, 3, 9, 10]],
-            "train",
+            True,
         ),
     ],
 )
@@ -265,7 +265,7 @@ def test_time_splitter_drop_both(time_threshold, user_answer, item_answer, datas
     ],
 )
 def test_time_splitter_without_drops_with_sessions(
-    time_threshold, user_answer, item_answer, session_id_processing_strategy, dataset_type, request
+    time_threshold, user_answer, item_answer, session_id_to_train, dataset_type, request
 ):
     dataframe = request.getfixturevalue(dataset_type)
 
@@ -275,7 +275,7 @@ def test_time_splitter_without_drops_with_sessions(
         drop_cold_users=False,
         drop_cold_items=False,
         session_id_column="session_id",
-        session_id_processing_strategy=session_id_processing_strategy,
+        session_id_to_train=session_id_to_train,
     ).split(dataframe)
 
     if dataset_type == "pandas_dataframe_test":
@@ -286,19 +286,6 @@ def test_time_splitter_without_drops_with_sessions(
         user_ids = _get_column_list(filtered_dataframe, "user_id")
 
     _check_assert(user_ids, item_ids, user_answer, item_answer)
-
-
-@pytest.mark.usefixtures("spark_dataframe_test")
-def test_splitter_with_sessions_error(spark_dataframe_test):
-    with pytest.raises(NotImplementedError):
-        TimeSplitter(
-            time_threshold="04-01-2020",
-            query_column="user_id",
-            drop_cold_users=False,
-            drop_cold_items=False,
-            session_id_column="session_id",
-            session_id_processing_strategy="smth",
-        ).split(spark_dataframe_test)
 
 
 def test_original_dataframe_not_change(pandas_dataframe_test):

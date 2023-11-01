@@ -15,7 +15,6 @@ def log():
         {
             "user_id": list(range(5000)),
             "item_id": list(range(5000)),
-            "session_id": [1] * 5000,
             "relevance": [1] * 5000,
             "timestamp": [1] * 5000,
         }
@@ -37,7 +36,7 @@ def log_spark(log):
 def test_splitting(dataset_type, request):
     ratio = 0.25
     log = request.getfixturevalue(dataset_type)
-    cold_user_splitter = ColdUserRandomSplitter(ratio, query_column="user_id", session_id_column="session_id")
+    cold_user_splitter = ColdUserRandomSplitter(ratio, query_column="user_id")
     cold_user_splitter.seed = 27
     train, test = cold_user_splitter.split(log)
 

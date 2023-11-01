@@ -71,7 +71,7 @@ class TwoStageSplitter(Splitter):
         "item_column",
         "timestamp_column",
         "session_id_column",
-        "session_id_processing_strategy",
+        "session_id_to_train",
     ]
 
     # pylint: disable=too-many-arguments
@@ -89,7 +89,7 @@ class TwoStageSplitter(Splitter):
         item_column: Optional[str] = "item_id",
         timestamp_column: Optional[str] = "timestamp",
         session_id_column: Optional[str] = None,
-        session_id_processing_strategy: str = "test",
+        session_id_to_train: bool = False,
     ):
         """
         :param second_divide_size: fraction or a number of items per user
@@ -104,9 +104,9 @@ class TwoStageSplitter(Splitter):
         :param item_column: item id column name
         :param timestamp_column: timestamp column name
         :param session_id_column: name of session id column, which values can not be split.
-        :param session_id_processing_strategy: strategy of processing session if it is split,
-            values: ``train, test``, train: whole split session goes to train. test: same but to test.
-            default: ``test``.
+        :param session_id_to_train: strategy of processing session if it is split,
+            values: ``True, False``, True: whole split session goes to train. False: same but to test.
+            default: ``False``.
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
@@ -115,7 +115,7 @@ class TwoStageSplitter(Splitter):
             item_column=item_column,
             timestamp_column=timestamp_column,
             session_id_column=session_id_column,
-            session_id_processing_strategy=session_id_processing_strategy
+            session_id_to_train=session_id_to_train
         )
         self.first_divide_column = first_divide_column
         self.second_divide_column = second_divide_column

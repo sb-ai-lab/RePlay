@@ -23,7 +23,7 @@ class RandomSplitter(Splitter):
         "seed",
         "query_column",
         "session_id_column",
-        "session_id_processing_strategy",
+        "session_id_to_train",
     ]
 
     # pylint: disable=too-many-arguments
@@ -35,7 +35,7 @@ class RandomSplitter(Splitter):
         seed: Optional[int] = None,
         query_column: str = "query_id",
         session_id_column: Optional[str] = None,
-        session_id_processing_strategy: str = "test",
+        session_id_to_train: bool = False,
     ):
         """
         :param test_size: test size 0 to 1
@@ -44,20 +44,20 @@ class RandomSplitter(Splitter):
         :param seed: random seed
         :param query_column: query id column name
         :param session_id_column: name of session id column, which values can not be split.
-        :param session_id_processing_strategy: strategy of processing session if it is split,
-            values: ``train, test``, train: whole split session goes to train. test: same but to test.
-            default: ``test``.
+        :param session_id_to_train: strategy of processing session if it is split,
+            values: ``True, False``, True: whole split session goes to train. False: same but to test.
+            default: ``False``.
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
             query_column=query_column,
             session_id_column=session_id_column,
-            session_id_processing_strategy=session_id_processing_strategy
+            session_id_to_train=session_id_to_train
         )
         self.seed = seed
         if test_size < 0 or test_size > 1:
-            raise ValueError("test_size must be 0 to 1")
+            raise ValueError("test_size must between 0 and 1")
         self.test_size = test_size
 
     def _random_split_spark(

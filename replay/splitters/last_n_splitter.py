@@ -98,7 +98,7 @@ class LastNSplitter(Splitter):
         "item_column",
         "timestamp_column",
         "session_id_column",
-        "session_id_processing_strategy",
+        "session_id_to_train",
     ]
 
     # pylint: disable=invalid-name, too-many-arguments
@@ -114,7 +114,7 @@ class LastNSplitter(Splitter):
         item_column: str = "item_id",
         timestamp_column: str = "timestamp",
         session_id_column: Optional[str] = None,
-        session_id_processing_strategy: str = "test",
+        session_id_to_train: bool = False,
     ):
         """
         :param N: Array of interactions/timedelta to split.
@@ -141,9 +141,9 @@ class LastNSplitter(Splitter):
             Default: ``timestamp``.
         :param session_id_column: Name of session id column, which values can not be split,
             default: ``None``.
-        :param session_id_processing_strategy: strategy of processing session if it is split,
-            Values: ``train, test``, train: whole split session goes to train. test: same but to test.
-            default: ``test``.
+        :param session_id_to_train: strategy of processing session if it is split,
+            values: ``True, False``, True: whole split session goes to train. False: same but to test.
+            default: ``False``.
         """
         if strategy not in ["interactions", "timedelta"]:
             raise ValueError("strategy must be equal 'interactions' or 'timedelta'")
@@ -154,7 +154,7 @@ class LastNSplitter(Splitter):
             item_column=item_column,
             timestamp_column=timestamp_column,
             session_id_column=session_id_column,
-            session_id_processing_strategy=session_id_processing_strategy,
+            session_id_to_train=session_id_to_train,
         )
         self.N = N
         self.strategy = strategy

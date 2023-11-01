@@ -85,7 +85,7 @@ class TimeSplitter(Splitter):
         "item_column",
         "timestamp_column",
         "session_id_column",
-        "session_id_processing_strategy",
+        "session_id_to_train",
         "time_column_format",
     ]
 
@@ -99,7 +99,7 @@ class TimeSplitter(Splitter):
         item_column: str = "item_id",
         timestamp_column: str = "timestamp",
         session_id_column: Optional[str] = None,
-        session_id_processing_strategy: str = "test",
+        session_id_to_train: bool = False,
         time_column_format: str = "%Y-%m-%d %H:%M:%S",
     ):
         """
@@ -116,9 +116,9 @@ class TimeSplitter(Splitter):
             Default: ``timestamp``.
         :param session_id_column: Name of session id column, which values can not be split,
             default: ``None``.
-        :param session_id_processing_strategy: strategy of processing session if it is split,
-            Values: ``train, test``, train: whole split session goes to train. test: same but to test.
-            default: ``test``.
+        :param session_id_to_train: strategy of processing session if it is split,
+            values: ``True, False``, True: whole split session goes to train. False: same but to test.
+            default: ``False``.
         """
         super().__init__(
             drop_cold_users=drop_cold_users,
@@ -127,12 +127,12 @@ class TimeSplitter(Splitter):
             item_column=item_column,
             timestamp_column=timestamp_column,
             session_id_column=session_id_column,
-            session_id_processing_strategy=session_id_processing_strategy,
+            session_id_to_train=session_id_to_train,
         )
         self._precision = 3
         self.time_column_format = time_column_format
         if isinstance(time_threshold, float) and (time_threshold < 0 or time_threshold > 1):
-            raise ValueError("test_size must be 0 to 1")
+            raise ValueError("test_size must between 0 and 1")
         self.time_threshold = time_threshold
 
     def _partial_split(
