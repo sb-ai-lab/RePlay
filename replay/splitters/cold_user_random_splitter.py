@@ -25,8 +25,6 @@ class ColdUserRandomSplitter(Splitter):
         "query_column",
         "item_column",
         "timestamp_column",
-        "session_id_column",
-        "session_id_to_train",
     ]
 
     # pylint: disable=too-many-arguments
