@@ -68,7 +68,7 @@ class ColdUserRandomSplitter(Splitter):
         )
         self.seed = seed
         if test_size <= 0 or test_size >= 1:
-            raise ValueError("test_size must be 0 to 1")
+            raise ValueError("test_size must between 0 and 1")
         self.test_size = test_size
 
     def _core_split_pandas(
