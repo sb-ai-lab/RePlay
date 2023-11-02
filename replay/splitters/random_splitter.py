@@ -65,7 +65,6 @@ class RandomSplitter(Splitter):
         interactions: SparkDataFrame,
         threshold: float
     ) -> Union[SparkDataFrame, SparkDataFrame]:
-        interactions = interactions.withColumn("_index", sf.row_number().over(Window.orderBy(self.query_column)))
         train, test = interactions.randomSplit(
             [1 - threshold, threshold], self.seed
         )
@@ -76,9 +75,6 @@ class RandomSplitter(Splitter):
             interactions = self._recalculate_with_session_id_column(interactions)
             train = interactions.filter(~sf.col("is_test")).drop("is_test")
             test = interactions.filter(sf.col("is_test")).drop("is_test")
-
-        train = train.drop("_index")
-        test = test.drop("_index")
 
         return train, test
 
