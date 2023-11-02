@@ -70,8 +70,6 @@ class TwoStageSplitter(Splitter):
         "query_column",
         "item_column",
         "timestamp_column",
-        "session_id_column",
-        "session_id_processing_strategy",
     ]
 
     # pylint: disable=too-many-arguments
@@ -88,8 +86,6 @@ class TwoStageSplitter(Splitter):
         query_column: str = "query_id",
         item_column: Optional[str] = "item_id",
         timestamp_column: Optional[str] = "timestamp",
-        session_id_column: Optional[str] = None,
-        session_id_processing_strategy: str = "test",
     ):
         """
         :param second_divide_size: fraction or a number of items per user
@@ -103,10 +99,6 @@ class TwoStageSplitter(Splitter):
         :param query_column: query id column name
         :param item_column: item id column name
         :param timestamp_column: timestamp column name
-        :param session_id_column: name of session id column, which values can not be split.
-        :param session_id_processing_strategy: strategy of processing session if it is split,
-            values: ``train, test``, train: whole split session goes to train. test: same but to test.
-            default: ``test``.
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
@@ -114,8 +106,6 @@ class TwoStageSplitter(Splitter):
             query_column=query_column,
             item_column=item_column,
             timestamp_column=timestamp_column,
-            session_id_column=session_id_column,
-            session_id_processing_strategy=session_id_processing_strategy
         )
         self.first_divide_column = first_divide_column
         self.second_divide_column = second_divide_column
@@ -190,8 +180,6 @@ class TwoStageSplitter(Splitter):
         res = res.join(counts, on=self.first_divide_column, how="left")
         res = res.withColumn("_frac", sf.col("_row_num") / sf.col("count"))
         res = res.na.fill({"is_test": False})
-        if self.session_id_column:
-            res = self._recalculate_with_session_id_column(res)
 
         train = res.filter(
             f"""
@@ -225,8 +213,6 @@ class TwoStageSplitter(Splitter):
             )
         res["is_test"].fillna(False, inplace=True)
         res = res.merge(counts, on=self.first_divide_column, how="left")
-        if self.session_id_column:
-            res = self._recalculate_with_session_id_column(res)
         res["_frac"] = res["_row_num"] / res["count"]
         train = res[(res["_frac"] > self.second_divide_size) | (~res["is_test"])].drop(
             columns=["_row_num", "count", "_frac", "is_test"]
@@ -263,8 +249,6 @@ class TwoStageSplitter(Splitter):
                 query_column=self.query_column,
             )
         res = res.na.fill({"is_test": False})
-        if self.session_id_column:
-            res = self._recalculate_with_session_id_column(res)
         train = res.filter(
             f"""
                     _row_num > {self.second_divide_size} OR
@@ -293,8 +277,6 @@ class TwoStageSplitter(Splitter):
                 query_column=self.query_column,
             )
         res["is_test"].fillna(False, inplace=True)
-        if self.session_id_column:
-            res = self._recalculate_with_session_id_column(res)
         train = res[(res["_row_num"] > self.second_divide_size) | (~res["is_test"])].drop(
             columns=["_row_num", "is_test"]
         )
@@ -328,7 +310,7 @@ class TwoStageSplitter(Splitter):
                 f"test_size={self.second_divide_size}"
             )
 
-        return [train, test]
+        return train, test
 
     def _add_random_partition_spark(self, dataframe: SparkDataFrame) -> SparkDataFrame:
         """

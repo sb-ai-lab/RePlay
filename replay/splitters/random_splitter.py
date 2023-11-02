@@ -20,9 +20,6 @@ class RandomSplitter(Splitter):
         "drop_cold_users",
         "drop_cold_items",
         "seed",
-        "query_column",
-        "session_id_column",
-        "session_id_processing_strategy",
     ]
 
     # pylint: disable=too-many-arguments
@@ -32,27 +29,16 @@ class RandomSplitter(Splitter):
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         seed: Optional[int] = None,
-        query_column: str = "query_id",
-        session_id_column: Optional[str] = None,
-        session_id_processing_strategy: str = "test",
     ):
         """
         :param test_size: test size 0 to 1
         :param drop_cold_items: flag to drop cold items from test
         :param drop_cold_users: flag to drop cold users from test
         :param seed: random seed
-        :param query_column: query id column name
-        :param session_id_column: name of session id column, which values can not be split.
-        :param session_id_processing_strategy: strategy of processing session if it is split,
-            values: ``train, test``, train: whole split session goes to train. test: same but to test.
-            default: ``test``.
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
-            query_column=query_column,
-            session_id_column=session_id_column,
-            session_id_processing_strategy=session_id_processing_strategy
         )
         self.seed = seed
         if test_size < 0 or test_size > 1:

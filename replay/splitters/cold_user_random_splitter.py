@@ -19,12 +19,10 @@ class ColdUserRandomSplitter(Splitter):
 
     _init_arg_names = [
         "test_size",
-        "drop_cold_users",
         "drop_cold_items",
         "seed",
         "query_column",
         "item_column",
-        "timestamp_column",
     ]
 
     # pylint: disable=too-many-arguments
@@ -32,11 +30,9 @@ class ColdUserRandomSplitter(Splitter):
         self,
         test_size: float,
         drop_cold_items: bool = False,
-        drop_cold_users: bool = False,
         seed: Optional[int] = None,
         query_column: str = "query_id",
         item_column: Optional[str] = "item_id",
-        timestamp_column: Optional[str] = "timestamp",
     ):
         """
         :param test_size: fraction of users to be in test
@@ -45,14 +41,11 @@ class ColdUserRandomSplitter(Splitter):
         :param seed: random seed
         :param query_column: query id column name
         :param item_column: item id column name
-        :param timestamp_column: timestamp column name
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
-            drop_cold_users=drop_cold_users,
             query_column=query_column,
             item_column=item_column,
-            timestamp_column=timestamp_column,
         )
         self.seed = seed
         if test_size <= 0 or test_size >= 1:

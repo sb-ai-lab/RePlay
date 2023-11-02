@@ -50,7 +50,6 @@ def test_get_test_values(dataset_type, request, fraction):
         query_column="user_id",
         drop_cold_items=False,
         drop_cold_users=False,
-        session_id_column="session_id",
         seed=1234,
     )
     test_users = splitter._get_test_values(log)
@@ -80,7 +79,6 @@ def test_user_test_size_exception(dataset_type, request, fraction):
         query_column="user_id",
         drop_cold_items=False,
         drop_cold_users=False,
-        session_id_column="session_id",
     )
     with pytest.raises(ValueError):
         splitter._get_test_values(log)
@@ -143,7 +141,6 @@ def test_random_split(dataset_type, request, item_test_size, shuffle):
         drop_cold_items=False,
         drop_cold_users=False,
         seed=1234,
-        session_id_column="session_id",
         shuffle=shuffle,
     )
     train, test = splitter.split(big_log)
@@ -186,7 +183,6 @@ def test_item_test_size_exception(dataset_type, request, item_test_size):
         drop_cold_items=False,
         drop_cold_users=False,
         seed=1234,
-        session_id_column="session_id",
     )
     with pytest.raises(ValueError):
         splitter.split(big_log)

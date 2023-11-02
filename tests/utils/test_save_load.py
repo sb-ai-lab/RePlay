@@ -55,7 +55,7 @@ def test_indexer(df, tmp_path):
         (TimeSplitter, {"time_threshold": 0.8, "query_column": "user_id"}),
         (LastNSplitter, {"N": 2, "query_column": "user_id", "divide_column": "user_id"}),
         (RatioSplitter, {"test_size": 0.8, "query_column": "user_id", "divide_column": "user_id"}),
-        (RandomSplitter, {"test_size": 0.8, "seed": 123, "query_column": "user_id"}),
+        (RandomSplitter, {"test_size": 0.8, "seed": 123}),
         (NewUsersSplitter, {"test_size": 0.8, "query_column": "user_id"}),
         (ColdUserRandomSplitter, {"test_size": 0.8, "seed": 123, "query_column": "user_id"}),
         (
