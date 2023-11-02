@@ -9,7 +9,7 @@ from replay.experimental.scenarios import TwoStagesScenario
 from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.preprocessing.data_preparator import ToNumericFeatureTransformer
 from replay.experimental.scenarios.two_stages.reranker import LamaWrap
-from replay.splitters import DateSplitter
+from replay.splitters import TimeSplitter
 
 from tests.utils import (
     spark,
@@ -29,7 +29,7 @@ def two_stages_kwargs():
             ItemKNN(num_neighbours=4),
             LightFMWrap(no_components=4),
         ],
-        "train_splitter": DateSplitter(test_start=0.1),
+        "train_splitter": TimeSplitter(time_threshold=0.1, query_column="user_idx", item_column="item_idx"),
         "use_first_level_models_feat": True,
         "second_model_params": {
             "timeout": 30,

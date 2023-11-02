@@ -15,7 +15,7 @@ from replay.models.base_rec import BaseRecommender, HybridRecommender
 from replay.experimental.scenarios.two_stages.reranker import LamaWrap
 
 from replay.utils.session_handler import State
-from replay.splitters import Splitter, UserSplitter
+from replay.splitters import Splitter, RatioSplitter
 from replay.utils.spark_utils import (
     array_mult,
     cache_if_exists,
@@ -160,9 +160,7 @@ class TwoStagesScenario(HybridRecommender):
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        train_splitter: Splitter = UserSplitter(
-            item_test_size=0.5, shuffle=True, seed=42
-        ),
+        train_splitter: Splitter = RatioSplitter(test_size=0.5),
         first_level_models: Union[
             List[BaseRecommender], BaseRecommender
         ] = ScalaALSWrap(rank=128),
