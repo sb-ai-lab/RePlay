@@ -1,53 +1,59 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
+from pandas import DataFrame as PandasDataFrame
+from pyspark.sql import DataFrame as SparkDataFrame
+from pyspark.sql import functions as sf, Window
 
 from replay.data import AnyDataFrame
-from replay.utils.spark_utils import convert2spark
 
-SplitterReturnType = Tuple[DataFrame, DataFrame]
+SplitterReturnType = Tuple[AnyDataFrame, AnyDataFrame]
 
 
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods, too-many-instance-attributes
 class Splitter(ABC):
     """Base class"""
 
     _init_arg_names = [
         "drop_cold_users",
         "drop_cold_items",
-        "drop_zero_rel_in_test",
-        "user_col",
-        "item_col",
-        "date_col",
+        "query_column",
+        "item_column",
+        "timestamp_column",
+        "session_id_column",
+        "session_id_processing_strategy",
     ]
 
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        drop_cold_items: bool,
-        drop_cold_users: bool,
-        drop_zero_rel_in_test: bool,
-        user_col: str = "user_idx",
-        item_col: Optional[str] = "item_idx",
-        date_col: Optional[str] = "timestamp",
+        drop_cold_items: bool = False,
+        drop_cold_users: bool = False,
+        query_column: str = "query_id",
+        item_column: Optional[str] = "item_id",
+        timestamp_column: Optional[str] = "timestamp",
+        session_id_column: Optional[str] = None,
+        session_id_processing_strategy: str = "test",
     ):
         """
         :param drop_cold_items: flag to remove items that are not in train data
         :param drop_cold_users: flag to remove users that are not in train data
-        :param drop_zero_rel_in_test: flag to remove entries with relevance <= 0
-            from the test part of the dataset
-        :param user_col: user id column name
-        :param item_col: item id column name
-        :param date_col: timestamp column name
+        :param query_column: query id column name
+        :param item_column: item id column name
+        :param timestamp_column: timestamp column name
+        :param session_id_column: name of session id column, which values can not be split.
+        :param session_id_processing_strategy: strategy of processing session if it is split,
+            values: ``train, test``, train: whole split session goes to train. test: same but to test.
+            default: ``test``.
         """
         self.drop_cold_users = drop_cold_users
         self.drop_cold_items = drop_cold_items
-        self.drop_zero_rel_in_test = drop_zero_rel_in_test
-        self.user_col = user_col
-        self.item_col = item_col
-        self.date_col = date_col
+        self.query_column = query_column
+        self.item_column = item_column
+        self.timestamp_column = timestamp_column
+
+        self.session_id_column = session_id_column
+        self.session_id_processing_strategy = session_id_processing_strategy
 
     @property
     def _init_args(self):
@@ -56,78 +62,94 @@ class Splitter(ABC):
     def __str__(self):
         return type(self).__name__
 
-    def _filter_zero_relevance(self, dataframe: DataFrame) -> DataFrame:
-        """
-        Removes records with zero relevance if required by
-        `drop_zero_rel_in_test` initialization parameter
-
-        :param dataframe: input DataFrame
-        :returns: filtered DataFrame
-        """
-        if self.drop_zero_rel_in_test:
-            return dataframe.filter("relevance > 0.0")
-        return dataframe
-
     # pylint: disable=too-many-arguments
-    @staticmethod
     def _drop_cold_items_and_users(
-        train: DataFrame,
-        test: DataFrame,
-        drop_cold_items: bool,
-        drop_cold_users: bool,
-        user_col: str = "user_idx",
-        item_col: Optional[str] = "item_idx"
-    ) -> DataFrame:
-        """
-        Removes cold users and items from the test data
+        self,
+        train: AnyDataFrame,
+        test: AnyDataFrame,
+    ) -> AnyDataFrame:
+        if isinstance(train, type(test)) is False:
+            raise TypeError("Train and test dataframes must have consistent types")
 
-        :param train: train DataFrame `[timestamp, user_id, item_id, relevance]`
-        :param test: DataFrame like train
-        :param drop_cold_items: flag to remove cold items
-        :param drop_cold_users: flag to remove cold users
-        :param user_col: user id column name
-        :param item_col: item id column name
-        :return: filtered DataFrame
-        """
-        if drop_cold_items:
-            train_tmp = train.select(
-                sf.col(item_col).alias("_item_id_inner")
-            ).distinct()
-            test = test.join(train_tmp, sf.col(item_col) == sf.col("_item_id_inner")).drop(
-                "_item_id_inner"
-            )
+        if isinstance(test, SparkDataFrame):
+            return self._drop_cold_items_and_users_from_spark(train, test)
 
-        if drop_cold_users:
-            train_tmp = train.select(
-                sf.col(user_col).alias("_user_id_inner")
-            ).distinct()
-            test = test.join(train_tmp, sf.col(user_col) == sf.col("_user_id_inner")).drop(
-                "_user_id_inner"
-            )
+        return self._drop_cold_items_and_users_from_pandas(train, test)
+
+    def _drop_cold_items_and_users_from_pandas(
+        self,
+        train: PandasDataFrame,
+        test: PandasDataFrame,
+    ) -> PandasDataFrame:
+        if self.drop_cold_items:
+            test = test[test[self.item_column].isin(train[self.item_column])]
+
+        if self.drop_cold_users:
+            test = test[test[self.query_column].isin(train[self.query_column])]
+
+        return test
+
+    def _drop_cold_items_and_users_from_spark(
+        self,
+        train: SparkDataFrame,
+        test: SparkDataFrame,
+    ) -> SparkDataFrame:
+
+        if self.drop_cold_items:
+            train_tmp = train.select(sf.col(self.item_column).alias("item")).distinct()
+            test = test.join(train_tmp, train_tmp["item"] == test[self.item_column]).drop("item")
+
+        if self.drop_cold_users:
+            train_tmp = train.select(sf.col(self.query_column).alias("user")).distinct()
+            test = test.join(train_tmp, train_tmp["user"] == test[self.query_column]).drop("user")
+
         return test
 
     @abstractmethod
-    def _core_split(self, log: DataFrame) -> SplitterReturnType:
+    def _core_split(self, interactions: AnyDataFrame) -> SplitterReturnType:
         """
         This method implements split strategy
 
-        :param log: input DataFrame `[timestamp, user_id, item_id, relevance]`
+        :param interactions: input DataFrame `[timestamp, user_id, item_id, relevance]`
         :returns: `train` and `test DataFrames
         """
 
-    def split(self, log: AnyDataFrame) -> SplitterReturnType:
+    def split(self, interactions: AnyDataFrame) -> SplitterReturnType:
         """
         Splits input DataFrame into train and test
 
-        :param log: input DataFrame ``[timestamp, user_id, item_id, relevance]``
-        :returns: `train` and `test` DataFrame
+        :param interactions: input DataFrame ``[timestamp, user_id, item_id, relevance]``
+        :returns: List of splitted DataFrames
         """
-        train, test = self._core_split(convert2spark(log))  # type: ignore
-        train.cache()
-        train.count()
-        test = self._drop_cold_items_and_users(
-            train, test, self.drop_cold_items, self.drop_cold_users, self.user_col, self.item_col
-        )
-        test = self._filter_zero_relevance(test).cache()
-        test.count()
+        train, test = self._core_split(interactions)
+        test = self._drop_cold_items_and_users(train, test)
+
         return train, test
+
+    def _recalculate_with_session_id_column(self, data: AnyDataFrame) -> AnyDataFrame:
+        if isinstance(data, SparkDataFrame):
+            return self._recalculate_with_session_id_column_spark(data)
+
+        return self._recalculate_with_session_id_column_pandas(data)
+
+    def _recalculate_with_session_id_column_pandas(self, data: PandasDataFrame) -> PandasDataFrame:
+        agg_function_name = "first" if self.session_id_processing_strategy == "train" else "last"
+        res = data.copy()
+        res["is_test"] = res.groupby(
+            [self.query_column, self.session_id_column]
+        )["is_test"].transform(agg_function_name)
+
+        return res
+
+    def _recalculate_with_session_id_column_spark(self, data: SparkDataFrame) -> SparkDataFrame:
+        agg_function = sf.first if self.session_id_processing_strategy == "train" else sf.last
+        res = data.withColumn(
+            "is_test",
+            agg_function("is_test").over(
+                Window.orderBy(self.timestamp_column)
+                .partitionBy(self.query_column, self.session_id_column)  # type: ignore
+                .rowsBetween(Window.unboundedPreceding, Window.unboundedFollowing)
+            ),
+        )
+
+        return res

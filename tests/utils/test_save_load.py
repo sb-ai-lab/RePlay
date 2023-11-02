@@ -52,19 +52,23 @@ def test_indexer(df, tmp_path):
 @pytest.mark.parametrize(
     "splitter, init_args",
     [
-        (DateSplitter, {"test_start": 0.8}),
+        (TimeSplitter, {"time_threshold": 0.8, "query_column": "user_id"}),
+        (LastNSplitter, {"N": 2, "query_column": "user_id", "divide_column": "user_id"}),
+        (RatioSplitter, {"test_size": 0.8, "query_column": "user_id", "divide_column": "user_id"}),
         (RandomSplitter, {"test_size": 0.8, "seed": 123}),
-        (NewUsersSplitter, {"test_size": 0.8}),
-        (ColdUserRandomSplitter, {"test_size": 0.8, "seed": 123}),
+        (NewUsersSplitter, {"test_size": 0.8, "query_column": "user_id"}),
+        (ColdUserRandomSplitter, {"test_size": 0.8, "seed": 123, "query_column": "user_id"}),
         (
-            UserSplitter,
-            {"item_test_size": 1, "user_test_size": 0.2, "seed": 123},
+            TwoStageSplitter,
+            {"second_divide_size": 1, "first_divide_size": 0.2, "seed": 123, "query_column": "user_id",
+             "first_divide_column": "user_id"},
         ),
     ],
 )
 def test_splitter(splitter, init_args, df, tmp_path):
     path = (tmp_path / "splitter").resolve()
     splitter = splitter(**init_args)
+    df = df.withColumnRenamed('user_idx', 'user_id').withColumnRenamed('item_idx', 'item_id')
     save_splitter(splitter, path)
     train, test = splitter.split(df)
     restored_splitter = load_splitter(path)
