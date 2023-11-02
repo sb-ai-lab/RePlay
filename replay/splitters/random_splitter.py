@@ -3,7 +3,6 @@ from typing import Optional, Union
 from pandas import DataFrame as PandasDataFrame
 from pyspark.sql import DataFrame as SparkDataFrame
 import pyspark.sql.functions as sf
-from pyspark.sql import Window
 
 from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import (
