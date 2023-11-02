@@ -49,7 +49,7 @@ from replay.preprocessing.data_preparator import DataPreparator, Indexer
 from replay.metrics import HitRate, NDCG
 from replay.models import ItemKNN
 from replay.utils.session_handler import State
-from replay.splitters import UserSplitter
+from replay.splitters import TwoStageSplitter
 
 spark = State().session
 
@@ -71,9 +71,9 @@ indexer.fit(users=log.select('user_id'), items=log.select('item_id'))
 log_replay = indexer.transform(df=log)
 
 # data splitting
-user_splitter = UserSplitter(
-    item_test_size=10,
-    user_test_size=500,
+user_splitter = TwoStageSplitter(
+    second_divide_size=10,
+    first_divide_size=500,
     drop_cold_items=True,
     drop_cold_users=True,
     shuffle=True,

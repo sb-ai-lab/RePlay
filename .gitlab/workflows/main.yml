@@ -12,18 +12,27 @@ variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
 .setup_env: &setup_env
-  - pip install -q --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning lightfm==1.17
+  - pip install -q --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning
+
+.setup_experimental_env: &setup_experimental_env
+  - *setup_env
+  - pip install -q --upgrade lightfm==1.17
 
 .install_replay: &install_replay
   before_script:
     - *setup_env
-    - poetry install
+    - ./poetry_wrapper.sh install
+
+.install_experimental_replay: &install_experimental_replay
+  before_script:
+    - *setup_experimental_env
+    - ./poetry_wrapper.sh --experimental install
 
 cache: &global_cache
   key: ${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}
   paths:
-    - .cache/pip
-    - .cache/pypoetry
+    - ./.cache/pip
+    - ./.cache/pypoetry
   policy: pull
 
 stages:
@@ -39,42 +48,49 @@ resolve-job:
     <<: *global_cache
     policy: push
   script:
-    - *setup_env
+    - *setup_experimental_env
     - poetry --version
     - pip --version
-    - poetry install
+    - ./poetry_wrapper.sh --experimental install
     - dependencies="${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}_dependencies.txt"
     - dependencies=$(echo ${dependencies} | sed -e 's/[^0-9a-zA-Z.-]/_/g') # removed invalid characters
     - pip list > ${dependencies}
   artifacts:
     paths:
-      - poetry.lock
+      - projects/experimental/poetry.lock
       - ${dependencies}
     expire_in: 2 week
 
 pylint-job:
-  <<: *install_replay
+  <<: *install_experimental_replay
   stage: code_quality
   script:
     - pylint replay
 
 pycodestyle-job:
-  <<: *install_replay
+  <<: *install_experimental_replay
   stage: code_quality
   script:
     - pycodestyle replay tests
 
 sphinx-job:
-  <<: *install_replay
+  <<: *install_experimental_replay
   stage: code_quality
   script:
     - make -C docs clean html
 
-test-job:
-  <<: *install_replay
+pytest:
+  <<: *install_experimental_replay
   stage: test
   script:
     - pytest
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  artifacts:
+    when: always
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
 
 examples-execute-job:
   <<: *install_replay
@@ -87,11 +103,25 @@ examples-execute-job:
 build-production-package:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  stage: build package
+  stage: build packages
   script:
     - *setup_env
     - export PACKAGE_SUFFIX=.dev${CI_JOB_ID}
     - echo $PACKAGE_SUFFIX
+    - ./poetry_wrapper.sh --generate
+    - poetry version
+    - poetry config repositories.replay ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
+    - poetry publish --build -r replay -u gitlab-ci-token -p ${CI_JOB_TOKEN}
+
+
+build-experimental-package:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  stage: build packages
+  script:
+    - export PACKAGE_SUFFIX=.preview${CI_JOB_ID}
+    - echo $PACKAGE_SUFFIX
+    - ./poetry_wrapper.sh --experimental --generate
     - poetry version
     - poetry config repositories.replay ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
     - poetry publish --build -r replay -u gitlab-ci-token -p ${CI_JOB_TOKEN}

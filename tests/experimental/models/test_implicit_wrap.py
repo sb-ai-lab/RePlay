@@ -17,6 +17,7 @@ from implicit.als import AlternatingLeastSquares
 from replay.utils.session_handler import get_spark_session
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize(
     "model",
     [
@@ -45,6 +46,7 @@ def test_predict(model, log,filter_seen):
     assert pred.count() == 2 if filter_seen else 4
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize(
     "model",
     [
@@ -73,6 +75,7 @@ def test_predict_pairs(model, log, log_in_pred):
     sparkDataFrameEqual(pairs.select("user_idx","item_idx"), pred.select("user_idx","item_idx"))
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize(
     "model",
     [

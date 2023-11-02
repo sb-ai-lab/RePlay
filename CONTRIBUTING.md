@@ -60,7 +60,7 @@ To install the necessary packages run the following for Ubuntu:
 
 ### Installing from the source
 
-If you are installing from the source, you will need Python 3.8-3.10.
+If you are installing from the source, you will need Python 3.7.1-3.9.*.
 
 1. Install poetry using [the poetry installation guide](https://python-poetry.org/docs/#installation). 
 
@@ -70,24 +70,56 @@ If you are installing from the source, you will need Python 3.8-3.10.
     git clone git@github.com:sb-ai-lab/RePlay.git
     cd RePlay
     ```
-3. **Optional**: specify python for poetry
+
+3. Install RePlay:
 
     ```bash
-    poetry env use PYTHON_PATH
+    pip install poetry==1.5.1
+    ./poetry_wrapper.sh install
     ```
+    **If you want to install Replay with the experimental module**:
+    ```bash
+    pip install poetry==1.5.1 lightfm==1.17
+    ./poetry_wrapper.sh --experimental install
+    ```
+    After that, there is an environment, where you can test and implement your own code.
+    So, you don't need to rebuild the full project every time.
+    Each change in the code will be reflected in the library inside the environment.
 
-4. Install RePlay:
+
+4. **optional**: Build wheel package:
 
     ```bash
-    pip install -U pip wheel
-    pip install -U requests pypandoc cython optuna poetry
-    poetry build
-    pip install --force-reinstall dist/replay_rec-0.10.0-py3-none-any.whl
+    ./poetry_wrapper.sh build
     ```
+    **If you want to build Replay package with the experimental module**:
+    ```bash
+    ./poetry_wrapper.sh --experimental build
+    ```
+    You can find the assembled package in the ``dist`` folder.
 
-After that, there is virtual environment, where you can test and implement your own code.
-So, you don't need to rebuild the full project every time.
-Each change in the code will be reflected in the library inside the environment.
+
+5. **optional**: Сhanging dependencies:
+    - If you want to make changes in the pyproject.toml file then change the projects/pyproject.toml.template file. There may be inserts in it that relate only to the main part of the library or experimental. In this case, it is necessary to make inserts in Jinja2-like syntax. For example:
+    ```bash
+    {% if project == "default" %}
+    {% endif %}
+    ```
+    or
+    ```bash
+    {% if project == "experimental" %}
+    {% endif %}
+    ```
+    - After updating the pyproject.toml file, you need to make changes to the poetry.lock file.
+    ```bash
+    ./poetry_wrapper.sh lock
+    ```
+    For the experimental module.
+    ```bash
+    ./poetry_wrapper.sh --experimental lock
+    ```
+    Note that during this step, updated poetry.lock file do not need to be copied anywhere.
+
 
 ## Style Guide
 
@@ -98,8 +130,8 @@ We follow [the standard python PEP8](https://www.python.org/dev/peps/pep-0008/) 
 In order to automate checking of the code quality, please run:
 
     ```bash
-    pycodestyle --ignore=E203,E231,E501,W503,W605 --max-doc-length=160 replay tests
-    pylint --rcfile=.pylintrc replay
+    pycodestyle replay tests
+    pylint replay
     ```
 
 ## How to add a new model
@@ -112,7 +144,7 @@ When you're done with your feature development please create [pull request](#pul
 Before making a pull request (despite changing only the documentation or writing new code), please check your code on tests:
 
     ```bash
-    pytest --cov=replay --cov-report=term-missing --doctest-modules replay --cov-fail-under=93 tests
+    pytest
     ```
 
 Also if you develop new functionality, please add your own tests.
