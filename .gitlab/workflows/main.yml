@@ -40,7 +40,7 @@ stages:
   - code_quality
   - test
   - examples
-  - build package
+  - build packages
 
 resolve-job:
   stage: resolve
