@@ -1,6 +1,6 @@
 # pylint: disable=too-many-lines
 """
-NeighbourRec - base class that requires interactions at prediction time.
+NeighbourRec - base class that requires log at prediction time.
 Part of set of abstract classes (from base_rec.py)
 """
 
@@ -16,18 +16,17 @@ from typing import (
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from pyspark.sql.column import Column
-from replay.data.dataset import Dataset
 
 from replay.models.extensions.ann.ann_mixin import ANNMixin
-from replay.models.base_rec import Recommender
+from replay.experimental.models.base_rec import Recommender
 
 
 class NeighbourRec(Recommender, ANNMixin, ABC):
-    """Base class that requires interactions at prediction time"""
+    """Base class that requires log at prediction time"""
 
     similarity: Optional[DataFrame]
     can_predict_item_to_item: bool = True
-    can_predict_cold_queries: bool = True
+    can_predict_cold_users: bool = True
     can_change_metric: bool = False
     item_to_item_metrics = ["similarity"]
     _similarity_metric = "similarity"
@@ -60,85 +59,89 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
 
     def _predict_pairs_inner(
         self,
-        interactions: DataFrame,
+        log: DataFrame,
         filter_df: DataFrame,
         condition: Column,
-        queries: DataFrame,
+        users: DataFrame,
     ) -> DataFrame:
         """
-        Get recommendations for all provided queries
+        Get recommendations for all provided users
         and filter results with ``filter_df`` by ``condition``.
         It allows to implement both ``predict_pairs`` and usual ``predict``@k.
 
-        :param interactions: historical interactions, DataFrame
+        :param log: historical interactions, DataFrame
             ``[user_idx, item_idx, timestamp, relevance]``.
         :param filter_df: DataFrame use to filter items:
             ``[item_idx_filter]`` or ``[user_idx_filter, item_idx_filter]``.
         :param condition: condition used for inner join with ``filter_df``
-        :param queries: queries to calculate recommendations for
+        :param users: users to calculate recommendations for
         :return: DataFrame ``[user_idx, item_idx, relevance]``
         """
-        if interactions is None:
+        if log is None:
             raise ValueError(
-                "interactions is not provided, but it is required for prediction"
+                "log is not provided, but it is required for prediction"
             )
 
         recs = (
-            interactions.join(queries, how="inner", on=self.query_column)
+            log.join(users, how="inner", on="user_idx")
             .join(
                 self.similarity,
                 how="inner",
-                on=sf.col(self.item_column) == sf.col("item_idx_one"),
+                on=sf.col("item_idx") == sf.col("item_idx_one"),
             )
             .join(
                 filter_df,
                 how="inner",
                 on=condition,
             )
-            .groupby(self.query_column, "item_idx_two")
-            .agg(sf.sum(self.similarity_metric).alias(self.rating_column))
-            .withColumnRenamed("item_idx_two", self.item_column)
+            .groupby("user_idx", "item_idx_two")
+            .agg(sf.sum(self.similarity_metric).alias("relevance"))
+            .withColumnRenamed("item_idx_two", "item_idx")
         )
         return recs
 
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        dataset: Dataset,
+        log: DataFrame,
         k: int,
-        queries: DataFrame,
+        users: DataFrame,
         items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
 
         return self._predict_pairs_inner(
-            interactions=dataset.interactions,
-            filter_df=items.withColumnRenamed(self.item_column, "item_idx_filter"),
+            log=log,
+            filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
             condition=sf.col("item_idx_two") == sf.col("item_idx_filter"),
-            queries=queries,
+            users=users,
         )
 
     def _predict_pairs(
         self,
         pairs: DataFrame,
-        dataset: Optional[Dataset] = None,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
 
-        if dataset.interactions is None:
+        if log is None:
             raise ValueError(
-                "interactions is not provided, but it is required for prediction"
+                "log is not provided, but it is required for prediction"
             )
 
         return self._predict_pairs_inner(
-            interactions=dataset.interactions,
+            log=log,
             filter_df=(
                 pairs.withColumnRenamed(
-                    self.query_column, "user_idx_filter"
-                ).withColumnRenamed(self.item_column, "item_idx_filter")
+                    "user_idx", "user_idx_filter"
+                ).withColumnRenamed("item_idx", "item_idx_filter")
             ),
-            condition=(sf.col(self.query_column) == sf.col("user_idx_filter"))
+            condition=(sf.col("user_idx") == sf.col("user_idx_filter"))
             & (sf.col("item_idx_two") == sf.col("item_idx_filter")),
-            queries=pairs.select(self.query_column).distinct(),
+            users=pairs.select("user_idx").distinct(),
         )
 
     def get_nearest_items(
@@ -184,13 +187,13 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
     ) -> DataFrame:
 
         similarity_filtered = self.similarity.join(
-            items.withColumnRenamed(self.item_column, "item_idx_one"),
+            items.withColumnRenamed("item_idx", "item_idx_one"),
             on="item_idx_one",
         )
 
         if candidates is not None:
             similarity_filtered = similarity_filtered.join(
-                candidates.withColumnRenamed(self.item_column, "item_idx_two"),
+                candidates.withColumnRenamed("item_idx", "item_idx_two"),
                 on="item_idx_two",
             )
 
@@ -201,7 +204,7 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         )
 
     def _get_ann_build_params(self, interactions: DataFrame) -> Dict[str, Any]:
-        self.index_builder.index_params.items_count = interactions.select(sf.max(self.item_column)).first()[0] + 1
+        self.index_builder.index_params.items_count = interactions.select(sf.max("item_idx")).first()[0] + 1
         return {
             "features_col": None,
         }
@@ -217,8 +220,8 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
     ) -> DataFrame:
 
         user_vectors = (
-            interactions.groupBy(self.query_column).agg(
-                sf.collect_list(self.item_column).alias("vector_items"),
-                sf.collect_list(self.rating_column).alias("vector_ratings"))
+            interactions.groupBy("user_idx").agg(
+                sf.collect_list("item_idx").alias("vector_items"),
+                sf.collect_list("relevance").alias("vector_relevances"))
         )
         return user_vectors

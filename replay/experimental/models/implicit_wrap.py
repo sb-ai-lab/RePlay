@@ -4,9 +4,9 @@ from typing import Optional
 import pandas as pd
 from pyspark.sql import DataFrame
 
-from replay.models.base_rec import Recommender
-from replay.utils.spark_utils import save_picklable_to_parquet, load_pickled_from_parquet
 from replay.preprocessing import CSRConverter
+from replay.experimental.models.base_rec import Recommender
+from replay.utils.spark_utils import save_picklable_to_parquet, load_pickled_from_parquet
 from replay.data import REC_SCHEMA
 
 

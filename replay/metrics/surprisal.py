@@ -41,25 +41,25 @@ class Surprisal(RecOnlyMetric):
     """
 
     def __init__(
-        self, 
-        log: AnyDataFrame,
-        query_col: str,
-        item_col: str,
-        rating_col: str,
+        self,
+        interactions: AnyDataFrame,
+        query_column: str,
+        item_column: str,
+        rating_column: str,
     ):  # pylint: disable=super-init-not-called
         """
         Here we calculate self-information for each item
 
         :param log: historical data
         """
-        self.query_col = query_col
-        self.item_col = item_col
-        self.rating_col = rating_col
-        self.log = convert2spark(log)
-        n_users = self.log.select(query_col).distinct().count()  # type: ignore
-        self.item_weights = self.log.groupby(self.item_col).agg(
+        self.query_column = query_column
+        self.item_column = item_column
+        self.rating_column = rating_column
+        self.interactions = convert2spark(interactions)
+        n_users = self.interactions.select(self.query_column).distinct().count()  # type: ignore
+        self.item_weights = self.interactions.groupby(self.item_column).agg(
             (
-                sf.log2(n_users / sf.countDistinct(self.query_col))  # type: ignore
+                sf.log2(n_users / sf.countDistinct(self.query_column))  # type: ignore
                 / np.log2(n_users)
             ).alias("rec_weight")
         )
@@ -78,14 +78,20 @@ class Surprisal(RecOnlyMetric):
     ) -> DataFrame:
         recommendations = convert2spark(recommendations)
         ground_truth_users = convert2spark(ground_truth_users)
-        recommendations = get_top_k_recs(recommendations, max_k, self.query_col, self.rating_col)
+        recommendations = get_top_k_recs(recommendations, max_k, self.query_column, self.rating_column)
 
         recommendations = (
-            recommendations.join(self.item_weights, on=self.item_col, how="left").fillna(1.0)
+            recommendations.join(self.item_weights, on=self.item_column, how="left").fillna(1.0)
         )
-        recommendations = filter_sort(recommendations, self.query_col, self.item_col, self.rating_col, "rec_weight")
+        recommendations = filter_sort(
+            recommendations,
+            self.query_column,
+            self.item_column,
+            self.rating_column,
+            "rec_weight",
+        )
         recommendations = (
-            recommendations.select(self.query_col, sf.col("rec_weight"))
+            recommendations.select(self.query_column, sf.col("rec_weight"))
             .withColumn(
                 "rec_weight",
                 sf.col("rec_weight").cast(st.ArrayType(st.DoubleType(), True)),
@@ -94,7 +100,7 @@ class Surprisal(RecOnlyMetric):
         if ground_truth_users is not None:
             recommendations = fill_na_with_empty_array(
                 recommendations.join(
-                    ground_truth_users, on=self.query_col, how="right"
+                    ground_truth_users, on=self.query_column, how="right"
                 ),
                 "rec_weight",
                 self.item_weights.schema["rec_weight"].dataType,

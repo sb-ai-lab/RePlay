@@ -6,10 +6,10 @@ import torch
 import numpy as np
 from pyspark.sql import functions as sf
 
-from replay.data import LOG_SCHEMA
+from replay.data import INTERACTIONS_SCHEMA
 from replay.experimental.models import NeuroMF
 from replay.experimental.models.neuromf import NMF
-from replay.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 from tests.utils import (
     del_files_by_pattern,
     find_file_by_pattern,
@@ -64,7 +64,7 @@ def log(spark):
             (1, 1, date, 1.0),
             (2, 3, date, 1.0),
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 

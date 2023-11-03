@@ -10,7 +10,7 @@ from pyspark.sql.types import (
     StructType,
 )
 
-from replay.data import LOG_SCHEMA
+from replay.data import INTERACTIONS_SCHEMA
 from replay.experimental.models import ImplicitWrap
 from tests.utils import spark, log, sparkDataFrameEqual, long_log_with_features
 from implicit.als import AlternatingLeastSquares

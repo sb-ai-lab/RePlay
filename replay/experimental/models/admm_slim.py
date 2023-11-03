@@ -7,9 +7,8 @@ from pyspark.sql import DataFrame
 from scipy.sparse import coo_matrix, csr_matrix
 
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.models.base_neighbour_rec import NeighbourRec
+from replay.experimental.models.base_neighbour_rec import NeighbourRec
 from replay.utils.session_handler import State
-from replay.data import Dataset
 
 
 # pylint: disable=too-many-arguments, too-many-locals
@@ -131,14 +130,16 @@ class ADMMSLIM(NeighbourRec):
     # pylint: disable=too-many-locals
     def _fit(
         self,
-        dataset: Dataset,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
     ) -> None:
         self.logger.debug("Fitting ADMM SLIM")
-        pandas_log = dataset.interactions.select(self.query_col, self.item_col, self.rating_col).toPandas()
+        pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
         interactions_matrix = csr_matrix(
             (
-                pandas_log[self.rating_col],
-                (pandas_log[self.query_col], pandas_log[self.item_col]),
+                pandas_log["relevance"],
+                (pandas_log["user_idx"], pandas_log["item_idx"]),
             ),
             shape=(self._user_dim, self._item_dim),
         )

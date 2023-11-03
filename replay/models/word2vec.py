@@ -1,3 +1,4 @@
+from os.path import join
 from typing import Optional, Dict, Any
 
 from pyspark.ml.feature import Word2Vec
@@ -10,37 +11,43 @@ from pyspark.sql import types as st
 from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.utils.spark_utils import vector_dot, multiply_scala_udf, join_with_col_renaming
+from replay.utils.spark_utils import (
+    vector_dot,
+    multiply_scala_udf,
+    join_with_col_renaming,
+    save_picklable_to_parquet,
+    load_pickled_from_parquet,
+)
 from replay.data import Dataset
 
 
 # pylint: disable=too-many-instance-attributes, too-many-ancestors
 class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
     """
-    Trains word2vec model where items ar treated as words and users as sentences.
+    Trains word2vec model where items are treated as words and queries as sentences.
     """
 
     def _get_ann_infer_params(self) -> Dict[str, Any]:
         self.index_builder.index_params.dim = self.rank
         return {
-            "features_col": "user_vector",
+            "features_col": "query_vector",
         }
 
-    def _get_vectors_to_infer_ann_inner(self, interactions: DataFrame, users: DataFrame) -> DataFrame:
-        user_vectors = self._get_user_vectors(users, interactions)
+    def _get_vectors_to_infer_ann_inner(self, interactions: DataFrame, queries: DataFrame) -> DataFrame:
+        query_vectors = self._get_query_vectors(queries, interactions)
         # converts to pandas_udf compatible format
-        user_vectors = user_vectors.select(
-            self.query_col, vector_to_array("user_vector").alias("user_vector")
+        query_vectors = query_vectors.select(
+            self.query_column, vector_to_array("query_vector").alias("query_vector")
         )
-        return user_vectors
+        return query_vectors
 
     def _get_ann_build_params(self, interactions: DataFrame) -> Dict[str, Any]:
         self.index_builder.index_params.dim = self.rank
-        self.index_builder.index_params.max_elements = interactions.select(self.item_col).distinct().count()
+        self.index_builder.index_params.max_elements = interactions.select(self.item_column).distinct().count()
         self.logger.debug("index 'num_elements' = %s", self.num_elements)
         return {
             "features_col": "item_vector",
-            "ids_col": self.item_col
+            "ids_col": self.item_column
         }
 
     def _get_vectors_to_build_ann(self, interactions: DataFrame) -> DataFrame:
@@ -48,7 +55,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         item_vectors = (
             item_vectors
             .select(
-                self.item_col,
+                self.item_column,
                 vector_to_array("item_vector").alias("item_vector")
             )
         )
@@ -57,7 +64,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
     idf: DataFrame
     vectors: DataFrame
 
-    can_predict_cold_users = True
+    can_predict_cold_queries = True
     _search_space = {
         "rank": {"type": "int", "args": [50, 300]},
         "window_size": {"type": "int", "args": [1, 100]},
@@ -126,11 +133,24 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         #     else path_info.path
         # )
         # destination_filesystem.create_dir(target_dir_path)
-
+        save_picklable_to_parquet(
+            {
+                "query_column": self.query_column,
+                "item_column": self.item_column,
+                "rating_column": self.rating_column,
+                "timestamp_column": self.timestamp_column,
+            },
+            join(path, "params.dump")
+        )
         if self.index_builder:
             self._save_index(path)
 
     def _load_model(self, path: str):
+        loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
+        self.query_column = loaded_params.get("query_column")
+        self.item_column = loaded_params.get("item_column")
+        self.rating_column = loaded_params.get("rating_column")
+        self.timestamp_column = loaded_params.get("timestamp_column")
         if self.index_builder:
             self._load_index(path)
 
@@ -139,29 +159,29 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         dataset: Dataset,
     ) -> None:
         self.idf = (
-            dataset.interactions.groupBy(self.item_col)
-            .agg(sf.countDistinct(self.query_col).alias("count"))
+            dataset.interactions.groupBy(self.item_column)
+            .agg(sf.countDistinct(self.query_column).alias("count"))
             .withColumn(
                 "idf",
-                sf.log(sf.lit(self.users_count) / sf.col("count"))
+                sf.log(sf.lit(self.queries_count) / sf.col("count"))
                 if self.use_idf
                 else sf.lit(1.0),
             )
-            .select(self.item_col, "idf")
+            .select(self.item_column, "idf")
         )
         self.idf.cache().count()
 
-        log_by_users = (
-            dataset.interactions.groupBy(self.query_col)
+        interactions_by_queries = (
+            dataset.interactions.groupBy(self.query_column)
             .agg(
-                sf.collect_list(sf.struct(self.timestamp_col, self.item_col)).alias(
+                sf.collect_list(sf.struct(self.timestamp_column, self.item_column)).alias(
                     "ts_item_idx"
                 )
             )
             .withColumn("ts_item_idx", sf.array_sort("ts_item_idx"))
             .withColumn(
                 "items",
-                sf.col(f"ts_item_idx.{self.item_col}").cast(
+                sf.col(f"ts_item_idx.{self.item_column}").cast(
                     st.ArrayType(st.StringType())
                 ),
             )
@@ -171,7 +191,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         self.logger.debug("Model training")
 
         if self._num_partitions is None:
-            self._num_partitions = log_by_users.rdd.getNumPartitions()
+            self._num_partitions = interactions_by_queries.rdd.getNumPartitions()
 
         word_2_vec = Word2Vec(
             vectorSize=self.rank,
@@ -185,7 +205,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
             seed=self._seed,
         )
         self.vectors = (
-            word_2_vec.fit(log_by_users)
+            word_2_vec.fit(interactions_by_queries)
             .getVectors()
             .select(sf.col("word").cast("int").alias("item"), "vector")
         )
@@ -200,37 +220,37 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
     def _dataframes(self):
         return {"idf": self.idf, "vectors": self.vectors}
 
-    def _get_user_vectors(
+    def _get_query_vectors(
         self,
-        users: DataFrame,
+        queries: DataFrame,
         interactions: DataFrame,
     ) -> DataFrame:
         """
-        :param users: user ids, dataframe ``[user_idx]``
-        :param log: interaction dataframe
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :return: user embeddings dataframe
-            ``[user_idx, user_vector]``
+        :param queries: query ids, dataframe ``[query_id]``
+        :param interactions: interaction dataframe
+            ``[query_id, item_id, timestamp, rating]``
+        :return: query embeddings dataframe
+            ``[query_id, query_vector]``
         """
         res = join_with_col_renaming(
-            interactions, users, on_col_name=self.query_col, how="inner"
+            interactions, queries, on_col_name=self.query_column, how="inner"
         )
         res = join_with_col_renaming(
-            res, self.idf, on_col_name=self.item_col, how="inner"
+            res, self.idf, on_col_name=self.item_column, how="inner"
         )
         res = res.join(
             self.vectors.hint("broadcast"),
             how="inner",
-            on=sf.col(self.item_col) == sf.col("item"),
+            on=sf.col(self.item_column) == sf.col("item"),
         ).drop("item")
         return (
-            res.groupby(self.query_col)
+            res.groupby(self.query_column)
             .agg(
                 Summarizer.mean(
                     multiply_scala_udf(sf.col("idf"), sf.col("vector"))
-                ).alias("user_vector")
+                ).alias("query_vector")
             )
-            .select(self.query_col, "user_vector")
+            .select(self.query_column, "query_vector")
         )
 
     def _predict_pairs_inner(
@@ -240,25 +260,25 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
     ) -> DataFrame:
         if dataset.interactions is None:
             raise ValueError(
-                f"log is not provided, {self} predict requires log."
+                f"interactions is not provided, {self} predict requires interactions."
             )
 
-        user_vectors = self._get_user_vectors(
-            pairs.select(self.query_col).distinct(), dataset.interactions
+        query_vectors = self._get_query_vectors(
+            pairs.select(self.query_column).distinct(), dataset.interactions
         )
         pairs_with_vectors = join_with_col_renaming(
-            pairs, user_vectors, on_col_name=self.query_col, how="inner"
+            pairs, query_vectors, on_col_name=self.query_column, how="inner"
         )
         pairs_with_vectors = pairs_with_vectors.join(
-            self.vectors, on=sf.col(self.item_col) == sf.col("item"), how="inner"
+            self.vectors, on=sf.col(self.item_column) == sf.col("item"), how="inner"
         ).drop("item")
         return pairs_with_vectors.select(
-            self.query_col,
-            sf.col(self.item_col),
+            self.query_column,
+            sf.col(self.item_column),
             (
-                vector_dot(sf.col("vector"), sf.col("user_vector"))
+                vector_dot(sf.col("vector"), sf.col("query_vector"))
                 + sf.lit(self.rank)
-            ).alias(self.rating_col),
+            ).alias(self.rating_column),
         )
 
     # pylint: disable=too-many-arguments
@@ -266,11 +286,11 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         self,
         dataset: Dataset,
         k: int,
-        users: DataFrame,
+        queries: DataFrame,
         items: DataFrame,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        return self._predict_pairs_inner(users.crossJoin(items), dataset)
+        return self._predict_pairs_inner(queries.crossJoin(items), dataset)
 
     def _predict_pairs(
         self,
@@ -282,4 +302,4 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
     def _get_item_vectors(self):
         return self.vectors.withColumnRenamed(
             "vector", "item_vector"
-        ).withColumnRenamed("item", self.item_col)
+        ).withColumnRenamed("item", self.item_column)

@@ -302,8 +302,8 @@ class NeuroMF(TorchRecommender):
         self, data: pd.DataFrame, shuffle: bool = True
     ) -> DataLoader:
 
-        user_batch = LongTensor(data[self.query_col].values)  # type: ignore
-        item_batch = LongTensor(data[self.item_col].values)  # type: ignore
+        user_batch = LongTensor(data["user_idx"].values)  # type: ignore
+        item_batch = LongTensor(data["item_idx"].values)  # type: ignore
 
         dataset = TensorDataset(user_batch, item_batch)
 
@@ -329,7 +329,7 @@ class NeuroMF(TorchRecommender):
         item_features: Optional[DataFrame] = None,
     ) -> None:
         self.logger.debug("Create DataLoaders")
-        tensor_data = log.select(self.query_col, self.item_col).toPandas()
+        tensor_data = log.select("user_idx", "item_idx").toPandas()
         train_tensor_data, valid_tensor_data = train_test_split(
             tensor_data,
             test_size=self.valid_split_size,
@@ -416,9 +416,9 @@ class NeuroMF(TorchRecommender):
 
             return pd.DataFrame(
                 {
-                    self.query_col: user_recs.shape[0] * [user_idx],
-                    self.item_col: items_np,
-                    self.rating_col: user_recs,
+                    "user_idx": user_recs.shape[0] * [user_idx],
+                    "item_idx": items_np,
+                    "relevance": user_recs,
                 }
             )
 
@@ -432,7 +432,7 @@ class NeuroMF(TorchRecommender):
     ) -> pd.DataFrame:
         return NeuroMF._predict_pairs_inner(
             model=model,
-            user_idx=pandas_df[self.query_col][0],
+            user_idx=pandas_df["user_idx"][0],
             items_np=items_np,
             cnt=min(len(pandas_df) + k, len(items_np)),
         )
@@ -443,7 +443,7 @@ class NeuroMF(TorchRecommender):
     ) -> pd.DataFrame:
         return NeuroMF._predict_pairs_inner(
             model=model,
-            user_idx=pandas_df[self.query_col][0],
+            user_idx=pandas_df["user_idx"][0],
             items_np=np.array(pandas_df["item_idx_to_pred"][0]),
             cnt=None,
         )

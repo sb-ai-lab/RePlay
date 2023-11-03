@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from pyspark.sql import functions as sf
 
-from replay.data import LOG_SCHEMA
+from replay.data import INTERACTIONS_SCHEMA
 from replay.experimental.models import LightFMWrap
 from replay.experimental.scenarios.two_stages.two_stages_scenario import (
     get_first_level_model_features,
@@ -19,7 +19,7 @@ from tests.utils import (
     user_features,
     sparkDataFrameEqual,
 )
-from replay.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 
 
 SEED = 123
@@ -46,7 +46,7 @@ def log(spark):
             [2, 2, date, 2.0],
             [0, 2, date, 2.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 

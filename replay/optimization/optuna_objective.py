@@ -13,7 +13,7 @@ from replay.metrics.base_metric import Metric
 
 SplitData = collections.namedtuple(
     "SplitData",
-    "train_dataset test_dataset users items",
+    "train_dataset test_dataset queries items",
 )
 
 
@@ -97,7 +97,7 @@ def eval_quality(
     recs = recommender._predict_wrap(
         dataset=split_data.train_dataset,
         k=k,
-        users=split_data.users,
+        queries=split_data.queries,
         items=split_data.items,
     )
     logger.debug("Calculating criterion")
@@ -158,14 +158,14 @@ class ItemKNNObjective:
         train_dataset = split_data.train_dataset
         model.num_neighbours = max_neighbours
 
-        self.query_col = train_dataset.feature_schema.query_id_column
-        self.item_col = train_dataset.feature_schema.item_id_column
-        self.rating_col = train_dataset.feature_schema.interactions_rating_column
+        self.query_column = train_dataset.feature_schema.query_id_column
+        self.item_column = train_dataset.feature_schema.item_id_column
+        self.rating_column = train_dataset.feature_schema.interactions_rating_column
         self.timestamp_col = train_dataset.feature_schema.interactions_timestamp_column
 
-        df = train_dataset.interactions.select(self.query_col, self.item_col, self.rating_col)
-        if not model.use_relevance:
-            df = df.withColumn("relevance", sf.lit(1))
+        df = train_dataset.interactions.select(self.query_column, self.item_column, self.rating_column)
+        if not model.use_rating:
+            df = df.withColumn(self.rating_column, sf.lit(1))
 
         self.dot_products = model._get_products(df).cache()
 
@@ -190,8 +190,8 @@ class ItemKNNObjective:
         """
         params_for_trial = suggest_params(trial, search_space)
         recommender.set_params(**params_for_trial)
-        recommender.fit_users = split_data.train_dataset.interactions.select(self.query_col).distinct()
-        recommender.fit_items = split_data.train_dataset.interactions.select(self.item_col).distinct()
+        recommender.fit_queries = split_data.train_dataset.interactions.select(self.query_column).distinct()
+        recommender.fit_items = split_data.train_dataset.interactions.select(self.item_column).distinct()
         similarity = recommender._shrink(self.dot_products, recommender.shrink)
         recommender.similarity = recommender._get_k_most_similar(
             similarity
@@ -199,7 +199,7 @@ class ItemKNNObjective:
         recs = recommender._predict_wrap(
             dataset=split_data.train_dataset,
             k=k,
-            users=split_data.users,
+            queries=split_data.queries,
             items=split_data.items,
         )
         logger = logging.getLogger("replay")

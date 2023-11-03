@@ -15,7 +15,7 @@ from pyspark.sql.types import (
     StructType, ArrayType, DoubleType
 )
 
-from replay.data import LOG_SCHEMA, REC_SCHEMA
+from replay.data import INTERACTIONS_SCHEMA, REC_SCHEMA
 from replay.experimental.metrics import *
 from replay.metrics import Coverage
 from replay.utils.distributions import item_distribution
@@ -89,7 +89,7 @@ def true(spark):
             [1, 0, datetime(2019, 9, 15), 3.0],
             [2, 1, datetime(2019, 9, 15), 3.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 

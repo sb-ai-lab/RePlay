@@ -5,22 +5,22 @@ from typing import Optional, Union, Iterable, Dict, List, Any, Tuple
 
 from pyspark.sql import DataFrame
 
-from replay.data import AnyDataFrame
+from replay.data import AnyDataFrame, Dataset
 from replay.preprocessing.filters import filter_by_min_count
 from replay.metrics import Metric, NDCG
 from replay.models.base_rec import BaseRecommender
-from replay.utils.spark_utils import convert2spark, get_unique_entities
+from replay.utils.spark_utils import get_unique_entities
 
 
 class BaseScenario(BaseRecommender):
     """Base scenario class"""
 
-    can_predict_cold_users: bool = False
+    can_predict_cold_queries: bool = False
 
     def __init__(self, cold_model, threshold=5):    # pragma: no cover
         self.threshold = threshold
         self.cold_model = cold_model
-        self.hot_users = None
+        self.hot_queries = None
 
     # TO DO: add save/load for scenarios
     @property
@@ -29,138 +29,149 @@ class BaseScenario(BaseRecommender):
 
     def fit(
         self,
-        log: AnyDataFrame,
-        user_features: Optional[AnyDataFrame] = None,
-        item_features: Optional[AnyDataFrame] = None,
+        dataset: Dataset,
     ) -> None:
         """
-        :param log: input DataFrame ``[user_id, item_id, timestamp, relevance]``
-        :param user_features: user features ``[user_id, timestamp]`` + feature columns
-        :param item_features: item features ``[item_id, timestamp]`` + feature columns
+        :param dataset: input Dataset with interactions and features ``[user_id, item_id, timestamp, rating]``
         :return:
         """
-        hot_data = filter_by_min_count(log, self.threshold, "user_idx")
-        self.hot_users = hot_data.select("user_idx").distinct()
-        self._fit_wrap(hot_data, user_features, item_features)
-        self.cold_model._fit_wrap(log, user_features, item_features)
+        self.query_column = dataset.feature_schema.query_id_column
+        self.item_column = dataset.feature_schema.item_id_column
+        self.rating_column = dataset.feature_schema.interactions_rating_column
+        self.timestamp_column = dataset.feature_schema.interactions_timestamp_column
+
+        hot_data = filter_by_min_count(dataset.interactions, self.threshold, self.query_column)
+        self.hot_queries = hot_data.select(self.query_column).distinct()
+        hot_dataset = Dataset(
+            feature_schema=dataset.feature_schema,
+            interactions=hot_data,
+            query_features=dataset.query_features,
+            item_features=dataset.item_features,
+            check_consistency=True,
+            categorical_encoded=False,
+        )
+        self._fit_wrap(hot_dataset)
+        self.cold_model._fit_wrap(dataset)
 
     # pylint: disable=too-many-arguments
     def predict(
         self,
-        log: AnyDataFrame,
+        dataset: Dataset,
         k: int,
-        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        queries: Optional[Union[AnyDataFrame, Iterable]] = None,
         items: Optional[Union[AnyDataFrame, Iterable]] = None,
-        user_features: Optional[AnyDataFrame] = None,
-        item_features: Optional[AnyDataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
         """
         Get recommendations
 
-        :param log: historical log of interactions
+        :param dataset: historical interactions
             ``[user_id, item_id, timestamp, relevance]``
         :param k: length of recommendation lists, should be less that the total number of ``items``
-        :param users: users to create recommendations for
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_id]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_id]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``interactions``.
             If it contains new items, ``relevance`` for them will be``0``.
-        :param user_features: user features
-            ``[user_id , timestamp]`` + feature columns
-        :param item_features: item features
-            ``[item_id , timestamp]`` + feature columns
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :return: recommendation dataframe
             ``[user_id, item_id, relevance]``
         """
-        log = convert2spark(log)
-        users = users or log or user_features or self.fit_users
-        users = get_unique_entities(users, "user_idx")
-        hot_data = filter_by_min_count(log, self.threshold, "user_idx")
-        hot_users = hot_data.select("user_idx").distinct()
-        if not self.can_predict_cold_users:
-            hot_users = hot_users.join(self.hot_users)
-        hot_users = hot_users.join(users, on="user_idx", how="inner")
+        queries = queries or dataset.interactions or dataset.query_features or self.fit_queries
+        queries = get_unique_entities(queries, self.query_column)
+        hot_data = filter_by_min_count(dataset.interactions, self.threshold, self.query_column)
+        hot_queries = hot_data.select(self.query_column).distinct()
+        if not self.can_predict_cold_queries:
+            hot_queries = hot_queries.join(self.hot_queries)
+        hot_queries = hot_queries.join(queries, on=self.query_column, how="inner")
+
+        hot_dataset = Dataset(
+            feature_schema=dataset.feature_schema,
+            interactions=hot_data,
+            query_features=dataset.query_features,
+            item_features=dataset.item_features,
+            check_consistency=True,
+            categorical_encoded=False,
+        )
 
         hot_pred = self._predict_wrap(
-            log=hot_data,
+            dataset=hot_dataset,
             k=k,
-            users=hot_users,
+            queries=hot_queries,
             items=items,
-            user_features=user_features,
-            item_features=item_features,
             filter_seen_items=filter_seen_items,
         )
-        if log is not None:
-            cold_data = log.join(self.hot_users, how="anti", on="user_idx")
+        if dataset.interactions is not None:
+            cold_data = dataset.interactions.join(self.hot_queries, how="anti", on=self.query_column)
         else:
             cold_data = None
-        cold_users = users.join(self.hot_users, how="anti", on="user_idx")
+        cold_queries = queries.join(self.hot_queries, how="anti", on=self.query_column)
+
+        cold_dataset = Dataset(
+            feature_schema=dataset.feature_schema,
+            interactions=cold_data,
+            query_features=dataset.query_features,
+            item_features=dataset.item_features,
+            check_consistency=True,
+            categorical_encoded=False,
+        )
+
         cold_pred = self.cold_model._predict_wrap(
-            log=cold_data,
+            dataset=cold_dataset,
             k=k,
-            users=cold_users,
+            queries=cold_queries,
             items=items,
-            user_features=user_features,
-            item_features=item_features,
             filter_seen_items=filter_seen_items,
         )
         return hot_pred.union(cold_pred)
 
     def fit_predict(
         self,
-        log: AnyDataFrame,
+        dataset: Dataset,
         k: int,
-        users: Optional[Union[AnyDataFrame, Iterable]] = None,
+        queries: Optional[Union[AnyDataFrame, Iterable]] = None,
         items: Optional[Union[AnyDataFrame, Iterable]] = None,
-        user_features: Optional[AnyDataFrame] = None,
-        item_features: Optional[AnyDataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
         """
         Train and get recommendations
 
-        :param log: historical log of interactions
+        :param dataset: historical interactions
             ``[user_id, item_id, timestamp, relevance]``
         :param k: length of recommendation lists, should be less that the total number of ``items``
-        :param users: users to create recommendations for
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_id]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_id]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``interactions``.
             If it contains new items, ``relevance`` for them will be``0``.
         :param user_features: user features
             ``[user_id , timestamp]`` + feature columns
         :param item_features: item features
             ``[item_id , timestamp]`` + feature columns
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :return: recommendation dataframe
             ``[user_id, item_id, relevance]``
         """
-        self.fit(log, user_features, item_features)
+        self.fit(dataset)
         return self.predict(
-            log,
+            dataset,
             k,
-            users,
+            queries,
             items,
-            user_features,
-            item_features,
             filter_seen_items,
         )
 
     # pylint: disable=too-many-arguments, too-many-locals
     def optimize(
         self,
-        train: AnyDataFrame,
-        test: AnyDataFrame,
-        user_features: Optional[AnyDataFrame] = None,
-        item_features: Optional[AnyDataFrame] = None,
+        train_dataset: Dataset,
+        test_dataset: Dataset,
         param_borders: Optional[Dict[str, Dict[str, List[Any]]]] = None,
-        criterion: Metric = NDCG(),
+        criterion: Metric = NDCG,
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
@@ -168,10 +179,8 @@ class BaseScenario(BaseRecommender):
         """
         Searches best parameters with optuna.
 
-        :param train: train data
-        :param test: test data
-        :param user_features: user features
-        :param item_features: item features
+        :param train_dataset: train data
+        :param test_dataset: test data
         :param param_borders: a dictionary with search grid, where
             key is the parameter name and value is
             the range of possible values``{param: [low, high]}``.
@@ -185,10 +194,8 @@ class BaseScenario(BaseRecommender):
             param_borders = {"main": None, "cold": None}
         self.logger.info("Optimizing main model...")
         params = self._optimize(
-            train,
-            test,
-            user_features,
-            item_features,
+            train_dataset,
+            test_dataset,
             param_borders["main"],
             criterion,
             k,
@@ -200,10 +207,8 @@ class BaseScenario(BaseRecommender):
         if self.cold_model._search_space is not None:
             self.logger.info("Optimizing cold model...")
             cold_params = self.cold_model._optimize(
-                train,
-                test,
-                user_features,
-                item_features,
+                train_dataset,
+                test_dataset,
                 param_borders["cold"],
                 criterion,
                 k,
@@ -219,12 +224,10 @@ class BaseScenario(BaseRecommender):
     @abstractmethod
     def _optimize(
         self,
-        train: AnyDataFrame,
-        test: AnyDataFrame,
-        user_features: Optional[AnyDataFrame] = None,
-        item_features: Optional[AnyDataFrame] = None,
+        train_dataset: Dataset,
+        test_dataset: Dataset,
         param_borders: Optional[Dict[str, Dict[str, List[Any]]]] = None,
-        criterion: Metric = NDCG(),
+        criterion: Metric = NDCG,
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,

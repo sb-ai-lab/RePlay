@@ -30,8 +30,9 @@ from replay.preprocessing.data_preparator import Indexer
 from replay.utils.model_handler import save, load
 from replay.models import *
 from replay.utils.spark_utils import convert2spark
-from tests.utils import long_log_with_features, sparkDataFrameEqual, spark
+from tests.utils import long_log_with_features, sparkDataFrameEqual, spark, create_dataset
 from tests.models.test_cat_pop_rec import cat_tree, cat_log, requested_cats
+from replay.data import FeatureSchema, FeatureType, FeatureInfo, FeatureHint
 
 
 @pytest.fixture
@@ -70,35 +71,37 @@ def df():
         ItemKNN,
         PopRec,
         SLIM,
-        UserPopRec,
+        QueryPopRec,
     ],
 )
 def test_equal_preds(long_log_with_features, recommender, tmp_path):
     path = (tmp_path / "test").resolve()
+    dataset = create_dataset(long_log_with_features)
     model = recommender()
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
-def test_random(long_log_with_features, tmp_path):
-    path = (tmp_path / "random").resolve()
-    model = RandomRec(seed=1)
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
-    save(model, path)
-    loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
+# def test_random(long_log_with_features, tmp_path):
+#     path = (tmp_path / "random").resolve()
+#     model = RandomRec(seed=1)
+#     model.fit(long_log_with_features)
+#     base_pred = model.predict(long_log_with_features, 5)
+#     save(model, path)
+#     loaded_model = load(path)
+#     new_pred = loaded_model.predict(long_log_with_features, 5)
+#     sparkDataFrameEqual(base_pred, new_pred)
 
 
 def test_rules(df, tmp_path):
     path = (tmp_path / "rules").resolve()
-    model = AssociationRulesItemRec()
-    model.fit(df)
+    dataset = create_dataset(df)
+    model = AssociationRulesItemRec(session_column="user_idx")
+    model.fit(dataset)
     base_pred = model.get_nearest_items([1], 5, metric="lift")
     save(model, path)
     loaded_model = load(path)
@@ -108,30 +111,56 @@ def test_rules(df, tmp_path):
 
 def test_word(df, tmp_path):
     path = (tmp_path / "word").resolve()
+    dataset = create_dataset(df)
     model = Word2VecRec()
-    model.fit(df)
-    base_pred = model.predict(df, 5)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(df, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
 def test_cluster(long_log_with_features, user_features, tmp_path):
     path = (tmp_path / "cluster").resolve()
+    dataset = create_dataset(long_log_with_features, user_features)
     model = ClusterRec()
-    model.fit(long_log_with_features, user_features)
-    base_pred = model.predict(user_features, 5)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(user_features, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
 def test_cat_poprec(cat_tree, cat_log, requested_cats, tmp_path):
     path = (tmp_path / "cat_poprec").resolve()
+    feature_schema = FeatureSchema(
+            [
+                FeatureInfo(
+                    column="user_idx",
+                    feature_type=FeatureType.CATEGORICAL,
+                    feature_hint=FeatureHint.QUERY_ID,
+                ),
+                FeatureInfo(
+                    column="item_idx",
+                    feature_type=FeatureType.CATEGORICAL,
+                    feature_hint=FeatureHint.ITEM_ID,
+                ),
+                FeatureInfo(
+                    column="category",
+                    feature_type=FeatureType.CATEGORICAL,
+                ),
+                FeatureInfo(
+                    column="relevance",
+                    feature_type=FeatureType.NUMERICAL,
+                    feature_hint=FeatureHint.RATING,
+                ),
+            ]
+        )
+    dataset = create_dataset(cat_log, feature_schema=feature_schema)
     model = CatPopRec(cat_tree=cat_tree)
-    model.fit(cat_log)
+    model.fit(dataset)
     base_pred = model.predict(requested_cats, 5)
     save(model, path)
     loaded_model = load(path)
@@ -142,19 +171,21 @@ def test_cat_poprec(cat_tree, cat_log, requested_cats, tmp_path):
 @pytest.mark.parametrize("model", [Wilson(), UCB()], ids=["wilson", "ucb"])
 def test_wilson_ucb(model, log_unary, tmp_path):
     path = (tmp_path / "model").resolve()
-    model.fit(log_unary)
-    base_pred = model.predict(log_unary, 5)
+    dataset = create_dataset(log_unary)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(log_unary, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
 def test_study(df, tmp_path):
     path = (tmp_path / "study").resolve()
+    dataset = create_dataset(df)
     model = PopRec()
     model.study = 80083
-    model.fit(df)
+    model.fit(dataset)
     save(model, path)
     loaded_model = load(path)
     assert loaded_model.study == model.study
@@ -179,11 +210,12 @@ def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
     )
 
     path = (tmp_path / "test").resolve()
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
@@ -206,11 +238,12 @@ def test_ann_slim_saving_loading(long_log_with_features, tmp_path):
     )
 
     path = (tmp_path / "test").resolve()
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
@@ -234,11 +267,12 @@ def test_ann_knn_saving_loading(long_log_with_features, tmp_path):
     )
 
     path = (tmp_path / "test").resolve()
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 

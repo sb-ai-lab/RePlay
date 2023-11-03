@@ -2,9 +2,8 @@ from typing import Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
-from replay.data.dataset import Dataset
 
-from replay.models.base_rec import NonPersonalizedRecommender
+from replay.experimental.models.base_rec import NonPersonalizedRecommender
 
 
 class RandomRec(NonPersonalizedRecommender):
@@ -166,36 +165,38 @@ class RandomRec(NonPersonalizedRecommender):
 
     def _fit(
         self,
-        dataset: Dataset,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
     ) -> None:
         if self.distribution == "popular_based":
             self.item_popularity = (
-                dataset.interactions.groupBy(self.item_col)
-                .agg(sf.countDistinct(self.query_col).alias("user_count"))
+                log.groupBy("item_idx")
+                .agg(sf.countDistinct("user_idx").alias("user_count"))
                 .select(
-                    sf.col(self.item_col),
+                    sf.col("item_idx"),
                     (
                         sf.col("user_count").astype("float")
                         + sf.lit(self.alpha)
-                    ).alias(self.rating_col),
+                    ).alias("relevance"),
                 )
             )
-        elif self.distribution == self.rating_col:
+        elif self.distribution == "relevance":
             self.item_popularity = (
-                dataset.interactions.groupBy(self.item_col)
-                .agg(sf.sum(self.rating_col).alias(self.rating_col))
-                .select(self.item_col, self.rating_col)
+                log.groupBy("item_idx")
+                .agg(sf.sum("relevance").alias("relevance"))
+                .select("item_idx", "relevance")
             )
         else:
             self.item_popularity = (
-                dataset.interactions.select(self.item_col)
+                log.select("item_idx")
                 .distinct()
-                .withColumn(self.rating_col, sf.lit(1.0))
+                .withColumn("relevance", sf.lit(1.0))
             )
         self.item_popularity = self.item_popularity.withColumn(
-            self.rating_col,
-            sf.col(self.rating_col)
-            / self.item_popularity.agg(sf.sum(self.rating_col)).first()[0],
+            "relevance",
+            sf.col("relevance")
+            / self.item_popularity.agg(sf.sum("relevance")).first()[0],
         )
         self.item_popularity.cache().count()
-        self.fill = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_col)
+        self.fill = self._calc_fill(self.item_popularity, self.cold_weight)

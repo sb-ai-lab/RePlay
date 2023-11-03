@@ -12,7 +12,7 @@ from replay.models.extensions.ann.index_stores.shared_disk_index_store import (
     SharedDiskIndexStore,
 )
 from replay.models import AssociationRulesItemRec
-from replay.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 from replay.experimental.models import ScalaALSWrap as ALSWrap
 from replay.experimental.scenarios.two_stages.two_stages_scenario import (
     get_first_level_model_features,
@@ -288,7 +288,7 @@ def test_get_nearest_items(log, als_model, metric):
 @pytest.mark.experimental
 @pytest.mark.parametrize("metric", ["absent", None])
 def test_nearest_items_raises(log, metric):
-    model = AssociationRulesItemRec()
+    model = AssociationRulesItemRec(session_column="user_idx")
     model.fit(log.filter(sf.col("item_idx") != 3))
     with pytest.raises(
         ValueError, match=r"Select one of the valid distance metrics.*"

@@ -11,13 +11,15 @@ from tests.utils import (
     sparkDataFrameNotEqual,
     log,
     log_to_pred,
+    create_dataset,
 )
 
 
 @pytest.fixture
 def model(log):
-    model = AssociationRulesItemRec(min_item_count=1, min_pair_count=1)
-    model.fit(log)
+    dataset = create_dataset(log)
+    model = AssociationRulesItemRec(min_item_count=1, min_pair_count=1, session_column="user_idx")
+    model.fit(dataset)
     return model
 
 
@@ -66,9 +68,10 @@ def test_calculation(model, log):
 
 def test_calculation_with_weights(model, log):
     model = AssociationRulesItemRec(
-        min_item_count=1, min_pair_count=1, use_relevance=True
+        min_item_count=1, min_pair_count=1, use_rating=True, session_column="user_idx",
     )
-    model.fit(log)
+    dataset = create_dataset(log)
+    model.fit(dataset)
     pairs_metrics = model.get_similarity
     # recalculate for item_3 as antecedent and item_2 as consequent using relevance values as weight
     test_row = pairs_metrics.filter(
@@ -98,18 +101,20 @@ def test_get_nearest_items(model):
 
 
 def test_metric(log, log_to_pred, model):
-    model.fit(log)
+    dataset = create_dataset(log)
+    model.fit(dataset)
 
+    pred_dataset = create_dataset(log.unionByName(log_to_pred))
     p_pred_metr_from_init_conf = model.predict_pairs(
         pairs=log_to_pred.select("user_idx", "item_idx"),
-        log=log.unionByName(log_to_pred),
+        dataset=pred_dataset,
     )
 
     model.similarity_metric = "confidence"
 
     p_pred_metr_from_user_conf = model.predict_pairs(
         pairs=log_to_pred.select("user_idx", "item_idx"),
-        log=log.unionByName(log_to_pred),
+        dataset=pred_dataset,
     )
 
     sparkDataFrameEqual(
@@ -121,7 +126,7 @@ def test_metric(log, log_to_pred, model):
 
     p_pred_metr_from_user_lift = model.predict_pairs(
         pairs=log_to_pred.select("user_idx", "item_idx"),
-        log=log.unionByName(log_to_pred),
+        dataset=pred_dataset,
     )
 
     sparkDataFrameNotEqual(
@@ -132,5 +137,6 @@ def test_metric(log, log_to_pred, model):
 
 def test_similarity_metric_raises(log, model):
     with pytest.raises(ValueError, match="Select one of the valid metrics for predict:.*"):
-        model.fit(log)
+        dataset = create_dataset(log)
+        model.fit(dataset)
         model.similarity_metric = "invalid"

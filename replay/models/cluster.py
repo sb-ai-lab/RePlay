@@ -1,3 +1,4 @@
+from os.path import join
 from typing import Optional
 
 from pandas import DataFrame
@@ -6,15 +7,16 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import functions as sf
 from replay.data.dataset import Dataset
 
-from replay.models.base_rec import UserRecommender
+from replay.models.base_rec import QueryRecommender
+from replay.utils.spark_utils import save_picklable_to_parquet, load_pickled_from_parquet
 
 
-class ClusterRec(UserRecommender):
+class ClusterRec(QueryRecommender):
     """
-    Generate recommendations for cold users using k-means clusters
+    Generate recommendations for cold queries using k-means clusters
     """
 
-    can_predict_cold_users = True
+    can_predict_cold_queries = True
     _search_space = {
         "num_clusters": {"type": "int", "args": [2, 20]},
     }
@@ -32,26 +34,40 @@ class ClusterRec(UserRecommender):
 
     def _save_model(self, path: str):
         self.model.write().overwrite().save(path)
+        save_picklable_to_parquet(
+            {
+                "query_column": self.query_column,
+                "item_column": self.item_column,
+                "rating_column": self.rating_column,
+                "timestamp_column": self.timestamp_column,
+            },
+            join(path, "params.dump")
+        )
 
     def _load_model(self, path: str):
         self.model = KMeansModel.load(path)
+        loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
+        self.query_column = loaded_params.get("query_column")
+        self.item_column = loaded_params.get("item_column")
+        self.rating_column = loaded_params.get("rating_column")
+        self.timestamp_column = loaded_params.get("timestamp_column")
 
     def _fit(
         self,
         dataset: Dataset,
     ) -> None:
         kmeans = KMeans().setK(self.num_clusters).setFeaturesCol("features")
-        user_features_vector = self._transform_features(dataset.query_features)
-        self.model = kmeans.fit(user_features_vector)
-        users_clusters = (
-            self.model.transform(user_features_vector)
-            .select(self.query_col, "prediction")
+        query_features_vector = self._transform_features(dataset.query_features)
+        self.model = kmeans.fit(query_features_vector)
+        queries_clusters = (
+            self.model.transform(query_features_vector)
+            .select(self.query_column, "prediction")
             .withColumnRenamed("prediction", "cluster")
         )
 
-        interactions = dataset.interactions.join(users_clusters, on=self.query_col, how="left")
-        self.item_rel_in_cluster = interactions.groupBy(["cluster", self.item_col]).agg(
-            sf.count(self.item_col).alias("item_count")
+        interactions = dataset.interactions.join(queries_clusters, on=self.query_column, how="left")
+        self.item_rel_in_cluster = interactions.groupBy(["cluster", self.item_column]).agg(
+            sf.count(self.item_column).alias("item_count")
         )
 
         max_count_per_cluster = self.item_rel_in_cluster.groupby(
@@ -61,7 +77,7 @@ class ClusterRec(UserRecommender):
             max_count_per_cluster, on="cluster"
         )
         self.item_rel_in_cluster = self.item_rel_in_cluster.withColumn(
-            self.rating_col, sf.col("item_count") / sf.col("max_count_in_cluster")
+            self.rating_column, sf.col("item_count") / sf.col("max_count_in_cluster")
         ).drop("item_count", "max_count_in_cluster")
         self.item_rel_in_cluster.cache().count()
 
@@ -73,33 +89,35 @@ class ClusterRec(UserRecommender):
     def _dataframes(self):
         return {"item_rel_in_cluster": self.item_rel_in_cluster}
 
-    # @staticmethod
-    def _transform_features(self, user_features):
-        feature_columns = user_features.drop(self.query_col).columns
+    def _transform_features(self, query_features):
+        feature_columns = query_features.drop(self.query_column).columns
         vec = VectorAssembler(inputCols=feature_columns, outputCol="features")
-        return vec.transform(user_features).select(self.query_col, "features")
+        return vec.transform(query_features).select(self.query_column, "features")
 
-    def _make_user_clusters(self, users, user_features):
+    def _make_query_clusters(self, queries, query_features):
 
-        usr_cnt_in_fv = (user_features
-                         .select(self.query_col)
-                         .distinct()
-                         .join(users.distinct(), on=self.query_col).count())
+        query_cnt_in_fv = (
+            query_features
+            .select(self.query_column)
+            .distinct()
+            .join(queries.distinct(), on=self.query_column)
+            .count()
+        )
 
-        user_cnt = users.distinct().count()
+        query_cnt = queries.distinct().count()
 
-        if usr_cnt_in_fv < user_cnt:
-            self.logger.info("% user(s) don't "
+        if query_cnt_in_fv < query_cnt:
+            self.logger.info("%s query(s) don't "
                              "have a feature vector. "
                              "The results will not be calculated for them.",
-                             user_cnt - usr_cnt_in_fv)
+                             query_cnt - query_cnt_in_fv)
 
-        user_features_vector = self._transform_features(
-            user_features.join(users, on=self.query_col)
+        query_features_vector = self._transform_features(
+            query_features.join(queries, on=self.query_column)
         )
         return (
-            self.model.transform(user_features_vector)
-            .select(self.query_col, "prediction")
+            self.model.transform(query_features_vector)
+            .select(self.query_column, "prediction")
             .withColumnRenamed("prediction", "cluster")
         )
 
@@ -108,14 +126,14 @@ class ClusterRec(UserRecommender):
         self,
         dataset: Dataset,
         k: int,
-        users: DataFrame,
+        queries: DataFrame,
         items: DataFrame,
         filter_seen_items: bool = True,
     ) -> DataFrame:
 
-        user_clusters = self._make_user_clusters(users, dataset.query_features)
-        filtered_items = self.item_rel_in_cluster.join(items, on=self.item_col)
-        pred = user_clusters.join(filtered_items, on="cluster").drop("cluster")
+        query_clusters = self._make_query_clusters(queries, dataset.query_features)
+        filtered_items = self.item_rel_in_cluster.join(items, on=self.item_column)
+        pred = query_clusters.join(filtered_items, on="cluster").drop("cluster")
         return pred
 
     def _predict_pairs(
@@ -125,13 +143,13 @@ class ClusterRec(UserRecommender):
     ) -> DataFrame:
 
         if not dataset.query_features:
-            raise ValueError("User features are missing for predict")
+            raise ValueError("Query features are missing for predict")
 
-        user_clusters = self._make_user_clusters(pairs.select(self.query_col).distinct(), dataset.query_features)
-        pairs_with_clusters = pairs.join(user_clusters, on=self.query_col)
+        query_clusters = self._make_query_clusters(pairs.select(self.query_column).distinct(), dataset.query_features)
+        pairs_with_clusters = pairs.join(query_clusters, on=self.query_column)
         filtered_items = (self.item_rel_in_cluster
-                          .join(pairs.select(self.item_col).distinct(), on=self.item_col))
+                          .join(pairs.select(self.item_column).distinct(), on=self.item_column))
         pred = (pairs_with_clusters
-                .join(filtered_items, on=["cluster", self.item_col])
-                .select(self.query_col,self.item_col,self.rating_col))
+                .join(filtered_items, on=["cluster", self.item_column])
+                .select(self.query_column,self.item_column,self.rating_column))
         return pred

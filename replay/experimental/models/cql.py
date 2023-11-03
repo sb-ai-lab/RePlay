@@ -26,7 +26,7 @@ from d3rlpy.preprocessing import create_scaler, create_action_scaler, create_rew
 from pyspark.sql import DataFrame, functions as sf, Window
 
 from replay.data import REC_SCHEMA
-from replay.models.base_rec import Recommender
+from replay.experimental.models.base_rec import Recommender
 from replay.utils.spark_utils import assert_omp_single_thread
 
 

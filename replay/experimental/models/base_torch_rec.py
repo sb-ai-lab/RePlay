@@ -12,8 +12,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
 from replay.data import REC_SCHEMA
-from replay.data.dataset import Dataset
-from replay.models.base_rec import Recommender
+from replay.experimental.models.base_rec import Recommender
 from replay.utils.session_handler import State
 
 
@@ -120,13 +119,15 @@ class TorchRecommender(Recommender):
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        dataset: Dataset,
+        log: DataFrame,
         k: int,
         users: DataFrame,
         items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        items_consider_in_pred = items.toPandas()[self.item_col].values
+        items_consider_in_pred = items.toPandas()["item_idx"].values
         items_count = self._item_dim
         model = self.model.cpu()
         agg_fn = self._predict_by_user
@@ -134,15 +135,15 @@ class TorchRecommender(Recommender):
         def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
             return agg_fn(
                 pandas_df, model, items_consider_in_pred, k, items_count
-            )[[self.query_col, self.item_col, self.rating_col]]
+            )[["user_idx", "item_idx", "relevance"]]
 
         self.logger.debug("Predict started")
         # do not apply map on cold users for MultVAE predict
         join_type = "inner" if str(self) == "MultVAE" else "left"
         recs = (
-            users.join(dataset.interactions, how=join_type, on=self.query_col)
-            .select(self.query_col, self.item_col)
-            .groupby(self.query_col)
+            users.join(log, how=join_type, on="user_idx")
+            .select("user_idx", "item_idx")
+            .groupby("user_idx")
             .applyInPandas(grouped_map, REC_SCHEMA)
         )
         return recs
@@ -150,30 +151,32 @@ class TorchRecommender(Recommender):
     def _predict_pairs(
         self,
         pairs: DataFrame,
-        dataset: Optional[Dataset] = None,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
         items_count = self._item_dim
         model = self.model.cpu()
         agg_fn = self._predict_by_user_pairs
-        users = pairs.select(self.query_col).distinct()
+        users = pairs.select("user_idx").distinct()
 
         def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
             return agg_fn(pandas_df, model, items_count)[
-                [self.query_col, self.item_col, self.rating_col]
+                ["user_idx", "item_idx", "relevance"]
             ]
 
         self.logger.debug("Calculate relevance for user-item pairs")
         user_history = (
-            users.join(dataset.interactions, how="inner", on=self.query_col)
-            .groupBy(self.query_col)
-            .agg(sf.collect_list(self.item_col).alias("item_idx_history"))
+            users.join(log, how="inner", on="user_idx")
+            .groupBy("user_idx")
+            .agg(sf.collect_list("item_idx").alias("item_idx_history"))
         )
-        user_pairs = pairs.groupBy(self.query_col).agg(
-            sf.collect_list(self.item_col).alias("item_idx_to_pred")
+        user_pairs = pairs.groupBy("user_idx").agg(
+            sf.collect_list("item_idx").alias("item_idx_to_pred")
         )
-        full_df = user_pairs.join(user_history, on=self.query_col, how="inner")
+        full_df = user_pairs.join(user_history, on="user_idx", how="inner")
 
-        recs = full_df.groupby(self.query_col).applyInPandas(
+        recs = full_df.groupby("user_idx").applyInPandas(
             grouped_map, REC_SCHEMA
         )
 

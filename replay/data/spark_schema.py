@@ -8,7 +8,7 @@ from pyspark.sql.types import (
 from replay.data.dataset import Dataset
 
 
-LOG_SCHEMA = StructType(
+INTERACTIONS_SCHEMA = StructType(
     [
         StructField("user_idx", IntegerType()),
         StructField("item_idx", IntegerType()),
@@ -19,8 +19,8 @@ LOG_SCHEMA = StructType(
 
 REC_SCHEMA = StructType(
     [
-        StructField("user_id", IntegerType()),
-        StructField("item_id", IntegerType()),
+        StructField("user_idx", IntegerType()),
+        StructField("item_idx", IntegerType()),
         StructField("relevance", DoubleType()),
     ]
 )
@@ -34,11 +34,46 @@ BASE_SCHEMA = StructType(
 )
 
 
+def get_interactions_schema(dataset: Dataset):
+    """
+    Get Spark Schema with query_id, item_id, timestamp, rating columns
+
+    :param dataset: instance of Dataset
+    """
+    return StructType(
+        [
+            StructField(dataset.feature_schema.query_id_column, IntegerType()),
+            StructField(dataset.feature_schema.item_id_column, IntegerType()),
+            StructField(dataset.feature_schema.interactions_timestamp_column, TimestampType()),
+            StructField(dataset.feature_schema.interactions_rating_column, DoubleType()),
+        ]
+    )
+
+
 def get_rec_schema(dataset: Dataset):
+    """
+    Get Spark Schema with query_id, item_id, rating columns
+
+    :param dataset: instance of Dataset
+    """
     return StructType(
         [
             StructField(dataset.feature_schema.query_id_column, IntegerType()),
             StructField(dataset.feature_schema.item_id_column, IntegerType()),
             StructField(dataset.feature_schema.interactions_rating_column, DoubleType()),
         ]
-)
+    )
+
+
+def get_base_schema(dataset: Dataset):
+    """
+    Get Spark Schema with query_id, item_id columns
+
+    :param dataset: instance of Dataset
+    """
+    return StructType(
+        [
+            StructField(dataset.feature_schema.query_id_column, IntegerType()),
+            StructField(dataset.feature_schema.item_id_column, IntegerType()),
+        ]
+    )

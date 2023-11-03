@@ -1,8 +1,8 @@
+from os.path import join
 from typing import Optional, Dict, Any
 
 import numpy as np
 import pandas as pd
-from pyspark.sql import DataFrame
 from pyspark.sql import types as st
 from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
@@ -12,6 +12,7 @@ from replay.models.base_neighbour_rec import NeighbourRec
 from replay.utils.session_handler import State
 
 from replay.data import Dataset
+from replay.utils.spark_utils import save_picklable_to_parquet, load_pickled_from_parquet
 
 
 # pylint: disable=too-many-ancestors
@@ -63,10 +64,24 @@ class SLIM(NeighbourRec):
         }
 
     def _save_model(self, path: str):
+        save_picklable_to_parquet(
+            {
+                "query_column": self.query_column,
+                "item_column": self.item_column,
+                "rating_column": self.rating_column,
+                "timestamp_column": self.timestamp_column,
+            },
+            join(path, "params.dump")
+        )
         if self._use_ann:
             self._save_index(path)
 
     def _load_model(self, path: str):
+        loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
+        self.query_column = loaded_params.get("query_column")
+        self.item_column = loaded_params.get("item_column")
+        self.rating_column = loaded_params.get("rating_column")
+        self.timestamp_column = loaded_params.get("timestamp_column")
         if self._use_ann:
             self._load_index(path)
 
@@ -74,15 +89,25 @@ class SLIM(NeighbourRec):
         self,
         dataset: Dataset,
     ) -> None:
-        pandas_log = dataset.interactions.select(self.query_col, self.item_col, self.rating_col).toPandas()
+        pandas_interactions = (
+            dataset.interactions
+            .select(self.query_column, self.item_column, self.rating_column)
+            .toPandas()
+        )
 
         interactions_matrix = csc_matrix(
-            (pandas_log[self.rating_col], (pandas_log[self.query_col], pandas_log[self.item_col])),
-            shape=(self._user_dim, self._item_dim),
+            (
+                pandas_interactions[self.rating_column],
+                (
+                    pandas_interactions[self.query_column],
+                    pandas_interactions[self.item_column],
+                ),
+            ),
+            shape=(self._query_dim, self._item_dim),
         )
         similarity = (
             State()
-            .session.createDataFrame(pandas_log[self.item_col], st.IntegerType())
+            .session.createDataFrame(pandas_interactions[self.item_column], st.IntegerType())
             .withColumnRenamed("value", "item_idx_one")
         )
 

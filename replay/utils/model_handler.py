@@ -83,9 +83,9 @@ def save(
         if df is not None:
             df.write.mode("overwrite").parquet(join(df_path, name))
 
-    if hasattr(model, "fit_users"):
-        model.fit_users.write.mode("overwrite").parquet(
-            join(df_path, "fit_users")
+    if hasattr(model, "fit_queries"):
+        model.fit_queries.write.mode("overwrite").parquet(
+            join(df_path, "fit_queries")
         )
     if hasattr(model, "fit_items"):
         model.fit_items.write.mode("overwrite").parquet(

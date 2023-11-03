@@ -13,8 +13,16 @@ from pyspark.ml.linalg import DenseVector
 from pyspark.sql import DataFrame
 import torch
 
-from replay.data import REC_SCHEMA, LOG_SCHEMA
+from replay.data import (
+    Dataset,
+    INTERACTIONS_SCHEMA,
+    FeatureSchema,
+    FeatureInfo,
+    FeatureHint,
+    FeatureType,
+)
 from replay.utils.session_handler import get_spark_session
+from replay.utils.spark_utils import convert2spark
 
 
 def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
@@ -40,7 +48,7 @@ def log_to_pred(spark):
             [4, 0, datetime(2019, 9, 15), 3.0],
             [4, 1, datetime(2019, 9, 15), 3.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -55,7 +63,7 @@ def log2(spark):
             [1, 0, datetime(2019, 9, 15), 3.0],
             [2, 1, datetime(2019, 9, 15), 3.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -75,7 +83,7 @@ def log(spark):
             [3, 0, datetime(2019, 8, 26), 5.0],
             [3, 0, datetime(2019, 8, 26), 1.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -197,3 +205,44 @@ def find_file_by_pattern(directory: str, pattern: str) -> Optional[str]:
         if re.match(pattern, filename):
             return os.path.join(directory, filename)
     return None
+
+
+def create_dataset(log, user_features = None, item_features = None, feature_schema = None):
+    log = convert2spark(log)
+    if user_features is not None:
+        user_features = convert2spark(user_features)
+    if item_features is not None:
+        item_features = convert2spark(item_features)
+
+    if feature_schema is None:
+        feature_schema = FeatureSchema(
+            [
+                FeatureInfo(
+                    column="user_idx",
+                    feature_type=FeatureType.CATEGORICAL,
+                    feature_hint=FeatureHint.QUERY_ID,
+                ),
+                FeatureInfo(
+                    column="item_idx",
+                    feature_type=FeatureType.CATEGORICAL,
+                    feature_hint=FeatureHint.ITEM_ID,
+                ),
+                FeatureInfo(
+                    column="relevance",
+                    feature_type=FeatureType.NUMERICAL,
+                    feature_hint=FeatureHint.RATING,
+                ),
+                FeatureInfo(
+                    column="timestamp",
+                    feature_type=FeatureType.NUMERICAL,
+                    feature_hint=FeatureHint.TIMESTAMP,
+                ),
+            ]
+        )
+    return Dataset(
+        feature_schema=feature_schema,
+        interactions=log,
+        query_features=user_features,
+        item_features=item_features,
+        check_consistency=False,
+    )

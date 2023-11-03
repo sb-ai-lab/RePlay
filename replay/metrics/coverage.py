@@ -21,20 +21,20 @@ class Coverage(RecOnlyMetric):
 
     def __init__(
         self,
-        log: AnyDataFrame,
-        query_col: str,
-        item_col: str,
-        rating_col: str,
+        interactions: AnyDataFrame,
+        query_column: str,
+        item_column: str,
+        rating_column: str,
     ):  # pylint: disable=super-init-not-called
         """
         :param log: pandas or Spark DataFrame
                     It is important for ``log`` to contain all available items.
         """
-        self.query_col = query_col
-        self.item_col = item_col
-        self.rating_col = rating_col
+        self.query_column = query_column
+        self.item_column = item_column
+        self.rating_column = rating_column
         self.items = (
-            convert2spark(log).select(self.item_col).distinct()  # type: ignore
+            convert2spark(interactions).select(self.item_column).distinct()  # type: ignore
         )
         self.item_count = self.items.count()
 
@@ -55,7 +55,7 @@ class Coverage(RecOnlyMetric):
         if ground_truth_users is not None:
             ground_truth_users = convert2spark(ground_truth_users)
             return recommendations.join(
-                ground_truth_users, on=self.query_col, how="inner"
+                ground_truth_users, on=self.query_column, how="inner"
             )
         return recommendations
 
@@ -83,7 +83,7 @@ class Coverage(RecOnlyMetric):
         k_list: list,
     ) -> Union[Dict[int, NumType], NumType]:
         unknown_item_count = (
-            recs.select(self.item_col)  # type: ignore
+            recs.select(self.item_column)  # type: ignore
             .distinct()
             .exceptAll(self.items)
             .count()
@@ -98,13 +98,13 @@ class Coverage(RecOnlyMetric):
             recs.withColumn(
                 "row_num",
                 sf.row_number().over(
-                    Window.partitionBy(self.query_col).orderBy(
-                        sf.desc(self.rating_col)
+                    Window.partitionBy(self.query_column).orderBy(
+                        sf.desc(self.rating_column)
                     )
                 ),
             )
-            .select(self.item_col, "row_num")
-            .groupBy(self.item_col)
+            .select(self.item_column, "row_num")
+            .groupBy(self.item_column)
             .agg(sf.min("row_num").alias("best_position"))
             .cache()
         )

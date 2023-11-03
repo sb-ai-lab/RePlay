@@ -1,7 +1,6 @@
 import importlib
 import logging
 from abc import abstractmethod
-from struct import unpack_from
 from typing import Optional, Dict, Any, Union, Iterable
 
 from pyspark.sql import DataFrame
@@ -54,7 +53,7 @@ class ANNMixin(BaseRecommender):
         with arguments for `_build_ann_index` method.
 
         Args:
-            log: DataFrame with interactions
+            interactions: DataFrame with interactions
 
         Returns: Dictionary with arguments to build index. For example: {
             "id_col": "item_idx",
@@ -71,13 +70,8 @@ class ANNMixin(BaseRecommender):
         """Wrapper extends `_fit_wrap`, adds construction of ANN index by flag.
 
         Args:
-            log: historical log of interactions
-                ``[user_idx, item_idx, timestamp, relevance]``
-            user_features: user features
-                ``[user_idx, timestamp]`` + feature columns
-            item_features: item features
-                ``[item_idx, timestamp]`` + feature columns
-
+            dataset: historical interactions with query/item features
+                ``[user_id, item_id, timestamp, rating]``
         """
         super()._fit_wrap(dataset)
 
@@ -88,44 +82,44 @@ class ANNMixin(BaseRecommender):
 
     @abstractmethod
     def _get_vectors_to_infer_ann_inner(
-        self, interactions: DataFrame, users: DataFrame
+        self, interactions: DataFrame, queries: DataFrame
     ) -> DataFrame:
         """Implementations of this method must return a dataframe with user vectors.
         User vectors from this method are used to infer the index.
 
         Args:
-            log: DataFrame with interactions
-            users: DataFrame with users
+            interactions: DataFrame with interactions
+            queries: DataFrame with queries
 
         Returns: DataFrame[user_idx int, vector array<double>] or DataFrame[vector array<double>].
         Vector column name in dataframe can be anything.
         """
 
     def _get_vectors_to_infer_ann(
-        self, interactions: DataFrame, users: DataFrame, filter_seen_items: bool
+        self, interactions: DataFrame, queries: DataFrame, filter_seen_items: bool
     ) -> DataFrame:
         """This method wraps `_get_vectors_to_infer_ann_inner`
         and adds seen items to dataframe with user vectors by flag.
 
         Args:
-            log: DataFrame with interactions
-            users: DataFrame with users
-            filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+            interactions: DataFrame with interactions
+            queries: DataFrame with queries
+            filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
 
         Returns:
 
         """
-        users = self._get_vectors_to_infer_ann_inner(interactions, users)
+        queries = self._get_vectors_to_infer_ann_inner(interactions, queries)
 
         # here we add `seen_item_idxs` to filter the viewed items in UDFs (see infer_index_udf)
         if filter_seen_items:
-            user_to_max_items = interactions.groupBy(self.query_col).agg(
-                sf.count(self.item_col).alias("num_items"),
-                sf.collect_set(self.item_col).alias("seen_item_idxs"),
+            user_to_max_items = interactions.groupBy(self.query_column).agg(
+                sf.count(self.item_column).alias("num_items"),
+                sf.collect_set(self.item_column).alias("seen_item_idxs"),
             )
-            users = users.join(user_to_max_items, on=self.query_col)
+            queries = queries.join(user_to_max_items, on=self.query_column)
 
-        return users
+        return queries
 
     @abstractmethod
     def _get_ann_infer_params(self) -> Dict[str, Any]:
@@ -144,18 +138,18 @@ class ANNMixin(BaseRecommender):
         self,
         dataset: Optional[Dataset],
         k: int,
-        users: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[DataFrame, Iterable]] = None,
         items: Optional[Union[DataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
     ) -> Optional[DataFrame]:
-        dataset, users, items = self._filter_log_users_items_dataframes(
-            dataset, k, users, items
+        dataset, queries, items = self._filter_interactions_queries_items_dataframes(
+            dataset, k, queries, items
         )
 
         if self._use_ann:
             vectors = self._get_vectors_to_infer_ann(
-                dataset.interactions, users, filter_seen_items
+                dataset.interactions, queries, filter_seen_items
             )
             ann_params = self._get_ann_infer_params()
             inferer = self.index_builder.produce_inferer(filter_seen_items)
@@ -164,21 +158,21 @@ class ANNMixin(BaseRecommender):
             recs = self._predict(
                 dataset,
                 k,
-                users,
+                queries,
                 items,
                 filter_seen_items,
             )
 
         if not self._use_ann:
             if filter_seen_items and dataset.interactions:
-                recs = self._filter_seen(recs=recs, interactions=dataset.interactions, users=users, k=k)
+                recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
 
-            recs = get_top_k_recs(recs, k=k, query_col=self.query_col, rating_col=self.rating_col).select(
-                self.query_col, self.item_col, self.rating_col
+            recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
+                self.query_column, self.item_column, self.rating_column
             )
 
         output = return_recs(recs, recs_file_path)
-        self._clear_model_temp_view("filter_seen_users_log")
+        self._clear_model_temp_view("filter_seen_queries_interactions")
         self._clear_model_temp_view("filter_seen_num_seen")
         return output
 

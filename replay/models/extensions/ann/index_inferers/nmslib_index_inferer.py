@@ -28,7 +28,7 @@ class NmslibIndexInferer(IndexInferer):
         def infer_index_udf(
             user_idx: pd.Series,
             vector_items: pd.Series,
-            vector_relevances: pd.Series,
+            vector_ratings: pd.Series,
         ) -> pd.DataFrame:
             index_store = index_store_broadcast.value
             index = index_store.load_index(
@@ -44,7 +44,7 @@ class NmslibIndexInferer(IndexInferer):
             )
 
             user_vectors = get_csr_matrix(
-                user_idx, vector_items, vector_relevances
+                user_idx, vector_items, vector_ratings
             )
             neighbours = index.knnQueryBatch(
                 user_vectors[user_idx.values, :], k=k, num_threads=1
@@ -59,7 +59,7 @@ class NmslibIndexInferer(IndexInferer):
 
             return pd_res
 
-        cols = ["user_idx", "vector_items", "vector_relevances"]
+        cols = ["user_idx", "vector_items", "vector_ratings"]
 
         res = vectors.select(
             "user_idx",

@@ -139,20 +139,25 @@ def get_top_k(
     )
 
 
-def get_top_k_recs(recs: DataFrame, k: int, query_col: str, rating_col: str) -> DataFrame:
+def get_top_k_recs(
+    recs: DataFrame,
+    k: int,
+    query_column: str = "user_idx",
+    rating_column: str = "item_idx",
+) -> DataFrame:
     """
-    Get top k recommendations by `relevance`.
+    Get top k recommendations by `rating`.
 
     :param recs: recommendations DataFrame
-        `[user_id, item_id, relevance]`
+        `[user_id, item_id, rating]`
     :param k: length of a recommendation list
     :param id_type: id or idx
-    :return: top k recommendations `[user_id, item_id, relevance]`
+    :return: top k recommendations `[user_id, item_id, rating]`
     """
     return get_top_k(
         dataframe=recs,
-        partition_by_col=sf.col(query_col),
-        order_by_col=[sf.col(rating_col).desc()],
+        partition_by_col=sf.col(query_column),
+        order_by_col=[sf.col(rating_column).desc()],
         k=k,
     )
 

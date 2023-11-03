@@ -5,9 +5,9 @@ import pytest
 import numpy as np
 from pyspark.sql import functions as sf
 
-from replay.data import LOG_SCHEMA
+from replay.data import INTERACTIONS_SCHEMA
 from replay.experimental.models import ADMMSLIM
-from replay.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 from replay.utils.model_handler import save, load
 from tests.utils import (
     spark,
@@ -55,7 +55,7 @@ def simple_log(spark):
             [0, 2, date, 2.0],
             [3, 0, date, 2.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 

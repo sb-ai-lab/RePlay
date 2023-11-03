@@ -11,10 +11,9 @@ from pyspark.sql import DataFrame
 from scipy.sparse import csr_matrix, hstack, diags
 from sklearn.preprocessing import MinMaxScaler
 
-from replay.data.spark_schema import REC_SCHEMA, get_rec_schema
-from replay.data.dataset import Dataset
-from replay.models.base_rec import HybridRecommender
 from replay.preprocessing import CSRConverter
+from replay.data import REC_SCHEMA
+from replay.experimental.models.base_rec import HybridRecommender
 from replay.utils.spark_utils import (
     check_numeric,
     save_picklable_to_parquet,
@@ -71,7 +70,7 @@ class LightFMWrap(HybridRecommender):
 
     def _feature_table_to_csr(
         self,
-        interactions_ids_list: DataFrame,
+        log_ids_list: DataFrame,
         feature_table: Optional[DataFrame] = None,
     ) -> Optional[csr_matrix]:
         """
@@ -94,35 +93,35 @@ class LightFMWrap(HybridRecommender):
             return None
 
         check_numeric(feature_table)
-        interactions_ids_list = interactions_ids_list.distinct()
-        entity = "item" if self.item_col in feature_table.columns else "user"
-        entity_col = self.item_col if self.item_col in feature_table.columns else self.query_col
+        log_ids_list = log_ids_list.distinct()
+        entity = "item" if "item_idx" in feature_table.columns else "user"
+        idx_col_name = f"{entity}_idx"
 
         # filter features by log
         feature_table = feature_table.join(
-            interactions_ids_list, on=entity_col, how="inner"
+            log_ids_list, on=idx_col_name, how="inner"
         )
 
         fit_dim = getattr(self, f"_{entity}_dim")
         matrix_height = max(
             fit_dim,
-            interactions_ids_list.select(sf.max(entity_col)).collect()[0][0] + 1,
+            log_ids_list.select(sf.max(idx_col_name)).collect()[0][0] + 1,
         )
         if not feature_table.rdd.isEmpty():
             matrix_height = max(
                 matrix_height,
-                feature_table.select(sf.max(entity_col)).collect()[0][0] + 1,
+                feature_table.select(sf.max(idx_col_name)).collect()[0][0] + 1,
             )
 
         features_np = (
             feature_table.select(
-                entity_col,
+                idx_col_name,
                 # first column contains id, next contain features
                 *(
                     sorted(
                         list(
                             set(feature_table.columns).difference(
-                                {entity_col}
+                                {idx_col_name}
                             )
                         )
                     )
@@ -135,7 +134,7 @@ class LightFMWrap(HybridRecommender):
         features_np = features_np[:, 1:]
         number_of_features = features_np.shape[1]
 
-        all_ids_list = interactions_ids_list.toPandas().to_numpy().ravel()
+        all_ids_list = log_ids_list.toPandas().to_numpy().ravel()
         entities_seen_in_fit = all_ids_list[all_ids_list < fit_dim]
 
         entity_id_features = csr_matrix(
@@ -179,28 +178,30 @@ class LightFMWrap(HybridRecommender):
 
     def _fit(
         self,
-        dataset: Dataset,
+        log: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
     ) -> None:
         self.user_feat_scaler = None
         self.item_feat_scaler = None
 
         interactions_matrix = CSRConverter(
-            first_dim_column=self.query_column,
-            second_dim_column=self.item_column,
-            data_column=self.rating_column,
+            first_dim_column="user_idx",
+            second_dim_column="item_idx",
+            data_column="relevance",
             row_count=self._user_dim,
             column_count=self._item_dim
-        ).transform(dataset.interactions)
+        ).transform(log)
         csr_item_features = self._feature_table_to_csr(
-            dataset.interactions.select(self.item_col).distinct(), dataset.item_features
+            log.select("item_idx").distinct(), item_features
         )
         csr_user_features = self._feature_table_to_csr(
-            dataset.interactions.select(self.query_col).distinct(), dataset.query_features
+            log.select("user_idx").distinct(), user_features
         )
 
-        if dataset.query_features is not None:
+        if user_features is not None:
             self.can_predict_cold_users = True
-        if dataset.item_features is not None:
+        if item_features is not None:
             self.can_predict_cold_items = True
 
         self.model = LightFM(
@@ -222,9 +223,9 @@ class LightFMWrap(HybridRecommender):
         item_features: Optional[DataFrame] = None,
     ):
         def predict_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
-            pandas_df[self.rating_col] = model.predict(
-                user_ids=pandas_df[self.query_col].to_numpy(),
-                item_ids=pandas_df[self.item_col].to_numpy(),
+            pandas_df["relevance"] = model.predict(
+                user_ids=pandas_df["user_idx"].to_numpy(),
+                item_ids=pandas_df["item_idx"].to_numpy(),
                 item_features=csr_item_features,
                 user_features=csr_user_features,
             )
@@ -238,36 +239,40 @@ class LightFMWrap(HybridRecommender):
             raise ValueError("Item features are missing for predict")
 
         csr_item_features = self._feature_table_to_csr(
-            pairs.select(self.item_col).distinct(), item_features
+            pairs.select("item_idx").distinct(), item_features
         )
         csr_user_features = self._feature_table_to_csr(
-            pairs.select(self.query_col).distinct(), user_features
+            pairs.select("user_idx").distinct(), user_features
         )
-        # get_rec_schema(dataset)
-        return pairs.groupby(self.query_col).applyInPandas(
+
+        return pairs.groupby("user_idx").applyInPandas(
             predict_by_user, REC_SCHEMA
         )
 
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        dataset: Dataset,
+        log: DataFrame,
         k: int,
         users: DataFrame,
         items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
         return self._predict_selected_pairs(
-            users.crossJoin(items), dataset.query_features, dataset.item_features
+            users.crossJoin(items), user_features, item_features
         )
 
     def _predict_pairs(
         self,
         pairs: DataFrame,
-        dataset: Optional[Dataset] = None,
+        log: Optional[DataFrame] = None,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
     ) -> DataFrame:
         return self._predict_selected_pairs(
-            pairs, dataset.query_features, dataset.item_features
+            pairs, user_features, item_features
         )
 
     def _get_features(
@@ -282,9 +287,8 @@ class LightFMWrap(HybridRecommender):
         :param features: features for item_idx/user_idx
         :return: spark-dataframe with biases and vectors for users/items and vector size
         """
-        entity = "item" if self.item_col in ids.columns else "user"
-        entity_col = self.item_col if self.item_col in ids.columns else self.query_col
-        ids_list = ids.toPandas()[entity_col]
+        entity = "item" if "item_idx" in ids.columns else "user"
+        ids_list = ids.toPandas()[f"{entity}_idx"]
 
         # models without features use sparse matrix
         if features is None:
@@ -314,7 +318,7 @@ class LightFMWrap(HybridRecommender):
         lightfm_factors = State().session.createDataFrame(
             embed_list,
             schema=[
-                entity_col,
+                f"{entity}_idx",
                 f"{entity}_bias",
                 f"{entity}_factors",
             ],

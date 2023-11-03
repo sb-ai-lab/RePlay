@@ -1,7 +1,6 @@
 from typing import Optional
 
 import numpy as np
-from pyspark.sql import DataFrame
 from pyspark.sql import functions as sf
 from replay.data.dataset import Dataset
 
@@ -34,25 +33,25 @@ class ThompsonSampling(NonPersonalizedRecommender):
         self,
         dataset: Dataset,
     ) -> None:
-        self._check_relevance(dataset)
+        self._check_rating(dataset)
 
         num_positive = dataset.interactions.filter(
-            dataset.interactions.relevance == sf.lit(1)
-        ).groupby(self.item_col).agg(
-            sf.count(self.rating_col).alias("positive")
+            sf.col(self.rating_column) == sf.lit(1)
+        ).groupby(self.item_column).agg(
+            sf.count(self.rating_column).alias("positive")
         )
         num_negative = dataset.interactions.filter(
-            dataset.interactions.relevance == sf.lit(0)
-        ).groupby(self.item_col).agg(
-            sf.count(self.rating_col).alias("negative")
+            sf.col(self.rating_column) == sf.lit(0)
+        ).groupby(self.item_column).agg(
+            sf.count(self.rating_column).alias("negative")
         )
 
         self.item_popularity = num_positive.join(
-            num_negative, how="inner", on=self.item_col
+            num_negative, how="inner", on=self.item_column
         )
 
         self.item_popularity = self.item_popularity.withColumn(
-            self.rating_col,
+            self.rating_column,
             sf.udf(np.random.beta, "double")("positive", "negative")
         ).drop("positive", "negative")
         self.item_popularity.cache().count()

@@ -5,7 +5,6 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from replay.data import LOG_SCHEMA
 from replay.splitters import NewUsersSplitter
 from tests.utils import spark
 

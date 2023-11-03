@@ -5,7 +5,7 @@ import numpy as np
 from pyspark.sql import functions as sf
 
 from replay.models import ALSWrap, AssociationRulesItemRec
-from replay.models.base_rec import HybridRecommender, UserRecommender
+from replay.models.base_rec import HybridRecommender, QueryRecommender
 from replay.utils.spark_utils import join_or_return, array_mult, horizontal_explode
 from replay.utils.model_handler import save, load
 from tests.utils import (
@@ -15,6 +15,7 @@ from tests.utils import (
     long_log_with_features,
     user_features,
     sparkDataFrameEqual,
+    create_dataset
 )
 
 
@@ -22,11 +23,12 @@ SEED = 123
 
 
 def fit_predict_selected(model, train_log, inf_log, user_features, users):
-    kwargs = {}
-    if isinstance(model, (HybridRecommender, UserRecommender)):
-        kwargs = {"user_features": user_features}
-    model.fit(train_log, **kwargs)
-    return model.predict(log=inf_log, users=users, k=1, **kwargs)
+    train_dataset = create_dataset(train_log, user_features)
+    pred_dataset = create_dataset(inf_log, user_features)
+    # if isinstance(model, (HybridRecommender, QueryRecommender)):
+    #     kwargs = {"user_features": user_features}
+    model.fit(train_dataset)
+    return model.predict(pred_dataset)
 
 
 @pytest.fixture
@@ -110,16 +112,18 @@ def get_first_level_model_features(model, pairs, user_features=None, item_featur
 
 def test_works(log, model):
     try:
-        pred = model.fit_predict(log, k=1)
+        dataset = create_dataset(log)
+        pred = model.fit_predict(dataset, k=1)
         assert pred.count() == 4
     except:  # noqa
         pytest.fail()
 
 
 def test_diff_feedback_type(log, model):
-    pred_exp = model.fit_predict(log, k=1)
+    dataset = create_dataset(log)
+    pred_exp = model.fit_predict(dataset, k=1)
     model.implicit_prefs = True
-    pred_imp = model.fit_predict(log, k=1)
+    pred_imp = model.fit_predict(dataset, k=1)
     assert not np.allclose(
         pred_exp.toPandas().sort_values("user_idx")["relevance"].values,
         pred_imp.toPandas().sort_values("user_idx")["relevance"].values,
@@ -127,7 +131,8 @@ def test_diff_feedback_type(log, model):
 
 
 def test_enrich_with_features(log, model):
-    model.fit(log.filter(sf.col("user_idx").isin([0, 2])))
+    dataset = create_dataset(log.filter(sf.col("user_idx").isin([0, 2])))
+    model.fit(dataset)
     res = get_first_level_model_features(
         model, log.filter(sf.col("user_idx").isin([0, 1]))
     )
@@ -168,20 +173,23 @@ def test_init_args(model):
 def test_predict_pairs_raises_pairs_format(log):
     model = ALSWrap(seed=SEED)
     with pytest.raises(ValueError, match="pairs must be a dataframe with .*"):
-        model.fit(log)
-        model.predict_pairs(log, log)
+        dataset = create_dataset(log)
+        model.fit(dataset)
+        model.predict_pairs(log, dataset)
 
 
 @pytest.mark.parametrize("metric", ["absent", None])
 def test_nearest_items_raises(log, metric):
-    model = AssociationRulesItemRec()
-    model.fit(log.filter(sf.col("item_idx") != 3))
+    model = AssociationRulesItemRec(session_column="user_idx")
+    dataset = create_dataset(log.filter(sf.col("item_idx") != 3))
+    model.fit(dataset)
     with pytest.raises(
         ValueError, match=r"Select one of the valid distance metrics.*"
     ):
         model.get_nearest_items(items=[0, 1], k=2, metric=metric)
     model = ALSWrap()
-    model.fit(log)
+    dataset = create_dataset(log)
+    model.fit(dataset)
     with pytest.raises(
         ValueError, match=r"Select one of the valid distance metrics.*"
     ):
@@ -232,11 +240,12 @@ def test_param_in_borders(borders, answer):
 
 def test_it_works(log):
     model = ALSWrap()
+    dataset = create_dataset(log)
     assert model._params_tried() is False
-    res = model.optimize(log, log, k=2, budget=1)
+    res = model.optimize(dataset, dataset, k=2, budget=1)
     assert isinstance(res["rank"], int)
     assert model._params_tried() is True
-    model.optimize(log, log, k=2, budget=1)
+    model.optimize(dataset, dataset, k=2, budget=1)
     assert len(model.study.trials) == 1
-    model.optimize(log, log, k=2, budget=1, new_study=False)
+    model.optimize(dataset, dataset, k=2, budget=1, new_study=False)
     assert len(model.study.trials) == 2

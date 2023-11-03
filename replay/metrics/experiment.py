@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 import pandas as pd
 
@@ -12,6 +12,7 @@ from replay.metrics.base_metric import (
 )
 
 
+# pylint: disable=too-many-instance-attributes
 # pylint: disable=too-few-public-methods
 class Experiment:
     """
@@ -80,9 +81,9 @@ class Experiment:
         self.calc_median = calc_median
         self.calc_conf_interval = calc_conf_interval
 
-        self.query_col = test_dataset.feature_schema.query_id_column
-        self.item_col = test_dataset.feature_schema.item_id_column
-        self.rating_col = test_dataset.feature_schema.interactions_rating_column
+        self.query_column = test_dataset.feature_schema.query_id_column
+        self.item_column = test_dataset.feature_schema.item_id_column
+        self.rating_column = test_dataset.feature_schema.interactions_rating_column
         self.timestamp_col = test_dataset.feature_schema.interactions_timestamp_column
 
     def add_result(
@@ -111,9 +112,9 @@ class Experiment:
             recommendations=pred,
             ground_truth=self.test,
             max_k=max_k,
-            query_col=self.query_col,
-            item_col=self.item_col,
-            rating_col=self.rating_col,
+            query_column=self.query_column,
+            item_column=self.item_column,
+            rating_column=self.rating_column,
             ground_truth_users=ground_truth_users,
         ).cache()
         for metric, k_list in sorted(

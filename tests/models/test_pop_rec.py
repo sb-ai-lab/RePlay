@@ -4,9 +4,9 @@ from datetime import datetime
 import pytest
 from pyspark.sql import functions as sf
 
-from replay.data import LOG_SCHEMA
+from replay.data import INTERACTIONS_SCHEMA
 from replay.models import PopRec
-from tests.utils import spark
+from tests.utils import spark, create_dataset
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def log(spark):
             [2, 2, date, 2.0],
             [0, 2, date, 2.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -34,7 +34,8 @@ def model():
 
 def test_works(log, model):
     try:
-        pred = model.fit_predict(log, k=1)
+        dataset = create_dataset(log)
+        pred = model.fit_predict(dataset, k=1)
         assert list(pred.toPandas().sort_values("user_idx")["item_idx"]) == [
             1,
             2,
@@ -46,7 +47,8 @@ def test_works(log, model):
 
 def test_clear_cache(log, model):
     try:
-        model.fit(log)
+        dataset = create_dataset(log)
+        model.fit(dataset)
         model._clear_cache()
     except:  # noqa
         pytest.fail()
