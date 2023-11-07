@@ -29,3 +29,5 @@ from replay.models.cat_pop_rec import CatPopRec
 from replay.models.ucb import UCB
 from replay.models.thompson_sampling import ThompsonSampling
 from replay.models.cql import CQL
+from replay.models.u_lin_ucb import uLinUCB
+from replay.models.hierarchical_recommender import HierarchicalRecommender
