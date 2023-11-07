@@ -9,9 +9,10 @@ from replay.models.base_rec import HybridRecommender
 from replay.models.u_lin_ucb import uLinUCB
 from replay.utils import convert2spark
 
+
 class HierarchicalRecommender(HybridRecommender):
     """
-    Hierarchical Recommender class is inspired by 
+    Hierarchical Recommender class is inspired by
     `the article of Song et al <https://arxiv.org/abs/2110.09905>`_ and is a
     generalization of the method. By default it works as HCB proposed there.
 
@@ -26,7 +27,7 @@ class HierarchicalRecommender(HybridRecommender):
     To predict an item the model goes down the tree each time selecting the
     next node as the one predicted by the parent node recommender. A leaf
     node recommender would give an item itself.
-    
+
     The log is considered as the history of user-item interactions. To fit
     the model each interaction is counted in all node recommenders on the
     path from the root to the item as if such path would be traversed through
@@ -49,30 +50,30 @@ class HierarchicalRecommender(HybridRecommender):
         self,
         depth,
         cluster_model,
-        recommender_class = uLinUCB,
-        recommender_params = {},
+        recommender_class=uLinUCB,
+        recommender_params={},
     ):
         """
         :param depth: depth of the item tree
-        :param cluster_model: an sklearn.cluster object (or any with similar 
+        :param cluster_model: an sklearn.cluster object (or any with similar
             API) that would perform clustering on the item space
-        :param recommender_class: a RePlay hybrid recommender class object (not an 
+        :param recommender_class: a RePlay hybrid recommender class object (not an
             instance!) instances of which would be mounted at each tree node
         :param recommender_params: initialization parameters for the recommenders
         """
 
-        self.depth              = depth
-        self.cluster_model      = cluster_model
-        self.recommender_class   = recommender_class
+        self.depth = depth
+        self.cluster_model = cluster_model
+        self.recommender_class = recommender_class
         self.recommender_params = recommender_params
-        self.root               = Node(parent=None, tree=self)
+        self.root = Node(parent=None, tree=self)
 
     @property
     def _init_args(self):
         return {
-            "depth":         self.depth,
+            "depth": self.depth,
             "cluster_model": self.cluster_model,
-            "recommender_class":   self.recommender_class,
+            "recommender_class": self.recommender_class,
             "recommender_params": self.recommender_params,
         }
 
@@ -81,14 +82,15 @@ class HierarchicalRecommender(HybridRecommender):
         log: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
-    ) -> None:    
-        
+    ) -> None:
         print("Clustering...")
         self.root._procreate(item_features.toPandas())
-        
+
         print("Fitting...")
-        self.root._fit(log.toPandas(), user_features.toPandas(), item_features.toPandas())
-        
+        self.root._fit(
+            log.toPandas(), user_features.toPandas(), item_features.toPandas()
+        )
+
     def _predict(
         self,
         log: DataFrame,
@@ -99,24 +101,24 @@ class HierarchicalRecommender(HybridRecommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-
         print("Predicting...")
-        pred = self.root._predict(  log.toPandas(),
-                                    k,
-                                    users.toPandas(),
-                                    items.toPandas(),
-                                    user_features,
-                                    item_features,
-                                    filter_seen_items
-                                  )
+        pred = self.root._predict(
+            log.toPandas(),
+            k,
+            users.toPandas(),
+            items.toPandas(),
+            user_features,
+            item_features,
+            filter_seen_items,
+        )
         print(pred)
         return convert2spark(pred)
-    
+
     def _get_recommender(self, node):
         new_recommender = self.recommender_class(**self.recommender_params)
-        assert(isinstance(new_recommender, HybridRecommender))
+        assert isinstance(new_recommender, HybridRecommender)
         return new_recommender
-    
+
     def _get_clusterer(self, node):
         if node.is_leaf:
             return Clusterer(model=DiscreteClusterer())
@@ -124,49 +126,44 @@ class HierarchicalRecommender(HybridRecommender):
             return Clusterer(model=self.cluster_model)
 
 
-
 class Node:
     """
-    Node of a Hierarchichal Recommender. The Node receives a clusterer and a 
+    Node of a Hierarchichal Recommender. The Node receives a clusterer and a
     recommender from the tree and interacts with them at clustering, fitting
     and predicting stages.
     """
 
-    def __init__(
-            self,
-            parent, 
-            tree : HierarchicalRecommender = None):
+    def __init__(self, parent, tree: HierarchicalRecommender = None):
         """
         :param parent: the parent node
         :param tree: the tree which the node belongs to (is None by default
         and is inherited from the parent)
         """
-        self.parent   = parent
-        self.tree     = tree
-        self.is_leaf  = False
+        self.parent = parent
+        self.tree = tree
+        self.is_leaf = False
 
-        if (parent is None):
+        if parent is None:
             self.level = 0
             assert tree != None
         else:
             self.tree = self.parent.tree
             self.level = self.parent.level + 1
-        
-        if (self.level == (self.tree.depth - 1)):
+
+        if self.level == (self.tree.depth - 1):
             self.is_leaf = True
             self.children = None
-        
+
         self.clusterer = self.tree._get_clusterer(self)
         self.recommender = self.tree._get_recommender(self)
 
     def get_num_children(self):
         return len(self.children)
-    
-    def _procreate(
-            self, 
-            items: PandasDataFrame,
-    ) -> None:
 
+    def _procreate(
+        self,
+        items: PandasDataFrame,
+    ) -> None:
         items["cluster_idx"] = self.clusterer.fit_predict(items)
 
         if not self.is_leaf:
@@ -180,21 +177,27 @@ class Node:
         log: PandasDataFrame,
         user_features: PandasDataFrame,
         item_features: PandasDataFrame,
-    ) -> None:    
-
+    ) -> None:
         log["cluster_idx"] = self.clusterer.predict(log[["item_idx"]])
 
         if not self.is_leaf:
             for cl_idx, cl_log in tqdm(log.groupby("cluster_idx")):
-                self.children[cl_idx]._fit(cl_log, user_features, item_features)
-        
-        rec_params = {"log":           convert2spark(log.drop(columns="item_idx")
-                                                        .rename(columns={"cluster_idx": "item_idx"})),
-                      "user_features": convert2spark(user_features),
-                      "item_features": convert2spark(self.clusterer.get_cluster_centers())
-                      }
-        self.recommender.fit(**rec_params)
+                self.children[cl_idx]._fit(
+                    cl_log, user_features, item_features
+                )
 
+        rec_params = {
+            "log": convert2spark(
+                log.drop(columns="item_idx").rename(
+                    columns={"cluster_idx": "item_idx"}
+                )
+            ),
+            "user_features": convert2spark(user_features),
+            "item_features": convert2spark(
+                self.clusterer.get_cluster_centers()
+            ),
+        }
+        self.recommender.fit(**rec_params)
 
     def _predict(
         self,
@@ -206,50 +209,69 @@ class Node:
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> PandasDataFrame:
-        
-        pred = pd.DataFrame(columns=['user_idx', 'item_idx', 'relevance'])
-        log  ["cluster_idx"] = self.clusterer.predict(log  [["item_idx"]])
+        pred = pd.DataFrame(columns=["user_idx", "item_idx", "relevance"])
+        log["cluster_idx"] = self.clusterer.predict(log[["item_idx"]])
         items["cluster_idx"] = self.clusterer.predict(items[["item_idx"]])
 
-        rec_params = { "log":    convert2spark(log.  drop(columns="item_idx")
-                                 .rename(columns={"cluster_idx" : "item_idx"})),
-                        "users": convert2spark(users),
-                        "items": convert2spark(items.drop(columns="item_idx")
-                                 .rename(columns={"cluster_idx" : "item_idx"})),
-                        "user_features": user_features,
-                        "item_features": item_features,
-                       }
-        
+        rec_params = {
+            "log": convert2spark(
+                log.drop(columns="item_idx").rename(
+                    columns={"cluster_idx": "item_idx"}
+                )
+            ),
+            "users": convert2spark(users),
+            "items": convert2spark(
+                items.drop(columns="item_idx").rename(
+                    columns={"cluster_idx": "item_idx"}
+                )
+            ),
+            "user_features": user_features,
+            "item_features": item_features,
+        }
+
         if self.is_leaf:
             rec_params["k"] = k
             rec_params["filter_seen_items"] = filter_seen_items
-            pred = self.recommender.predict(**rec_params).toPandas().rename(columns={"item_idx" : "cluster_idx"})
+            pred = (
+                self.recommender.predict(**rec_params)
+                .toPandas()
+                .rename(columns={"item_idx": "cluster_idx"})
+            )
             pred["item_idx"] = self.clusterer.predict_items(pred)
             pred = pred.drop(columns=["cluster_idx"])
         else:
             rec_params["k"] = 1
             rec_params["filter_seen_items"] = False
-            pred_clusters = self.recommender.predict(**rec_params).toPandas().rename(columns={"item_idx" : "cluster_idx"})
+            pred_clusters = (
+                self.recommender.predict(**rec_params)
+                .toPandas()
+                .rename(columns={"item_idx": "cluster_idx"})
+            )
 
             for cl_idx, cluster in pred_clusters.groupby("cluster_idx"):
-                child_params = {"log":   log  [log  ["cluster_idx"] == cl_idx].drop(columns="cluster_idx"),
-                                "k": k,
-                                "users": cluster[["user_idx"]],
-                                "items": items[items["cluster_idx"] == cl_idx].drop(columns="cluster_idx"),
-                                "user_features": user_features,
-                                "item_features": item_features,
-                                "filter_seen_items": filter_seen_items
-                                }
+                child_params = {
+                    "log": log[log["cluster_idx"] == cl_idx].drop(
+                        columns="cluster_idx"
+                    ),
+                    "k": k,
+                    "users": cluster[["user_idx"]],
+                    "items": items[items["cluster_idx"] == cl_idx].drop(
+                        columns="cluster_idx"
+                    ),
+                    "user_features": user_features,
+                    "item_features": item_features,
+                    "filter_seen_items": filter_seen_items,
+                }
                 cl_pred = self.children[cl_idx]._predict(**child_params)
                 pred = pd.concat([pred, cl_pred])
 
         return pred
-                
- 
+
+
 class Clusterer:
-    """ 
-        Wrapper class to provide proper and unified interaction with sklearn
-        clusterers.
+    """
+    Wrapper class to provide proper and unified interaction with sklearn
+    clusterers.
     """
 
     def __init__(self, model):
@@ -259,18 +281,19 @@ class Clusterer:
         self._model = model
 
     def fit_predict(
-        self, 
+        self,
         items: PandasDataFrame,
     ):
         self.fit(items)
         return self.predict(items)
-    
+
     def fit(
-        self, 
+        self,
         items: PandasDataFrame,
     ) -> None:
-        
-        items = items.sort_values(by="item_idx") # for discrete clusterer to work right, otherwise items would be shuffled
+        items = items.sort_values(
+            by="item_idx"
+        )  # for discrete clusterer to work right, otherwise items would be shuffled
 
         item_idx = items["item_idx"].to_numpy()
         item_features = items.drop(columns="item_idx").to_numpy()
@@ -293,22 +316,25 @@ class Clusterer:
         clusters: PandasDataFrame,
     ):
         return clusters["cluster_idx"].map(self.get_item_map())
-    
+
     def _set_cluster_centers(
-        self, 
-        items : PandasDataFrame,
+        self,
+        items: PandasDataFrame,
     ) -> None:
         items["cluster_idx"] = self.predict(items)
-        self._cluster_centers = items.drop(columns="item_idx"
-                                    ).groupby("cluster_idx"
-                                    ).mean(
-                                    ).reset_index().rename(columns={"cluster_idx" : "item_idx"})
-        
+        self._cluster_centers = (
+            items.drop(columns="item_idx")
+            .groupby("cluster_idx")
+            .mean()
+            .reset_index()
+            .rename(columns={"cluster_idx": "item_idx"})
+        )
+
         self._num_clusters = self._cluster_centers.shape[0]
-        
+
     def get_cluster_map(self) -> dict:
         return self._cluster_map
-    
+
     def get_item_map(self) -> dict:
         return self._item_map
 
@@ -317,12 +343,13 @@ class Clusterer:
 
     def get_num_clusters(self) -> int:
         return self._num_clusters
-    
+
 
 class DiscreteClusterer:
     """
-        Discrete Clusterer - one that counts each item as a cluster already.
+    Discrete Clusterer - one that counts each item as a cluster already.
     """
+
     def fit_predict(self, items):
         self.cluster_centers_ = items
         return np.arange(items.shape[0])
