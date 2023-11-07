@@ -118,30 +118,30 @@ class KL_UCB(UCB):
             + self.coef * math.log(math.log(self.full_count))
         eps = 1e-12
 
-        def Bernoulli_KL(p,q) :
-            return p * math.log(p / q) + (1 - p) * math.log((1 - p) / (1 - q))
+        def BernoulliKl(pp, qq) :
+            return pp * math.log(pp / qq) + (1 - pp) * math.log((1 - pp) / (1 - qq))
 
         @udf(returnType=DoubleType())
         def get_ucb(pos, total) :
-            p = pos / total
+            pp = pos / total
 
-            if (p == 0) :
+            if pp == 0 :
                 ucb = root_scalar(
-                    f=lambda q: math.log(1 / (1 - q)) - right_hand_side,
+                    f=lambda qq: math.log(1 / (1 - qq)) - right_hand_side,
                     bracket=[0, 1 - eps],
                     method='brentq').root
                 return ucb
 
-            if (p == 1) :
+            if pp == 1 :
                 ucb = root_scalar(
-                    f=lambda q: math.log(1 / q) - right_hand_side,
+                    f=lambda qq: math.log(1 / qq) - right_hand_side,
                     bracket=[0 + eps, 1],
                     method='brentq').root
                 return ucb
 
             ucb = root_scalar(
-                f=lambda q: total * Bernoulli_KL(p, q) - right_hand_side,
-                bracket=[p, 1 - eps],
+                f=lambda qq: total * BernoulliKl(pp, qq) - right_hand_side,
+                bracket=[pp, 1 - eps],
                 method='brentq').root
             return ucb
 
@@ -152,4 +152,4 @@ class KL_UCB(UCB):
         self.item_popularity = items_counts.drop("pos", "total")
 
         self.item_popularity.cache().count()
-        self.fill = 1 + math.sqrt(self.coef * math.log(self.full_count))
+        self.fill = 1 + math.srt(self.coef * math.log(self.full_count))
