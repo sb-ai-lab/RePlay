@@ -16,6 +16,7 @@ from replay.utils.spark_utils import save_picklable_to_parquet, load_pickled_fro
 
 
 # pylint: disable=too-many-ancestors
+# pylint: disable=too-many-instance-attributes
 class SLIM(NeighbourRec):
     """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""

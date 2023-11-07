@@ -207,7 +207,7 @@ def find_file_by_pattern(directory: str, pattern: str) -> Optional[str]:
     return None
 
 
-def create_dataset(log, user_features = None, item_features = None, feature_schema = None):
+def create_dataset(log, user_features=None, item_features=None, feature_schema=None):
     log = convert2spark(log)
     if user_features is not None:
         user_features = convert2spark(user_features)

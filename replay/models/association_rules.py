@@ -28,20 +28,21 @@ class AssociationRulesItemRec(NeighbourRec):
     if you set a new value for the `similarity_metric` parameter.
 
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_idx": [1, 1, 2, 3], "item_idx": [1, 2, 2, 3], "rating": [2, 1, 4, 1]})
-    >>> data_frame_for_predict = pd.DataFrame({"user_idx": [2], "item_idx": [1]})
+    >>> from replay.data.dataset_utils import create_dataset
+    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": [1, 2, 2, 3], "rating": [2, 1, 4, 1]})
+    >>> data_frame_for_predict = pd.DataFrame({"user_id": [2], "item_id": [1]})
     >>> data_frame
-       user_idx  item_idx  rating
+       user_id  item_id  rating
     0         1         1          2
     1         1         2          1
     2         2         2          4
     3         3         3          1
-    >>> from replay.utils.spark_utils import convert2spark
     >>> from replay.models import AssociationRulesItemRec
-    >>> data_frame = convert2spark(data_frame)
-    >>> data_frame_for_predict = convert2spark(data_frame_for_predict)
-    >>> model = AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx")
-    >>> res = model.fit(data_frame)
+    >>> from replay.utils.spark_utils import convert2spark
+    >>> train_dataset = create_dataset(data_frame)
+    >>> pred_dataset = create_dataset(data_frame_for_predict, has_rating=False)
+    >>> model = AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_id")
+    >>> res = model.fit(train_dataset)
     >>> model.similarity.show()
     +------------+------------+----------+----+---------------+
     |item_idx_one|item_idx_two|confidence|lift|confidence_gain|
@@ -50,19 +51,19 @@ class AssociationRulesItemRec(NeighbourRec):
     |           2|           1|       0.5| 1.5|       Infinity|
     +------------+------------+----------+----+---------------+
     >>> model.similarity_metric = "confidence"
-    >>> model.predict_pairs(data_frame_for_predict, data_frame).show()
-    +--------+--------+---------+
-    |user_idx|item_idx|rating|
-    +--------+--------+---------+
-    |       2|       1|      0.5|
-    +--------+--------+---------+
+    >>> model.predict_pairs(convert2spark(data_frame_for_predict), train_dataset).show()
+    +-------+-------+------+
+    |user_id|item_id|rating|
+    +-------+-------+------+
+    |      2|      1|   0.5|
+    +-------+-------+------+
     >>> model.similarity_metric = "lift"
-    >>> model.predict_pairs(data_frame_for_predict, data_frame).show()
-    +--------+--------+---------+
-    |user_idx|item_idx|rating|
-    +--------+--------+---------+
-    |       2|       1|      1.5|
-    +--------+--------+---------+
+    >>> model.predict_pairs(convert2spark(data_frame_for_predict), train_dataset).show()
+    +-------+-------+------+
+    |user_id|item_id|rating|
+    +-------+-------+------+
+    |      2|      1|   1.5|
+    +-------+-------+------+
 
     Classical model uses items co-occurrence in sessions for
     confidence, lift and confidence_gain calculation

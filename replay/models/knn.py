@@ -14,6 +14,7 @@ from replay.utils.spark_utils import save_picklable_to_parquet, load_pickled_fro
 
 
 # pylint: disable=too-many-ancestors
+# pylint: disable=too-many-instance-attributes
 class ItemKNN(NeighbourRec):
     """Item-based ItemKNN with modified cosine similarity measure."""
 

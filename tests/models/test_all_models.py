@@ -468,7 +468,7 @@ def test_add_cold_items_for_nonpersonalized(
     items = log.select("item_idx").distinct()
     if predict_cold_only:
         items = items.filter(sf.col("item_idx") >= num_warm)
-    
+
     pred_dataset = create_dataset(log.filter(sf.col("item_idx") < num_warm))
     pred = model.predict(
         dataset=pred_dataset,

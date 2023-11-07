@@ -12,6 +12,7 @@ from replay.models.base_rec import Recommender, ItemVectorModel
 from replay.utils.spark_utils import list_to_vector_udf, save_picklable_to_parquet, load_pickled_from_parquet
 
 
+# pylint: disable=too-many-instance-attributes
 class ALSWrap(Recommender, ItemVectorModel):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
@@ -141,7 +142,7 @@ class ALSWrap(Recommender, ItemVectorModel):
                 .withColumn(self.item_column, sf.col(f"recommendations.{self.item_column}"))
                 .withColumn(
                     self.rating_column,
-                    sf.col(f"recommendations.rating").cast(DoubleType()),
+                    sf.col("recommendations.rating").cast(DoubleType()),
                 )
                 .select(self.query_column, self.item_column, self.rating_column)
             )

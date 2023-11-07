@@ -37,7 +37,6 @@ from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 
 from replay.data import get_rec_schema
-from replay.data.spark_schema import REC_SCHEMA
 from replay.metrics import Metric, NDCG
 from replay.optimization.optuna_objective import SplitData, MainObjective
 from replay.utils.session_handler import State
@@ -928,8 +927,9 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
                 return True
 
         return False
-    
-    def _get_attr_by_entity(self, attr_name: str, entity: str) -> str:
+
+    @staticmethod
+    def _get_attr_by_entity(attr_name: str, entity: str) -> str:
         _base_entity_arguments = {
             "can_predict_cold": {
                 "item": "can_predict_cold_items",
@@ -953,7 +953,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             },
         }
         return _base_entity_arguments.get(attr_name).get(entity)
-    
+
     def _save_model(self, path: str):
         save_picklable_to_parquet(
             {

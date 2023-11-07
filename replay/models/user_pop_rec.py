@@ -20,6 +20,7 @@ class QueryPopRec(Recommender):
     :math:`N_u` - total number of interactions of query :math:`u`.
 
     >>> import pandas as pd
+    >>> from replay.data.dataset_utils import create_dataset
     >>> data_frame = pd.DataFrame({"user_id": [1, 1, 3], "item_id": [1, 2, 3], "rating": [2, 1, 1]})
     >>> data_frame
         user_id   item_id     rating
@@ -27,10 +28,9 @@ class QueryPopRec(Recommender):
     1         1         2          1
     2         3         3          1
 
-    >>> from replay.utils.spark_utils import convert2spark
-    >>> data_frame = convert2spark(data_frame)
+    >>> dataset = create_dataset(data_frame)
     >>> model = QueryPopRec()
-    >>> res = model.fit_predict(data_frame, 1, filter_seen_items=False)
+    >>> res = model.fit_predict(dataset, 1, filter_seen_items=False)
     >>> model.query_item_popularity.count()
     3
     >>> res.toPandas().sort_values("user_id", ignore_index=True)

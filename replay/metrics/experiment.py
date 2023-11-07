@@ -24,12 +24,14 @@ class Experiment:
     Example:
 
     >>> import pandas as pd
+    >>> from replay.data.dataset_utils import create_dataset
     >>> from replay.metrics import Coverage, NDCG, Precision, Surprisal
     >>> log = pd.DataFrame({"user_idx": [2, 2, 2, 1], "item_idx": [1, 2, 3, 3], "relevance": [5, 5, 5, 5]})
     >>> test = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [1, 2, 3], "relevance": [5, 3, 4]})
     >>> pred = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [4, 1, 3], "relevance": [5, 4, 5]})
     >>> recs = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [1, 4, 5], "relevance": [5, 4, 5]})
-    >>> ex = Experiment(test, {NDCG(): [2, 3], Surprisal(log): 3})
+    >>> test_dataset = create_dataset(test, query_column="user_idx", item_column="item_idx", rating_column="relevance")
+    >>> ex = Experiment(test_dataset, {NDCG(): [2, 3], Surprisal(log): 3})
     >>> ex.add_result("baseline", recs)
     >>> ex.add_result("baseline_gt_users", recs, ground_truth_users=pd.DataFrame({"user_idx": [1, 3]}))
     >>> ex.add_result("model", pred)
@@ -43,14 +45,14 @@ class Experiment:
     baseline                –       –           –
     baseline_gt_users  -50.0%  -50.0%      -50.0%
     model                0.0%  79.25%     -33.33%
-    >>> ex = Experiment(test, {Precision(): [3]}, calc_median=True, calc_conf_interval=0.95)
+    >>> ex = Experiment(test_dataset, {Precision(): [3]}, calc_median=True, calc_conf_interval=0.95)
     >>> ex.add_result("baseline", recs)
     >>> ex.add_result("model", pred)
     >>> ex.results
               Precision@3  Precision@3_median  Precision@3_0.95_conf_interval
     baseline     0.333333            0.333333                             0.0
     model        0.666667            0.666667                             0.0
-    >>> ex = Experiment(test, {Coverage(log): 3}, calc_median=True, calc_conf_interval=0.95)
+    >>> ex = Experiment(test_dataset, {Coverage(log): 3}, calc_median=True, calc_conf_interval=0.95)
     >>> ex.add_result("baseline", recs)
     >>> ex.add_result("model", pred)
     >>> ex.results

@@ -43,9 +43,9 @@ class Surprisal(RecOnlyMetric):
     def __init__(
         self,
         interactions: AnyDataFrame,
-        query_column: str,
-        item_column: str,
-        rating_column: str,
+        query_column: str = "user_idx",
+        item_column: str = "item_idx",
+        rating_column: str = "relevance",
     ):  # pylint: disable=super-init-not-called
         """
         Here we calculate self-information for each item

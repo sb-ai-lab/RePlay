@@ -136,28 +136,28 @@ def test_cluster(long_log_with_features, user_features, tmp_path):
 def test_cat_poprec(cat_tree, cat_log, requested_cats, tmp_path):
     path = (tmp_path / "cat_poprec").resolve()
     feature_schema = FeatureSchema(
-            [
-                FeatureInfo(
-                    column="user_idx",
-                    feature_type=FeatureType.CATEGORICAL,
-                    feature_hint=FeatureHint.QUERY_ID,
-                ),
-                FeatureInfo(
-                    column="item_idx",
-                    feature_type=FeatureType.CATEGORICAL,
-                    feature_hint=FeatureHint.ITEM_ID,
-                ),
-                FeatureInfo(
-                    column="category",
-                    feature_type=FeatureType.CATEGORICAL,
-                ),
-                FeatureInfo(
-                    column="relevance",
-                    feature_type=FeatureType.NUMERICAL,
-                    feature_hint=FeatureHint.RATING,
-                ),
-            ]
-        )
+        [
+            FeatureInfo(
+                column="user_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.QUERY_ID,
+            ),
+            FeatureInfo(
+                column="item_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            FeatureInfo(
+                column="category",
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            FeatureInfo(
+                column="relevance",
+                feature_type=FeatureType.NUMERICAL,
+                feature_hint=FeatureHint.RATING,
+            ),
+        ]
+    )
     dataset = create_dataset(cat_log, feature_schema=feature_schema)
     model = CatPopRec(cat_tree=cat_tree)
     model.fit(dataset)

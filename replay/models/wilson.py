@@ -15,11 +15,11 @@ class Wilson(PopRec):
     ``rating`` must be converted to binary 0-1 form.
 
     >>> import pandas as pd
+    >>> from replay.data.dataset_utils import create_dataset
     >>> data_frame = pd.DataFrame({"user_id": [1, 2], "item_id": [1, 2], "rating": [1, 1]})
-    >>> from replay.utils.spark_utils import convert2spark
-    >>> data_frame = convert2spark(data_frame)
+    >>> dataset = create_dataset(data_frame)
     >>> model = Wilson()
-    >>> model.fit_predict(data_frame,k=1).toPandas()
+    >>> model.fit_predict(dataset, k=1).toPandas()
         user_id   item_id     rating
     0         1         2   0.206549
     1         2         1   0.206549

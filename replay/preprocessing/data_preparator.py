@@ -56,13 +56,13 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
         Provide column names for indexer to use
         """
         self.user_col = user_col
-        self.item_column = item_col
+        self.item_col = item_col
 
     @property
     def _init_args(self):
         return {
             "user_col": self.user_col,
-            "item_col": self.item_column,
+            "item_col": self.item_col,
         }
 
     def fit(
@@ -79,22 +79,22 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
         users = users.select(self.user_col).withColumnRenamed(
             self.user_col, f"{self.user_col}_{self.suffix}"
         )
-        items = items.select(self.item_column).withColumnRenamed(
-            self.item_column, f"{self.item_column}_{self.suffix}"
+        items = items.select(self.item_col).withColumnRenamed(
+            self.item_col, f"{self.item_col}_{self.suffix}"
         )
 
         self.user_type = users.schema[
             f"{self.user_col}_{self.suffix}"
         ].dataType
         self.item_type = items.schema[
-            f"{self.item_column}_{self.suffix}"
+            f"{self.item_col}_{self.suffix}"
         ].dataType
 
         self.user_indexer = StringIndexer(
             inputCol=f"{self.user_col}_{self.suffix}", outputCol="user_idx"
         ).fit(users)
         self.item_indexer = StringIndexer(
-            inputCol=f"{self.item_column}_{self.suffix}", outputCol="item_idx"
+            inputCol=f"{self.item_col}_{self.suffix}", outputCol="item_idx"
         ).fit(items)
         self.inv_user_indexer = IndexToString(
             inputCol=f"{self.user_col}_{self.suffix}",
@@ -102,8 +102,8 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
             labels=self.user_indexer.labels,
         )
         self.inv_item_indexer = IndexToString(
-            inputCol=f"{self.item_column}_{self.suffix}",
-            outputCol=self.item_column,
+            inputCol=f"{self.item_col}_{self.suffix}",
+            outputCol=self.item_col,
             labels=self.item_indexer.labels,
         )
 
@@ -114,10 +114,10 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
         :param df: dataframe with raw indexes
         :return: dataframe with converted indexes
         """
-        if self.item_column in df.columns:
-            remaining_cols = df.drop(self.item_column).columns
+        if self.item_col in df.columns:
+            remaining_cols = df.drop(self.item_col).columns
             df = df.withColumnRenamed(
-                self.item_column, f"{self.item_column}_{self.suffix}"
+                self.item_col, f"{self.item_col}_{self.suffix}"
             )
             self._reindex(df, "item")
             df = self.item_indexer.transform(df).select(
@@ -148,12 +148,12 @@ class Indexer:  # pylint: disable=too-many-instance-attributes
             remaining_cols = res.drop("item_idx").columns
             res = self.inv_item_indexer.transform(
                 res.withColumnRenamed(
-                    "item_idx", f"{self.item_column}_{self.suffix}"
+                    "item_idx", f"{self.item_col}_{self.suffix}"
                 )
             ).select(
-                sf.col(self.item_column)
+                sf.col(self.item_col)
                 .cast(self.item_type)
-                .alias(self.item_column),
+                .alias(self.item_col),
                 *remaining_cols,
             )
         if "user_idx" in df.columns:
@@ -272,11 +272,11 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
     ):
         super().__init__()
         self.user_col = user_col
-        self.item_column = item_col
+        self.item_col = item_col
         self.user_type = user_type
         self.item_type = item_type
         self.user_col_2_index_map = user_col_2_index_map
-        self.item_column_2_index_map = item_col_2_index_map
+        self.item_col_2_index_map = item_col_2_index_map
         self.update_map_on_transform = update_map_on_transform
         self.force_broadcast_on_mapping_joins = force_broadcast_on_mapping_joins
 
@@ -284,7 +284,7 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
     def _init_args(self):
         return {
             "user_col": self.user_col,
-            "item_col": self.item_column,
+            "item_col": self.item_col,
             "user_type": self.user_type,
             "item_type": self.item_type,
             "update_map_on_transform": self.update_map_on_transform,
@@ -301,9 +301,9 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
 
     def _get_item_mapping(self) -> DataFrame:
         if self.force_broadcast_on_mapping_joins:
-            mapping = sf.broadcast(self.item_column_2_index_map)
+            mapping = sf.broadcast(self.item_col_2_index_map)
         else:
-            mapping = self.item_column_2_index_map
+            mapping = self.item_col_2_index_map
         return mapping
 
     def _get_user_mapping(self) -> DataFrame:
@@ -325,15 +325,15 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
     def _update_maps(self, df: DataFrame):
 
         new_items = (
-            df.join(self._get_item_mapping(), on=self.item_column, how="left_anti")
-            .select(self.item_column).distinct()
+            df.join(self._get_item_mapping(), on=self.item_col, how="left_anti")
+            .select(self.item_col).distinct()
         )
-        prev_item_count = self.item_column_2_index_map.count()
+        prev_item_count = self.item_col_2_index_map.count()
         new_items_map = (
-            JoinBasedIndexerEstimator.get_map(new_items, self.item_column, "item_idx")
-            .select(self.item_column, (sf.col("item_idx") + prev_item_count).alias("item_idx"))
+            JoinBasedIndexerEstimator.get_map(new_items, self.item_col, "item_idx")
+            .select(self.item_col, (sf.col("item_idx") + prev_item_count).alias("item_idx"))
         )
-        self.item_column_2_index_map = self.item_column_2_index_map.union(new_items_map)
+        self.item_col_2_index_map = self.item_col_2_index_map.union(new_items_map)
 
         new_users = (
             df.join(self._get_user_mapping(), on=self.user_col, how="left_anti")
@@ -350,9 +350,9 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
         if self.update_map_on_transform:
             self._update_maps(dataset)
 
-        if self.item_column in dataset.columns:
-            remaining_cols = dataset.drop(self.item_column).columns
-            dataset = dataset.join(self._get_item_mapping(), on=self.item_column, how="left").select(
+        if self.item_col in dataset.columns:
+            remaining_cols = dataset.drop(self.item_col).columns
+            dataset = dataset.join(self._get_item_mapping(), on=self.item_col, how="left").select(
                 sf.col("item_idx").cast("int").alias("item_idx"),
                 *remaining_cols,
             )
@@ -376,7 +376,7 @@ class JoinBasedIndexerTransformer(Transformer, MLWritable, MLReadable):
             df = df.join(
                 self._get_item_mapping(), on="item_idx", how="left"
             ).select(
-                self.item_column,
+                self.item_col,
                 *remaining_cols,
             )
         if "user_idx" in df.columns:
@@ -401,9 +401,9 @@ class JoinBasedIndexerEstimator(Estimator):
         Provide column names for indexer to use
         """
         self.user_col = user_col
-        self.item_column = item_col
+        self.item_col = item_col
         self.user_col_2_index_map = None
-        self.item_column_2_index_map = None
+        self.item_col_2_index_map = None
         self.user_type = None
         self.item_type = None
 
@@ -440,22 +440,22 @@ class JoinBasedIndexerEstimator(Estimator):
         """
 
         self.user_col_2_index_map = self.get_map(dataset, self.user_col, "user_idx")
-        self.item_column_2_index_map = self.get_map(dataset, self.item_column, "item_idx")
+        self.item_col_2_index_map = self.get_map(dataset, self.item_col, "item_idx")
 
         self.user_type = dataset.schema[
             self.user_col
         ].dataType
         self.item_type = dataset.schema[
-            self.item_column
+            self.item_col
         ].dataType
 
         return JoinBasedIndexerTransformer(
             user_col=self.user_col,
             user_type=str(self.user_type),
-            item_col=self.item_column,
+            item_col=self.item_col,
             item_type=str(self.item_type),
             user_col_2_index_map=self.user_col_2_index_map,
-            item_col_2_index_map=self.item_column_2_index_map
+            item_col_2_index_map=self.item_col_2_index_map
         )
 
 

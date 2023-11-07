@@ -18,9 +18,10 @@ class PopRec(NonPersonalizedRecommender):
     :math:`N` - total number of users
 
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_idx": [1, 1, 2, 2, 3, 4], "item_idx": [1, 2, 2, 3, 3, 3], "rating": [0.5, 1, 0.1, 0.8, 0.7, 1]})
+    >>> from replay.data.dataset_utils import create_dataset
+    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 2, 3, 4], "item_id": [1, 2, 2, 3, 3, 3], "rating": [0.5, 1, 0.1, 0.8, 0.7, 1]})
     >>> data_frame
-       user_idx  item_idx     rating
+        user_id   item_id     rating
     0         1         1        0.5
     1         1         2        1.0
     2         2         2        0.1
@@ -28,28 +29,27 @@ class PopRec(NonPersonalizedRecommender):
     4         3         3        0.7
     5         4         3        1.0
 
-    >>> from replay.utils.spark_utils import convert2spark
-    >>> data_frame = convert2spark(data_frame)
+    >>> dataset = create_dataset(data_frame)
 
-    >>> res = PopRec().fit_predict(data_frame, 1)
-    >>> res.toPandas().sort_values("user_idx", ignore_index=True)
-       user_idx  item_idx     rating
+    >>> res = PopRec().fit_predict(dataset, 1)
+    >>> res.toPandas().sort_values("user_id", ignore_index=True)
+        user_id   item_id     rating
     0         1         3       0.75
     1         2         1       0.25
     2         3         2       0.50
     3         4         2       0.50
 
-    >>> res = PopRec().fit_predict(data_frame, 1, filter_seen_items=False)
-    >>> res.toPandas().sort_values("user_idx", ignore_index=True)
-       user_idx  item_idx     rating
+    >>> res = PopRec().fit_predict(dataset, 1, filter_seen_items=False)
+    >>> res.toPandas().sort_values("user_id", ignore_index=True)
+        user_id   item_id     rating
     0         1         3       0.75
     1         2         3       0.75
     2         3         3       0.75
     3         4         3       0.75
 
-    >>> res = PopRec(use_rating=True).fit_predict(data_frame, 1)
-    >>> res.toPandas().sort_values("user_idx", ignore_index=True)
-       user_idx  item_idx     rating
+    >>> res = PopRec(use_rating=True).fit_predict(dataset, 1)
+    >>> res.toPandas().sort_values("user_id", ignore_index=True)
+        user_id   item_id     rating
     0         1         3      0.625
     1         2         1      0.125
     2         3         2      0.275

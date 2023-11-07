@@ -14,7 +14,6 @@ from pyspark.sql import SparkSession, Column, DataFrame, Window, functions as sf
 from pyspark.sql.column import _to_java_column, _to_seq
 
 from replay.data import AnyDataFrame, NumType, REC_SCHEMA
-from replay.data.dataset import Dataset
 from replay.utils.session_handler import State
 
 
@@ -143,13 +142,13 @@ def get_top_k_recs(
     recs: DataFrame,
     k: int,
     query_column: str = "user_idx",
-    rating_column: str = "item_idx",
+    rating_column: str = "relevance",
 ) -> DataFrame:
     """
     Get top k recommendations by `rating`.
 
     :param recs: recommendations DataFrame
-        `[user_id, item_id, rating]`
+        `[user_idx, item_idx, rating]`
     :param k: length of a recommendation list
     :param id_type: id or idx
     :return: top k recommendations `[user_id, item_id, rating]`
@@ -465,8 +464,14 @@ def join_or_return(first, second, on, how):
     return first.join(second, on=on, how=how)
 
 
+# pylint: disable=too-many-arguments
 def fallback(
-    base: DataFrame, fill: DataFrame, k: int, id_type: str = "idx"
+    base: DataFrame,
+    fill: DataFrame,
+    k: int,
+    query_column: str = "user_idx",
+    item_column: str = "item_idx",
+    rating_column: str = "relevance",
 ) -> DataFrame:
     """
     Fill missing recommendations for users that have less than ``k`` recommended items.
@@ -481,23 +486,23 @@ def fallback(
     if fill is None:
         return base
     if base.count() == 0:
-        return get_top_k_recs(fill, k, id_type)
+        return get_top_k_recs(fill, k, query_column=query_column, rating_column=rating_column)
     margin = 0.1
-    min_in_base = base.agg({"relevance": "min"}).collect()[0][0]
-    max_in_fill = fill.agg({"relevance": "max"}).collect()[0][0]
+    min_in_base = base.agg({rating_column: "min"}).collect()[0][0]
+    max_in_fill = fill.agg({rating_column: "max"}).collect()[0][0]
     diff = max_in_fill - min_in_base
-    fill = fill.withColumnRenamed("relevance", "relevance_fallback")
+    fill = fill.withColumnRenamed(rating_column, "relevance_fallback")
     if diff >= 0:
         fill = fill.withColumn(
             "relevance_fallback", sf.col("relevance_fallback") - diff - margin
         )
     recs = base.join(
-        fill, on=["user_" + id_type, "item_" + id_type], how="full_outer"
+        fill, on=[query_column, item_column], how="full_outer"
     )
     recs = recs.withColumn(
-        "relevance", sf.coalesce("relevance", "relevance_fallback")
-    ).select("user_" + id_type, "item_" + id_type, "relevance")
-    recs = get_top_k_recs(recs, k, id_type)
+        rating_column, sf.coalesce(rating_column, "relevance_fallback")
+    ).select(query_column, item_column, rating_column)
+    recs = get_top_k_recs(recs, k, query_column=query_column, rating_column=rating_column)
     return recs
 
 

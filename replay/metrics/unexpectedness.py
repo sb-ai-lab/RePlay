@@ -29,12 +29,19 @@ class Unexpectedness(RecOnlyMetric):
     """
 
     def __init__(
-        self, pred: AnyDataFrame,
+        self,
+        pred: AnyDataFrame,
+        query_column: str = "user_idx",
+        item_column: str = "item_idx",
+        rating_column: str = "relevance",
     ):  # pylint: disable=super-init-not-called
         """
         :param pred: model predictions
         """
         self.pred = convert2spark(pred)
+        self.query_column = query_column
+        self.item_column = item_column
+        self.rating_column = rating_column
 
     @staticmethod
     def _get_metric_value_by_user(k, *args) -> float:
@@ -57,19 +64,34 @@ class Unexpectedness(RecOnlyMetric):
 
         # TO DO: preprocess base_recs once in __init__
 
-        base_recs = filter_sort(base_pred).withColumnRenamed("pred", "base_pred")
+        base_recs = filter_sort(
+            base_pred,
+            query_column=self.query_column,
+            item_column=self.item_column,
+            rating_column=self.rating_column,
+        ).withColumnRenamed("pred", "base_pred")
 
         # if there are duplicates in recommendations,
         # we will leave fewer than k recommendations after sort_udf
-        recommendations = get_top_k_recs(recommendations, k=max_k)
-        recommendations = filter_sort(recommendations)
-        recommendations = recommendations.join(base_recs, how="right", on=["user_idx"])
+        recommendations = get_top_k_recs(
+            recommendations,
+            k=max_k,
+            query_column=self.query_column,
+            rating_column=self.rating_column,
+        )
+        recommendations = filter_sort(
+            recommendations,
+            query_column=self.query_column,
+            item_column=self.item_column,
+            rating_column=self.rating_column,
+        )
+        recommendations = recommendations.join(base_recs, how="right", on=[self.query_column])
 
         if ground_truth_users is not None:
             recommendations = recommendations.join(
-                ground_truth_users, on="user_idx", how="right"
+                ground_truth_users, on=self.query_column, how="right"
             )
 
         return fill_na_with_empty_array(
-            recommendations, "pred", base_pred.schema["item_idx"].dataType
+            recommendations, "pred", base_pred.schema[self.item_column].dataType
         )

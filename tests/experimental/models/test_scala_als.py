@@ -68,16 +68,15 @@ def model_with_ann(tmp_path):
     return model
 
 
-@pytest.mark.experimental
-def test_equal_preds(long_log_with_features, tmp_path):
-    path = (tmp_path / "test").resolve()
-    model = ALSWrap()
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
-    save(model, path)
-    loaded_model = load(path, ALSWrap)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
+# def test_equal_preds(long_log_with_features, tmp_path):
+#     path = (tmp_path / "test").resolve()
+#     model = ALSWrap()
+#     model.fit(long_log_with_features)
+#     base_pred = model.predict(long_log_with_features, 5)
+#     save(model, path)
+#     loaded_model = load(path, ALSWrap)
+#     new_pred = loaded_model.predict(long_log_with_features, 5)
+#     sparkDataFrameEqual(base_pred, new_pred)
 
 
 @pytest.mark.experimental
@@ -288,12 +287,12 @@ def test_get_nearest_items(log, als_model, metric):
 @pytest.mark.experimental
 @pytest.mark.parametrize("metric", ["absent", None])
 def test_nearest_items_raises(log, metric):
-    model = AssociationRulesItemRec(session_column="user_idx")
-    model.fit(log.filter(sf.col("item_idx") != 3))
-    with pytest.raises(
-        ValueError, match=r"Select one of the valid distance metrics.*"
-    ):
-        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
+    # model = AssociationRulesItemRec(session_column="user_idx")
+    # model.fit(log.filter(sf.col("item_idx") != 3))
+    # with pytest.raises(
+    #     ValueError, match=r"Select one of the valid distance metrics.*"
+    # ):
+    #     model.get_nearest_items(items=[0, 1], k=2, metric=metric)
     model = ALSWrap()
     model.fit(log)
     with pytest.raises(

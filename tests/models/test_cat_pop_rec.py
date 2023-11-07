@@ -86,23 +86,23 @@ def test_works_no_rel(spark, cat_log, requested_cats, model):
         schema="category string, item_idx int, relevance double",
     )
     feature_schema = FeatureSchema(
-            [
-                FeatureInfo(
-                    column="user_idx",
-                    feature_type=FeatureType.CATEGORICAL,
-                    feature_hint=FeatureHint.QUERY_ID,
-                ),
-                FeatureInfo(
-                    column="item_idx",
-                    feature_type=FeatureType.CATEGORICAL,
-                    feature_hint=FeatureHint.ITEM_ID,
-                ),
-                FeatureInfo(
-                    column="category",
-                    feature_type=FeatureType.CATEGORICAL,
-                ),
-            ]
-        )
+        [
+            FeatureInfo(
+                column="user_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.QUERY_ID,
+            ),
+            FeatureInfo(
+                column="item_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            FeatureInfo(
+                column="category",
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+        ]
+    )
     dataset = create_dataset(cat_log.drop("relevance"), feature_schema=feature_schema)
     model.fit(dataset)
     sparkDataFrameEqual(model.predict(requested_cats, k=3), ground_thuth)
@@ -119,28 +119,28 @@ def test_works_rel(spark, cat_log, requested_cats, model):
         schema="category string, item_idx int, relevance double",
     )
     feature_schema = FeatureSchema(
-            [
-                FeatureInfo(
-                    column="user_idx",
-                    feature_type=FeatureType.CATEGORICAL,
-                    feature_hint=FeatureHint.QUERY_ID,
-                ),
-                FeatureInfo(
-                    column="item_idx",
-                    feature_type=FeatureType.CATEGORICAL,
-                    feature_hint=FeatureHint.ITEM_ID,
-                ),
-                FeatureInfo(
-                    column="category",
-                    feature_type=FeatureType.CATEGORICAL,
-                ),
-                FeatureInfo(
-                    column="relevance",
-                    feature_type=FeatureType.NUMERICAL,
-                    feature_hint=FeatureHint.RATING,
-                ),
-            ]
-        )
+        [
+            FeatureInfo(
+                column="user_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.QUERY_ID,
+            ),
+            FeatureInfo(
+                column="item_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            FeatureInfo(
+                column="category",
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            FeatureInfo(
+                column="relevance",
+                feature_type=FeatureType.NUMERICAL,
+                feature_hint=FeatureHint.RATING,
+            ),
+        ]
+    )
     dataset = create_dataset(cat_log, feature_schema=feature_schema)
     model.fit(dataset)
     sparkDataFrameEqual(model.predict(requested_cats, k=3), ground_thuth)

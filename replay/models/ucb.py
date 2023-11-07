@@ -27,12 +27,12 @@ class UCB(NonPersonalizedRecommender):
     :math:`n_i` -- number of interactions with item :math:`i`
 
     >>> import pandas as pd
+    >>> from replay.data.dataset_utils import create_dataset
     >>> data_frame = pd.DataFrame({"user_id": [1, 2, 3, 3], "item_id": [1, 2, 1, 2], "rating": [1, 0, 0, 0]})
-    >>> from replay.utils.spark_utils import convert2spark
-    >>> data_frame = convert2spark(data_frame)
+    >>> dataset = create_dataset(data_frame)
     >>> model = UCB()
-    >>> model.fit(data_frame)
-    >>> model.predict(data_frame,k=2,users=[1,2,3,4], items=[1,2,3]
+    >>> model.fit(dataset)
+    >>> model.predict(dataset, k=2, queries=[1,2,3,4], items=[1,2,3]
     ... ).toPandas().sort_values(["user_id","rating","item_id"],
     ... ascending=[True,False,True]).reset_index(drop=True)
         user_id   item_id     rating

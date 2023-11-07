@@ -501,7 +501,7 @@ class NCISMetric(Metric):
             raise ValueError("Threshold should be positive real number")
 
     @staticmethod
-    def _softmax_by_user(df: DataFrame, col_name: str, query_column: str) -> DataFrame:
+    def _softmax_by_user(df: DataFrame, col_name: str, query_column: str = "user_idx") -> DataFrame:
         """
         Subtract minimal value (relevance) by user from `col_name`
         and apply softmax by user to `col_name`.
@@ -619,7 +619,12 @@ class NCISMetric(Metric):
         group_on = [self.item_column]
         if self.query_column in self.prev_policy_weights.columns:
             group_on.append(self.query_column)
-        recommendations = get_top_k_recs(recommendations, k=max_k)
+        recommendations = get_top_k_recs(
+            recommendations,
+            k=max_k,
+            query_column=self.query_column,
+            rating_column=self.rating_column,
+        )
 
         recommendations = recommendations.join(
             self.prev_policy_weights, on=group_on, how="left"
@@ -630,7 +635,13 @@ class NCISMetric(Metric):
         weight_type = recommendations.schema["weight"].dataType
         item_type = ground_truth.schema[self.item_column].dataType
 
-        recommendations = filter_sort(recommendations, "weight")
+        recommendations = filter_sort(
+            recommendations,
+            extra_column="weight",
+            query_column=self.query_column,
+            item_column=self.item_column,
+            rating_column=self.rating_column,
+        )
 
         if ground_truth_users is not None:
             true_items_by_users = true_items_by_users.join(
