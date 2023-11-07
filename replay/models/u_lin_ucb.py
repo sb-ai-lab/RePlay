@@ -92,7 +92,7 @@ class uLinUCB(HybridRecommender):
         return convert2spark(pred_df)
 
     def _init_params(self) -> None:
-        self._th = np.zeros((self._num_users, self._num_item_features))
+        self._theta = np.zeros((self._num_users, self._num_item_features))
         self._b = np.zeros(self._num_item_features)
         self._A = np.eye(self._num_item_features)
         self._ucb = np.zeros((self._num_users, self._num_items))
@@ -108,9 +108,9 @@ class uLinUCB(HybridRecommender):
             self._A + item_features[items_idx].T @ item_features[items_idx]
         )
         self._b = self._b + item_features[items_idx].T @ rewards
-        self._th[user_idx] = np.linalg.inv(self._A) @ self._b
+        self._theta[user_idx] = np.linalg.inv(self._A) @ self._b
 
-        self._ucb[user_idx] = self._th[
+        self._ucb[user_idx] = self._theta[
             user_idx
         ] @ item_features.T + self._alpha * np.sqrt(
             np.sum(

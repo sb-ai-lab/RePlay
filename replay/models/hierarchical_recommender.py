@@ -44,6 +44,9 @@ class HierarchicalRecommender(HybridRecommender):
     ``HybridRecommender`` classess may be passed as a ``recommender_class``.
     Need in features at ``predict()`` depends on the ``recommender_class``
     itself.
+
+    Note that current implementation relies mostly on python rather than
+    pyspark.
     """
 
     def __init__(
