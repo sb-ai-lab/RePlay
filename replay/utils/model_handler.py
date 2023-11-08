@@ -1,5 +1,7 @@
 # pylint: disable=wildcard-import,invalid-name,unused-wildcard-import,unspecified-encoding
+import os
 import json
+import pickle
 from inspect import getfullargspec
 from os.path import join
 from pathlib import Path
@@ -9,6 +11,7 @@ import pyspark.sql.types as st
 from pyspark.ml.feature import StringIndexerModel, IndexToString
 from pyspark.sql import SparkSession
 
+from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.preprocessing.data_preparator import Indexer
 from replay.models import *
 from replay.models.base_rec import BaseRecommender
@@ -215,6 +218,37 @@ def load_indexer(path: str) -> Indexer:
     )
 
     return indexer
+
+
+def save_encoder(encoder: DatasetLabelEncoder, path: Union[str, Path]) -> None:
+    """
+    Save fitted DatasetLabelEncoder to disk as a folder
+
+    :param encoder: Trained encoder
+    :param path: destination where encoder files will be stored
+    """
+    if isinstance(path, Path):
+        path = str(path)
+
+    os.makedirs(path, exist_ok=True)
+    with open(os.path.join(path, "encoder.pickle"), "wb") as cached_file:
+        pickle.dump(encoder, cached_file)
+
+
+def load_encoder(path: Union[str, Path]) -> DatasetLabelEncoder:
+    """
+    Load saved encoder from disk
+
+    :param path: path to folder
+    :return: restored DatasetLabelEncoder
+    """
+    if isinstance(path, Path):
+        path = str(path)
+
+    with open(os.path.join(path, "encoder.pickle"), "rb") as f:
+        encoder = pickle.load(f)
+
+    return encoder
 
 
 def save_splitter(splitter: Splitter, path: str, overwrite: bool = False):

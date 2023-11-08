@@ -20,6 +20,8 @@ class RandomSplitter(Splitter):
         "drop_cold_users",
         "drop_cold_items",
         "seed",
+        "query_column",
+        "item_column",
     ]
 
     # pylint: disable=too-many-arguments
@@ -29,16 +31,22 @@ class RandomSplitter(Splitter):
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         seed: Optional[int] = None,
+        query_column: str = "query_id",
+        item_column: str = "item_id"
     ):
         """
         :param test_size: test size 0 to 1
         :param drop_cold_items: flag to drop cold items from test
         :param drop_cold_users: flag to drop cold users from test
         :param seed: random seed
+        :param query_column: Name of user interaction column
+        :param item_column: Name of item interaction column
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
+            query_column=query_column,
+            item_column=item_column
         )
         self.seed = seed
         if test_size < 0 or test_size > 1:

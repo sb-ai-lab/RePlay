@@ -50,9 +50,9 @@ Popular Recommender
 ```````````````````
 .. autoclass:: replay.models.PopRec
 
-User Popular Recommender
-````````````````````````
-.. autoclass:: replay.models.UserPopRec
+Query Popular Recommender
+```````````````````````````
+.. autoclass:: replay.models.QueryPopRec
 
 Wilson Recommender
 ``````````````````
@@ -73,7 +73,7 @@ Where :math:`\hat{p}` -- is an observed fraction of positive ratings.
 
 Random Recommender
 ``````````````````
-.. autoclass:: replay.models.RandomRec
+.. autoclass:: replay.experimental.models.RandomRec
    :special-members: __init__
 
 UCB Recommender
