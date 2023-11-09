@@ -5,10 +5,11 @@ import pytest
 import numpy as np
 from pyspark.sql import functions as sf
 
-from replay.data import INTERACTIONS_SCHEMA
+from replay.data import get_interactions_schema
 from replay.experimental.models import ADMMSLIM
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
-from replay.utils.model_handler import save, load
+from replay.experimental.utils.model_handler import save
+from replay.utils.model_handler import load
 from tests.utils import (
     spark,
     log,
@@ -20,9 +21,9 @@ from tests.utils import (
 
 
 SEED = 123
+INTERACTIONS_SCHEMA = get_interactions_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
-@pytest.mark.xfail
 @pytest.mark.experimental
 def test_equal_preds(long_log_with_features, tmp_path):
     path = (tmp_path / "test").resolve()

@@ -29,7 +29,7 @@ from numpy.random import default_rng
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as sf
 
-from replay.data import REC_SCHEMA
+from replay.data import get_rec_schema
 from replay.models.base_rec import IsSavable, RecommenderCommons
 from replay.utils.session_handler import State
 from replay.utils.spark_utils import (
@@ -590,6 +590,12 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         raise NotImplementedError(
             f"item-to-item prediction is not implemented for {self}"
         )
+
+    def _save_model(self, path: str):
+        pass
+
+    def _load_model(self, path: str):
+        pass
 
 
 # pylint: disable=abstract-method
@@ -1258,8 +1264,9 @@ class NonPersonalizedRecommender(Recommender, ABC):
             / selected_item_popularity.select(sf.sum("relevance")).first()[0],
         ).toPandas()
 
+        rec_schema = get_rec_schema("user_idx", "item_idx", "relevance")
         if items_pd.shape[0] == 0:
-            return State().session.createDataFrame([], REC_SCHEMA)
+            return State().session.createDataFrame([], rec_schema)
 
         seed = self.seed
         class_name = self.__class__.__name__
@@ -1309,7 +1316,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
         else:
             recs = users.withColumn("cnt", sf.lit(min(k, items_pd.shape[0])))
 
-        return recs.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
+        return recs.groupby("user_idx").applyInPandas(grouped_map, rec_schema)
 
     # pylint: disable=too-many-arguments
     def _predict(

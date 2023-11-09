@@ -25,7 +25,8 @@ from tests.utils import (
     user_features,
     sparkDataFrameEqual,
 )
-from replay.utils.model_handler import save, load
+from replay.experimental.utils.model_handler import save
+from replay.utils.model_handler import load
 
 
 SEED = 123
@@ -68,7 +69,6 @@ def model_with_ann(tmp_path):
     return model
 
 
-@pytest.mark.xfail
 @pytest.mark.experimental
 def test_equal_preds(long_log_with_features, tmp_path):
     path = (tmp_path / "test").resolve()

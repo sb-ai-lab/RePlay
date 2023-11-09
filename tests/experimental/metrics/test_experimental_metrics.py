@@ -15,7 +15,7 @@ from pyspark.sql.types import (
     StructType, ArrayType, DoubleType
 )
 
-from replay.data import INTERACTIONS_SCHEMA, REC_SCHEMA
+from replay.data import get_interactions_schema, get_rec_schema
 from replay.experimental.metrics import *
 from replay.metrics import Coverage
 from replay.utils.distributions import item_distribution
@@ -28,6 +28,10 @@ from tests.utils import (
     sparkDataFrameEqual,
     spark,
 )
+
+
+INTERACTIONS_SCHEMA = get_interactions_schema("user_idx", "item_idx", "timestamp", "relevance")
+REC_SCHEMA = get_rec_schema("user_idx", "item_idx", "relevance")
 
 
 @pytest.fixture

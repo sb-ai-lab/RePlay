@@ -124,7 +124,7 @@ class ALSWrap(Recommender, ItemVectorModel):
             == self.fit_items.count()
         ):
             max_seen = 0
-            if filter_seen_items and dataset.interactions is not None:
+            if filter_seen_items and dataset is not None:
                 max_seen_in_log = (
                     dataset.interactions.join(queries, on=self.query_column)
                     .groupBy(self.query_column)

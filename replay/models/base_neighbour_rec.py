@@ -60,7 +60,7 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
 
     def _predict_pairs_inner(
         self,
-        interactions: DataFrame,
+        dataset: Dataset,
         filter_df: DataFrame,
         condition: Column,
         queries: DataFrame,
@@ -78,13 +78,13 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         :param queries: queries to calculate recommendations for
         :return: DataFrame ``[user_idx, item_idx, relevance]``
         """
-        if interactions is None:
+        if dataset is None:
             raise ValueError(
                 "interactions is not provided, but it is required for prediction"
             )
 
         recs = (
-            interactions.join(queries, how="inner", on=self.query_column)
+            dataset.interactions.join(queries, how="inner", on=self.query_column)
             .join(
                 self.similarity,
                 how="inner",
@@ -112,7 +112,7 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
     ) -> DataFrame:
 
         return self._predict_pairs_inner(
-            interactions=dataset.interactions,
+            dataset=dataset,
             filter_df=items.withColumnRenamed(self.item_column, "item_idx_filter"),
             condition=sf.col("item_idx_two") == sf.col("item_idx_filter"),
             queries=queries,
@@ -124,13 +124,13 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         dataset: Optional[Dataset] = None,
     ) -> DataFrame:
 
-        if dataset.interactions is None:
+        if dataset is None:
             raise ValueError(
                 "interactions is not provided, but it is required for prediction"
             )
 
         return self._predict_pairs_inner(
-            interactions=dataset.interactions,
+            dataset=dataset,
             filter_df=(
                 pairs.withColumnRenamed(
                     self.query_column, "user_idx_filter"

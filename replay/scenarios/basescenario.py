@@ -103,7 +103,7 @@ class BaseScenario(BaseRecommender):
             items=items,
             filter_seen_items=filter_seen_items,
         )
-        if dataset.interactions is not None:
+        if dataset is not None:
             cold_data = dataset.interactions.join(self.hot_queries, how="anti", on=self.query_column)
         else:
             cold_data = None

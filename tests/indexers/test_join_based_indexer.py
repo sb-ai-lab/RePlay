@@ -3,7 +3,7 @@
 import pytest
 from pyspark.sql import functions as sf
 
-from replay.preprocessing.data_preparator import (
+from replay.experimental.preprocessing.data_preparator import (
     JoinBasedIndexerEstimator,
     JoinBasedIndexerTransformer,
 )

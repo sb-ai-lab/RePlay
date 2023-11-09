@@ -26,7 +26,7 @@ from replay.models.extensions.ann.index_stores.shared_disk_index_store import (
 from replay.models.extensions.ann.index_stores.spark_files_index_store import (
     SparkFilesIndexStore,
 )
-from replay.preprocessing.data_preparator import Indexer
+from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
 from replay.utils.model_handler import save, load
 from replay.models import *
 from replay.utils.spark_utils import convert2spark
@@ -55,12 +55,16 @@ def df():
     res = pd.read_csv(
         join(folder, "../experiments/data/ml1m_ratings.dat"),
         sep="\t",
-        names=["user_id", "item_id", "relevance", "timestamp"],
+        names=["user_idx", "item_idx", "relevance", "timestamp"],
     ).head(1000)
     res = convert2spark(res)
-    indexer = Indexer()
-    indexer.fit(res, res)
-    res = indexer.transform(res)
+    encoder = LabelEncoder(
+        [
+            LabelEncodingRule("user_idx"),
+            LabelEncodingRule("item_idx"),
+        ]
+    )
+    res = encoder.fit_transform(res)
     return res
 
 
@@ -78,6 +82,18 @@ def test_equal_preds(long_log_with_features, recommender, tmp_path):
     path = (tmp_path / "test").resolve()
     dataset = create_dataset(long_log_with_features)
     model = recommender()
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+def test_random(long_log_with_features, tmp_path):
+    path = (tmp_path / "random").resolve()
+    model = RandomRec(seed=1)
+    dataset = create_dataset(long_log_with_features)
     model.fit(dataset)
     base_pred = model.predict(dataset, 5)
     save(model, path)

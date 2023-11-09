@@ -35,16 +35,16 @@ The same goes for new items.
 |Random Recommender         |Collaborative    | converted to unary ratings             | + | + |
 |K-Nearest Neighbours       |Collaborative    | converted to unary ratings             | + | - |
 |Alternating Least Squares  |Collaborative    | implicit feedback                      | - | - |
-|Neural Matrix Factorization|Collaborative    | converted to unary ratings             | - | - |
+|Neural Matrix Factorization (Experimental)|Collaborative    | converted to unary ratings             | - | - |
 |SLIM                       |Collaborative    | unary ratings, explicit feedback       | + | - |
-|ADMM SLIM                  |Collaborative    | unary ratings, explicit feedback       | + | - |
-|Mult-VAE                   |Collaborative    | converted to unary ratings             | + | - |
+|ADMM SLIM (Experimental)   |Collaborative    | unary ratings, explicit feedback       | + | - |
+|Mult-VAE (Experimental)    |Collaborative    | converted to unary ratings             | + | - |
 |Word2Vec Recommender       |Collaborative    | converted to unary ratings             | + | - |
 |Association Rules          |Collaborative    | converted to unary ratings             | + | - |
 |Cluster Recommender        |Hybrid           | converted to unary ratings             | + | - |
-|LightFM Wrap               |Hybrid           | [depends on loss](https://making.lyst.com/lightfm/docs/lightfm.html#lightfm)       | + | + |
-|Implicit Wrap              |Collaborative    | [depends on model](https://implicit.readthedocs.io/en/latest/index.html)    | - | - |
-|Two Stages Scenario        |Hybrid           | converted to unary ratings for second level    | `*` | `*` |
+|LightFM Wrap (Experimental) |Hybrid           | [depends on loss](https://making.lyst.com/lightfm/docs/lightfm.html#lightfm)       | + | + |
+|Implicit Wrap (Experimental)|Collaborative    | [depends on model](https://implicit.readthedocs.io/en/latest/index.html)    | - | - |
+|Two Stages Scenario (Experimental)|Hybrid           | converted to unary ratings for second level    | `*` | `*` |
 
 `*` - depends on base models. 
 
@@ -64,16 +64,16 @@ The same goes for new items.
 |Random Recommender           | - | + | + | + |
 |K-Nearest Neighbours         | + | + | - | + |
 |Alternating Least Squares    | + | - | - | + |
-|Neural Matrix Factorization  | + | - | - | + |
+|Neural Matrix Factorization (Experimental) | + | - | - | + |
 |SLIM                         | + | - | - | + |
-|ADMM SLIM                    | + | - | - | + |
-|Mult-VAE                     | + | - | - | + |
+|ADMM SLIM (Experimental)     | + | - | - | + |
+|Mult-VAE (Experimental)      | + | - | - | + |
 |Word2Vec Recommender         | + | - | - | + |
 |Association Rules            | + | - | - | + |
 |Cluster Recommender          | + | + | - | + |
-|LightFM  Wrap                | + | + | + | + |
-|Implicit Wrap                | + | - | - | + |
-|Two Stages Scenario          | + | `*` | `*` | `*` |
+|LightFM  Wrap (Experimental) | + | + | + | + |
+|Implicit Wrap (Experimental) | + | - | - | + |
+|Two Stages Scenario (Experimental) | + | `*` | `*` | `*` |
 
 `*` - depends on base models. 
 

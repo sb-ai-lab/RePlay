@@ -11,6 +11,7 @@ from replay.models.association_rules import AssociationRulesItemRec
 from replay.models.base_rec import Recommender
 from replay.models.knn import ItemKNN
 from replay.models.pop_rec import PopRec
+from replay.models.random_rec import RandomRec
 from replay.models.user_pop_rec import QueryPopRec
 from replay.models.slim import SLIM
 from replay.models.wilson import Wilson

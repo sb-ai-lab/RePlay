@@ -4,9 +4,12 @@ from datetime import datetime
 import pytest
 from pyspark.sql import functions as sf
 
-from replay.data import INTERACTIONS_SCHEMA
+from replay.data import get_interactions_schema
 from replay.models import PopRec
 from tests.utils import spark, create_dataset
+
+
+INTERACTIONS_SCHEMA = get_interactions_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
 @pytest.fixture

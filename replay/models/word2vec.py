@@ -258,7 +258,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         pairs: DataFrame,
         dataset: Dataset,
     ) -> DataFrame:
-        if dataset.interactions is None:
+        if dataset is None:
             raise ValueError(
                 f"interactions is not provided, {self} predict requires interactions."
             )

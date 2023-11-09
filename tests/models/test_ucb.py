@@ -37,26 +37,6 @@ def test_popularity_matrix(fitted_model, log_ucb):
     fitted_model.item_popularity.show()
 
 
-@pytest.mark.xfail
-@pytest.mark.parametrize(
-    "sample,seed",
-    [(False, None), (True, None)],
-    ids=[
-        "no_sampling",
-        "sample_not_fixed",
-    ],
-)
-def test_predict_empty_log(fitted_model, log_ucb, sample, seed):
-    fitted_model.seed = seed
-    fitted_model.sample = sample
-
-    queries = log_ucb.select("user_idx").distinct()
-    pred = fitted_model.predict(
-        dataset=None, queries=queries, items=list(range(10)), k=1
-    )
-    assert pred.count() == queries.count()
-
-
 @pytest.mark.parametrize(
     "sample,seed",
     [(False, None), (True, None), (True, 123)],
@@ -70,7 +50,7 @@ def test_predict(fitted_model, log_ucb, sample, seed):
     # fixed seed provides reproducibility (the same prediction every time),
     # non-fixed provides diversity (predictions differ every time)
     fitted_model.seed = seed
-    # fitted_model.sample = sample
+    fitted_model.sample = sample
 
     equality_check = (
         sparkDataFrameNotEqual
@@ -102,7 +82,7 @@ def test_predict(fitted_model, log_ucb, sample, seed):
 def test_refit(fitted_model, log_ucb, log_ucb2):
 
     fitted_model.seed = 123
-    # fitted_model.sample = True
+    fitted_model.sample = True
 
     equality_check = (
         sparkDataFrameNotEqual

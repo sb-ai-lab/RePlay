@@ -5,12 +5,13 @@ import numpy as np
 import pytest
 from pyspark.sql import functions as sf
 
-from replay.data import INTERACTIONS_SCHEMA
+from replay.data import get_interactions_schema
 from replay.experimental.models import LightFMWrap
 from replay.experimental.scenarios.two_stages.two_stages_scenario import (
     get_first_level_model_features,
 )
-from replay.utils.model_handler import save, load
+from replay.experimental.utils.model_handler import save
+from replay.utils.model_handler import load
 from tests.utils import (
     spark,
     log,
@@ -46,7 +47,7 @@ def log(spark):
             [2, 2, date, 2.0],
             [0, 2, date, 2.0],
         ],
-        schema=INTERACTIONS_SCHEMA,
+        schema=get_interactions_schema("user_idx", "item_idx", "timestamp", "relevance"),
     )
 
 
@@ -71,7 +72,6 @@ def model():
     return model
 
 
-@pytest.mark.xfail
 @pytest.mark.experimental
 def test_equal_preds(long_log_with_features, tmp_path):
     path = (tmp_path / "test").resolve()

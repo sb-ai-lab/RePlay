@@ -7,12 +7,9 @@ from os.path import join
 from pathlib import Path
 from typing import Union
 
-import pyspark.sql.types as st
-from pyspark.ml.feature import StringIndexerModel, IndexToString
 from pyspark.sql import SparkSession
 
 from replay.data.dataset_utils import DatasetLabelEncoder
-from replay.preprocessing.data_preparator import Indexer
 from replay.models import *
 from replay.models.base_rec import BaseRecommender
 from replay.utils.session_handler import State
@@ -147,77 +144,6 @@ def load(path: str, model_type=None) -> BaseRecommender:
     )
 
     return model
-
-
-def save_indexer(
-    indexer: Indexer, path: Union[str, Path], overwrite: bool = False
-):
-    """
-    Save fitted indexer to disk as a folder
-
-    :param indexer: Trained indexer
-    :param path: destination where indexer files will be stored
-    """
-    if isinstance(path, Path):
-        path = str(path)
-
-    spark = State().session
-
-    if not overwrite:
-        fs = get_fs(spark)
-        is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
-        if is_exists:
-            raise FileExistsError(
-                f"Path '{path}' already exists. Mode is 'overwrite = False'."
-            )
-
-    init_args = indexer._init_args
-    init_args["user_type"] = str(indexer.user_type)
-    init_args["item_type"] = str(indexer.item_type)
-    sc = spark.sparkContext
-    df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
-    df.coalesce(1).write.mode("overwrite").json(join(path, "init_args.json"))
-
-    indexer.user_indexer.write().overwrite().save(join(path, "user_indexer"))
-    indexer.item_indexer.write().overwrite().save(join(path, "item_indexer"))
-    indexer.inv_user_indexer.write().overwrite().save(
-        join(path, "inv_user_indexer")
-    )
-    indexer.inv_item_indexer.write().overwrite().save(
-        join(path, "inv_item_indexer")
-    )
-
-
-def load_indexer(path: str) -> Indexer:
-    """
-    Load saved indexer from disk
-
-    :param path: path to folder
-    :return: restored Indexer
-    """
-    spark = State().session
-    args = spark.read.json(join(path, "init_args.json")).first().asDict()
-
-    user_type = args["user_type"]
-    del args["user_type"]
-    item_type = args["item_type"]
-    del args["item_type"]
-
-    indexer = Indexer(**args)
-
-    indexer.user_type = getattr(st, user_type)()
-    indexer.item_type = getattr(st, item_type)()
-
-    indexer.user_indexer = StringIndexerModel.load(join(path, "user_indexer"))
-    indexer.item_indexer = StringIndexerModel.load(join(path, "item_indexer"))
-    indexer.inv_user_indexer = IndexToString.load(
-        join(path, "inv_user_indexer")
-    )
-    indexer.inv_item_indexer = IndexToString.load(
-        join(path, "inv_item_indexer")
-    )
-
-    return indexer
 
 
 def save_encoder(encoder: DatasetLabelEncoder, path: Union[str, Path]) -> None:

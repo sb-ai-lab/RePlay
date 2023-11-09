@@ -7,7 +7,7 @@ from replay.models import ItemKNN, PopRec
 from replay.experimental.models import ScalaALSWrap as ALSWrap, LightFMWrap
 from replay.experimental.scenarios import TwoStagesScenario
 from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
-from replay.preprocessing.data_preparator import ToNumericFeatureTransformer
+from replay.experimental.preprocessing.data_preparator import ToNumericFeatureTransformer
 from replay.experimental.scenarios.two_stages.reranker import LamaWrap
 from replay.splitters import TimeSplitter
 
@@ -44,7 +44,6 @@ def two_stages_kwargs():
     }
 
 
-@pytest.mark.xfail
 @pytest.mark.experimental
 def test_init(two_stages_kwargs):
 

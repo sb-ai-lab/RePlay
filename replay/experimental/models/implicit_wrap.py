@@ -7,7 +7,7 @@ from pyspark.sql import DataFrame
 from replay.preprocessing import CSRConverter
 from replay.experimental.models.base_rec import Recommender
 from replay.utils.spark_utils import save_picklable_to_parquet, load_pickled_from_parquet
-from replay.data import REC_SCHEMA
+from replay.data import get_rec_schema
 
 
 class ImplicitWrap(Recommender):
@@ -104,6 +104,7 @@ class ImplicitWrap(Recommender):
             data_column="relevance"
         ).transform(log)
         model = self.model
+        rec_schema = get_rec_schema("user_idx", "item_idx", "relevance")
         return (
             users.select("user_idx")
             .groupby("user_idx")
@@ -111,7 +112,7 @@ class ImplicitWrap(Recommender):
                 model=model,
                 items_to_use=items_to_use,
                 user_item_data=user_item_data,
-                filter_seen_items=filter_seen_items), REC_SCHEMA)
+                filter_seen_items=filter_seen_items), rec_schema)
         )
 
     def _predict_pairs(
@@ -123,6 +124,7 @@ class ImplicitWrap(Recommender):
     ) -> DataFrame:
 
         model = self.model
+        rec_schema = get_rec_schema("user_idx", "item_idx", "relevance")
         return pairs.groupby("user_idx").applyInPandas(
             self._pd_func(model=model, filter_seen_items=False),
-            REC_SCHEMA)
+            rec_schema)

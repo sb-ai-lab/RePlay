@@ -9,6 +9,7 @@ from replay.models import (
     ClusterRec,
     ItemKNN,
     PopRec,
+    RandomRec,
     SLIM,
     UCB,
     Wilson,
@@ -94,6 +95,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
         PopRec(),
+        RandomRec(seed=SEED),
     ],
     ids=[
         "als",
@@ -102,6 +104,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
         "word2vec",
         "association_rules",
         "pop_rec",
+        "random_rec",
     ],
 )
 def test_predict_pairs_k(log, model):
@@ -135,6 +138,58 @@ def test_predict_pairs_k(log, model):
         .count()
         > 0
     )
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ALSWrap(seed=SEED),
+        ItemKNN(),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
+        PopRec(),
+        RandomRec(seed=SEED),
+    ],
+    ids=[
+        "als",
+        "knn",
+        "slim",
+        "word2vec",
+        "association_rules",
+        "pop_rec",
+        "random_rec",
+    ],
+)
+def test_predict_empty_log(log, model):
+    dataset = create_dataset(log)
+    print(log.limit(0).show())
+    pred_dataset = create_dataset(log.limit(0))
+
+    model.fit(dataset)
+    model.predict(pred_dataset, 1)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        ItemKNN(),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
+    ],
+    ids=[
+        "knn",
+        "slim",
+        "word2vec",
+        "association_rules",
+    ],
+)
+def test_predict_pairs_raises(log, model):
+    with pytest.raises(ValueError, match="interactions is not provided,.*"):
+        dataset = create_dataset(log)
+        model.fit(dataset)
+        model.predict_pairs(log.select("user_idx", "item_idx"))
 
 
 # for NeighbourRec and ItemVectorModel
@@ -233,6 +288,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, queries):
         ItemKNN(),
         SLIM(seed=SEED),
         PopRec(),
+        RandomRec(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
     ],
@@ -241,6 +297,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, queries):
         "knn",
         "slim",
         "pop_rec",
+        "random_rec",
         "word2vec",
         "association_rules",
     ],
@@ -262,10 +319,12 @@ def test_predict_new_queries(model, long_log_with_features, user_features):
     [
         ClusterRec(num_clusters=2),
         PopRec(),
+        RandomRec(seed=SEED),
     ],
     ids=[
         "cluster",
         "pop_rec",
+        "random_rec",
     ],
 )
 def test_predict_cold_queries(model, long_log_with_features, user_features):
@@ -371,13 +430,13 @@ def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
     sparkDataFrameEqual(pred_cached, pred_from_file)
 
 
-@pytest.mark.xfail
 @pytest.mark.parametrize("add_cold_items", [True, False])
 @pytest.mark.parametrize("predict_cold_only", [True, False])
 @pytest.mark.parametrize(
     "model",
     [
         PopRec(),
+        RandomRec(seed=SEED),
         Wilson(sample=True),
         Wilson(sample=False),
         UCB(sample=True),
@@ -385,6 +444,7 @@ def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
     ],
     ids=[
         "pop_rec",
+        "random_uni",
         "wilson_sample",
         "wilson",
         "UCB_sample",
@@ -429,7 +489,9 @@ def test_add_cold_items_for_nonpersonalized(
         assert pred.count() == min(k, items.count())
         if predict_cold_only:
             assert pred.select(sf.min("item_idx")).collect()[0][0] >= num_warm
-            assert pred.select("relevance").distinct().count() == 1
+            # for RandomRec relevance of an item is equal to its inverse position in the list
+            if not isinstance(model, RandomRec):
+                assert pred.select("relevance").distinct().count() == 1
     else:
         if predict_cold_only:
             assert pred.count() == 0

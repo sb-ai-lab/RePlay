@@ -4,7 +4,7 @@ from replay.data.dataset import DataFrameLike, Dataset, FeatureHint, FeatureInfo
 from replay.utils.spark_utils import convert2spark
 
 
-# pylint: disable=too-many-arguments,
+# pylint: disable=too-many-arguments
 def create_dataset(
     interactions: DataFrameLike,
     query_features: Optional[DataFrameLike] = None,

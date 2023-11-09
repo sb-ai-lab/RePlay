@@ -11,10 +11,13 @@ from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder imp
 from replay.models.extensions.ann.index_stores.spark_files_index_store import (
     SparkFilesIndexStore,
 )
-from replay.data import INTERACTIONS_SCHEMA, Dataset
+from replay.data import Dataset, get_interactions_schema
 from replay.models import ItemKNN
 from replay.utils import convert2spark
 from tests.utils import spark, create_dataset
+
+
+INTERACTIONS_SCHEMA = get_interactions_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
 @pytest.fixture

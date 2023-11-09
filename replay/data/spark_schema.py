@@ -5,75 +5,66 @@ from pyspark.sql.types import (
     StructType,
     TimestampType,
 )
-from replay.data.dataset import Dataset
 
 
-INTERACTIONS_SCHEMA = StructType(
-    [
-        StructField("user_idx", IntegerType()),
-        StructField("item_idx", IntegerType()),
-        StructField("timestamp", TimestampType()),
-        StructField("relevance", DoubleType()),
-    ]
-)
-
-REC_SCHEMA = StructType(
-    [
-        StructField("user_idx", IntegerType()),
-        StructField("item_idx", IntegerType()),
-        StructField("relevance", DoubleType()),
-    ]
-)
-
-
-BASE_SCHEMA = StructType(
-    [
-        StructField("user_idx", IntegerType()),
-        StructField("item_idx", IntegerType()),
-    ]
-)
-
-
-def get_interactions_schema(dataset: Dataset):
+def get_interactions_schema(
+    query_column: str = "query_id",
+    item_column: str = "item_id",
+    timestamp_column: str = "timestamp",
+    rating_column: str = "rating",
+):
     """
-    Get Spark Schema with query_id, item_id, timestamp, rating columns
+    Get Spark Schema with query_id, item_id, rating, timestamp columns
 
-    :param dataset: instance of Dataset
+    :param query_column: column name with query ids
+    :param item_column: column name with item ids
+    :param timestamp_column: column name with timestamps
+    :param rating_column: column name with ratings
     """
     return StructType(
         [
-            StructField(dataset.feature_schema.query_id_column, IntegerType()),
-            StructField(dataset.feature_schema.item_id_column, IntegerType()),
-            StructField(dataset.feature_schema.interactions_timestamp_column, TimestampType()),
-            StructField(dataset.feature_schema.interactions_rating_column, DoubleType()),
+            StructField(query_column, IntegerType()),
+            StructField(item_column, IntegerType()),
+            StructField(timestamp_column, TimestampType()),
+            StructField(rating_column, DoubleType()),
         ]
     )
 
 
-def get_rec_schema(dataset: Dataset):
+def get_rec_schema(
+    query_column: str = "query_id",
+    item_column: str = "item_id",
+    rating_column: str = "rating",
+):
     """
     Get Spark Schema with query_id, item_id, rating columns
 
-    :param dataset: instance of Dataset
+    :param query_column: column name with query ids
+    :param item_column: column name with item ids
+    :param rating_column: column name with ratings
     """
     return StructType(
         [
-            StructField(dataset.feature_schema.query_id_column, IntegerType()),
-            StructField(dataset.feature_schema.item_id_column, IntegerType()),
-            StructField(dataset.feature_schema.interactions_rating_column, DoubleType()),
+            StructField(query_column, IntegerType()),
+            StructField(item_column, IntegerType()),
+            StructField(rating_column, DoubleType()),
         ]
     )
 
 
-def get_base_schema(dataset: Dataset):
+def get_base_schema(
+    query_column: str = "query_id",
+    item_column: str = "item_id",
+):
     """
     Get Spark Schema with query_id, item_id columns
 
-    :param dataset: instance of Dataset
+    :param query_column: column name with query ids
+    :param item_column: column name with item ids
     """
     return StructType(
         [
-            StructField(dataset.feature_schema.query_id_column, IntegerType()),
-            StructField(dataset.feature_schema.item_id_column, IntegerType()),
+            StructField(query_column, IntegerType()),
+            StructField(item_column, IntegerType()),
         ]
     )

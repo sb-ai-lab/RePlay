@@ -592,7 +592,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             items,
             filter_seen_items,
         )
-        if filter_seen_items and dataset:
+        if filter_seen_items and dataset is not None:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
 
         recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
@@ -760,23 +760,24 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :return: cached dataframe with columns ``[user_idx, item_idx, rating]``
             or None if `file_path` is provided
         """
-        interactions, query_features, item_features, pairs = [
-            convert2spark(df)
-            for df in [dataset.interactions, dataset.query_features, dataset.item_features, pairs]
-        ]
-        if set(pairs.columns) != set([self.item_column, self.query_column]):
-            raise ValueError(
-                "pairs must be a dataframe with columns strictly [user_idx, item_idx]"
-            )
-        pairs, interactions = self._filter_cold_for_predict(pairs, interactions, "query")
-        pairs, interactions = self._filter_cold_for_predict(pairs, interactions, "item")
+        if dataset is not None:
+            interactions, query_features, item_features, pairs = [
+                convert2spark(df)
+                for df in [dataset.interactions, dataset.query_features, dataset.item_features, pairs]
+            ]
+            if set(pairs.columns) != set([self.item_column, self.query_column]):
+                raise ValueError(
+                    "pairs must be a dataframe with columns strictly [user_idx, item_idx]"
+                )
+            pairs, interactions = self._filter_cold_for_predict(pairs, interactions, "query")
+            pairs, interactions = self._filter_cold_for_predict(pairs, interactions, "item")
 
-        dataset = Dataset(
-            feature_schema=dataset.feature_schema,
-            interactions=interactions,
-            query_features=query_features,
-            item_features=item_features,
-        )
+            dataset = Dataset(
+                feature_schema=dataset.feature_schema,
+                interactions=interactions,
+                query_features=query_features,
+                item_features=item_features,
+            )
 
         pred = self._predict_pairs(
             pairs=pairs,
@@ -1481,13 +1482,13 @@ class NonPersonalizedRecommender(Recommender, ABC):
             self.item_popularity.unpersist()
 
     @staticmethod
-    def _calc_fill(item_popularity: DataFrame, weight: float, rating_col: str) -> float:
+    def _calc_fill(item_popularity: DataFrame, weight: float, rating_column: str) -> float:
         """
         Calculating a fill value a the minimal rating
         calculated during model training multiplied by weight.
         """
         return (
-            item_popularity.select(sf.min(rating_col)).collect()[0][0]
+            item_popularity.select(sf.min(rating_column)).collect()[0][0]
             * weight
         )
 
@@ -1553,7 +1554,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
             ),
         )
 
-        if filter_seen_items and dataset.interactions is not None:
+        if filter_seen_items and dataset is not None:
             query_to_num_items = (
                 dataset.interactions.join(queries, on=self.query_column)
                 .groupBy(self.query_column)
@@ -1573,9 +1574,10 @@ class NonPersonalizedRecommender(Recommender, ABC):
             selected_item_popularity.filter(sf.col("rank") <= k)
         ).drop("rank")
 
+    # pylint: disable=too-many-locals
     def _predict_with_sampling(
         self,
-        dataset: DataFrame,
+        dataset: Dataset,
         k: int,
         queries: DataFrame,
         items: DataFrame,
@@ -1600,14 +1602,18 @@ class NonPersonalizedRecommender(Recommender, ABC):
             / selected_item_popularity.select(sf.sum(self.rating_column)).first()[0],
         ).toPandas()
 
+        rec_schema = get_rec_schema(self.query_column, self.item_column, self.rating_column)
         if items_pd.shape[0] == 0:
-            rec_schema = get_rec_schema(dataset)
             return State().session.createDataFrame([], rec_schema)
 
         seed = self.seed
+        query_column = self.query_column
+        item_column = self.item_column
+        rating_column = self.rating_column
+        class_name = self.__class__.__name__
 
         def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
-            query_idx = pandas_df[self.query_column][0]
+            query_idx = pandas_df[query_column][0]
             cnt = pandas_df["cnt"][0]
 
             if seed is not None:
@@ -1622,19 +1628,23 @@ class NonPersonalizedRecommender(Recommender, ABC):
                 replace=False,
             )
 
-            rating = items_pd["probability"].values[items_positions]
+            # workaround to unify RandomRec and UCB
+            if class_name == "RandomRec":
+                rating = 1 / np.arange(1, cnt + 1)
+            else:
+                rating = items_pd["probability"].values[items_positions]
 
             return pd.DataFrame(
                 {
-                    self.query_column: cnt * [query_idx],
-                    self.item_column: items_pd[self.item_column].values[items_positions],
-                    self.rating_column: rating,
+                    query_column: cnt * [query_idx],
+                    item_column: items_pd[item_column].values[items_positions],
+                    rating_column: rating,
                 }
             )
 
         if dataset is not None and filter_seen_items:
             recs = (
-                dataset.select(self.query_column, self.item_column)
+                dataset.interactions.select(self.query_column, self.item_column)
                 .distinct()
                 .join(queries, how="right", on=self.query_column)
                 .groupby(self.query_column)
@@ -1647,7 +1657,6 @@ class NonPersonalizedRecommender(Recommender, ABC):
         else:
             recs = queries.withColumn("cnt", sf.lit(min(k, items_pd.shape[0])))
 
-        rec_schema = get_rec_schema(dataset)
         return recs.groupby(self.query_column).applyInPandas(grouped_map, rec_schema)
 
     # pylint: disable=too-many-arguments
@@ -1662,7 +1671,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
 
         if self.sample:
             return self._predict_with_sampling(
-                dataset=dataset.interactions,
+                dataset=dataset,
                 k=k,
                 queries=queries,
                 items=items,

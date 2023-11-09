@@ -5,7 +5,7 @@ import pandas as pd
 from pyspark.sql import functions as sf
 from pyspark.sql.types import TimestampType, StringType
 
-from replay.preprocessing.data_preparator import (
+from replay.experimental.preprocessing.data_preparator import (
     DataPreparator,
     CatFeaturesTransformer,
     Indexer,

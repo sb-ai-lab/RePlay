@@ -6,11 +6,12 @@ import pyspark.sql.functions as sf
 from pyspark.sql import DataFrame
 
 from replay.data import AnyDataFrame
-from replay.preprocessing.data_preparator import ToNumericFeatureTransformer
+from replay.experimental.preprocessing.data_preparator import ToNumericFeatureTransformer
 from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.metrics import Metric, Precision
 from replay.models import PopRec
-from replay.experimental.models import ScalaALSWrap, RandomRec
+from replay.experimental.models import ScalaALSWrap
+from replay.models import RandomRec
 from replay.models.base_rec import BaseRecommender, HybridRecommender
 from replay.experimental.scenarios.two_stages.reranker import LamaWrap
 

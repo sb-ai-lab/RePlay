@@ -25,7 +25,7 @@ from d3rlpy.models.q_functions import create_q_func_factory
 from d3rlpy.preprocessing import create_scaler, create_action_scaler, create_reward_scaler
 from pyspark.sql import DataFrame, functions as sf, Window
 
-from replay.data import REC_SCHEMA
+from replay.data import get_rec_schema
 from replay.experimental.models.base_rec import Recommender
 from replay.utils.spark_utils import assert_omp_single_thread
 
@@ -301,7 +301,8 @@ class CQL(Recommender):
         # predict relevance for all available items and return them as is;
         # `filter_seen_items` and top `k` params are ignored
         self.logger.debug("Predict started")
-        return users.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
+        rec_schema = get_rec_schema("user_idx", "item_idx", "relevance")
+        return users.groupby("user_idx").applyInPandas(grouped_map, rec_schema)
 
     def _predict_pairs(
         self,
@@ -320,13 +321,14 @@ class CQL(Recommender):
             )[["user_idx", "item_idx", "relevance"]]
 
         self.logger.debug("Calculate relevance for user-item pairs")
+        rec_schema = get_rec_schema("user_idx", "item_idx", "relevance")
         return (
             pairs
             .groupBy("user_idx")
             .agg(sf.collect_list("item_idx").alias("item_idx_to_pred"))
             .join(log.select("user_idx").distinct(), on="user_idx", how="inner")
             .groupby("user_idx")
-            .applyInPandas(grouped_map, REC_SCHEMA)
+            .applyInPandas(grouped_map, rec_schema)
         )
 
     @property

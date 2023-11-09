@@ -8,10 +8,13 @@ from pyspark.sql import functions as sf
 from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
 from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
-from replay.data import INTERACTIONS_SCHEMA
+from replay.data import get_interactions_schema
 from replay.models import Word2VecRec
 from replay.utils.spark_utils import vector_dot
 from tests.utils import spark, log as log2, create_dataset
+
+
+INTERACTIONS_SCHEMA = get_interactions_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
 @pytest.fixture
