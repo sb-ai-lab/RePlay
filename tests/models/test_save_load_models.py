@@ -86,17 +86,6 @@ def test_equal_preds(long_log_with_features, recommender, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
-# def test_random(long_log_with_features, tmp_path):
-#     path = (tmp_path / "random").resolve()
-#     model = RandomRec(seed=1)
-#     model.fit(long_log_with_features)
-#     base_pred = model.predict(long_log_with_features, 5)
-#     save(model, path)
-#     loaded_model = load(path)
-#     new_pred = loaded_model.predict(long_log_with_features, 5)
-#     sparkDataFrameEqual(base_pred, new_pred)
-
-
 def test_rules(df, tmp_path):
     path = (tmp_path / "rules").resolve()
     dataset = create_dataset(df)

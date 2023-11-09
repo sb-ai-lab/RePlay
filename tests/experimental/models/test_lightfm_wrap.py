@@ -71,15 +71,17 @@ def model():
     return model
 
 
-# def test_equal_preds(long_log_with_features, tmp_path):
-#     path = (tmp_path / "test").resolve()
-#     model = LightFMWrap()
-#     model.fit(long_log_with_features)
-#     base_pred = model.predict(long_log_with_features, 5)
-#     save(model, path)
-#     loaded_model = load(path, LightFMWrap)
-#     new_pred = loaded_model.predict(long_log_with_features, 5)
-#     sparkDataFrameEqual(base_pred, new_pred)
+@pytest.mark.xfail
+@pytest.mark.experimental
+def test_equal_preds(long_log_with_features, tmp_path):
+    path = (tmp_path / "test").resolve()
+    model = LightFMWrap()
+    model.fit(long_log_with_features)
+    base_pred = model.predict(long_log_with_features, 5)
+    save(model, path)
+    loaded_model = load(path, LightFMWrap)
+    new_pred = loaded_model.predict(long_log_with_features, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
 
 
 @pytest.mark.experimental

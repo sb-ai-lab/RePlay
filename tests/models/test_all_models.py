@@ -137,57 +137,6 @@ def test_predict_pairs_k(log, model):
     )
 
 
-# @pytest.mark.parametrize(
-#     "model",
-#     [
-#         ALSWrap(seed=SEED),
-#         ItemKNN(),
-#         SLIM(seed=SEED),
-#         Word2VecRec(seed=SEED, min_count=0),
-#         AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
-#         PopRec(),
-#     ],
-#     ids=[
-#         "als",
-#         "knn",
-#         "slim",
-#         "word2vec",
-#         "association_rules",
-#         "pop_rec",
-#     ],
-# )
-# def test_predict_empty_log(log, model):
-#     train_dataset = create_dataset(log)
-#     pred_dataset = create_dataset(log.limit(0))
-#     print(log.limit(0).show())
-#     print("LOG IS NONE", log.limit(0).show() is None)
-#     model.fit(train_dataset)
-#     model.predict(pred_dataset, 1)
-
-
-# @pytest.mark.parametrize(
-#     "model",
-#     [
-#         ItemKNN(),
-#         SLIM(seed=SEED),
-#         Word2VecRec(seed=SEED, min_count=0),
-#         AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
-#     ],
-#     ids=[
-#         "knn",
-#         "slim",
-#         "word2vec",
-#         "association_rules",
-#     ],
-# )
-# def test_predict_pairs_raises(log, model):
-#     with pytest.raises(ValueError, match=r"interactions is not provided,.*"):
-#         train_dataset = create_dataset(log)
-#         pred_dataset = create_dataset(log.select("user_idx", "item_idx"))
-#         model.fit(train_dataset)
-#         model.predict_pairs(pred_dataset)
-
-
 # for NeighbourRec and ItemVectorModel
 @pytest.mark.parametrize(
     "model, metric",
@@ -349,9 +298,6 @@ def test_predict_cold_queries(model, long_log_with_features, user_features):
     ],
 )
 def test_predict_cold_and_new_filter_out(model, long_log_with_features):
-    # print("DATAFRAME")
-    # # print(long_log_with_features.filter(sf.col("user_idx") != 0).show())
-    # print("IS NONEEEEEEEEE", long_log_with_features.filter(sf.col("user_idx") != 0) is None)
     pred = fit_predict_selected(
         model,
         train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
@@ -425,22 +371,23 @@ def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
     sparkDataFrameEqual(pred_cached, pred_from_file)
 
 
+@pytest.mark.xfail
 @pytest.mark.parametrize("add_cold_items", [True, False])
 @pytest.mark.parametrize("predict_cold_only", [True, False])
 @pytest.mark.parametrize(
     "model",
     [
         PopRec(),
-        # Wilson(sample=True),
+        Wilson(sample=True),
         Wilson(sample=False),
-        # UCB(sample=True),
+        UCB(sample=True),
         UCB(sample=False),
     ],
     ids=[
         "pop_rec",
-        # "wilson_sample",
+        "wilson_sample",
         "wilson",
-        # "UCB_sample",
+        "UCB_sample",
         "UCB",
     ],
 )

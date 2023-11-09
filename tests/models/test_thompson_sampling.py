@@ -39,23 +39,24 @@ def test_tsampling_init_args(model):
     assert model._init_args["seed"] == 42
 
 
-# @pytest.mark.parametrize(
-#     "sample,seed",
-#     [(False, None), (True, None)],
-#     ids=[
-#         "no_sampling",
-#         "sample_not_fixed",
-#     ],
-# )
-# def test_predict_empty_log(fitted_model, preprocessed_log, sample, seed):
-#     fitted_model.seed = seed
-#     fitted_model.sample = sample
+@pytest.mark.xfail
+@pytest.mark.parametrize(
+    "sample,seed",
+    [(False, None), (True, None)],
+    ids=[
+        "no_sampling",
+        "sample_not_fixed",
+    ],
+)
+def test_predict_empty_log(fitted_model, preprocessed_log, sample, seed):
+    fitted_model.seed = seed
+    fitted_model.sample = sample
 
-#     queries = preprocessed_log.select("user_idx").distinct()
-#     pred = fitted_model.predict(
-#         dataset=None, queries=queries, items=list(range(10)), k=1
-#     )
-#     assert pred.count() == queries.count()
+    queries = preprocessed_log.select("user_idx").distinct()
+    pred = fitted_model.predict(
+        dataset=None, queries=queries, items=list(range(10)), k=1
+    )
+    assert pred.count() == queries.count()
 
 
 def test_predict(preprocessed_log, model):

@@ -37,23 +37,24 @@ def test_popularity_matrix(fitted_model, log_ucb):
     fitted_model.item_popularity.show()
 
 
-# @pytest.mark.parametrize(
-#     "sample,seed",
-#     [(False, None), (True, None)],
-#     ids=[
-#         "no_sampling",
-#         "sample_not_fixed",
-#     ],
-# )
-# def test_predict_empty_log(fitted_model, log_ucb, sample, seed):
-#     fitted_model.seed = seed
-#     fitted_model.sample = sample
+@pytest.mark.xfail
+@pytest.mark.parametrize(
+    "sample,seed",
+    [(False, None), (True, None)],
+    ids=[
+        "no_sampling",
+        "sample_not_fixed",
+    ],
+)
+def test_predict_empty_log(fitted_model, log_ucb, sample, seed):
+    fitted_model.seed = seed
+    fitted_model.sample = sample
 
-#     queries = log_ucb.select("user_idx").distinct()
-#     pred = fitted_model.predict(
-#         dataset=None, queries=queries, items=list(range(10)), k=1
-#     )
-#     assert pred.count() == queries.count()
+    queries = log_ucb.select("user_idx").distinct()
+    pred = fitted_model.predict(
+        dataset=None, queries=queries, items=list(range(10)), k=1
+    )
+    assert pred.count() == queries.count()
 
 
 @pytest.mark.parametrize(
