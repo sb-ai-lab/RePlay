@@ -9,7 +9,7 @@ import abc
 from typing import Dict, List, Literal, Mapping, Optional, Sequence, Union
 
 from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import functions as F
+from pyspark.sql import functions as sf
 from pyspark.storagelevel import StorageLevel
 from pyspark.sql import DataFrame as SparkDataFrame
 
@@ -152,7 +152,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         mapping_on_spark = (
             unique_col_values.rdd.zipWithIndex()
             .toDF()
-            .select(F.col(f"_1.{self._col}").alias(self._col), F.col("_2").alias(self._target_col))
+            .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
             .persist(StorageLevel.MEMORY_ONLY)
         )
 
@@ -194,7 +194,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
     def _partial_fit_spark(self, df: SparkDataFrame) -> None:
         assert self._mapping is not None
 
-        max_value = F.lit(max(self._mapping.values()) + 1)
+        max_value = sf.lit(max(self._mapping.values()) + 1)
         already_fitted = list(self._mapping.keys())
         new_values = {x[self._col] for x in df.select(self._col).distinct().collect()} - set(already_fitted)
         new_values_list = [[x] for x in new_values]
@@ -204,8 +204,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         new_data: dict = (
             new_unique_values.rdd.zipWithIndex()
             .toDF()
-            .select(F.col(f"_1.{self._col}").alias(self._col), F.col("_2").alias(self._target_col))
-            .withColumn(self._target_col, F.col(self._target_col) + max_value)
+            .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
+            .withColumn(self._target_col, sf.col(self._target_col) + max_value)
             .rdd.collectAsMap()  # type: ignore
         )
         self._mapping.update(new_data)  # type: ignore
@@ -275,9 +275,9 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             data=list(self.get_mapping().items()), schema=[self._col, self._target_col]
         )
         transformed_df = df.join(mapping_on_spark, on=self._col, how="left").withColumn(
-            "unknown_mask", F.isnull(self._target_col)
+            "unknown_mask", sf.isnull(self._target_col)
         )
-        unknown_label_count = transformed_df.select(F.sum(F.col("unknown_mask").cast("long"))).first()[
+        unknown_label_count = transformed_df.select(sf.sum(sf.col("unknown_mask").cast("long"))).first()[
             0
         ]  # type: ignore
         if unknown_label_count > 0:

@@ -13,8 +13,8 @@ from sklearn.preprocessing import MinMaxScaler
 
 from replay.data import REC_SCHEMA
 from replay.models.base_rec import HybridRecommender
+from replay.preprocessing import CSRConverter
 from replay.utils.spark_utils import (
-    to_csr,
     check_numeric,
     save_picklable_to_parquet,
     load_pickled_from_parquet,
@@ -185,7 +185,13 @@ class LightFMWrap(HybridRecommender):
         self.user_feat_scaler = None
         self.item_feat_scaler = None
 
-        interactions_matrix = to_csr(log, self._user_dim, self._item_dim)
+        interactions_matrix = CSRConverter(
+            first_dim_column="user_idx",
+            second_dim_column="item_idx",
+            data_column="relevance",
+            row_count=self._user_dim,
+            column_count=self._item_dim
+        ).transform(log)
         csr_item_features = self._feature_table_to_csr(
             log.select("item_idx").distinct(), item_features
         )
