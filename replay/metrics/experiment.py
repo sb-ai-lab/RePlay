@@ -24,13 +24,34 @@ class Experiment:
     Example:
 
     >>> import pandas as pd
-    >>> from replay.data.dataset_utils import create_dataset
+    >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
+    >>> from replay.utils import convert2spark
     >>> from replay.metrics import Coverage, NDCG, Precision, Surprisal
     >>> log = pd.DataFrame({"user_idx": [2, 2, 2, 1], "item_idx": [1, 2, 3, 3], "relevance": [5, 5, 5, 5]})
     >>> test = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [1, 2, 3], "relevance": [5, 3, 4]})
     >>> pred = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [4, 1, 3], "relevance": [5, 4, 5]})
     >>> recs = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [1, 4, 5], "relevance": [5, 4, 5]})
-    >>> test_dataset = create_dataset(test, query_column="user_idx", item_column="item_idx", rating_column="relevance")
+    >>> test_interactions = convert2spark(test)
+    >>> feature_schema = FeatureSchema(
+    ...     [
+    ...         FeatureInfo(
+    ...             column="user_idx",
+    ...             feature_type=FeatureType.CATEGORICAL,
+    ...             feature_hint=FeatureHint.QUERY_ID,
+    ...         ),
+    ...         FeatureInfo(
+    ...             column="item_idx",
+    ...             feature_type=FeatureType.CATEGORICAL,
+    ...             feature_hint=FeatureHint.ITEM_ID,
+    ...         ),
+    ...         FeatureInfo(
+    ...             column="relevance",
+    ...             feature_type=FeatureType.NUMERICAL,
+    ...             feature_hint=FeatureHint.RATING,
+    ...         ),
+    ...     ]
+    ... )
+    >>> test_dataset = Dataset(feature_schema, test_interactions)
     >>> ex = Experiment(test_dataset, {NDCG(): [2, 3], Surprisal(log): 3})
     >>> ex.add_result("baseline", recs)
     >>> ex.add_result("baseline_gt_users", recs, ground_truth_users=pd.DataFrame({"user_idx": [1, 3]}))

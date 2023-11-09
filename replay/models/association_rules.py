@@ -28,7 +28,8 @@ class AssociationRulesItemRec(NeighbourRec):
     if you set a new value for the `similarity_metric` parameter.
 
     >>> import pandas as pd
-    >>> from replay.data.dataset_utils import create_dataset
+    >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
+    >>> from replay.utils import convert2spark
     >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": [1, 2, 2, 3], "rating": [2, 1, 4, 1]})
     >>> data_frame_for_predict = pd.DataFrame({"user_id": [2], "item_id": [1]})
     >>> data_frame
@@ -37,10 +38,29 @@ class AssociationRulesItemRec(NeighbourRec):
     1         1         2          1
     2         2         2          4
     3         3         3          1
-    >>> from replay.models import AssociationRulesItemRec
-    >>> from replay.utils.spark_utils import convert2spark
-    >>> train_dataset = create_dataset(data_frame)
-    >>> pred_dataset = create_dataset(data_frame_for_predict, has_rating=False)
+    >>> interactions = convert2spark(data_frame)
+    >>> pred_interactions = convert2spark(data_frame_for_predict)
+    >>> feature_schema = FeatureSchema(
+    ...     [
+    ...         FeatureInfo(
+    ...             column="user_id",
+    ...             feature_type=FeatureType.CATEGORICAL,
+    ...             feature_hint=FeatureHint.QUERY_ID,
+    ...         ),
+    ...         FeatureInfo(
+    ...             column="item_id",
+    ...             feature_type=FeatureType.CATEGORICAL,
+    ...             feature_hint=FeatureHint.ITEM_ID,
+    ...         ),
+    ...         FeatureInfo(
+    ...             column="rating",
+    ...             feature_type=FeatureType.NUMERICAL,
+    ...             feature_hint=FeatureHint.RATING,
+    ...         ),
+    ...     ]
+    ... )
+    >>> train_dataset = Dataset(feature_schema, interactions)
+    >>> pred_dataset = Dataset(feature_schema.subset(["user_id", "item_id"]), pred_interactions)
     >>> model = AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_id")
     >>> res = model.fit(train_dataset)
     >>> model.similarity.show()
@@ -51,14 +71,14 @@ class AssociationRulesItemRec(NeighbourRec):
     |           2|           1|       0.5| 1.5|       Infinity|
     +------------+------------+----------+----+---------------+
     >>> model.similarity_metric = "confidence"
-    >>> model.predict_pairs(convert2spark(data_frame_for_predict), train_dataset).show()
+    >>> model.predict_pairs(pred_interactions, train_dataset).show()
     +-------+-------+------+
     |user_id|item_id|rating|
     +-------+-------+------+
     |      2|      1|   0.5|
     +-------+-------+------+
     >>> model.similarity_metric = "lift"
-    >>> model.predict_pairs(convert2spark(data_frame_for_predict), train_dataset).show()
+    >>> model.predict_pairs(pred_interactions, train_dataset).show()
     +-------+-------+------+
     |user_id|item_id|rating|
     +-------+-------+------+

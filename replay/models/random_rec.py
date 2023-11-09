@@ -29,14 +29,14 @@ class RandomRec(NonPersonalizedRecommender):
     >>> state = State(spark)
 
     >>> import pandas as pd
-    >>> from replay.data.dataset_utils import create_dataset
+    >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
     >>> from replay.utils.spark_utils import convert2spark
     >>>
-    >>> log = convert2spark(pd.DataFrame({
+    >>> interactions = convert2spark(pd.DataFrame({
     ...     "user_id": [1, 1, 2, 2, 3, 4],
     ...     "item_id": [1, 2, 2, 3, 3, 3]
     ... }))
-    >>> log.show()
+    >>> interactions.show()
     +-------+-------+
     |user_id|item_id|
     +-------+-------+
@@ -58,8 +58,22 @@ class RandomRec(NonPersonalizedRecommender):
      ...
     ValueError: distribution can be one of [popular_based, relevance, uniform]
 
+    >>> feature_schema = FeatureSchema(
+    ...     [
+    ...         FeatureInfo(
+    ...             column="user_id",
+    ...             feature_type=FeatureType.CATEGORICAL,
+    ...             feature_hint=FeatureHint.QUERY_ID,
+    ...         ),
+    ...         FeatureInfo(
+    ...             column="item_id",
+    ...             feature_type=FeatureType.CATEGORICAL,
+    ...             feature_hint=FeatureHint.ITEM_ID,
+    ...         ),
+    ...     ]
+    ... )
+    >>> dataset = Dataset(feature_schema, interactions)
     >>> random_pop = RandomRec(distribution="popular_based", alpha=1.0, seed=777)
-    >>> dataset = create_dataset(log, has_rating=False)
     >>> random_pop.fit(dataset)
     >>> random_pop.item_popularity.show()
     +-------+------------------+

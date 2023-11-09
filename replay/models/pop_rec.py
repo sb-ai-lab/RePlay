@@ -18,7 +18,8 @@ class PopRec(NonPersonalizedRecommender):
     :math:`N` - total number of users
 
     >>> import pandas as pd
-    >>> from replay.data.dataset_utils import create_dataset
+    >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
+    >>> from replay.utils import convert2spark
     >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 2, 3, 4], "item_id": [1, 2, 2, 3, 3, 3], "rating": [0.5, 1, 0.1, 0.8, 0.7, 1]})
     >>> data_frame
         user_id   item_id     rating
@@ -29,8 +30,27 @@ class PopRec(NonPersonalizedRecommender):
     4         3         3        0.7
     5         4         3        1.0
 
-    >>> dataset = create_dataset(data_frame)
-
+    >>> feature_schema = FeatureSchema(
+    ...     [
+    ...         FeatureInfo(
+    ...             column="user_id",
+    ...             feature_type=FeatureType.CATEGORICAL,
+    ...             feature_hint=FeatureHint.QUERY_ID,
+    ...         ),
+    ...         FeatureInfo(
+    ...             column="item_id",
+    ...             feature_type=FeatureType.CATEGORICAL,
+    ...             feature_hint=FeatureHint.ITEM_ID,
+    ...         ),
+    ...         FeatureInfo(
+    ...             column="rating",
+    ...             feature_type=FeatureType.NUMERICAL,
+    ...             feature_hint=FeatureHint.RATING,
+    ...         ),
+    ...     ]
+    ... )
+    >>> interactions = convert2spark(data_frame)
+    >>> dataset = Dataset(feature_schema, interactions)
     >>> res = PopRec().fit_predict(dataset, 1)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
         user_id   item_id     rating
