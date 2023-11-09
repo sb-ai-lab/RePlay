@@ -969,3 +969,19 @@ def dataframe_sessionizer_pandas():
     ]
 
     return df
+
+
+@pytest.fixture(scope="module")
+def session_dataset_pandas():
+    data = {
+        "user_id": [1, 1, 1, 2, 2, 2, 2, 3, 3],
+        "item_id": [1, 2, 1, 3, 5, 6, 7, 8, 9],
+        "timestamp": [10, 200, 220, 40, 55, 75, 100, 245, 350],
+    }
+
+    return pd.DataFrame(data)
+
+
+@pytest.fixture(scope="module")
+def session_dataset_spark(spark_session, session_dataset_pandas):
+    return spark_session.createDataFrame(session_dataset_pandas)

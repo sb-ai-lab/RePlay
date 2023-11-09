@@ -3,5 +3,6 @@ from replay.utils.spark_utils import (
     get_top_k,
     get_top_k_recs,
     get_log_info,
+    spark_to_pandas,
 )
 from replay.utils.session_handler import State, get_spark_session

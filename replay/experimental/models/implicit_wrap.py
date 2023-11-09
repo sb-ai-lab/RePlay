@@ -5,7 +5,8 @@ import pandas as pd
 from pyspark.sql import DataFrame
 
 from replay.models.base_rec import Recommender
-from replay.utils.spark_utils import to_csr, save_picklable_to_parquet, load_pickled_from_parquet
+from replay.utils.spark_utils import save_picklable_to_parquet, load_pickled_from_parquet
+from replay.preprocessing import CSRConverter
 from replay.data import REC_SCHEMA
 
 
@@ -54,7 +55,11 @@ class ImplicitWrap(Recommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        matrix = to_csr(log)
+        matrix = CSRConverter(
+            first_dim_column="user_idx",
+            second_dim_column="item_idx",
+            data_column="relevance"
+        ).transform(log)
         self.model.fit(matrix)
 
     @staticmethod
@@ -93,7 +98,11 @@ class ImplicitWrap(Recommender):
     ) -> DataFrame:
 
         items_to_use = items.distinct().toPandas().item_idx.tolist()
-        user_item_data = to_csr(log)
+        user_item_data = CSRConverter(
+            first_dim_column="user_idx",
+            second_dim_column="item_idx",
+            data_column="relevance"
+        ).transform(log)
         model = self.model
         return (
             users.select("user_idx")
