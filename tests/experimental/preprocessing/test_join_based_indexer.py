@@ -17,7 +17,7 @@ def log(spark):
     ).toDF("user_id", "item_id")
 
 
-def test_indexer(spark, log, tmp_path):
+def test_indexer(log):
     indexer = JoinBasedIndexerEstimator().fit(log)
     indexed_df = indexer.transform(log)
     assert (
@@ -34,7 +34,7 @@ def test_indexer(spark, log, tmp_path):
     )
 
 
-def test_inverse_transform(spark, log):
+def test_inverse_transform(log):
     indexer = JoinBasedIndexerEstimator().fit(log)
     indexed_df = indexer.transform(log)
 
@@ -118,7 +118,7 @@ def test_update_map_on_transform(spark, log):
     )
 
 
-def test_save_load(spark, log, tmp_path):
+def test_save_load(log, tmp_path):
     indexer = JoinBasedIndexerEstimator().fit(log)
     indexed_df_expected = indexer.transform(log)
 

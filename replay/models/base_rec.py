@@ -94,6 +94,10 @@ class RecommenderCommons:
 
     _logger: Optional[logging.Logger] = None
     cached_dfs: Optional[Set] = None
+    query_column: str
+    item_column: str
+    rating_column: str
+    timestamp_column: str
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
@@ -166,10 +170,6 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
     _num_items: int
     _query_dim_size: int
     _item_dim_size: int
-    item_column: str
-    query_column: str
-    rating_column: str
-    timestamp_column: str
 
     # pylint: disable=too-many-arguments, too-many-locals, no-member
     def optimize(
@@ -506,8 +506,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         items: Optional[Union[DataFrame, Iterable]] = None,
     ):
         """
-        Returns triplet of filtered `interactions`, `queries`, and `items`.
-        Filters out cold entities (queries/items) from the `queries`/`items` and `interactions` dataframes
+        Returns triplet of filtered `dataset`, `queries`, and `items`.
+        Filters out cold entities (queries/items) from the `queries`/`items` and `dataset`
         if the model does not predict cold.
         Filters out duplicates from `queries` and `items` dataframes,
         and excludes all columns except `user_idx` and `item_idx`.
@@ -522,9 +522,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             dataframe containing ``[item_idx]`` or ``array-like``;
             if ``None``, take all items from ``dataset``.
             If it contains new items, ``rating`` for them will be ``0``.
-        :param user_features: user features
-            ``[user_idx , timestamp]`` + feature columns
-        :return: triplet of filtered `dataset`, `queries`, and `items` dataframes.
+        :return: triplet of filtered `dataset`, `queries`, and `items`.
         """
         self.logger.debug("Starting predict %s", type(self).__name__)
         if dataset is not None:
@@ -622,16 +620,14 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         if the model does not predict cold.
         Warn if cold entities are present in the `main_df`.
         """
-        can_predict_cold = self._get_attr_by_entity("can_predict_cold", entity)
-        fit = self._get_attr_by_entity("fit", entity)
-        column = self._get_attr_by_entity("column", entity)
-        if getattr(self, can_predict_cold):
+        can_predict_cold = self.can_predict_cold_queries if entity == "query" else self.can_predict_cold_items
+        fit = self.fit_queries if entity == "query" else self.fit_items
+        column = self.query_column if entity == "query" else self.item_column
+        if can_predict_cold:
             return main_df, interactions_df
 
-        fit_entities = getattr(self, fit)
-
         num_new, main_df = filter_cold(
-            main_df, fit_entities, col_name=getattr(self, column)
+            main_df, fit, col_name=column
         )
         if num_new > 0:
             self.logger.info(
@@ -640,7 +636,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
                 entity,
             )
         _, interactions_df = filter_cold(
-            interactions_df, fit_entities, col_name=getattr(self, column)
+            interactions_df, fit, col_name=column
         )
         return main_df, interactions_df
 
@@ -673,13 +669,13 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         """
 
     def _get_fit_counts(self, entity: str) -> int:
-        num = self._get_attr_by_entity("num", entity)
-        fit = self._get_attr_by_entity("fit", entity)
+        num = "_num_queries" if entity == "query" else "_num_items"
+        fit = self.fit_queries if entity == "query" else self.fit_items
         if not hasattr(self, num):
             setattr(
                 self,
                 num,
-                getattr(self, fit).count(),
+                fit.count(),
             )
         return getattr(self, num)
 
@@ -698,14 +694,14 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         return self._get_fit_counts("items")
 
     def _get_fit_dims(self, entity: str) -> int:
-        dim_size = self._get_attr_by_entity("dim_size", entity)
-        fit = self._get_attr_by_entity("fit", entity)
-        column = getattr(self, self._get_attr_by_entity("column", entity))
+        dim_size = f"_{entity}_dim_size"
+        fit = self.fit_queries if entity == "query" else self.fit_items
+        column = self.query_column if entity == "query" else self.item_column
         if not hasattr(self, dim_size):
             setattr(
                 self,
                 dim_size,
-                getattr(self, fit)
+                fit
                 .agg({column: "max"})
                 .collect()[0][0]
                 + 1,
@@ -935,32 +931,6 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
                 return True
 
         return False
-
-    @staticmethod
-    def _get_attr_by_entity(attr_name: str, entity: str) -> str:
-        _base_entity_arguments = {
-            "can_predict_cold": {
-                "item": "can_predict_cold_items",
-                "query": "can_predict_cold_queries",
-            },
-            "fit": {
-                "item": "fit_items",
-                "query": "fit_queries",
-            },
-            "num": {
-                "item": "_num_items",
-                "query": "_num_queries",
-            },
-            "dim_size": {
-                "item": "_item_dim_size",
-                "query": "_query_dim_size",
-            },
-            "column": {
-                "item": "item_column",
-                "query": "query_column",
-            },
-        }
-        return _base_entity_arguments.get(attr_name).get(entity)
 
     def _save_model(self, path: str):
         save_picklable_to_parquet(

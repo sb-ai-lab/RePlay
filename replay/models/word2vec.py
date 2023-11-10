@@ -1,4 +1,3 @@
-from os.path import join
 from typing import Optional, Dict, Any
 
 from pyspark.ml.feature import Word2Vec
@@ -15,8 +14,6 @@ from replay.utils.spark_utils import (
     vector_dot,
     multiply_scala_udf,
     join_with_col_renaming,
-    save_picklable_to_parquet,
-    load_pickled_from_parquet,
 )
 from replay.data import Dataset
 
@@ -133,24 +130,12 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         #     else path_info.path
         # )
         # destination_filesystem.create_dir(target_dir_path)
-        save_picklable_to_parquet(
-            {
-                "query_column": self.query_column,
-                "item_column": self.item_column,
-                "rating_column": self.rating_column,
-                "timestamp_column": self.timestamp_column,
-            },
-            join(path, "params.dump")
-        )
+        super()._save_model(path)
         if self.index_builder:
             self._save_index(path)
 
     def _load_model(self, path: str):
-        loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
-        self.query_column = loaded_params.get("query_column")
-        self.item_column = loaded_params.get("item_column")
-        self.rating_column = loaded_params.get("rating_column")
-        self.timestamp_column = loaded_params.get("timestamp_column")
+        super()._load_model(path)
         if self.index_builder:
             self._load_index(path)
 

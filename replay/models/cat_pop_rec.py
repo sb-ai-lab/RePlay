@@ -32,9 +32,6 @@ class CatPopRec(IsSavable, RecommenderCommons):
     leaf_cat_mapping: DataFrame
     can_predict_cold_items: bool = False
     fit_items: DataFrame
-    query_column: str
-    item_column: str
-    rating_column: str
 
     def _generate_mapping(
         self, cat_tree: DataFrame, max_iter: int = 20

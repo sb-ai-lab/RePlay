@@ -35,20 +35,15 @@ class BaseScenario(BaseRecommender):
         :param dataset: input Dataset with interactions and features ``[user_id, item_id, timestamp, rating]``
         :return:
         """
-        self.query_column = dataset.feature_schema.query_id_column
-        self.item_column = dataset.feature_schema.item_id_column
-        self.rating_column = dataset.feature_schema.interactions_rating_column
-        self.timestamp_column = dataset.feature_schema.interactions_timestamp_column
+        query_column = dataset.feature_schema.query_id_column
 
-        hot_data = filter_by_min_count(dataset.interactions, self.threshold, self.query_column)
-        self.hot_queries = hot_data.select(self.query_column).distinct()
+        hot_data = filter_by_min_count(dataset.interactions, self.threshold, query_column)
+        self.hot_queries = hot_data.select(query_column).distinct()
         hot_dataset = Dataset(
             feature_schema=dataset.feature_schema,
             interactions=hot_data,
             query_features=dataset.query_features,
             item_features=dataset.item_features,
-            check_consistency=True,
-            categorical_encoded=False,
         )
         self._fit_wrap(hot_dataset)
         self.cold_model._fit_wrap(dataset)
@@ -92,8 +87,6 @@ class BaseScenario(BaseRecommender):
             interactions=hot_data,
             query_features=dataset.query_features,
             item_features=dataset.item_features,
-            check_consistency=True,
-            categorical_encoded=False,
         )
 
         hot_pred = self._predict_wrap(
@@ -114,8 +107,6 @@ class BaseScenario(BaseRecommender):
             interactions=cold_data,
             query_features=dataset.query_features,
             item_features=dataset.item_features,
-            check_consistency=True,
-            categorical_encoded=False,
         )
 
         cold_pred = self.cold_model._predict_wrap(
