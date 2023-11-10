@@ -28,19 +28,19 @@ from replay.metrics import (
 DataFrameLike = Union[SparkDataFrame, PandasDataFrame]
 
 ABS = 1e-5
-USER_COLUMN = "uid"
+QUERY_COLUMN = "uid"
 ITEM_COLUMN = "iid"
 CATEGORY_COLUMN = "cid"
-SCORE_COLUMN = "scores"
+RATING_COLUMN = "scores"
 INIT_DICT = {
-    "user_column": USER_COLUMN,
+    "query_column": QUERY_COLUMN,
     "item_column": ITEM_COLUMN,
-    "score_column": SCORE_COLUMN,
+    "rating_column": RATING_COLUMN,
 }
 DIVERSITY_DICT = {
-    "user_column": USER_COLUMN,
+    "query_column": QUERY_COLUMN,
     "category_column": CATEGORY_COLUMN,
-    "score_column": SCORE_COLUMN,
+    "rating_column": RATING_COLUMN,
 }
 
 
@@ -81,22 +81,22 @@ def test_metric_with_different_column_names(
         letters = string.ascii_letters
         return "".join(random.choice(letters) for _ in range(len))
 
-    new_user_column = generate_string()
+    new_query_column = generate_string()
     new_item_column = generate_string()
-    new_score_column = generate_string()
+    new_rating_column = generate_string()
     predict_spark = (
-        predict_spark.withColumnRenamed(USER_COLUMN, new_user_column)
+        predict_spark.withColumnRenamed(QUERY_COLUMN, new_query_column)
         .withColumnRenamed(ITEM_COLUMN, new_item_column)
-        .withColumnRenamed(SCORE_COLUMN, new_score_column)
+        .withColumnRenamed(RATING_COLUMN, new_rating_column)
     )
     gt_spark = gt_spark.withColumnRenamed(
-        USER_COLUMN, new_user_column
+        QUERY_COLUMN, new_query_column
     ).withColumnRenamed(ITEM_COLUMN, new_item_column)
     new_metric_value = metric(
         topk=[5],
-        user_column=new_user_column,
+        query_column=new_query_column,
         item_column=new_item_column,
-        score_column=new_score_column,
+        rating_column=new_rating_column,
     )(predict_spark, gt_spark)
     assert list(metric_value.values()) == approx(
         list(new_metric_value.values()), abs=ABS
@@ -382,9 +382,9 @@ def test_offline_metrics_unexpectedness_and_diversity(
     base_recs = request.getfixturevalue(base_recs)
     result = OfflineMetrics(
         metrics,
-        user_column=USER_COLUMN,
+        query_column=QUERY_COLUMN,
         category_column=ITEM_COLUMN,
-        score_column=SCORE_COLUMN,
+        rating_column=RATING_COLUMN,
         item_column=ITEM_COLUMN,
     )(
         predict_data,

@@ -70,7 +70,7 @@ base_recs_data = [
 
 @pytest.fixture(autouse=True)
 def add_dataset(doctest_namespace):
-    columns = ["user_id", "item_id", "timestamp"]
+    columns = ["query_id", "item_id", "timestamp"]
     data = [
         (1, 1, "01-01-2020"),
         (1, 2, "02-01-2020"),
@@ -95,29 +95,29 @@ def add_dataset(doctest_namespace):
 
 @pytest.fixture(autouse=True)
 def add_recommendations(doctest_namespace):
-    recommendations = pd.DataFrame(recs_data, columns=["user_id", "item_id", "score"])
+    recommendations = pd.DataFrame(recs_data, columns=["query_id", "item_id", "rating"])
     doctest_namespace["recommendations"] = recommendations
 
 
 @pytest.fixture(autouse=True)
 def add_groundtruth(doctest_namespace):
-    groundtruth = pd.DataFrame(groundtruth_data, columns=["user_id", "item_id"])
+    groundtruth = pd.DataFrame(groundtruth_data, columns=["query_id", "item_id"])
     doctest_namespace["groundtruth"] = groundtruth
 
 
 @pytest.fixture(autouse=True)
 def add_category_recommendations(doctest_namespace):
-    category_recommendations = pd.DataFrame(recs_data, columns=["user_id", "category_id", "score"])
+    category_recommendations = pd.DataFrame(recs_data, columns=["query_id", "category_id", "rating"])
     doctest_namespace["category_recommendations"] = category_recommendations
 
 
 @pytest.fixture(autouse=True)
 def add_train(doctest_namespace):
-    train = pd.DataFrame(train_data, columns=["user_id", "item_id"])
+    train = pd.DataFrame(train_data, columns=["query_id", "item_id"])
     doctest_namespace["train"] = train
 
 
 @pytest.fixture(autouse=True)
 def add_base_rec(doctest_namespace):
-    base_rec = pd.DataFrame(base_recs_data, columns=["user_id", "item_id", "score"])
+    base_rec = pd.DataFrame(base_recs_data, columns=["query_id", "item_id", "rating"])
     doctest_namespace["base_rec"] = base_rec

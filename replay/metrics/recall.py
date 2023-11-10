@@ -21,7 +21,7 @@ class Recall(Metric):
     :math:`|Rel_i|` -- the number of relevant items for user :math:`i`
 
     >>> recommendations
-        user_id  item_id  score
+       query_id  item_id  rating
     0         1        3    0.6
     1         1        7    0.5
     2         1       10    0.4
@@ -36,7 +36,7 @@ class Recall(Metric):
     11        3        9    0.5
     12        3        2    0.1
     >>> groundtruth
-        user_id  item_id
+       query_id  item_id
     0         1        5
     1         1        6
     2         1        7

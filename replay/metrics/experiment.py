@@ -22,7 +22,7 @@ class Experiment:
     Example:
 
     >>> recommendations
-        user_id  item_id  score
+       query_id  item_id  rating
     0         1        3    0.6
     1         1        7    0.5
     2         1       10    0.4
@@ -37,7 +37,7 @@ class Experiment:
     11        3        9    0.5
     12        3        2    0.1
     >>> groundtruth
-        user_id  item_id
+       query_id  item_id
     0         1        5
     1         1        6
     2         1        7
@@ -55,7 +55,7 @@ class Experiment:
     14        3        4
     15        3        5
     >>> train
-        user_id  item_id
+       query_id  item_id
     0         1        5
     1         1        6
     2         1        8
@@ -70,7 +70,7 @@ class Experiment:
     11        3        9
     12        3        2
     >>> base_rec
-        user_id  item_id  score
+       query_id  item_id  rating
     0        1        3    0.5
     1        1        7    0.5
     2        1        2    0.7
@@ -110,9 +110,9 @@ class Experiment:
         base_recommendations: Optional[
             Union[MetricsDataFrameLike, Dict[str, MetricsDataFrameLike]]
         ] = None,
-        user_column: str = "user_id",
+        query_column: str = "query_id",
         item_column: str = "item_id",
-        score_column: str = "score",
+        rating_column: str = "rating",
         category_column: str = "category_id",
     ):
         """
@@ -130,13 +130,13 @@ class Experiment:
             If dict then key represents user_ids, value represents list of tuple(item_id, score).
             If ``Unexpectedness`` is not in given metrics list, then you can omit this parameter.
             Default: ``None``.
-        :param user_column: (str): The name of the user column.
+        :param query_column: (str): The name of the user column.
             Note that you do not need to specify the value of this parameter for each metric separately.
             It is enough to specify the value of this parameter here once.
         :param item_column: (str): The name of the item column.
             Note that you do not need to specify the value of this parameter for each metric separately.
             It is enough to specify the value of this parameter here once.
-        :param score_column: (str): The name of the score column.
+        :param rating_column: (str): The name of the score column.
             Note that you do not need to specify the value of this parameter for each metric separately.
             It is enough to specify the value of this parameter here once.
         :param category_column: (str): The name of the category column.
@@ -148,9 +148,9 @@ class Experiment:
         """
         self._offline_metrics = OfflineMetrics(
             metrics=metrics,
-            user_column=user_column,
+            query_column=query_column,
             item_column=item_column,
-            score_column=score_column,
+            rating_column=rating_column,
             category_column=category_column,
         )
         self._ground_truth = ground_truth

@@ -27,7 +27,7 @@ class CategoricalDiversity(Metric):
     * average this number for all users
 
     >>> category_recommendations
-        user_id  category_id  score
+       query_id  category_id  rating
     0         1            3    0.6
     1         1            7    0.5
     2         1           10    0.4
@@ -60,9 +60,9 @@ class CategoricalDiversity(Metric):
     def __init__(
         self,
         topk: Union[List, int],
-        user_column: str = "user_id",
+        query_column: str = "query_id",
         category_column: str = "category_id",
-        score_column: str = "score",
+        rating_column: str = "rating",
         mode: CalculationDescriptor = Mean(),
     ):
         """
@@ -75,8 +75,8 @@ class CategoricalDiversity(Metric):
         """
         super().__init__(
             topk=topk,
-            user_column=user_column,
-            score_column=score_column,
+            query_column=query_column,
+            rating_column=rating_column,
             mode=mode,
         )
         self.category_column = category_column
@@ -106,8 +106,8 @@ class CategoricalDiversity(Metric):
     def _get_enriched_recommendations(
         self, recommendations: SparkDataFrame
     ) -> SparkDataFrame:
-        window = Window.partitionBy(self.user_column).orderBy(
-            F.col(self.score_column).desc()
+        window = Window.partitionBy(self.query_column).orderBy(
+            F.col(self.rating_column).desc()
         )
         sorted_by_score_recommendations = recommendations.withColumn(
             "rank", F.row_number().over(window)
@@ -118,7 +118,7 @@ class CategoricalDiversity(Metric):
         distribution_per_user = defaultdict(list)
         for k in self.topk:
             filtered_recs = recs.filter(F.col("rank") <= k)
-            aggreagated_by_user = filtered_recs.groupBy(self.user_column).agg(
+            aggreagated_by_user = filtered_recs.groupBy(self.query_column).agg(
                 F.countDistinct(self.category_column)
             )
             aggreagated_by_user_dict = (
@@ -133,9 +133,9 @@ class CategoricalDiversity(Metric):
         for k in self.topk:
             filtered_recs = recs.filter(F.col("rank") <= k)
             aggregated_by_user = (
-                filtered_recs.groupBy(self.user_column)
+                filtered_recs.groupBy(self.query_column)
                 .agg(F.countDistinct(self.category_column))
-                .drop(self.user_column)
+                .drop(self.query_column)
             )
             metrics.append(self._mode.spark(aggregated_by_user) / k)
         return self._aggregate_results(metrics)
@@ -152,8 +152,8 @@ class CategoricalDiversity(Metric):
 
     def _convert_pandas_to_dict_with_score(self, data: PandasDataFrame) -> Dict:
         return (
-            data.sort_values(by=self.score_column, ascending=False)
-            .groupby(self.user_column)[self.category_column]
+            data.sort_values(by=self.rating_column, ascending=False)
+            .groupby(self.query_column)[self.category_column]
             .apply(list)
             .to_dict()
         )

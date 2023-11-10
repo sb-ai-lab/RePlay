@@ -23,7 +23,7 @@ class Coverage(Metric):
     * divide it by the number of distinct items in the whole dataset
 
     >>> recommendations
-        user_id  item_id  score
+       query_id  item_id  rating
     0         1        3    0.6
     1         1        7    0.5
     2         1       10    0.4
@@ -38,7 +38,7 @@ class Coverage(Metric):
     11        3        9    0.5
     12        3        2    0.1
     >>> groundtruth
-        user_id  item_id
+       query_id  item_id
     0         1        5
     1         1        6
     2         1        7
@@ -64,24 +64,24 @@ class Coverage(Metric):
     def __init__(
         self,
         topk: Union[List, int],
-        user_column: str = "user_id",
+        query_column: str = "query_id",
         item_column: str = "item_id",
-        score_column: str = "score",
+        rating_column: str = "rating",
         allow_caching: bool = True,
     ) -> None:
         """
         :param topk: (list or int): Consider the highest k scores in the ranking.
-        :param user_column: (str): The name of the user column.
+        :param query_column: (str): The name of the user column.
         :param item_column: (str): The name of the item column.
-        :param score_column: (str): The name of the score column.
+        :param rating_column: (str): The name of the score column.
         :param allow_caching: (bool): The flag for using caching to optimize calculations.
             Default: ``True``.
         """
         super().__init__(
             topk=topk,
-            user_column=user_column,
+            query_column=query_column,
             item_column=item_column,
-            score_column=score_column,
+            rating_column=rating_column,
         )
         self._allow_caching = allow_caching
 
@@ -89,8 +89,8 @@ class Coverage(Metric):
     def _get_enriched_recommendations(
         self, recommendations: SparkDataFrame
     ) -> SparkDataFrame:
-        window = Window.partitionBy(self.user_column).orderBy(
-            sf.col(self.score_column).desc()
+        window = Window.partitionBy(self.query_column).orderBy(
+            sf.col(self.rating_column).desc()
         )
         sorted_by_score_recommendations = recommendations.withColumn(
             "rank", sf.row_number().over(window)

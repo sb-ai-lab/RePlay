@@ -94,9 +94,9 @@ def calculate_criterion_value(
     """
     result_dict = criterion(
         k,
-        user_column="user_idx",
+        query_column="user_idx",
         item_column="item_idx",
-        score_column="relevance",
+        rating_column="relevance",
     )(recommendations, ground_truth)
     return list(result_dict.values())[0]
 
