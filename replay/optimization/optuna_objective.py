@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Callable, Union
 
 from optuna import Trial
 from pyspark.sql import functions as sf
+from pyspark.sql import DataFrame as SparkDataFrame
 
 from replay.metrics.base_metric import Metric
 
@@ -77,11 +78,34 @@ def suggest_params(
     return res
 
 
+def calculate_criterion_value(
+    criterion: Metric,
+    k: int,
+    recommendations: SparkDataFrame,
+    ground_truth: SparkDataFrame
+) -> float:
+    """
+    Calculate criterion value for given parameters
+    :param criterion: optimization metric
+    :param k: length of a recommendation list
+    :param recommendations: calculated recommendations
+    :param ground_truth: test data
+    :return: criterion value
+    """
+    result_dict = criterion(
+        k,
+        user_column="user_idx",
+        item_column="item_idx",
+        score_column="relevance",
+    )(recommendations, ground_truth)
+    return list(result_dict.values())[0]
+
+
 def eval_quality(
     split_data: SplitData, recommender, criterion: Metric, k: int,
 ) -> float:
     """
-    Calculate criterion value for given parameters
+    Calculate criterion value using model, data and criterion parameters
     :param split_data: data to train and test model
     :param recommender: recommender model
     :param criterion: optimization metric
@@ -106,7 +130,7 @@ def eval_quality(
         item_features=split_data.item_features_test,
     )
     logger.debug("Calculating criterion")
-    criterion_value = criterion(recs, split_data.test, k)
+    criterion_value = calculate_criterion_value(criterion, k, recs, split_data.test)
     logger.debug("%s=%.6f", criterion, criterion_value)
     return criterion_value
 
@@ -206,7 +230,7 @@ class ItemKNNObjective:
         )
         logger = logging.getLogger("replay")
         logger.debug("Calculating criterion")
-        criterion_value = criterion(recs, split_data.test, k)
+        criterion_value = calculate_criterion_value(criterion, k, recs, split_data.test)
         logger.debug("%s=%.6f", criterion, criterion_value)
         return criterion_value
 

@@ -129,7 +129,7 @@ class Fallback(BaseRecommender):
         user_features: Optional[AnyDataFrame] = None,
         item_features: Optional[AnyDataFrame] = None,
         param_borders: Optional[Dict[str, Dict[str, List[Any]]]] = None,
-        criterion: Metric = NDCG(),
+        criterion: Metric = NDCG,
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,

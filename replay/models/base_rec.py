@@ -174,7 +174,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
         param_borders: Optional[Dict[str, List[Any]]] = None,
-        criterion: Metric = NDCG(),
+        criterion: Metric = NDCG,
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,

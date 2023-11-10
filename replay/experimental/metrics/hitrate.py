@@ -1,8 +1,8 @@
-from replay.experimental.metrics.base_metric import ScalaMetric
+from .base_metric import Metric
 
 
 # pylint: disable=too-few-public-methods
-class ScalaHitRate(ScalaMetric):
+class HitRate(Metric):
     """
     Percentage of users that have at least one
         correctly recommended item among top-k.
@@ -18,3 +18,10 @@ class ScalaHitRate(ScalaMetric):
     """
 
     _scala_udf_name = "getHitRateMetricValue"
+
+    @staticmethod
+    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
+        for i in pred[:k]:
+            if i in ground_truth:
+                return 1
+        return 0

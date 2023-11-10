@@ -1,184 +1,181 @@
-from typing import Any, Dict, Optional
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 
-from replay.data import AnyDataFrame, IntOrList, NumType
-from replay.utils.spark_utils import convert2spark
-from replay.metrics.base_metric import (
-    get_enriched_recommendations,
-    Metric,
-    NCISMetric,
-    RecOnlyMetric,
-)
+from .base_metric import Metric, MetricsDataFrameLike
+from .offline_metrics import OfflineMetrics
 
 
 # pylint: disable=too-few-public-methods
 class Experiment:
     """
-    This class calculates and stores metric values.
-    Initialize it with test data and a dictionary mapping metrics to their depth cut-offs.
+    The class is designed for calculating, storing and comparing metrics
+    from different models in the Pandas DataFrame format.
 
-    Results are available with ``pandas_df`` attribute.
+    The main difference from the ``OfflineMetrics`` class is that
+    ``OfflineMetrics`` are only responsible for calculating metrics.
+    The ``Experiment`` class is responsible for storing metrics from different models,
+    clear and their convenient comparison with each other.
+
+    Calculated metrics are available with ``results`` attribute.
 
     Example:
 
-    >>> import pandas as pd
-    >>> from replay.metrics import Coverage, NDCG, Precision, Surprisal
-    >>> log = pd.DataFrame({"user_idx": [2, 2, 2, 1], "item_idx": [1, 2, 3, 3], "relevance": [5, 5, 5, 5]})
-    >>> test = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [1, 2, 3], "relevance": [5, 3, 4]})
-    >>> pred = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [4, 1, 3], "relevance": [5, 4, 5]})
-    >>> recs = pd.DataFrame({"user_idx": [1, 1, 1], "item_idx": [1, 4, 5], "relevance": [5, 4, 5]})
-    >>> ex = Experiment(test, {NDCG(): [2, 3], Surprisal(log): 3})
-    >>> ex.add_result("baseline", recs)
-    >>> ex.add_result("baseline_gt_users", recs, ground_truth_users=pd.DataFrame({"user_idx": [1, 3]}))
-    >>> ex.add_result("model", pred)
+    >>> recommendations
+        user_id  item_id  score
+    0         1        3    0.6
+    1         1        7    0.5
+    2         1       10    0.4
+    3         1       11    0.3
+    4         1        2    0.2
+    5         2        5    0.6
+    6         2        8    0.5
+    7         2       11    0.4
+    8         2        1    0.3
+    9         2        3    0.2
+    10        3        4    1.0
+    11        3        9    0.5
+    12        3        2    0.1
+    >>> groundtruth
+        user_id  item_id
+    0         1        5
+    1         1        6
+    2         1        7
+    3         1        8
+    4         1        9
+    5         1       10
+    6         2        6
+    7         2        7
+    8         2        4
+    9         2       10
+    10        2       11
+    11        3        1
+    12        3        2
+    13        3        3
+    14        3        4
+    15        3        5
+    >>> train
+        user_id  item_id
+    0         1        5
+    1         1        6
+    2         1        8
+    3         1        9
+    4         1        2
+    5         2        5
+    6         2        8
+    7         2       11
+    8         2        1
+    9         2        3
+    10        3        4
+    11        3        9
+    12        3        2
+    >>> base_rec
+        user_id  item_id  score
+    0        1        3    0.5
+    1        1        7    0.5
+    2        1        2    0.7
+    3        2        5    0.6
+    4        2        8    0.6
+    5        2        3    0.3
+    6        3        4    1.0
+    7        3        9    0.5
+    >>> from replay.metrics import NDCG, Surprisal, Precision, Coverage, Median, ConfidenceInterval
+    >>> ex = Experiment([NDCG([2, 3]), Surprisal(3)], groundtruth, train)
+    >>> ex.add_result("baseline", base_rec)
+    >>> ex.add_result("model", recommendations)
     >>> ex.results
-                         NDCG@2    NDCG@3  Surprisal@3
-    baseline           0.386853  0.296082     1.000000
-    baseline_gt_users  0.193426  0.148041     0.500000
-    model              0.386853  0.530721     0.666667
+                NDCG@2    NDCG@3  Surprisal@3
+    baseline  0.204382  0.234639     0.608476
+    model     0.333333  0.489760     0.719587
     >>> ex.compare("baseline")
-                       NDCG@2  NDCG@3 Surprisal@3
-    baseline                –       –           –
-    baseline_gt_users  -50.0%  -50.0%      -50.0%
-    model                0.0%  79.25%     -33.33%
-    >>> ex = Experiment(test, {Precision(): [3]}, calc_median=True, calc_conf_interval=0.95)
-    >>> ex.add_result("baseline", recs)
-    >>> ex.add_result("model", pred)
+              NDCG@2   NDCG@3 Surprisal@3
+    baseline       –        –           –
+    model     63.09%  108.73%      18.26%
+    >>> ex = Experiment([Precision(3, mode=Median()), Precision(3, mode=ConfidenceInterval(0.95))], groundtruth)
+    >>> ex.add_result("baseline", base_rec)
+    >>> ex.add_result("model", recommendations)
     >>> ex.results
-              Precision@3  Precision@3_median  Precision@3_0.95_conf_interval
-    baseline     0.333333            0.333333                             0.0
-    model        0.666667            0.666667                             0.0
-    >>> ex = Experiment(test, {Coverage(log): 3}, calc_median=True, calc_conf_interval=0.95)
-    >>> ex.add_result("baseline", recs)
-    >>> ex.add_result("model", pred)
-    >>> ex.results
-              Coverage@3  Coverage@3_median  Coverage@3_0.95_conf_interval
-    baseline         1.0                1.0                            0.0
-    model            1.0                1.0                            0.0
+              Precision-Median@3  Precision-ConfidenceInterval@3
+    baseline            0.333333                        0.217774
+    model               0.666667                        0.217774
+    <BLANKLINE>
     """
 
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        test: Any,
-        metrics: Dict[Metric, IntOrList],
-        calc_median: bool = False,
-        calc_conf_interval: Optional[float] = None,
+        metrics: List[Metric],
+        ground_truth: MetricsDataFrameLike,
+        train: Optional[MetricsDataFrameLike] = None,
+        base_recommendations: Optional[
+            Union[MetricsDataFrameLike, Dict[str, MetricsDataFrameLike]]
+        ] = None,
+        user_column: str = "user_id",
+        item_column: str = "item_id",
+        score_column: str = "score",
+        category_column: str = "category_id",
     ):
         """
-        :param test: test DataFrame
-        :param metrics: Dictionary of metrics to calculate.
-            Key -- metric, value -- ``int`` or a list of ints.
-        :param calc_median: flag to calculate median value across users
-        :param calc_conf_interval: quantile value for the calculation of the confidence interval.
-            Resulting value is the half of confidence interval.
+        :param metrics: (list of metrics): List of metrics to be calculated.
+        :param ground_truth: (PySpark DataFrame or Pandas DataFrame or dict): test data.
+            If DataFrame then it must contains user and item columns.
+            If dict then key represents user_ids, value represents list of item_ids.
+        :param train: (PySpark DataFrame or Pandas DataFrame or dict, optional): train data.
+            If DataFrame then it must contains user and item columns.
+            If dict then key represents user_ids, value represents list of item_ids.
+            Default: ``None``.
+        :param base_recommendations: (PySpark DataFrame or Pandas DataFrame or dict or Dict[str, DataFrameLike]):
+            predictions from baseline model.
+            If DataFrame then it must contains user, item and score columns.
+            If dict then key represents user_ids, value represents list of tuple(item_id, score).
+            If ``Unexpectedness`` is not in given metrics list, then you can omit this parameter.
+            Default: ``None``.
+        :param user_column: (str): The name of the user column.
+            Note that you do not need to specify the value of this parameter for each metric separately.
+            It is enough to specify the value of this parameter here once.
+        :param item_column: (str): The name of the item column.
+            Note that you do not need to specify the value of this parameter for each metric separately.
+            It is enough to specify the value of this parameter here once.
+        :param score_column: (str): The name of the score column.
+            Note that you do not need to specify the value of this parameter for each metric separately.
+            It is enough to specify the value of this parameter here once.
+        :param category_column: (str): The name of the category column.
+            Note that you do not need to specify the value of this parameter for each metric separately.
+            It is enough to specify the value of this parameter here once.
+
+            It is used only for calculating the ``Diversity`` metric.
+            If you don't calculate this metric, you can omit this parameter.
         """
-        self.test = convert2spark(test)
+        self._offline_metrics = OfflineMetrics(
+            metrics=metrics,
+            user_column=user_column,
+            item_column=item_column,
+            score_column=score_column,
+            category_column=category_column,
+        )
+        self._ground_truth = ground_truth
+        self._train = train
+        self._base_recommendations = base_recommendations
         self.results = pd.DataFrame()
-        self.metrics = metrics
-        self.calc_median = calc_median
-        self.calc_conf_interval = calc_conf_interval
 
     def add_result(
         self,
         name: str,
-        pred: AnyDataFrame,
-        ground_truth_users: Optional[AnyDataFrame] = None,
+        recommendations: MetricsDataFrameLike,
     ) -> None:
         """
         Calculate metrics for predictions
 
         :param name: name of the run to store in the resulting DataFrame
-        :param pred: model recommendations
-        :param ground_truth_users: list of users to consider in metric calculation.
-            if None, only the users from ground_truth are considered.
+        :param recommendations: (PySpark DataFrame or Pandas DataFrame or dict): model predictions.
+            If DataFrame then it must contains user, item and score columns.
+            If dict then key represents user_ids, value represents list of tuple(item_id, score).
         """
-        max_k = 0
-        for current_k in self.metrics.values():
-            max_k = max(
-                (*current_k, max_k)
-                if isinstance(current_k, list)
-                else (current_k, max_k)
-            )
-
-        recs = get_enriched_recommendations(
-            pred, self.test, max_k, ground_truth_users
-        ).cache()
-        for metric, k_list in sorted(
-            self.metrics.items(), key=lambda x: str(x[0])
-        ):
-            enriched = None
-            if isinstance(metric, (RecOnlyMetric, NCISMetric)):
-                enriched = metric._get_enriched_recommendations(
-                    pred, self.test, max_k, ground_truth_users
-                )
-            values, median, conf_interval = self._calculate(
-                metric, enriched or recs, k_list
-            )
-
-            if isinstance(k_list, int):
-                self._add_metric(  # type: ignore
-                    name,
-                    metric,
-                    k_list,
-                    values,  # type: ignore
-                    median,  # type: ignore
-                    conf_interval,  # type: ignore
-                )
-            else:
-                for k, val in sorted(values.items(), key=lambda x: x[0]):
-                    self._add_metric(
-                        name,
-                        metric,
-                        k,
-                        val,
-                        None if median is None else median[k],
-                        None if conf_interval is None else conf_interval[k],
-                    )
-        recs.unpersist()
-
-    def _calculate(self, metric, enriched, k_list):
-        median = None
-        conf_interval = None
-        values = metric._mean(enriched, k_list)
-        if self.calc_median:
-            median = metric._median(enriched, k_list)
-        if self.calc_conf_interval is not None:
-            conf_interval = metric._conf_interval(
-                enriched, k_list, self.calc_conf_interval
-            )
-        return values, median, conf_interval
-
-    # pylint: disable=too-many-arguments
-    def _add_metric(
-        self,
-        name: str,
-        metric: Metric,
-        k: int,
-        value: NumType,
-        median: Optional[NumType],
-        conf_interval: Optional[NumType],
-    ):
-        """
-        Add metric for a specific k
-
-        :param name: name to save results
-        :param metric: metric object
-        :param k: length of the recommendation list
-        :param value: metric value
-        :param median: median value
-        :param conf_interval: confidence interval value
-        """
-        self.results.at[name, f"{metric}@{k}"] = value  # type: ignore
-        if median is not None:
-            self.results.at[
-                name, f"{metric}@{k}_median"
-            ] = median  # type: ignore
-        if conf_interval is not None:
-            self.results.at[
-                name, f"{metric}@{k}_{self.calc_conf_interval}_conf_interval"
-            ] = conf_interval
+        cur_metrics = self._offline_metrics(
+            recommendations, self._ground_truth, self._train, self._base_recommendations
+        )
+        for metric, value in cur_metrics.items():
+            self.results.at[name, metric] = value
 
     # pylint: disable=not-an-iterable
     def compare(self, name: str) -> pd.DataFrame:
@@ -190,17 +187,13 @@ class Experiment:
         """
         if name not in self.results.index:
             raise ValueError(f"No results for model {name}")
-        columns = [
-            column for column in self.results.columns if column[-1].isdigit()
-        ]
+        columns = [column for column in self.results.columns if column[-1].isdigit()]
         data_frame = self.results[columns].copy()
         baseline = data_frame.loc[name]
         for idx in data_frame.index:
             if idx != name:
                 diff = data_frame.loc[idx] / baseline - 1
-                data_frame.loc[idx] = [
-                    str(round(v * 100, 2)) + "%" for v in diff
-                ]
+                data_frame.loc[idx] = [str(round(v * 100, 2)) + "%" for v in diff]
             else:
                 data_frame.loc[name] = ["–"] * len(baseline)
         return data_frame
