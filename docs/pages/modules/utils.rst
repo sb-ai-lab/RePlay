@@ -37,15 +37,3 @@ You can plot the result. Here is the example for MovieLens log.
 .. image:: /images/item_pop.jpg
 
 .. autofunction:: replay.utils.distributions.plot_item_dist
-
-
-User Distribution
--------------------------------------------------------------------
-
-.. automethod:: replay.metrics.base_metric.Metric.user_distribution
-
-If you plot this, you can get something like
-
-.. image:: /images/user_dist.jpg
-
-.. autofunction:: replay.utils.distributions.plot_user_dist

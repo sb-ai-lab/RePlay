@@ -1,8 +1,10 @@
-from replay.experimental.metrics.base_metric import ScalaMetric
+import math
+
+from .base_metric import Metric
 
 
 # pylint: disable=too-few-public-methods
-class ScalaNDCG(ScalaMetric):
+class NDCG(Metric):
     """
     Normalized Discounted Cumulative Gain is a metric
     that takes into account positions of relevant items.
@@ -34,3 +36,15 @@ class ScalaNDCG(ScalaMetric):
     """
 
     _scala_udf_name = "getNDCGMetricValue"
+
+    @staticmethod
+    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
+        if len(pred) == 0 or len(ground_truth) == 0:
+            return 0.0
+        pred_len = min(k, len(pred))
+        ground_truth_len = min(k, len(ground_truth))
+        denom = [1 / math.log2(i + 2) for i in range(k)]
+        dcg = sum(denom[i] for i in range(pred_len) if pred[i] in ground_truth)
+        idcg = sum(denom[:ground_truth_len])
+
+        return dcg / idcg
