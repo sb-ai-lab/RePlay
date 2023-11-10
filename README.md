@@ -2,7 +2,7 @@
 
 RePlay is a library providing tools for all stages of creating a recommendation system, from data preprocessing to model evaluation and comparison.
 
-RePlay uses PySpark to handle big data.
+RePlay can use PySpark to handle big data.
 
 You can
 
@@ -27,14 +27,21 @@ Documentation is available [here](https://sb-ai-lab.github.io/RePlay/).
 <a name="installation"></a>
 ## Installation
 
-Use Linux machine with Python 3.7-3.9, Java 8+ and C++ compiler.
+Installation via `pip` package manager is recommended by default:
 
 ```bash
 pip install replay-rec
 ```
 
-To get the latest development version or RePlay, [install it from the GitHab repository](https://sb-ai-lab.github.io/RePlay/pages/installation.html#development).
-It is preferable to use a virtual environment for your installation.
+By default `experimental` submodule is not installed, if you need this functionality please specify the version with `rc0` suffix.
+
+For example:
+
+```bash
+pip install replay-rec==XX.YY.ZZrc0
+```
+
+To build RePlay from sources please use the [instruction](CONTRIBUTING.md#installing-from-the-source).
 
 If you encounter an error during RePlay installation, check the [troubleshooting](https://sb-ai-lab.github.io/RePlay/pages/installation.html#troubleshooting) guide.
 
@@ -47,29 +54,31 @@ from rs_datasets import MovieLens
 
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
 from replay.data.dataset_utils import DatasetLabelEncoder
-from replay.metrics import HitRate, NDCG
+from replay.metrics import HitRate, NDCG, Experiment
 from replay.models import ItemKNN
 from replay.utils import convert2spark
 from replay.utils.session_handler import State
-from replay.splitters import TwoStageSplitter
+from replay.splitters import RatioSplitter
 
 spark = State().session
 
 ml_1m = MovieLens("1m")
+K=10
 
 # data preprocessing
 interactions = convert2spark(ml_1m.ratings)
 
 # data splitting
-user_splitter = TwoStageSplitter(
-    second_divide_size=10,
-    first_divide_size=500,
+splitter = RatioSplitter(
+    test_size=0.3,
+    divide_column="user_id",
+    query_column="user_id",
+    item_column="item_id",
+    timestamp_column="timestamp",
     drop_cold_items=True,
     drop_cold_users=True,
-    shuffle=True,
-    seed=42,
 )
-train, test = user_splitter.split(interactions)
+train, test = splitter.split(interactions)
 
 # dataset creating
 feature_schema = FeatureSchema(
@@ -78,13 +87,11 @@ feature_schema = FeatureSchema(
             column="user_id",
             feature_type=FeatureType.CATEGORICAL,
             feature_hint=FeatureHint.QUERY_ID,
-            cardinality=total_user_count,
         ),
         FeatureInfo(
             column="item_id",
             feature_type=FeatureType.CATEGORICAL,
             feature_hint=FeatureHint.ITEM_ID,
-            cardinality=total_item_count,
         ),
         FeatureInfo(
             column="rating",
@@ -118,16 +125,25 @@ model = ItemKNN()
 model.fit(train_dataset)
 
 # model inference
-recs = model.predict(
+encoded_recs = model.predict(
     dataset=train_dataset,
     k=K,
-    users=test_dataset.query_ids,
+    queries=test_dataset.query_ids,
     filter_seen_items=True,
 )
 
+recs = encoder.query_and_item_id_encoder.inverse_transform(encoded_recs)
+
 # model evaluation
-metrics = Experiment(test_dataset,  {NDCG(): K, HitRate(): K})
-metrics.add_result("knn", recs)
+metrics = Experiment(
+    [NDCG(K), HitRate(K)],
+    test,
+    query_column="user_id",
+    item_column="item_id",
+    rating_column="rating",
+)
+metrics.add_result("ItemKNN", recs)
+print(metrics.results)
 ```
 
 <a name="examples"></a>

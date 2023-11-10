@@ -19,6 +19,14 @@ Convert input data to csr sparse matrix.
     :members:
 
 
+Sessionizer
+___________________
+Create and filter sessions from given interactions.
+
+.. autoclass:: replay.preprocessing.sessionizer.Sessionizer
+    :members:
+
+
 Padder (Experimental)
 __________________________
 Pad array columns in dataframe.
@@ -33,15 +41,6 @@ Creating sequences for sequential models.
 
 .. autoclass:: replay.experimental.preprocessing.sequence_generator.SequenceGenerator
     :members:
-
-
-Sessionizer
-___________________
-Create and filter sessions from given interactions.
-
-.. autoclass:: replay.preprocessing.sessionizer.Sessionizer
-    :members:
-
 
 
 Data Preparation (Experimental)
