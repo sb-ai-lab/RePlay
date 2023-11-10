@@ -517,19 +517,25 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :param k: number of recommendations for each user
         :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all queries from ``log``
+            if ``None``, recommend to all queries from ``dataset``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``dataset``.
             If it contains new items, ``rating`` for them will be ``0``.
         :param user_features: user features
             ``[user_idx , timestamp]`` + feature columns
-        :return: triplet of filtered `log`, `queries`, and `items` dataframes.
+        :return: triplet of filtered `dataset`, `queries`, and `items` dataframes.
         """
         self.logger.debug("Starting predict %s", type(self).__name__)
-        query_data = queries or dataset.interactions or dataset.query_features or self.fit_queries
+        if dataset is not None:
+            query_data = queries or dataset.interactions or dataset.query_features or self.fit_queries
+            interactions = dataset.interactions
+        else:
+            query_data = queries or self.fit_queries
+            interactions = None
+
         queries = get_unique_entities(query_data, self.query_column)
-        queries, interactions = self._filter_cold_for_predict(queries, dataset.interactions, "query")
+        queries, interactions = self._filter_cold_for_predict(queries, interactions, "query")
 
         item_data = items or self.fit_items
         items = get_unique_entities(item_data, self.item_column)
@@ -539,13 +545,14 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             message = f"k = {k} > number of items = {num_items}"
             self.logger.debug(message)
 
-        dataset = Dataset(
-            feature_schema=dataset.feature_schema,
-            interactions=interactions,
-            query_features=dataset.query_features,
-            item_features=dataset.item_features,
-            check_consistency=False,
-        )
+        if dataset is not None:
+            dataset = Dataset(
+                feature_schema=dataset.feature_schema,
+                interactions=interactions,
+                query_features=dataset.query_features,
+                item_features=dataset.item_features,
+                check_consistency=False,
+            )
         return dataset, queries, items
 
     # pylint: disable=too-many-arguments
@@ -566,16 +573,16 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :param k: number of recommendations for each user
         :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all queries from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``interactions``.
             If it contains new items, ``rating`` for them will be ``0``.
         :param user_features: user features
             ``[user_idx , timestamp]`` + feature columns
         :param item_features: item features
             ``[item_idx , timestamp]`` + feature columns
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
         :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
@@ -655,12 +662,12 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :param k: number of recommendations for each user
         :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all queries from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``interactions``.
             If it contains new items, ``rating`` for them will be ``0``.
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :return: recommendation dataframe
             ``[user_idx, item_idx, rating]``
         """
@@ -1120,12 +1127,12 @@ class HybridRecommender(BaseRecommender, ABC):
         :param k: number of recommendations for each query
         :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all queries from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``interactions``.
             If it contains new items, ``rating`` for them will be ``0``.
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
         :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
@@ -1158,12 +1165,12 @@ class HybridRecommender(BaseRecommender, ABC):
         :param k: number of recommendations for each query
         :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all queries from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``interactions``.
             If it contains new items, ``rating`` for them will be ``0``.
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
         :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
@@ -1251,12 +1258,12 @@ class Recommender(BaseRecommender, ABC):
         :param k: number of recommendations for each query
         :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all queries from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``interactions``.
             If it contains new items, ``rating`` for them will be ``0``.
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
         :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
@@ -1317,12 +1324,12 @@ class Recommender(BaseRecommender, ABC):
         :param k: number of recommendations for each query
         :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all queries from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``interactions``.
             If it contains new items, ``rating`` for them will be ``0``.
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
         :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
@@ -1383,12 +1390,12 @@ class QueryRecommender(BaseRecommender, ABC):
         :param k: number of recommendations for each query
         :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all queries from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``interactions``.
             If it contains new items, ``rating`` for them will be ``0``.
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
         :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``

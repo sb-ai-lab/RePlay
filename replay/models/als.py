@@ -38,10 +38,10 @@ class ALSWrap(Recommender, ItemVectorModel):
         :param seed: random seed
         :param num_item_blocks: number of blocks the items will be partitioned into in order
             to parallelize computation.
-            if None then will be init with number of partitions of log.
+            if None then will be init with number of partitions of interactions.
         :param num_query_blocks: number of blocks the queries will be partitioned into in order
             to parallelize computation.
-            if None then will be init with number of partitions of log.
+            if None then will be init with number of partitions of interactions.
         """
         self.rank = rank
         self.implicit_prefs = implicit_prefs
@@ -125,14 +125,14 @@ class ALSWrap(Recommender, ItemVectorModel):
         ):
             max_seen = 0
             if filter_seen_items and dataset is not None:
-                max_seen_in_log = (
+                max_seen_in_interactions = (
                     dataset.interactions.join(queries, on=self.query_column)
                     .groupBy(self.query_column)
                     .agg(sf.count(self.query_column).alias("num_seen"))
                     .select(sf.max("num_seen"))
                     .collect()[0][0]
                 )
-                max_seen = max_seen_in_log if max_seen_in_log is not None else 0
+                max_seen = max_seen_in_interactions if max_seen_in_interactions is not None else 0
 
             recs_als = self.model.recommendForUserSubset(queries, k + max_seen)
             return (

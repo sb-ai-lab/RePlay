@@ -160,7 +160,7 @@ class UCB(NonPersonalizedRecommender):
 
         self._check_rating(dataset)
 
-        # aggregate new log part
+        # aggregate new interactions part
         items_counts_aggr = dataset.interactions.groupby(self.item_column).agg(
             sf.sum(self.rating_column).alias("pos"),
             sf.count(self.rating_column).alias("total"),
@@ -174,7 +174,7 @@ class UCB(NonPersonalizedRecommender):
                 sf.sum("total").alias("total"),
             )
         )
-        # sum old and new log lengths
+        # sum old and new interactions lengths
         self.full_count += dataset.interactions.count()
 
         self._calc_item_popularity()

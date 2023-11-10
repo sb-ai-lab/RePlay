@@ -71,12 +71,12 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         It allows to implement both ``predict_pairs`` and usual ``predict``@k.
 
         :param interactions: historical interactions, DataFrame
-            ``[user_idx, item_idx, timestamp, relevance]``.
+            ``[user_id, item_id, timestamp, rating]``.
         :param filter_df: DataFrame use to filter items:
             ``[item_idx_filter]`` or ``[user_idx_filter, item_idx_filter]``.
         :param condition: condition used for inner join with ``filter_df``
         :param queries: queries to calculate recommendations for
-        :return: DataFrame ``[user_idx, item_idx, relevance]``
+        :return: DataFrame ``[user_id, item_id, rating]``
         """
         if dataset is None:
             raise ValueError(

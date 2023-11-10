@@ -45,9 +45,11 @@ If you encounter an error during RePlay installation, check the [troubleshooting
 ```python
 from rs_datasets import MovieLens
 
-from replay.preprocessing.data_preparator import DataPreparator, Indexer
+from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
+from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.metrics import HitRate, NDCG
 from replay.models import ItemKNN
+from replay.utils import convert2spark
 from replay.utils.session_handler import State
 from replay.splitters import TwoStageSplitter
 
@@ -56,19 +58,7 @@ spark = State().session
 ml_1m = MovieLens("1m")
 
 # data preprocessing
-preparator = DataPreparator()
-log = preparator.transform(
-    columns_mapping={
-        'user_id': 'user_id',
-        'item_id': 'item_id',
-        'relevance': 'rating',
-        'timestamp': 'timestamp'
-    }, 
-    data=ml_1m.ratings
-)
-indexer = Indexer(user_col='user_id', item_col='item_id')
-indexer.fit(users=log.select('user_id'), items=log.select('item_id'))
-log_replay = indexer.transform(df=log)
+interactions = convert2spark(ml_1m.ratings)
 
 # data splitting
 user_splitter = TwoStageSplitter(
@@ -79,22 +69,64 @@ user_splitter = TwoStageSplitter(
     shuffle=True,
     seed=42,
 )
-train, test = user_splitter.split(log_replay)
+train, test = user_splitter.split(interactions)
+
+# dataset creating
+feature_schema = FeatureSchema(
+    [
+        FeatureInfo(
+            column="user_id",
+            feature_type=FeatureType.CATEGORICAL,
+            feature_hint=FeatureHint.QUERY_ID,
+            cardinality=total_user_count,
+        ),
+        FeatureInfo(
+            column="item_id",
+            feature_type=FeatureType.CATEGORICAL,
+            feature_hint=FeatureHint.ITEM_ID,
+            cardinality=total_item_count,
+        ),
+        FeatureInfo(
+            column="rating",
+            feature_type=FeatureType.NUMERICAL,
+            feature_hint=FeatureHint.RATING,
+        ),
+        FeatureInfo(
+            column="timestamp",
+            feature_type=FeatureType.NUMERICAL,
+            feature_hint=FeatureHint.TIMESTAMP,
+        ),
+    ]
+)
+
+train_dataset = Dataset(
+    feature_schema=feature_schema,
+    interactions=train,
+)
+test_dataset = Dataset(
+    feature_schema=feature_schema,
+    interactions=test,
+)
+
+# data encoding
+encoder = DatasetLabelEncoder()
+train_dataset = encoder.fit_transform(train_dataset)
+test_dataset = encoder.transform(test_dataset)
 
 # model training
 model = ItemKNN()
-model.fit(train)
+model.fit(train_dataset)
 
 # model inference
 recs = model.predict(
-    log=train,
+    dataset=train_dataset,
     k=K,
-    users=test.select('user_idx').distinct(),
+    users=test_dataset.query_ids,
     filter_seen_items=True,
 )
 
 # model evaluation
-metrics = Experiment(test,  {NDCG(): K, HitRate(): K})
+metrics = Experiment(test_dataset,  {NDCG(): K, HitRate(): K})
 metrics.add_result("knn", recs)
 ```
 
