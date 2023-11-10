@@ -23,7 +23,7 @@ class OfflineMetrics:
 
     >>> from replay.metrics import *
     >>> recommendations
-        user_id  item_id  score
+       query_id  item_id  rating
     0         1        3    0.6
     1         1        7    0.5
     2         1       10    0.4
@@ -38,7 +38,7 @@ class OfflineMetrics:
     11        3        9    0.5
     12        3        2    0.1
     >>> groundtruth
-        user_id  item_id
+       query_id  item_id
     0         1        5
     1         1        6
     2         1        7
@@ -56,7 +56,7 @@ class OfflineMetrics:
     14        3        4
     15        3        5
     >>> train
-        user_id  item_id
+        query_id  item_id
     0         1        5
     1         1        6
     2         1        8
@@ -71,7 +71,7 @@ class OfflineMetrics:
     11        3        9
     12        3        2
     >>> base_rec
-        user_id  item_id  score
+       query_id  item_id  rating
     0        1        3    0.5
     1        1        7    0.5
     2        1        2    0.7
@@ -148,9 +148,9 @@ class OfflineMetrics:
     def __init__(
         self,
         metrics: List[Metric],
-        user_column: str = "user_id",
+        query_column: str = "query_id",
         item_column: str = "item_id",
-        score_column: str = "score",
+        rating_column: str = "rating",
         category_column: str = "category_id",
         allow_caching: bool = True,
     ):
@@ -180,9 +180,9 @@ class OfflineMetrics:
         self._allow_caching = allow_caching
 
         for metric in metrics:
-            metric.user_column = user_column
+            metric.query_column = query_column
             metric.item_column = item_column
-            metric.score_column = score_column
+            metric.rating_column = rating_column
             if metric.__class__.__name__ in ["Unexpectedness"]:
                 self.unexpectedness_metric.append(metric)
             elif metric.__class__.__name__ in ["CategoricalDiversity"]:
@@ -202,14 +202,14 @@ class OfflineMetrics:
         if len(self.main_metrics) == 0:
             return {}, train
         result_dict = {}
-        user_column = self.main_metrics[0].user_column
+        query_column = self.main_metrics[0].query_column
         item_column = self.main_metrics[0].item_column
-        score_column = self.main_metrics[0].score_column
+        rating_column = self.main_metrics[0].rating_column
         default_metric = Recall(
             topk=2,
-            user_column=user_column,
+            query_column=query_column,
             item_column=item_column,
-            score_column=score_column,
+            rating_column=rating_column,
         )
         default_metric._check_duplicates_spark(recommendations)
         unchanged_recs = recommendations
@@ -225,18 +225,18 @@ class OfflineMetrics:
                 # pylint: disable=protected-access
                 result_dict["Coverage"] = Coverage(
                     topk=2,
-                    user_column=user_column,
+                    query_column=query_column,
                     item_column=item_column,
-                    score_column=score_column,
+                    rating_column=rating_column,
                 )._get_enriched_recommendations(recommendations)
 
             # find Novelty
             if metric.__class__.__name__ == "Novelty" and train is not None:
                 novelty_metric = Novelty(
                     topk=2,
-                    user_column=user_column,
+                    query_column=query_column,
                     item_column=item_column,
-                    score_column=score_column,
+                    rating_column=rating_column,
                 )
                 cur_recs = novelty_metric._get_enriched_recommendations(
                     unchanged_recs, train
@@ -248,9 +248,9 @@ class OfflineMetrics:
             if metric.__class__.__name__ == "Surprisal" and train is not None:
                 result_dict["Surprisal"] = Surprisal(
                     topk=2,
-                    user_column=user_column,
+                    query_column=query_column,
                     item_column=item_column,
-                    score_column=score_column,
+                    rating_column=rating_column,
                 )._get_enriched_recommendations(unchanged_recs, train)
 
         return result_dict, train

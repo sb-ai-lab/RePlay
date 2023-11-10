@@ -27,16 +27,16 @@ class Metric(ABC):
     def __init__(  # pylint: disable=too-many-arguments
         self,
         topk: Union[List[int], int],
-        user_column: str = "user_id",
+        query_column: str = "query_id",
         item_column: str = "item_id",
-        score_column: str = "score",
+        rating_column: str = "rating",
         mode: CalculationDescriptor = Mean(),
     ) -> None:
         """
         :param topk: (list or int): Consider the highest k scores in the ranking.
-        :param user_column: (str): The name of the user column.
+        :param query_column: (str): The name of the user column.
         :param item_column: (str): The name of the item column.
-        :param score_column: (str): The name of the score column.
+        :param rating_column: (str): The name of the score column.
         :param mode: (CalculationDescriptor): class for calculating aggregation metrics.
             Default: ``Mean``.
         """
@@ -49,9 +49,9 @@ class Metric(ABC):
         else:
             raise ValueError("topk not list or int")
         self.topk = sorted(topk)
-        self.user_column = user_column
+        self.query_column = query_column
         self.item_column = item_column
-        self.score_column = score_column
+        self.rating_column = rating_column
         self._mode = mode
 
     @property
@@ -82,7 +82,7 @@ class Metric(ABC):
 
     def _check_duplicates_spark(self, recommendations: SparkDataFrame) -> None:
         duplicates_count = (
-            recommendations.groupBy(self.user_column, self.item_column)
+            recommendations.groupBy(self.query_column, self.item_column)
             .count()
             .filter("count >= 2")
             .count()
@@ -140,8 +140,8 @@ class Metric(ABC):
 
     def _convert_pandas_to_dict_with_score(self, data: PandasDataFrame) -> Dict:
         return (
-            data.sort_values(by=self.score_column, ascending=False)
-            .groupby(self.user_column)[self.item_column]
+            data.sort_values(by=self.rating_column, ascending=False)
+            .groupby(self.query_column)[self.item_column]
             .apply(list)
             .to_dict()
         )
@@ -161,7 +161,7 @@ class Metric(ABC):
         return converted_data
 
     def _convert_pandas_to_dict_without_score(self, data: PandasDataFrame) -> Dict:
-        return data.groupby(self.user_column)[self.item_column].apply(list).to_dict()
+        return data.groupby(self.query_column)[self.item_column].apply(list).to_dict()
 
     def _dict_call(self, users: List, **kwargs: Dict) -> MetricsReturnType:
         """
@@ -188,13 +188,13 @@ class Metric(ABC):
     def _get_items_list_per_user(
         self, recommendations: SparkDataFrame, extra_column: str = None
     ) -> SparkDataFrame:
-        recommendations = recommendations.groupby(self.user_column).agg(
+        recommendations = recommendations.groupby(self.query_column).agg(
             sf.sort_array(
                 sf.collect_list(
                     sf.struct(
                         *[
                             c
-                            for c in [self.score_column, self.item_column, extra_column]
+                            for c in [self.rating_column, self.item_column, extra_column]
                             if c is not None
                         ]
                     )
@@ -203,7 +203,7 @@ class Metric(ABC):
             ).alias("pred")
         )
         selection = [
-            self.user_column,
+            self.query_column,
             sf.col(f"pred.{self.item_column}").alias("pred_item_id"),
         ]
         if extra_column:
@@ -214,8 +214,8 @@ class Metric(ABC):
 
     def _rearrange_columns(self, data: SparkDataFrame) -> SparkDataFrame:
         cols = data.columns
-        cols.remove(self.user_column)
-        cols = [self.user_column] + sorted(cols)
+        cols.remove(self.query_column)
+        cols = [self.query_column] + sorted(cols)
         return data.select(*cols)
 
     def _get_enriched_recommendations(
@@ -223,14 +223,14 @@ class Metric(ABC):
         recommendations: SparkDataFrame,
         ground_truth: SparkDataFrame,
     ) -> SparkDataFrame:
-        true_items_by_users = ground_truth.groupby(self.user_column).agg(
+        true_items_by_users = ground_truth.groupby(self.query_column).agg(
             sf.collect_set(self.item_column).alias("ground_truth")
         )
 
         sorted_by_score_recommendations = self._get_items_list_per_user(recommendations)
 
         enriched_recommendations = sorted_by_score_recommendations.join(
-            true_items_by_users, on=self.user_column, how="right"
+            true_items_by_users, on=self.query_column, how="right"
         )
         return self._rearrange_columns(enriched_recommendations)
 
@@ -287,7 +287,7 @@ class Metric(ABC):
             lambda x: [(x[0], cur_class._get_metric_value_by_user(x[-1], *x[1:-1]))]
         ).toDF(
             StructType()
-            .add("user_id", recs.schema[self.user_column].dataType.typeName(), False)
+            .add("user_id", recs.schema[self.query_column].dataType.typeName(), False)
             .add("value", ArrayType(DoubleType()), False)
         )
         return distribution

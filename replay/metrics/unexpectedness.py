@@ -25,7 +25,7 @@ class Unexpectedness(Metric):
     :math:`BR_{1..j}^{i}` -- the first :math:`j` base recommendations for the :math:`i`-th user.
 
     >>> recommendations
-        user_id  item_id  score
+       query_id  item_id  rating
     0         1        3    0.6
     1         1        7    0.5
     2         1       10    0.4
@@ -40,7 +40,7 @@ class Unexpectedness(Metric):
     11        3        9    0.5
     12        3        2    0.1
     >>> base_rec
-        user_id  item_id  score
+       query_id  item_id  rating
     0        1        3    0.5
     1        1        7    0.5
     2        1        2    0.7
@@ -73,7 +73,7 @@ class Unexpectedness(Metric):
         ).withColumnRenamed("pred_item_id", "base_pred_item_id")
 
         enriched_recommendations = sorted_by_score_recommendations.join(
-            sorted_by_score_base_recommendations, how="left", on=self.user_column
+            sorted_by_score_base_recommendations, how="left", on=self.query_column
         )
 
         return self._rearrange_columns(enriched_recommendations)

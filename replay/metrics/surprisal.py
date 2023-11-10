@@ -39,7 +39,7 @@ class Surprisal(Metric):
     :math:`N` -- the number of users.
 
     >>> recommendations
-        user_id  item_id  score
+       query_id  item_id  rating
     0         1        3    0.6
     1         1        7    0.5
     2         1       10    0.4
@@ -54,7 +54,7 @@ class Surprisal(Metric):
     11        3        9    0.5
     12        3        2    0.1
     >>> train
-        user_id  item_id
+       query_id  item_id
     0         1        5
     1         1        6
     2         1        8
@@ -102,10 +102,10 @@ class Surprisal(Metric):
     def _get_enriched_recommendations(  # pylint: disable=arguments-renamed
         self, recommendations: SparkDataFrame, train: SparkDataFrame
     ) -> SparkDataFrame:
-        n_users = train.select(self.user_column).distinct().count()
+        n_users = train.select(self.query_column).distinct().count()
         item_weights = train.groupby(self.item_column).agg(
             (
-                sf.log2(n_users / sf.countDistinct(self.user_column)) / np.log2(n_users)
+                sf.log2(n_users / sf.countDistinct(self.query_column)) / np.log2(n_users)
             ).alias("weight")
         )
         recommendations = recommendations.join(
