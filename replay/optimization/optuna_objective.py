@@ -12,10 +12,10 @@ from pyspark.sql import DataFrame as SparkDataFrame
 
 from replay.metrics.base_metric import Metric
 
+
 SplitData = collections.namedtuple(
     "SplitData",
-    "train test users items user_features_train "
-    "user_features_test item_features_train item_features_test",
+    "train_dataset test_dataset queries items",
 )
 
 
@@ -80,24 +80,17 @@ def suggest_params(
 
 def calculate_criterion_value(
     criterion: Metric,
-    k: int,
     recommendations: SparkDataFrame,
     ground_truth: SparkDataFrame
 ) -> float:
     """
     Calculate criterion value for given parameters
     :param criterion: optimization metric
-    :param k: length of a recommendation list
     :param recommendations: calculated recommendations
     :param ground_truth: test data
     :return: criterion value
     """
-    result_dict = criterion(
-        k,
-        query_column="user_idx",
-        item_column="item_idx",
-        rating_column="relevance",
-    )(recommendations, ground_truth)
+    result_dict = criterion(recommendations, ground_truth)
     return list(result_dict.values())[0]
 
 
@@ -116,21 +109,17 @@ def eval_quality(
     logger.debug("Fitting model inside optimization")
     # pylint: disable=protected-access
     recommender._fit_wrap(
-        split_data.train,
-        split_data.user_features_train,
-        split_data.item_features_train,
+        split_data.train_dataset,
     )
     logger.debug("Predicting inside optimization")
     recs = recommender._predict_wrap(
-        log=split_data.train,
+        dataset=split_data.train_dataset,
         k=k,
-        users=split_data.users,
+        queries=split_data.queries,
         items=split_data.items,
-        user_features=split_data.user_features_test,
-        item_features=split_data.item_features_test,
     )
     logger.debug("Calculating criterion")
-    criterion_value = calculate_criterion_value(criterion, k, recs, split_data.test)
+    criterion_value = calculate_criterion_value(criterion, recs, split_data.test_dataset.interactions)
     logger.debug("%s=%.6f", criterion, criterion_value)
     return criterion_value
 
@@ -184,12 +173,17 @@ class ItemKNNObjective:
         ]
         model = self.kwargs["recommender"]
         split_data = self.kwargs["split_data"]
-        train = split_data.train
+        train_dataset = split_data.train_dataset
         model.num_neighbours = max_neighbours
 
-        df = train.select("user_idx", "item_idx", "relevance")
-        if not model.use_relevance:
-            df = df.withColumn("relevance", sf.lit(1))
+        self.query_column = train_dataset.feature_schema.query_id_column
+        self.item_column = train_dataset.feature_schema.item_id_column
+        self.rating_column = train_dataset.feature_schema.interactions_rating_column
+        self.timestamp_col = train_dataset.feature_schema.interactions_timestamp_column
+
+        df = train_dataset.interactions.select(self.query_column, self.item_column, self.rating_column)
+        if not model.use_rating:
+            df = df.withColumn(self.rating_column, sf.lit(1))
 
         self.dot_products = model._get_products(df).cache()
 
@@ -214,23 +208,21 @@ class ItemKNNObjective:
         """
         params_for_trial = suggest_params(trial, search_space)
         recommender.set_params(**params_for_trial)
-        recommender.fit_users = split_data.train.select("user_idx").distinct()
-        recommender.fit_items = split_data.train.select("item_idx").distinct()
+        recommender.fit_queries = split_data.train_dataset.interactions.select(self.query_column).distinct()
+        recommender.fit_items = split_data.train_dataset.interactions.select(self.item_column).distinct()
         similarity = recommender._shrink(self.dot_products, recommender.shrink)
         recommender.similarity = recommender._get_k_most_similar(
             similarity
         ).cache()
         recs = recommender._predict_wrap(
-            log=split_data.train,
+            dataset=split_data.train_dataset,
             k=k,
-            users=split_data.users,
+            queries=split_data.queries,
             items=split_data.items,
-            user_features=split_data.user_features_test,
-            item_features=split_data.item_features_test,
         )
         logger = logging.getLogger("replay")
         logger.debug("Calculating criterion")
-        criterion_value = calculate_criterion_value(criterion, k, recs, split_data.test)
+        criterion_value = calculate_criterion_value(criterion, recs, split_data.test_dataset.interactions)
         logger.debug("%s=%.6f", criterion, criterion_value)
         return criterion_value
 

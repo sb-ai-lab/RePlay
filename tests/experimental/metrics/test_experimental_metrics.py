@@ -15,7 +15,7 @@ from pyspark.sql.types import (
     StructType, ArrayType, DoubleType
 )
 
-from replay.data import LOG_SCHEMA, REC_SCHEMA
+from replay.data import get_schema
 from replay.experimental.metrics import *
 from replay.utils.distributions import item_distribution
 from replay.experimental.metrics.base_metric import get_enriched_recommendations, drop_duplicates, filter_sort
@@ -26,6 +26,20 @@ from tests.utils import (
     log,
     sparkDataFrameEqual,
     spark,
+)
+
+
+INTERACTIONS_SCHEMA = get_schema(
+    query_column="user_idx",
+    item_column="item_idx",
+    timestamp_column="timestamp",
+    rating_column="relevance",
+)
+REC_SCHEMA = get_schema(
+    query_column="user_idx",
+    item_column="item_idx",
+    rating_column="relevance",
+    has_timestamp=False,
 )
 
 
@@ -88,7 +102,7 @@ def true(spark):
             [1, 0, datetime(2019, 9, 15), 3.0],
             [2, 1, datetime(2019, 9, 15), 3.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 

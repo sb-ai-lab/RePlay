@@ -5,10 +5,11 @@ import pytest
 import numpy as np
 from pyspark.sql import functions as sf
 
-from replay.data import LOG_SCHEMA
+from replay.data import get_schema
 from replay.experimental.models import ADMMSLIM
-from replay.models.base_rec import HybridRecommender, UserRecommender
-from replay.utils.model_handler import save, load
+from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.utils.model_handler import save
+from replay.utils.model_handler import load
 from tests.utils import (
     spark,
     log,
@@ -20,6 +21,7 @@ from tests.utils import (
 
 
 SEED = 123
+INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
 @pytest.mark.experimental
@@ -55,7 +57,7 @@ def simple_log(spark):
             [0, 2, date, 2.0],
             [3, 0, date, 2.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 

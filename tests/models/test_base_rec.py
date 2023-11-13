@@ -3,9 +3,10 @@ from typing import Optional
 
 import pytest
 from pandas import DataFrame
+from replay.data.dataset import Dataset
 
 from replay.models import Recommender
-from tests.utils import spark, log
+from tests.utils import spark, log, create_dataset
 
 
 # pylint: disable=missing-class-docstring, too-many-arguments
@@ -16,20 +17,16 @@ class DerivedRec(Recommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
         pass
 
     def _predict(
         self,
-        log: DataFrame,
+        dataset: DataFrame,
         k: int,
-        users: DataFrame,
+        queries: DataFrame,
         items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
         pass
@@ -42,15 +39,17 @@ def model():
 
 def test_users_count(model, log):
     with pytest.raises(AttributeError):
-        model._user_dim
-    model.fit(log)
-    assert model._user_dim == 4
+        model._qiery_dim
+    dataset = create_dataset(log)
+    model.fit(dataset)
+    assert model._query_dim == 4
 
 
 def test_items_count(model, log):
     with pytest.raises(AttributeError):
         model._item_dim
-    model.fit(log)
+    dataset = create_dataset(log)
+    model.fit(dataset)
     assert model._item_dim == 4
 
 

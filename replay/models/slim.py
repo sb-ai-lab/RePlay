@@ -2,7 +2,6 @@ from typing import Optional, Dict, Any
 
 import numpy as np
 import pandas as pd
-from pyspark.sql import DataFrame
 from pyspark.sql import types as st
 from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
@@ -11,8 +10,11 @@ from replay.models.extensions.ann.index_builders.base_index_builder import Index
 from replay.models.base_neighbour_rec import NeighbourRec
 from replay.utils.session_handler import State
 
+from replay.data import Dataset
+
 
 # pylint: disable=too-many-ancestors
+# pylint: disable=too-many-instance-attributes
 class SLIM(NeighbourRec):
     """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
@@ -60,29 +62,29 @@ class SLIM(NeighbourRec):
             "index_builder": self.index_builder.init_meta_as_dict() if self.index_builder else None,
         }
 
-    def _save_model(self, path: str):
-        if self._use_ann:
-            self._save_index(path)
-
-    def _load_model(self, path: str):
-        if self._use_ann:
-            self._load_index(path)
-
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
-        pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
+        pandas_interactions = (
+            dataset.interactions
+            .select(self.query_column, self.item_column, self.rating_column)
+            .toPandas()
+        )
 
         interactions_matrix = csc_matrix(
-            (pandas_log.relevance, (pandas_log.user_idx, pandas_log.item_idx)),
-            shape=(self._user_dim, self._item_dim),
+            (
+                pandas_interactions[self.rating_column],
+                (
+                    pandas_interactions[self.query_column],
+                    pandas_interactions[self.item_column],
+                ),
+            ),
+            shape=(self._query_dim, self._item_dim),
         )
         similarity = (
             State()
-            .session.createDataFrame(pandas_log.item_idx, st.IntegerType())
+            .session.createDataFrame(pandas_interactions[self.item_column], st.IntegerType())
             .withColumnRenamed("value", "item_idx_one")
         )
 

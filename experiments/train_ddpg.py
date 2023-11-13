@@ -10,7 +10,7 @@ from pprint import pprint
 from replay.preprocessing import DataPreparator, Indexer
 from replay.metrics import Experiment
 from replay.metrics import Coverage, HitRate, MRR, MAP, NDCG, Surprisal
-from replay.models import DDPG
+from replay.experimental.models import DDPG
 from argparse import ArgumentParser
 import json
 from pathlib import Path

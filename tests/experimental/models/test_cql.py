@@ -16,7 +16,7 @@ from tests.utils import (
     user_features,
     sparkDataFrameEqual,
 )
-from replay.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 
 
 def fit_predict_selected(model, train_log, inf_log, user_features, users):

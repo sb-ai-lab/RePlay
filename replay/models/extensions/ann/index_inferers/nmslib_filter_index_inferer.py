@@ -29,7 +29,7 @@ class NmslibFilterIndexInferer(IndexInferer):
         def infer_index_udf(  # pylint: disable=too-many-locals
             user_idx: pd.Series,
             vector_items: pd.Series,
-            vector_relevances: pd.Series,
+            vector_ratings: pd.Series,
             num_items: pd.Series,
             seen_item_ids: pd.Series,
         ) -> pd.DataFrame:
@@ -50,7 +50,7 @@ class NmslibFilterIndexInferer(IndexInferer):
             max_items_to_retrieve = num_items.max()
 
             user_vectors = get_csr_matrix(
-                user_idx, vector_items, vector_relevances
+                user_idx, vector_items, vector_ratings
             )
 
             neighbours = index.knnQueryBatch(
@@ -85,7 +85,7 @@ class NmslibFilterIndexInferer(IndexInferer):
         cols = [
             "user_idx",
             "vector_items",
-            "vector_relevances",
+            "vector_ratings",
             "num_items",
             "seen_item_idxs",
         ]

@@ -1,3 +1,4 @@
+from os.path import join
 from typing import Iterable, Optional, Union
 
 from pyspark.sql import DataFrame
@@ -9,9 +10,13 @@ from replay.utils.spark_utils import (
     get_unique_entities,
     filter_cold,
     return_recs,
+    save_picklable_to_parquet,
+    load_pickled_from_parquet,
 )
+from replay.data import Dataset
 
 
+# pylint: disable=too-many-instance-attributes
 class CatPopRec(IsSavable, RecommenderCommons):
     """
     CatPopRec generate recommendation for item categories.
@@ -116,34 +121,37 @@ class CatPopRec(IsSavable, RecommenderCommons):
             "leaf_cat_mapping": self.leaf_cat_mapping,
         }
 
-    def fit(self, log: DataFrame) -> None:
+    def fit(self, dataset: Dataset) -> None:
         """
         Fit a recommendation model
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, category, timestamp, relevance]``
+        :param dataset: historical interactions with query/item features
+            ``[user_id, item_id, category, timestamp, rating]``
             where `category` is an item's category.
             The `item_idx`, `category` are mandatory columns.
-            If `relevance` column is present it is treated as number
-            of interactions with the item and the `relevance` values are summed.
+            If `rating` column is present it is treated as number
+            of interactions with the item and the `rating` values are summed.
         """
         self.logger.debug("Starting fit %s", type(self).__name__)
-        self.fit_items = sf.broadcast(log.select("item_idx").distinct())
-        self._fit(
-            log=log,
-        )
+        self.query_column = dataset.feature_schema.query_id_column
+        self.item_column = dataset.feature_schema.item_id_column
+        self.rating_column = dataset.feature_schema.interactions_rating_column
+
+        self.fit_items = sf.broadcast(dataset.interactions.select(self.item_column).distinct())
+        self._fit(dataset=dataset)
 
     def _fit(
         self,
-        log: DataFrame,
+        dataset: Dataset,
     ) -> None:
-        if "relevance" in log.columns:
-            self.cat_item_popularity = log.groupBy("category", "item_idx").agg(
-                sf.sum("relevance").alias("relevance")
+        if self.rating_column is not None:
+            self.cat_item_popularity = dataset.interactions.groupBy("category", self.item_column).agg(
+                sf.sum(self.rating_column).alias(self.rating_column)
             )
         else:
-            self.cat_item_popularity = log.groupBy("category", "item_idx").agg(
-                sf.count("item_idx").alias("relevance")
+            self.rating_column = "relevance"
+            self.cat_item_popularity = dataset.interactions.groupBy("category", self.item_column).agg(
+                sf.count(self.item_column).alias(self.rating_column)
             )
 
         self.cat_item_popularity.cache()
@@ -173,7 +181,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
             if ``None``, consider all items.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe will be returned
-        :return: cached recommendation dataframe with columns ``[category, item_idx, relevance]``
+        :return: cached recommendation dataframe with columns ``[category, item_idx, rating]``
             or None if `file_path` is provided
         """
         return self._predict_wrap(
@@ -200,17 +208,17 @@ class CatPopRec(IsSavable, RecommenderCommons):
             if ``None``, take all items presented in `fit` data.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
-        :return: cached recommendation dataframe with columns ``[category, item_idx, relevance]``
+        :return: cached recommendation dataframe with columns ``[category, item_idx, rating]``
             or None if `file_path` is provided
         """
         self.logger.debug("Starting predict %s", type(self).__name__)
 
         categories = get_unique_entities(categories, "category")
         item_data = items or self.fit_items
-        items = get_unique_entities(item_data, "item_idx")
+        items = get_unique_entities(item_data, self.item_column)
 
         num_new, items = filter_cold(
-            items, self.fit_items, col_name="item_idx"
+            items, self.fit_items, col_name=self.item_column
         )
         if num_new > 0:
             self.logger.info(
@@ -233,10 +241,10 @@ class CatPopRec(IsSavable, RecommenderCommons):
             k=k,
             partition_by_col=sf.col("category"),
             order_by_col=[
-                sf.col("relevance").desc(),
-                sf.col("item_idx").desc(),
+                sf.col(self.rating_column).desc(),
+                sf.col(self.item_column).desc(),
             ],
-        ).select("category", "item_idx", "relevance")
+        ).select("category", self.item_column, self.rating_column)
 
         return return_recs(recs, recs_file_path)
 
@@ -251,19 +259,19 @@ class CatPopRec(IsSavable, RecommenderCommons):
         unique_leaf_cat_items = (
             self.cat_item_popularity.withColumnRenamed("category", "leaf_cat")
             .join(sf.broadcast(unique_leaf_cats), on="leaf_cat")
-            .join(sf.broadcast(items), on="item_idx")
+            .join(sf.broadcast(items), on=self.item_column)
         )
 
         # find number of interactions in all leaf categories after filtering
         num_interactions_in_cat = (
             res.join(
                 unique_leaf_cat_items.groupBy("leaf_cat").agg(
-                    sf.sum("relevance").alias("sum_relevance")
+                    sf.sum(self.rating_column).alias("sum_rating")
                 ),
                 on="leaf_cat",
             )
             .groupBy("category")
-            .agg(sf.sum("sum_relevance").alias("sum_relevance"))
+            .agg(sf.sum("sum_rating").alias("sum_rating"))
         )
 
         # aggregate results for each category: sum up num interactions in leaf categories
@@ -271,10 +279,25 @@ class CatPopRec(IsSavable, RecommenderCommons):
         # divided by the number of interactions in all leaf categories of a category
         return (
             unique_leaf_cat_items.join(res, on="leaf_cat")
-            .groupBy("category", "item_idx")
-            .agg(sf.sum("relevance").alias("relevance"))
+            .groupBy("category", self.item_column)
+            .agg(sf.sum(self.rating_column).alias(self.rating_column))
             .join(num_interactions_in_cat, on="category")
             .withColumn(
-                "relevance", sf.col("relevance") / sf.col("sum_relevance")
+                self.rating_column, sf.col(self.rating_column) / sf.col("sum_rating")
             )
         )
+
+    def _save_model(self, path: str):
+        save_picklable_to_parquet(
+            {
+                "query_column": self.query_column,
+                "item_column": self.item_column,
+                "rating_column": self.rating_column,
+            },
+            join(path, "params.dump")
+        )
+
+    def _load_model(self, path: str):
+        loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
+        for param, value in loaded_params.items():
+            setattr(self, param, value)

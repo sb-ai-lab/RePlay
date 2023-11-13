@@ -14,7 +14,7 @@ from replay.models.extensions.ann.index_stores.shared_disk_index_store import (
     SharedDiskIndexStore,
 )
 from replay.models import SLIM
-from tests.utils import log, spark
+from tests.utils import log, spark, create_dataset
 
 
 @pytest.fixture
@@ -45,7 +45,8 @@ def model_with_ann(tmp_path):
 
 
 def test_fit(log, model):
-    model.fit(log)
+    dataset = create_dataset(log)
+    model.fit(dataset)
     assert np.allclose(
         model.similarity.toPandas()
         .sort_values(["item_idx_one", "item_idx_two"])
@@ -64,8 +65,9 @@ def test_fit(log, model):
 
 
 def test_predict(log, model):
-    model.fit(log)
-    recs = model.predict(log, k=1)
+    dataset = create_dataset(log)
+    model.fit(dataset)
+    recs = model.predict(dataset, k=1)
     assert np.allclose(
         recs.toPandas()
         .sort_values(["user_idx", "item_idx"], ascending=False)
@@ -75,11 +77,12 @@ def test_predict(log, model):
 
 
 def test_ann_predict(log, model, model_with_ann):
-    model.fit(log)
-    recs1 = model.predict(log, k=1)
+    dataset = create_dataset(log)
+    model.fit(dataset)
+    recs1 = model.predict(dataset, k=1)
 
-    model_with_ann.fit(log)
-    recs2 = model_with_ann.predict(log, k=1)
+    model_with_ann.fit(dataset)
+    recs2 = model_with_ann.predict(dataset, k=1)
 
     recs1 = recs1.toPandas().sort_values(
         ["user_idx", "item_idx"], ascending=False
@@ -101,6 +104,7 @@ def test_exceptions(beta, lambda_):
 
 def test_build_index_udf(log, model, tmp_path):
     """This test used for test ANN functionality using similarity dataframe from SLIM model."""
+    dataset = create_dataset(log)
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
         m=10,
@@ -113,7 +117,7 @@ def test_build_index_udf(log, model, tmp_path):
         index_dir="nmslib_hnsw_index",
         cleanup=False,
     )
-    model.fit(log)
+    model.fit(dataset)
     similarity_pdf = model.similarity.select(
         "similarity", "item_idx_one", "item_idx_two"
     ).toPandas()

@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import pyspark.sql.functions as F
 
-from replay.data import LOG_SCHEMA
 from replay.splitters import TimeSplitter
 from replay.utils import get_spark_session
 from tests.utils import spark
