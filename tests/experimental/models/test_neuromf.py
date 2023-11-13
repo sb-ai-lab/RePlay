@@ -6,10 +6,10 @@ import torch
 import numpy as np
 from pyspark.sql import functions as sf
 
-from replay.data import LOG_SCHEMA
+from replay.data import get_schema
 from replay.experimental.models import NeuroMF
 from replay.experimental.models.neuromf import NMF
-from replay.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 from tests.utils import (
     del_files_by_pattern,
     find_file_by_pattern,
@@ -20,10 +20,12 @@ from tests.utils import (
     user_features,
     sparkDataFrameEqual,
 )
-from replay.utils.model_handler import save, load
+from replay.experimental.utils.model_handler import save
+from replay.utils.model_handler import load
 
 
 SEED = 123
+INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
 def fit_predict_selected(model, train_log, inf_log, user_features, users):
@@ -64,7 +66,7 @@ def log(spark):
             (1, 1, date, 1.0),
             (2, 3, date, 1.0),
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 

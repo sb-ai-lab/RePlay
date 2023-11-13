@@ -448,18 +448,18 @@ class NCISMetric(Metric):
     RePlay implements Normalized Capped Importance Sampling for metric calculation with ``NCISMetric`` class.
     This method is mostly applied to RL-based recommendation systems to perform counterfactual evaluation, but could be
     used for any kind of recommender systems. See an article
-    `Offline A/B testing for Recommender Systems <http://arxiv.org/abs/1801.07030>`_ for details.
+    `Offline A/B testing for Recommender Systems <http://arxiv.org/abs/1801.07030>` for details.
 
     *Reward* (metric value for a user-item pair) is weighed by
     the ratio of *current policy score* (current relevance) on *previous policy score* (historical relevance).
 
-    The *weight* is clipped by the *threshold* and put into interval :math:`[\frac{1}{threshold}, threshold]`.
+    The *weight* is clipped by the *threshold* and put into interval :math:`[\\frac{1}{threshold}, threshold]`.
     Activation function (e.g. softmax, sigmoid) could be applied to the scores before weights calculation.
 
     Normalization weight for recommended item is calculated as follows:
 
     .. math::
-        w_{ui} = \frac{f(\pi^t_ui, pi^t_u)}{f(\pi^p_ui, pi^p_u)}
+        w_{ui} = \\frac{f(\pi^t_ui, pi^t_u)}{f(\pi^p_ui, pi^p_u)}
 
     Where:
 
@@ -478,12 +478,12 @@ class NCISMetric(Metric):
     Calculated weights are clipped as follows:
 
     .. math::
-        \hat{w_{ui}} = min(max(\frac{1}{threshold}, w_{ui}), threshold)
+        \hat{w_{ui}} = min(max(\\frac{1}{threshold}, w_{ui}), threshold)
 
     Normalization metric value for a user is calculated as follows:
 
     .. math::
-        R_u = \frac{r_{ui} \hat{w_{ui}}}{\sum_{i}\hat{w_{ui}}}
+        R_u = \\frac{r_{ui} \hat{w_{ui}}}{\sum_{i}\hat{w_{ui}}}
 
     Where:
 

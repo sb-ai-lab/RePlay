@@ -4,7 +4,7 @@ import pandas as pd
 from replay.models import ItemKNN
 from replay.scenarios import Fallback
 from replay.utils.spark_utils import fallback, convert2spark
-from tests.utils import log, log2, spark
+from tests.utils import log, log2, spark, create_dataset
 
 
 def test_fallback():
@@ -30,8 +30,10 @@ def test_class(log, log2):
     model = Fallback(ItemKNN(), threshold=3)
     s = str(model)
     assert s == "Fallback_ItemKNN_PopRec"
-    model.fit(log2)
-    p1, p2 = model.optimize(log, log2, k=1, budget=1)
+    dataset = create_dataset(log)
+    dataset2 = create_dataset(log2)
+    model.fit(dataset2)
+    p1, p2 = model.optimize(dataset, dataset2, k=1, budget=1)
     assert p2 is None
     assert isinstance(p1, dict)
-    model.predict(log2, k=1)
+    model.predict(dataset2, k=1)

@@ -6,6 +6,7 @@ from .base_metric import Metric, MetricsDataFrameLike
 from .offline_metrics import OfflineMetrics
 
 
+# pylint: disable=too-many-instance-attributes
 # pylint: disable=too-few-public-methods
 class Experiment:
     """

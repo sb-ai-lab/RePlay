@@ -10,11 +10,14 @@ from pyspark.sql.types import (
     StructType,
 )
 
-from replay.data import LOG_SCHEMA
+from replay.data import get_schema
 from replay.experimental.models import ImplicitWrap
 from tests.utils import spark, log, sparkDataFrameEqual, long_log_with_features
 from implicit.als import AlternatingLeastSquares
 from replay.utils.session_handler import get_spark_session
+
+
+INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
 @pytest.mark.experimental

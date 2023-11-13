@@ -15,7 +15,7 @@ readme = "README.md"
 homepage = "https://sb-ai-lab.github.io/RePlay/"
 repository = "https://github.com/sb-ai-lab/RePlay"
 classifiers = [
-    "Operating System :: OS Independent",
+    "Operating System :: Linux",
     "Intended Audience :: Science/Research",
     "Development Status :: 4 - Beta",
     "Environment :: Console",

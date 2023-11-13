@@ -7,7 +7,7 @@ from pyspark.sql import DataFrame
 from scipy.sparse import coo_matrix, csr_matrix
 
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.models.base_neighbour_rec import NeighbourRec
+from replay.experimental.models.base_neighbour_rec import NeighbourRec
 from replay.utils.session_handler import State
 
 

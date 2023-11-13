@@ -11,8 +11,8 @@ from torch.optim.optimizer import Optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-from replay.data import REC_SCHEMA
-from replay.models.base_rec import Recommender
+from replay.data import get_schema
+from replay.experimental.models.base_rec import Recommender
 from replay.utils.session_handler import State
 
 
@@ -117,6 +117,7 @@ class TorchRecommender(Recommender):
         """
 
     # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-locals
     def _predict(
         self,
         log: DataFrame,
@@ -140,11 +141,17 @@ class TorchRecommender(Recommender):
         self.logger.debug("Predict started")
         # do not apply map on cold users for MultVAE predict
         join_type = "inner" if str(self) == "MultVAE" else "left"
+        rec_schema = get_schema(
+            query_column="user_idx",
+            item_column="item_idx",
+            rating_column="relevance",
+            has_timestamp=False,
+        )
         recs = (
             users.join(log, how=join_type, on="user_idx")
             .select("user_idx", "item_idx")
             .groupby("user_idx")
-            .applyInPandas(grouped_map, REC_SCHEMA)
+            .applyInPandas(grouped_map, rec_schema)
         )
         return recs
 
@@ -176,8 +183,14 @@ class TorchRecommender(Recommender):
         )
         full_df = user_pairs.join(user_history, on="user_idx", how="inner")
 
+        rec_schema = get_schema(
+            query_column="user_idx",
+            item_column="item_idx",
+            rating_column="relevance",
+            has_timestamp=False,
+        )
         recs = full_df.groupby("user_idx").applyInPandas(
-            grouped_map, REC_SCHEMA
+            grouped_map, rec_schema
         )
 
         return recs

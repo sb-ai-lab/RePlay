@@ -18,7 +18,7 @@ from tests.utils import (
     user_features,
     sparkDataFrameEqual,
 )
-from replay.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 from replay.utils.model_handler import save, load
 
 

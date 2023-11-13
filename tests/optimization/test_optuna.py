@@ -2,7 +2,7 @@
 import pytest
 
 from replay.models import SLIM, ItemKNN, ALSWrap
-from tests.utils import log, spark
+from tests.utils import log, spark, create_dataset
 
 
 @pytest.fixture
@@ -19,7 +19,8 @@ def test_partial_borders(borders):
 
 def test_ItemKNN(log):
     model = ItemKNN()
-    res = model.optimize(log, log, k=2, budget=1)
+    dataset = create_dataset(log)
+    res = model.optimize(dataset, dataset, k=2, budget=1)
     assert isinstance(res["num_neighbours"], int)
 
 
@@ -63,11 +64,12 @@ def test_param_in_borders(model, borders, answer):
 
 
 def test_it_works(model, log):
+    dataset = create_dataset(log)
     assert model._params_tried() is False
-    res = model.optimize(log, log, k=2, budget=1)
+    res = model.optimize(dataset, dataset, k=2, budget=1)
     assert isinstance(res["rank"], int)
     assert model._params_tried() is True
-    model.optimize(log, log, k=2, budget=1)
+    model.optimize(dataset, dataset, k=2, budget=1)
     assert len(model.study.trials) == 1
-    model.optimize(log, log, k=2, budget=1, new_study=False)
+    model.optimize(dataset, dataset, k=2, budget=1, new_study=False)
     assert len(model.study.trials) == 2

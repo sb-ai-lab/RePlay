@@ -8,7 +8,7 @@ import pandas as pd
 from pytorch_ranger import Ranger
 from pyspark.sql import functions as sf
 
-from replay.data import LOG_SCHEMA
+from replay.data import get_schema
 from replay.experimental.models import DDPG
 from replay.experimental.models.ddpg import (
     ActorDRR,
@@ -31,6 +31,7 @@ from tests.utils import (
 
 
 SEED = 123
+INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
 DDPG_PARAMS = [
@@ -177,7 +178,7 @@ def log(spark):
             (1, 1, date, 1.0),
             (2, 3, date, 1.0),
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 

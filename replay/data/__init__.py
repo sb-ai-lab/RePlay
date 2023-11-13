@@ -1,7 +1,5 @@
 from replay.data.spark_schema import (
-    LOG_SCHEMA,
-    REC_SCHEMA,
-    BASE_SCHEMA,
+    get_schema,
 )
 from replay.data.typehints import (
     IntOrList,
@@ -18,10 +16,8 @@ __all__ = [
     "FeatureSchema",
     "FeatureSource",
     "FeatureType",
-    "LOG_SCHEMA",
-    "REC_SCHEMA",
-    "BASE_SCHEMA",
     "IntOrList",
     "NumType",
     "AnyDataFrame",
+    "get_schema",
 ]

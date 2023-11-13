@@ -7,7 +7,7 @@ from statsmodels.stats.proportion import proportion_confint
 
 from replay.models import Wilson
 from replay.utils.spark_utils import convert2spark
-from tests.utils import log, spark, sparkDataFrameEqual
+from tests.utils import log, spark, sparkDataFrameEqual, create_dataset
 
 
 @pytest.fixture
@@ -20,7 +20,8 @@ def test_works(log, model):
     log = log.withColumn(
         "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
     )
-    model.fit(log)
+    dataset = create_dataset(log)
+    model.fit(dataset)
     model.item_popularity.count()
 
 
@@ -46,7 +47,8 @@ def test_calculation(log, model):
     log = log.withColumn(
         "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
     )
-    model.fit(log)
+    dataset = create_dataset(log)
+    model.fit(dataset)
     stat_wilson = calc_wilson_interval(log)
     sparkDataFrameEqual(model.item_popularity, stat_wilson)
 
@@ -55,8 +57,9 @@ def test_predict(log, model):
     log = log.withColumn(
         "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
     )
-    model.fit(log)
-    recs = model.predict(log, k=1, users=[1, 0], items=[3, 2])
+    dataset = create_dataset(log)
+    model.fit(dataset)
+    recs = model.predict(dataset, k=1, queries=[1, 0], items=[3, 2])
     assert recs.count() == 2
     assert (
         recs.select(

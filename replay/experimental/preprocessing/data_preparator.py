@@ -471,7 +471,7 @@ class DataPreparator:
     Loading log DataFrame
 
     >>> import pandas as pd
-    >>> from replay.preprocessing.data_preparator import DataPreparator
+    >>> from replay.experimental.preprocessing.data_preparator import DataPreparator
     >>>
     >>> log = pd.DataFrame({"user": [2, 2, 2, 1],
     ...                     "item_id": [1, 2, 3, 3],
@@ -497,7 +497,7 @@ class DataPreparator:
     Loading user features
 
     >>> import pandas as pd
-    >>> from replay.preprocessing.data_preparator import DataPreparator
+    >>> from replay.experimental.preprocessing.data_preparator import DataPreparator
     >>>
     >>> log = pd.DataFrame({"user": ["user1", "user1", "user2"],
     ...                     "f0": ["feature1","feature2","feature1"],

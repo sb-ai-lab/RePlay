@@ -2,7 +2,7 @@
 
 from pyspark.sql import functions as sf
 
-from replay.preprocessing.data_preparator import ToNumericFeatureTransformer
+from replay.experimental.preprocessing.data_preparator import ToNumericFeatureTransformer
 
 from tests.utils import (
     item_features,

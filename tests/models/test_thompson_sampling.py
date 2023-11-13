@@ -6,7 +6,7 @@ from pyspark.sql import functions as sf
 
 from replay.models import ThompsonSampling
 from replay.models import UCB
-from tests.utils import log, spark, sparkDataFrameEqual
+from tests.utils import log, spark, sparkDataFrameEqual, create_dataset
 
 
 @pytest.fixture
@@ -24,12 +24,14 @@ def model():
 
 @pytest.fixture
 def fitted_model(preprocessed_log, model):
-    model.fit(preprocessed_log)
+    dataset = create_dataset(preprocessed_log)
+    model.fit(dataset)
     return model
 
 
 def test_works(preprocessed_log, model):
-    model.fit(preprocessed_log)
+    dataset = create_dataset(preprocessed_log)
+    model.fit(dataset)
     model.item_popularity.count()
 
 
@@ -51,14 +53,15 @@ def test_predict_empty_log(fitted_model, preprocessed_log, sample, seed):
 
     users = preprocessed_log.select("user_idx").distinct()
     pred = fitted_model.predict(
-        log=None, users=users, items=list(range(10)), k=1
+        dataset=None, queries=users, items=list(range(10)), k=1
     )
     assert pred.count() == users.count()
 
 
 def test_predict(preprocessed_log, model):
-    model.fit(preprocessed_log)
-    recs = model.predict(preprocessed_log, k=1, users=[1, 0], items=[3, 2])
+    dataset = create_dataset(preprocessed_log)
+    model.fit(dataset)
+    recs = model.predict(dataset, k=1, queries=[1, 0], items=[3, 2])
     assert recs.count() == 2
     assert (
         recs.select(
