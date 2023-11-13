@@ -12,11 +12,13 @@ def get_logger(
     """
     logger = logging.getLogger(name)
     logger.setLevel(level)
-    # file or console
-    handler = logging.StreamHandler() if not file else logging.FileHandler(
-        name)
-    handler.setLevel(logging.INFO)
-    formatter = logging.Formatter(fmt=format_str, datefmt=date_format)
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+
+    if not logger.hasHandlers():
+        handler = logging.StreamHandler() if not file else logging.FileHandler(
+            name)
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter(fmt=format_str, datefmt=date_format)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
     return logger

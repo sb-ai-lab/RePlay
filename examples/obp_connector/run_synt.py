@@ -128,7 +128,7 @@ if __name__ == '__main__':
     dataset = SyntheticBanditDataset(
         n_actions=10,
         dim_context=5,
-        beta=-2, # inverse temperature parameter to control the optimality and entropy of the behavior policy
+        beta=-2, # invers e temperature parameter to control the optimality and entropy of the behavior policy
         reward_type="binary", # "binary" or "continuous"
         reward_function=logistic_reward_function,
         random_state=12345,
@@ -140,17 +140,16 @@ if __name__ == '__main__':
 
     eval_baselines(dataset, bandit_feedback_train, bandit_feedback_test)
 
-    model = LinUCB(eps=0.0, alpha=1.0, regr_type="disjoint")
+    model = UCB(exploration_coef=2.0)
 
     learner = RePlayOfflinePolicyLearner(n_actions=dataset.n_actions,
                                          replay_model=model,
                                          len_list=dataset.len_list,)
 
-    param_borders = {
-        "eps": [-10.0, 10.0],
-        "alpha": [0.001, 10.0],
-    }
-    logger.info(learner.optimize(bandit_feedback_train, 0.3, param_borders=param_borders, budget=50))
+    # param_borders = {
+    #     "coef": [-5, 5]
+    # }
+    # logger.info(learner.optimize(bandit_feedback_train, 0.3, param_borders=param_borders, budget=50))
 
     timestamp = None
     if "timestamp" in bandit_feedback_train.keys():
