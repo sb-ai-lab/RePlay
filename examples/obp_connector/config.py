@@ -64,6 +64,7 @@ def get_config(alg_type):
             "shuffle_partitions": 16
     })
 
+    config.test_size = 0.3
     config.behavior_policy = "random"
     config.data_path = None #your path to the Open Bandit Dataset
 

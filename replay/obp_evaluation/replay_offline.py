@@ -117,11 +117,11 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
         self.log = log
 
         user_features = None
-        self.max_usr_id = len(reward)
+        self.max_usr_id = reward.shape[0]
 
         if context is not None:
             user_features = convert2spark(context2df(context,
-                                                     np.arange(self.max_usr_id),
+                                                     np.arange(context.shape[0]),
                                                      "user"))
 
         if action_context is not None:

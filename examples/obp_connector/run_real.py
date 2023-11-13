@@ -102,18 +102,18 @@ def main(_):
     logger = get_logger("replay", logging.INFO)
 
     dataset = OpenBanditDataset(behavior_policy=args.behavior_policy, data_path=args.data_path, campaign='all')
-    bandit_feedback_train, bandit_feedback_test = dataset.obtain_batch_bandit_feedback(test_size=0.3, is_timeseries_split=True)
+    bandit_feedback_train, bandit_feedback_test = dataset.obtain_batch_bandit_feedback(test_size=args.test_size, is_timeseries_split=True)
 
     on_policy_policy_value_random = OpenBanditDataset.calc_on_policy_policy_value_estimate(behavior_policy='random',
                                                                                     campaign='all',
                                                                                     data_path=args.data_path,
-                                                                                    test_size=0.3,
+                                                                                    test_size=args.test_size,
                                                                                     is_timeseries_split=True)
 
     on_policy_policy_value_bts = OpenBanditDataset.calc_on_policy_policy_value_estimate(behavior_policy='bts',
                                                                                     campaign='all',
                                                                                     data_path=args.data_path,
-                                                                                    test_size=0.3,
+                                                                                    test_size=args.test_size,
                                                                                     is_timeseries_split=True)
 
     # eval_baselines(dataset, bandit_feedback_train, bandit_feedback_test)
