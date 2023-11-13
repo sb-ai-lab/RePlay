@@ -5,6 +5,10 @@
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 
+# Poetry (since they are generated from template automatically)
+/poetry.lock
+/pyproject.toml
+
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/
