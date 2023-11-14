@@ -43,7 +43,6 @@ def test_casual_self_attention():
     cfg = TestConfig()
     csa = CausalSelfAttention(cfg)
     batch = torch.randn(3, 4, cfg.n_embd)
-    print(f"{csa(batch).shape=}")
     assert csa(batch).shape == batch.shape
 
 
