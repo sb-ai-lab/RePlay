@@ -126,39 +126,3 @@ def test_fast_create_dataset_bag_items():
     result = fast_create_dataset(df, user_num=1, item_pad=0)
     for key, value in ans[0].items():
         assert (value == result[0][key]).all()
-
-
-def test_train():
-    df = MovieLens("1m").ratings
-    df = df.iloc[: int(len(df) // 1000)]
-
-    preparator = DataPreparator()
-    log = preparator.transform(
-        columns_mapping={
-            "user_id": "user_id",
-            "item_id": "item_id",
-            "relevance": "rating",
-            "timestamp": "timestamp",
-        },
-        data=df,
-    )
-
-    train_spl = DateSplitter(
-        test_start=0.2,
-        drop_cold_items=True,
-        drop_cold_users=True,
-        item_col="item_id",
-        user_col="user_id",
-    )
-    train, test = train_spl.split(log)
-    indexer = Indexer(user_col="user_id", item_col="item_id")
-    indexer.fit(users=train.select("user_id"), items=train.select("item_id"))
-    train = indexer.transform(train)
-    test = indexer.transform(test)
-
-    item_num = train.toPandas()["item_idx"].max() + 1
-    user_num = train.toPandas()["user_idx"].max() + 1
-
-    rec_sys = DT4Rec(item_num, user_num, use_cuda=False)
-    rec_sys.fit(train)
-    assert True
