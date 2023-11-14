@@ -1,3 +1,5 @@
+# pylint: disable=invalid-name
+
 import bisect
 import random
 from typing import List, Union
@@ -5,145 +7,27 @@ from typing import List, Union
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.preprocessing import LabelEncoder
-from torch.nn import functional as F
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.data import Dataset
-from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
 
 def set_seed(seed):
+    """
+    Set random seed in all dependicies
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
 
-def top_k_logits(logits, k):
-    v, ix = torch.topk(logits, k)
-    out = logits.clone()
-    out[out < v[:, [-1]]] = -float("Inf")
-    return out
-
-
-def drop_cold_users(df):
-    actions_cnt = df.groupby(by="user_id", as_index=False).count()
-    cold_users = actions_cnt[actions_cnt["item_id"] < 35]["user_id"]
-    new_df = df[df["user_id"].isin(cold_users) == False]
-
-    return new_df
-
-
-def reindex(df):
-    item_encoder = LabelEncoder().fit(df["item_idx"])
-    df["item_idx"] = item_encoder.transform(df["item_idx"])
-
-    user_encoder = LabelEncoder().fit(df["user_idx"])
-    df["user_idx"] = user_encoder.transform(df["user_idx"])
-
-    return df
-
-
-def leave_last_out(data, userid="user_id", timeid="timestamp"):
-    sorted = data.sort_values(timeid)
-    holdout = sorted.drop_duplicates(subset=[userid], keep="last")
-    remaining = data.drop(holdout.index)
-    return remaining, holdout
-
-
-def model_evaluate(recommended_items, holdout, holdout_description, topn=10):
-    itemid = holdout_description["items"]
-    holdout_items = holdout[itemid].values
-    assert recommended_items.shape[0] == len(holdout_items)
-    hits_mask = recommended_items[:, :topn] == holdout_items.reshape(-1, 1)
-    # HR calculation
-    hr = np.mean(hits_mask.any(axis=1))
-    # MRR calculation
-    n_test_users = recommended_items.shape[0]
-    _, hit_rank = np.where(hits_mask)
-    mrr = np.sum(1.0 / (hit_rank + 1)) / n_test_users
-    return hr, mrr
-
-
-@torch.no_grad()
-def sample(
-    model,
-    x,
-    steps,
-    temperature=1.0,
-    sample=False,
-    top_k=None,
-    actions=None,
-    rtgs=None,
-    timesteps=None,
-):
-    """
-    take a conditioning sequence of indices in x (of shape (b,t)) and predict the next token in
-    the sequence, feeding the predictions back into the model each time. Clearly the sampling
-    has quadratic complexity unlike an RNN that is only linear, and has a finite context window
-    of block_size, unlike an RNN that has an infinite context window.
-    """
-    block_size = model.get_block_size()
-    model.eval()
-    for k in range(steps):
-        # x_cond = x if x.size(1) <= block_size else x[:, -block_size:] # crop context if needed
-        x_cond = x if x.size(1) <= block_size // 3 else x[:, -block_size // 3 :]  # crop context if needed
-        if actions is not None:
-            actions = (
-                actions if actions.size(1) <= block_size // 3 else actions[:, -block_size // 3 :]
-            )  # crop context if needed
-        rtgs = rtgs if rtgs.size(1) <= block_size // 3 else rtgs[:, -block_size // 3 :]  # crop context if needed
-        logits, _ = model(
-            x_cond,
-            actions=actions,
-            targets=None,
-            rtgs=rtgs,
-            timesteps=timesteps,
-        )
-        # pluck the logits at the final step and scale by temperature
-        logits = logits[:, -1, :] / temperature
-        # optionally crop probabilities to only the top k options
-        if top_k is not None:
-            logits = top_k_logits(logits, top_k)
-        # apply softmax to convert to probabilities
-        probs = F.softmax(logits, dim=-1)
-        # sample from the distribution or take the most likely
-        if sample:
-            ix = torch.multinomial(probs, num_samples=1)
-        else:
-            _, ix = torch.topk(probs, k=1, dim=-1)
-        # append to the sequence and continue
-        # x = torch.cat((x, ix), dim=1)
-        x = ix
-
-    return x
-
-
-# For debug
-class FastStateActionReturnDataset(Dataset):
-    def __init__(self, user_trajectory, trajectory_len):
-        self.user_trajectory = user_trajectory
-        self.trajectory_len = trajectory_len
-
-    def __len__(self):
-        return len(self.user_trajectory)
-
-    def __getitem__(self, idx):
-        user = self.user_trajectory[idx]
-        start = 0
-        end = min(len(user["actions"]), start + self.trajectory_len)
-        states = torch.tensor(np.array(user["states"][start:end]), dtype=torch.float32)
-        actions = torch.tensor(user["actions"][start:end], dtype=torch.long)
-        rtgs = torch.tensor(user["rtgs"][start:end], dtype=torch.float32)
-        # strange logic but work
-        timesteps = start
-
-        return states, actions, rtgs, timesteps, idx
-
-
 class StateActionReturnDataset(Dataset):
+    """
+    Create Dataset from user trajectories
+    """
+
     def __init__(self, user_trajectory, trajectory_len):
         self.user_trajectory = user_trajectory
         self.trajectory_len = trajectory_len
@@ -174,6 +58,10 @@ class StateActionReturnDataset(Dataset):
 
 
 class ValidateDataset(Dataset):
+    """
+    Dataset for Validation
+    """
+
     def __init__(self, user_trajectory, max_context_len, val_users, val_items):
         self.user_trajectory = user_trajectory
         self.max_context_len = max_context_len
@@ -212,6 +100,9 @@ def pad_sequence(
     padding_value: float = 0.0,
     pos: str = "right",
 ) -> torch.Tensor:
+    """
+    Pad sequence
+    """
     if pos == "right":
         padded_sequence = torch.nn.utils.rnn.pad_sequence(sequences, batch_first, padding_value)
     elif pos == "left":
@@ -220,11 +111,16 @@ def pad_sequence(
         _seq_dim = padded_sequence.dim()
         padded_sequence = padded_sequence.flip(-_seq_dim + batch_first)
     else:
-        raise ValueError("pos should be either 'right' or 'left', but got {}".format(pos))
+        raise ValueError(f"pos should be either 'right' or 'left', but got {pos}")
     return padded_sequence
 
 
+# pylint: disable=too-few-public-methods
 class Collator:
+    """
+    Callable class to merge several items to one batch
+    """
+
     def __init__(self, item_pad):
         self.item_pad = item_pad
 
@@ -251,6 +147,9 @@ class Collator:
 
 
 def matrix2df(matrix, users=None, items=None):
+    """
+    Creata DataFrame from matrix
+    """
     HEADER = ["user_idx", "item_idx", "relevance"]
     if users is None:
         users = np.arange(matrix.shape[0])
@@ -266,6 +165,11 @@ def matrix2df(matrix, users=None, items=None):
 
 
 class WarmUpScheduler(_LRScheduler):
+    """
+    Implementation of WarmUp
+    """
+
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         optimizer: Optimizer,
@@ -286,12 +190,19 @@ class WarmUpScheduler(_LRScheduler):
 
 
 def calc_lr(step, dim_embed, warmup_steps):
+    """
+    Learning rate calculation
+    """
     return dim_embed ** (-0.5) * min(step ** (-0.5), step * warmup_steps ** (-1.5))
 
 
+# pylint: disable=too-many-arguments
 def create_dataset(
     df, user_num, item_pad, time_col="timestamp", user_col="user_idx", item_col="item_idx", relevance_col="relevance"
 ):
+    """
+    Create dataset from DataFrame
+    """
     user_trajectory = [{} for _ in range(user_num)]
     df = df.sort_values(by=time_col)
     for user_idx in tqdm(range(user_num)):
@@ -319,6 +230,7 @@ def create_dataset(
 
 
 # For debug
+# pylint: disable=too-many-locals
 def fast_create_dataset(
     df,
     user_num,
@@ -328,6 +240,9 @@ def fast_create_dataset(
     item_field="item_idx",
     relevance_field="relevance",
 ):
+    """
+    Create dataset from DataFrame
+    """
     user_trajectory = [{} for _ in range(user_num)]
     df = df.sort_values(by=time_field)
     for user_idx in tqdm(range(user_num)):

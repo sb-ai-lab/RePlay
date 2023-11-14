@@ -1,18 +1,30 @@
+# pylint: disable=invalid-name
+
 import logging
 import math
 
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.nn import functional as F
 
 logger = logging.getLogger(__name__)
 
 
+# pylint: disable=too-few-public-methods
 class GELU(nn.Module):
-    def forward(self, input):
-        return F.gelu(input)
+    """
+    GELU callable class
+    """
+
+    # pylint: disable=no-self-use
+    def forward(self, x):
+        """
+        Apply GELU
+        """
+        return F.gelu(x)
 
 
+# pylint: disable=too-few-public-methods
 class GPTConfig:
     """base GPT config, params common to all GPT versions"""
 
@@ -31,6 +43,9 @@ class GPTConfig:
             setattr(self, k, v)
 
     def update(self, **kwargs):
+        """
+        Arguments setter
+        """
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -73,7 +88,10 @@ class CausalSelfAttention(nn.Module):
         )
         self.n_head = config.n_head
 
-    def forward(self, x, layer_past=None):
+    def forward(self, x):
+        """
+        Apply attention
+        """
         B, T, C = x.size()
 
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
@@ -110,6 +128,9 @@ class Block(nn.Module):
         )
 
     def forward(self, x):
+        """
+        :x: batch
+        """
         x = x + self.attn(self.ln1(x))
         x = x + self.mlp(self.ln2(x))
         return x
@@ -169,6 +190,7 @@ class StateReprModule(nn.Module):
         return output
 
 
+# pylint: disable=too-many-instance-attributes
 class GPT(nn.Module):
     """the full GPT language model, with a context size of block_size"""
 
@@ -210,9 +232,13 @@ class GPT(nn.Module):
         nn.init.normal_(self.action_embeddings[0].weight, mean=0.0, std=0.02)
 
     def get_block_size(self):
+        """
+        Return block_size
+        """
         return self.block_size
 
-    def _init_weights(self, module):
+    @staticmethod
+    def _init_weights(module):
         if isinstance(module, (nn.Linear, nn.Embedding)):
             module.weight.data.normal_(mean=0.0, std=0.02)
             if isinstance(module, nn.Linear) and module.bias is not None:
@@ -238,9 +264,11 @@ class GPT(nn.Module):
             torch.nn.Conv1d,
         )
         blacklist_weight_modules = (torch.nn.LayerNorm, torch.nn.Embedding)
+        # pylint: disable=invalid-name
         for mn, m in self.named_modules():
-            for pn, p in m.named_parameters():
-                fpn = "%s.%s" % (mn, pn) if mn else pn  # full param name
+            # pylint: disable=invalid-name
+            for pn, _ in m.named_parameters():
+                fpn = f"{mn}.{pn}" if mn else pn  # full param name
 
                 if pn.endswith("bias"):
                     # all biases will not be decayed
@@ -257,18 +285,18 @@ class GPT(nn.Module):
         no_decay.add("global_pos_emb")
 
         # validate that we considered every parameter
-        param_dict = {pn: p for pn, p in self.named_parameters()}
+        param_dict = dict(self.named_parameters())
         inter_params = decay & no_decay
         union_params = decay | no_decay
-        assert len(inter_params) == 0, "parameters %s made it into both decay/no_decay sets!" % (str(inter_params),)
+        assert len(inter_params) == 0, f"parameters {str(inter_params)} made it into both decay/no_decay sets!"
         assert (
             len(param_dict.keys() - union_params) == 0
-        ), "parameters %s were not separated into either decay/no_decay set!" % (str(param_dict.keys() - union_params),)
+        ), f"parameters {str(param_dict.keys() - union_params)} were not separated into either decay/no_decay set!"
 
         optim_groups = [
             {
                 "params": [param_dict[pn] for pn in sorted(list(decay))],
-                "weight_decay": 0.1,  # TODO
+                "weight_decay": 0.1,
             },
             {
                 "params": [param_dict[pn] for pn in sorted(list(no_decay))],
@@ -278,6 +306,8 @@ class GPT(nn.Module):
         return optim_groups
 
     # state, action, and return
+    # pylint: disable=too-many-locals
+    # pylint: disable=too-many-arguments
     def forward(
         self,
         states,
@@ -286,11 +316,13 @@ class GPT(nn.Module):
         timesteps,
         users,
     ):
-        # states: (batch, block_size, 3)
-        # actions: (batch, block_size, 1)
-        # rtgs: (batch, block_size, 1)
-        # timesteps: (batch, 1, 1)
-        # users: (batch, 1)
+        """
+        :states: states batch, (batch, trajectory_len, 3)
+        :actions: actions batch, (batch, trajectory_len, 1)
+        :rtgs: rtgs batch, (batch, trajectory_len, 1)
+        :timesteps: timesteps batch, (batch, 1, 1)
+        :users:users batch,  (batch, 1)
+        """
 
         inference = not self.training
         state_embeddings = self.state_repr(
@@ -357,7 +389,15 @@ class GPT(nn.Module):
 
         return logits
 
+    # pylint: disable=too-many-arguments
     def predict(self, states, actions, rtgs, timesteps, users):
+        """
+        :states: states batch, (batch, block_size, 3)
+        :actions: actions batch, (batch, block_size, 1)
+        :rtgs: rtgs batch, (batch, block_size, 1)
+        :timesteps: timesteps batch, (batch, 1, 1)
+        :users:users batch,  (batch, 1)
+        """
         logits, _ = self(
             states=states.to(self.pos_emb.device),
             actions=actions.to(self.pos_emb.device),

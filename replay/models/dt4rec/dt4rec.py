@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 import pandas as pd
 import torch
@@ -22,12 +22,18 @@ from .utils import (
 )
 
 
+# pylint: disable=too-many-instance-attributes
 class DT4Rec(Recommender):
+    """
+    Decision Transformer for Recommendations
+    """
+
     optimizer = None
     train_batch_size = 128
     val_batch_size = 128
     lr_scheduler = None
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         item_num,
@@ -36,6 +42,7 @@ class DT4Rec(Recommender):
         trajectory_len=30,
         epochs=1,
         batch_size=64,
+        use_cuda=True,
     ):
         self.item_num = item_num
         self.user_num = user_num
@@ -52,7 +59,14 @@ class DT4Rec(Recommender):
             max_timestep=self.item_num,
         )
         self.model: GPT
+        self.user_trajectory: List
+        self.trainer: Trainer
+        self.use_cuda = use_cuda
         set_seed(self.seed)
+
+    # pylint: disable=invalid-overridden-method
+    def _init_args(self):
+        pass
 
     def _update_mconf(self, **kwargs):
         self.mconf.update(**kwargs)
@@ -84,6 +98,9 @@ class DT4Rec(Recommender):
         val_items=None,
         experiment=None,
     ):
+        """
+        Run training loop
+        """
         assert (val_users is None) == (val_items is None) == (experiment is None)
         with_validate = experiment is not None
         df = log.toPandas()[["user_idx", "item_idx", "relevance", "timestamp"]]
@@ -120,11 +137,9 @@ class DT4Rec(Recommender):
             self.tconf,
             val_dataloader,
             experiment,
+            self.use_cuda,
         )
         self.trainer.train()
-
-    def _init_args(self):
-        pass
 
     def _fit(
         self,
@@ -134,6 +149,7 @@ class DT4Rec(Recommender):
     ) -> None:
         self.train(log)
 
+    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: DataFrame,

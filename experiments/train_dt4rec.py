@@ -51,7 +51,7 @@ experiment = Experiment(
     },
 )
 
-rec_sys = DT4Rec(item_num, user_num)
+rec_sys = DT4Rec(item_num, user_num, use_cuda=False)
 rec_sys.fit(train)
 pred = rec_sys.predict(log=train, k=K, users=test.select("user_idx").distinct())
 

@@ -10,22 +10,36 @@ from .utils import matrix2df
 logger = logging.getLogger(__name__)
 
 
+# pylint: disable=too-few-public-methods
 class TrainerConfig:
+    """
+    Config holder for trainer
+    """
+
     epochs = 1
     lr_scheduler = None
 
     def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     def update(self, **kwargs):
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+        """
+        Arguments setter
+        """
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 
+# pylint: disable=too-many-instance-attributes
 class Trainer:
+    """
+    Trainer for DT4Rec
+    """
+
     grad_norm_clip = 1.0
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         model,
@@ -33,6 +47,7 @@ class Trainer:
         tconf,
         val_dataloader=None,
         experiment=None,
+        use_cuda=True,
     ):
         self.model = model
         self.train_dataloader = train_dataloader
@@ -45,7 +60,7 @@ class Trainer:
 
         # take over whatever gpus are on the system
         self.device = "cpu"
-        if torch.cuda.is_available():
+        if use_cuda and torch.cuda.is_available():
             self.device = torch.cuda.current_device()
             self.model = torch.nn.DataParallel(self.model).to(self.device)
 
@@ -61,7 +76,7 @@ class Trainer:
             total=len(self.train_dataloader),
         )
 
-        for it, batch in pbar:
+        for iter_, batch in pbar:
             # place data on the correct device
             states, actions, rtgs, timesteps, users = self._move_batch(batch)
             targets = actions
@@ -85,7 +100,7 @@ class Trainer:
                 current_lr = self.lr_scheduler.get_lr()
             else:
                 current_lr = self.optimizer.param_groups[-1]["lr"]
-            pbar.set_description(f"epoch {epoch+1} iter {it}: train loss {loss.item():.5f}, lr {current_lr}")
+            pbar.set_description(f"epoch {epoch+1} iter {iter_}: train loss {loss.item():.5f}, lr {current_lr}")
 
     def _evaluation_epoch(self, epoch):
         self.model.eval()
@@ -101,6 +116,9 @@ class Trainer:
             self.experiment.results.to_csv("results.csv")
 
     def train(self):
+        """
+        Run training loop
+        """
         for epoch in range(self.epochs):
             self._train_epoch(epoch)
             if self.experiment is not None:
