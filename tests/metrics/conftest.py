@@ -2,6 +2,7 @@ from random import shuffle
 
 import pandas as pd
 import pytest
+from tests.utils import spark
 
 recs_data = [
     (1, 3, 0.6),
@@ -55,10 +56,10 @@ base_recs_data = [
 ]
 
 
-@pytest.fixture(scope="module")
-@pytest.mark.usefixtures("spark_session")
-def predict_spark(spark_session):
-    return spark_session.createDataFrame(recs_data, schema=["uid", "iid", "scores"])
+@pytest.mark.usefixtures("spark")
+@pytest.fixture()
+def predict_spark(spark):
+    return spark.createDataFrame(recs_data, schema=["uid", "iid", "scores"])
 
 
 @pytest.fixture(scope="module")
@@ -97,10 +98,10 @@ def fake_train_dict():
     return converted_dict
 
 
-@pytest.fixture(scope="module")
-@pytest.mark.usefixtures("spark_session")
-def gt_spark(spark_session):
-    return spark_session.createDataFrame(gt_data, schema=["uid", "iid"])
+@pytest.mark.usefixtures("spark")
+@pytest.fixture()
+def gt_spark(spark):
+    return spark.createDataFrame(gt_data, schema=["uid", "iid"])
 
 
 @pytest.fixture(scope="module")
@@ -117,10 +118,10 @@ def gt_dict():
     return converted_dict
 
 
-@pytest.fixture(scope="module")
-@pytest.mark.usefixtures("spark_session")
-def base_recs_spark(spark_session):
-    return spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+@pytest.fixture()
+def base_recs_spark(spark):
+    return spark.createDataFrame(
         base_recs_data, schema=["uid", "iid", "scores"]
     )
 

@@ -3,6 +3,7 @@
 import pytest
 
 pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
 
 from pyspark.sql import functions as sf
 
@@ -40,7 +41,6 @@ def two_stages_kwargs():
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_init(two_stages_kwargs):
 
     two_stages = TwoStagesScenario(**two_stages_kwargs)
@@ -69,7 +69,6 @@ def test_init(two_stages_kwargs):
 
 @pytest.mark.xfail
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_fit(
     long_log_with_features,
     short_log_with_features,
@@ -105,7 +104,6 @@ def test_fit(
 
 @pytest.mark.xfail
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_predict(
     long_log_with_features, user_features, item_features, two_stages_kwargs,
 ):
@@ -132,7 +130,6 @@ def test_predict(
 
 @pytest.mark.xfail
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_optimize(
     long_log_with_features,
     short_log_with_features,

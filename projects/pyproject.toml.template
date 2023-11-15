@@ -42,8 +42,10 @@ psutil = "~5.9.5"
 pyspark = { version = ">=3.0,<3.3", optional = true }
 scikit-learn = "^1.0.2"
 pyarrow = "~12.0.1"
-torch = "^1.8"
-pytorch-ranger = "^0.1.1"
+{% if project == "default" %}
+torch = { version = "^1.8", optional = true }
+pytorch-ranger = { version = "^0.1.1", optional = true }
+{% endif %}
 seaborn = "~0.12.2"
 matplotlib = "^3.5.3"
 nmslib = "2.1.1"
@@ -51,6 +53,8 @@ hnswlib = "0.7.0"
 cached-property = "1.5.2"
 
 {% if project == "experimental" %}
+torch = "^1.8"
+pytorch-ranger = "^0.1.1"
 lightfm = "1.17"
 lightautoml = "~0.3.1"
 numba = ">=0.50"
@@ -85,6 +89,7 @@ data-science-types = "0.2.23"
 
 [tool.poetry.extras]
 spark = ["pyspark"]
+torch = ["torch", "pytorch-ranger"]
 
 [build-system]
 requires = [

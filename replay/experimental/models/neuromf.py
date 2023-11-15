@@ -33,6 +33,7 @@ def xavier_init_(layer: nn.Module):
         layer.bias.data.normal_(0.0, 0.001)
 
 
+# pylint: disable=too-few-public-methods
 class GMF(nn.Module):
     """Generalized Matrix Factorization"""
 
@@ -75,6 +76,7 @@ class GMF(nn.Module):
         return element_product
 
 
+# pylint: disable=too-few-public-methods
 class MLP(nn.Module):
     """Multi-Layer Perceptron"""
 
@@ -144,6 +146,7 @@ class MLP(nn.Module):
         return hidden
 
 
+# pylint: disable=too-few-public-methods
 class NMF(nn.Module):
     """NMF = MLP + GMF"""
 

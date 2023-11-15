@@ -8,6 +8,7 @@ if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as F
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("column", ["user_id"])
 @pytest.mark.usefixtures("simple_dataframe")
 def test_label_encoder_spark(column, simple_dataframe):
@@ -24,6 +25,7 @@ def test_label_encoder_spark(column, simple_dataframe):
     pd.testing.assert_frame_equal(df1, df2)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("column", ["user_id"])
 @pytest.mark.usefixtures("simple_dataframe")
 def test_label_encoder_load_rule_spark(column, simple_dataframe):
@@ -44,6 +46,7 @@ def test_label_encoder_load_rule_spark(column, simple_dataframe):
     pd.testing.assert_frame_equal(df1, df2)
 
 
+@pytest.mark.core
 @pytest.mark.parametrize("column", ["user_id", "item_id"])
 @pytest.mark.usefixtures("simple_dataframe_pandas")
 def test_label_encoder_pandas(column, simple_dataframe_pandas):
@@ -59,6 +62,7 @@ def test_label_encoder_pandas(column, simple_dataframe_pandas):
     assert changed_interactions.equals(rebuild_original_cols)
 
 
+@pytest.mark.core
 @pytest.mark.parametrize("column", ["user_id", "item_id"])
 @pytest.mark.usefixtures("simple_dataframe_pandas")
 def test_label_encoder_load_rule_pandas(column, simple_dataframe_pandas):
@@ -76,6 +80,7 @@ def test_label_encoder_load_rule_pandas(column, simple_dataframe_pandas):
     assert changed_interactions.equals(rebuild_original_cols)
 
 
+@pytest.mark.core
 @pytest.mark.usefixtures("simple_dataframe_pandas")
 def test_label_encoder_is_not_fitted(simple_dataframe_pandas):
     encoder = LabelEncoder([LabelEncodingRule("user_id")])
@@ -90,6 +95,7 @@ def test_label_encoder_is_not_fitted(simple_dataframe_pandas):
         encoder.inverse_transform(simple_dataframe_pandas)
 
 
+@pytest.mark.core
 @pytest.mark.parametrize("column", ["user_id", "item_id"])
 @pytest.mark.usefixtures("simple_dataframe_pandas")
 def test_label_encoder_pandas_wrong_inplace_transform(column, simple_dataframe_pandas):
@@ -101,6 +107,7 @@ def test_label_encoder_pandas_wrong_inplace_transform(column, simple_dataframe_p
     assert id(mapped_data) != id(simple_dataframe_pandas)
 
 
+@pytest.mark.core
 @pytest.mark.usefixtures(
     "pandas_df_for_labelencoder",
     "pandas_df_for_labelencoder_modified",
@@ -118,6 +125,7 @@ def test_label_encoder_with_handled_null_values_pandas(
     assert str(mapped_interactions.iloc[-1]["item2"]) == "5"
 
 
+@pytest.mark.core
 @pytest.mark.usefixtures(
     "pandas_df_for_labelencoder",
     "pandas_df_for_labelencoder_modified",
@@ -135,6 +143,7 @@ def test_none_type_passed_as_default_value_pandas(
     assert mapped_interactions.loc[2, "item2"] is None
 
 
+@pytest.mark.spark
 @pytest.mark.usefixtures(
     "spark_df_for_labelencoder",
     "spark_df_for_labelencoder_modified",
@@ -154,6 +163,7 @@ def test_label_encoder_with_handled_null_values_spark(
     assert str(mapped_interactions.iloc[-1]["item2"]) == "2"
 
 
+@pytest.mark.spark
 @pytest.mark.usefixtures(
     "spark_df_for_labelencoder",
     "spark_df_for_labelencoder_modified",
@@ -169,6 +179,7 @@ def test_label_encoder_with_null_values_spark(
         encoder.transform(spark_df_for_labelencoder_modified)
 
 
+@pytest.mark.core
 @pytest.mark.usefixtures(
     "pandas_df_for_labelencoder",
     "pandas_df_for_labelencoder_modified",
@@ -184,6 +195,7 @@ def test_label_encoder_with_null_values_pandas(
         encoder.transform(pandas_df_for_labelencoder_modified)
 
 
+@pytest.mark.core
 @pytest.mark.usefixtures(
     "pandas_df_for_labelencoder",
 )
@@ -198,6 +210,7 @@ def test_label_encoder_with_default_value_in_seen_labels(
     encoder.fit(pandas_df_for_labelencoder)
 
 
+@pytest.mark.core
 def test_label_encoder_value_errors():
     with pytest.raises(ValueError):
         LabelEncoder([LabelEncodingRule("item1", handle_unknown="qwerty", default_value="some_text")])
@@ -220,6 +233,7 @@ def test_label_encoder_value_errors():
         encoder.set_handle_unknowns({"item3": "some_text"})
 
 
+@pytest.mark.core
 @pytest.mark.usefixtures(
     "pandas_df_for_labelencoder",
     "pandas_df_for_labelencoder_modified",
@@ -243,6 +257,7 @@ def test_pandas_partial_fit(pandas_df_for_labelencoder, pandas_df_for_labelencod
     assert "item_3" in encoder.mapping["item2"]
 
 
+@pytest.mark.spark
 @pytest.mark.usefixtures(
     "spark_df_for_labelencoder",
     "spark_df_for_labelencoder_modified",
@@ -269,6 +284,7 @@ def test_spark_partial_fit(spark_df_for_labelencoder, spark_df_for_labelencoder_
     assert "item_3" in encoder.mapping["item2"]
 
 
+@pytest.mark.core
 @pytest.mark.usefixtures("pandas_df_for_labelencoder")
 def test_partial_fit_to_unfitted_encoder(pandas_df_for_labelencoder):
     encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
@@ -283,6 +299,7 @@ def test_partial_fit_to_unfitted_encoder(pandas_df_for_labelencoder):
     assert "item_2" in encoder.mapping["item2"]
 
 
+@pytest.mark.core
 @pytest.mark.usefixtures(
     "pandas_df_for_labelencoder",
     "pandas_df_for_labelencoder_modified",

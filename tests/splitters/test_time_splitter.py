@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from replay.splitters import TimeSplitter
-from replay.utils import PYSPARK_AVAILABLE, get_spark_session
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame
 from tests.utils import spark
 
 if PYSPARK_AVAILABLE:
@@ -27,8 +27,9 @@ def _check_assert(user_ids, item_ids, user_answer, item_answer):
         assert sorted(user_ids[idx]) == sorted(user_answer[idx])
 
 
-@pytest.fixture(scope="module")
-def spark_dataframe_test():
+@pytest.fixture()
+@pytest.mark.usefixtures("spark")
+def spark_dataframe_test(spark):
     columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
         (1, 1, "01-01-2020", 1),
@@ -47,7 +48,7 @@ def spark_dataframe_test():
         (3, 1, "04-01-2020", 6),
         (3, 2, "05-01-2020", 6),
     ]
-    return get_spark_session().createDataFrame(data, schema=columns).withColumn(
+    return spark.createDataFrame(data, schema=columns).withColumn(
         "timestamp", F.to_date("timestamp", "dd-MM-yyyy")
     )
 
@@ -79,24 +80,28 @@ def pandas_dataframe_test():
     return dataframe
 
 
-@pytest.fixture
+log_data = [
+    [0, 0, datetime(2019, 9, 12), 1.0],
+    [0, 1, datetime(2019, 9, 13), 2.0],
+    [1, 0, datetime(2019, 9, 14), 3.0],
+    [1, 1, datetime(2019, 9, 15), 4.0],
+    [2, 0, datetime(2019, 9, 16), 5.0],
+    [0, 2, datetime(2019, 9, 17), 1.0],
+]
+
+
+@pytest.fixture()
+@pytest.mark.usefixtures("spark")
 def log(spark):
     return spark.createDataFrame(
-        data=[
-            [0, 0, datetime(2019, 9, 12), 1.0],
-            [0, 1, datetime(2019, 9, 13), 2.0],
-            [1, 0, datetime(2019, 9, 14), 3.0],
-            [1, 1, datetime(2019, 9, 15), 4.0],
-            [2, 0, datetime(2019, 9, 16), 5.0],
-            [0, 2, datetime(2019, 9, 17), 1.0],
-        ],
+        log_data,
         schema=["user_id", "item_id", "timestamp", "relevance"],
     )
 
 
-@pytest.fixture
-def log_pandas(log):
-    return log.toPandas()
+@pytest.fixture()
+def log_pandas():
+    return PandasDataFrame(log_data, columns=["user_id", "item_id", "timestamp", "relevance"])
 
 
 @pytest.mark.parametrize(
@@ -112,8 +117,8 @@ def log_pandas(log):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_time_splitter_without_drops(time_threshold, user_answer, item_answer, dataset_type, request):
@@ -149,8 +154,8 @@ def test_time_splitter_without_drops(time_threshold, user_answer, item_answer, d
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_time_splitter_drop_users(time_threshold, user_answer, item_answer, dataset_type, request):
@@ -186,8 +191,8 @@ def test_time_splitter_drop_users(time_threshold, user_answer, item_answer, data
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_time_splitter_drop_items(time_threshold, user_answer, item_answer, dataset_type, request):
@@ -223,8 +228,8 @@ def test_time_splitter_drop_items(time_threshold, user_answer, item_answer, data
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_time_splitter_drop_both(time_threshold, user_answer, item_answer, dataset_type, request):
@@ -261,8 +266,8 @@ def test_time_splitter_drop_both(time_threshold, user_answer, item_answer, datas
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_time_splitter_without_drops_with_sessions(
@@ -299,7 +304,7 @@ def test_original_dataframe_not_change(pandas_dataframe_test):
     assert original_dataframe.equals(pandas_dataframe_test)
 
 
-@pytest.fixture
+@pytest.fixture()
 def split_date():
     return datetime(2019, 9, 15)
 
@@ -307,8 +312,8 @@ def split_date():
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log"),
-        ("log_pandas"),
+        pytest.param("log", marks=pytest.mark.spark),
+        pytest.param("log_pandas", marks=pytest.mark.core),
     ],
 )
 def test_split(dataset_type, request, split_date):
@@ -332,8 +337,8 @@ def test_split(dataset_type, request, split_date):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log"),
-        ("log_pandas"),
+        pytest.param("log", marks=pytest.mark.spark),
+        pytest.param("log_pandas", marks=pytest.mark.core),
     ],
 )
 def test_string(dataset_type, request, split_date):
@@ -380,8 +385,8 @@ def test_string(dataset_type, request, split_date):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log"),
-        ("log_pandas"),
+        pytest.param("log", marks=pytest.mark.spark),
+        pytest.param("log_pandas", marks=pytest.mark.core),
     ],
 )
 def test_proportion(dataset_type, request):
@@ -412,8 +417,8 @@ def test_proportion(dataset_type, request):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log"),
-        ("log_pandas"),
+        pytest.param("log", marks=pytest.mark.spark),
+        pytest.param("log_pandas", marks=pytest.mark.core),
     ],
 )
 def test_drop_cold_items(dataset_type, request, split_date):
@@ -436,8 +441,8 @@ def test_drop_cold_items(dataset_type, request, split_date):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log"),
-        ("log_pandas"),
+        pytest.param("log", marks=pytest.mark.spark),
+        pytest.param("log_pandas", marks=pytest.mark.core),
     ],
 )
 def test_drop_cold_users(dataset_type, request, split_date):
@@ -465,8 +470,8 @@ def test_proportion_splitting_out_of_range():
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log"),
-        ("log_pandas"),
+        pytest.param("log", marks=pytest.mark.spark),
+        pytest.param("log_pandas", marks=pytest.mark.core),
     ],
 )
 def test_wrong_threshold_format_passed(dataset_type, request, split_date):

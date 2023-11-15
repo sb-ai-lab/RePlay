@@ -3,6 +3,7 @@ import pytest
 
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureSource, FeatureType
 from replay.utils import PYSPARK_AVAILABLE
+from tests.utils import spark
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql.functions import asc

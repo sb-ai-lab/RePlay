@@ -14,11 +14,10 @@ from torch.distributions.gamma import Gamma
 from replay.data import get_schema
 from replay.experimental.models.base_torch_rec import Recommender
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
+from replay.utils.spark_utils import convert2spark
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
-
-    from replay.utils.spark_utils import convert2spark
 
 
 def to_np(tensor: torch.Tensor) -> np.array:

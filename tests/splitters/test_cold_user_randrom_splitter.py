@@ -4,10 +4,10 @@ import pandas as pd
 import pytest
 
 from replay.splitters import ColdUserRandomSplitter
-from replay.utils import get_spark_session
+from tests.utils import spark
 
 
-@pytest.fixture
+@pytest.fixture()
 def log():
     return pd.DataFrame(
         {
@@ -19,16 +19,17 @@ def log():
     )
 
 
-@pytest.fixture
-def log_spark(log):
-    return get_spark_session().createDataFrame(log)
+@pytest.fixture()
+@pytest.mark.usefixtures("spark")
+def log_spark(spark, log):
+    return spark.createDataFrame(log)
 
 
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log"),
-        ("log_spark"),
+        pytest.param("log_spark", marks=pytest.mark.spark),
+        pytest.param("log", marks=pytest.mark.core),
     ]
 )
 def test_splitting(dataset_type, request):

@@ -4,12 +4,14 @@ import pytest
 from tests.utils import item_features, spark, sparkDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
+
 from pyspark.sql import functions as sf
 
 from replay.experimental.preprocessing.data_preparator import ToNumericFeatureTransformer
 
 
-@pytest.mark.spark
+@pytest.mark.experimental
 def test_all_to_numeric_big_threshold(item_features):
     processor = ToNumericFeatureTransformer()
     processor.fit(item_features.filter(sf.col("class") != "dog"))
@@ -29,7 +31,7 @@ def test_all_to_numeric_big_threshold(item_features):
     ]
 
 
-@pytest.mark.spark
+@pytest.mark.experimental
 def test_all_to_numeric_threshold(item_features):
     processor = ToNumericFeatureTransformer(threshold=1)
     processor.fit(item_features.filter(sf.col("class") != "dog"))
@@ -38,7 +40,7 @@ def test_all_to_numeric_threshold(item_features):
     assert sorted(transformed.columns) == ["iq", "item_idx"]
 
 
-@pytest.mark.spark
+@pytest.mark.experimental
 def test_all_to_numeric_only_numeric(item_features):
     processor = ToNumericFeatureTransformer(threshold=1)
     processor.fit(item_features.select("item_idx", "iq"))
@@ -46,7 +48,7 @@ def test_all_to_numeric_only_numeric(item_features):
     sparkDataFrameEqual(item_features.select("item_idx", "iq"), transformed)
 
 
-@pytest.mark.spark
+@pytest.mark.experimental
 def test_all_to_numeric_numeric_and_greater_threshold(
     item_features,
 ):
@@ -56,7 +58,7 @@ def test_all_to_numeric_numeric_and_greater_threshold(
     sparkDataFrameEqual(item_features.select("item_idx", "iq"), transformed)
 
 
-@pytest.mark.spark
+@pytest.mark.experimental
 def test_all_to_numeric_empty(item_features):
     processor = ToNumericFeatureTransformer(threshold=1)
     processor.fit(None)

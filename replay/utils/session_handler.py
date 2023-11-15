@@ -9,7 +9,6 @@ from math import floor
 from typing import Any, Dict, Optional
 
 import psutil
-import torch
 
 from .types import PYSPARK_AVAILABLE, MissingImportType
 
@@ -117,14 +116,11 @@ class Borg:
 class State(Borg):
     """
     All modules look for Spark session via this class. You can put your own session here.
-
-    Other parameters are stored here too: ``default device`` for ``pytorch`` (CPU/CUDA)
     """
 
     def __init__(
         self,
         session: Optional[SparkSession] = None,
-        device: Optional[torch.device] = None,
     ):
         Borg.__init__(self)
         if not hasattr(self, "logger_set"):
@@ -136,14 +132,3 @@ class State(Borg):
                 self.session = get_spark_session()
         else:
             self.session = session
-
-        if device is None:
-            if not hasattr(self, "device"):
-                if torch.cuda.is_available():
-                    self.device = torch.device(
-                        f"cuda:{torch.cuda.current_device()}"
-                    )
-                else:
-                    self.device = torch.device("cpu")
-        else:
-            self.device = device

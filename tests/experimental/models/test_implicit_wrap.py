@@ -2,6 +2,7 @@ import implicit
 import pytest
 
 pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
 
 from pyspark.sql import functions as sf
 
@@ -13,7 +14,6 @@ INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -43,7 +43,6 @@ def test_predict(model, log, filter_seen):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -73,7 +72,6 @@ def test_predict_pairs(model, log, log_in_pred):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [

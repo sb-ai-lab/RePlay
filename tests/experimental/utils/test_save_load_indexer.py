@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
 
 import replay
 from replay.experimental.preprocessing.data_preparator import Indexer
@@ -35,7 +36,7 @@ def df():
     return res
 
 
-@pytest.mark.spark
+@pytest.mark.experimental
 def test_indexer(df, tmp_path):
     path = (tmp_path / "indexer").resolve()
     indexer = Indexer("user_idx", "item_idx")

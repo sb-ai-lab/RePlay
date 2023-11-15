@@ -1,7 +1,7 @@
 import pytest
 
 from replay.preprocessing.filters import InteractionEntriesFilter
-from replay.utils import PandasDataFrame, get_spark_session
+from replay.utils import PandasDataFrame
 
 
 @pytest.fixture
@@ -12,8 +12,9 @@ def interactions_pandas():
 
 
 @pytest.fixture
-def interactions_spark(interactions_pandas):
-    return get_spark_session().createDataFrame(interactions_pandas)
+@pytest.mark.usefixtures("spark")
+def interactions_spark(spark, interactions_pandas):
+    return spark.createDataFrame(interactions_pandas)
 
 
 @pytest.mark.parametrize(

@@ -4,7 +4,8 @@ import pandas as pd
 import pytest
 
 from replay.splitters import RatioSplitter
-from replay.utils import PYSPARK_AVAILABLE, get_spark_session
+from replay.utils import PYSPARK_AVAILABLE
+from tests.utils import spark
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as F
@@ -24,8 +25,9 @@ def _check_assert(user_ids, item_ids, user_answer, item_answer):
         assert sorted(user_ids[idx]) == sorted(user_answer[idx])
 
 
-@pytest.fixture(scope="module")
-def spark_dataframe_test():
+@pytest.fixture()
+@pytest.mark.usefixtures("spark")
+def spark_dataframe_test(spark):
     columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
         (1, 1, "01-01-2020", 1),
@@ -44,7 +46,7 @@ def spark_dataframe_test():
         (3, 1, "04-01-2020", 6),
         (3, 2, "05-01-2020", 6),
     ]
-    return get_spark_session().createDataFrame(data, schema=columns).withColumn(
+    return spark.createDataFrame(data, schema=columns).withColumn(
         "timestamp", F.to_date("timestamp", "dd-MM-yyyy")
     )
 
@@ -108,8 +110,8 @@ def pandas_dataframe_test():
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_ratio_splitter_without_drops(ratio, user_answer, item_answer, split_by_fraqtions, request, dataset_type):
@@ -170,8 +172,8 @@ def test_ratio_splitter_without_drops(ratio, user_answer, item_answer, split_by_
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_ratio_splitter_min_user_interactions(
@@ -217,8 +219,8 @@ def test_ratio_splitter_min_user_interactions(
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_ratio_splitter_drop_users(ratio, user_answer, item_answer, dataset_type, request):
@@ -255,8 +257,8 @@ def test_ratio_splitter_drop_users(ratio, user_answer, item_answer, dataset_type
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_ratio_splitter_drop_items(ratio, user_answer, item_answer, dataset_type, request):
@@ -280,11 +282,13 @@ def test_ratio_splitter_drop_items(ratio, user_answer, item_answer, dataset_type
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
 
+@pytest.mark.core
 def test_ratio_splitter_sanity_check():
     with pytest.raises(ValueError):
         RatioSplitter(test_size=1.4, divide_column="user_id", query_column="user_id")
 
 
+@pytest.mark.spark
 def test_datasets_types_mismatch(spark_dataframe_test, pandas_dataframe_test):
     with pytest.raises(TypeError):
         RatioSplitter(0.1, divide_column="user_id", query_column="user_id")._drop_cold_items_and_users(
@@ -328,8 +332,8 @@ def test_datasets_types_mismatch(spark_dataframe_test, pandas_dataframe_test):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_ratio_splitter_without_drops_with_sessions(

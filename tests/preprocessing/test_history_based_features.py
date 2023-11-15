@@ -66,6 +66,7 @@ def log_proc():
     return LogStatFeaturesProcessor()
 
 
+@pytest.mark.spark
 def test_log_proc_no_ts_rel(spark, log_proc, log_for_feature_gen):
     log_proc.fit(
         log_for_feature_gen.withColumn("relevance", sf.lit(1)).withColumn(
@@ -101,6 +102,7 @@ def test_log_proc_no_ts_rel(spark, log_proc, log_for_feature_gen):
     sparkDataFrameEqual(gt_item_features, log_proc.item_log_features)
 
 
+@pytest.mark.spark
 def test_log_proc_ts_no_rel(spark, log_proc, log_for_feature_gen):
     log_proc.fit(log_for_feature_gen.withColumn("relevance", sf.lit(1)))
 
@@ -137,6 +139,7 @@ def test_log_proc_ts_no_rel(spark, log_proc, log_for_feature_gen):
     )
 
 
+@pytest.mark.spark
 def test_log_proc_relevance_ts(spark, log_proc, log_for_feature_gen):
     log_proc.fit(log_for_feature_gen)
 
@@ -202,6 +205,7 @@ def test_log_proc_relevance_ts(spark, log_proc, log_for_feature_gen):
     )
 
 
+@pytest.mark.spark
 def test_conditional_features(spark, log_for_feature_gen, user_features):
 
     cond_pop_proc = ConditionalPopularityProcessor(
@@ -221,6 +225,7 @@ def test_conditional_features(spark, log_for_feature_gen, user_features):
     )
 
 
+@pytest.mark.spark
 def test_history_based_fp_fit_transform(
     log_for_feature_gen,
     user_features,
@@ -251,6 +256,7 @@ def test_history_based_fp_fit_transform(
     assert "na_u_pop_by_class" in res.columns
 
 
+@pytest.mark.spark
 def test_history_based_fp_one_features_df(log_for_feature_gen, user_features):
     history_based_fp = HistoryBasedFeaturesProcessor(
         user_cat_features_list=["gender"]

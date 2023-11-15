@@ -36,9 +36,9 @@ def full_pandas_dataset():
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def full_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def full_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 0, 1, 1, 1, 2],
@@ -49,7 +49,7 @@ def full_spark_dataset(spark_session):
         )
     )
 
-    users = spark_session.createDataFrame(
+    users = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 1, 2],
@@ -58,7 +58,7 @@ def full_spark_dataset(spark_session):
         )
     )
 
-    items = spark_session.createDataFrame(
+    items = spark.createDataFrame(
         pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
     )
 
@@ -110,9 +110,9 @@ def full_pandas_dataset_cutted_interactions():
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def full_spark_dataset_cutted_interactions(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def full_spark_dataset_cutted_interactions(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 1, 1, 1],
@@ -124,7 +124,7 @@ def full_spark_dataset_cutted_interactions(spark_session):
         )
     )
 
-    users = spark_session.createDataFrame(
+    users = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 1, 2],
@@ -133,7 +133,7 @@ def full_spark_dataset_cutted_interactions(spark_session):
         )
     )
 
-    items = spark_session.createDataFrame(
+    items = spark.createDataFrame(
         pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature2": [1.1, 1.2, 1.3, 1.4]})
     )
 
@@ -184,9 +184,9 @@ def inconsistent_item_full_pandas_dataset():
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def inconsistent_item_full_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def inconsistent_item_full_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 0, 1, 1, 1, 2],
@@ -197,7 +197,7 @@ def inconsistent_item_full_spark_dataset(spark_session):
         )
     )
 
-    users = spark_session.createDataFrame(
+    users = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 1, 2],
@@ -206,7 +206,7 @@ def inconsistent_item_full_spark_dataset(spark_session):
         )
     )
 
-    items = spark_session.createDataFrame(
+    items = spark.createDataFrame(
         pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
     )
 
@@ -257,9 +257,9 @@ def inconsistent_user_full_pandas_dataset():
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def inconsistent_user_full_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def inconsistent_user_full_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 0, 1, 1, 1, 3],
@@ -270,7 +270,7 @@ def inconsistent_user_full_spark_dataset(spark_session):
         )
     )
 
-    users = spark_session.createDataFrame(
+    users = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 1, 2],
@@ -279,7 +279,7 @@ def inconsistent_user_full_spark_dataset(spark_session):
         )
     )
 
-    items = spark_session.createDataFrame(
+    items = spark.createDataFrame(
         pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
     )
 
@@ -319,9 +319,9 @@ def interactions_full_pandas_dataset():
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def interactions_full_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def interactions_full_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 0, 1, 1, 1, 2],
@@ -364,9 +364,9 @@ def interactions_timestamp_pandas_dataset():
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def interactions_timestamp_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def interactions_timestamp_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 0, 1, 1, 1, 2],
@@ -403,9 +403,9 @@ def interactions_rating_pandas_dataset():
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def interactions_rating_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def interactions_rating_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame({"user_id": [0, 0, 1, 1, 1, 2], "item_id": [0, 1, 0, 2, 3, 1], "rating": [1.1, 1.2, 1.3, 2, 3, 4]})
     )
 
@@ -419,9 +419,9 @@ def interactions_rating_spark_dataset(spark_session):
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def interactions_ids_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def interactions_ids_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 0, 1, 1, 1, 2],
@@ -470,9 +470,9 @@ def interactions_users_pandas_dataset():
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def interactions_users_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def interactions_users_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 0, 1, 1, 1, 2],
@@ -483,7 +483,7 @@ def interactions_users_spark_dataset(spark_session):
         )
     )
 
-    users = spark_session.createDataFrame(
+    users = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 1, 2],
@@ -530,9 +530,9 @@ def interactions_items_pandas_dataset():
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def interactions_items_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def interactions_items_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 0, 1, 1, 1, 2],
@@ -543,7 +543,7 @@ def interactions_items_spark_dataset(spark_session):
         )
     )
 
-    items = spark_session.createDataFrame(
+    items = spark.createDataFrame(
         pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
     )
 
@@ -560,8 +560,8 @@ def interactions_items_spark_dataset(spark_session):
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def wrong_user_pandas_dataset(spark_session):
+@pytest.mark.usefixtures("spark")
+def wrong_user_pandas_dataset(spark):
     events = pd.DataFrame(
         {
             "user_id": [0, 0, 1, 1, 1, 2],
@@ -571,7 +571,7 @@ def wrong_user_pandas_dataset(spark_session):
         }
     )
 
-    users = spark_session.createDataFrame(
+    users = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 1, 2],
@@ -593,8 +593,8 @@ def wrong_user_pandas_dataset(spark_session):
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def wrong_item_pandas_dataset(spark_session):
+@pytest.mark.usefixtures("spark")
+def wrong_item_pandas_dataset(spark):
     events = pd.DataFrame(
         {
             "user_id": [0, 0, 1, 1, 1, 2],
@@ -604,7 +604,7 @@ def wrong_item_pandas_dataset(spark_session):
         }
     )
 
-    items = spark_session.createDataFrame(
+    items = spark.createDataFrame(
         pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
     )
 
@@ -665,9 +665,9 @@ def not_int_item_pandas_dataset():
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def not_int_user_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def not_int_user_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": ["0", "0", "1", "1", "1", "2"],
@@ -690,9 +690,9 @@ def not_int_user_spark_dataset(spark_session):
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def not_int_item_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def not_int_item_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 0, 1, 1, 1, 2],
@@ -759,9 +759,9 @@ def less_than_zero_item_pandas_dataset():
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def less_than_zero_user_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def less_than_zero_user_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 0, -1, 1, 1, 2],
@@ -784,9 +784,9 @@ def less_than_zero_user_spark_dataset(spark_session):
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def less_than_zero_item_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def less_than_zero_item_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 0, 1, 1, 1, 2],
@@ -853,9 +853,9 @@ def more_than_count_item_pandas_dataset():
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def more_than_count_user_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def more_than_count_user_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 0, 10, 1, 1, 2],
@@ -878,9 +878,9 @@ def more_than_count_user_spark_dataset(spark_session):
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark_session")
-def more_than_count_item_spark_dataset(spark_session):
-    events = spark_session.createDataFrame(
+@pytest.mark.usefixtures("spark")
+def more_than_count_item_spark_dataset(spark):
+    events = spark.createDataFrame(
         pd.DataFrame(
             {
                 "user_id": [0, 0, 1, 1, 1, 2],

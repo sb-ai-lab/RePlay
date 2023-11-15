@@ -6,38 +6,41 @@ import pandas as pd
 import pytest
 
 from replay.splitters import TwoStageSplitter
+from replay.utils import PandasDataFrame
 from tests.utils import spark
+
+log_data = [
+    [0, 3, datetime(2019, 9, 12), 1.0, 1],
+    [1, 4, datetime(2019, 9, 13), 2.0, 1],
+    [2, 6, datetime(2019, 9, 17), 1.0, 1],
+    [3, 5, datetime(2019, 9, 17), 1.0, 1],
+    [4, 5, datetime(2019, 9, 17), 1.0, 1],
+    [0, 5, datetime(2019, 9, 12), 1.0, 1],
+    [1, 6, datetime(2019, 9, 13), 2.0, 1],
+    [2, 7, datetime(2019, 9, 17), 1.0, 1],
+    [3, 8, datetime(2019, 9, 17), 1.0, 1],
+    [4, 0, datetime(2019, 9, 17), 1.0, 1],
+]
 
 
 @pytest.fixture
 def log(spark):
     return spark.createDataFrame(
-        data=[
-            [0, 3, datetime(2019, 9, 12), 1.0, 1],
-            [1, 4, datetime(2019, 9, 13), 2.0, 1],
-            [2, 6, datetime(2019, 9, 17), 1.0, 1],
-            [3, 5, datetime(2019, 9, 17), 1.0, 1],
-            [4, 5, datetime(2019, 9, 17), 1.0, 1],
-            [0, 5, datetime(2019, 9, 12), 1.0, 1],
-            [1, 6, datetime(2019, 9, 13), 2.0, 1],
-            [2, 7, datetime(2019, 9, 17), 1.0, 1],
-            [3, 8, datetime(2019, 9, 17), 1.0, 1],
-            [4, 0, datetime(2019, 9, 17), 1.0, 1],
-        ],
+        log_data,
         schema=["user_id", "item_id", "timestamp", "relevance", "session_id"],
     )
 
 
 @pytest.fixture
-def log_pandas(log):
-    return log.toPandas()
+def log_pandas():
+    return PandasDataFrame(log_data, columns=["user_id", "item_id", "timestamp", "relevance", "session_id"])
 
 
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log"),
-        ("log_pandas"),
+        pytest.param("log", marks=pytest.mark.spark),
+        pytest.param("log_pandas", marks=pytest.mark.core),
     ]
 )
 @pytest.mark.parametrize("fraction", [3, 0.6])
@@ -65,8 +68,8 @@ def test_get_test_values(dataset_type, request, fraction):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log"),
-        ("log_pandas"),
+        pytest.param("log", marks=pytest.mark.spark),
+        pytest.param("log_pandas", marks=pytest.mark.core),
     ]
 )
 @pytest.mark.parametrize("fraction", [5, 1.0])
@@ -84,39 +87,42 @@ def test_user_test_size_exception(dataset_type, request, fraction):
         splitter._get_test_values(log)
 
 
+big_log_data = [
+    [0, 3, datetime(2019, 9, 12), 1.0, 1],
+    [0, 4, datetime(2019, 9, 13), 2.0, 1],
+    [0, 6, datetime(2019, 9, 17), 1.0, 1],
+    [0, 5, datetime(2019, 9, 17), 1.0, 1],
+    [1, 3, datetime(2019, 9, 12), 1.0, 1],
+    [1, 4, datetime(2019, 9, 13), 2.0, 1],
+    [1, 5, datetime(2019, 9, 14), 3.0, 1],
+    [1, 1, datetime(2019, 9, 15), 4.0, 1],
+    [1, 2, datetime(2019, 9, 15), 4.0, 1],
+    [2, 3, datetime(2019, 9, 12), 1.0, 1],
+    [2, 4, datetime(2019, 9, 13), 2.0, 1],
+    [2, 5, datetime(2019, 9, 14), 3.0, 1],
+    [2, 1, datetime(2019, 9, 14), 3.0, 1],
+    [2, 6, datetime(2019, 9, 17), 1.0, 1],
+    [3, 1, datetime(2019, 9, 15), 4.0, 1],
+    [3, 0, datetime(2019, 9, 16), 4.0, 1],
+    [3, 3, datetime(2019, 9, 17), 4.0, 1],
+    [3, 4, datetime(2019, 9, 18), 4.0, 1],
+    [3, 7, datetime(2019, 9, 19), 4.0, 1],
+    [3, 3, datetime(2019, 9, 20), 4.0, 1],
+    [3, 0, datetime(2019, 9, 21), 4.0, 1],
+]
+
+
 @pytest.fixture
 def big_log(spark):
     return spark.createDataFrame(
-        data=[
-            [0, 3, datetime(2019, 9, 12), 1.0, 1],
-            [0, 4, datetime(2019, 9, 13), 2.0, 1],
-            [0, 6, datetime(2019, 9, 17), 1.0, 1],
-            [0, 5, datetime(2019, 9, 17), 1.0, 1],
-            [1, 3, datetime(2019, 9, 12), 1.0, 1],
-            [1, 4, datetime(2019, 9, 13), 2.0, 1],
-            [1, 5, datetime(2019, 9, 14), 3.0, 1],
-            [1, 1, datetime(2019, 9, 15), 4.0, 1],
-            [1, 2, datetime(2019, 9, 15), 4.0, 1],
-            [2, 3, datetime(2019, 9, 12), 1.0, 1],
-            [2, 4, datetime(2019, 9, 13), 2.0, 1],
-            [2, 5, datetime(2019, 9, 14), 3.0, 1],
-            [2, 1, datetime(2019, 9, 14), 3.0, 1],
-            [2, 6, datetime(2019, 9, 17), 1.0, 1],
-            [3, 1, datetime(2019, 9, 15), 4.0, 1],
-            [3, 0, datetime(2019, 9, 16), 4.0, 1],
-            [3, 3, datetime(2019, 9, 17), 4.0, 1],
-            [3, 4, datetime(2019, 9, 18), 4.0, 1],
-            [3, 7, datetime(2019, 9, 19), 4.0, 1],
-            [3, 3, datetime(2019, 9, 20), 4.0, 1],
-            [3, 0, datetime(2019, 9, 21), 4.0, 1],
-        ],
+        big_log_data,
         schema=["user_id", "item_id", "timestamp", "relevance", "session_id"],
     )
 
 
 @pytest.fixture
-def big_log_pandas(big_log):
-    return big_log.toPandas()
+def big_log_pandas():
+    return PandasDataFrame(big_log_data, columns=["user_id", "item_id", "timestamp", "relevance", "session_id"])
 
 
 test_sizes = np.arange(0.1, 1, 0.25).tolist() + list(range(1, 5))
@@ -125,8 +131,8 @@ test_sizes = np.arange(0.1, 1, 0.25).tolist() + list(range(1, 5))
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("big_log"),
-        ("big_log_pandas"),
+        pytest.param("big_log", marks=pytest.mark.spark),
+        pytest.param("big_log_pandas", marks=pytest.mark.core),
     ]
 )
 @pytest.mark.parametrize("item_test_size", test_sizes)
@@ -168,8 +174,8 @@ def test_random_split(dataset_type, request, item_test_size, shuffle):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("big_log"),
-        ("big_log_pandas"),
+        pytest.param("big_log", marks=pytest.mark.spark),
+        pytest.param("big_log_pandas", marks=pytest.mark.core),
     ]
 )
 @pytest.mark.parametrize("item_test_size", [2.0, -1, -50, 2.1, -0.01])
@@ -188,37 +194,40 @@ def test_item_test_size_exception(dataset_type, request, item_test_size):
         splitter.split(big_log)
 
 
+log2_data = [
+    [0, 0, datetime(2019, 1, 1), 1.0, 1],
+    [0, 1, datetime(2019, 1, 2), 1.0, 1],
+    [0, 2, datetime(2019, 1, 3), 1.0, 1],
+    [0, 3, datetime(2019, 1, 4), 1.0, 1],
+    [1, 4, datetime(2020, 2, 5), 1.0, 1],
+    [1, 3, datetime(2020, 2, 4), 1.0, 1],
+    [1, 2, datetime(2020, 2, 3), 1.0, 1],
+    [1, 1, datetime(2020, 2, 2), 1.0, 1],
+    [1, 0, datetime(2020, 2, 1), 1.0, 1],
+    [2, 0, datetime(1995, 1, 1), 1.0, 1],
+    [2, 1, datetime(1995, 1, 2), 1.0, 1],
+    [2, 2, datetime(1995, 1, 3), 1.0, 1],
+]
+
+
 @pytest.fixture
 def log2(spark):
     return spark.createDataFrame(
-        data=[
-            [0, 0, datetime(2019, 1, 1), 1.0, 1],
-            [0, 1, datetime(2019, 1, 2), 1.0, 1],
-            [0, 2, datetime(2019, 1, 3), 1.0, 1],
-            [0, 3, datetime(2019, 1, 4), 1.0, 1],
-            [1, 4, datetime(2020, 2, 5), 1.0, 1],
-            [1, 3, datetime(2020, 2, 4), 1.0, 1],
-            [1, 2, datetime(2020, 2, 3), 1.0, 1],
-            [1, 1, datetime(2020, 2, 2), 1.0, 1],
-            [1, 0, datetime(2020, 2, 1), 1.0, 1],
-            [2, 0, datetime(1995, 1, 1), 1.0, 1],
-            [2, 1, datetime(1995, 1, 2), 1.0, 1],
-            [2, 2, datetime(1995, 1, 3), 1.0, 1],
-        ],
+        log2_data,
         schema=["user_id", "item_id", "timestamp", "relevance", "session_id"],
     )
 
 
 @pytest.fixture
-def log2_pandas(log2):
-    return log2.toPandas()
+def log2_pandas():
+    return PandasDataFrame(log2_data, columns=["user_id", "item_id", "timestamp", "relevance", "session_id"])
 
 
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log2"),
-        ("log2_pandas"),
+        pytest.param("log2", marks=pytest.mark.spark),
+        pytest.param("log2_pandas", marks=pytest.mark.core),
     ]
 )
 def test_split_quantity(dataset_type, request):
@@ -231,7 +240,7 @@ def test_split_quantity(dataset_type, request):
         drop_cold_items=False,
         drop_cold_users=False,
     )
-    train, test = splitter.split(log2)
+    _, test = splitter.split(log2)
     if isinstance(log2, pd.DataFrame):
         num_items = test.user_id.value_counts()
     else:
@@ -244,8 +253,8 @@ def test_split_quantity(dataset_type, request):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log2"),
-        ("log2_pandas"),
+        pytest.param("log2", marks=pytest.mark.spark),
+        pytest.param("log2_pandas", marks=pytest.mark.core),
     ]
 )
 def test_split_proportion(dataset_type, request):
@@ -259,7 +268,7 @@ def test_split_proportion(dataset_type, request):
         drop_cold_users=False,
         seed=13,
     )
-    train, test = splitter.split(log2)
+    _, test = splitter.split(log2)
     if isinstance(log2, pd.DataFrame):
         num_items = test.user_id.value_counts()
         assert num_items[1] == 2

@@ -1,7 +1,8 @@
 import pytest
 
 from replay.preprocessing import CSRConverter
-from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, get_spark_session
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame
+from tests.utils import spark
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
@@ -16,9 +17,10 @@ def interactions_pandas():
     })
 
 
-@pytest.fixture(scope="module")
-def interactions_spark(interactions_pandas):
-    return get_spark_session().createDataFrame(interactions_pandas)
+@pytest.mark.usefixtures("spark")
+@pytest.fixture()
+def interactions_spark(spark, interactions_pandas):
+    return spark.createDataFrame(interactions_pandas)
 
 
 @pytest.fixture(scope="module")
@@ -28,6 +30,7 @@ def true_size(interactions_pandas):
     return (user_cnt + 1, item_cnt + 1)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("row_count", [None, 1000, 1500])
 @pytest.mark.parametrize("column_count", [None, 2000, 1700])
 @pytest.mark.usefixtures("interactions_spark", "true_size")
@@ -42,6 +45,7 @@ def test_CSRConverter_user_column_counts(row_count, column_count, interactions_s
     assert csr.shape == current_size
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("row_count", [3, 2, 1])
 @pytest.mark.parametrize("column_count", [11, 1, 5])
 @pytest.mark.usefixtures("interactions_spark")
@@ -56,8 +60,8 @@ def test_CSRConverter_user_column_counts_exception(row_count, column_count, inte
 @pytest.mark.parametrize(
     "data",
     [
-        ("interactions_spark"),
-        ("interactions_pandas"),
+        pytest.param("interactions_spark", marks=pytest.mark.spark),
+        pytest.param("interactions_pandas", marks=pytest.mark.core),
     ],
 )
 def test_CSRConverter_rating_column(data_column, data, request):

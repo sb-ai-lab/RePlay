@@ -20,6 +20,7 @@ def df_spark(spark, df):
     return spark.createDataFrame(df)
 
 
+@pytest.mark.spark
 def test_sum_spark(df_spark):
     res = pd.DataFrame()
     cv = KFolds(n_folds=2, seed=1337, session_id_column="session_id", query_column="user_id")
@@ -29,6 +30,7 @@ def test_sum_spark(df_spark):
     assert all(res == df_spark)
 
 
+@pytest.mark.core
 def test_sum_pandas(df):
     res = pd.DataFrame()
     cv = KFolds(n_folds=2, seed=1337, session_id_column="session_id", query_column="user_id")
@@ -38,6 +40,7 @@ def test_sum_pandas(df):
     assert all(res == df)
 
 
-def test_wrong_type(df):
+@pytest.mark.core
+def test_wrong_type():
     with pytest.raises(ValueError):
         next(KFolds(2, strategy="totally not query"))

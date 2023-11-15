@@ -20,7 +20,6 @@ except ImportError:
 
 try:
     # pylint: disable=unused-import
-    import lightning  # noqa: F401
     import torch  # noqa: F401
 
     TORCH_AVAILABLE = True

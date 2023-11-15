@@ -1,11 +1,11 @@
 import numpy as np
 
+from replay.utils.spark_utils import convert2spark
+
 from .types import PYSPARK_AVAILABLE, DataFrameLike
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
-
-    from replay.utils.spark_utils import convert2spark
 
 
 def get_item_recency(
