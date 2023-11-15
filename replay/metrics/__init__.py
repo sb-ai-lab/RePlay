@@ -45,13 +45,7 @@ important for the correct comparison of algorithms, as mentioned in our
 from replay.metrics.base_metric import Metric
 from replay.metrics.categorical_diversity import CategoricalDiversity
 from replay.metrics.coverage import Coverage
-from replay.metrics.descriptors import (
-    CalculationDescriptor,
-    ConfidenceInterval,
-    Mean,
-    Median,
-    PerUser,
-)
+from replay.metrics.descriptors import CalculationDescriptor, ConfidenceInterval, Mean, Median, PerUser
 from replay.metrics.experiment import Experiment
 from replay.metrics.hitrate import HitRate
 from replay.metrics.map import MAP

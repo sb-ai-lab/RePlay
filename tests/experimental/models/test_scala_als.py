@@ -1,33 +1,21 @@
 # pylint: disable-all
-import pytest
 import numpy as np
+import pytest
+
+pyspark = pytest.importorskip("pyspark")
 
 from pyspark.sql import functions as sf
 
-from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
-from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import (
-    ExecutorHnswlibIndexBuilder,
-)
-from replay.models.extensions.ann.index_stores.shared_disk_index_store import (
-    SharedDiskIndexStore,
-)
-from replay.models import AssociationRulesItemRec
-from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 from replay.experimental.models import ScalaALSWrap as ALSWrap
-from replay.experimental.scenarios.two_stages.two_stages_scenario import (
-    get_first_level_model_features,
-)
-from tests.utils import (
-    spark,
-    log,
-    log_to_pred,
-    long_log_with_features,
-    user_features,
-    sparkDataFrameEqual,
-)
+from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.scenarios.two_stages.two_stages_scenario import get_first_level_model_features
 from replay.experimental.utils.model_handler import save
+from replay.models import AssociationRulesItemRec
+from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
+from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import ExecutorHnswlibIndexBuilder
+from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
 from replay.utils.model_handler import load
-
+from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
 
 SEED = 123
 
@@ -70,6 +58,7 @@ def model_with_ann(tmp_path):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_equal_preds(long_log_with_features, tmp_path):
     path = (tmp_path / "test").resolve()
     model = ALSWrap()
@@ -82,6 +71,7 @@ def test_equal_preds(long_log_with_features, tmp_path):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_works(log, model):
     try:
         pred = model.fit_predict(log, k=1)
@@ -91,6 +81,7 @@ def test_works(log, model):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_diff_feedback_type(log, model):
     pred_exp = model.fit_predict(log, k=1)
     model.implicit_prefs = True
@@ -102,6 +93,7 @@ def test_diff_feedback_type(log, model):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_enrich_with_features(log, model):
     model.fit(log.filter(sf.col("user_idx").isin([0, 2])))
     res = get_first_level_model_features(
@@ -134,6 +126,7 @@ def test_enrich_with_features(log, model):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "filter_seen_items", [True, False]
 )
@@ -155,6 +148,7 @@ def test_ann_predict(log, model, model_with_ann, filter_seen_items):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_pairs_warm_items_only(log, log_to_pred):
     model = ALSWrap(seed=SEED)
     model.fit(log)
@@ -193,6 +187,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_pairs_k(log):
     model = ALSWrap(seed=SEED)
     model.fit(log)
@@ -227,6 +222,7 @@ def test_predict_pairs_k(log):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_empty_log(log):
     model = ALSWrap(seed=SEED)
     model.fit(log)
@@ -234,6 +230,7 @@ def test_predict_empty_log(log):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_pairs_raises_pairs_format(log):
     model = ALSWrap(seed=SEED)
     with pytest.raises(ValueError, match="pairs must be a dataframe with .*"):
@@ -242,6 +239,7 @@ def test_predict_pairs_raises_pairs_format(log):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "als_model, metric",
     [
@@ -288,6 +286,7 @@ def test_get_nearest_items(log, als_model, metric):
 
 @pytest.mark.xfail
 @pytest.mark.experimental
+@pytest.mark.spark
 @pytest.mark.parametrize("metric", ["absent", None])
 def test_nearest_items_raises(log, metric):
     model = AssociationRulesItemRec(session_column="user_idx")
@@ -305,6 +304,7 @@ def test_nearest_items_raises(log, metric):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_cold_and_new_filter_out(long_log_with_features):
     model = ALSWrap(rank=2, seed=SEED)
     pred = fit_predict_selected(
@@ -322,6 +322,7 @@ def test_predict_cold_and_new_filter_out(long_log_with_features):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_pairs_to_file(spark, long_log_with_features, tmp_path):
     model = ALSWrap(rank=2, seed=SEED)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
@@ -345,6 +346,7 @@ def test_predict_pairs_to_file(spark, long_log_with_features, tmp_path):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_to_file(spark, long_log_with_features, tmp_path):
     model = ALSWrap(rank=2, seed=SEED)
     path = str((tmp_path / "pred.parquet").resolve().absolute())

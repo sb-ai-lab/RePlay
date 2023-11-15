@@ -1,19 +1,21 @@
 from os.path import join
 from typing import Iterable, Optional, Union
 
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-
-from replay.models.base_rec import IsSavable, RecommenderCommons
-from replay.utils.spark_utils import (
-    get_top_k,
-    get_unique_entities,
-    filter_cold,
-    return_recs,
-    save_picklable_to_parquet,
-    load_pickled_from_parquet,
-)
 from replay.data import Dataset
+from replay.models.base_rec import IsSavable, RecommenderCommons
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+
+    from replay.utils.spark_utils import (
+        filter_cold,
+        get_top_k,
+        get_unique_entities,
+        load_pickled_from_parquet,
+        return_recs,
+        save_picklable_to_parquet,
+    )
 
 
 # pylint: disable=too-many-instance-attributes
@@ -28,16 +30,16 @@ class CatPopRec(IsSavable, RecommenderCommons):
     but for all categories, combining the lowest level categories statistics.
     """
 
-    cat_item_popularity: DataFrame
-    leaf_cat_mapping: DataFrame
+    cat_item_popularity: SparkDataFrame
+    leaf_cat_mapping: SparkDataFrame
     can_predict_cold_items: bool = False
-    fit_items: DataFrame
+    fit_items: SparkDataFrame
 
     def _generate_mapping(
-        self, cat_tree: DataFrame, max_iter: int = 20
-    ) -> DataFrame:
+        self, cat_tree: SparkDataFrame, max_iter: int = 20
+    ) -> SparkDataFrame:
         """
-        Create DataFrame with mapping [`category`, `leaf_cat`]
+        Create SparkDataFrame with mapping [`category`, `leaf_cat`]
         where `leaf_cat` is the lowest level categories of category tree,
         which contain items, not sub-categories.
         :param cat_tree: spark dataframe with columns [`category`, `parent_cat`].
@@ -45,7 +47,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
             Each category has only one parent.
             If the parent is absent, `parent_cat` value should be None.
         :param max_iter: maximal number of iteration of descend through the category tree
-        :return: DataFrame with mapping [`category`, `leaf_cat`]
+        :return: SparkDataFrame with mapping [`category`, `leaf_cat`]
         """
         current_res = cat_tree.select(
             sf.col("category"), sf.col("category").alias("leaf_cat")
@@ -83,7 +85,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
 
         return current_res
 
-    def set_cat_tree(self, cat_tree: DataFrame):
+    def set_cat_tree(self, cat_tree: SparkDataFrame):
         """
         Set/update category tree `cat_tree` used to generate recommendations.
         :param cat_tree: park dataframe with columns [`category`, `parent_cat`].
@@ -95,7 +97,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
 
     def __init__(
         self,
-        cat_tree: Optional[DataFrame] = None,
+        cat_tree: Optional[SparkDataFrame] = None,
         max_iter: Optional[int] = 20,
     ):
         """
@@ -166,11 +168,11 @@ class CatPopRec(IsSavable, RecommenderCommons):
     # pylint: disable=arguments-differ
     def predict(
         self,
-        categories: Union[DataFrame, Iterable],
+        categories: Union[SparkDataFrame, Iterable],
         k: int,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Get top-k recommendations for each category in `categories`.
 
@@ -193,11 +195,11 @@ class CatPopRec(IsSavable, RecommenderCommons):
 
     def _predict_wrap(
         self,
-        categories: Union[DataFrame, Iterable],
+        categories: Union[SparkDataFrame, Iterable],
         k: int,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Predict wrapper to allow for fewer parameters in models
 
@@ -250,9 +252,9 @@ class CatPopRec(IsSavable, RecommenderCommons):
 
     def _predict(
         self,
-        categories: Union[DataFrame, Iterable],
-        items: Optional[Union[DataFrame, Iterable]] = None,
-    ) -> DataFrame:
+        categories: Union[SparkDataFrame, Iterable],
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
+    ) -> SparkDataFrame:
         res = categories.join(self.leaf_cat_mapping, on="category")
         # filter required categories and items of `self.cat_item_popularity`
         unique_leaf_cats = res.select("leaf_cat").distinct()

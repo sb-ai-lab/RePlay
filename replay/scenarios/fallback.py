@@ -1,13 +1,12 @@
 # pylint: disable=protected-access
-from typing import Optional, Dict, List, Any, Tuple, Union, Iterable
-
-from pyspark.sql import DataFrame
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from replay.data import Dataset
-from replay.preprocessing.filters import filter_by_min_count
-from replay.metrics import Metric, NDCG
+from replay.metrics import NDCG, Metric
 from replay.models import PopRec
 from replay.models.base_rec import BaseRecommender
+from replay.preprocessing.filters import filter_by_min_count
+from replay.utils import SparkDataFrame
 from replay.utils.spark_utils import fallback, get_unique_entities
 
 
@@ -73,10 +72,10 @@ class Fallback(BaseRecommender):
         self,
         dataset: Dataset,
         k: int,
-        queries: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         """
         Get recommendations
 
@@ -192,10 +191,10 @@ class Fallback(BaseRecommender):
         self,
         dataset: Dataset,
         k: int,
-        queries: DataFrame,
-        items: DataFrame,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         pred = self.main_model._predict(
             dataset,
             k,

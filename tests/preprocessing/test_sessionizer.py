@@ -1,8 +1,9 @@
 from typing import List
 
 import pytest
-from pyspark.sql import DataFrame as SparkDataFrame
+
 from replay.preprocessing import Sessionizer
+from replay.utils import SparkDataFrame
 
 
 def _get_column_list(data, column: str) -> List[List]:

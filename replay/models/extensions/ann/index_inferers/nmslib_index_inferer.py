@@ -1,13 +1,13 @@
 import pandas as pd
-from pyspark.sql import DataFrame
-from pyspark.sql.pandas.functions import pandas_udf
 
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
-from replay.models.extensions.ann.index_inferers.utils import (
-    get_csr_matrix,
-)
+from replay.models.extensions.ann.index_inferers.utils import get_csr_matrix
 from replay.models.extensions.ann.utils import create_nmslib_index_instance
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.session_handler import State
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql.pandas.functions import pandas_udf
 
 
 # pylint: disable=too-few-public-methods
@@ -15,8 +15,8 @@ class NmslibIndexInferer(IndexInferer):
     """Nmslib index inferer without filter seen items. Infers nmslib hnsw index."""
 
     def infer(
-        self, vectors: DataFrame, features_col: str, k: int
-    ) -> DataFrame:
+        self, vectors: SparkDataFrame, features_col: str, k: int
+    ) -> SparkDataFrame:
         _index_store = self.index_store
         index_params = self.index_params
 
@@ -29,7 +29,7 @@ class NmslibIndexInferer(IndexInferer):
             user_idx: pd.Series,
             vector_items: pd.Series,
             vector_ratings: pd.Series,
-        ) -> pd.DataFrame:
+        ) -> PandasDataFrame:
             index_store = index_store_broadcast.value
             index = index_store.load_index(
                 init_index=lambda: create_nmslib_index_instance(index_params),
@@ -50,7 +50,7 @@ class NmslibIndexInferer(IndexInferer):
                 user_vectors[user_idx.values, :], k=k, num_threads=1
             )
 
-            pd_res = pd.DataFrame(neighbours, columns=["item_idx", "distance"])
+            pd_res = PandasDataFrame(neighbours, columns=["item_idx", "distance"])
 
             # pd_res looks like
             # item_idx       distances

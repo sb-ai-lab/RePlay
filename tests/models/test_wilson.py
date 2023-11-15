@@ -1,13 +1,15 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-import pytest
 import numpy as np
-
-from pyspark.sql import functions as sf
+import pytest
 from statsmodels.stats.proportion import proportion_confint
 
 from replay.models import Wilson
+from tests.utils import create_dataset, log, log2, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
+
+pyspark = pytest.importorskip("pyspark")
+from pyspark.sql import functions as sf
+
 from replay.utils.spark_utils import convert2spark
-from tests.utils import log, spark, sparkDataFrameEqual, create_dataset
 
 
 @pytest.fixture
@@ -16,6 +18,7 @@ def model():
     return model
 
 
+@pytest.mark.spark
 def test_works(log, model):
     log = log.withColumn(
         "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
@@ -43,6 +46,7 @@ def calc_wilson_interval(log):
     return convert2spark(data_frame)
 
 
+@pytest.mark.spark
 def test_calculation(log, model):
     log = log.withColumn(
         "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
@@ -53,6 +57,7 @@ def test_calculation(log, model):
     sparkDataFrameEqual(model.item_popularity, stat_wilson)
 
 
+@pytest.mark.spark
 def test_predict(log, model):
     log = log.withColumn(
         "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)

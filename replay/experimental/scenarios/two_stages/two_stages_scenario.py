@@ -1,22 +1,17 @@
 # pylint: disable=too-many-lines
 from collections.abc import Iterable
-from typing import Dict, Optional, Tuple, List, Union, Any
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import pyspark.sql.functions as sf
-from pyspark.sql import DataFrame
-
-from replay.data import AnyDataFrame
-from replay.experimental.preprocessing.data_preparator import ToNumericFeatureTransformer
-from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
-from replay.metrics import Metric, Precision
-from replay.models import PopRec
 from replay.experimental.models import ScalaALSWrap
-from replay.models import RandomRec
-from replay.models.base_rec import BaseRecommender, HybridRecommender
+from replay.experimental.preprocessing.data_preparator import ToNumericFeatureTransformer
 from replay.experimental.scenarios.two_stages.reranker import LamaWrap
-
+from replay.metrics import Metric, Precision
+from replay.models import PopRec, RandomRec
+from replay.models.base_rec import BaseRecommender, HybridRecommender
+from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
+from replay.splitters import RatioSplitter, Splitter
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, SparkDataFrame
 from replay.utils.session_handler import State
-from replay.splitters import Splitter, RatioSplitter
 from replay.utils.spark_utils import (
     array_mult,
     cache_if_exists,
@@ -29,16 +24,19 @@ from replay.utils.spark_utils import (
     unpersist_if_exists,
 )
 
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+
 
 # pylint: disable=too-many-locals, too-many-arguments
 def get_first_level_model_features(
-    model: DataFrame,
-    pairs: DataFrame,
-    user_features: Optional[DataFrame] = None,
-    item_features: Optional[DataFrame] = None,
+    model: SparkDataFrame,
+    pairs: SparkDataFrame,
+    user_features: Optional[SparkDataFrame] = None,
+    item_features: Optional[SparkDataFrame] = None,
     add_factors_mult: bool = True,
     prefix: str = "",
-) -> DataFrame:
+) -> SparkDataFrame:
     """
     Get user and item embeddings from replay model.
     Can also compute elementwise multiplication between them with ``add_factors_mult`` parameter.
@@ -264,11 +262,11 @@ class TwoStagesScenario(HybridRecommender):
     # pylint: disable=too-many-locals
     def _add_features_for_second_level(
         self,
-        log_to_add_features: DataFrame,
-        log_for_first_level_models: DataFrame,
-        user_features: DataFrame,
-        item_features: DataFrame,
-    ) -> DataFrame:
+        log_to_add_features: SparkDataFrame,
+        log_for_first_level_models: SparkDataFrame,
+        user_features: SparkDataFrame,
+        item_features: SparkDataFrame,
+    ) -> SparkDataFrame:
         """
         Added features are:
             - relevance from first level models
@@ -363,7 +361,7 @@ class TwoStagesScenario(HybridRecommender):
         full_second_level_train_cached.unpersist()
         return full_second_level_train
 
-    def _split_data(self, log: DataFrame) -> Tuple[DataFrame, DataFrame]:
+    def _split_data(self, log: SparkDataFrame) -> Tuple[SparkDataFrame, SparkDataFrame]:
         """Write statistics"""
         first_level_train, second_level_train = self.train_splitter.split(log)
         State().logger.debug("Log info: %s", get_log_info(log))
@@ -384,13 +382,13 @@ class TwoStagesScenario(HybridRecommender):
     def _predict_with_first_level_model(
         self,
         model: BaseRecommender,
-        log: DataFrame,
+        log: SparkDataFrame,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: DataFrame,
-        item_features: DataFrame,
-        log_to_filter: DataFrame,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: SparkDataFrame,
+        item_features: SparkDataFrame,
+        log_to_filter: SparkDataFrame,
     ):
         """
         Filter users and items using can_predict_cold_items and can_predict_cold_users, and predict
@@ -450,10 +448,10 @@ class TwoStagesScenario(HybridRecommender):
     def _predict_pairs_with_first_level_model(
         self,
         model: BaseRecommender,
-        log: DataFrame,
-        pairs: DataFrame,
-        user_features: DataFrame,
-        item_features: DataFrame,
+        log: SparkDataFrame,
+        pairs: SparkDataFrame,
+        user_features: SparkDataFrame,
+        item_features: SparkDataFrame,
     ):
         """
         Get relevance for selected user-item pairs.
@@ -486,14 +484,14 @@ class TwoStagesScenario(HybridRecommender):
     def _get_first_level_candidates(
         self,
         model: BaseRecommender,
-        log: DataFrame,
+        log: SparkDataFrame,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: DataFrame,
-        item_features: DataFrame,
-        log_to_filter: DataFrame,
-    ) -> DataFrame:
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: SparkDataFrame,
+        item_features: SparkDataFrame,
+        log_to_filter: SparkDataFrame,
+    ) -> SparkDataFrame:
         """
         Combining the base model predictions with the fallback model
         predictions.
@@ -518,9 +516,9 @@ class TwoStagesScenario(HybridRecommender):
     # pylint: disable=too-many-locals,too-many-statements
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ) -> None:
 
         self.cached_list = []
@@ -643,14 +641,14 @@ class TwoStagesScenario(HybridRecommender):
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        log: SparkDataFrame,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
 
         State().logger.debug(msg="Generating candidates to rerank")
 
@@ -693,14 +691,14 @@ class TwoStagesScenario(HybridRecommender):
 
     def fit_predict(
         self,
-        log: AnyDataFrame,
+        log: DataFrameLike,
         k: int,
-        users: Optional[Union[AnyDataFrame, Iterable]] = None,
-        items: Optional[Union[AnyDataFrame, Iterable]] = None,
-        user_features: Optional[AnyDataFrame] = None,
-        item_features: Optional[AnyDataFrame] = None,
+        users: Optional[Union[DataFrameLike, Iterable]] = None,
+        items: Optional[Union[DataFrameLike, Iterable]] = None,
+        user_features: Optional[DataFrameLike] = None,
+        item_features: Optional[DataFrameLike] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         """
         :param log: input DataFrame ``[user_id, item_id, timestamp, relevance]``
         :param k: length of a recommendation list, must be smaller than the number of ``items``
@@ -725,10 +723,10 @@ class TwoStagesScenario(HybridRecommender):
     @staticmethod
     def _optimize_one_model(
         model: BaseRecommender,
-        train: AnyDataFrame,
-        test: AnyDataFrame,
-        user_features: Optional[AnyDataFrame] = None,
-        item_features: Optional[AnyDataFrame] = None,
+        train: DataFrameLike,
+        test: DataFrameLike,
+        user_features: Optional[DataFrameLike] = None,
+        item_features: Optional[DataFrameLike] = None,
         param_borders: Optional[Dict[str, List[Any]]] = None,
         criterion: Metric = Precision,
         k: int = 10,
@@ -751,10 +749,10 @@ class TwoStagesScenario(HybridRecommender):
     # pylint: disable=too-many-arguments, too-many-locals
     def optimize(
         self,
-        train: AnyDataFrame,
-        test: AnyDataFrame,
-        user_features: Optional[AnyDataFrame] = None,
-        item_features: Optional[AnyDataFrame] = None,
+        train: DataFrameLike,
+        test: DataFrameLike,
+        user_features: Optional[DataFrameLike] = None,
+        item_features: Optional[DataFrameLike] = None,
         param_borders: Optional[List[Dict[str, List[Any]]]] = None,
         criterion: Metric = Precision,
         k: int = 10,

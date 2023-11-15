@@ -1,18 +1,17 @@
-from typing import Optional, Dict, Any
-
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-from pyspark.sql.window import Window
-
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.models.base_neighbour_rec import NeighbourRec
-from replay.optimization.optuna_objective import ItemKNNObjective
+from typing import Any, Dict, Optional
 
 from replay.data import Dataset
+from replay.models.base_neighbour_rec import NeighbourRec
+from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from replay.optimization.optuna_objective import ItemKNNObjective
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+    from pyspark.sql.window import Window
 
 
-# pylint: disable=too-many-ancestors
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-ancestors, too-many-instance-attributes
 class ItemKNN(NeighbourRec):
     """Item-based ItemKNN with modified cosine similarity measure."""
 
@@ -21,9 +20,9 @@ class ItemKNN(NeighbourRec):
             "features_col": None,
         }
 
-    all_items: Optional[DataFrame]
-    dot_products: Optional[DataFrame]
-    item_norms: Optional[DataFrame]
+    all_items: Optional[SparkDataFrame]
+    dot_products: Optional[SparkDataFrame]
+    item_norms: Optional[SparkDataFrame]
     bm25_k1 = 1.2
     bm25_b = 0.75
     _objective = ItemKNNObjective
@@ -73,29 +72,29 @@ class ItemKNN(NeighbourRec):
         }
 
     @staticmethod
-    def _shrink(dot_products: DataFrame, shrink: float) -> DataFrame:
+    def _shrink(dot_products: SparkDataFrame, shrink: float) -> SparkDataFrame:
         return dot_products.withColumn(
             "similarity",
             sf.col("dot_product")
             / (sf.col("norm1") * sf.col("norm2") + shrink),
         ).select("item_idx_one", "item_idx_two", "similarity")
 
-    def _get_similarity(self, interactions: DataFrame) -> DataFrame:
+    def _get_similarity(self, interactions: SparkDataFrame) -> SparkDataFrame:
         """
         Calculate item similarities
 
-        :param interactions: DataFrame with interactions, `[user_id, item_id, rating]`
+        :param interactions: SparkDataFrame with interactions, `[user_id, item_id, rating]`
         :return: similarity matrix `[item_idx_one, item_idx_two, similarity]`
         """
         dot_products = self._get_products(interactions)
         similarity = self._shrink(dot_products, self.shrink)
         return similarity
 
-    def _reweight_interactions(self, interactions: DataFrame):
+    def _reweight_interactions(self, interactions: SparkDataFrame):
         """
         Reweight rating according to TD-IDF or BM25 weighting.
 
-        :param interactions: DataFrame with interactions, `[user_id, item_id, rating]`
+        :param interactions: SparkDataFrame with interactions, `[user_id, item_id, rating]`
         :return: interactions `[user_id, item_id, rating]`
         """
         if self.weighting == "bm25":
@@ -110,11 +109,11 @@ class ItemKNN(NeighbourRec):
 
         return interactions
 
-    def _get_tf_bm25(self, interactions: DataFrame):
+    def _get_tf_bm25(self, interactions: SparkDataFrame):
         """
         Adjust rating by BM25 term frequency.
 
-        :param interactions: DataFrame with interactions, `[user_id, item_id, rating]`
+        :param interactions: SparkDataFrame with interactions, `[user_id, item_id, rating]`
         :return: interactions `[user_id, item_id, rating]`
         """
         item_stats = interactions.groupBy(self.item_column).agg(
@@ -139,11 +138,11 @@ class ItemKNN(NeighbourRec):
 
         return interactions
 
-    def _get_idf(self, interactions: DataFrame):
+    def _get_idf(self, interactions: SparkDataFrame):
         """
         Return inverse document score for interactions reweighting.
 
-        :param interactions: DataFrame with interactions, `[user_id, item_id, rating]`
+        :param interactions: SparkDataFrame with interactions, `[user_id, item_id, rating]`
         :return: idf `[idf]`
         :raises: ValueError if self.weighting not in ["tf_idf", "bm25"]
         """
@@ -171,11 +170,11 @@ class ItemKNN(NeighbourRec):
 
         return idf
 
-    def _get_products(self, interactions: DataFrame) -> DataFrame:
+    def _get_products(self, interactions: SparkDataFrame) -> SparkDataFrame:
         """
         Calculate item dot products
 
-        :param interactions: DataFrame with interactions, `[user_id, item_id, rating]`
+        :param interactions: SparkDataFrame with interactions, `[user_id, item_id, rating]`
         :return: similarity matrix `[item_idx_one, item_idx_two, norm1, norm2]`
         """
         if self.weighting:
@@ -218,7 +217,7 @@ class ItemKNN(NeighbourRec):
 
         return dot_products
 
-    def _get_k_most_similar(self, similarity_matrix: DataFrame) -> DataFrame:
+    def _get_k_most_similar(self, similarity_matrix: SparkDataFrame) -> SparkDataFrame:
         """
         Leaves only top-k neighbours for each item
 

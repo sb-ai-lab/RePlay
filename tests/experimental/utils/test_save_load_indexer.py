@@ -1,17 +1,16 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
 from os.path import dirname, join
 
-import pytest
 import pandas as pd
+import pytest
+
+pyspark = pytest.importorskip("pyspark")
 
 import replay
 from replay.experimental.preprocessing.data_preparator import Indexer
-from replay.experimental.utils.model_handler import (
-    save_indexer,
-    load_indexer,
-)
-from replay.utils.spark_utils import convert2spark
+from replay.experimental.utils.model_handler import load_indexer, save_indexer
 from replay.splitters import *
+from replay.utils.spark_utils import convert2spark
 
 
 @pytest.fixture
@@ -36,6 +35,7 @@ def df():
     return res
 
 
+@pytest.mark.spark
 def test_indexer(df, tmp_path):
     path = (tmp_path / "indexer").resolve()
     indexer = Indexer("user_idx", "item_idx")

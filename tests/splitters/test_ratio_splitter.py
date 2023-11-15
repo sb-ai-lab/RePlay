@@ -1,11 +1,13 @@
 from typing import List
 
-import pytest
 import pandas as pd
-import pyspark.sql.functions as F
+import pytest
 
 from replay.splitters import RatioSplitter
-from replay.utils import get_spark_session
+from replay.utils import PYSPARK_AVAILABLE, get_spark_session
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as F
 
 
 def _get_column_list(data, column: str) -> List[List]:

@@ -1,12 +1,15 @@
-import pyspark.sql.functions as sf
 import numpy as np
 
-from replay.utils.spark_utils import convert2spark
-from replay.data import AnyDataFrame
+from .types import PYSPARK_AVAILABLE, DataFrameLike
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+
+    from replay.utils.spark_utils import convert2spark
 
 
 def get_item_recency(
-    log: AnyDataFrame,
+    log: DataFrameLike,
     decay: float = 30,
     limit: float = 0.1,
     kind: str = "exp",
@@ -95,7 +98,7 @@ def get_item_recency(
 
 
 def smoothe_time(
-    log: AnyDataFrame,
+    log: DataFrameLike,
     decay: float = 30,
     limit: float = 0.1,
     kind: str = "exp",

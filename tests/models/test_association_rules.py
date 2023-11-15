@@ -1,18 +1,12 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
 
-from pyspark.sql import functions as sf
-
 from replay.models import AssociationRulesItemRec
-from tests.utils import (
-    log,
-    spark,
-    sparkDataFrameEqual,
-    sparkDataFrameNotEqual,
-    log,
-    log_to_pred,
-    create_dataset,
-)
+from tests.utils import create_dataset, log, log_to_pred, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
+
+pyspark = pytest.importorskip("pyspark")
+
+from pyspark.sql import functions as sf
 
 
 @pytest.fixture

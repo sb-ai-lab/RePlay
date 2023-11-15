@@ -50,9 +50,9 @@ important for the correct comparison of algorithms, as mentioned in our
 from replay.experimental.metrics.base_metric import Metric, NCISMetric
 from replay.experimental.metrics.coverage import Coverage
 from replay.experimental.metrics.hitrate import HitRate
-from replay.experimental.metrics.ncis_precision import NCISPrecision
 from replay.experimental.metrics.map import MAP
 from replay.experimental.metrics.mrr import MRR
+from replay.experimental.metrics.ncis_precision import NCISPrecision
 from replay.experimental.metrics.ndcg import NDCG
 from replay.experimental.metrics.precision import Precision
 from replay.experimental.metrics.recall import Recall

@@ -1,11 +1,11 @@
-from typing import Optional, Literal
+from typing import Literal, Optional
 
-import pyspark.sql.functions as sf
-from pyspark.sql import DataFrame as SparkDataFrame, Window
-
-from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter, SplitterReturnType
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, SparkDataFrame
 
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+    from pyspark.sql import Window
 
 StrategyName = Literal["query"]
 
@@ -71,7 +71,7 @@ class KFolds(Splitter):
         self.strategy = strategy
         self.seed = seed
 
-    def _core_split(self, interactions: AnyDataFrame) -> SplitterReturnType:
+    def _core_split(self, interactions: DataFrameLike) -> SplitterReturnType:
         if self.strategy == "query":
             if isinstance(interactions, SparkDataFrame):
                 dataframe = interactions.withColumn("_rand", sf.rand(self.seed))

@@ -1,7 +1,7 @@
 import pytest
-from pyspark.sql import DataFrame as SparkDataFrame
 
 from replay.experimental.preprocessing import Padder
+from replay.utils import SparkDataFrame
 from tests.preprocessing.conftest import *
 
 
@@ -9,8 +9,8 @@ from tests.preprocessing.conftest import *
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("dataframe", "dataframe_only_item"),
-        ("dataframe_pandas", "dataframe_only_item_pandas"),
+        pytest.param("dataframe", "dataframe_only_item", marks=pytest.mark.spark),
+        pytest.param("dataframe_pandas", "dataframe_only_item_pandas", marks=pytest.mark.core),
     ],
 )
 def test_padder_only_item(pad_columns, padding_value, array_size, request, dataset, result):
@@ -35,8 +35,8 @@ def test_padder_only_item(pad_columns, padding_value, array_size, request, datas
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("dataframe", "dataframe_two_columns_zeros"),
-        ("dataframe_pandas", "dataframe_two_columns_zeros_pandas"),
+        pytest.param("dataframe", "dataframe_two_columns_zeros", marks=pytest.mark.spark),
+        pytest.param("dataframe_pandas", "dataframe_two_columns_zeros_pandas", marks=pytest.mark.core),
     ],
 )
 def test_padder_two_columns_same_value(pad_columns, padding_value, array_size, dataset, result, request):
@@ -61,8 +61,8 @@ def test_padder_two_columns_same_value(pad_columns, padding_value, array_size, d
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("dataframe", "dataframe_two_columns"),
-        ("dataframe_pandas", "dataframe_two_columns_pandas"),
+        pytest.param("dataframe", "dataframe_two_columns", marks=pytest.mark.spark),
+        pytest.param("dataframe_pandas", "dataframe_two_columns_pandas", marks=pytest.mark.core),
     ],
 )
 def test_padder_two_columns(pad_columns, padding_value, array_size, dataset, result, request):
@@ -89,8 +89,8 @@ def test_padder_two_columns(pad_columns, padding_value, array_size, dataset, res
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("dataframe", "dataframe_two_columns_cut_left"),
-        ("dataframe_pandas", "dataframe_two_columns_cut_left_pandas"),
+        pytest.param("dataframe", "dataframe_two_columns_cut_left", marks=pytest.mark.spark),
+        pytest.param("dataframe_pandas", "dataframe_two_columns_cut_left_pandas", marks=pytest.mark.core),
     ],
 )
 def test_padder_two_columns_cut_left(pad_columns, padding_value, array_size, cut_side, dataset, result, request):
@@ -118,8 +118,8 @@ def test_padder_two_columns_cut_left(pad_columns, padding_value, array_size, cut
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("dataframe", "dataframe_two_columns_no_cut"),
-        ("dataframe_pandas", "dataframe_two_columns_no_cut_pandas"),
+        pytest.param("dataframe", "dataframe_two_columns_no_cut", marks=pytest.mark.spark),
+        pytest.param("dataframe_pandas", "dataframe_two_columns_no_cut_pandas", marks=pytest.mark.core),
     ],
 )
 def test_padder_two_columns_no_cut(pad_columns, padding_value, array_size, cut_array, dataset, result, request):
@@ -145,8 +145,8 @@ def test_padder_two_columns_no_cut(pad_columns, padding_value, array_size, cut_a
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("dataframe", "dataframe_only_item_left"),
-        ("dataframe_pandas", "dataframe_only_item_left_pandas"),
+        pytest.param("dataframe", "dataframe_only_item_left", marks=pytest.mark.spark),
+        pytest.param("dataframe_pandas", "dataframe_only_item_left_pandas", marks=pytest.mark.core),
     ],
 )
 def test_padder_only_item_left(pad_columns, padding_value, array_size, padding_side, dataset, result, request):
@@ -176,8 +176,8 @@ def test_padder_only_item_left(pad_columns, padding_value, array_size, padding_s
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("dataframe", "dataframe_two_columns_left"),
-        ("dataframe_pandas", "dataframe_two_columns_left_pandas"),
+        pytest.param("dataframe", "dataframe_two_columns_left", marks=pytest.mark.spark),
+        pytest.param("dataframe_pandas", "dataframe_two_columns_left_pandas", marks=pytest.mark.core),
     ],
 )
 def test_padder_two_columns_left(pad_columns, padding_value, array_size, padding_side, dataset, result, request):
@@ -205,8 +205,8 @@ def test_padder_two_columns_left(pad_columns, padding_value, array_size, padding
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("dataframe", "dataframe_string"),
-        ("dataframe_pandas", "dataframe_string_pandas"),
+        pytest.param("dataframe", "dataframe_string", marks=pytest.mark.spark),
+        pytest.param("dataframe_pandas", "dataframe_string_pandas", marks=pytest.mark.core),
     ],
 )
 def test_padder_only_item_string(pad_columns, padding_value, array_size, dataset, result, request):
@@ -232,8 +232,8 @@ def test_padder_only_item_string(pad_columns, padding_value, array_size, dataset
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("dataframe", "dataframe_two_columns_len_two"),
-        ("dataframe_pandas", "dataframe_two_columns_len_two_pandas"),
+        pytest.param("dataframe", "dataframe_two_columns_len_two", marks=pytest.mark.spark),
+        pytest.param("dataframe_pandas", "dataframe_two_columns_len_two_pandas", marks=pytest.mark.core),
     ],
 )
 def test_padder_two_columns_len_two(pad_columns, padding_value, array_size, dataset, result, request):
@@ -259,8 +259,8 @@ def test_padder_two_columns_len_two(pad_columns, padding_value, array_size, data
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("dataframe", "dataframe_only_item_none"),
-        ("dataframe_pandas", "dataframe_only_item_none_pandas"),
+        pytest.param("dataframe", "dataframe_only_item_none", marks=pytest.mark.spark),
+        pytest.param("dataframe_pandas", "dataframe_only_item_none_pandas", marks=pytest.mark.core),
     ],
 )
 def test_padder_only_item_none(pad_columns, padding_value, array_size, dataset, result, request):
@@ -286,8 +286,8 @@ def test_padder_only_item_none(pad_columns, padding_value, array_size, dataset, 
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("dataframe_special", "dataframe_two_columns_none"),
-        ("dataframe_special_pandas", "dataframe_two_columns_none_pandas"),
+        pytest.param("dataframe_special", "dataframe_two_columns_none", marks=pytest.mark.spark),
+        pytest.param("dataframe_special_pandas", "dataframe_two_columns_none_pandas", marks=pytest.mark.core),
     ],
 )
 def test_padder_two_columns_none(pad_columns, padding_value, array_size, dataset, result, request):
@@ -309,6 +309,7 @@ def test_padder_two_columns_none(pad_columns, padding_value, array_size, dataset
         assert padder_interactions.equals(dataframe_two_columns_none)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("pad_columns, padding_side", [(["item_id", "timestamp"], "smth")])
 @pytest.mark.usefixtures("dataframe")
 def test_wrong_padding_side(pad_columns, padding_side, dataframe):
@@ -317,6 +318,7 @@ def test_wrong_padding_side(pad_columns, padding_side, dataframe):
         padder.transform(dataframe)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("pad_columns, padding_value", [(["item_id", "timestamp"], [0, 1, 0])])
 @pytest.mark.usefixtures("dataframe")
 def test_different_pad_columns_padding_value(pad_columns, padding_value, dataframe):
@@ -325,6 +327,7 @@ def test_different_pad_columns_padding_value(pad_columns, padding_value, datafra
         padder.transform(dataframe)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "pad_columns, array_size",
     [(["item_id", "timestamp"], -1), (["item_id", "timestamp"], 0), (["item_id", "timestamp"], 0.25)],
@@ -336,6 +339,7 @@ def test_wrong_array_size(pad_columns, array_size, dataframe):
         padder.transform(dataframe)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("pad_columns", [("smth")])
 @pytest.mark.usefixtures("dataframe")
 def test_unknown_column(pad_columns, dataframe):
@@ -344,6 +348,7 @@ def test_unknown_column(pad_columns, dataframe):
         padder.transform(dataframe)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("pad_columns", [("user_id")])
 @pytest.mark.usefixtures("dataframe")
 def test_not_array_column(pad_columns, dataframe):
@@ -352,6 +357,7 @@ def test_not_array_column(pad_columns, dataframe):
         padder.transform(dataframe)
 
 
+@pytest.mark.core
 @pytest.mark.parametrize("pad_columns", [("user_id")])
 @pytest.mark.usefixtures("dataframe_pandas")
 def test_invalid_column_dtype_pandas(pad_columns, dataframe_pandas):

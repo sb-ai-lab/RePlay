@@ -1,9 +1,9 @@
 # pylint: disable-all
 from datetime import datetime
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
 from replay.splitters import NewUsersSplitter
 from tests.utils import spark

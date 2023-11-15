@@ -1,17 +1,16 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
 from os.path import dirname, join
 
-import pytest
 import pandas as pd
+import pytest
+
+pyspark = pytest.importorskip("pyspark")
 
 import replay
 from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
-from replay.utils.model_handler import (
-    save_splitter,
-    load_splitter,
-)
-from replay.utils.spark_utils import convert2spark
 from replay.splitters import *
+from replay.utils.model_handler import load_splitter, save_splitter
+from replay.utils.spark_utils import convert2spark
 
 
 @pytest.fixture
@@ -40,6 +39,7 @@ def df():
     return res
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "splitter, init_args",
     [

@@ -1,12 +1,12 @@
 from datetime import datetime
 from typing import List, Optional, Tuple, Union
 
-from pandas import DataFrame as PandasDataFrame
-import pyspark.sql.functions as sf
-from pyspark.sql import DataFrame as SparkDataFrame, Window
-
-from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+    from pyspark.sql import Window
 
 
 # pylint: disable=too-few-public-methods
@@ -136,8 +136,8 @@ class TimeSplitter(Splitter):
         self.time_threshold = time_threshold
 
     def _partial_split(
-        self, interactions: AnyDataFrame, threshold: Union[datetime, str, int]
-    ) -> Tuple[AnyDataFrame, AnyDataFrame]:
+        self, interactions: DataFrameLike, threshold: Union[datetime, str, int]
+    ) -> Tuple[DataFrameLike, DataFrameLike]:
         if isinstance(threshold, str):
             threshold = datetime.strptime(threshold, self.time_column_format)
         if isinstance(interactions, SparkDataFrame):
@@ -189,5 +189,5 @@ class TimeSplitter(Splitter):
 
         return train, test
 
-    def _core_split(self, interactions: AnyDataFrame) -> List[AnyDataFrame]:
+    def _core_split(self, interactions: DataFrameLike) -> List[DataFrameLike]:
         return self._partial_split(interactions, self.time_threshold)

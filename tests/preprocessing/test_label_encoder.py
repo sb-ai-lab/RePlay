@@ -2,8 +2,10 @@ import pandas as pd
 import pytest
 
 from replay.preprocessing import LabelEncoder, LabelEncodingRule
+from replay.utils import PYSPARK_AVAILABLE
 
-import pyspark.sql.functions as F
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as F
 
 
 @pytest.mark.parametrize("column", ["user_id"])

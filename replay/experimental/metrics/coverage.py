@@ -1,11 +1,13 @@
 from typing import Dict, Optional, Union
 
-from pyspark.sql import Window, DataFrame
-from pyspark.sql import functions as sf
-
-from replay.data import AnyDataFrame, IntOrList, NumType
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, IntOrList, NumType, SparkDataFrame
 from replay.utils.spark_utils import convert2spark
+
 from .base_metric import RecOnlyMetric, process_k
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import Window
+    from pyspark.sql import functions as sf
 
 
 # pylint: disable=too-few-public-methods, arguments-differ, unused-argument
@@ -20,7 +22,7 @@ class Coverage(RecOnlyMetric):
     """
 
     def __init__(
-        self, log: AnyDataFrame
+        self, log: DataFrameLike
     ):  # pylint: disable=super-init-not-called
         """
         :param log: pandas or Spark DataFrame
@@ -39,11 +41,11 @@ class Coverage(RecOnlyMetric):
     # pylint: disable=no-self-use
     def _get_enriched_recommendations(
         self,
-        recommendations: AnyDataFrame,
-        ground_truth: AnyDataFrame,
+        recommendations: DataFrameLike,
+        ground_truth: DataFrameLike,
         max_k: int,
-        ground_truth_users: Optional[AnyDataFrame] = None,
-    ) -> DataFrame:
+        ground_truth_users: Optional[DataFrameLike] = None,
+    ) -> SparkDataFrame:
         recommendations = convert2spark(recommendations)
         if ground_truth_users is not None:
             ground_truth_users = convert2spark(ground_truth_users)
@@ -54,7 +56,7 @@ class Coverage(RecOnlyMetric):
 
     def _conf_interval(
         self,
-        recs: AnyDataFrame,
+        recs: DataFrameLike,
         k_list: IntOrList,
         alpha: float = 0.95,
     ) -> Union[Dict[int, float], float]:
@@ -64,7 +66,7 @@ class Coverage(RecOnlyMetric):
 
     def _median(
         self,
-        recs: AnyDataFrame,
+        recs: DataFrameLike,
         k_list: IntOrList,
     ) -> Union[Dict[int, NumType], NumType]:
         return self._mean(recs, k_list)
@@ -72,7 +74,7 @@ class Coverage(RecOnlyMetric):
     @process_k
     def _mean(
         self,
-        recs: DataFrame,
+        recs: SparkDataFrame,
         k_list: list,
     ) -> Union[Dict[int, NumType], NumType]:
         unknown_item_count = (

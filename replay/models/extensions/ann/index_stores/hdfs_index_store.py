@@ -2,7 +2,7 @@ import logging
 import os
 import tempfile
 import weakref
-from typing import Callable, Any
+from typing import Any, Callable
 
 from pyarrow import fs
 

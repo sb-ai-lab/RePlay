@@ -1,10 +1,13 @@
 from typing import Optional
 
 import numpy as np
-from pyspark.sql import functions as sf
-from replay.data.dataset import Dataset
 
+from replay.data.dataset import Dataset
 from replay.models.base_rec import NonPersonalizedRecommender
+from replay.utils import PYSPARK_AVAILABLE
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 class ThompsonSampling(NonPersonalizedRecommender):

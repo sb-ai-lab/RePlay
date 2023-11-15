@@ -1,9 +1,12 @@
 from abc import abstractmethod
 
 import numpy as np
-from pyspark.sql import DataFrame as SparkDataFrame
-from pyspark.sql import functions as sf
 from scipy.stats import norm, sem
+
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 class CalculationDescriptor:

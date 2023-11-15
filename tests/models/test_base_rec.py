@@ -1,12 +1,10 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, pointless-statement
-from typing import Optional
-
 import pytest
-from pandas import DataFrame
-from replay.data.dataset import Dataset
 
+from replay.data.dataset import Dataset
 from replay.models import Recommender
-from tests.utils import spark, log, create_dataset
+from replay.utils import PandasDataFrame
+from tests.utils import create_dataset, log, spark
 
 
 # pylint: disable=missing-class-docstring, too-many-arguments
@@ -23,12 +21,12 @@ class DerivedRec(Recommender):
 
     def _predict(
         self,
-        dataset: DataFrame,
+        dataset: PandasDataFrame,
         k: int,
-        queries: DataFrame,
-        items: DataFrame,
+        queries: PandasDataFrame,
+        items: PandasDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> PandasDataFrame:
         pass
 
 
@@ -37,6 +35,7 @@ def model():
     return DerivedRec()
 
 
+@pytest.mark.torch
 def test_users_count(model, log):
     with pytest.raises(AttributeError):
         model._qiery_dim
@@ -45,6 +44,7 @@ def test_users_count(model, log):
     assert model._query_dim == 4
 
 
+@pytest.mark.torch
 def test_items_count(model, log):
     with pytest.raises(AttributeError):
         model._item_dim
@@ -53,5 +53,6 @@ def test_items_count(model, log):
     assert model._item_dim == 4
 
 
+@pytest.mark.core
 def test_str(model):
     assert str(model) == "DerivedRec"

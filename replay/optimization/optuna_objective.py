@@ -4,13 +4,15 @@ This class calculates loss function for optimization process
 import collections
 import logging
 from functools import partial
-from typing import Any, Dict, List, Optional, Callable, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from optuna import Trial
-from pyspark.sql import functions as sf
-from pyspark.sql import DataFrame as SparkDataFrame
 
-from replay.metrics.base_metric import Metric
+from replay.metrics import Metric
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 SplitData = collections.namedtuple(

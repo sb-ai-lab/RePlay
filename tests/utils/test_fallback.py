@@ -1,12 +1,16 @@
 # pylint: disable-all
 import pandas as pd
+import pytest
+
+pyspark = pytest.importorskip("pyspark")
 
 from replay.models import ItemKNN
 from replay.scenarios import Fallback
-from replay.utils.spark_utils import fallback, convert2spark
-from tests.utils import log, log2, spark, create_dataset
+from replay.utils.spark_utils import convert2spark, fallback
+from tests.utils import create_dataset, log, log2, spark
 
 
+@pytest.mark.spark
 def test_fallback():
     base = pd.DataFrame({"user_idx": [1], "item_idx": [1], "relevance": [1]})
     extra = pd.DataFrame(
@@ -26,6 +30,7 @@ def test_fallback():
     assert a > b
 
 
+@pytest.mark.spark
 def test_class(log, log2):
     model = Fallback(ItemKNN(), threshold=3)
     s = str(model)

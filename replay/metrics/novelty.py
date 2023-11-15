@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING, List, Type
 
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import DataFrame as SparkDataFrame
+from replay.utils import PandasDataFrame, SparkDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsReturnType
 

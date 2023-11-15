@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from pyspark.sql import SparkSession
+from replay.utils import PYSPARK_AVAILABLE
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import SparkSession
 
 
 class FileSystem(Enum):

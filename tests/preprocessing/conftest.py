@@ -1,8 +1,11 @@
 import pandas as pd
 import pytest
 
-from pyspark.sql.functions import col, to_date, unix_timestamp
-from pyspark.sql.types import ArrayType, IntegerType, LongType, StringType, StructField, StructType
+from replay.utils import PYSPARK_AVAILABLE
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql.functions import col, to_date, unix_timestamp
+    from pyspark.sql.types import ArrayType, IntegerType, LongType, StringType, StructField, StructType
 
 
 @pytest.fixture(scope="module")

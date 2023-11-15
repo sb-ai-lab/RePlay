@@ -1,8 +1,10 @@
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
 
-from replay.models.base_rec import Recommender
 from replay.data import Dataset
+from replay.models.base_rec import Recommender
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 class QueryPopRec(Recommender):
@@ -21,7 +23,7 @@ class QueryPopRec(Recommender):
 
     >>> import pandas as pd
     >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> data_frame = pd.DataFrame({"user_id": [1, 1, 3], "item_id": [1, 2, 3], "rating": [2, 1, 1]})
     >>> data_frame
         user_id   item_id     rating
@@ -60,7 +62,7 @@ class QueryPopRec(Recommender):
     1         3         3   1.000000
     """
 
-    query_item_popularity: DataFrame
+    query_item_popularity: SparkDataFrame
 
     @property
     def _init_args(self):
@@ -108,10 +110,10 @@ class QueryPopRec(Recommender):
         self,
         dataset: Dataset,
         k: int,
-        queries: DataFrame,
-        items: DataFrame,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         if filter_seen_items:
             self.logger.warning(
                 "QueryPopRec can't predict new items, recommendations will not be filtered"

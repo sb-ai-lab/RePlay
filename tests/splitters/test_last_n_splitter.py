@@ -1,12 +1,14 @@
 from typing import List
 
-import pytest
 import numpy as np
 import pandas as pd
-import pyspark.sql.functions as F
+import pytest
 
 from replay.splitters import LastNSplitter
-from replay.utils import get_spark_session
+from replay.utils import PYSPARK_AVAILABLE, get_spark_session
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as F
 
 
 def _get_column_list(data, column: str) -> List[List]:
@@ -94,8 +96,8 @@ def test_lastnsplitter_wrong_strategy(strategy):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_interactions_splitter_without_drops(n, user_answer, item_answer, dataset_type, request):
@@ -133,8 +135,8 @@ def test_last_n_interactions_splitter_without_drops(n, user_answer, item_answer,
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_interactions_splitter_drop_users(n, user_answer, item_answer, dataset_type, request):
@@ -177,8 +179,8 @@ def test_last_n_interactions_splitter_drop_users(n, user_answer, item_answer, da
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_interactions_splitter_drop_items(n, user_answer, item_answer, dataset_type, request):
@@ -216,8 +218,8 @@ def test_last_n_interactions_splitter_drop_items(n, user_answer, item_answer, da
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_interactions_splitter_drop_both(n, user_answer, item_answer, dataset_type, request):
@@ -255,8 +257,8 @@ def test_last_n_interactions_splitter_drop_both(n, user_answer, item_answer, dat
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 @pytest.mark.parametrize("to_unix_timestamp", [False, True])
@@ -303,8 +305,8 @@ def test_last_n_seconds_splitter_without_drops(
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_seconds_splitter_drop_users(seconds, user_answer, item_answer, dataset_type, request):
@@ -343,8 +345,8 @@ def test_last_n_seconds_splitter_drop_users(seconds, user_answer, item_answer, d
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_seconds_splitter_drop_items(seconds, user_answer, item_answer, dataset_type, request):
@@ -383,8 +385,8 @@ def test_last_n_seconds_splitter_drop_items(seconds, user_answer, item_answer, d
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_seconds_splitter_drop_both(seconds, user_answer, item_answer, dataset_type, request):
@@ -430,8 +432,8 @@ def test_last_n_seconds_splitter_drop_both(seconds, user_answer, item_answer, da
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_interactions_splitter_without_drops_with_sessions(
@@ -480,8 +482,8 @@ def test_last_n_interactions_splitter_without_drops_with_sessions(
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_seconds_splitter_without_drops_with_sessions(
@@ -514,8 +516,8 @@ def test_last_n_seconds_splitter_without_drops_with_sessions(
 @pytest.mark.parametrize(
     "dataset_type, result_type",
     [
-        ("spark_dataframe_test", "bigint"),
-        ("pandas_dataframe_test", np.dtype("int64")),
+        pytest.param("spark_dataframe_test", "bigint", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", np.dtype("int64"), marks=pytest.mark.core),
     ],
 )
 def test_last_n_seconds_to_unix_timestamp(dataset_type, result_type, request):

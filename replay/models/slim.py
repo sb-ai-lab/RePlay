@@ -1,20 +1,21 @@
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
-from pyspark.sql import types as st
 from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from replay.data import Dataset
 from replay.models.base_neighbour_rec import NeighbourRec
+from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from replay.utils import PYSPARK_AVAILABLE
 from replay.utils.session_handler import State
 
-from replay.data import Dataset
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import types as st
 
 
-# pylint: disable=too-many-ancestors
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-ancestors, too-many-instance-attributes
 class SLIM(NeighbourRec):
     """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""

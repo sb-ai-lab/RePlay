@@ -1,9 +1,9 @@
-import pandas as pd
 from scipy.sparse import csr_matrix
 
 from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
 from replay.models.extensions.ann.index_stores.base_index_store import IndexStore
 from replay.models.extensions.ann.utils import create_nmslib_index_instance
+from replay.utils import PandasDataFrame
 
 
 # pylint: disable=too-few-public-methods
@@ -12,7 +12,7 @@ class NmslibIndexBuilderMixin:
 
     @staticmethod
     def build_and_save_index(
-        pdf: pd.DataFrame,
+        pdf: PandasDataFrame,
         index_params: NmslibHnswParam,
         index_store: IndexStore,
     ):

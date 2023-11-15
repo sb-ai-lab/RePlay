@@ -1,10 +1,12 @@
 from typing import List, Optional, Union
 
 import pandas as pd
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import Column, functions as sf, Window, DataFrame as SparkDataFrame
 
-from replay.data import AnyDataFrame
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import Column, Window
+    from pyspark.sql import functions as sf
 
 
 # pylint: disable=too-many-instance-attributes, too-few-public-methods
@@ -117,7 +119,7 @@ class SequenceGenerator:
         self.get_list_len = get_list_len
         self.list_len_column = list_len_column
 
-    def transform(self, interactions: AnyDataFrame) -> AnyDataFrame:
+    def transform(self, interactions: DataFrameLike) -> DataFrameLike:
         """Create sequences from given interactions.
 
         :param interactions: DataFrame.

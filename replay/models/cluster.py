@@ -1,13 +1,14 @@
 from os.path import join
 from typing import Optional
 
-from pandas import DataFrame
-from pyspark.ml.clustering import KMeans, KMeansModel
-from pyspark.ml.feature import VectorAssembler
-from pyspark.sql import functions as sf
 from replay.data.dataset import Dataset
-
 from replay.models.base_rec import QueryRecommender
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.ml.clustering import KMeans, KMeansModel
+    from pyspark.ml.feature import VectorAssembler
+    from pyspark.sql import functions as sf
 
 
 class ClusterRec(QueryRecommender):
@@ -19,7 +20,7 @@ class ClusterRec(QueryRecommender):
     _search_space = {
         "num_clusters": {"type": "int", "args": [2, 20]},
     }
-    item_rel_in_cluster: DataFrame
+    item_rel_in_cluster: SparkDataFrame
 
     def __init__(self, num_clusters: int = 10):
         """
@@ -113,10 +114,10 @@ class ClusterRec(QueryRecommender):
         self,
         dataset: Dataset,
         k: int,
-        queries: DataFrame,
-        items: DataFrame,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
 
         query_clusters = self._make_query_clusters(queries, dataset.query_features)
         filtered_items = self.item_rel_in_cluster.join(items, on=self.item_column)
@@ -125,9 +126,9 @@ class ClusterRec(QueryRecommender):
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
+        pairs: SparkDataFrame,
         dataset: Optional[Dataset] = None,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
 
         if not dataset.query_features:
             raise ValueError("Query features are missing for predict")

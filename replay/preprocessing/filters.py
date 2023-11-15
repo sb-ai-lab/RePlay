@@ -2,15 +2,18 @@
 Select or remove data by some criteria
 """
 from datetime import datetime, timedelta
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import DataFrame as SparkDataFrame, Window, functions as sf
-from pyspark.sql.functions import col
-from pyspark.sql.types import TimestampType
-from typing import Union, Optional, Tuple
+from typing import Optional, Tuple, Union
 
-from replay.data import AnyDataFrame
-from replay.utils.spark_utils import convert2spark
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
 from replay.utils.session_handler import State
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import Window
+    from pyspark.sql import functions as sf
+    from pyspark.sql.functions import col
+    from pyspark.sql.types import TimestampType
+
+    from replay.utils.spark_utils import convert2spark
 
 
 # pylint: disable=too-few-public-methods, too-many-instance-attributes
@@ -100,13 +103,13 @@ class InteractionEntriesFilter:
 
     def _filter_column(
         self,
-        interactions: AnyDataFrame,
+        interactions: DataFrameLike,
         interaction_count: int,
         min_inter: Optional[int],
         max_inter: Optional[int],
         agg_column: str,
         non_agg_column: str,
-    ) -> Tuple[AnyDataFrame, int, int]:
+    ) -> Tuple[DataFrameLike, int, int]:
         if not min_inter and not max_inter:
             return interactions, 0, interaction_count
 
@@ -173,7 +176,7 @@ class InteractionEntriesFilter:
         return filtered_interactions, different_len, end_len_dataframe
 
     # pylint: disable=too-many-function-args
-    def transform(self, interactions: AnyDataFrame) -> AnyDataFrame:
+    def transform(self, interactions: DataFrameLike) -> DataFrameLike:
         r"""Filter interactions.
 
         :param interactions: DataFrame containing columns ``user_column``, ``item_column``.
@@ -205,7 +208,7 @@ class InteractionEntriesFilter:
 
 
 def filter_by_min_count(
-    data_frame: AnyDataFrame, num_entries: int, group_by: str = "user_idx"
+    data_frame: DataFrameLike, num_entries: int, group_by: str = "user_idx"
 ) -> SparkDataFrame:
     """
     Remove entries with entities (e.g. users, items) which are presented in `data_frame`
@@ -248,7 +251,7 @@ def filter_by_min_count(
 
 
 def filter_out_low_ratings(
-    data_frame: AnyDataFrame, value: float, rating_column="relevance"
+    data_frame: DataFrameLike, value: float, rating_column="relevance"
 ) -> SparkDataFrame:
     """
     Remove records with records less than ``value`` in ``column``.

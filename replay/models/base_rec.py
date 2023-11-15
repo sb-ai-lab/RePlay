@@ -16,46 +16,38 @@ import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from os.path import join
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Union,
-    Sequence,
-    Set,
-    Tuple,
-)
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
-import pandas as pd
 from numpy.random import default_rng
 from optuna import create_study
 from optuna.samplers import TPESampler
-from pyspark.sql import DataFrame, Window
-from pyspark.sql import functions as sf
 
-from replay.data import get_schema
-from replay.metrics import Metric, NDCG
-from replay.optimization.optuna_objective import SplitData, MainObjective
+from replay.data import Dataset, get_schema
+from replay.metrics import NDCG, Metric
+from replay.optimization.optuna_objective import MainObjective, SplitData
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.session_handler import State
-from replay.utils.spark_utils import (
-    cache_temp_view,
-    convert2spark,
-    cosine_similarity,
-    drop_temp_view,
-    filter_cold,
-    get_unique_entities,
-    get_top_k,
-    get_top_k_recs,
-    return_recs,
-    vector_euclidean_distance_similarity,
-    vector_dot,
-    save_picklable_to_parquet,
-    load_pickled_from_parquet,
-)
-from replay.data import Dataset
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import Window
+    from pyspark.sql import functions as sf
+
+    from replay.utils.spark_utils import (
+        cache_temp_view,
+        convert2spark,
+        cosine_similarity,
+        drop_temp_view,
+        filter_cold,
+        get_top_k,
+        get_top_k_recs,
+        get_unique_entities,
+        load_pickled_from_parquet,
+        return_recs,
+        save_picklable_to_parquet,
+        vector_dot,
+        vector_euclidean_distance_similarity,
+    )
 
 
 # pylint: disable=too-few-public-methods
@@ -127,7 +119,7 @@ class RecommenderCommons:
             self._logger = logging.getLogger("replay")
         return self._logger
 
-    def _cache_model_temp_view(self, df: DataFrame, df_name: str) -> None:
+    def _cache_model_temp_view(self, df: SparkDataFrame, df_name: str) -> None:
         """
         Create Spark SQL temporary view for df, cache it and add temp view name to self.cached_dfs.
         Temp view name is : "id_<python object id>_model_<RePlay model name>_<df_name>"
@@ -164,8 +156,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
     _objective = MainObjective
     study = None
     criterion = None
-    fit_queries: DataFrame
-    fit_items: DataFrame
+    fit_queries: SparkDataFrame
+    fit_items: SparkDataFrame
     _num_queries: int
     _num_items: int
     _query_dim_size: int
@@ -451,7 +443,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         """
 
     def _filter_seen(
-        self, recs: DataFrame, interactions: DataFrame, k: int, queries: DataFrame
+        self, recs: SparkDataFrame, interactions: SparkDataFrame, k: int, queries: SparkDataFrame
     ):
         """
         Filter seen items (presented in interactions) out of the queries' recommendations.
@@ -503,8 +495,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         self,
         dataset: Optional[Dataset],
         k: int,
-        queries: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
     ):
         """
         Returns triplet of filtered `dataset`, `queries`, and `items`.
@@ -559,11 +551,11 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         self,
         dataset: Optional[Dataset],
         k: int,
-        queries: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Predict wrapper to allow for fewer parameters in models
 
@@ -612,8 +604,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _filter_cold_for_predict(
         self,
-        main_df: DataFrame,
-        interactions_df: Optional[DataFrame],
+        main_df: SparkDataFrame,
+        interactions_df: Optional[SparkDataFrame],
         entity: str,
     ):
         """
@@ -647,10 +639,10 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         self,
         dataset: Dataset,
         k: int,
-        queries: DataFrame,
-        items: DataFrame,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         """
         Inner method where model actually predicts.
 
@@ -727,11 +719,11 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         self,
         dataset: Dataset,
         k: int,
-        queries: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         self._fit_wrap(dataset)
         return self._predict_wrap(
             dataset,
@@ -744,11 +736,11 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _predict_pairs_wrap(
         self,
-        pairs: DataFrame,
+        pairs: SparkDataFrame,
         dataset: Optional[Dataset] = None,
         recs_file_path: Optional[str] = None,
         k: Optional[int] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         This method
         1) converts data to spark
@@ -807,9 +799,9 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
+        pairs: SparkDataFrame,
         dataset: Optional[Dataset] = None,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         """
         Fallback method to use in case ``_predict_pairs`` is not implemented.
         Simply joins ``predict`` with given ``pairs``.
@@ -843,8 +835,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         return pred
 
     def _get_features_wrap(
-        self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Optional[Tuple[DataFrame, int]]:
+        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
+    ) -> Optional[Tuple[SparkDataFrame, int]]:
         if self.query_column not in ids.columns and self.item_column not in ids.columns:
             raise ValueError(f"{self.query_column} or {self.item_column} missing")
         vectors, rank = self._get_features(ids, features)
@@ -852,14 +844,14 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     # pylint: disable=unused-argument
     def _get_features(
-        self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Tuple[Optional[DataFrame], Optional[int]]:
+        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
+    ) -> Tuple[Optional[SparkDataFrame], Optional[int]]:
         """
         Get embeddings from model
 
         :param ids: id ids to get embeddings for Spark DataFrame containing user_idx or item_idx
         :param features: query or item features
-        :return: DataFrame with biases and embeddings, and vector size
+        :return: SparkDataFrame with biases and embeddings, and vector size
         """
 
         self.logger.info(
@@ -870,11 +862,11 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _get_nearest_items_wrap(
         self,
-        items: Union[DataFrame, Iterable],
+        items: Union[SparkDataFrame, Iterable],
         k: int,
         metric: Optional[str] = "cosine_similarity",
-        candidates: Optional[Union[DataFrame, Iterable]] = None,
-    ) -> Optional[DataFrame]:
+        candidates: Optional[Union[SparkDataFrame, Iterable]] = None,
+    ) -> Optional[SparkDataFrame]:
         """
         Convert indexes and leave top-k nearest items for each item in `items`.
         """
@@ -909,10 +901,10 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _get_nearest_items(
         self,
-        items: DataFrame,
+        items: SparkDataFrame,
         metric: Optional[str] = None,
-        candidates: Optional[DataFrame] = None,
-    ) -> Optional[DataFrame]:
+        candidates: Optional[SparkDataFrame] = None,
+    ) -> Optional[SparkDataFrame]:
         raise NotImplementedError(
             f"item-to-item prediction is not implemented for {self}"
         )
@@ -964,7 +956,7 @@ class ItemVectorModel(BaseRecommender):
     ]
 
     @abstractmethod
-    def _get_item_vectors(self) -> DataFrame:
+    def _get_item_vectors(self) -> SparkDataFrame:
         """
         Return dataframe with items' vectors as a
             spark dataframe with columns ``[item_idx, item_vector]``
@@ -972,11 +964,11 @@ class ItemVectorModel(BaseRecommender):
 
     def get_nearest_items(
         self,
-        items: Union[DataFrame, Iterable],
+        items: Union[SparkDataFrame, Iterable],
         k: int,
         metric: Optional[str] = "cosine_similarity",
-        candidates: Optional[Union[DataFrame, Iterable]] = None,
-    ) -> Optional[DataFrame]:
+        candidates: Optional[Union[SparkDataFrame, Iterable]] = None,
+    ) -> Optional[SparkDataFrame]:
         """
         Get k most similar items be the `metric` for each of the `items`.
 
@@ -1005,10 +997,10 @@ class ItemVectorModel(BaseRecommender):
 
     def _get_nearest_items(
         self,
-        items: DataFrame,
+        items: SparkDataFrame,
         metric: str = "cosine_similarity",
-        candidates: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        candidates: Optional[SparkDataFrame] = None,
+    ) -> SparkDataFrame:
         """
         Return distance metric value for all available close items filtered by `candidates`.
 
@@ -1086,11 +1078,11 @@ class HybridRecommender(BaseRecommender, ABC):
         self,
         dataset: Dataset,
         k: int,
-        queries: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Get recommendations
 
@@ -1124,11 +1116,11 @@ class HybridRecommender(BaseRecommender, ABC):
         self,
         dataset: Dataset,
         k: int,
-        queries: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Fit model and get recommendations
 
@@ -1159,11 +1151,11 @@ class HybridRecommender(BaseRecommender, ABC):
 
     def predict_pairs(
         self,
-        pairs: DataFrame,
+        pairs: SparkDataFrame,
         dataset: Optional[Dataset] = None,
         recs_file_path: Optional[str] = None,
         k: Optional[int] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Get recommendations for specific query-item ``pairs``.
         If a model can't produce recommendation
@@ -1186,8 +1178,8 @@ class HybridRecommender(BaseRecommender, ABC):
         )
 
     def get_features(
-        self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Optional[Tuple[DataFrame, int]]:
+        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
+    ) -> Optional[Tuple[SparkDataFrame, int]]:
         """
         Returns query or item feature vectors as a Column with type ArrayType
         :param ids: Spark DataFrame with unique ids
@@ -1217,11 +1209,11 @@ class Recommender(BaseRecommender, ABC):
         self,
         dataset: Dataset,
         k: int,
-        queries: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Get recommendations
 
@@ -1252,11 +1244,11 @@ class Recommender(BaseRecommender, ABC):
 
     def predict_pairs(
         self,
-        pairs: DataFrame,
+        pairs: SparkDataFrame,
         dataset: Optional[Dataset] = None,
         recs_file_path: Optional[str] = None,
         k: Optional[int] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Get recommendations for specific query-item ``pairs``.
         If a model can't produce recommendation
@@ -1283,11 +1275,11 @@ class Recommender(BaseRecommender, ABC):
         self,
         dataset: Dataset,
         k: int,
-        queries: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Fit model and get recommendations
 
@@ -1316,7 +1308,7 @@ class Recommender(BaseRecommender, ABC):
             recs_file_path=recs_file_path,
         )
 
-    def get_features(self, ids: DataFrame) -> Optional[Tuple[DataFrame, int]]:
+    def get_features(self, ids: SparkDataFrame) -> Optional[Tuple[SparkDataFrame, int]]:
         """
         Returns query or item feature vectors as a Column with type ArrayType
 
@@ -1349,11 +1341,11 @@ class QueryRecommender(BaseRecommender, ABC):
         self,
         dataset: Dataset,
         k: int,
-        queries: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Get recommendations
 
@@ -1384,11 +1376,11 @@ class QueryRecommender(BaseRecommender, ABC):
 
     def predict_pairs(
         self,
-        pairs: DataFrame,
+        pairs: SparkDataFrame,
         dataset: Dataset,
         recs_file_path: Optional[str] = None,
         k: Optional[int] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Get recommendations for specific query-item ``pairs``.
         If a model can't produce recommendation
@@ -1416,7 +1408,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
 
     can_predict_cold_queries = True
     can_predict_cold_items = True
-    item_popularity: DataFrame
+    item_popularity: SparkDataFrame
     add_cold_items: bool
     cold_weight: float
     sample: bool
@@ -1444,7 +1436,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
             self.item_popularity.unpersist()
 
     @staticmethod
-    def _calc_fill(item_popularity: DataFrame, weight: float, rating_column: str) -> float:
+    def _calc_fill(item_popularity: SparkDataFrame, weight: float, rating_column: str) -> float:
         """
         Calculating a fill value a the minimal rating
         calculated during model training multiplied by weight.
@@ -1463,7 +1455,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
         if vals.count() > 0:
             raise ValueError("Rating values in interactions must be 0 or 1")
 
-    def _get_selected_item_popularity(self, items: DataFrame) -> DataFrame:
+    def _get_selected_item_popularity(self, items: SparkDataFrame) -> SparkDataFrame:
         """
         Choose only required item from `item_popularity` dataframe
         for further recommendations generation.
@@ -1475,7 +1467,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
         ).fillna(value=self.fill, subset=[self.rating_column])
 
     @staticmethod
-    def _calc_max_hist_len(dataset: Dataset, queries: DataFrame) -> int:
+    def _calc_max_hist_len(dataset: Dataset, queries: SparkDataFrame) -> int:
         query_column = dataset.feature_schema.query_id_column
         item_column = dataset.feature_schema.item_id_column
         max_hist_len = (
@@ -1498,10 +1490,10 @@ class NonPersonalizedRecommender(Recommender, ABC):
         self,
         dataset: Dataset,
         k: int,
-        queries: DataFrame,
-        items: DataFrame,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         """
         Regular prediction for popularity-based models,
         top-k most relevant items from `items` are chosen for each query
@@ -1541,10 +1533,10 @@ class NonPersonalizedRecommender(Recommender, ABC):
         self,
         dataset: Dataset,
         k: int,
-        queries: DataFrame,
-        items: DataFrame,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         """
         Randomized prediction for popularity-based models,
         top-k items from `items` are sampled for each query based with
@@ -1578,7 +1570,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
         rating_column = self.rating_column
         class_name = self.__class__.__name__
 
-        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+        def grouped_map(pandas_df: PandasDataFrame) -> PandasDataFrame:
             query_idx = pandas_df[query_column][0]
             cnt = pandas_df["cnt"][0]
 
@@ -1600,7 +1592,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
             else:
                 rating = items_pd["probability"].values[items_positions]
 
-            return pd.DataFrame(
+            return PandasDataFrame(
                 {
                     query_column: cnt * [query_idx],
                     item_column: items_pd[item_column].values[items_positions],
@@ -1630,10 +1622,10 @@ class NonPersonalizedRecommender(Recommender, ABC):
         self,
         dataset: Dataset,
         k: int,
-        queries: DataFrame,
-        items: DataFrame,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
 
         if self.sample:
             return self._predict_with_sampling(
@@ -1650,9 +1642,9 @@ class NonPersonalizedRecommender(Recommender, ABC):
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
+        pairs: SparkDataFrame,
         dataset: Optional[Dataset] = None,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         return (
             pairs.join(
                 self.item_popularity,

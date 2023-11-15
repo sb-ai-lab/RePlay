@@ -2,12 +2,12 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-from pandas import DataFrame as PandasDataFrame
-import pyspark.sql.functions as sf
-from pyspark.sql.window import Window
-from pyspark.sql import DataFrame as SparkDataFrame
 
-from replay.data import AnyDataFrame
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+    from pyspark.sql.window import Window
 
 
 # pylint: disable=too-many-instance-attributes, too-few-public-methods
@@ -119,7 +119,7 @@ class Sessionizer:
         if self.min_sessions_per_user and self.max_sessions_per_user:
             assert self.min_sessions_per_user <= self.max_sessions_per_user
 
-    def _to_unix_timestamp(self, interactions: AnyDataFrame) -> AnyDataFrame:
+    def _to_unix_timestamp(self, interactions: DataFrameLike) -> DataFrameLike:
         if isinstance(interactions, SparkDataFrame):
             return self._to_unix_timestamp_spark(interactions)
 
@@ -144,7 +144,7 @@ class Sessionizer:
 
         return interactions
 
-    def _create_sessions(self, data: AnyDataFrame) -> AnyDataFrame:
+    def _create_sessions(self, data: DataFrameLike) -> DataFrameLike:
         if isinstance(data, SparkDataFrame):
             return self._create_sessions_spark(data)
 
@@ -215,7 +215,7 @@ class Sessionizer:
         # data_with_sum_timediff.unpersist()
         return result
 
-    def _filter_sessions(self, interactions: AnyDataFrame) -> AnyDataFrame:
+    def _filter_sessions(self, interactions: DataFrameLike) -> DataFrameLike:
         # interactions.cache()
         if isinstance(interactions, SparkDataFrame):
             return self._filter_sessions_spark(interactions)
@@ -271,7 +271,7 @@ class Sessionizer:
         )
         return result
 
-    def transform(self, interactions: AnyDataFrame) -> AnyDataFrame:
+    def transform(self, interactions: DataFrameLike) -> DataFrameLike:
         r"""Create and filter sessions from given interactions.
 
         :param interactions: DataFrame containing columns ``user_column``, ``time_column``.

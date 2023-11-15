@@ -1,18 +1,22 @@
 # pylint: disable-all
 from datetime import datetime
 
-import pytest
 import numpy as np
-from pyspark.sql import functions as sf
+import pytest
 
+from replay.data import get_schema
+from replay.models import Word2VecRec
 from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
 from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
-from replay.data import get_schema
-from replay.models import Word2VecRec
-from replay.utils.spark_utils import vector_dot
-from tests.utils import spark, log as log2, create_dataset
+from tests.utils import create_dataset
+from tests.utils import log as log2
+from tests.utils import spark
 
+pyspark = pytest.importorskip("pyspark")
+from pyspark.sql import functions as sf
+
+from replay.utils.spark_utils import vector_dot
 
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
@@ -62,6 +66,7 @@ def model_with_ann(tmp_path):
     return model
 
 
+@pytest.mark.spark
 def test_fit(log, model):
     dataset = create_dataset(log)
     model.fit(dataset)
@@ -80,6 +85,7 @@ def test_fit(log, model):
     )
 
 
+@pytest.mark.spark
 def test_predict(log, model):
     dataset = create_dataset(log)
     model.fit(dataset)
@@ -92,6 +98,7 @@ def test_predict(log, model):
 
 
 # here we use `test.utils.log` because we can't build the hnsw index on `log` data
+@pytest.mark.spark
 def test_word2vec_predict_filter_seen_items(log2, model, model_with_ann):
     dataset = create_dataset(log2)
     model.fit(dataset)
@@ -110,6 +117,7 @@ def test_word2vec_predict_filter_seen_items(log2, model, model_with_ann):
     assert recs1.item_idx.equals(recs2.item_idx)
 
 
+@pytest.mark.spark
 def test_word2vec_predict(log2, model, model_with_ann):
     dataset = create_dataset(log2)
     model.fit(dataset)

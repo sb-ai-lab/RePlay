@@ -1,23 +1,18 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import logging
-import pytest
-import pandas as pd
-from pyspark.sql import functions as sf
-from pyspark.sql.types import TimestampType, StringType
 
-from replay.experimental.preprocessing.data_preparator import (
-    DataPreparator,
-    CatFeaturesTransformer,
-    Indexer,
-)
+import pandas as pd
+import pytest
+
+from tests.utils import item_features, long_log_with_features, short_log_with_features, spark, sparkDataFrameEqual
+
+pyspark = pytest.importorskip("pyspark")
+
+from pyspark.sql import functions as sf
+from pyspark.sql.types import StringType, TimestampType
+
+from replay.experimental.preprocessing.data_preparator import CatFeaturesTransformer, DataPreparator, Indexer
 from replay.utils.spark_utils import convert2spark
-from tests.utils import (
-    item_features,
-    long_log_with_features,
-    short_log_with_features,
-    spark,
-    sparkDataFrameEqual,
-)
 
 
 @pytest.fixture
@@ -36,6 +31,7 @@ def mapping():
 
 
 # checks in read_as_spark_df
+@pytest.mark.spark
 def test_read_data_invalid_format(data_preparator):
     with pytest.raises(ValueError, match=r"Invalid value of format_type.*"):
         data_preparator.read_as_spark_df(
@@ -49,6 +45,7 @@ def test_read_data_invalid_format(data_preparator):
 
 
 # errors in check_df
+@pytest.mark.spark
 def test_check_df_errors(data_preparator, long_log_with_features, mapping):
     with pytest.raises(ValueError, match="DataFrame is empty"):
         data_preparator.check_df(
@@ -68,6 +65,7 @@ def test_check_df_errors(data_preparator, long_log_with_features, mapping):
 
 
 # logging in check_df
+@pytest.mark.spark
 def test_read_check_df_logger_msg(
     data_preparator, long_log_with_features, mapping, caplog
 ):
@@ -99,6 +97,7 @@ def test_read_check_df_logger_msg(
         )
 
 
+@pytest.mark.spark
 def test_generate_cols(data_preparator, long_log_with_features, mapping):
     mapping.pop("timestamp")
     df = data_preparator.add_absent_log_cols(
@@ -109,6 +108,7 @@ def test_generate_cols(data_preparator, long_log_with_features, mapping):
     assert isinstance(df.schema["timestamp"].dataType, TimestampType)
 
 
+@pytest.mark.spark
 def test_indexer(long_log_with_features):
     indexer = Indexer()
     df = long_log_with_features.withColumnRenamed("user_idx", "user_id")
@@ -119,6 +119,7 @@ def test_indexer(long_log_with_features):
     sparkDataFrameEqual(log, df)
 
 
+@pytest.mark.spark
 def test_indexer_without_renaming():
     indexer = Indexer("user_idx", "item_idx")
     df = pd.DataFrame({"user_idx": [3], "item_idx": [5]})
@@ -132,6 +133,7 @@ def test_indexer_without_renaming():
     sparkDataFrameEqual(df, df_conv)
 
 
+@pytest.mark.spark
 def test_indexer_new_dataset(long_log_with_features, short_log_with_features):
     indexer = Indexer("user_idx", "item_idx")
     indexer.fit(
@@ -148,6 +150,7 @@ def get_transformed_features(transformer, train, test):
     return transformer.transform(test)
 
 
+@pytest.mark.spark
 def test_cat_features_transformer(item_features):
     transformed = get_transformed_features(
         transformer=CatFeaturesTransformer(cat_cols_list=["class"]),
@@ -168,6 +171,7 @@ def test_cat_features_transformer(item_features):
     )
 
 
+@pytest.mark.spark
 def test_cat_features_transformer_date(
     long_log_with_features,
     short_log_with_features,
@@ -183,6 +187,7 @@ def test_cat_features_transformer_date(
     )
 
 
+@pytest.mark.spark
 def test_cat_features_transformer_empty_list(
     long_log_with_features,
     short_log_with_features,

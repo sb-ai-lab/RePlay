@@ -2,10 +2,8 @@ from collections import defaultdict
 from typing import Dict, List, Union
 
 import numpy as np
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import DataFrame as SparkDataFrame
-from pyspark.sql import Window
-from pyspark.sql import functions as F
+
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 
 from .base_metric import (
     Metric,
@@ -15,6 +13,10 @@ from .base_metric import (
     MetricsReturnType,
 )
 from .descriptors import CalculationDescriptor, Mean
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import Window
+    from pyspark.sql import functions as F
 
 
 # pylint: disable=too-few-public-methods

@@ -1,18 +1,19 @@
 import importlib
 import logging
 from abc import abstractmethod
-from typing import Optional, Dict, Any, Union, Iterable
+from typing import Any, Dict, Iterable, Optional, Union
 
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.models.extensions.ann.index_stores.spark_files_index_store import (
-    SparkFilesIndexStore,
-)
-from replay.models.base_rec import BaseRecommender
-from replay.utils.spark_utils import get_top_k_recs, return_recs
 from replay.data import Dataset
+from replay.models.base_rec import BaseRecommender
+from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+
+    from replay.models.extensions.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
+    from replay.utils.spark_utils import get_top_k_recs, return_recs
+
 
 logger = logging.getLogger("replay")
 
@@ -36,7 +37,7 @@ class ANNMixin(BaseRecommender):
         return self.index_builder is not None
 
     @abstractmethod
-    def _get_vectors_to_build_ann(self, interactions: DataFrame) -> DataFrame:
+    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:
         """Implementations of this method must return a dataframe with item vectors.
         Item vectors from this method are used to build the index.
 
@@ -48,7 +49,7 @@ class ANNMixin(BaseRecommender):
         """
 
     @abstractmethod
-    def _get_ann_build_params(self, interactions: DataFrame) -> Dict[str, Any]:
+    def _get_ann_build_params(self, interactions: SparkDataFrame) -> Dict[str, Any]:
         """Implementation of this method must return dictionary
         with arguments for `_build_ann_index` method.
 
@@ -82,8 +83,8 @@ class ANNMixin(BaseRecommender):
 
     @abstractmethod
     def _get_vectors_to_infer_ann_inner(
-        self, interactions: DataFrame, queries: DataFrame
-    ) -> DataFrame:
+        self, interactions: SparkDataFrame, queries: SparkDataFrame
+    ) -> SparkDataFrame:
         """Implementations of this method must return a dataframe with user vectors.
         User vectors from this method are used to infer the index.
 
@@ -96,8 +97,8 @@ class ANNMixin(BaseRecommender):
         """
 
     def _get_vectors_to_infer_ann(
-        self, interactions: DataFrame, queries: DataFrame, filter_seen_items: bool
-    ) -> DataFrame:
+        self, interactions: SparkDataFrame, queries: SparkDataFrame, filter_seen_items: bool
+    ) -> SparkDataFrame:
         """This method wraps `_get_vectors_to_infer_ann_inner`
         and adds seen items to dataframe with user vectors by flag.
 
@@ -138,11 +139,11 @@ class ANNMixin(BaseRecommender):
         self,
         dataset: Optional[Dataset],
         k: int,
-        queries: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         dataset, queries, items = self._filter_interactions_queries_items_dataframes(
             dataset, k, queries, items
         )

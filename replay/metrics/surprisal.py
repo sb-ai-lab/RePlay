@@ -2,11 +2,13 @@ from collections import defaultdict
 from typing import Dict, List
 
 import numpy as np
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import DataFrame as SparkDataFrame
-from pyspark.sql import functions as sf
+
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsReturnType
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 # pylint: disable=too-few-public-methods

@@ -2,12 +2,12 @@
 from datetime import datetime
 
 import pytest
-from pyspark.sql import functions as sf
 
 from replay.data import get_schema
 from replay.models import PopRec
-from tests.utils import spark, create_dataset
+from tests.utils import create_dataset, spark
 
+pyspark = pytest.importorskip("pyspark")
 
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
@@ -35,6 +35,7 @@ def model():
     return model
 
 
+@pytest.mark.spark
 def test_works(log, model):
     try:
         dataset = create_dataset(log)
@@ -48,6 +49,7 @@ def test_works(log, model):
         pytest.fail()
 
 
+@pytest.mark.spark
 def test_clear_cache(log, model):
     try:
         dataset = create_dataset(log)

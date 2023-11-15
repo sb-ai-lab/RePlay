@@ -1,9 +1,10 @@
 import pytest
-from pandas import DataFrame as PandasDataFrame
-import pyspark.sql.functions as sf
 
 from replay.preprocessing import CSRConverter
-from replay.utils import get_spark_session
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, get_spark_session
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
 
 
 @pytest.fixture(scope="module")

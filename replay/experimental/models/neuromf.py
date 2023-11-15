@@ -6,10 +6,8 @@ Neural Matrix Factorization (MLP + GMF).
 from typing import List, Optional
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn.functional as F
-from pyspark.sql import DataFrame
 from sklearn.model_selection import train_test_split
 from torch import LongTensor, Tensor, nn
 from torch.optim import Adam
@@ -17,6 +15,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, TensorDataset
 
 from replay.experimental.models.base_torch_rec import TorchRecommender
+from replay.utils import PandasDataFrame, SparkDataFrame
 
 EMBED_DIM = 128
 
@@ -299,7 +298,7 @@ class NeuroMF(TorchRecommender):
         }
 
     def _data_loader(
-        self, data: pd.DataFrame, shuffle: bool = True
+        self, data: PandasDataFrame, shuffle: bool = True
     ) -> DataLoader:
 
         user_batch = LongTensor(data["user_idx"].values)  # type: ignore
@@ -324,9 +323,9 @@ class NeuroMF(TorchRecommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ) -> None:
         self.logger.debug("Create DataLoaders")
         tensor_data = log.select("user_idx", "item_idx").toPandas()
@@ -396,7 +395,7 @@ class NeuroMF(TorchRecommender):
         user_idx: int,
         items_np: np.ndarray,
         cnt: Optional[int] = None,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         model.eval()
         with torch.no_grad():
             user_batch = LongTensor([user_idx] * len(items_np))
@@ -414,7 +413,7 @@ class NeuroMF(TorchRecommender):
                 user_recs = user_recs[best_item_idx]
                 items_np = items_np[best_item_idx]
 
-            return pd.DataFrame(
+            return PandasDataFrame(
                 {
                     "user_idx": user_recs.shape[0] * [user_idx],
                     "item_idx": items_np,
@@ -424,12 +423,12 @@ class NeuroMF(TorchRecommender):
 
     @staticmethod
     def _predict_by_user(
-        pandas_df: pd.DataFrame,
+        pandas_df: PandasDataFrame,
         model: nn.Module,
         items_np: np.ndarray,
         k: int,
         item_count: int,
-    ) -> pd.DataFrame:
+    ) -> PandasDataFrame:
         return NeuroMF._predict_pairs_inner(
             model=model,
             user_idx=pandas_df["user_idx"][0],
@@ -439,8 +438,8 @@ class NeuroMF(TorchRecommender):
 
     @staticmethod
     def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame, model: nn.Module, item_count: int
-    ) -> pd.DataFrame:
+        pandas_df: PandasDataFrame, model: nn.Module, item_count: int
+    ) -> PandasDataFrame:
         return NeuroMF._predict_pairs_inner(
             model=model,
             user_idx=pandas_df["user_idx"][0],

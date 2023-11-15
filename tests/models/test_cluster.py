@@ -2,22 +2,25 @@
 
 import pandas as pd
 import pytest
-import pyspark.sql.functions as sf
 
 from replay.models import ClusterRec
-from replay.utils.spark_utils import convert2spark
 from tests.utils import (
-    spark,
+    create_dataset,
     long_log_with_features,
     short_log_with_features,
-    user_features,
+    spark,
     sparkDataFrameEqual,
-    create_dataset,
+    user_features,
 )
+
+pyspark = pytest.importorskip("pyspark")
+import pyspark.sql.functions as sf
+
+from replay.utils.spark_utils import convert2spark
 
 
 @pytest.fixture
-def users_features(spark, user_features):
+def users_features(user_features):
     return user_features.drop("gender")
 
 

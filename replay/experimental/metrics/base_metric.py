@@ -3,26 +3,25 @@ Base classes for quality and diversity metrics.
 """
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Optional, Union
 
-import pandas as pd
-from pyspark.sql import Column
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-from pyspark.sql import types as st
-from pyspark.sql.types import DataType
-from pyspark.sql import Window
-from pyspark.sql.column import _to_java_column, _to_seq
 from scipy.stats import norm
 
-from replay.data import AnyDataFrame, IntOrList, NumType
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, IntOrList, NumType, PandasDataFrame, SparkDataFrame
 from replay.utils.session_handler import State
 from replay.utils.spark_utils import convert2spark, get_top_k_recs
 
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import Column, Window
+    from pyspark.sql import functions as sf
+    from pyspark.sql import types as st
+    from pyspark.sql.column import _to_java_column, _to_seq
+    from pyspark.sql.types import DataType
+
 
 def fill_na_with_empty_array(
-    df: DataFrame, col_name: str, element_type: DataType
-) -> DataFrame:
+    df: SparkDataFrame, col_name: str, element_type: DataType
+) -> SparkDataFrame:
     """
     Fill empty values in array column with empty array of `element_type` values.
     :param df: dataframe with `col_name` column of ArrayType(`element_type`)
@@ -40,9 +39,9 @@ def fill_na_with_empty_array(
 
 
 def preprocess_gt(
-    ground_truth: AnyDataFrame,
-    ground_truth_users: Optional[AnyDataFrame] = None,
-) -> DataFrame:
+    ground_truth: DataFrameLike,
+    ground_truth_users: Optional[DataFrameLike] = None,
+) -> SparkDataFrame:
     """
     Preprocess `ground_truth` data before metric calculation
     :param ground_truth: spark dataframe with columns ``[user_idx, item_idx, relevance]``
@@ -68,7 +67,7 @@ def preprocess_gt(
     return true_items_by_users
 
 
-def drop_duplicates(recommendations: AnyDataFrame) -> DataFrame:
+def drop_duplicates(recommendations: DataFrameLike) -> SparkDataFrame:
 
     """
     Filter duplicated predictions by choosing the most relevant
@@ -85,7 +84,7 @@ def drop_duplicates(recommendations: AnyDataFrame) -> DataFrame:
     )
 
 
-def filter_sort(recommendations: DataFrame, extra_column: str = None) -> DataFrame:
+def filter_sort(recommendations: SparkDataFrame, extra_column: str = None) -> SparkDataFrame:
     """
     Filters duplicated predictions by choosing items with the highest relevance,
     Sorts items in predictions by its relevance,
@@ -129,11 +128,11 @@ def filter_sort(recommendations: DataFrame, extra_column: str = None) -> DataFra
 
 
 def get_enriched_recommendations(
-    recommendations: AnyDataFrame,
-    ground_truth: AnyDataFrame,
+    recommendations: DataFrameLike,
+    ground_truth: DataFrameLike,
     max_k: int,
-    ground_truth_users: Optional[AnyDataFrame] = None,
-) -> DataFrame:
+    ground_truth_users: Optional[DataFrameLike] = None,
+) -> SparkDataFrame:
     """
     Leave max_k recommendations for each user,
     merge recommendations and ground truth into a single DataFrame
@@ -165,7 +164,7 @@ def get_enriched_recommendations(
 def process_k(func):
     """Decorator that converts k to list and unpacks result"""
 
-    def wrap(self, recs: DataFrame, k: IntOrList, *args):
+    def wrap(self, recs: SparkDataFrame, k: IntOrList, *args):
         if isinstance(k, int):
             k_list = [k]
         else:
@@ -211,10 +210,10 @@ class Metric(ABC):
 
     def __call__(
         self,
-        recommendations: AnyDataFrame,
-        ground_truth: AnyDataFrame,
+        recommendations: DataFrameLike,
+        ground_truth: DataFrameLike,
         k: IntOrList,
-        ground_truth_users: Optional[AnyDataFrame] = None,
+        ground_truth_users: Optional[DataFrameLike] = None,
     ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: model predictions in a
@@ -235,7 +234,7 @@ class Metric(ABC):
         return self._mean(recs, k)
 
     @process_k
-    def _conf_interval(self, recs: DataFrame, k_list: list, alpha: float):
+    def _conf_interval(self, recs: SparkDataFrame, k_list: list, alpha: float):
         res = {}
         quantile = norm.ppf((1 + alpha) / 2)
         for k in k_list:
@@ -261,7 +260,7 @@ class Metric(ABC):
         return res
 
     @process_k
-    def _median(self, recs: DataFrame, k_list: list):
+    def _median(self, recs: SparkDataFrame, k_list: list):
         res = {}
         for k in k_list:
             distribution = self._get_metric_distribution(recs, k)
@@ -272,7 +271,7 @@ class Metric(ABC):
         return res
 
     @process_k
-    def _mean(self, recs: DataFrame, k_list: list):
+    def _mean(self, recs: SparkDataFrame, k_list: list):
         res = {}
         for k in k_list:
             distribution = self._get_metric_distribution(recs, k)
@@ -282,7 +281,7 @@ class Metric(ABC):
             res[k] = value
         return res
 
-    def _get_metric_distribution(self, recs: DataFrame, k: int) -> DataFrame:
+    def _get_metric_distribution(self, recs: SparkDataFrame, k: int) -> SparkDataFrame:
         """
         :param recs: recommendations
         :param k: depth cut-off
@@ -320,12 +319,12 @@ class Metric(ABC):
     # pylint: disable=too-many-arguments
     def user_distribution(
         self,
-        log: AnyDataFrame,
-        recommendations: AnyDataFrame,
-        ground_truth: AnyDataFrame,
+        log: DataFrameLike,
+        recommendations: DataFrameLike,
+        ground_truth: DataFrameLike,
         k: IntOrList,
-        ground_truth_users: Optional[AnyDataFrame] = None,
-    ) -> pd.DataFrame:
+        ground_truth_users: Optional[DataFrameLike] = None,
+    ) -> PandasDataFrame:
         """
         Get mean value of metric for all users with the same number of ratings.
 
@@ -357,7 +356,7 @@ class Metric(ABC):
             k_list = [k]
         else:
             k_list = k
-        res = pd.DataFrame()
+        res = PandasDataFrame()
         for cut_off in k_list:
             dist = self._get_metric_distribution(recs, cut_off)
             val = count.join(dist, on="user_idx", how="right").fillna(
@@ -394,25 +393,25 @@ class RecOnlyMetric(Metric):
     """Base class for metrics that do not need holdout data"""
 
     @abstractmethod
-    def __init__(self, log: AnyDataFrame, *args, **kwargs):  # pylint: disable=super-init-not-called
+    def __init__(self, log: DataFrameLike, *args, **kwargs):  # pylint: disable=super-init-not-called
         pass
 
     # pylint: disable=no-self-use
     @abstractmethod
     def _get_enriched_recommendations(
         self,
-        recommendations: AnyDataFrame,
-        ground_truth: Optional[AnyDataFrame],
+        recommendations: DataFrameLike,
+        ground_truth: Optional[DataFrameLike],
         max_k: int,
-        ground_truth_users: Optional[AnyDataFrame] = None,
-    ) -> DataFrame:
+        ground_truth_users: Optional[DataFrameLike] = None,
+    ) -> SparkDataFrame:
         pass
 
     def __call__(
         self,
-        recommendations: AnyDataFrame,
+        recommendations: DataFrameLike,
         k: IntOrList,
-        ground_truth_users: Optional[AnyDataFrame] = None,
+        ground_truth_users: Optional[DataFrameLike] = None,
     ) -> Union[Dict[int, NumType], NumType]:
         """
         :param recommendations: predictions of a model,
@@ -496,7 +495,7 @@ class NCISMetric(Metric):
 
     def __init__(
         self,
-        prev_policy_weights: AnyDataFrame,
+        prev_policy_weights: DataFrameLike,
         threshold: float = 10.0,
         activation: Optional[str] = None,
         use_scala_udf: bool = False,
@@ -526,7 +525,7 @@ class NCISMetric(Metric):
             raise ValueError("Threshold should be positive real number")
 
     @staticmethod
-    def _softmax_by_user(df: DataFrame, col_name: str) -> DataFrame:
+    def _softmax_by_user(df: SparkDataFrame, col_name: str) -> SparkDataFrame:
         """
         Subtract minimal value (relevance) by user from `col_name`
         and apply softmax by user to `col_name`.
@@ -548,7 +547,7 @@ class NCISMetric(Metric):
         )
 
     @staticmethod
-    def _sigmoid(df: DataFrame, col_name: str) -> DataFrame:
+    def _sigmoid(df: SparkDataFrame, col_name: str) -> SparkDataFrame:
         """
         Apply sigmoid/logistic function to column `col_name`
         """
@@ -558,7 +557,7 @@ class NCISMetric(Metric):
 
     @staticmethod
     def _weigh_and_clip(
-        df: DataFrame,
+        df: SparkDataFrame,
         threshold: float,
         target_policy_col: str = "relevance",
         prev_policy_col: str = "prev_relevance",
@@ -606,11 +605,11 @@ class NCISMetric(Metric):
 
     def _get_enriched_recommendations(
         self,
-        recommendations: AnyDataFrame,
-        ground_truth: AnyDataFrame,
+        recommendations: DataFrameLike,
+        ground_truth: DataFrameLike,
         max_k: int,
-        ground_truth_users: Optional[AnyDataFrame] = None,
-    ) -> DataFrame:
+        ground_truth_users: Optional[DataFrameLike] = None,
+    ) -> SparkDataFrame:
         """
         Merge recommendations and ground truth into a single DataFrame
         and aggregate items into lists so that each user has only one record.

@@ -10,8 +10,14 @@ from typing import Any, Dict, Optional
 
 import psutil
 import torch
-from pyspark import __version__ as pyspark_version
-from pyspark.sql import SparkSession
+
+from .types import PYSPARK_AVAILABLE, MissingImportType
+
+if PYSPARK_AVAILABLE:
+    from pyspark import __version__ as pyspark_version
+    from pyspark.sql import SparkSession
+else:
+    SparkSession = MissingImportType
 
 
 def get_spark_session(
@@ -26,6 +32,7 @@ def get_spark_session(
     :param shuffle_partitions: number of partitions for Spark; triple CPU count by default
     """
     if os.environ.get("SCRIPT_ENV", None) == "cluster":
+        # pylint: disable=no-member
         return SparkSession.builder.getOrCreate()
 
     os.environ["PYSPARK_PYTHON"] = sys.executable
@@ -55,6 +62,7 @@ def get_spark_session(
         shuffle_partitions = os.cpu_count() * 3
     driver_memory = f"{spark_memory}g"
     user_home = os.environ["HOME"]
+    # pylint: disable=no-member
     spark = (
         SparkSession.builder.config("spark.driver.memory", driver_memory)
         .config(

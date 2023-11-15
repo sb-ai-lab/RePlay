@@ -33,12 +33,30 @@ Installation via `pip` package manager is recommended by default:
 pip install replay-rec
 ```
 
-By default `experimental` submodule is not installed, if you need this functionality please specify the version with `rc0` suffix.
+In this case it will be installed the `core` package without `PySpark` and `PyTorch` dependencies.
+Also `experimental` submodule will not be installed.
 
+To install `experimental` submodule please specify the version with `rc0` suffix.
 For example:
 
 ```bash
 pip install replay-rec==XX.YY.ZZrc0
+```
+
+### Extras
+
+In addition to the core package, several extras are also provided, including:
+- `[spark]`: Install PySpark functionality
+- `[torch]`: Install PyTorch and Lightning functionality
+- `[all]`: `[spark]` `[torch]`
+
+Example:
+```bash
+# Install core package with PySpark dependency
+pip install replay-rec[spark]
+
+# Install package with experimental submodule and PySpark dependency
+pip install replay-rec[spark]==XX.YY.ZZrc0
 ```
 
 To build RePlay from sources please use the [instruction](CONTRIBUTING.md#installing-from-the-source).

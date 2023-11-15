@@ -1,10 +1,11 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
 
-from pyspark.sql import functions as sf
-
 from replay.models import RandomRec
-from tests.utils import log, spark, sparkDataFrameEqual, sparkDataFrameNotEqual, create_dataset
+from tests.utils import create_dataset, log, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
+
+pyspark = pytest.importorskip("pyspark")
+from pyspark.sql import functions as sf
 
 
 @pytest.fixture(
@@ -28,6 +29,7 @@ def fitted_model(request, log):
     return model
 
 
+@pytest.mark.spark
 def test_popularity_matrix(log, fitted_model):
     if fitted_model.distribution == "uniform":
         true_matrix = (
@@ -58,6 +60,7 @@ def test_popularity_matrix(log, fitted_model):
     )
 
 
+@pytest.mark.spark
 def test_predict(fitted_model, log):
     # fixed seed provides reproducibility (the same prediction every time),
     # non-fixed provides diversity (predictions differ every time)
@@ -83,6 +86,7 @@ def test_predict(fitted_model, log):
     equality_check(pred_after_refit_checkpoint, pred_repeat)
 
 
+@pytest.mark.spark
 def test_predict_to_file(spark, fitted_model, log, tmp_path):
     dataset = create_dataset(log)
     path = str((tmp_path / "pred.parquet").resolve().absolute())

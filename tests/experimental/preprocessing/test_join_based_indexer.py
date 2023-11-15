@@ -1,13 +1,13 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
 
 import pytest
+
+from tests.utils import spark
+
+pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
 
-from replay.experimental.preprocessing.data_preparator import (
-    JoinBasedIndexerEstimator,
-    JoinBasedIndexerTransformer,
-)
-from tests.utils import spark
+from replay.experimental.preprocessing.data_preparator import JoinBasedIndexerEstimator, JoinBasedIndexerTransformer
 
 
 @pytest.fixture
@@ -17,6 +17,7 @@ def log(spark):
     ).toDF("user_id", "item_id")
 
 
+@pytest.mark.spark
 def test_indexer(log):
     indexer = JoinBasedIndexerEstimator().fit(log)
     indexed_df = indexer.transform(log)
@@ -34,6 +35,7 @@ def test_indexer(log):
     )
 
 
+@pytest.mark.spark
 def test_inverse_transform(log):
     indexer = JoinBasedIndexerEstimator().fit(log)
     indexed_df = indexer.transform(log)
@@ -69,6 +71,7 @@ def test_inverse_transform(log):
     assert expected_unique_item_ids == actual_unique_item_ids
 
 
+@pytest.mark.spark
 def test_update_map_on_transform(spark, log):
     indexer = JoinBasedIndexerEstimator().fit(log)
     indexed_df = indexer.transform(log)
@@ -118,6 +121,7 @@ def test_update_map_on_transform(spark, log):
     )
 
 
+@pytest.mark.spark
 def test_save_load(log, tmp_path):
     indexer = JoinBasedIndexerEstimator().fit(log)
     indexed_df_expected = indexer.transform(log)

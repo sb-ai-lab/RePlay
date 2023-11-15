@@ -2,10 +2,11 @@ from collections.abc import Iterable
 from typing import List, Optional, Union
 
 from pandas.api.types import is_object_dtype
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import functions as sf, DataFrame as SparkDataFrame
 
-from replay.data import AnyDataFrame
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 # pylint: disable=too-few-public-methods
@@ -108,7 +109,7 @@ class Padder:
         self.cut_array = cut_array
         self.cut_side = cut_side
 
-    def transform(self, interactions: AnyDataFrame) -> AnyDataFrame:
+    def transform(self, interactions: DataFrameLike) -> DataFrameLike:
         """Pad dataframe.
 
         :param interactions: DataFrame with array columns with names pad_columns.

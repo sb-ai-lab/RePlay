@@ -28,6 +28,11 @@ variables:
     - *setup_experimental_env
     - ./poetry_wrapper.sh --experimental install
 
+.install_experimental_replay_with_spark: &install_experimental_replay_with_spark
+  before_script:
+    - *setup_experimental_env
+    - ./poetry_wrapper.sh --experimental install --all-extras
+
 cache: &global_cache
   key: ${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}
   paths:
@@ -39,6 +44,7 @@ stages:
   - resolve
   - code_quality
   - test
+  - merge coverage
   - build packages
 
 resolve-job:
@@ -50,7 +56,7 @@ resolve-job:
     - *setup_experimental_env
     - poetry --version
     - pip --version
-    - ./poetry_wrapper.sh --experimental install
+    - ./poetry_wrapper.sh --experimental install --all-extras
     - dependencies="${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}_dependencies.txt"
     - dependencies=$(echo ${dependencies} | sed -e 's/[^0-9a-zA-Z.-]/_/g') # removed invalid characters
     - pip list > ${dependencies}
@@ -61,28 +67,57 @@ resolve-job:
     expire_in: 2 week
 
 pylint-job:
-  <<: *install_experimental_replay
+  <<: *install_experimental_replay_with_spark
   stage: code_quality
   script:
     - pylint replay
 
 pycodestyle-job:
-  <<: *install_experimental_replay
+  <<: *install_experimental_replay_with_spark
   stage: code_quality
   script:
     - pycodestyle replay tests
 
 sphinx-job:
-  <<: *install_experimental_replay
+  <<: *install_experimental_replay_with_spark
   stage: code_quality
   script:
     - make -C docs clean html
 
-pytest:
+pytest_core:
   <<: *install_experimental_replay
   stage: test
   script:
-    - pytest
+    - pytest -m core --ignore=replay/experimental/
+    - mv .coverage .coverage_core
+  artifacts:
+    paths:
+      - .coverage_core
+    expire_in: 1 day
+
+pytest_spark:
+  <<: *install_experimental_replay_with_spark
+  stage: test
+  script:
+    - pytest -m "not core"
+    - mv .coverage .coverage_spark
+  artifacts:
+    paths:
+      - .coverage_spark
+    expire_in: 1 day
+
+merge-coverage:
+  stage: merge coverage
+  before_script:
+    - *setup_env
+    - ./poetry_wrapper.sh install --only dev
+  script:
+    - coverage combine .coverage_core .coverage_spark
+    - coverage report --fail-under=93
+    - coverage xml
+  needs:
+    - pytest_core
+    - pytest_spark
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
     when: always

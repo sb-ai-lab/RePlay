@@ -1,14 +1,13 @@
 # pylint: disable=too-many-arguments
 # pragma: no cover
 from abc import abstractmethod
-from typing import Optional, Union, Iterable, Dict, List, Any, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
-from pyspark.sql import DataFrame
-
-from replay.data import AnyDataFrame, Dataset
-from replay.preprocessing.filters import filter_by_min_count
-from replay.metrics import Metric, NDCG
+from replay.data import Dataset
+from replay.metrics import NDCG, Metric
 from replay.models.base_rec import BaseRecommender
+from replay.preprocessing.filters import filter_by_min_count
+from replay.utils import DataFrameLike, SparkDataFrame
 from replay.utils.spark_utils import get_unique_entities
 
 
@@ -53,10 +52,10 @@ class BaseScenario(BaseRecommender):
         self,
         dataset: Dataset,
         k: int,
-        queries: Optional[Union[AnyDataFrame, Iterable]] = None,
-        items: Optional[Union[AnyDataFrame, Iterable]] = None,
+        queries: Optional[Union[DataFrameLike, Iterable]] = None,
+        items: Optional[Union[DataFrameLike, Iterable]] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         """
         Get recommendations
 
@@ -122,10 +121,10 @@ class BaseScenario(BaseRecommender):
         self,
         dataset: Dataset,
         k: int,
-        queries: Optional[Union[AnyDataFrame, Iterable]] = None,
-        items: Optional[Union[AnyDataFrame, Iterable]] = None,
+        queries: Optional[Union[DataFrameLike, Iterable]] = None,
+        items: Optional[Union[DataFrameLike, Iterable]] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         """
         Train and get recommendations
 

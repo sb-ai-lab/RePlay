@@ -1,15 +1,16 @@
 from os.path import join
 from typing import Optional, Tuple
 
-import pyspark.sql.functions as sf
-
-from pyspark.ml.recommendation import ALS, ALSModel
-from pyspark.sql import DataFrame
-from pyspark.sql.types import DoubleType
 from replay.data import Dataset
+from replay.models.base_rec import ItemVectorModel, Recommender
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
-from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.utils.spark_utils import list_to_vector_udf
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+    from pyspark.ml.recommendation import ALS, ALSModel
+    from pyspark.sql.types import DoubleType
+
+    from replay.utils.spark_utils import list_to_vector_udf
 
 
 # pylint: disable=too-many-instance-attributes
@@ -102,10 +103,10 @@ class ALSWrap(Recommender, ItemVectorModel):
         self,
         dataset: Optional[Dataset],
         k: int,
-        queries: DataFrame,
-        items: DataFrame,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
 
         if (items.count() == self.fit_items.count()) and (
             items.join(self.fit_items, on=self.item_column, how="inner").count()
@@ -142,9 +143,9 @@ class ALSWrap(Recommender, ItemVectorModel):
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
+        pairs: SparkDataFrame,
         dataset: Optional[Dataset] = None,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         return (
             self.model.transform(pairs)
             .withColumn(self.rating_column, sf.col("prediction").cast(DoubleType()))
@@ -152,8 +153,8 @@ class ALSWrap(Recommender, ItemVectorModel):
         )
 
     def _get_features(
-        self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Tuple[Optional[DataFrame], Optional[int]]:
+        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
+    ) -> Tuple[Optional[SparkDataFrame], Optional[int]]:
         entity = "user" if self.query_column in ids.columns else "item"
         entity_col = self.query_column if self.query_column in ids.columns else self.item_column
 

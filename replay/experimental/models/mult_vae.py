@@ -5,10 +5,8 @@ MultVAE implementation
 from typing import Optional, Tuple
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn.functional as F
-from pyspark.sql import DataFrame
 from scipy.sparse import csr_matrix
 from sklearn.model_selection import GroupShuffleSplit
 from torch import nn
@@ -17,6 +15,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, TensorDataset
 
 from replay.experimental.models.base_torch_rec import TorchRecommender
+from replay.utils import PandasDataFrame, SparkDataFrame
 
 
 class VAE(nn.Module):
@@ -200,7 +199,7 @@ class MultVAE(TorchRecommender):
         }
 
     def _get_data_loader(
-        self, data: pd.DataFrame, shuffle: bool = True
+        self, data: PandasDataFrame, shuffle: bool = True
     ) -> Tuple[csr_matrix, DataLoader, np.ndarray]:
         """get data loader and matrix with data"""
         users_count = data["user_idx"].value_counts().count()
@@ -224,9 +223,9 @@ class MultVAE(TorchRecommender):
     # pylint: disable=too-many-locals
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ) -> None:
         self.logger.debug("Creating batch")
         data = log.select("user_idx", "item_idx").toPandas()
@@ -309,7 +308,7 @@ class MultVAE(TorchRecommender):
         items_np_to_pred: np.ndarray,
         item_count: int,
         cnt: Optional[int] = None,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         model.eval()
         with torch.no_grad():
             user_batch = torch.zeros((1, item_count))
@@ -322,7 +321,7 @@ class MultVAE(TorchRecommender):
                     )[:cnt]
                 ).numpy()
                 items_np_to_pred = items_np_to_pred[best_item_idx]
-            return pd.DataFrame(
+            return PandasDataFrame(
                 {
                     "user_idx": np.array(
                         items_np_to_pred.shape[0] * [user_idx]
@@ -334,12 +333,12 @@ class MultVAE(TorchRecommender):
 
     @staticmethod
     def _predict_by_user(
-        pandas_df: pd.DataFrame,
+        pandas_df: PandasDataFrame,
         model: nn.Module,
         items_np: np.ndarray,
         k: int,
         item_count: int,
-    ) -> pd.DataFrame:
+    ) -> PandasDataFrame:
         return MultVAE._predict_pairs_inner(
             model=model,
             user_idx=pandas_df["user_idx"][0],
@@ -351,10 +350,10 @@ class MultVAE(TorchRecommender):
 
     @staticmethod
     def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame,
+        pandas_df: PandasDataFrame,
         model: nn.Module,
         item_count: int,
-    ) -> pd.DataFrame:
+    ) -> PandasDataFrame:
         return MultVAE._predict_pairs_inner(
             model=model,
             user_idx=pandas_df["user_idx"][0],

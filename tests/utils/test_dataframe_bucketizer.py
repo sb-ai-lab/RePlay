@@ -1,15 +1,15 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
+
+pyspark = pytest.importorskip("pyspark")
+
 from pyspark.conf import SparkConf
 
 from replay.utils.dataframe_bucketizer import DataframeBucketizer
-from tests.utils import (
-    log,
-    log2,
-    spark,
-)
+from tests.utils import log, log2, spark
 
 
+@pytest.mark.spark
 def test_dataframe_bucketizer(spark, log, log2):
     spark_conf: SparkConf = spark.sparkContext.getConf()
     # case 1: initialization the bucketizer with table_name

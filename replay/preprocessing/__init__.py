@@ -11,6 +11,7 @@ from replay.preprocessing.history_based_fp import (
     HistoryBasedFeaturesProcessor,
     LogStatFeaturesProcessor,
 )
+
 from .converter import CSRConverter
 from .label_encoder import LabelEncoder, LabelEncodingRule
 from .sessionizer import Sessionizer

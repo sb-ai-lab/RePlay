@@ -1,10 +1,13 @@
 from typing import Optional
 
-from pyspark.sql import functions as sf
 from scipy.stats import norm
-from replay.data import Dataset
 
+from replay.data import Dataset
 from replay.models.pop_rec import PopRec
+from replay.utils import PYSPARK_AVAILABLE
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 class Wilson(PopRec):
@@ -16,7 +19,7 @@ class Wilson(PopRec):
 
     >>> import pandas as pd
     >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> data_frame = pd.DataFrame({"user_id": [1, 2], "item_id": [1, 2], "rating": [1, 1]})
     >>> interactions = convert2spark(data_frame)
     >>> feature_schema = FeatureSchema(
