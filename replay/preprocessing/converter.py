@@ -2,10 +2,11 @@ from typing import Optional
 
 import numpy as np
 from scipy.sparse import csr_matrix
-from pyspark.sql import DataFrame as SparkDataFrame
 
-from replay.data import AnyDataFrame
-from replay.utils import spark_to_pandas
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from replay.utils.spark_utils import spark_to_pandas
 
 
 # pylint: disable=too-few-public-methods
@@ -77,7 +78,7 @@ class CSRConverter:
         self.column_count = column_count
         self.allow_collect_to_master = allow_collect_to_master
 
-    def transform(self, data: AnyDataFrame) -> csr_matrix:
+    def transform(self, data: DataFrameLike) -> csr_matrix:
         """
         Transform Spark or Pandas Data Frame to csr.
 

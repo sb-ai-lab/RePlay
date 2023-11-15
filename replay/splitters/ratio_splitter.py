@@ -1,12 +1,12 @@
 from typing import List, Optional, Tuple
 
-from pandas import DataFrame as PandasDataFrame
-import pyspark.sql.functions as sf
-from pyspark.sql import DataFrame as SparkDataFrame, Window
-from pyspark.sql.types import IntegerType
-
-from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+    from pyspark.sql import Window
+    from pyspark.sql.types import IntegerType
 
 
 # pylint: disable=too-few-public-methods, too-many-instance-attributes
@@ -162,7 +162,7 @@ class RatioSplitter(Splitter):
             raise ValueError("test_size must between 0 and 1")
         self.test_size = test_size
 
-    def _add_time_partition(self, interactions: AnyDataFrame) -> AnyDataFrame:
+    def _add_time_partition(self, interactions: DataFrameLike) -> DataFrameLike:
         if isinstance(interactions, SparkDataFrame):
             return self._add_time_partition_to_spark(interactions)
 
@@ -184,8 +184,8 @@ class RatioSplitter(Splitter):
         return res
 
     def _partial_split_fraqtions(
-        self, interactions: AnyDataFrame, ratio: float
-    ) -> Tuple[AnyDataFrame, AnyDataFrame]:
+        self, interactions: DataFrameLike, ratio: float
+    ) -> Tuple[DataFrameLike, DataFrameLike]:
         res = self._add_time_partition(interactions)
         train_size = round(1 - ratio, self._precision)
 
@@ -239,7 +239,7 @@ class RatioSplitter(Splitter):
 
         return train, test
 
-    def _partial_split(self, interactions: AnyDataFrame, ratio: float) -> Tuple[AnyDataFrame, AnyDataFrame]:
+    def _partial_split(self, interactions: DataFrameLike, ratio: float) -> Tuple[DataFrameLike, DataFrameLike]:
         res = self._add_time_partition(interactions)
         if isinstance(res, SparkDataFrame):
             return self._partial_split_spark(res, ratio)
@@ -306,7 +306,7 @@ class RatioSplitter(Splitter):
         return train, test
 
     # pylint: disable=invalid-name
-    def _core_split(self, interactions: AnyDataFrame) -> List[AnyDataFrame]:
+    def _core_split(self, interactions: DataFrameLike) -> List[DataFrameLike]:
         if self.split_by_fraqtions:
             return self._partial_split_fraqtions(interactions, self.test_size)
         else:

@@ -1,7 +1,10 @@
-from pyspark.sql import functions as sf
-from replay.data.dataset import Dataset
 
+from replay.data.dataset import Dataset
 from replay.models.base_rec import NonPersonalizedRecommender
+from replay.utils import PYSPARK_AVAILABLE
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 class PopRec(NonPersonalizedRecommender):
@@ -19,7 +22,7 @@ class PopRec(NonPersonalizedRecommender):
 
     >>> import pandas as pd
     >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 2, 3, 4], "item_id": [1, 2, 2, 3, 3, 3], "rating": [0.5, 1, 0.1, 0.8, 0.7, 1]})
     >>> data_frame
         user_id   item_id     rating

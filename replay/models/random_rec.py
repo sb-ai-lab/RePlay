@@ -1,9 +1,11 @@
 from typing import Optional
 
-from pyspark.sql import functions as sf
-
 from replay.data import Dataset
 from replay.models.base_rec import NonPersonalizedRecommender
+from replay.utils import PYSPARK_AVAILABLE
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 class RandomRec(NonPersonalizedRecommender):

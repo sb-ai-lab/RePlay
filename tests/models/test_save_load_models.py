@@ -1,38 +1,30 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
 from os.path import dirname, join
 
-import pytest
 import pandas as pd
-
-from pyspark.sql import functions as sf
+import pytest
 
 import replay
+from replay.data import FeatureHint, FeatureInfo, FeatureSchema, FeatureType
+from replay.models import *
 from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
 from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
-from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import (
-    DriverNmslibIndexBuilder,
-)
-from replay.models.extensions.ann.index_builders.executor_nmslib_index_builder import (
-    ExecutorNmslibIndexBuilder,
-)
-from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import (
-    ExecutorHnswlibIndexBuilder,
-)
+from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
+from replay.models.extensions.ann.index_builders.executor_nmslib_index_builder import ExecutorNmslibIndexBuilder
 from replay.models.extensions.ann.index_stores.hdfs_index_store import HdfsIndexStore
-from replay.models.extensions.ann.index_stores.shared_disk_index_store import (
-    SharedDiskIndexStore,
-)
-from replay.models.extensions.ann.index_stores.spark_files_index_store import (
-    SparkFilesIndexStore,
-)
+from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
 from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
-from replay.utils.model_handler import save, load
-from replay.models import *
-from replay.utils.spark_utils import convert2spark
-from tests.utils import long_log_with_features, sparkDataFrameEqual, spark, create_dataset
-from tests.models.test_cat_pop_rec import cat_tree, cat_log, requested_cats
-from replay.data import FeatureSchema, FeatureType, FeatureInfo, FeatureHint
+from replay.utils import PYSPARK_AVAILABLE
+from tests.models.test_cat_pop_rec import cat_log, cat_tree, requested_cats
+from tests.utils import create_dataset, long_log_with_features, spark, sparkDataFrameEqual
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+
+    from replay.models.extensions.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
+    from replay.utils.model_handler import load, save
+    from replay.utils.spark_utils import convert2spark
 
 
 @pytest.fixture
@@ -68,6 +60,7 @@ def df():
     return res
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "recommender",
     [
@@ -90,6 +83,7 @@ def test_equal_preds(long_log_with_features, recommender, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 def test_random(long_log_with_features, tmp_path):
     path = (tmp_path / "random").resolve()
     model = RandomRec(seed=1)
@@ -102,6 +96,7 @@ def test_random(long_log_with_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 def test_rules(df, tmp_path):
     path = (tmp_path / "rules").resolve()
     dataset = create_dataset(df)
@@ -114,6 +109,7 @@ def test_rules(df, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.sparks
 def test_word(df, tmp_path):
     path = (tmp_path / "word").resolve()
     dataset = create_dataset(df)
@@ -126,6 +122,7 @@ def test_word(df, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 def test_cluster(long_log_with_features, user_features, tmp_path):
     path = (tmp_path / "cluster").resolve()
     dataset = create_dataset(long_log_with_features, user_features)
@@ -138,6 +135,7 @@ def test_cluster(long_log_with_features, user_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 def test_cat_poprec(cat_tree, cat_log, requested_cats, tmp_path):
     path = (tmp_path / "cat_poprec").resolve()
     feature_schema = FeatureSchema(
@@ -173,6 +171,7 @@ def test_cat_poprec(cat_tree, cat_log, requested_cats, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("model", [Wilson(), UCB()], ids=["wilson", "ucb"])
 def test_wilson_ucb(model, log_unary, tmp_path):
     path = (tmp_path / "model").resolve()
@@ -185,6 +184,7 @@ def test_wilson_ucb(model, log_unary, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 def test_study(df, tmp_path):
     path = (tmp_path / "study").resolve()
     dataset = create_dataset(df)
@@ -196,6 +196,7 @@ def test_study(df, tmp_path):
     assert loaded_model.study == model.study
 
 
+@pytest.mark.spark
 def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
     model = Word2VecRec(
         rank=1, window_size=1, use_idf=True, seed=42, min_count=0,
@@ -224,6 +225,7 @@ def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 def test_ann_slim_saving_loading(long_log_with_features, tmp_path):
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
@@ -252,6 +254,7 @@ def test_ann_slim_saving_loading(long_log_with_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 def test_ann_knn_saving_loading(long_log_with_features, tmp_path):
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
@@ -281,6 +284,7 @@ def test_ann_knn_saving_loading(long_log_with_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.core
 def test_hdfs_index_store_exception():
     local_warehouse_dir = 'file:///tmp'
     with pytest.raises(ValueError, match=f"Can't recognize path {local_warehouse_dir + '/index_dir'} as HDFS path!"):

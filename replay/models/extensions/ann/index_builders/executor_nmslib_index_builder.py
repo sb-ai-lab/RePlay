@@ -1,18 +1,14 @@
 import logging
-from typing import Optional, Iterator
+from typing import Iterator, Optional
 
 import pandas as pd
-from pyspark.sql import DataFrame
 
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.models.extensions.ann.index_builders.nmslib_index_builder_mixin import (
-    NmslibIndexBuilderMixin,
-)
+from replay.models.extensions.ann.index_builders.nmslib_index_builder_mixin import NmslibIndexBuilderMixin
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
-from replay.models.extensions.ann.index_inferers.nmslib_filter_index_inferer import (
-    NmslibFilterIndexInferer,
-)
+from replay.models.extensions.ann.index_inferers.nmslib_filter_index_inferer import NmslibFilterIndexInferer
 from replay.models.extensions.ann.index_inferers.nmslib_index_inferer import NmslibIndexInferer
+from replay.utils import PandasDataFrame, SparkDataFrame
 
 logger = logging.getLogger("replay")
 
@@ -39,7 +35,7 @@ class ExecutorNmslibIndexBuilder(IndexBuilder):
         index_params = self.index_params
         index_store = self.index_store
 
-        def build_index_udf(iterator: Iterator[pd.DataFrame]):
+        def build_index_udf(iterator: Iterator[PandasDataFrame]):
             """Builds index on executor and writes it to shared disk or hdfs.
 
             Args:
@@ -61,13 +57,13 @@ class ExecutorNmslibIndexBuilder(IndexBuilder):
                 pdf, index_params, index_store
             )
 
-            yield pd.DataFrame(data={"_success": 1}, index=[0])
+            yield PandasDataFrame(data={"_success": 1}, index=[0])
 
         return build_index_udf
 
     def build_index(
         self,
-        vectors: DataFrame,
+        vectors: SparkDataFrame,
         features_col: str,
         ids_col: Optional[str] = None,
     ):

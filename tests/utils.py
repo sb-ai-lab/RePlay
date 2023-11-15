@@ -1,7 +1,6 @@
 # pylint: skip-file
 import os
 import re
-
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -9,23 +8,16 @@ import numpy as np
 import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
-from pyspark.ml.linalg import DenseVector
-from pyspark.sql import DataFrame
-import torch
 
-from replay.data import (
-    Dataset,
-    FeatureSchema,
-    FeatureInfo,
-    FeatureHint,
-    FeatureType,
-    get_schema,
-)
-from replay.utils.session_handler import get_spark_session
-from replay.utils.spark_utils import convert2spark
+from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType, get_schema
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
+if PYSPARK_AVAILABLE:
+    from pyspark.ml.linalg import DenseVector
 
-INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
+    from replay.utils.session_handler import get_spark_session
+    from replay.utils.spark_utils import convert2spark
+    INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
 def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
@@ -154,7 +146,7 @@ def item_features(spark):
     ).toDF("item_idx", "iq", "class", "color")
 
 
-def unify_dataframe(data_frame: DataFrame):
+def unify_dataframe(data_frame: SparkDataFrame):
     pandas_df = data_frame.toPandas()
     columns_to_sort_by: List[str] = []
 
@@ -176,13 +168,13 @@ def unify_dataframe(data_frame: DataFrame):
     )
 
 
-def sparkDataFrameEqual(df1: DataFrame, df2: DataFrame):
+def sparkDataFrameEqual(df1: SparkDataFrame, df2: SparkDataFrame):
     return pd.testing.assert_frame_equal(
         unify_dataframe(df1), unify_dataframe(df2), check_like=True
     )
 
 
-def sparkDataFrameNotEqual(df1: DataFrame, df2: DataFrame):
+def sparkDataFrameNotEqual(df1: SparkDataFrame, df2: SparkDataFrame):
     try:
         sparkDataFrameEqual(df1, df2)
     except AssertionError:

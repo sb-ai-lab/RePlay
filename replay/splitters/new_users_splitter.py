@@ -1,15 +1,11 @@
 from typing import Optional, Union
 
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import DataFrame as SparkDataFrame
-import pyspark.sql.functions as sf
-from pyspark.sql import Window
+from replay.splitters.base_splitter import Splitter, SplitterReturnType
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
 
-from replay.data import AnyDataFrame
-from replay.splitters.base_splitter import (
-    Splitter,
-    SplitterReturnType,
-)
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+    from pyspark.sql import Window
 
 
 # pylint: disable=too-few-public-methods, duplicate-code
@@ -177,7 +173,7 @@ class NewUsersSplitter(Splitter):
 
         return train, test
 
-    def _core_split(self, interactions: AnyDataFrame) -> SplitterReturnType:
+    def _core_split(self, interactions: DataFrameLike) -> SplitterReturnType:
         split_method = self._core_split_spark
         if isinstance(interactions, PandasDataFrame):
             split_method = self._core_split_pandas

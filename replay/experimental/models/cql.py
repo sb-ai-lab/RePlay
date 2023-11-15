@@ -5,30 +5,29 @@ import io
 import logging
 import tempfile
 import timeit
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 import d3rlpy.algos.cql as CQL_d3rlpy
 import numpy as np
-import pandas as pd
 import torch
-from d3rlpy.argument_utility import (
-    EncoderArg, QFuncArg, UseGPUArg, ScalerArg, ActionScalerArg,
-    RewardScalerArg
-)
+from d3rlpy.argument_utility import ActionScalerArg, EncoderArg, QFuncArg, RewardScalerArg, ScalerArg, UseGPUArg
 from d3rlpy.base import ImplBase, LearnableBase, _serialize_params
 from d3rlpy.constants import IMPL_NOT_INITIALIZED_ERROR
 from d3rlpy.context import disable_parallel
 from d3rlpy.dataset import MDPDataset
 from d3rlpy.models.encoders import create_encoder_factory
-from d3rlpy.models.optimizers import OptimizerFactory, AdamFactory
+from d3rlpy.models.optimizers import AdamFactory, OptimizerFactory
 from d3rlpy.models.q_functions import create_q_func_factory
-from d3rlpy.preprocessing import create_scaler, create_action_scaler, create_reward_scaler
-from pyspark.sql import DataFrame, functions as sf, Window
+from d3rlpy.preprocessing import create_action_scaler, create_reward_scaler, create_scaler
 
 from replay.data import get_schema
 from replay.experimental.models.base_rec import Recommender
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.spark_utils import assert_omp_single_thread
 
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import Window
+    from pyspark.sql import functions as sf
 
 timer = timeit.default_timer
 
@@ -252,9 +251,9 @@ class CQL(Recommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ) -> None:
         mdp_dataset: MDPDataset = self.mdp_dataset_builder.build(log)
         self.model.fit(mdp_dataset, n_epochs=self.n_epochs)
@@ -264,8 +263,8 @@ class CQL(Recommender):
         model: bytes,
         user_idx: int,
         items: np.ndarray,
-    ) -> pd.DataFrame:
-        user_item_pairs = pd.DataFrame({
+    ) -> PandasDataFrame:
+        user_item_pairs = PandasDataFrame({
             'user_idx': np.repeat(user_idx, len(items)),
             'item_idx': items
         })
@@ -280,18 +279,18 @@ class CQL(Recommender):
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        log: SparkDataFrame,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         available_items = items.toPandas()["item_idx"].values
         policy_bytes = self._serialize_policy()
 
-        def grouped_map(log_slice: pd.DataFrame) -> pd.DataFrame:
+        def grouped_map(log_slice: PandasDataFrame) -> PandasDataFrame:
             return CQL._predict_pairs_inner(
                 model=policy_bytes,
                 user_idx=log_slice["user_idx"][0],
@@ -311,14 +310,14 @@ class CQL(Recommender):
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        pairs: SparkDataFrame,
+        log: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
+    ) -> SparkDataFrame:
         policy_bytes = self._serialize_policy()
 
-        def grouped_map(user_log: pd.DataFrame) -> pd.DataFrame:
+        def grouped_map(user_log: PandasDataFrame) -> PandasDataFrame:
             return CQL._predict_pairs_inner(
                 model=policy_bytes,
                 user_idx=user_log["user_idx"][0],
@@ -449,7 +448,7 @@ class MdpDatasetBuilder:
         assert action_randomization_scale > 0
         self.action_randomization_scale = action_randomization_scale
 
-    def build(self, log: DataFrame) -> MDPDataset:
+    def build(self, log: SparkDataFrame) -> MDPDataset:
         """Builds and returns MDP dataset from users' log."""
 
         start_time = timer()

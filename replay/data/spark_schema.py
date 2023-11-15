@@ -1,10 +1,7 @@
-from pyspark.sql.types import (
-    DoubleType,
-    IntegerType,
-    StructField,
-    StructType,
-    TimestampType,
-)
+from replay.utils import PYSPARK_AVAILABLE
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql.types import DoubleType, IntegerType, StructField, StructType, TimestampType
 
 
 # pylint: disable=too-many-arguments

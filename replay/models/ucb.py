@@ -1,13 +1,13 @@
 import math
-
 from typing import Any, Dict, List, Optional
 
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
 from replay.data.dataset import Dataset
-
-from replay.metrics import Metric, NDCG
+from replay.metrics import NDCG, Metric
 from replay.models.base_rec import NonPersonalizedRecommender
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 class UCB(NonPersonalizedRecommender):
@@ -28,7 +28,7 @@ class UCB(NonPersonalizedRecommender):
 
     >>> import pandas as pd
     >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> data_frame = pd.DataFrame({"user_id": [1, 2, 3, 3], "item_id": [1, 2, 1, 2], "rating": [1, 0, 0, 0]})
     >>> interactions = convert2spark(data_frame)
     >>> feature_schema = FeatureSchema(
@@ -69,7 +69,7 @@ class UCB(NonPersonalizedRecommender):
 
     # attributes which are needed for refit method
     full_count: int
-    items_counts_aggr: DataFrame
+    items_counts_aggr: SparkDataFrame
 
     def __init__(
         self,

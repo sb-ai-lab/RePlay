@@ -1,20 +1,18 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 
-import pytest
 import numpy as np
+import pytest
 
-from pyspark.sql import functions as sf
-
-from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.models.extensions.ann.index_builders.executor_nmslib_index_builder import (
-    ExecutorNmslibIndexBuilder,
-)
-from replay.models.extensions.ann.index_builders.nmslib_index_builder_mixin import NmslibIndexBuilderMixin
-from replay.models.extensions.ann.index_stores.shared_disk_index_store import (
-    SharedDiskIndexStore,
-)
 from replay.models import SLIM
-from tests.utils import log, spark, create_dataset
+from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.models.extensions.ann.index_builders.executor_nmslib_index_builder import ExecutorNmslibIndexBuilder
+from replay.models.extensions.ann.index_builders.nmslib_index_builder_mixin import NmslibIndexBuilderMixin
+from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
+from replay.utils import PYSPARK_AVAILABLE
+from tests.utils import create_dataset, log, spark
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 @pytest.fixture
@@ -44,6 +42,7 @@ def model_with_ann(tmp_path):
     )
 
 
+@pytest.mark.spark
 def test_fit(log, model):
     dataset = create_dataset(log)
     model.fit(dataset)
@@ -64,6 +63,7 @@ def test_fit(log, model):
     )
 
 
+@pytest.mark.spark
 def test_predict(log, model):
     dataset = create_dataset(log)
     model.fit(dataset)
@@ -76,6 +76,7 @@ def test_predict(log, model):
     )
 
 
+@pytest.mark.spark
 def test_ann_predict(log, model, model_with_ann):
     dataset = create_dataset(log)
     model.fit(dataset)
@@ -94,6 +95,7 @@ def test_ann_predict(log, model, model_with_ann):
     assert recs1.item_idx.equals(recs2.item_idx)
 
 
+@pytest.mark.core
 @pytest.mark.parametrize(
     "beta,lambda_", [(0.0, 0.0), (-0.1, 0.1), (0.1, -0.1)]
 )
@@ -102,6 +104,7 @@ def test_exceptions(beta, lambda_):
         SLIM(beta, lambda_)
 
 
+@pytest.mark.spark
 def test_build_index_udf(log, model, tmp_path):
     """This test used for test ANN functionality using similarity dataframe from SLIM model."""
     dataset = create_dataset(log)

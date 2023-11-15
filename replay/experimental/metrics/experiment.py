@@ -1,15 +1,9 @@
 from typing import Any, Dict, Optional
 
-import pandas as pd
-
-from replay.data import AnyDataFrame, IntOrList, NumType
+from replay.utils import DataFrameLike, IntOrList, NumType, PandasDataFrame
 from replay.utils.spark_utils import convert2spark
-from .base_metric import (
-    get_enriched_recommendations,
-    Metric,
-    NCISMetric,
-    RecOnlyMetric,
-)
+
+from .base_metric import Metric, NCISMetric, RecOnlyMetric, get_enriched_recommendations
 
 
 # pylint: disable=too-few-public-methods
@@ -75,7 +69,7 @@ class Experiment:
             Resulting value is the half of confidence interval.
         """
         self.test = convert2spark(test)
-        self.results = pd.DataFrame()
+        self.results = PandasDataFrame()
         self.metrics = metrics
         self.calc_median = calc_median
         self.calc_conf_interval = calc_conf_interval
@@ -83,8 +77,8 @@ class Experiment:
     def add_result(
         self,
         name: str,
-        pred: AnyDataFrame,
-        ground_truth_users: Optional[AnyDataFrame] = None,
+        pred: DataFrameLike,
+        ground_truth_users: Optional[DataFrameLike] = None,
     ) -> None:
         """
         Calculate metrics for predictions
@@ -181,7 +175,7 @@ class Experiment:
             ] = conf_interval
 
     # pylint: disable=not-an-iterable
-    def compare(self, name: str) -> pd.DataFrame:
+    def compare(self, name: str) -> PandasDataFrame:
         """
         Show results as a percentage difference to record ``name``.
 

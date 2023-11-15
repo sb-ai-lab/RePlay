@@ -1,13 +1,13 @@
-from typing import Optional, Tuple, Dict, Any
+from typing import Any, Dict, Optional, Tuple
 
 import numba as nb
 import numpy as np
 import pandas as pd
-from pyspark.sql import DataFrame
 from scipy.sparse import coo_matrix, csr_matrix
 
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.experimental.models.base_neighbour_rec import NeighbourRec
+from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from replay.utils import SparkDataFrame
 from replay.utils.session_handler import State
 
 
@@ -130,9 +130,9 @@ class ADMMSLIM(NeighbourRec):
     # pylint: disable=too-many-locals
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ) -> None:
         self.logger.debug("Fitting ADMM SLIM")
         pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()

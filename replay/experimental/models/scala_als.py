@@ -1,15 +1,15 @@
-from typing import Optional, Dict, Any, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-import pyspark.sql.functions as sf
-
-from pyspark.sql import DataFrame
-from pyspark.sql.types import DoubleType
-
+from replay.experimental.models.base_rec import ItemVectorModel, Recommender
+from replay.experimental.models.extensions.spark_custom_models.als_extension import ALS, ALSModel
 from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.experimental.models.base_rec import Recommender, ItemVectorModel
-from replay.experimental.models.extensions.spark_custom_models.als_extension import ALS, ALSModel
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 from replay.utils.spark_utils import list_to_vector_udf
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+    from pyspark.sql.types import DoubleType
 
 
 class ALSWrap(Recommender, ItemVectorModel):
@@ -66,9 +66,9 @@ class ALSWrap(Recommender, ItemVectorModel):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ) -> None:
         if self._num_item_blocks is None:
             self._num_item_blocks = log.rdd.getNumPartitions()
@@ -99,14 +99,14 @@ class ALSWrap(Recommender, ItemVectorModel):
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: Optional[DataFrame],
+        log: Optional[SparkDataFrame],
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
 
         if (items.count() == self.fit_items.count()) and (
             items.join(self.fit_items, on="item_idx", how="inner").count()
@@ -143,11 +143,11 @@ class ALSWrap(Recommender, ItemVectorModel):
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        pairs: SparkDataFrame,
+        log: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
+    ) -> SparkDataFrame:
         return (
             self.model.transform(pairs)
             .withColumn("relevance", sf.col("prediction").cast(DoubleType()))
@@ -155,8 +155,8 @@ class ALSWrap(Recommender, ItemVectorModel):
         )
 
     def _get_features(
-        self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Tuple[Optional[DataFrame], Optional[int]]:
+        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
+    ) -> Tuple[Optional[SparkDataFrame], Optional[int]]:
         entity = "user" if "user_idx" in ids.columns else "item"
         als_factors = getattr(self.model, f"{entity}Factors")
         als_factors = als_factors.withColumnRenamed(
@@ -185,11 +185,11 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
             "features_col": "user_factors",
         }
 
-    def _get_vectors_to_infer_ann_inner(self, interactions: DataFrame, queries: DataFrame) -> DataFrame:
+    def _get_vectors_to_infer_ann_inner(self, interactions: SparkDataFrame, queries: SparkDataFrame) -> SparkDataFrame:
         user_vectors, _ = self.get_features(queries)
         return user_vectors
 
-    def _get_ann_build_params(self, interactions: DataFrame):
+    def _get_ann_build_params(self, interactions: SparkDataFrame):
         self.index_builder.index_params.dim = self.rank
         self.index_builder.index_params.max_elements = interactions.select("item_idx").distinct().count()
         return {
@@ -197,7 +197,7 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
             "ids_col": "item_idx",
         }
 
-    def _get_vectors_to_build_ann(self, interactions: DataFrame) -> DataFrame:
+    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:
         item_vectors, _ = self.get_features(
             interactions.select("item_idx").distinct()
         )
@@ -231,9 +231,9 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ) -> None:
         if self._num_item_blocks is None:
             self._num_item_blocks = log.rdd.getNumPartitions()
@@ -273,14 +273,14 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: Optional[DataFrame],
+        log: Optional[SparkDataFrame],
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
 
         max_seen = 0
         if filter_seen_items and log is not None:

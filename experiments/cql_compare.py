@@ -6,28 +6,31 @@ from argparse import ArgumentParser
 from math import floor
 from pathlib import Path
 
-import pandas as pd
 import psutil
 import torch
 import tqdm
 from optuna.exceptions import ExperimentalWarning
-from pyspark.sql import functions as sf
 
-from replay.preprocessing.data_preparator import DataPreparator, Indexer
-from replay.metrics.experiment import Experiment
+from replay.experimental.models import CQL, LightFMWrap
 from replay.experimental.models.cql import MdpDatasetBuilder
-from replay.metrics import HitRate, NDCG, MAP, MRR, Coverage, Surprisal
-from replay.utils.model_handler import save, load
-from replay.models import UCB, Wilson, Recommender, ItemKNN, SLIM, ALSWrap
-from replay.experimental.models import LightFMWrap, CQL
-from replay.utils.session_handler import State, get_spark_session
+from replay.experimental.preprocessing.data_preparator import DataPreparator, Indexer
+from replay.metrics import MAP, MRR, NDCG, Coverage, HitRate, Surprisal
+from replay.metrics.experiment import Experiment
+from replay.models import SLIM, UCB, ALSWrap, ItemKNN, Recommender, Wilson
 from replay.splitters import TimeSplitter
-from replay.utils import get_log_info
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+
+    from replay.utils.model_handler import load, save
+    from replay.utils.session_handler import State, get_spark_session
+    from replay.utils.spark_utils import get_log_info
 
 
 def fit_predict_add_res(
         name: str, model: Recommender, experiment: Experiment,
-        train: pd.DataFrame, top_k: int, test_users: pd.DataFrame,
+        train: PandasDataFrame, top_k: int, test_users: PandasDataFrame,
         predict_only: bool = False
 ):
     """
@@ -54,7 +57,7 @@ def fit_predict_add_res(
     pred.unpersist()
 
 
-def get_dataset(ds_name: str) -> tuple[pd.DataFrame, dict[str, str]]:
+def get_dataset(ds_name: str) -> tuple[PandasDataFrame, dict[str, str]]:
     ds_name, category = ds_name.split('.')
 
     if ds_name == 'MovieLens':

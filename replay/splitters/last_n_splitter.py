@@ -1,14 +1,14 @@
-from typing import List, Optional, Tuple, Literal
+from typing import List, Literal, Optional, Tuple
 
-import pandas as pd
 import numpy as np
-from pandas import DataFrame as PandasDataFrame
-import pyspark.sql.functions as sf
-from pyspark.sql import DataFrame as SparkDataFrame, Window
+import pandas as pd
 
-from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
 
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+    from pyspark.sql import Window
 
 StrategyName = Literal["interactions", "timedelta"]
 
@@ -163,7 +163,7 @@ class LastNSplitter(Splitter):
         if self.strategy == "timedelta":
             self.timestamp_col_format = time_column_format
 
-    def _add_time_partition(self, interactions: AnyDataFrame) -> AnyDataFrame:
+    def _add_time_partition(self, interactions: DataFrameLike) -> DataFrameLike:
         if isinstance(interactions, SparkDataFrame):
             return self._add_time_partition_to_spark(interactions)
 
@@ -184,7 +184,7 @@ class LastNSplitter(Splitter):
 
         return res
 
-    def _to_unix_timestamp(self, interactions: AnyDataFrame) -> AnyDataFrame:
+    def _to_unix_timestamp(self, interactions: DataFrameLike) -> DataFrameLike:
         if isinstance(interactions, SparkDataFrame):
             return self._to_unix_timestamp_spark(interactions)
 
@@ -210,7 +210,7 @@ class LastNSplitter(Splitter):
         return interactions
 
     # pylint: disable=invalid-name
-    def _partial_split_interactions(self, interactions: AnyDataFrame, N: int) -> Tuple[AnyDataFrame, AnyDataFrame]:
+    def _partial_split_interactions(self, interactions: DataFrameLike, N: int) -> Tuple[DataFrameLike, DataFrameLike]:
         res = self._add_time_partition(interactions)
         if isinstance(interactions, SparkDataFrame):
             return self._partial_split_interactions_spark(res, N)
@@ -247,7 +247,10 @@ class LastNSplitter(Splitter):
 
         return train, test
 
-    def _partial_split_timedelta(self, interactions: AnyDataFrame, timedelta: int) -> Tuple[AnyDataFrame, AnyDataFrame]:
+    def _partial_split_timedelta(
+        self,
+        interactions: DataFrameLike, timedelta: int
+    ) -> Tuple[DataFrameLike, DataFrameLike]:
         if isinstance(interactions, SparkDataFrame):
             return self._partial_split_timedelta_spark(interactions, timedelta)
 
@@ -290,7 +293,7 @@ class LastNSplitter(Splitter):
 
         return train, test
 
-    def _core_split(self, interactions: AnyDataFrame) -> List[AnyDataFrame]:
+    def _core_split(self, interactions: DataFrameLike) -> List[DataFrameLike]:
         if self.strategy == "timedelta":
             interactions = self._to_unix_timestamp(interactions)
         train, test = getattr(self, "_partial_split_" + self.strategy)(interactions, self.N)

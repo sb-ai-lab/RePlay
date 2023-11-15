@@ -15,7 +15,7 @@ readme = "README.md"
 homepage = "https://sb-ai-lab.github.io/RePlay/"
 repository = "https://github.com/sb-ai-lab/RePlay"
 classifiers = [
-    "Operating System :: Linux",
+    "Operating System :: OS Linux",
     "Intended Audience :: Science/Research",
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -39,7 +39,7 @@ pandas = "^1.3.5"
 optuna = "~3.2.0"
 scipy = "~1.8.1"
 psutil = "~5.9.5"
-pyspark = ">=3.0,<3.3"
+pyspark = { version = ">=3.0,<3.3", optional = true }
 scikit-learn = "^1.0.2"
 pyarrow = "~12.0.1"
 torch = "^1.8"
@@ -82,6 +82,9 @@ ghp-import = "2.1.0"
 docutils = "0.16"
 # stubs
 data-science-types = "0.2.23"
+
+[tool.poetry.extras]
+spark = ["pyspark"]
 
 [build-system]
 requires = [

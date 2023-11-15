@@ -4,16 +4,19 @@ from os.path import join
 from pathlib import Path
 from typing import Union
 
-import pyspark.sql.types as st
-from pyspark.ml.feature import StringIndexerModel, IndexToString
-
+from replay.experimental.models.base_rec import BaseRecommender
 from replay.experimental.preprocessing import Indexer
 from replay.models import *
-from replay.experimental.models.base_rec import BaseRecommender
-from replay.utils.session_handler import State
 from replay.splitters import *
+from replay.utils import PYSPARK_AVAILABLE
+from replay.utils.session_handler import State
 from replay.utils.spark_utils import save_picklable_to_parquet
-from replay.utils.model_handler import get_fs
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.types as st
+    from pyspark.ml.feature import IndexToString, StringIndexerModel
+
+    from replay.utils.model_handler import get_fs
 
 
 def save(

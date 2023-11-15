@@ -1,13 +1,15 @@
-from typing import Iterable, List, Optional, Union, Dict, Any
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import numpy as np
-import pyspark.sql.functions as sf
-from pyspark.sql import DataFrame
-from pyspark.sql.window import Window
-from replay.data import Dataset
 
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from replay.data import Dataset
 from replay.models.base_neighbour_rec import NeighbourRec
+from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+    from pyspark.sql.window import Window
 
 
 # pylint: disable=too-many-ancestors, too-many-instance-attributes
@@ -29,7 +31,7 @@ class AssociationRulesItemRec(NeighbourRec):
 
     >>> import pandas as pd
     >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": [1, 2, 2, 3], "rating": [2, 1, 4, 1]})
     >>> data_frame_for_predict = pd.DataFrame({"user_id": [2], "item_id": [1]})
     >>> data_frame
@@ -99,7 +101,7 @@ class AssociationRulesItemRec(NeighbourRec):
 
     can_predict_item_to_item = True
     item_to_item_metrics: List[str] = ["lift", "confidence", "confidence_gain"]
-    similarity: DataFrame
+    similarity: SparkDataFrame
     can_change_metric = True
     _search_space = {
         "min_item_count": {"type": "int", "args": [3, 10]},
@@ -305,11 +307,11 @@ class AssociationRulesItemRec(NeighbourRec):
 
     def get_nearest_items(
         self,
-        items: Union[DataFrame, Iterable],
+        items: Union[SparkDataFrame, Iterable],
         k: int,
         metric: str = "lift",
-        candidates: Optional[Union[DataFrame, Iterable]] = None,
-    ) -> DataFrame:
+        candidates: Optional[Union[SparkDataFrame, Iterable]] = None,
+    ) -> SparkDataFrame:
         """
         Get k most similar items be the `metric` for each of the `items`.
 
@@ -338,10 +340,10 @@ class AssociationRulesItemRec(NeighbourRec):
 
     def _get_nearest_items(
         self,
-        items: DataFrame,
+        items: SparkDataFrame,
         metric: Optional[str] = None,
-        candidates: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        candidates: Optional[SparkDataFrame] = None,
+    ) -> SparkDataFrame:
         """
         Return metric for all available associated items filtered by `candidates`.
 

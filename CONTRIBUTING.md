@@ -70,12 +70,12 @@ If you are installing from the source, you will need Python 3.8-3.10.
 
     ```bash
     pip install poetry==1.5.1
-    ./poetry_wrapper.sh install
+    ./poetry_wrapper.sh install --all-extras
     ```
     **If you need to install Replay with the experimental submodule**:
     ```bash
     pip install poetry==1.5.1 lightfm==1.17
-    ./poetry_wrapper.sh --experimental install
+    ./poetry_wrapper.sh --experimental install --all-extras
     ```
     After that, there is an environment, where you can test and implement your own code.
     So, you don't need to rebuild the full project every time.

@@ -1,21 +1,19 @@
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
-from pyspark.ml.feature import Word2Vec
-from pyspark.ml.functions import vector_to_array
-from pyspark.ml.stat import Summarizer
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-from pyspark.sql import types as st
-
+from replay.data import Dataset
+from replay.models.base_rec import ItemVectorModel, Recommender
 from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.models.base_rec import Recommender, ItemVectorModel
-from replay.utils.spark_utils import (
-    vector_dot,
-    multiply_scala_udf,
-    join_with_col_renaming,
-)
-from replay.data import Dataset
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.ml.feature import Word2Vec
+    from pyspark.ml.functions import vector_to_array
+    from pyspark.ml.stat import Summarizer
+    from pyspark.sql import functions as sf
+    from pyspark.sql import types as st
+
+    from replay.utils.spark_utils import join_with_col_renaming, multiply_scala_udf, vector_dot
 
 
 # pylint: disable=too-many-instance-attributes, too-many-ancestors
@@ -30,7 +28,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
             "features_col": "query_vector",
         }
 
-    def _get_vectors_to_infer_ann_inner(self, interactions: DataFrame, queries: DataFrame) -> DataFrame:
+    def _get_vectors_to_infer_ann_inner(self, interactions: SparkDataFrame, queries: SparkDataFrame) -> SparkDataFrame:
         query_vectors = self._get_query_vectors(queries, interactions)
         # converts to pandas_udf compatible format
         query_vectors = query_vectors.select(
@@ -38,7 +36,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         )
         return query_vectors
 
-    def _get_ann_build_params(self, interactions: DataFrame) -> Dict[str, Any]:
+    def _get_ann_build_params(self, interactions: SparkDataFrame) -> Dict[str, Any]:
         self.index_builder.index_params.dim = self.rank
         self.index_builder.index_params.max_elements = interactions.select(self.item_column).distinct().count()
         self.logger.debug("index 'num_elements' = %s", self.num_elements)
@@ -47,7 +45,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
             "ids_col": self.item_column
         }
 
-    def _get_vectors_to_build_ann(self, interactions: DataFrame) -> DataFrame:
+    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:
         item_vectors = self._get_item_vectors()
         item_vectors = (
             item_vectors
@@ -58,8 +56,8 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         )
         return item_vectors
 
-    idf: DataFrame
-    vectors: DataFrame
+    idf: SparkDataFrame
+    vectors: SparkDataFrame
 
     can_predict_cold_queries = True
     _search_space = {
@@ -207,9 +205,9 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
 
     def _get_query_vectors(
         self,
-        queries: DataFrame,
-        interactions: DataFrame,
-    ) -> DataFrame:
+        queries: SparkDataFrame,
+        interactions: SparkDataFrame,
+    ) -> SparkDataFrame:
         """
         :param queries: query ids, dataframe ``[query_id]``
         :param interactions: interaction dataframe
@@ -240,9 +238,9 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
 
     def _predict_pairs_inner(
         self,
-        pairs: DataFrame,
+        pairs: SparkDataFrame,
         dataset: Dataset,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         if dataset is None:
             raise ValueError(
                 f"interactions is not provided, {self} predict requires interactions."
@@ -271,17 +269,17 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         self,
         dataset: Dataset,
         k: int,
-        queries: DataFrame,
-        items: DataFrame,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         return self._predict_pairs_inner(queries.crossJoin(items), dataset)
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
+        pairs: SparkDataFrame,
         dataset: Optional[Dataset] = None,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         return self._predict_pairs_inner(pairs, dataset)
 
     def _get_item_vectors(self):

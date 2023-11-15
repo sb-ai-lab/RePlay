@@ -1,11 +1,13 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 
 import pytest
-from pyspark.sql import functions as sf
 
+from replay.data import FeatureHint, FeatureInfo, FeatureSchema, FeatureType
 from replay.models import CatPopRec
-from replay.data import Dataset, FeatureSchema, FeatureType, FeatureInfo, FeatureHint
-from tests.utils import spark, sparkDataFrameEqual, create_dataset
+from tests.utils import create_dataset, spark, sparkDataFrameEqual
+
+pyspark = pytest.importorskip("pyspark")
+from pyspark.sql import functions as sf
 
 
 @pytest.fixture

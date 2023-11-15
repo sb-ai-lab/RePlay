@@ -1,36 +1,36 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-import pytest
 import numpy as np
-
-from pyspark.sql import functions as sf
+import pytest
 
 from replay.models import (
+    SLIM,
+    UCB,
     ALSWrap,
+    AssociationRulesItemRec,
     ClusterRec,
     ItemKNN,
     PopRec,
     RandomRec,
-    SLIM,
-    UCB,
     Wilson,
     Word2VecRec,
-    AssociationRulesItemRec,
 )
-from replay.models.base_rec import HybridRecommender, QueryRecommender
-
 from tests.utils import (
     create_dataset,
-    spark,
     log,
     log_to_pred,
     long_log_with_features,
-    user_features,
+    spark,
     sparkDataFrameEqual,
+    user_features,
 )
+
+pyspark = pytest.importorskip("pyspark")
+from pyspark.sql import functions as sf
 
 SEED = 123
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -86,6 +86,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
     )
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -140,6 +141,7 @@ def test_predict_pairs_k(log, model):
     )
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -169,6 +171,7 @@ def test_predict_empty_log(log, model):
     model.predict(pred_dataset, 1)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -192,6 +195,7 @@ def test_predict_pairs_raises(log, model):
 
 
 # for NeighbourRec and ItemVectorModel
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model, metric",
     [
@@ -255,6 +259,7 @@ def test_get_nearest_items(log, model, metric):
     )
 
 
+@pytest.mark.spark
 def test_filter_seen(log):
     model = PopRec()
     # filter seen works with empty log to filter (cold_user)
@@ -280,6 +285,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, queries):
     return model.predict(dataset=pred_dataset, queries=queries, k=1)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -313,6 +319,7 @@ def test_predict_new_queries(model, long_log_with_features, user_features):
     assert pred.collect()[0][0] == 0
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -338,6 +345,7 @@ def test_predict_cold_queries(model, long_log_with_features, user_features):
     assert pred.collect()[0][0] == 0
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -370,6 +378,7 @@ def test_predict_cold_and_new_filter_out(model, long_log_with_features):
         assert 1 <= pred.count() <= 2
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -405,6 +414,7 @@ def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
     sparkDataFrameEqual(pred_cached, pred_from_file)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -429,6 +439,7 @@ def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
     sparkDataFrameEqual(pred_cached, pred_from_file)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("add_cold_items", [True, False])
 @pytest.mark.parametrize("predict_cold_only", [True, False])
 @pytest.mark.parametrize(
@@ -506,6 +517,7 @@ def test_add_cold_items_for_nonpersonalized(
             )
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [

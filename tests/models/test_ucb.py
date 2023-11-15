@@ -1,10 +1,11 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
 
-from pyspark.sql import functions as sf
-
 from replay.models import UCB
-from tests.utils import log, log2, spark, sparkDataFrameEqual, sparkDataFrameNotEqual, create_dataset
+from tests.utils import create_dataset, log, log2, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
+
+pyspark = pytest.importorskip("pyspark")
+from pyspark.sql import functions as sf
 
 
 @pytest.fixture
@@ -29,6 +30,7 @@ def fitted_model(log_ucb):
     return model
 
 
+@pytest.mark.spark
 def test_popularity_matrix(fitted_model, log_ucb):
     assert (
         fitted_model.item_popularity.count()
@@ -37,6 +39,7 @@ def test_popularity_matrix(fitted_model, log_ucb):
     fitted_model.item_popularity.show()
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "sample, seed",
     [(False, None), (True, None)],
@@ -56,6 +59,7 @@ def test_predict_empty_log(fitted_model, log_ucb, sample, seed):
     assert pred.count() == users.count()
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "sample, seed",
     [(False, None), (True, None), (True, 123)],
@@ -98,6 +102,7 @@ def test_predict(fitted_model, log_ucb, sample, seed):
     equality_check(pred_after_refit_checkpoint, pred_repeat)
 
 
+@pytest.mark.spark
 def test_refit(fitted_model, log_ucb, log_ucb2):
 
     fitted_model.seed = 123

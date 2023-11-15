@@ -1,12 +1,12 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
-import numpy as np
-
-from pyspark.sql import functions as sf
 
 from replay.models import ThompsonSampling
-from replay.models import UCB
-from tests.utils import log, spark, sparkDataFrameEqual, create_dataset
+from replay.utils import PYSPARK_AVAILABLE
+from tests.utils import create_dataset, log, spark, sparkDataFrameEqual
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 @pytest.fixture
@@ -29,16 +29,19 @@ def fitted_model(preprocessed_log, model):
     return model
 
 
+@pytest.mark.spark
 def test_works(preprocessed_log, model):
     dataset = create_dataset(preprocessed_log)
     model.fit(dataset)
     model.item_popularity.count()
 
 
+@pytest.mark.core
 def test_tsampling_init_args(model):
     assert model._init_args["seed"] == 42
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "sample,seed",
     [(False, None), (True, None)],
@@ -58,6 +61,7 @@ def test_predict_empty_log(fitted_model, preprocessed_log, sample, seed):
     assert pred.count() == users.count()
 
 
+@pytest.mark.spark
 def test_predict(preprocessed_log, model):
     dataset = create_dataset(preprocessed_log)
     model.fit(dataset)

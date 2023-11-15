@@ -1,16 +1,12 @@
 from typing import Dict, List, Union
 
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import DataFrame as SparkDataFrame
-from pyspark.sql import Window
-from pyspark.sql import functions as sf
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 
-from .base_metric import (
-    Metric,
-    MetricsDataFrameLike,
-    MetricsMeanReturnType,
-    MetricsReturnType,
-)
+from .base_metric import Metric, MetricsDataFrameLike, MetricsMeanReturnType, MetricsReturnType
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import Window
+    from pyspark.sql import functions as sf
 
 
 # pylint: disable=too-few-public-methods

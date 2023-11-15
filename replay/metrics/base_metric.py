@@ -3,14 +3,16 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Mapping, Union
 
 import numpy as np
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import DataFrame as SparkDataFrame
-from pyspark.sql import functions as sf
-from pyspark.sql.types import ArrayType, DoubleType, StructType
+
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
 
 from .descriptors import CalculationDescriptor, Mean
 
-DataFrameLike = Union[PandasDataFrame, SparkDataFrame]
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+    from pyspark.sql.types import ArrayType, DoubleType, StructType
+
+
 MetricsDataFrameLike = Union[DataFrameLike, Dict]
 MetricsMeanReturnType = Mapping[str, float]
 MetricsPerUserReturnType = Mapping[str, Mapping[Any, float]]

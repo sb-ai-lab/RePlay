@@ -3,12 +3,12 @@ This splitter split data by two columns.
 """
 from typing import Optional, Union
 
-import pyspark.sql.functions as sf
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import DataFrame as SparkDataFrame, Window
-
-from replay.data import AnyDataFrame
 from replay.splitters.base_splitter import Splitter, SplitterReturnType
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+    from pyspark.sql import Window
 
 
 # pylint: disable=too-few-public-methods
@@ -116,8 +116,8 @@ class TwoStageSplitter(Splitter):
 
     def _get_test_values(
         self,
-        interactions: AnyDataFrame,
-    ) -> AnyDataFrame:
+        interactions: DataFrameLike,
+    ) -> DataFrameLike:
         """
         :param interactions: input DataFrame
         :return: Spark DataFrame with single column `first_divide_column`
@@ -223,7 +223,7 @@ class TwoStageSplitter(Splitter):
 
         return train, test
 
-    def _split_proportion(self, interactions: AnyDataFrame) -> SplitterReturnType:
+    def _split_proportion(self, interactions: DataFrameLike) -> SplitterReturnType:
         """
         Proportionate split
 
@@ -286,7 +286,7 @@ class TwoStageSplitter(Splitter):
 
         return train, test
 
-    def _split_quantity(self, interactions: AnyDataFrame) -> SplitterReturnType:
+    def _split_quantity(self, interactions: DataFrameLike) -> SplitterReturnType:
         """
         Split by quantity
 
@@ -298,7 +298,7 @@ class TwoStageSplitter(Splitter):
         else:
             return self._split_quantity_pandas(interactions)
 
-    def _core_split(self, interactions: AnyDataFrame) -> SplitterReturnType:
+    def _core_split(self, interactions: DataFrameLike) -> SplitterReturnType:
         if 0 <= self.second_divide_size < 1.0:
             train, test = self._split_proportion(interactions)
         elif self.second_divide_size >= 1 and isinstance(self.second_divide_size, int):

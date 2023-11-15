@@ -8,15 +8,12 @@ Contains classes for encoding categorical data
 import abc
 from typing import Dict, List, Literal, Mapping, Optional, Sequence, Union
 
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import functions as sf
-from pyspark.storagelevel import StorageLevel
-from pyspark.sql import DataFrame as SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame, get_spark_session
 
-from replay.utils import get_spark_session
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+    from pyspark.storagelevel import StorageLevel
 
-
-DataFrameLike = Union[PandasDataFrame, SparkDataFrame]
 HandleUnknownStrategies = Literal["error", "use_default_value"]
 
 

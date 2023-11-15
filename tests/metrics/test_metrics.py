@@ -1,18 +1,15 @@
 import random
 import string
-from typing import Union
 
 import pytest
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import DataFrame as SparkDataFrame
 from pytest import approx
 
 from replay.metrics import (
     MAP,
     MRR,
     NDCG,
-    Coverage,
     CategoricalDiversity,
+    Coverage,
     HitRate,
     Mean,
     Novelty,
@@ -24,8 +21,7 @@ from replay.metrics import (
     Surprisal,
     Unexpectedness,
 )
-
-DataFrameLike = Union[SparkDataFrame, PandasDataFrame]
+from replay.utils import DataFrameLike, PandasDataFrame, SparkDataFrame
 
 ABS = 1e-5
 QUERY_COLUMN = "uid"

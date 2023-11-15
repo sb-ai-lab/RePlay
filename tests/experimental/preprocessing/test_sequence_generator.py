@@ -1,10 +1,12 @@
 import pandas as pd
 import pytest
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import functions as sf, DataFrame as SparkDataFrame
 
 from replay.experimental.preprocessing import SequenceGenerator
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from tests.preprocessing.conftest import *
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 @pytest.mark.parametrize(
@@ -13,8 +15,8 @@ from tests.preprocessing.conftest import *
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("simple_dataframe", "simple_dataframe_target"),
-        ("simple_dataframe_pandas", "simple_dataframe_target_pandas"),
+        pytest.param("simple_dataframe", "simple_dataframe_target", marks=pytest.mark.spark),
+        pytest.param("simple_dataframe_pandas", "simple_dataframe_target_pandas", marks=pytest.mark.core),
     ],
 )
 @pytest.mark.usefixtures("columns_target")
@@ -47,8 +49,8 @@ def test_target(groupby_column, transform_columns, len_window, label_prefix, col
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("simple_dataframe", "simple_dataframe_target_ordered"),
-        ("simple_dataframe_pandas", "simple_dataframe_target_ordered_pandas"),
+        pytest.param("simple_dataframe", "simple_dataframe_target_ordered", marks=pytest.mark.spark),
+        pytest.param("simple_dataframe_pandas", "simple_dataframe_target_ordered_pandas", marks=pytest.mark.core),
     ],
 )
 @pytest.mark.usefixtures("columns_target")
@@ -93,8 +95,8 @@ def test_target_ordered(
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        ("simple_dataframe", "simple_dataframe_target_ordered_list_len"),
-        ("simple_dataframe_pandas", "simple_dataframe_target_ordered_list_len_pandas"),
+        pytest.param("simple_dataframe", "simple_dataframe_target_ordered_list_len", marks=pytest.mark.spark),
+        pytest.param("simple_dataframe_pandas", "simple_dataframe_target_ordered_list_len_pandas", marks=pytest.mark.core),
     ],
 )
 @pytest.mark.usefixtures("columns_target_list_len")
@@ -139,8 +141,8 @@ def test_target_ordered_list_len(
 @pytest.mark.parametrize(
     "dataset",
     [
-        ("simple_dataframe"),
-        ("simple_dataframe_pandas"),
+        pytest.param("simple_dataframe", marks=pytest.mark.spark),
+        pytest.param("simple_dataframe_pandas", marks=pytest.mark.core),
     ],
 )
 def test_sequence_generator_executor(user_column, item_column, time_column, len_window, dataset, request):
@@ -172,8 +174,8 @@ def test_sequence_generator_executor(user_column, item_column, time_column, len_
 @pytest.mark.parametrize(
     "dataset",
     [
-        ("simple_dataframe"),
-        ("simple_dataframe_pandas"),
+        pytest.param("simple_dataframe", marks=pytest.mark.spark),
+        pytest.param("simple_dataframe_pandas", marks=pytest.mark.core),
     ],
 )
 def test_default_parameters(user_column, len_window, dataset, request):
@@ -204,8 +206,8 @@ def test_default_parameters(user_column, len_window, dataset, request):
 @pytest.mark.parametrize(
     "dataset",
     [
-        ("simple_dataframe"),
-        ("simple_dataframe_pandas"),
+        pytest.param("simple_dataframe", marks=pytest.mark.spark),
+        pytest.param("simple_dataframe_pandas", marks=pytest.mark.core),
     ],
 )
 def test_window_parameters(user_column, item_column, time_column, len_window, dataset, request):
@@ -231,8 +233,8 @@ def test_window_parameters(user_column, item_column, time_column, len_window, da
 @pytest.mark.parametrize(
     "dataset",
     [
-        ("simple_dataframe"),
-        ("simple_dataframe_pandas"),
+        pytest.param("simple_dataframe", marks=pytest.mark.spark),
+        pytest.param("simple_dataframe_pandas", marks=pytest.mark.core),
     ],
 )
 def test_only_item_processing(user_column, item_column, len_window, dataset, request):
@@ -255,8 +257,8 @@ def test_only_item_processing(user_column, item_column, len_window, dataset, req
 @pytest.mark.parametrize(
     "dataset",
     [
-        ("simple_dataframe"),
-        ("simple_dataframe_pandas"),
+        pytest.param("simple_dataframe", marks=pytest.mark.spark),
+        pytest.param("simple_dataframe_pandas", marks=pytest.mark.core),
     ],
 )
 def test_return_column_names(
@@ -320,8 +322,8 @@ def test_with_string_values(is_spark, request, columns):
 @pytest.mark.parametrize(
     "dataset",
     [
-        ("simple_dataframe_additional"),
-        ("simple_dataframe_additional_pandas"),
+        pytest.param("simple_dataframe_additional", marks=pytest.mark.spark),
+        pytest.param("simple_dataframe_additional_pandas", marks=pytest.mark.core),
     ],
 )
 def test_groupby_multiple_columns(dataset, request):
@@ -347,8 +349,8 @@ def test_groupby_multiple_columns(dataset, request):
 @pytest.mark.parametrize(
     "dataset",
     [
-        ("simple_dataframe_array"),
-        ("simple_dataframe_array_pandas"),
+        pytest.param("simple_dataframe_array", marks=pytest.mark.spark),
+        pytest.param("simple_dataframe_array_pandas", marks=pytest.mark.core),
     ],
 )
 def test_array_columns(dataset, request):

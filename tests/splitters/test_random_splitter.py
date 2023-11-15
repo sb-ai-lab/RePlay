@@ -1,11 +1,13 @@
 # pylint: disable-all
-import pytest
 import numpy as np
 import pandas as pd
-import pyspark.sql.functions as sf
+import pytest
 
 from replay.splitters import RandomSplitter
-from replay.utils import get_spark_session
+from replay.utils import PYSPARK_AVAILABLE, get_spark_session
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
 
 
 @pytest.fixture

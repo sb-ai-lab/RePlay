@@ -1,23 +1,20 @@
 # pylint: disable-all
 from datetime import datetime
 
-import pytest
 import numpy as np
+import pytest
 
-from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import (
-    DriverNmslibIndexBuilder,
-)
-from replay.models.extensions.ann.index_stores.spark_files_index_store import (
-    SparkFilesIndexStore,
-)
 from replay.data import Dataset, get_schema
 from replay.models import ItemKNN
-from replay.utils import convert2spark
-from tests.utils import spark, create_dataset
+from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
+from replay.utils import PYSPARK_AVAILABLE
+from tests.utils import create_dataset, spark
 
-
-INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
+if PYSPARK_AVAILABLE:
+    from replay.models.extensions.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
+    from replay.utils.spark_utils import convert2spark
+    INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
 @pytest.fixture
@@ -72,7 +69,7 @@ def model():
 
 
 @pytest.fixture
-def model_with_ann(tmp_path):
+def model_with_ann():
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
         m=10,
@@ -101,11 +98,13 @@ def bm25_model():
     return model
 
 
-def test_invalid_weighting(log):
+@pytest.mark.core
+def test_invalid_weighting():
     with pytest.raises(ValueError):
         ItemKNN(1, weighting="invalid_weighting")
 
 
+@pytest.mark.spark
 def test_works(log, model):
     dataset = create_dataset(log)
     model.fit(dataset)
@@ -114,6 +113,7 @@ def test_works(log, model):
     assert recs.loc[recs["user_idx"] == 1, "item_idx"].iloc[0] == 0
 
 
+@pytest.mark.spark
 def test_tf_idf(weighting_log, tf_idf_model):
     train_dataset = create_dataset(weighting_log)
     tf_idf_model.fit(train_dataset)
@@ -127,6 +127,7 @@ def test_tf_idf(weighting_log, tf_idf_model):
     assert recs.loc[recs["user_idx"] == 1, "item_idx"].iloc[0] == 0
 
 
+@pytest.mark.spark
 def test_bm25(weighting_log, bm25_model):
     k1 = bm25_model.bm25_k1
     b = bm25_model.bm25_b
@@ -167,6 +168,7 @@ def test_bm25(weighting_log, bm25_model):
     assert recs.loc[recs["user_idx"] == 1, "item_idx"].iloc[0] == 0
 
 
+@pytest.mark.spark
 def test_weighting_raises(log, tf_idf_model):
     with pytest.raises(ValueError, match="weighting must be one of .*"):
         tf_idf_model.weighting = " "
@@ -175,6 +177,7 @@ def test_weighting_raises(log, tf_idf_model):
         log = tf_idf_model._reweight_interactions(dataset.interactions)
 
 
+@pytest.mark.spark
 def test_knn_predict_filter_seen_items(log, model, model_with_ann):
     dataset = create_dataset(log)
     model.fit(dataset)
@@ -193,6 +196,7 @@ def test_knn_predict_filter_seen_items(log, model, model_with_ann):
     assert recs1.item_idx.equals(recs2.item_idx)
 
 
+@pytest.mark.spark
 def test_knn_predict(log_2items_per_user, model, model_with_ann):
     dataset = create_dataset(log_2items_per_user)
     model.fit(dataset)

@@ -5,26 +5,21 @@ Part of set of abstract classes (from base_rec.py)
 """
 
 from abc import ABC
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    Optional,
-    Union,
-)
+from typing import Any, Dict, Iterable, Optional, Union
 
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-from pyspark.sql.column import Column
-
-from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.experimental.models.base_rec import Recommender
+from replay.models.extensions.ann.ann_mixin import ANNMixin
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+    from pyspark.sql.column import Column
 
 
 class NeighbourRec(Recommender, ANNMixin, ABC):
     """Base class that requires log at prediction time"""
 
-    similarity: Optional[DataFrame]
+    similarity: Optional[SparkDataFrame]
     can_predict_item_to_item: bool = True
     can_predict_cold_users: bool = True
     can_change_metric: bool = False
@@ -59,23 +54,23 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
 
     def _predict_pairs_inner(
         self,
-        log: DataFrame,
-        filter_df: DataFrame,
+        log: SparkDataFrame,
+        filter_df: SparkDataFrame,
         condition: Column,
-        users: DataFrame,
-    ) -> DataFrame:
+        users: SparkDataFrame,
+    ) -> SparkDataFrame:
         """
         Get recommendations for all provided users
         and filter results with ``filter_df`` by ``condition``.
         It allows to implement both ``predict_pairs`` and usual ``predict``@k.
 
-        :param log: historical interactions, DataFrame
+        :param log: historical interactions, SparkDataFrame
             ``[user_idx, item_idx, timestamp, relevance]``.
-        :param filter_df: DataFrame use to filter items:
+        :param filter_df: SparkDataFrame use to filter items:
             ``[item_idx_filter]`` or ``[user_idx_filter, item_idx_filter]``.
         :param condition: condition used for inner join with ``filter_df``
         :param users: users to calculate recommendations for
-        :return: DataFrame ``[user_idx, item_idx, relevance]``
+        :return: SparkDataFrame ``[user_idx, item_idx, relevance]``
         """
         if log is None:
             raise ValueError(
@@ -103,14 +98,14 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        log: SparkDataFrame,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
 
         return self._predict_pairs_inner(
             log=log,
@@ -121,11 +116,11 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        pairs: SparkDataFrame,
+        log: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
+    ) -> SparkDataFrame:
 
         if log is None:
             raise ValueError(
@@ -146,11 +141,11 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
 
     def get_nearest_items(
         self,
-        items: Union[DataFrame, Iterable],
+        items: Union[SparkDataFrame, Iterable],
         k: int,
         metric: Optional[str] = None,
-        candidates: Optional[Union[DataFrame, Iterable]] = None,
-    ) -> DataFrame:
+        candidates: Optional[Union[SparkDataFrame, Iterable]] = None,
+    ) -> SparkDataFrame:
         """
         Get k most similar items be the `metric` for each of the `items`.
 
@@ -181,10 +176,10 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
 
     def _get_nearest_items(
         self,
-        items: DataFrame,
+        items: SparkDataFrame,
         metric: Optional[str] = None,
-        candidates: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        candidates: Optional[SparkDataFrame] = None,
+    ) -> SparkDataFrame:
 
         similarity_filtered = self.similarity.join(
             items.withColumnRenamed("item_idx", "item_idx_one"),
@@ -203,21 +198,21 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
             "similarity" if metric is None else metric,
         )
 
-    def _get_ann_build_params(self, interactions: DataFrame) -> Dict[str, Any]:
+    def _get_ann_build_params(self, interactions: SparkDataFrame) -> Dict[str, Any]:
         self.index_builder.index_params.items_count = interactions.select(sf.max("item_idx")).first()[0] + 1
         return {
             "features_col": None,
         }
 
-    def _get_vectors_to_build_ann(self, interactions: DataFrame) -> DataFrame:
+    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:
         similarity_df = self.similarity.select(
             "similarity", "item_idx_one", "item_idx_two"
         )
         return similarity_df
 
     def _get_vectors_to_infer_ann_inner(
-            self, interactions: DataFrame, queries: DataFrame
-    ) -> DataFrame:
+            self, interactions: SparkDataFrame, queries: SparkDataFrame
+    ) -> SparkDataFrame:
 
         user_vectors = (
             interactions.groupBy("user_idx").agg(

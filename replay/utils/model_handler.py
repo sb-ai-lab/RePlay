@@ -1,46 +1,48 @@
 # pylint: disable=wildcard-import,invalid-name,unused-wildcard-import,unspecified-encoding
-import os
 import json
+import os
 import pickle
 from inspect import getfullargspec
 from os.path import join
 from pathlib import Path
 from typing import Union
 
-from pyspark.sql import SparkSession
-
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import *
 from replay.models.base_rec import BaseRecommender
-from replay.utils.session_handler import State
 from replay.splitters import *
-from replay.utils.spark_utils import save_picklable_to_parquet, load_pickled_from_parquet
+from replay.utils.session_handler import State
 
+from .types import PYSPARK_AVAILABLE
 
-def get_fs(spark: SparkSession):
-    """
-    Gets `org.apache.hadoop.fs.FileSystem` instance from JVM gateway
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import SparkSession
 
-    :param spark: spark session
-    :return:
-    """
-    fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(
-        spark._jsc.hadoopConfiguration()
-    )
-    return fs
+    from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 
+    def get_fs(spark: SparkSession):
+        """
+        Gets `org.apache.hadoop.fs.FileSystem` instance from JVM gateway
 
-def get_list_of_paths(spark: SparkSession, dir_path: str):
-    """
-    Returns list of paths to files in the `dir_path`
+        :param spark: spark session
+        :return:
+        """
+        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(
+            spark._jsc.hadoopConfiguration()
+        )
+        return fs
 
-    :param spark: spark session
-    :param dir_path: path to dir in hdfs or local disk
-    :return: list of paths to files
-    """
-    fs = get_fs(spark)
-    statuses = fs.listStatus(spark._jvm.org.apache.hadoop.fs.Path(dir_path))
-    return [str(f.getPath()) for f in statuses]
+    def get_list_of_paths(spark: SparkSession, dir_path: str):
+        """
+        Returns list of paths to files in the `dir_path`
+
+        :param spark: spark session
+        :param dir_path: path to dir in hdfs or local disk
+        :return: list of paths to files
+        """
+        fs = get_fs(spark)
+        statuses = fs.listStatus(spark._jvm.org.apache.hadoop.fs.Path(dir_path))
+        return [str(f.getPath()) for f in statuses]
 
 
 def save(

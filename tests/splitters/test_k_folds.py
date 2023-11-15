@@ -1,6 +1,6 @@
 # pylint: disable-all
-import pytest
 import pandas as pd
+import pytest
 
 from replay.splitters import KFolds
 from tests.utils import spark

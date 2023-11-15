@@ -1,13 +1,15 @@
 from typing import Optional
 
 import numpy as np
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-from pyspark.sql import types as st
 
-from replay.data import AnyDataFrame
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, SparkDataFrame
 from replay.utils.spark_utils import convert2spark, get_top_k_recs
-from .base_metric import fill_na_with_empty_array, RecOnlyMetric, filter_sort
+
+from .base_metric import RecOnlyMetric, fill_na_with_empty_array, filter_sort
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+    from pyspark.sql import types as st
 
 
 # pylint: disable=too-few-public-methods
@@ -43,7 +45,7 @@ class Surprisal(RecOnlyMetric):
     _scala_udf_name = "getSurprisalMetricValue"
 
     def __init__(
-        self, log: AnyDataFrame,
+        self, log: DataFrameLike,
         use_scala_udf: bool = False
     ):  # pylint: disable=super-init-not-called
         """
@@ -68,11 +70,11 @@ class Surprisal(RecOnlyMetric):
 
     def _get_enriched_recommendations(
         self,
-        recommendations: DataFrame,
-        ground_truth: DataFrame,
+        recommendations: SparkDataFrame,
+        ground_truth: SparkDataFrame,
         max_k: int,
-        ground_truth_users: Optional[AnyDataFrame] = None,
-    ) -> DataFrame:
+        ground_truth_users: Optional[DataFrameLike] = None,
+    ) -> SparkDataFrame:
         recommendations = convert2spark(recommendations)
         ground_truth_users = convert2spark(ground_truth_users)
         recommendations = get_top_k_recs(recommendations, max_k)

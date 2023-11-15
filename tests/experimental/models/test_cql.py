@@ -1,22 +1,18 @@
 # pylint: disable-all
 import numpy as np
-from _pytest.python_api import approx
 import pytest
+from _pytest.python_api import approx
 from pytest import approx
-from pyspark.sql import DataFrame
+
+pyspark = pytest.importorskip("pyspark")
+
 from pyspark.sql import functions as sf
 
-from replay.experimental.models.cql import MdpDatasetBuilder
 from replay.experimental.models import CQL
-from tests.utils import (
-    spark,
-    log,
-    log_to_pred,
-    long_log_with_features,
-    user_features,
-    sparkDataFrameEqual,
-)
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.models.cql import MdpDatasetBuilder
+from replay.utils import SparkDataFrame
+from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
 
 
 def fit_predict_selected(model, train_log, inf_log, user_features, users):
@@ -28,7 +24,8 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
 
 
 @pytest.mark.experimental
-def test_predict_filters_out_seen_items(log: DataFrame):
+@pytest.mark.spark
+def test_predict_filters_out_seen_items(log: SparkDataFrame):
     """Test that fit/predict works, and that the model correctly filters out seen items."""
     model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=1))
     model.fit(log)
@@ -42,7 +39,8 @@ def test_predict_filters_out_seen_items(log: DataFrame):
 
 
 @pytest.mark.experimental
-def test_recommend_correct_number_of_items(log: DataFrame):
+@pytest.mark.spark
+def test_recommend_correct_number_of_items(log: SparkDataFrame):
     """Test that fit/predict_pairs works, and that the model outputs correct number of items."""
     top_k = 3
     model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=top_k))
@@ -58,7 +56,8 @@ def test_recommend_correct_number_of_items(log: DataFrame):
 
 
 @pytest.mark.experimental
-def test_serialize_deserialize_policy(log: DataFrame):
+@pytest.mark.spark
+def test_serialize_deserialize_policy(log: SparkDataFrame):
     """Test that serializing and deserializing the policy does not change relevance predictions."""
     model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=1))
     model.fit(log)
@@ -80,7 +79,8 @@ def test_serialize_deserialize_policy(log: DataFrame):
 
 
 @pytest.mark.experimental
-def test_mdp_dataset_builder(log: DataFrame):
+@pytest.mark.spark
+def test_mdp_dataset_builder(log: SparkDataFrame):
     """Test MDP dataset preparation is correct."""
     mdp_dataset = MdpDatasetBuilder(top_k=1, action_randomization_scale=1e-9).build(log)
 
@@ -113,6 +113,7 @@ def test_mdp_dataset_builder(log: DataFrame):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_pairs_warm_items_only(log, log_to_pred):
     model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=3), batch_size=512)
     model.fit(log)
@@ -151,6 +152,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_new_users(long_log_with_features, user_features):
     model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=1), batch_size=512)
     pred = fit_predict_selected(
@@ -165,6 +167,7 @@ def test_predict_new_users(long_log_with_features, user_features):
 
 
 @pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_cold_and_new_filter_out(long_log_with_features):
     model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=3), batch_size=512)
     pred = fit_predict_selected(

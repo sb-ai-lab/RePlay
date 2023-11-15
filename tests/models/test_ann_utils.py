@@ -1,11 +1,16 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import numpy as np
-import pyspark.sql.functions as sf
+import pytest
 
 from replay.models.extensions.ann.index_inferers.utils import get_csr_matrix
 from tests.utils import log2, spark
 
+pyspark = pytest.importorskip("pyspark")
 
+import pyspark.sql.functions as sf
+
+
+@pytest.mark.spark
 def test_get_csr_matrix(spark, log2):
     grouped_log = log2.groupBy("user_idx").agg(
         sf.collect_list("item_idx").alias("vector_items"),

@@ -3,23 +3,19 @@ from os.path import join
 from typing import Optional, Tuple
 
 import numpy as np
-import pandas as pd
-import pyspark.sql.functions as sf
-
 from lightfm import LightFM
-from pyspark.sql import DataFrame
-from scipy.sparse import csr_matrix, hstack, diags
+from scipy.sparse import csr_matrix, diags, hstack
 from sklearn.preprocessing import MinMaxScaler
 
-from replay.preprocessing import CSRConverter
 from replay.data import get_schema
 from replay.experimental.models.base_rec import HybridRecommender
-from replay.utils.spark_utils import (
-    check_numeric,
-    save_picklable_to_parquet,
-    load_pickled_from_parquet,
-)
+from replay.preprocessing import CSRConverter
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.session_handler import State
+from replay.utils.spark_utils import check_numeric, load_pickled_from_parquet, save_picklable_to_parquet
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
 
 
 # pylint: disable=too-many-locals, too-many-instance-attributes
@@ -70,8 +66,8 @@ class LightFMWrap(HybridRecommender):
 
     def _feature_table_to_csr(
         self,
-        log_ids_list: DataFrame,
-        feature_table: Optional[DataFrame] = None,
+        log_ids_list: SparkDataFrame,
+        feature_table: Optional[SparkDataFrame] = None,
     ) -> Optional[csr_matrix]:
         """
         Transform features to sparse matrix
@@ -178,9 +174,9 @@ class LightFMWrap(HybridRecommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ) -> None:
         self.user_feat_scaler = None
         self.item_feat_scaler = None
@@ -218,11 +214,11 @@ class LightFMWrap(HybridRecommender):
 
     def _predict_selected_pairs(
         self,
-        pairs: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        pairs: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ):
-        def predict_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
+        def predict_by_user(pandas_df: PandasDataFrame) -> PandasDataFrame:
             pandas_df["relevance"] = model.predict(
                 user_ids=pandas_df["user_idx"].to_numpy(),
                 item_ids=pandas_df["item_idx"].to_numpy(),
@@ -257,32 +253,32 @@ class LightFMWrap(HybridRecommender):
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        log: SparkDataFrame,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         return self._predict_selected_pairs(
             users.crossJoin(items), user_features, item_features
         )
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        pairs: SparkDataFrame,
+        log: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
+    ) -> SparkDataFrame:
         return self._predict_selected_pairs(
             pairs, user_features, item_features
         )
 
     def _get_features(
-        self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Tuple[Optional[DataFrame], Optional[int]]:
+        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
+    ) -> Tuple[Optional[SparkDataFrame], Optional[int]]:
         """
         Get features from LightFM.
         LightFM has methods get_item_representations/get_user_representations,

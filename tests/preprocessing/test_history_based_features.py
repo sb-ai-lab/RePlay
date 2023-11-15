@@ -5,18 +5,17 @@ from datetime import datetime
 
 import pytest
 
-from pyspark.sql import functions as sf
-
 from replay.preprocessing.history_based_fp import (
     ConditionalPopularityProcessor,
     EmptyFeatureProcessor,
     HistoryBasedFeaturesProcessor,
     LogStatFeaturesProcessor,
 )
-from tests.utils import (
-    spark,
-    sparkDataFrameEqual,
-)
+from replay.utils import PYSPARK_AVAILABLE
+from tests.utils import spark, sparkDataFrameEqual
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 simple_u_columns = ["u_log_num_interact", "u_mean_i_log_num_interact"]
 simple_i_columns = ["i_log_num_interact", "i_mean_u_log_num_interact"]

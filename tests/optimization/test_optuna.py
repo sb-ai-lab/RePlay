@@ -1,8 +1,8 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
 
-from replay.models import SLIM, ItemKNN, ALSWrap
-from tests.utils import log, spark, create_dataset
+from replay.models import SLIM, ALSWrap, ItemKNN
+from tests.utils import create_dataset, log, spark
 
 
 @pytest.fixture
@@ -10,6 +10,7 @@ def model():
     return ALSWrap()
 
 
+@pytest.mark.core
 @pytest.mark.parametrize("borders", [{"beta": [1, 2]}, {"lambda_": [1, 2]}])
 def test_partial_borders(borders):
     model = SLIM()
@@ -17,6 +18,7 @@ def test_partial_borders(borders):
     assert len(res) == len(model._search_space)
 
 
+@pytest.mark.spark
 def test_ItemKNN(log):
     model = ItemKNN()
     dataset = create_dataset(log)
@@ -24,6 +26,7 @@ def test_ItemKNN(log):
     assert isinstance(res["num_neighbours"], int)
 
 
+@pytest.mark.core
 @pytest.mark.parametrize(
     "borders",
     [
@@ -46,6 +49,7 @@ def test_bad_borders(model, borders):
         model._prepare_param_borders(borders)
 
 
+@pytest.mark.core
 @pytest.mark.parametrize("borders", [None, {"rank": [5, 9]}])
 def test_correct_borders(model, borders):
     res = model._prepare_param_borders(borders)
@@ -55,6 +59,7 @@ def test_correct_borders(model, borders):
     assert res["rank"].keys() == model._search_space["rank"].keys()
 
 
+@pytest.mark.core
 @pytest.mark.parametrize(
     "borders,answer", [(None, True), ({"rank": [-10, -1]}, False)]
 )
@@ -63,6 +68,7 @@ def test_param_in_borders(model, borders, answer):
     assert model._init_params_in_search_space(search_space) == answer
 
 
+@pytest.mark.spark
 def test_it_works(model, log):
     dataset = create_dataset(log)
     assert model._params_tried() is False

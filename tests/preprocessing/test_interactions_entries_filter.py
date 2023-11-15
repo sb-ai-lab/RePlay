@@ -1,8 +1,7 @@
 import pytest
-from pandas import DataFrame as PandasDataFrame
 
-from replay.utils import get_spark_session
 from replay.preprocessing.filters import InteractionEntriesFilter
+from replay.utils import PandasDataFrame, get_spark_session
 
 
 @pytest.fixture
@@ -20,8 +19,8 @@ def interactions_spark(interactions_pandas):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("interactions_spark"),
-        ("interactions_pandas"),
+        pytest.param("interactions_spark", marks=pytest.mark.spark),
+        pytest.param("interactions_pandas", marks=pytest.mark.core),
     ],
 )
 def test_interaction_entries_filter_by_min_users(dataset_type, request):
@@ -42,8 +41,8 @@ def test_interaction_entries_filter_by_min_users(dataset_type, request):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("interactions_spark"),
-        ("interactions_pandas"),
+        pytest.param("interactions_spark", marks=pytest.mark.spark),
+        pytest.param("interactions_pandas", marks=pytest.mark.core),
     ],
 )
 def test_interaction_entries_filter_by_max_users(dataset_type, request):
@@ -63,8 +62,8 @@ def test_interaction_entries_filter_by_max_users(dataset_type, request):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("interactions_spark"),
-        ("interactions_pandas"),
+        pytest.param("interactions_spark", marks=pytest.mark.spark),
+        pytest.param("interactions_pandas", marks=pytest.mark.core),
     ],
 )
 def test_interaction_entries_filter_by_min_items(dataset_type, request):
@@ -84,8 +83,8 @@ def test_interaction_entries_filter_by_min_items(dataset_type, request):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("interactions_spark"),
-        ("interactions_pandas"),
+        pytest.param("interactions_spark", marks=pytest.mark.spark),
+        pytest.param("interactions_pandas", marks=pytest.mark.core),
     ],
 )
 def test_interaction_entries_filter_by_max_items(dataset_type, request):
@@ -105,8 +104,8 @@ def test_interaction_entries_filter_by_max_items(dataset_type, request):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("interactions_spark"),
-        ("interactions_pandas"),
+        pytest.param("interactions_spark", marks=pytest.mark.spark),
+        pytest.param("interactions_pandas", marks=pytest.mark.core),
     ],
 )
 def test_interaction_entries_filter_by_min_max_users(dataset_type, request):
@@ -127,8 +126,8 @@ def test_interaction_entries_filter_by_min_max_users(dataset_type, request):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("interactions_spark"),
-        ("interactions_pandas"),
+        pytest.param("interactions_spark", marks=pytest.mark.spark),
+        pytest.param("interactions_pandas", marks=pytest.mark.core),
     ],
 )
 def test_interaction_entries_filter_by_min_max_items(dataset_type, request):
@@ -149,8 +148,8 @@ def test_interaction_entries_filter_by_min_max_items(dataset_type, request):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("interactions_spark"),
-        ("interactions_pandas"),
+        pytest.param("interactions_spark", marks=pytest.mark.spark),
+        pytest.param("interactions_pandas", marks=pytest.mark.core),
     ],
 )
 def test_interaction_entries_filter_by_min_max_users_items(dataset_type, request):

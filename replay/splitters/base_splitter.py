@@ -1,13 +1,14 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import DataFrame as SparkDataFrame
-from pyspark.sql import functions as sf, Window
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
 
-from replay.data import AnyDataFrame
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import Window
+    from pyspark.sql import functions as sf
 
-SplitterReturnType = Tuple[AnyDataFrame, AnyDataFrame]
+
+SplitterReturnType = Tuple[DataFrameLike, DataFrameLike]
 
 
 # pylint: disable=too-few-public-methods, too-many-instance-attributes
@@ -65,9 +66,9 @@ class Splitter(ABC):
     # pylint: disable=too-many-arguments
     def _drop_cold_items_and_users(
         self,
-        train: AnyDataFrame,
-        test: AnyDataFrame,
-    ) -> AnyDataFrame:
+        train: DataFrameLike,
+        test: DataFrameLike,
+    ) -> DataFrameLike:
         if isinstance(train, type(test)) is False:
             raise TypeError("Train and test dataframes must have consistent types")
 
@@ -106,7 +107,7 @@ class Splitter(ABC):
         return test
 
     @abstractmethod
-    def _core_split(self, interactions: AnyDataFrame) -> SplitterReturnType:
+    def _core_split(self, interactions: DataFrameLike) -> SplitterReturnType:
         """
         This method implements split strategy
 
@@ -114,7 +115,7 @@ class Splitter(ABC):
         :returns: `train` and `test DataFrames
         """
 
-    def split(self, interactions: AnyDataFrame) -> SplitterReturnType:
+    def split(self, interactions: DataFrameLike) -> SplitterReturnType:
         """
         Splits input DataFrame into train and test
 
@@ -126,7 +127,7 @@ class Splitter(ABC):
 
         return train, test
 
-    def _recalculate_with_session_id_column(self, data: AnyDataFrame) -> AnyDataFrame:
+    def _recalculate_with_session_id_column(self, data: DataFrameLike) -> DataFrameLike:
         if isinstance(data, SparkDataFrame):
             return self._recalculate_with_session_id_column_spark(data)
 

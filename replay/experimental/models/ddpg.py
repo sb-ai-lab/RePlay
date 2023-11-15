@@ -1,22 +1,24 @@
 # pylint: disable=too-many-lines
-import tqdm
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import numpy as np
-import pandas as pd
 import scipy.sparse as sp
 import torch
-from pandas import DataFrame
-from pyspark.sql import functions as sf
+import tqdm
 from pytorch_ranger import Ranger
 from torch import nn
 from torch.distributions.gamma import Gamma
 
 from replay.data import get_schema
 from replay.experimental.models.base_torch_rec import Recommender
-from replay.utils import convert2spark
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+
+    from replay.utils.spark_utils import convert2spark
 
 
 def to_np(tensor: torch.Tensor) -> np.array:
@@ -680,7 +682,7 @@ class DDPG(Recommender):
         model,
         user_idx: int,
         items_np: np.ndarray,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         with torch.no_grad():
             # user_batch, memory = model.environment.reset([user_idx])
             user_batch = torch.tensor([user_idx], dtype=torch.int64)
@@ -691,7 +693,7 @@ class DDPG(Recommender):
                 action_emb, items, torch.full_like(items, True), True
             )
             scores = scores.squeeze()
-            return pd.DataFrame(
+            return PandasDataFrame(
                 {
                     "user_idx": scores.shape[0] * [user_idx],
                     "item_idx": items_np,
@@ -702,18 +704,18 @@ class DDPG(Recommender):
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        log: SparkDataFrame,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         items_consider_in_pred = items.toPandas()["item_idx"].values
         model = self.model.cpu()
 
-        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+        def grouped_map(pandas_df: PandasDataFrame) -> PandasDataFrame:
             return DDPG._predict_pairs_inner(
                 model=model,
                 user_idx=pandas_df["user_idx"][0],
@@ -737,14 +739,14 @@ class DDPG(Recommender):
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        pairs: SparkDataFrame,
+        log: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
+    ) -> SparkDataFrame:
         model = self.model.cpu()
 
-        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+        def grouped_map(pandas_df: PandasDataFrame) -> PandasDataFrame:
             return DDPG._predict_pairs_inner(
                 model=model,
                 user_idx=pandas_df["user_idx"][0],
@@ -893,9 +895,9 @@ class DDPG(Recommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ) -> None:
         data = log.toPandas()
         self._fit_df(data)

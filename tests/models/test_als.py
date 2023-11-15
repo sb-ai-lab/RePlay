@@ -1,22 +1,23 @@
 # pylint: disable-all
-import pytest
 import numpy as np
-
-from pyspark.sql import functions as sf
+import pytest
 
 from replay.models import ALSWrap, AssociationRulesItemRec
-from replay.utils.spark_utils import join_or_return, array_mult, horizontal_explode
-from replay.utils.model_handler import save, load
+from replay.utils import PYSPARK_AVAILABLE
 from tests.utils import (
-    spark,
+    create_dataset,
     log,
     log_to_pred,
     long_log_with_features,
-    user_features,
+    spark,
     sparkDataFrameEqual,
-    create_dataset
+    user_features,
 )
 
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+
+    from replay.utils.spark_utils import array_mult, horizontal_explode, join_or_return
 
 SEED = 123
 
@@ -107,6 +108,7 @@ def get_first_level_model_features(model, pairs, user_features=None, item_featur
     return pairs_with_features
 
 
+@pytest.mark.spark
 def test_works(log, model):
     try:
         dataset = create_dataset(log)
@@ -116,6 +118,7 @@ def test_works(log, model):
         pytest.fail()
 
 
+@pytest.mark.spark
 def test_diff_feedback_type(log, model):
     dataset = create_dataset(log)
     pred_exp = model.fit_predict(dataset, k=1)
@@ -127,6 +130,7 @@ def test_diff_feedback_type(log, model):
     )
 
 
+@pytest.mark.spark
 def test_enrich_with_features(log, model):
     dataset = create_dataset(log.filter(sf.col("user_idx").isin([0, 2])))
     model.fit(dataset)
@@ -159,6 +163,7 @@ def test_enrich_with_features(log, model):
     )
 
 
+@pytest.mark.core
 def test_init_args(model):
     args = model._init_args
 
@@ -167,6 +172,7 @@ def test_init_args(model):
     assert args["seed"] == 42
 
 
+@pytest.mark.spark
 def test_predict_pairs_raises_pairs_format(log):
     model = ALSWrap(seed=SEED)
     with pytest.raises(ValueError, match="pairs must be a dataframe with .*"):
@@ -175,6 +181,7 @@ def test_predict_pairs_raises_pairs_format(log):
         model.predict_pairs(log, dataset)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("metric", ["absent", None])
 def test_nearest_items_raises(log, metric):
     model = AssociationRulesItemRec(session_column="user_idx")
@@ -193,6 +200,7 @@ def test_nearest_items_raises(log, metric):
         model.get_nearest_items(items=[0, 1], k=2, metric=metric)
 
 
+@pytest.mark.core
 @pytest.mark.parametrize(
     "borders",
     [
@@ -216,6 +224,7 @@ def test_bad_borders(borders):
         model._prepare_param_borders(borders)
 
 
+@pytest.mark.core
 @pytest.mark.parametrize("borders", [None, {"rank": [5, 9]}])
 def test_correct_borders(borders):
     model = ALSWrap()
@@ -226,6 +235,7 @@ def test_correct_borders(borders):
     assert res["rank"].keys() == model._search_space["rank"].keys()
 
 
+@pytest.mark.core
 @pytest.mark.parametrize(
     "borders,answer", [(None, True), ({"rank": [-10, -1]}, False)]
 )
@@ -235,6 +245,7 @@ def test_param_in_borders(borders, answer):
     assert model._init_params_in_search_space(search_space) == answer
 
 
+@pytest.mark.spark
 def test_it_works(log):
     model = ALSWrap()
     dataset = create_dataset(log)
