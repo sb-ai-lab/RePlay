@@ -5,7 +5,8 @@ import pandas as pd
 import pytest
 
 from replay.splitters import LastNSplitter
-from replay.utils import PYSPARK_AVAILABLE, get_spark_session
+from replay.utils import PYSPARK_AVAILABLE
+from tests.utils import spark
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as F
@@ -25,8 +26,9 @@ def _check_assert(user_ids, item_ids, user_answer, item_answer):
         assert sorted(user_ids[idx]) == sorted(user_answer[idx])
 
 
-@pytest.fixture(scope="module")
-def spark_dataframe_test():
+@pytest.fixture()
+@pytest.mark.usefixtures("spark")
+def spark_dataframe_test(spark):
     columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
         (1, 1, "01-01-2020", 1),
@@ -45,7 +47,7 @@ def spark_dataframe_test():
         (3, 1, "04-01-2020", 6),
         (3, 2, "05-01-2020", 6),
     ]
-    return get_spark_session().createDataFrame(data, schema=columns).withColumn(
+    return spark.createDataFrame(data, schema=columns).withColumn(
         "timestamp", F.to_date("timestamp", "dd-MM-yyyy")
     )
 

@@ -11,7 +11,7 @@ from numpy.random import default_rng
 
 from replay.utils.session_handler import State
 
-from .types import PYSPARK_AVAILABLE, DataFrameLike, NumType, SparkDataFrame, MissingImportType
+from .types import PYSPARK_AVAILABLE, DataFrameLike, MissingImportType, NumType, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.types as st

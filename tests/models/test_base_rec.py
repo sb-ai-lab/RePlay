@@ -35,7 +35,7 @@ def model():
     return DerivedRec()
 
 
-@pytest.mark.torch
+@pytest.mark.spark
 def test_users_count(model, log):
     with pytest.raises(AttributeError):
         model._qiery_dim
@@ -44,7 +44,7 @@ def test_users_count(model, log):
     assert model._query_dim == 4
 
 
-@pytest.mark.torch
+@pytest.mark.spark
 def test_items_count(model, log):
     with pytest.raises(AttributeError):
         model._item_dim

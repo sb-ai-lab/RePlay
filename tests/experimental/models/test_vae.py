@@ -2,9 +2,9 @@
 
 import numpy as np
 import pytest
-import torch
 
 pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
 
 import pyspark.sql.functions as sf
 
@@ -56,7 +56,6 @@ def model(log):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_equal_preds(long_log_with_features, tmp_path):
     path = (tmp_path / "test").resolve()
     model = MultVAE()
@@ -69,7 +68,6 @@ def test_equal_preds(long_log_with_features, tmp_path):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_fit(model):
     param_shapes = [
         (1, 4),
@@ -87,7 +85,6 @@ def test_fit(model):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_predict(log, model):
     recs = model.predict(log, users=[0, 1, 7], k=1)
     # new users with history
@@ -98,7 +95,6 @@ def test_predict(log, model):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_predict_pairs(log, log2, model):
     recs = model.predict_pairs(
         pairs=log2.select("user_idx", "item_idx"), log=log
@@ -116,7 +112,6 @@ def test_predict_pairs(log, log2, model):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_predict_pairs_warm_items_only(log, log_to_pred):
     model = MultVAE()
     model.fit(log)
@@ -155,7 +150,6 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_predict_pairs_k(log):
     model = MultVAE()
     model.fit(log)
@@ -190,7 +184,6 @@ def test_predict_pairs_k(log):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_predict_empty_log(log):
     model = MultVAE()
     model.fit(log)
@@ -198,7 +191,6 @@ def test_predict_empty_log(log):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_predict_new_users(long_log_with_features, user_features):
     model = MultVAE()
     pred = fit_predict_selected(
@@ -213,7 +205,6 @@ def test_predict_new_users(long_log_with_features, user_features):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_predict_cold_and_new_filter_out(long_log_with_features):
     model = MultVAE()
     pred = fit_predict_selected(

@@ -10,8 +10,8 @@ from torch.utils.data import DataLoader
 
 from replay.data import get_schema
 from replay.experimental.models.base_rec import Recommender
+from replay.experimental.utils.session_handler import State
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
-from replay.utils.session_handler import State
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf

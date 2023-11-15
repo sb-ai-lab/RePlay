@@ -28,8 +28,8 @@ def _get_column_list_pandas(data, column: str) -> List[List]:
 @pytest.mark.parametrize(
     "dataset",
     [
-        ("dataframe_sessionizer"),
-        ("dataframe_sessionizer_pandas"),
+        pytest.param("dataframe_sessionizer", marks=pytest.mark.spark),
+        pytest.param("dataframe_sessionizer_pandas", marks=pytest.mark.core),
     ],
 )
 def test_sessionizer_interactions_per_session(
@@ -84,8 +84,8 @@ def test_sessionizer_interactions_per_session(
 @pytest.mark.parametrize(
     "dataset",
     [
-        ("dataframe_sessionizer"),
-        ("dataframe_sessionizer_pandas"),
+        pytest.param("dataframe_sessionizer", marks=pytest.mark.spark),
+        pytest.param("dataframe_sessionizer_pandas", marks=pytest.mark.core),
     ],
 )
 def test_sessionizer_sessions_per_user(
@@ -138,8 +138,8 @@ def test_sessionizer_sessions_per_user(
 @pytest.mark.parametrize(
     "dataset",
     [
-        ("session_dataset_spark"),
-        ("session_dataset_pandas"),
+        pytest.param("session_dataset_spark", marks=pytest.mark.spark),
+        pytest.param("session_dataset_pandas", marks=pytest.mark.core),
     ],
 )
 def test_valid_session_ids(request, dataset, session_gap, min_interactions, max_interactions, answer):

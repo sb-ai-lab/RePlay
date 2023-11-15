@@ -109,7 +109,7 @@ def test_rules(df, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
-@pytest.mark.sparks
+@pytest.mark.spark
 def test_word(df, tmp_path):
     path = (tmp_path / "word").resolve()
     dataset = create_dataset(df)

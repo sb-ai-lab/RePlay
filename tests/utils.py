@@ -11,12 +11,12 @@ from numpy.testing import assert_allclose
 
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType, get_schema
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from replay.utils.session_handler import get_spark_session
+from replay.utils.spark_utils import convert2spark
 
 if PYSPARK_AVAILABLE:
     from pyspark.ml.linalg import DenseVector
 
-    from replay.utils.session_handler import get_spark_session
-    from replay.utils.spark_utils import convert2spark
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
@@ -28,7 +28,7 @@ def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
 
 @pytest.fixture
 def spark():
-    session = get_spark_session(1, 1)
+    session = get_spark_session(shuffle_partitions=1)
     session.sparkContext.setLogLevel("ERROR")
     return session
 

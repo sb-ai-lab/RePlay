@@ -4,12 +4,12 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import pytest
-import torch
-from pytorch_ranger import Ranger
 
 pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
 
 from pyspark.sql import functions as sf
+from pytorch_ranger import Ranger
 
 from replay.data import get_schema
 from replay.experimental.models import DDPG
@@ -185,7 +185,6 @@ def model(log):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
 def test_critic_forward(ddpg_critic_param, batch_size):
     critic, param = ddpg_critic_param
@@ -201,7 +200,6 @@ def test_critic_forward(ddpg_critic_param, batch_size):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
 def test_state_repr_forward(ddpg_state_repr_param, batch_size):
     state_repr, param = ddpg_state_repr_param
@@ -222,7 +220,6 @@ def test_state_repr_forward(ddpg_state_repr_param, batch_size):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
 def test_actor_forward(ddpg_actor_param, batch_size):
     actor, param = ddpg_actor_param
@@ -243,7 +240,6 @@ def test_actor_forward(ddpg_actor_param, batch_size):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
 def test_actor_get_action(ddpg_actor_param, batch_size):
     actor, param = ddpg_actor_param
@@ -263,7 +259,6 @@ def test_actor_get_action(ddpg_actor_param, batch_size):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 @pytest.mark.parametrize("df", DF_CASES)
 def test_fit_df(df):
     model = DDPG(n_jobs=1, use_gpu=True)
@@ -271,7 +266,6 @@ def test_fit_df(df):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_fit(log, model):
     model.fit(log)
     assert len(list(model.model.parameters())) == 10
@@ -292,7 +286,6 @@ def test_fit(log, model):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_predict(log, model):
     model.noise_type = "gauss"
     model.batch_size = 4
@@ -305,7 +298,6 @@ def test_predict(log, model):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_save_load(log, model, user_num=5, item_num=5):
     spark_local_dir = "./logs/tmp/"
     pattern = "model_final.pt"
@@ -373,7 +365,6 @@ def test_save_load(log, model, user_num=5, item_num=5):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_env_step(log, model, user=[0, 1, 2]):
     replay_buffer = ReplayBuffer(
         torch.device("cpu"),
@@ -435,7 +426,6 @@ def test_env_step(log, model, user=[0, 1, 2]):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_predict_pairs_to_file(spark, long_log_with_features, tmp_path):
     model = DDPG(seed=SEED, user_num=6, item_num=6)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
@@ -459,7 +449,6 @@ def test_predict_pairs_to_file(spark, long_log_with_features, tmp_path):
 
 
 @pytest.mark.experimental
-@pytest.mark.spark
 def test_predict_to_file(spark, long_log_with_features, tmp_path):
     model = DDPG(seed=SEED, user_num=6, item_num=6)
     path = str((tmp_path / "pred.parquet").resolve().absolute())

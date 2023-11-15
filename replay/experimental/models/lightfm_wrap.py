@@ -9,9 +9,9 @@ from sklearn.preprocessing import MinMaxScaler
 
 from replay.data import get_schema
 from replay.experimental.models.base_rec import HybridRecommender
+from replay.experimental.utils.session_handler import State
 from replay.preprocessing import CSRConverter
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
-from replay.utils.session_handler import State
 from replay.utils.spark_utils import check_numeric, load_pickled_from_parquet, save_picklable_to_parquet
 
 if PYSPARK_AVAILABLE:

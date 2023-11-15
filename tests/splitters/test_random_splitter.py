@@ -4,13 +4,14 @@ import pandas as pd
 import pytest
 
 from replay.splitters import RandomSplitter
-from replay.utils import PYSPARK_AVAILABLE, get_spark_session
+from replay.utils import PYSPARK_AVAILABLE
+from tests.utils import spark
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
 
 
-@pytest.fixture
+@pytest.fixture()
 def log():
     return pd.DataFrame(
         {
@@ -21,8 +22,9 @@ def log():
     )
 
 
-@pytest.fixture(scope="module")
-def spark_dataframe_test():
+@pytest.fixture()
+@pytest.mark.usefixtures("spark")
+def spark_dataframe_test(spark):
     columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
         (1, 1, "01-01-2020", 1),
@@ -41,7 +43,7 @@ def spark_dataframe_test():
         (3, 1, "04-01-2020", 6),
         (3, 2, "05-01-2020", 6),
     ]
-    return get_spark_session().createDataFrame(data, schema=columns).withColumn(
+    return spark.createDataFrame(data, schema=columns).withColumn(
         "timestamp", sf.to_date("timestamp", "dd-MM-yyyy")
     )
 
@@ -73,9 +75,10 @@ def pandas_dataframe_test():
     return dataframe
 
 
-@pytest.fixture
-def log_spark(log):
-    return get_spark_session().createDataFrame(log)
+@pytest.fixture()
+@pytest.mark.usefixtures("spark")
+def log_spark(spark, log):
+    return spark.createDataFrame(log)
 
 
 SEED = 7777
@@ -85,8 +88,8 @@ test_sizes = [0.1, 0.3, 0.5, 0.7, 0.9]
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log"),
-        ("log_spark"),
+        pytest.param("log_spark", marks=pytest.mark.spark),
+        pytest.param("log", marks=pytest.mark.core),
     ]
 )
 @pytest.mark.parametrize("test_size", test_sizes)
@@ -118,8 +121,8 @@ def test_bad_test_size():
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("spark_dataframe_test"),
-        ("pandas_dataframe_test"),
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
     ]
 )
 def test_with_session_ids(dataset_type, request):
@@ -141,8 +144,8 @@ def test_with_session_ids(dataset_type, request):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        ("log_spark"),
-        ("log"),
+        pytest.param("log_spark", marks=pytest.mark.spark),
+        pytest.param("log", marks=pytest.mark.core),
     ]
 )
 def test_with_multiple_splitting(dataset_type, request):

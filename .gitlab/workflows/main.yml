@@ -84,26 +84,64 @@ sphinx-job:
   script:
     - make -C docs clean html
 
-pytest_core:
-  <<: *install_experimental_replay
+pytest-core:
   stage: test
   script:
-    - pytest -m core --ignore=replay/experimental/
+    - ./poetry_wrapper.sh install
+    - pytest -m core tests/
     - mv .coverage .coverage_core
+  needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
   artifacts:
     paths:
       - .coverage_core
     expire_in: 1 day
 
-pytest_spark:
-  <<: *install_experimental_replay_with_spark
+pytest-torch:
   stage: test
   script:
-    - pytest -m "not core"
+    - ./poetry_wrapper.sh install -E torch
+    - pytest -m "not spark and not experimental" tests/
+    - mv .coverage .coverage_torch
+  needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
+  artifacts:
+    paths:
+      - .coverage_torch
+    expire_in: 1 day
+
+pytest-spark:
+  stage: test
+  script:
+    - ./poetry_wrapper.sh install -E spark
+    - pytest -m "not torch and not experimental" tests/
     - mv .coverage .coverage_spark
+  needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
   artifacts:
     paths:
       - .coverage_spark
+    expire_in: 1 day
+
+pytest-spark-and-torch:
+  stage: test
+  script:
+    - ./poetry_wrapper.sh install --all-extras
+    - pytest -m "not experimental" --ignore=replay/experimental --ignore=tests/experimental
+    - mv .coverage .coverage_all
+  needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
+  artifacts:
+    paths:
+      - .coverage_all
+    expire_in: 1 day
+
+pytest-experimental:
+  stage: test
+  script:
+    - ./poetry_wrapper.sh --experimental install --all-extras
+    - pytest -m "experimental"
+    - mv .coverage .coverage_experimental
+  needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
+  artifacts:
+    paths:
+      - .coverage_experimental
     expire_in: 1 day
 
 merge-coverage:
@@ -112,12 +150,10 @@ merge-coverage:
     - *setup_env
     - ./poetry_wrapper.sh install --only dev
   script:
-    - coverage combine .coverage_core .coverage_spark
+    - coverage combine .coverage_core .coverage_spark .coverage_torch .coverage_all .coverage_experimental
     - coverage report --fail-under=93
     - coverage xml
-  needs:
-    - pytest_core
-    - pytest_spark
+  needs: ["pytest-core", "pytest-experimental", "pytest-spark", "pytest-spark-and-torch", "pytest-torch"]
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
     when: always
