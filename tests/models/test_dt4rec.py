@@ -124,4 +124,3 @@ def test_fast_create_dataset_bag_items():
     result = fast_create_dataset(df, user_num=1, item_pad=0)
     for key, value in ans[0].items():
         assert (value == result[0][key]).all()
-        
