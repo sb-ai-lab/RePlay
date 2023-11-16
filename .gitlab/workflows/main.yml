@@ -167,7 +167,7 @@ merge-coverage:
 examples-execute-job:
   <<: *install_replay
   rules:
-    - if: 0
+    - when: never
   stage: examples
   script:
     - export EXAMPLES_EXCLUDE=02_models_comparison.ipynb,06_item2item_recommendations.ipynb
