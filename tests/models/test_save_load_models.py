@@ -45,7 +45,7 @@ def user_features(spark):
 def df():
     folder = dirname(replay.__file__)
     res = pd.read_csv(
-        join(folder, "../experiments/data/ml1m_ratings.dat"),
+        join(folder, "../examples/data/ml1m_ratings.dat"),
         sep="\t",
         names=["user_idx", "item_idx", "relevance", "timestamp"],
     ).head(1000)
