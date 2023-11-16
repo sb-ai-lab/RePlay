@@ -173,7 +173,7 @@ requirements.txt
 airflow.yaml
 
 # temporary
-experiments/tests
+examples/tests
 
 ### d3rlpy logs
 d3rlpy_logs/

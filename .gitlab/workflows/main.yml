@@ -45,6 +45,7 @@ stages:
   - code_quality
   - test
   - merge coverage
+  - examples
   - build packages
 
 resolve-job:
@@ -161,6 +162,17 @@ merge-coverage:
       coverage_report:
         coverage_format: cobertura
         path: coverage.xml
+
+
+examples-execute-job:
+  <<: *install_replay
+  rules:
+    - when: never
+  stage: examples
+  script:
+    - export EXAMPLES_EXCLUDE=02_models_comparison.ipynb,06_item2item_recommendations.ipynb
+    - cd examples
+    - for i in *.ipynb; do [[ ! "$EXAMPLES_EXCLUDE" =~ "$i" ]] && jupyter nbconvert --to notebook --execute $i; done
 
 build-production-package:
   rules:
