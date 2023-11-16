@@ -5,8 +5,8 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from replay.data import Dataset
 from replay.metrics import NDCG, Metric
+from replay.preprocessing.filters import MinCountFilter
 from replay.models.base_rec import BaseRecommender
-from replay.preprocessing.filters import filter_by_min_count
 from replay.utils import DataFrameLike, SparkDataFrame
 from replay.utils.spark_utils import get_unique_entities
 
@@ -36,7 +36,7 @@ class BaseScenario(BaseRecommender):
         """
         query_column = dataset.feature_schema.query_id_column
 
-        hot_data = filter_by_min_count(dataset.interactions, self.threshold, query_column)
+        hot_data = MinCountFilter(self.threshold, query_column).transform(dataset.interactions)
         self.hot_queries = hot_data.select(query_column).distinct()
         hot_dataset = Dataset(
             feature_schema=dataset.feature_schema,
@@ -75,7 +75,7 @@ class BaseScenario(BaseRecommender):
         """
         queries = queries or dataset.interactions or dataset.query_features or self.fit_queries
         queries = get_unique_entities(queries, self.query_column)
-        hot_data = filter_by_min_count(dataset.interactions, self.threshold, self.query_column)
+        hot_data = MinCountFilter(self.threshold, self.query_column).transform(dataset.interactions)
         hot_queries = hot_data.select(self.query_column).distinct()
         if not self.can_predict_cold_queries:
             hot_queries = hot_queries.join(self.hot_queries)
