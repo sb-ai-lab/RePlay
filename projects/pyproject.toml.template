@@ -41,7 +41,7 @@ scipy = "~1.8.1"
 psutil = "~5.9.5"
 pyspark = { version = ">=3.0,<3.3", optional = true }
 scikit-learn = "^1.0.2"
-pyarrow = "~12.0.1"
+pyarrow = ">=12.0.1, <=14.0.1"
 {% if project == "default" %}
 torch = { version = "^1.8", optional = true }
 pytorch-ranger = { version = "^0.1.1", optional = true }
