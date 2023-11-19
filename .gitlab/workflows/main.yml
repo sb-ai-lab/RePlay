@@ -89,7 +89,7 @@ pytest-core:
   stage: test
   script:
     - ./poetry_wrapper.sh install
-    - pytest -m core tests/
+    - python -m pytest -m core tests/
     - mv .coverage .coverage_core
   needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
   artifacts:
