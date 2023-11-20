@@ -60,7 +60,7 @@ def ensure_pandas(
 ) -> PandasDataFrame:
     """
     :param df: dataframe
-    :param allow_collect_to_master: Flag allowing spark to make a collection to the master node, 
+    :param allow_collect_to_master: Flag allowing spark to make a collection to the master node,
         default: ``False``.
 
     :returns: Pandas DataFrame object
