@@ -7,7 +7,7 @@ from pyspark.sql.functions import udf
 from scipy.optimize import root_scalar
 
 
-class KL_UCB(UCB):
+class KLUCB(UCB):
     """
     Bernoulli `bandit model
     <https://en.wikipedia.org/wiki/Multi-armed_bandit>`_. Same to :class:`UCB`
@@ -118,21 +118,22 @@ class KL_UCB(UCB):
             + self.coef * math.log(math.log(self.full_count))
         eps = 1e-12
 
-        def BernoulliKl(pp, qq) :
-            return pp * math.log(pp / qq) + (1 - pp) * math.log((1 - pp) / (1 - qq))
+        def bernoulli_kl(proba_p, proba_q):
+            return proba_p * math.log(proba_p / proba_q) +\
+                (1 - proba_p) * math.log((1 - proba_p) / (1 - proba_q))
 
         @udf(returnType=DoubleType())
-        def get_ucb(pos, total) :
-            pp = pos / total
+        def get_ucb(pos, total):
+            proba = pos / total
 
-            if pp == 0 :
+            if proba == 0:
                 ucb = root_scalar(
                     f=lambda qq: math.log(1 / (1 - qq)) - right_hand_side,
                     bracket=[0, 1 - eps],
                     method='brentq').root
                 return ucb
 
-            if pp == 1 :
+            if proba == 1:
                 ucb = root_scalar(
                     f=lambda qq: math.log(1 / qq) - right_hand_side,
                     bracket=[0 + eps, 1],
@@ -140,8 +141,8 @@ class KL_UCB(UCB):
                 return ucb
 
             ucb = root_scalar(
-                f=lambda qq: total * BernoulliKl(pp, qq) - right_hand_side,
-                bracket=[pp, 1 - eps],
+                f=lambda q: total * bernoulli_kl(proba, q) - rhs,
+                bracket=[proba, 1 - eps],
                 method='brentq').root
             return ucb
 

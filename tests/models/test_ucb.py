@@ -3,7 +3,11 @@ import pytest
 
 from pyspark.sql import functions as sf
 
+<<<<<<< HEAD
 from replay.models import UCB, KL_UCB
+=======
+from replay.models import UCB, KLUCB
+>>>>>>> cfe340d (fixed tests,linter)
 from tests.utils import log, log2, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
 
 
@@ -21,9 +25,9 @@ def log_ucb2(log2):
     )
 
 
-@pytest.fixture(params=[UCB(), KL_UCB()])
-def fitted_model(request, log_ucb):
-    model = request.param
+@pytest.fixture(params=[UCB(), KLUCB()])
+def fitted_model(log_ucb, model):
+>>>>>>> cfe340d (fixed tests,linter)
     model.fit(log_ucb)
     return model
 
