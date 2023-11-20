@@ -28,7 +28,7 @@ def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
 
 @pytest.fixture
 def spark():
-    session = get_spark_session(shuffle_partitions=1)
+    session = get_spark_session()
     session.sparkContext.setLogLevel("ERROR")
     return session
 

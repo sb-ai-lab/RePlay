@@ -90,6 +90,7 @@ data-science-types = "0.2.23"
 [tool.poetry.extras]
 spark = ["pyspark"]
 torch = ["torch", "pytorch-ranger"]
+all = ["pyspark", "torch", "pytorch-ranger"]
 
 [build-system]
 requires = [
@@ -100,7 +101,7 @@ build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.poetry-dynamic-versioning]
 enable = true
-format-jinja = """0.13.0{{ env['PACKAGE_SUFFIX'] }}"""
+format-jinja = """0.13.1{{ env['PACKAGE_SUFFIX'] }}"""
 vcs = "git"
 
 [tool.black]
