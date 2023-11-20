@@ -181,7 +181,6 @@ class StateReprModule(nn.Module):
         :return: vector of dimension embedding_dim
         """
         user_embedding = self.user_embeddings(user.long()).squeeze(1)
-
         item_embeddings = self.item_embeddings(memory.long())
         drr_ave = self.drr_ave(item_embeddings).squeeze(1)
         output = torch.cat((user_embedding, user_embedding * drr_ave, drr_ave), 1)
@@ -323,7 +322,6 @@ class GPT(nn.Module):
         :timesteps: timesteps batch, (batch, 1, 1)
         :users:users batch,  (batch, 1)
         """
-
         inference = not self.training
         state_embeddings = self.state_repr(
             users.repeat((1, self.block_size // 3)).reshape(-1, 1),

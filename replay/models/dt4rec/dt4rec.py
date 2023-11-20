@@ -78,8 +78,8 @@ class DT4Rec(Recommender):
         val_dataset = ValidateDataset(
             self.user_trajectory,
             max_context_len=max_context_len - 1,
-            val_items=users,
-            val_users=items,
+            val_items=items,
+            val_users=users,
         )
 
         val_dataloader = DataLoader(
