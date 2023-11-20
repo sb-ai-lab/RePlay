@@ -3,12 +3,11 @@ import pandas as pd
 import pytest
 
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureSource, FeatureType
-from replay.data.nn import PandasSequentialDataset
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     import torch
-    from replay.data.nn import TensorFeatureInfo, TensorFeatureSource
+    from replay.data.nn import PandasSequentialDataset, TensorFeatureInfo, TensorFeatureSource
     from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
 
 
