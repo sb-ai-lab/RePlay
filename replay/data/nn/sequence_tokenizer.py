@@ -50,7 +50,6 @@ class SequenceTokenizer:
         """
         :param dataset: input dataset to transform
         :param tensor_features_to_keep: specified feature names to transform
-
         :returns: SequentialDataset
         """
         self._check_if_tensor_schema_matches_data(dataset, self._tensor_schema, tensor_features_to_keep)
@@ -62,7 +61,6 @@ class SequenceTokenizer:
     ) -> SequentialDataset:
         """
         :param dataset: input dataset to transform
-
         :returns: SequentialDataset
         """
         # pylint: disable=protected-access
