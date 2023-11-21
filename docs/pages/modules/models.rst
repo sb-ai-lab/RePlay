@@ -84,7 +84,7 @@ UCB Recommender
 
 KL-UCB Recommender
 ``````````````````
-.. autoclass:: replay.models.KL_UCB
+.. autoclass:: replay.models.KLUCB
    :special-members: __init__
 
 Thompson Sampling
