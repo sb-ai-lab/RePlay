@@ -5,8 +5,8 @@
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 
-# PyTorch-Lighning logs
-/lightning_logs
+# PyTorch-Lightning logs
+lightning_logs/
 .logs/
 .checkpoints/
 
