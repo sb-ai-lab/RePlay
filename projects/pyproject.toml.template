@@ -55,6 +55,7 @@ cached-property = "1.5.2"
 
 {% if project == "experimental" %}
 torch = "^1.8"
+lightning = "2.0.2"
 pytorch-ranger = "^0.1.1"
 lightfm = "1.17"
 lightautoml = "~0.3.1"
