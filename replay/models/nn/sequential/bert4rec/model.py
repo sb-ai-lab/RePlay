@@ -7,11 +7,12 @@ import torch
 from replay.data.nn import TensorFeatureInfo, TensorMap, TensorSchema
 
 
+# pylint: disable=too-many-instance-attributes
 class BertModel(torch.nn.Module):
     """
     BERT model
     """
-
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         schema: TensorSchema,
@@ -25,24 +26,23 @@ class BertModel(torch.nn.Module):
         enable_embedding_tying: bool = False,
     ) -> None:
         """
-        Args:
-            schema (TensorSchema): Tensor schema of features.
-            max_len (int): Max length of sequence.
-                Default: ``100``.
-            embed_size (int): Embedding size.
-                Default: ``256``.
-            num_blocks (int): Number of Transformer blocks.
-                Default: ``2``.
-            num_heads (int): Number of Attention heads.
-                Default: ``4``.
-            num_passes_over_block (int): Number of times to pass data over each Transformer block.
-                Default: ``1``.
-            dropout (float): Dropout rate.
-                Default: ``0.1``.
-            enable_positional_embedding (bool): Add positional embedding to the result.
-                Default: ``True``.
-            enable_embedding_tying (bool): Use embedding tying head.
-                Default: ``False``.
+        :param schema: Tensor schema of features.
+        :param max_len: Max length of sequence.
+            Default: ``100``.
+        :param embed_size: Embedding size.
+            Default: ``256``.
+        :param num_blocks: Number of Transformer blocks.
+            Default: ``2``.
+        :param num_heads: Number of Attention heads.
+            Default: ``4``.
+        :param num_passes_over_block: Number of times to pass data over each Transformer block.
+            Default: ``1``.
+        :param dropout: Dropout rate.
+            Default: ``0.1``.
+        :param enable_positional_embedding: Add positional embedding to the result.
+            Default: ``True``.
+        :param enable_embedding_tying: Use embedding tying head.
+            Default: ``False``.
         """
         super().__init__()
 
@@ -87,13 +87,11 @@ class BertModel(torch.nn.Module):
 
     def forward(self, inputs: TensorMap, pad_mask: torch.BoolTensor, token_mask: torch.BoolTensor) -> torch.Tensor:
         """
-        Args:
-            inputs (TensorMap): Batch of features.
-            pad_mask (torch.BoolTensor): Padding mask where 0 - <PAD>, 1 otherwise.
-            token_mask (torch.BoolTensor): Token mask where 0 - <MASK> tokens, 1 otherwise.
+        :param inputs: Batch of features.
+        :param pad_mask: Padding mask where 0 - <PAD>, 1 otherwise.
+        :param token_mask: Token mask where 0 - <MASK> tokens, 1 otherwise.
 
-        Returns:
-            torch.Tensor: Calculated scores.
+        :returns: Calculated scores.
         """
         output_embeddings = self.forward_step(inputs, pad_mask, token_mask)
         all_scores = self.get_logits(output_embeddings)
@@ -102,15 +100,13 @@ class BertModel(torch.nn.Module):
 
     def forward_step(self, inputs: TensorMap, pad_mask: torch.BoolTensor, token_mask: torch.BoolTensor) -> torch.Tensor:
         """
-        Args:
-            inputs (TensorMap): Batch of features.
-            pad_mask (torch.BoolTensor): Padding mask where 0 - <PAD>, 1 otherwise.
-            token_mask (torch.BoolTensor): Token mask where 0 - <MASK> tokens, 1 otherwise.
 
-        Returns:
-            torch.Tensor: Output embeddings.
+        :param inputs (TensorMap): Batch of features.
+        :param pad_mask (torch.BoolTensor): Padding mask where 0 - <PAD>, 1 otherwise.
+        :param token_mask (torch.BoolTensor): Token mask where 0 - <MASK> tokens, 1 otherwise.
+
+        :returns: Output embeddings.
         """
-        # TODO: Check if input tensors matches provided schema
 
         # B - batch size
         # L - sequence length (max_len)
@@ -133,13 +129,11 @@ class BertModel(torch.nn.Module):
         """
         Apply head to output embeddings of `forward_step`.
 
-        Args:
-            out_embeddings (torch.Tensor): Embeddings after `forward step`.
-            item_ids (Optional[torch.LongTensor]): Item ids to calculate scores.
-                Default: ``None``.
+        :param out_embeddings: Embeddings after `forward step`.
+        :param item_ids: Item ids to calculate scores.
+            Default: ``None``.
 
-        Returns:
-            torch.Tensor: Logits for each element in `item_ids`.
+        :returns: Logits for each element in `item_ids`.
         """
         return self._head(out_embeddings, item_ids)
 
@@ -156,6 +150,7 @@ class BertModel(torch.nn.Module):
                 pass
 
 
+# pylint: disable=too-many-instance-attributes
 class BertEmbedding(torch.nn.Module):
     """
     BERT Embedding which is consisted with under features
@@ -165,6 +160,7 @@ class BertEmbedding(torch.nn.Module):
         sum of all these features are output of BertEmbedding
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         schema: TensorSchema,
@@ -174,16 +170,15 @@ class BertEmbedding(torch.nn.Module):
         aggregation_method: str = "sum",
     ) -> None:
         """
-        Args:
-            schema (TensorSchema): Tensor schema of features.
-            max_len (int): Max length of sequence.
-            dropout (float): Dropout rate.
-                Default: ``0.1``.
-            enable_positional_embedding (bool): Add positional embedding to the result.
-                Default: ``True``.
-            aggregation_method (str): Aggregation method for result embedding.
-                Possible values: `"sum"`.
-                Default: ``sum``.
+        :param schema: Tensor schema of features.
+        :param max_len: Max length of sequence.
+        :param dropout: Dropout rate.
+            Default: ``0.1``.
+        :param enable_positional_embedding: Add positional embedding to the result.
+            Default: ``True``.
+        :param aggregation_method: Aggregation method for result embedding.
+            Possible values: `"sum"`.
+            Default: ``sum``.
         """
         super().__init__()
 
@@ -197,7 +192,6 @@ class BertEmbedding(torch.nn.Module):
 
         for feature_name, tensor_info in schema.items():
             if not tensor_info.is_seq:
-                # TODO: Support non-sequential embeddings
                 raise NotImplementedError("Non-sequential features is not yet supported")
 
             if tensor_info.is_cat:
@@ -210,7 +204,6 @@ class BertEmbedding(torch.nn.Module):
                     common_dim = dim
 
                 if dim != common_dim:
-                    # TODO: Add linear projection for features?
                     raise ValueError("Dimension of all features must be the same for sum aggregation")
             else:
                 raise NotImplementedError()
@@ -229,12 +222,10 @@ class BertEmbedding(torch.nn.Module):
 
     def forward(self, inputs: TensorMap, token_mask: torch.BoolTensor) -> torch.Tensor:
         """
-        Args:
-            inputs (TensorMap): Batch of features.
-            token_mask (torch.BoolTensor): Token mask where 0 - <MASK> tokens, 1 otherwise.
+        :param inputs: Batch of features.
+        :param token_mask: Token mask where 0 - <MASK> tokens, 1 otherwise.
 
-        Returns:
-            torch.Tensor: Embeddings for input features.
+        :returns: Embeddings for input features.
         """
         if self.aggregation_method == "sum":
             aggregated_embedding: torch.Tensor = None  # type: ignore
@@ -291,8 +282,7 @@ class BertEmbedding(torch.nn.Module):
     @property
     def item_embeddings(self) -> torch.Tensor:
         """
-        Returns:
-            torch.Tensor: Item embeddings.
+        :returns: Item embeddings.
         """
         return self.cat_embeddings[self.schema.item_id_feature_name].weight
 
@@ -304,8 +294,7 @@ class CatFeatureEmbedding(torch.nn.Embedding):
 
     def __init__(self, feature: TensorFeatureInfo) -> None:
         """
-        Args:
-            feature (TensorFeatureInfo): Categorical tensor feature.
+        :param feature: Categorical tensor feature.
         """
         assert feature.cardinality
         assert feature.embedding_dim
@@ -317,22 +306,20 @@ class PositionalEmbedding(torch.nn.Module):
     Positional embedding.
     """
 
+    # pylint: disable=invalid-name
     def __init__(self, max_len: int, d_model: int) -> None:
         """
-        Args:
-            max_len (int): Max sequence length.
-            d_model (int): Embedding dimension.
+        :param max_len: Max sequence length.
+        :param d_model: Embedding dimension.
         """
         super().__init__()
         self.pe = torch.nn.Embedding(max_len, d_model)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Args:
-            x (torch.Tensor): Input embedding.
+        :param x: Input embedding.
 
-        Returns:
-            torch.Tensor: Positional embedding.
+        :returns: Positional embedding.
         """
         batch_size = x.size(0)
         return self.pe.weight.unsqueeze(0).repeat(batch_size, 1, 1)
@@ -349,13 +336,11 @@ class BaseHead(ABC, torch.nn.Module):
         item_ids: Optional[torch.LongTensor] = None,
     ) -> torch.Tensor:
         """
-        Args:
-            out_embeddings (torch.Tensor): Embeddings after `forward step`.
-            item_ids (Optional[torch.LongTensor]): Item ids to calculate scores.
-                Default: ``None``.
+        :param out_embeddings: Embeddings after `forward step`.
+        :param item_ids: Item ids to calculate scores.
+            Default: ``None``.
 
-        Returns:
-            torch.Tensor: Calculated logits.
+        :returns: Calculated logits.
         """
         item_embeddings = self.get_item_embeddings()
         bias = self.get_bias()
@@ -368,11 +353,15 @@ class BaseHead(ABC, torch.nn.Module):
 
     @abstractmethod
     def get_item_embeddings(self) -> torch.Tensor:  # pragma: no cover
-        pass
+        """
+        :returns: Item embeddings.
+        """
 
     @abstractmethod
     def get_bias(self) -> torch.Tensor:  # pragma: no cover
-        pass
+        """
+        :returns: Bias tensor.
+        """
 
 
 class EmbeddingTyingHead(BaseHead):
@@ -382,9 +371,8 @@ class EmbeddingTyingHead(BaseHead):
 
     def __init__(self, item_embedder: BertEmbedding, n_items: int):
         """
-        Args:
-            item_embedder (BertEmbedding): Bert embedding.
-            n_items (int): Number of items.
+        :param item_embedder: Bert embedding.
+        :param n_items: Number of items.
         """
         super().__init__()
         self._item_embedder = item_embedder
@@ -393,15 +381,13 @@ class EmbeddingTyingHead(BaseHead):
 
     def get_item_embeddings(self) -> torch.Tensor:
         """
-        Returns:
-            torch.Tensor: Item embeddings.
+        :returns: Item embeddings.
         """
         return self._item_embedder.item_embeddings
 
     def get_bias(self) -> torch.Tensor:
         """
-        Returns:
-            torch.Tensor: Bias tensor.
+        :returns: Bias tensor.
         """
         return self.out_bias
 
@@ -413,24 +399,21 @@ class ClassificationHead(BaseHead):
 
     def __init__(self, embed_size: int, n_items: int) -> None:
         """
-        Args:
-            embed_size (int): Embedding size.
-            n_items (int): Number of items.
+        :param embed_size: Embedding size.
+        :param n_items: Number of items.
         """
         super().__init__()
         self.linear = torch.nn.Linear(embed_size, n_items, bias=True)
 
     def get_item_embeddings(self) -> torch.Tensor:
         """
-        Returns:
-            torch.Tensor: Item embeddings.
+        :returns: Item embeddings.
         """
         return self.linear.weight
 
     def get_bias(self) -> torch.Tensor:
         """
-        Returns:
-            torch.Tensor: Bias tensor.
+        :returns: Bias tensor.
         """
         return self.linear.bias
 
@@ -449,13 +432,12 @@ class TransformerBlock(torch.nn.Module):
         dropout: float,
     ) -> None:
         """
-        Args:
-            hidden (int): Hidden size of transformer.
-            attn_heads (int): Head sizes of multi-head attention.
-            feed_forward_hidden (int): Feed_forward_hidden, usually 4*hidden_size.
-            dropout (float): Dropout rate.
-            disentangled (bool): Use disentagled attention instead of default attention.
-                Default: ``False``.
+        :param hidden: Hidden size of transformer.
+        :param attn_heads: Head sizes of multi-head attention.
+        :param feed_forward_hidden: Feed_forward_hidden, usually 4*hidden_size.
+        :param dropout: Dropout rate.
+        :param disentangled: Use disentagled attention instead of default attention.
+            Default: ``False``.
         """
         super().__init__()
         self.attention = MultiHeadedAttention(h=attn_heads, d_model=hidden, dropout=dropout)
@@ -468,22 +450,21 @@ class TransformerBlock(torch.nn.Module):
 
         self.dropout = torch.nn.Dropout(p=dropout)
 
+    # pylint: disable=invalid-name
     def forward(
         self,
         x: torch.Tensor,
         mask: torch.BoolTensor,
     ) -> torch.Tensor:
         """
-        Args:
-            x (torch.Tensor): Input bert embedding.
-            mask (torch.BoolTensor): Mask where 0 - <MASK>, 1 - otherwise.
-            pos_embeddings (Optional[torch.Tensor]): Positional embedding.
-                Default: ``None``.
-            pos_indices (Optional[torch.LongTensor]): Positional indices.
-                Default: ``None``.
+        :param x: Input bert embedding.
+        :param mask: Mask where 0 - <MASK>, 1 - otherwise.
+        :param pos_embeddings: Positional embedding.
+            Default: ``None``.
+        :param pos_indices: Positional indices.
+            Default: ``None``.
 
-        Returns:
-            torch.Tensor: Embedding after Transformer block applied.
+        :returns: Embedding after Transformer block applied.
         """
         # Attention + skip-connection
         x_norm = self.attention_norm(x)
@@ -502,8 +483,7 @@ class Attention(torch.nn.Module):
 
     def __init__(self, dropout: float) -> None:
         """
-        Args:
-            dropout (float): Dropout rate.
+        :param dropout: Dropout rate.
         """
         super().__init__()
         self.dropout = torch.nn.Dropout(p=dropout)
@@ -512,14 +492,12 @@ class Attention(torch.nn.Module):
         self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, mask: torch.BoolTensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Args:
-            query (torch.Tensor): Query feature vector.
-            key (torch.Tensor): Key feature vector.
-            value (torch.Tensor): Value feature vector.
-            mask (torch.BoolTensor): Mask where 0 - <MASK>, 1 - otherwise.
+        :param query: Query feature vector.
+        :param key: Key feature vector.
+        :param value: Value feature vector.
+        :param mask: Mask where 0 - <MASK>, 1 - otherwise.
 
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Tuple of scaled dot product attention
+        :returns: Tuple of scaled dot product attention
                 and attention logits for each element.
         """
         scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(query.size(-1))
@@ -536,13 +514,13 @@ class MultiHeadedAttention(torch.nn.Module):
     Take in model size and number of heads.
     """
 
+    # pylint: disable=invalid-name
     def __init__(self, h: int, d_model: int, dropout: float = 0.1) -> None:
         """
-        Args:
-            h (int): Head sizes of multi-head attention.
-            d_model (int): Embedding dimension.
-            dropout (float): Dropout rate.
-                Default: ``0.1``.
+        :param h: Head sizes of multi-head attention.
+        :param d_model: Embedding dimension.
+        :param dropout: Dropout rate.
+            Default: ``0.1``.
         """
         super().__init__()
         assert d_model % h == 0
@@ -569,14 +547,12 @@ class MultiHeadedAttention(torch.nn.Module):
         mask: torch.BoolTensor,
     ) -> torch.Tensor:
         """
-        Args:
-            query (torch.Tensor): Query feature vector.
-            key (torch.Tensor): Key feature vector.
-            value (torch.Tensor): Value feature vector.
-            mask (torch.BoolTensor): Mask where 0 - <MASK>, 1 - otherwise.
+        :param query: Query feature vector.
+        :param key: Key feature vector.
+        :param value: Value feature vector.
+        :param mask: Mask where 0 - <MASK>, 1 - otherwise.
 
-        Returns:
-            torch.Tensor: Attention outputs.
+        :returns: Attention outputs.
         """
         batch_size = query.size(0)
 
@@ -608,10 +584,9 @@ class LayerNorm(torch.nn.Module):
 
     def __init__(self, features: int, eps: float = 1e-6):
         """
-        Args:
-            features (int): Number of features.
-            eps (float): A value added to the denominator for numerical stability.
-                Default: ``1e-6``.
+        :param features: Number of features.
+        :param eps: A value added to the denominator for numerical stability.
+            Default: ``1e-6``.
         """
         super().__init__()
         self.a_2 = torch.nn.Parameter(torch.ones(features))
@@ -620,11 +595,9 @@ class LayerNorm(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Args:
-            x (torch.Tensor): Input tensor.
+        :param x: Input tensor.
 
-        Returns:
-            torch.Tensor: Normalized input tensor.
+        :returns: Normalized input tensor.
         """
         mean = x.mean(-1, keepdim=True)
         std = x.std(-1, keepdim=True)
@@ -638,11 +611,10 @@ class PositionwiseFeedForward(torch.nn.Module):
 
     def __init__(self, d_model: int, d_ff: int, dropout: float = 0.1) -> None:
         """
-        Args:
-            d_model (int): Embedding dimension.
-            d_ff (int): Feed forward dimension, usually 4*d_model.
-            dropout (float): Dropout rate.
-                Default: ``0.1``.
+        :param d_mode: Embedding dimension.
+        :param d_ff: Feed forward dimension, usually 4*d_model.
+        :param dropout: Dropout rate.
+            Default: ``0.1``.
         """
         super().__init__()
         self.w_1 = torch.nn.Linear(d_model, d_ff)
@@ -652,11 +624,9 @@ class PositionwiseFeedForward(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Args:
-            x (torch.Tensor): Input tensor.
+        :param x: Input tensor.
 
-        Returns:
-            torch.Tensor: Position wised output.
+        :returns: Position wised output.
         """
         return self.w_2(self.dropout(self.activation(self.w_1(x))))
 
@@ -668,10 +638,8 @@ class GELU(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Args:
-            x (torch.Tensor): Input tensor.
+        :param x: Input tensor.
 
-        Returns:
-            torch.Tensor: Activated input tensor.
+        :returns: Activated input tensor.
         """
         return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))

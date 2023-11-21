@@ -301,3 +301,12 @@ implicit (Experimental)
 ````````````````````````````
 .. autoclass:: replay.experimental.models.ImplicitWrap
     :special-members: __init__
+
+
+Neural Networks recommenders
+____________________________
+
+Bert4Rec
+~~~~~~~~
+.. autoclass:: replay.models.nn.Bert4Rec
+   :members: __init__, predict_step
