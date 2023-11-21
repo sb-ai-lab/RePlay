@@ -4,6 +4,7 @@ from typing import Iterator, Tuple
 import torch
 
 
+# pylint: disable=too-few-public-methods
 class OptimizerFactory(abc.ABC):
     """
     Interface for optimizer factory
@@ -11,9 +12,16 @@ class OptimizerFactory(abc.ABC):
 
     @abc.abstractmethod
     def create(self, parameters: Iterator[torch.nn.Parameter]) -> torch.optim.Optimizer:  # pragma: no cover
-        pass
+        """
+        Creates optimizer based on parameters.
+
+        :param parameters: torch parameters to initialize optimizer
+
+        :returns: torch optimizer
+        """
 
 
+# pylint: disable=too-few-public-methods
 class LRSchedulerFactory(abc.ABC):
     """
     Interface for learning rate scheduler factory
@@ -21,14 +29,22 @@ class LRSchedulerFactory(abc.ABC):
 
     @abc.abstractmethod
     def create(self, optimizer: torch.optim.Optimizer) -> torch.optim.lr_scheduler._LRScheduler:  # pragma: no cover
-        pass
+        """
+        Creates learning rate scheduler based on optimizer.
+
+        :param optimizer: torch optimizer
+
+        :returns: torch LRScheduler
+        """
 
 
+# pylint: disable=too-few-public-methods
 class FatOptimizerFactory(OptimizerFactory):
     """
     Factory that creates optimizer depending on passed parameters
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         optimizer: str = "adam",
@@ -45,6 +61,13 @@ class FatOptimizerFactory(OptimizerFactory):
         self.betas = betas
 
     def create(self, parameters: Iterator[torch.nn.Parameter]) -> torch.optim.Optimizer:
+        """
+        Creates optimizer based on parameters.
+
+        :param parameters: torch parameters to initialize optimizer
+
+        :returns: torch optimizer
+        """
         if self.optimizer == "adam":
             return torch.optim.Adam(parameters, lr=self.learning_rate, weight_decay=self.weight_decay, betas=self.betas)
         if self.optimizer == "sgd":
@@ -54,6 +77,7 @@ class FatOptimizerFactory(OptimizerFactory):
         raise ValueError("Unexpected optimizer")
 
 
+# pylint: disable=too-few-public-methods
 class FatLRSchedulerFactory(LRSchedulerFactory):
     """
     Factory that creates learning rate schedule depending on passed parameters
@@ -69,4 +93,11 @@ class FatLRSchedulerFactory(LRSchedulerFactory):
         self.gamma = gamma
 
     def create(self, optimizer: torch.optim.Optimizer) -> torch.optim.lr_scheduler._LRScheduler:
+        """
+        Creates learning rate scheduler based on optimizer.
+
+        :param optimizer: torch optimizer
+
+        :returns: torch LRScheduler
+        """
         return torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.decay_step, gamma=self.gamma)

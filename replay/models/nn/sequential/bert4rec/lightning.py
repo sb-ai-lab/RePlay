@@ -14,11 +14,13 @@ from replay.models.nn.sequential.bert4rec.dataset import (
 from replay.models.nn.sequential.bert4rec.model import BertModel
 
 
+# pylint: disable=too-many-instance-attributes
 class Bert4Rec(L.LightningModule):
     """
     Implements BERT training-validation loop
     """
 
+    # pylint: disable=too-many-arguments, too-many-locals
     def __init__(
         self,
         tensor_schema: TensorSchema,
@@ -38,40 +40,39 @@ class Bert4Rec(L.LightningModule):
         lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
     ):
         """
-        Args:
-            tensor_schema (TensorSchema): Tensor schema of features.
-            block_count (int): Number of Transformer blocks.
-                Default: ``2``.
-            head_count (int): Number of Attention heads.
-                Default: ``4``.
-            embedding_dim (int): Embedding dimension.
-                Default: ``256``.
-            max_seq_len (int): Max length of sequence.
-                Default: ``100``.
-            dropout_rate (float): Dropout rate.
-                Default: ``0.1``.
-            pass_per_transformer_block_count (int): Number of times to pass data over each Transformer block.
-                Default: ``1``.
-            enable_positional_embedding (bool): Add positional embedding to the result.
-                Default: ``True``.
-            enable_embedding_tying (bool): Use embedding tying head.
-                If `True` - result scores are calculated by dot product of input and output embeddings,
-                if `False` - default linear layer is applied to calculate logits for each item.
-                Default: ``False``.
-            loss_type (str): Loss type. Possible values: ``"CE"``, ``"BCE"``.
-                Default: ``CE``.
-            loss_sample_count (Optional[int]): Sample count to calculate loss.
-                Default: ``None``.
-            negative_sampling_strategy (str): Negative sampling strategy to calculate loss on sampled negatives.
-                Is used when large count of items in dataset.
-                Possible values: ``"global_uniform"``, ``"inbatch"``
-                Default: ``global_uniform``.
-            negatives_sharing (bool): Apply negative sharing in calculating sampled logits.
-                Default: ``False``.
-            optimizer_factory (Optional[OptimizerFactory]): Optimizer factory.
-                Default: ``None``.
-            lr_scheduler_factory (Optional[LRSchedulerFactory]): Learning rate schedule factory.
-                Default: ``None``.
+        :param tensor_schema (TensorSchema): Tensor schema of features.
+        :param block_count: Number of Transformer blocks.
+            Default: ``2``.
+        :param head_count: Number of Attention heads.
+            Default: ``4``.
+        :param embedding_dim: Embedding dimension.
+            Default: ``256``.
+        :param max_seq_len: Max length of sequence.
+            Default: ``100``.
+        :param dropout_rate (float): Dropout rate.
+            Default: ``0.1``.
+        :param pass_per_transformer_block_count: Number of times to pass data over each Transformer block.
+            Default: ``1``.
+        :param enable_positional_embedding: Add positional embedding to the result.
+            Default: ``True``.
+        :param enable_embedding_tying: Use embedding tying head.
+            If `True` - result scores are calculated by dot product of input and output embeddings,
+            if `False` - default linear layer is applied to calculate logits for each item.
+            Default: ``False``.
+        :param loss_type: Loss type. Possible values: ``"CE"``, ``"BCE"``.
+            Default: ``CE``.
+        :param loss_sample_count (Optional[int]): Sample count to calculate loss.
+            Default: ``None``.
+        :param negative_sampling_strategy: Negative sampling strategy to calculate loss on sampled negatives.
+            Is used when large count of items in dataset.
+            Possible values: ``"global_uniform"``, ``"inbatch"``
+            Default: ``global_uniform``.
+        :param negatives_sharing: Apply negative sharing in calculating sampled logits.
+            Default: ``False``.
+        :param optimizer_factory: Optimizer factory.
+            Default: ``None``.
+        :param lr_scheduler_factory: Learning rate schedule factory.
+            Default: ``None``.
         """
         super().__init__()
         self.save_hyperparameters()
@@ -99,15 +100,13 @@ class Bert4Rec(L.LightningModule):
         assert item_count
         self._vocab_size = item_count
 
-    # pylint: disable=unused-argument
+    # pylint: disable=unused-argument, arguments-differ
     def training_step(self, batch: BertTrainingBatch, batch_idx: int) -> torch.Tensor:
         """
-        Args:
-            batch (BertTrainingBatch): Batch of training data.
-            batch_idx (int): Batch index.
+        :param batch: Batch of training data.
+        :param batch_idx: Batch index.
 
-        Returns:
-            torch.Tensor: Computed loss for batch.
+        :returns: Computed loss for batch.
         """
         loss = self._compute_loss(batch)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
@@ -120,46 +119,38 @@ class Bert4Rec(L.LightningModule):
         tokens_mask: torch.BoolTensor,
     ) -> torch.Tensor:  # pragma: no cover
         """
-        Args:
-            feature_tensors (TensorMap):  Batch of features.
-            padding_mask (torch.BoolTensor): Padding mask where 0 - <PAD>, 1 otherwise.
-            tokens_mask (torch.BoolTensor): Token mask where 0 - <MASK> tokens, 1 otherwise.
+        :param feature_tensors:  Batch of features.
+        :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
+        :param tokens_mask: Token mask where 0 - <MASK> tokens, 1 otherwise.
 
-        Returns:
-            torch.Tensor: Calculated scores.
+        :returns: Calculated scores.
         """
         return self._model_predict(feature_tensors, padding_mask, tokens_mask)
 
     # pylint: disable=unused-argument
     def predict_step(self, batch: BertPredictionBatch, batch_idx: int, dataloader_idx: int = 0) -> torch.Tensor:
         """
-        Args:
-            batch (BertPredictionBatch): Batch of prediction data.
-            batch_idx (int): Batch index.
-            dataloader_idx (int): Dataloader index.
+        :param batch (BertPredictionBatch): Batch of prediction data.
+        :param batch_idx (int): Batch index.
+        :param dataloader_idx (int): Dataloader index.
 
-        Returns:
-            torch.Tensor: Computed loss for batch.
+        :returns: torch.Tensor: Computed loss for batch.
         """
         return self._model_predict(batch.features, batch.padding_mask, batch.tokens_mask)
 
     # pylint: disable=unused-argument
     def validation_step(self, batch: BertValidationBatch, batch_idx: int) -> torch.Tensor:
         """
-        Args:
-            batch (BertValidationBatch): Batch of prediction data.
-            batch_idx (int): Batch index.
+        :param batch: Batch of prediction data.
+        :param batch_idx: Batch index.
 
-        Returns:
-            torch.Tensor: Computed loss for batch.
+        :returns: Computed loss for batch.
         """
         return self._model_predict(batch.features, batch.padding_mask, batch.tokens_mask)
 
     def configure_optimizers(self) -> Any:
         """
-        Returns:
-            Tuple[List[torch.optim.Optimizer], List[torch.optim.lr_scheduler._LRScheduler]]:
-                Configured optimizer and lr scheduler.
+        :returns: Configured optimizer and lr scheduler.
         """
         optimizer_factory = self._optimizer_factory or FatOptimizerFactory()
         optimizer = optimizer_factory.create(self._model.parameters())

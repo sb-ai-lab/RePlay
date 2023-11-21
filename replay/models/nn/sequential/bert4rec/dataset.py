@@ -27,6 +27,7 @@ class BertTrainingBatch(NamedTuple):
     labels: torch.LongTensor
 
 
+# pylint: disable=too-few-public-methods
 class BertMasker(abc.ABC):
     """
     Interface for a token masking strategy during BERT model training
@@ -34,9 +35,17 @@ class BertMasker(abc.ABC):
 
     @abc.abstractmethod
     def mask(self, seq_len: int, paddings: torch.BoolTensor) -> torch.BoolTensor:  # pragma: no cover
-        pass
+        """
+        Mask random token with uniform distribution for only not padded tokens.
+
+        :param seq_len: Sequence length.
+        :param paddings: Padding mask where ``0`` is <PAD> and ``1`` otherwise.
+
+        :returns: Mask of sequence where ``0`` is masked and ``1`` otherwise.
+        """
 
 
+# pylint: disable=too-few-public-methods
 class UniformBertMasker(BertMasker):
     """
     Token masking strategy that mask random token with uniform distribution.
@@ -44,11 +53,10 @@ class UniformBertMasker(BertMasker):
 
     def __init__(self, mask_prob: float = 0.15, generator: Optional[torch.Generator] = None) -> None:
         """
-        Args:
-            mask_prob (float): Probability of masking each token in sequence.
-                Default: ``0.15``.
-            generator (Optional[torch.Generator]): A pseudorandom number generator for sampling.
-                Default: ``None``.
+        :param mask_prob: Probability of masking each token in sequence.
+            Default: ``0.15``.
+        :param generator: A pseudorandom number generator for sampling.
+            Default: ``None``.
         """
         super().__init__()
         self.generator = generator
@@ -58,12 +66,10 @@ class UniformBertMasker(BertMasker):
         """
         Mask random token with uniform distribution for only not padded tokens.
 
-        Args:
-            seq_len (int): Sequence length.
-            paddings (torch.BoolTensor): Padding mask where ``0`` is <PAD> and ``1`` otherwise.
+        :param seq_len: Sequence length.
+        :param paddings: Padding mask where ``0`` is <PAD> and ``1`` otherwise.
 
-        Returns:
-            torch.BoolTensor: Mask of sequence where ``0`` is masked and ``1`` otherwise.
+        :returns: Mask of sequence where ``0`` is masked and ``1`` otherwise.
         """
         mask_prob = torch.rand(seq_len, dtype=torch.float32, generator=self.generator)
 
@@ -86,6 +92,7 @@ class BertTrainingDataset(TorchDataset):
     Dataset that generates samples to train BERT-like model
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         sequential: SequentialDataset,
@@ -97,22 +104,21 @@ class BertTrainingDataset(TorchDataset):
         padding_value: int = 0,
     ) -> None:
         """
-        Args:
-            sequential (SequentialDataset): Sequential dataset with training data.
-            max_sequence_length (int): Max length of sequence.
-            mask_prob (float): Probability of masking each token in sequence.
-                Default: ``0.15``.
-            sliding_window_step (Optional[int]): A sliding window step.
-                If not ``None`` provides iteration over sequences with window.
-                Default: ``None``.
-            label_feature_name (Optional[str]): Name of label feature in provided dataset.
-                If ``None`` set an item_id_feature name from sequential dataset.
-                Default: ``None``.
-            custom_masker (Optional[BertMasker]): Masker object to generate masks for Bert training.
-                If ``None`` set a UniformBertMasker with provided `mask_prob`.
-                Default: ``None``.
-            padding_value (Optional[int]): Value for padding a sequence to match the `max_sequence_length`.
-                Default: ``0``.
+        :param sequential: Sequential dataset with training data.
+        :param max_sequence_length: Max length of sequence.
+        :param mask_prob: Probability of masking each token in sequence.
+            Default: ``0.15``.
+        :param sliding_window_step: A sliding window step.
+            If not ``None`` provides iteration over sequences with window.
+            Default: ``None``.
+        :param label_feature_name: Name of label feature in provided dataset.
+            If ``None`` set an item_id_feature name from sequential dataset.
+            Default: ``None``.
+        :param custom_masker: Masker object to generate masks for Bert training.
+            If ``None`` set a UniformBertMasker with provided `mask_prob`.
+            Default: ``None``.
+        :param padding_value: Value for padding a sequence to match the `max_sequence_length`.
+            Default: ``0``.
         """
         super().__init__()
         if label_feature_name:
@@ -179,11 +185,10 @@ class BertPredictionDataset(TorchDataset):
         padding_value: int = 0,
     ) -> None:
         """
-        Args:
-            sequential (SequentialDataset): Sequential dataset with data to make predictions at.
-            max_sequence_length (int): Max length of sequence.
-            padding_value (Optional[int]): Value for padding a sequence to match the `max_sequence_length`.
-                Default: ``0``.
+        :param sequential: Sequential dataset with data to make predictions at.
+        :param max_sequence_length: Max length of sequence.
+        :param padding_value: Value for padding a sequence to match the `max_sequence_length`.
+            Default: ``0``.
         """
         self._schema = sequential.schema
         self._inner = TorchSequentialDataset(
@@ -227,6 +232,7 @@ class BertValidationDataset(TorchDataset):
     Dataset that generates samples to infer and validate BERT-like model
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         sequential: SequentialDataset,
@@ -237,16 +243,15 @@ class BertValidationDataset(TorchDataset):
         label_feature_name: Optional[str] = None,
     ):
         """
-        Args:
-            sequential (SequentialDataset): Sequential dataset with data to make predictions at.
-            ground_truth (SequentialDataset): Sequential dataset with ground truth predictions.
-            train (SequentialDataset): Sequential dataset with training data.
-            max_sequence_length (int): Max length of sequence.
-            padding_value (Optional[int]): Value for padding a sequence to match the `max_sequence_length`.
-                Default: ``0``.
-            label_feature_name (Optional[str]): Name of label feature in provided dataset.
-                If ``None`` set an item_id_feature name from sequential dataset.
-                Default: ``None``.
+        :param sequential: Sequential dataset with data to make predictions at.
+        :param ground_truth: Sequential dataset with ground truth predictions.
+        :param train: Sequential dataset with training data.
+        :param max_sequence_length: Max length of sequence.
+        :param padding_value: Value for padding a sequence to match the `max_sequence_length`.
+            Default: ``0``.
+        :param label_feature_name: Name of label feature in provided dataset.
+            If ``None`` set an item_id_feature name from sequential dataset.
+            Default: ``None``.
         """
         self._schema = sequential.schema
         self._inner = TorchSequentialValidationDataset(
