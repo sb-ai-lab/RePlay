@@ -5,6 +5,11 @@
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 
+# PyTorch-Lighning logs
+/lightning_logs
+.logs/
+.checkpoints/
+
 # Poetry (since they are generated from template automatically)
 /poetry.lock
 /pyproject.toml
