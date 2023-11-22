@@ -307,6 +307,6 @@ Neural Networks recommenders
 ____________________________
 
 Bert4Rec
-~~~~~~~~
+````````
 .. autoclass:: replay.models.nn.Bert4Rec
    :members: __init__, predict_step
