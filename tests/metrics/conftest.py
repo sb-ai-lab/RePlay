@@ -1,8 +1,17 @@
+from os.path import dirname, join
 from random import shuffle
+from typing import Tuple
 
 import pandas as pd
 import pytest
-from tests.utils import spark
+
+import replay
+from replay.models import PopRec
+from replay.preprocessing import LabelEncoder, LabelEncodingRule
+from replay.splitters import RatioSplitter
+from replay.utils import PandasDataFrame, SparkDataFrame
+from replay.utils.spark_utils import convert2spark
+from tests.utils import create_dataset, spark
 
 recs_data = [
     (1, 3, 0.6),
@@ -141,3 +150,32 @@ def base_recs_dict():
         items = sorted(items, key=lambda x: x[1], reverse=True)
         converted_dict[user] = items
     return converted_dict
+
+
+def encode_data(data: SparkDataFrame) -> SparkDataFrame:
+    encoder = LabelEncoder([LabelEncodingRule("user_idx"), LabelEncodingRule("item_idx")])
+    return encoder.fit_transform(data)
+
+
+def split_data(data: SparkDataFrame) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    train, test = RatioSplitter(test_size=0.3, query_column="user_idx", divide_column="user_idx").split(data)
+    return train, test
+
+
+@pytest.fixture(scope="module")
+def random_train_test_recs() -> Tuple[PandasDataFrame, PandasDataFrame, PandasDataFrame]:
+    folder = dirname(replay.__file__)
+    ml_1m = pd.read_csv(
+        join(folder, "../examples/data/ml1m_ratings.dat"),
+        sep="\t",
+        names=["user_idx", "item_idx", "relevance", "timestamp"],
+    )
+    ml_1m = convert2spark(ml_1m)
+    encoded_data = encode_data(ml_1m)
+    train, test = split_data(encoded_data)
+
+    model = PopRec()
+    model.fit(create_dataset(train))
+    recs = model.predict(create_dataset(test), 20)
+
+    return train.toPandas(), test.toPandas(), recs.toPandas()
