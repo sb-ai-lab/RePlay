@@ -3,10 +3,10 @@ import logging
 import numpy as np
 import pandas as pd
 
-from replay.obp_evaluation.replay_offline import RePlayOfflinePolicyLearner
-from replay.obp_evaluation.utils import split_bandit_feedback
+from replay.experimental.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
+from replay.experimental.obp_wrapper.utils import split_bandit_feedback
 from replay.models import RandomRec
-from replay.logger import get_logger
+from replay.experimental.utils.logger import get_logger
 
 
 @pytest.fixture
@@ -47,11 +47,11 @@ def test_logger():
 
 @pytest.fixture
 def replay_obp_learner(model, bandit_feedback):
-    learner = RePlayOfflinePolicyLearner(n_actions=2,
+    learner = OBPOfflinePolicyLearner(n_actions=2,
                                          replay_model=model,
                                          len_list=1)
 
-    assert type(learner.replay_model) == RandomRec
+    assert type(learner.replay_model) is RandomRec
 
     learner.fit(action=bandit_feedback["action"],
                 reward=bandit_feedback["reward"],
@@ -65,19 +65,28 @@ def replay_obp_learner(model, bandit_feedback):
 
 
 def test_fit(model, bandit_feedback, replay_obp_learner):
-    assert replay_obp_learner.max_usr_id == 3
+    n_rounds = bandit_feedback['n_rounds']
+
+    assert replay_obp_learner.max_usr_id == n_rounds
 
     train, val = split_bandit_feedback(bandit_feedback, val_size=0.3)
 
-    assert train["n_rounds"] == 2
-    assert val["n_rounds"] == 1
+    n_rounds_train = int(0.7 * bandit_feedback['n_rounds'])
+    assert train["n_rounds"] == n_rounds_train
+    assert val["n_rounds"] == n_rounds - n_rounds_train
 
 
 @pytest.mark.parametrize("context", [[[1, 1, 1]], [[0.5, 1, 1]]])
 def test_predict(context, replay_obp_learner):
-    pred = replay_obp_learner.predict(1, np.array(context, dtype=np.float32))
+    n_rounds = 1
+    pred = replay_obp_learner.predict(n_rounds, np.array(context, dtype=np.float32))
 
-    assert replay_obp_learner.max_usr_id == 4
+    assert replay_obp_learner.max_usr_id == len(context[0]) + n_rounds
+    assert pred.shape == (n_rounds,
+                          replay_obp_learner.n_actions,
+                          replay_obp_learner.len_list)
+
+    assert np.allclose(pred.sum(1), np.ones(shape=(n_rounds, replay_obp_learner.len_list)))
 
 
 @pytest.mark.parametrize("val_size,criterion", [(0.3, "ipw"),

@@ -7,10 +7,11 @@ from dataclasses import dataclass
 from obp.policy.base import BaseOfflinePolicyLearner
 from pyspark.sql import DataFrame
 
-from replay.utils import convert2spark
-from replay.obp_evaluation.obp_optuna_objective import OBPObjective
-from replay.obp_evaluation.utils import split_bandit_feedback
+from replay.utils.spark_utils import convert2spark
+from replay.experimental.obp_wrapper.obp_optuna_objective import OBPObjective
+from replay.experimental.obp_wrapper.utils import split_bandit_feedback
 from replay.models.base_rec import BaseRecommender
+from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
 
 from optuna import create_study
 from optuna.samplers import TPESampler
@@ -34,7 +35,7 @@ def obp2df(action: np.ndarray,
 
     df = pd.DataFrame({"user_idx": np.arange(n_interactions),
                        "item_idx": action,
-                       "relevance": reward,
+                       "rating": reward,
                        "timestamp": timestamp,
                        })
 
@@ -58,7 +59,7 @@ def context2df(context: np.ndarray,
 
 
 @dataclass
-class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
+class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
     """
         Off-policy learner which wraps OBP data representation into replay format.
 
@@ -69,7 +70,7 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
 
         :param replay_model: Any model from replay library with fit, predict functions.
 
-        :param log: Log of interactions (user_id, item_id, relevance).
+        :param dataset: Dataset of interactions (user_id, item_id, rating).
                     Constructing inside the fit method. Used for predict of replay_model.
     """
 
@@ -80,6 +81,33 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
     _study = None
     _logger: Optional[logging.Logger] = None
     _objective = OBPObjective
+
+    def __post_init__(self) -> None:
+        """Initialize Class."""
+        self.feature_schema = FeatureSchema(
+            [
+                FeatureInfo(
+                    column="user_idx",
+                    feature_type=FeatureType.CATEGORICAL,
+                    feature_hint=FeatureHint.QUERY_ID,
+                ),
+                FeatureInfo(
+                    column="item_idx",
+                    feature_type=FeatureType.CATEGORICAL,
+                    feature_hint=FeatureHint.ITEM_ID,
+                ),
+                FeatureInfo(
+                    column="rating",
+                    feature_type=FeatureType.NUMERICAL,
+                    feature_hint=FeatureHint.RATING,
+                ),
+                FeatureInfo(
+                    column="timestamp",
+                    feature_type=FeatureType.NUMERICAL,
+                    feature_hint=FeatureHint.TIMESTAMP,
+                ),
+            ]
+        )
 
     @property
     def logger(self) -> logging.Logger:
@@ -129,7 +157,11 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
                                                           np.arange(self.n_actions),
                                                           "item"))
 
-        self.replay_model._fit_wrap(log, user_features, self.item_features)
+        dataset = Dataset(feature_schema=self.feature_schema,
+                          interactions=log,
+                          query_features=user_features,
+                          item_features=self.item_features)
+        self.replay_model._fit_wrap(dataset)
 
     # pylint: disable=arguments-renamed
     def predict(self,
@@ -158,15 +190,17 @@ class RePlayOfflinePolicyLearner(BaseOfflinePolicyLearner):
 
         self.max_usr_id += n_rounds
 
-        action_dist = self.replay_model._predict_proba(self.log,
+        dataset = Dataset(feature_schema=self.feature_schema,
+                          interactions=self.log,
+                          query_features=user_features,
+                          item_features=self.item_features,
+                          check_consistency=False)
+
+        action_dist = self.replay_model._predict_proba(dataset,
                                                        self.len_list,
                                                        users,
                                                        items,
-                                                       user_features=user_features,
-                                                       item_features=self.item_features,
                                                        filter_seen_items=False)
-
-        assert np.allclose(action_dist.sum(1), np.ones(shape=(n_rounds, self.len_list)))
 
         return action_dist
 

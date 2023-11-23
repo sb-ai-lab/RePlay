@@ -10,24 +10,22 @@ import logging
 from absl import app
 from absl import flags
 from ml_collections import config_flags
-FLAGS = flags.FLAGS
-config_flags.DEFINE_config_file("config")
 
 from pyspark.sql import SparkSession
-from replay.session_handler import get_spark_session, State
-from replay.logger import get_logger
+from replay.utils.session_handler import get_spark_session, State
+from replay.experimental.utils.logger import get_logger
 from replay.models import (
     UCB,
     Wilson,
-    RandomRec,
-    LightFMWrap
+    RandomRec
 )
-from replay.obp_evaluation.replay_offline import RePlayOfflinePolicyLearner
-from replay.obp_evaluation.utils import get_est_rewards_by_reg
+# from replay.experimental.models import LightFMWrap
+
+from replay.experimental.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
+from replay.experimental.obp_wrapper.utils import get_est_rewards_by_reg, bandit_subset
 
 from sklearn.ensemble import RandomForestClassifier as RandomForest
 from sklearn.linear_model import LogisticRegression
-from replay.obp_evaluation.utils import bandit_subset
 
 import obp
 from obp.dataset import (
@@ -120,7 +118,7 @@ def main(_):
 
     model = globals()[args.model](**args.params)
 
-    learner = RePlayOfflinePolicyLearner(n_actions=dataset.n_actions,
+    learner = OBPOfflinePolicyLearner(n_actions=dataset.n_actions,
                                          replay_model=model,
                                          len_list=dataset.len_list,)
 
@@ -129,11 +127,7 @@ def main(_):
         bandit_feedback_subset = bandit_subset(opt_params.subset_borders, bandit_feedback_train)
         logger.info(learner.optimize(bandit_feedback_subset, opt_params.val_size, param_borders=args.opt.param_borders, budget=opt_params.budget))
 
-    timestamp = None
-    if "timestamp" in bandit_feedback_train.keys():
-        timestamp = bandit_feedback_train["timestamp"]
-    else:
-        timestamp = np.arange(bandit_feedback_train["n_rounds"])
+    timestamp = np.arange(bandit_feedback_train["n_rounds"])
 
     learner.fit(
         action=bandit_feedback_train["action"],
@@ -182,4 +176,7 @@ def main(_):
 
 
 if __name__ == '__main__':
+    FLAGS = flags.FLAGS
+    config_flags.DEFINE_config_file("config")
+
     app.run(main)

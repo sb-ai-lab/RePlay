@@ -19,6 +19,7 @@ from os.path import join
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
+import pandas as pd
 from numpy.random import default_rng
 from optuna import create_study
 from optuna.samplers import TPESampler
@@ -665,19 +666,17 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _predict_proba(
         self,
-        log : DataFrame,
+        dataset : Dataset,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True
     ) -> np.ndarray:
         """
         Inner method where model actually predicts.
 
         :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
+            ``[user_idx, item_idx, timestamp, rating]``
         :param k: number of recommendations for each user
         :param users: users to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
@@ -685,7 +684,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
             if ``None``, take all items from ``log``.
-            If it contains new items, ``relevance`` for them will be ``0``.
+            If it contains new items, ``rating`` for them will be ``0``.
         :param user_features: user features
             ``[user_idx , timestamp]`` + feature columns
         :param item_features: item features
@@ -696,19 +695,17 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             where we have probability for each user to choose item at fixed position(top-k).
         """
 
-        n_users = users.select("user_idx").count()
+        n_users = queries.select("user_idx").count()
         n_items = items.select("item_idx").count()
 
-        recs = self._predict(log,
+        recs = self._predict(dataset,
                              k,
-                             users,
+                             queries,
                              items,
-                             user_features,
-                             item_features,
                              filter_seen_items)
 
-        recs = get_top_k_recs(recs, k=k).select(
-            "user_idx", "item_idx", "relevance"
+        recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
+            self.query_column, self.item_column, self.rating_column
         )
 
         cols = [f"k{i}" for i in range(k)]
@@ -1631,7 +1628,6 @@ class NonPersonalizedRecommender(Recommender, ABC):
         """
         items_pd = self.get_items_pd(items)
 
-
         rec_schema = get_schema(
             query_column=self.query_column,
             item_column=self.item_column,
@@ -1735,19 +1731,17 @@ class NonPersonalizedRecommender(Recommender, ABC):
 
     def _predict_proba(
         self,
-        log : DataFrame,
+        dataset : Dataset,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True
     ) -> np.ndarray:
         """
         Inner method where model actually predicts.
 
         :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
+            ``[user_idx, item_idx, timestamp, rating]``
         :param k: number of recommendations for each user
         :param users: users to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
@@ -1755,7 +1749,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
             if ``None``, take all items from ``log``.
-            If it contains new items, ``relevance`` for them will be ``0``.
+            If it contains new items, ``rating`` for them will be ``0``.
         :param user_features: user features
             ``[user_idx , timestamp]`` + feature columns
         :param item_features: item features
@@ -1766,7 +1760,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
             where we have probability for each user to choose item at fixed position(top-k).
         """
 
-        n_users = users.select("user_idx").count()
+        n_users = queries.select("user_idx").count()
         n_items = items.select("item_idx").count()
 
         if self.sample:
@@ -1780,10 +1774,8 @@ class NonPersonalizedRecommender(Recommender, ABC):
 
             return np.tile(items_pd, (n_users, k)).reshape(n_users, k, n_items).transpose((0, 2, 1))
 
-        return super()._predict_proba(log,
+        return super()._predict_proba(dataset,
                                       k,
-                                      users,
+                                      queries,
                                       items,
-                                      user_features,
-                                      item_features,
                                       filter_seen_items)

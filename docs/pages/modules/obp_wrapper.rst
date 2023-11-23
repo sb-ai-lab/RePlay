@@ -1,12 +1,12 @@
 RePlay bandit models evaluation
 ===============================
 
-.. automodule:: replay.obp_evaluation
+.. automodule:: replay.experimental.obp_wrapper
 
 Offline Policy Learners
 -----------------------
 
-.. autoclass:: replay.obp_evaluation.RePlayOfflinePolicyLearner
+.. autoclass:: replay.experimental.obp_wrapper.OBPOfflinePolicyLearner
    :members:
 
 

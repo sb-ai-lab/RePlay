@@ -66,6 +66,6 @@ def get_config(alg_type):
 
     config.test_size = 0.3
     config.behavior_policy = "random"
-    config.data_path = None #your path to the Open Bandit Dataset
+    config.data_path = "/home/hdilab01/hdiRecSys/zozo_full/open_bandit_dataset" #your path to the Open Bandit Dataset
 
     return config

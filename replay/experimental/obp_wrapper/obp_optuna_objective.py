@@ -10,9 +10,8 @@ from obp.ope import (
     InverseProbabilityWeighting,
     DoublyRobust
 )
-from replay.optuna_objective import ObjectiveWrapper
-from replay.obp_evaluation.utils import get_est_rewards_by_reg
-from replay.optuna_objective import suggest_params
+from replay.optimization.optuna_objective import ObjectiveWrapper, suggest_params
+from replay.experimental.obp_wrapper.utils import get_est_rewards_by_reg
 
 
 # pylint: disable=too-many-arguments
@@ -39,11 +38,7 @@ def obp_objective_calculator(
     params_for_trial = suggest_params(trial, search_space)
     learner.replay_model.set_params(**params_for_trial)
 
-    timestamp = None
-    if "timestamp" in bandit_feedback_train.keys():
-        timestamp = bandit_feedback_train["timestamp"]
-    else:
-        timestamp = np.arange(bandit_feedback_train["n_rounds"])
+    timestamp = np.arange(bandit_feedback_train["n_rounds"])
 
     learner.fit(action=bandit_feedback_train["action"],
                 reward=bandit_feedback_train["reward"],

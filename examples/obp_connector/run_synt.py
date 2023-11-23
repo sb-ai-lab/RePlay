@@ -7,18 +7,17 @@ import pandas as pd
 import numpy as np
 import logging
 
-from replay.session_handler import get_spark_session, State
-from replay.logger import get_logger
+from replay.utils.session_handler import get_spark_session, State
+from replay.utils.logger import get_logger
 
 from replay.models import (
     UCB,
     Wilson,
     RandomRec,
-    PopRec,
-    LightFMWrap
+    PopRec
 )
-from replay.obp_evaluation.replay_offline import RePlayOfflinePolicyLearner
-from replay.obp_evaluation.utils import get_est_rewards_by_reg
+from replay.experimental.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
+from replay.experimental.obp_wrapper.utils import get_est_rewards_by_reg
 
 from sklearn.ensemble import RandomForestClassifier as RandomForest
 from sklearn.linear_model import LogisticRegression
@@ -142,20 +141,17 @@ if __name__ == '__main__':
 
     model = UCB(exploration_coef=2.0)
 
-    learner = RePlayOfflinePolicyLearner(n_actions=dataset.n_actions,
+    learner = OBPOfflinePolicyLearner(n_actions=dataset.n_actions,
                                          replay_model=model,
                                          len_list=dataset.len_list,)
 
+    # In case if optimization 
     # param_borders = {
     #     "coef": [-5, 5]
     # }
     # logger.info(learner.optimize(bandit_feedback_train, 0.3, param_borders=param_borders, budget=50))
 
-    timestamp = None
-    if "timestamp" in bandit_feedback_train.keys():
-        timestamp = bandit_feedback_train["timestamp"]
-    else:
-        timestamp = np.arange(bandit_feedback_train["n_rounds"])
+    timestamp = np.arange(bandit_feedback_train["n_rounds"])
 
     learner.fit(
         action=bandit_feedback_train["action"],

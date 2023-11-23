@@ -53,16 +53,16 @@ def bandit_subset(borders: List[int],
     position = None if bandit_feedback["position"] is None\
         else bandit_feedback["position"][left:right]
 
-    return dict(
-        n_rounds=right - left,
-        n_actions=bandit_feedback["n_actions"],
-        action=bandit_feedback["action"][left:right],
-        position=position,
-        reward=bandit_feedback["reward"][left:right],
-        pscore=bandit_feedback["pscore"][left:right],
-        context=bandit_feedback["context"][left:right],
-        action_context=bandit_feedback["action_context"][left:right]
-    )
+    return {
+        "n_rounds": right - left,
+        "n_actions": bandit_feedback["n_actions"],
+        "action": bandit_feedback["action"][left:right],
+        "position": position,
+        "reward": bandit_feedback["reward"][left:right],
+        "pscore": bandit_feedback["pscore"][left:right],
+        "context": bandit_feedback["context"][left:right],
+        "action_context": bandit_feedback["action_context"][left:right]
+    }
 
 
 def split_bandit_feedback(bandit_feedback: Dict[str, np.ndarray],
@@ -80,7 +80,7 @@ def split_bandit_feedback(bandit_feedback: Dict[str, np.ndarray],
     '''
 
     n_rounds = bandit_feedback["n_rounds"]
-    n_rounds_train = np.int32(n_rounds * (1.0 - val_size))
+    n_rounds_train = int(n_rounds * (1.0 - val_size))
 
     bandit_feedback_train = bandit_subset([0, n_rounds_train], bandit_feedback)
     bandit_feedback_val = bandit_subset([n_rounds_train, n_rounds], bandit_feedback)
