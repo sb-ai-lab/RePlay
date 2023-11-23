@@ -2,9 +2,12 @@ import math
 
 from typing import Optional
 from replay.models import UCB
-from pyspark.sql.types import DoubleType
-from pyspark.sql.functions import udf
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 from scipy.optimize import root_scalar
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql.types import DoubleType
+    from pyspark.sql.functions import udf
 
 
 class KLUCB(UCB):
@@ -141,13 +144,13 @@ class KLUCB(UCB):
                 return ucb
 
             ucb = root_scalar(
-                f=lambda q: total * bernoulli_kl(proba, q) - rhs,
+                f=lambda q: total * bernoulli_kl(proba, q) - right_hand_side,
                 bracket=[proba, 1 - eps],
                 method='brentq').root
             return ucb
 
         items_counts = self.items_counts_aggr.withColumn(
-            "relevance", get_ucb("pos", "total")
+            self.rating_column, get_ucb("pos", "total")
         )
 
         self.item_popularity = items_counts.drop("pos", "total")
