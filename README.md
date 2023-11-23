@@ -4,7 +4,7 @@ RePlay is an advanced framework designed to facilitate the development and evalu
 
 ## Features:
 * **Data Preprocessing and Splitting:** Streamlines the data preparation process for recommendation systems, ensuring optimal data structure and format for efficient processing.
-* **Wide range of recommendation models:** Enables building of recommendation models from State-of-the-Art to commonly-used baselines and evaluate their performance and quality.
+* **Wide Range of Recommendation Models:** Enables building of recommendation models from State-of-the-Art to commonly-used baselines and evaluate their performance and quality.
 * **Hyperparameter Optimization:** Offers tools for fine-tuning model parameters to achieve the best possible performance, reducing the complexity of the optimization process.
 * **Comprehensive Evaluation Metrics:** Incorporates a wide range of evaluation metrics to assess the accuracy and effectiveness of recommendation models.
 * **Model Ensemble and Hybridization:** Supports combining predictions from multiple models and creating two-level (ensemble) models to enhance the quality of recommendations.
