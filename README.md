@@ -1,19 +1,20 @@
-# RePlay
+# RePlay: End-to-End Recommendation System Framework
 
-RePlay is a library providing tools for all stages of creating a recommendation system, from data preprocessing to model evaluation and comparison.
+RePlay is an advanced framework designed to facilitate the development and evaluation of recommendation systems. It provides a robust set of tools covering the entire lifecycle of a recommendation system pipeline:
 
-RePlay can use PySpark to handle big data.
+## Features:
+* **Data Preprocessing and Splitting:** Streamlines the data preparation process for recommendation systems, ensuring optimal data structure and format for efficient processing.
+* **State-of-the-Art Model Training and Benchmarking:** Enables training of cutting-edge recommendation models with capabilities to compare against baseline algorithms for performance and quality assessment.
+* **Hyperparameter Optimization:** Offers tools for fine-tuning model parameters to achieve the best possible performance, reducing the complexity of the optimization process.
+* **Comprehensive Evaluation Metrics:** Incorporates a wide range of evaluation metrics to assess the accuracy and effectiveness of recommendation models.
+* **Model Ensemble and Hybridization:** Supports combining predictions from multiple models and creating two-level (ensemble) models to enhance recommendation accuracy.
+* **Seamless Mode Transition:** Facilitates easy transition from offline experimentation to online production environments, ensuring scalability and flexibility.
 
-You can
+## Hardware and Environment Compatibility:
+1. **Diverse Hardware Support:** Compatible with various hardware configurations including CPU, GPU, Multi-GPU.
+2. **Cluster Computing Integration:** Integrating with PySpark for distributed computing, enabling scalability for large-scale recommendation systems.
 
-- Filter and split data
-- Train models
-- Optimize hyper parameters
-- Evaluate predictions with metrics
-- Combine predictions from different models
-- Create a two-level model
-
-Documentation is available [here](https://sb-ai-lab.github.io/RePlay/).
+## Documentation is available [here](https://sb-ai-lab.github.io/RePlay/).
 
 <a name="toc"></a>
 # Table of Contents
