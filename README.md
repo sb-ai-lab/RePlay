@@ -7,7 +7,7 @@ RePlay is an advanced framework designed to facilitate the development and evalu
 * **State-of-the-Art Model Training and Benchmarking:** Enables training of cutting-edge recommendation models with capabilities to compare against baseline algorithms for performance and quality assessment.
 * **Hyperparameter Optimization:** Offers tools for fine-tuning model parameters to achieve the best possible performance, reducing the complexity of the optimization process.
 * **Comprehensive Evaluation Metrics:** Incorporates a wide range of evaluation metrics to assess the accuracy and effectiveness of recommendation models.
-* **Model Ensemble and Hybridization:** Supports combining predictions from multiple models and creating two-level (ensemble) models to enhance recommendation accuracy.
+* **Model Ensemble and Hybridization:** Supports combining predictions from multiple models and creating two-level (ensemble) models to enhance the quality of recommendations.
 * **Seamless Mode Transition:** Facilitates easy transition from offline experimentation to online production environments, ensuring scalability and flexibility.
 
 ## Hardware and Environment Compatibility:
