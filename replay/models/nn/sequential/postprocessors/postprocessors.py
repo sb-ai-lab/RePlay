@@ -27,7 +27,7 @@ class RemoveSeenItems(BasePostProcessor):
         :param scores: calculated logits
         :param ground_truth: ground truth dataset
 
-        :returns: modified query ids and scores
+        :returns: modified query ids and scores and ground truth dataset
         """
         modified_scores = self._compute_scores(query_ids, scores)
         return query_ids, modified_scores, ground_truth
@@ -112,7 +112,7 @@ class SampleItems(BasePostProcessor):
         :param scores: calculated logits
         :param ground_truth: ground truth dataset
 
-        :returns: modified query ids and scores
+        :returns: modified query ids and scores and ground truth dataset
         """
         modified_score = self._compute_score(query_ids, scores, ground_truth)
         return query_ids, modified_score, ground_truth

@@ -15,31 +15,28 @@ torch = pytest.importorskip("torch")
 
 @pytest.mark.torch
 @pytest.mark.parametrize(
-    "mask_prob, seq_len, padding_mask, result",
+    "mask_prob, padding_mask, result",
     [
         (
             0.0,
-            8,
             torch.tensor([0, 0, 0, 0, 0, 1, 1, 1], dtype=torch.bool),
             torch.tensor([1, 1, 1, 1, 1, 1, 1, 0], dtype=torch.bool),
         ),
         (
             1.0,
-            8,
             torch.tensor([0, 0, 0, 0, 0, 1, 1, 1], dtype=torch.bool),
             torch.tensor([0, 0, 0, 0, 0, 0, 1, 0], dtype=torch.bool),
         ),
         (
             1e-6,
-            8,
             torch.tensor([0, 1, 1, 1, 1, 1, 1, 1], dtype=torch.bool),
             torch.tensor([0, 1, 1, 1, 1, 1, 1, 1], dtype=torch.bool),
         ),
     ],
 )
-def test_uniform_bert_masking_corner_cases(mask_prob, seq_len, padding_mask, result):
+def test_uniform_bert_masking_corner_cases(mask_prob, padding_mask, result):
     masker = UniformBertMasker(mask_prob=mask_prob)
-    tokens_mask = masker.mask(seq_len=seq_len, paddings=padding_mask)
+    tokens_mask = masker.mask(paddings=padding_mask)
 
     assert all(tokens_mask == result)
 

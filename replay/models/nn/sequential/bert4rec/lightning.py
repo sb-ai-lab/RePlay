@@ -134,7 +134,7 @@ class Bert4Rec(L.LightningModule):
         :param batch_idx (int): Batch index.
         :param dataloader_idx (int): Dataloader index.
 
-        :returns: torch.Tensor: Computed loss for batch.
+        :returns: Calculated scores on prediction batch.
         """
         return self._model_predict(batch.features, batch.padding_mask, batch.tokens_mask)
 
@@ -144,7 +144,7 @@ class Bert4Rec(L.LightningModule):
         :param batch: Batch of prediction data.
         :param batch_idx: Batch index.
 
-        :returns: Computed loss for batch.
+        :returns: Calculated scores on validation batch.
         """
         return self._model_predict(batch.features, batch.padding_mask, batch.tokens_mask)
 
