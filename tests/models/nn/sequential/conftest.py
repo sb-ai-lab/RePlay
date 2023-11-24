@@ -15,6 +15,7 @@ if TORCH_AVAILABLE:
         BertTrainingDataset,
         BertValidationDataset,
     )
+    from replay.models.nn.sequential.sasrec import SASRecPredictionDataset, SASRecTrainingDataset, SASRecValidationDataset
 
 
 @pytest.fixture(scope="package")
@@ -258,20 +259,20 @@ def pred_loader(item_user_sequential_dataset):
 
 
 @pytest.fixture(scope="module")
-def train_gpt_loader(item_user_sequential_dataset):
-    train = GptTrainingDataset(item_user_sequential_dataset, 5)
+def train_sasrec_loader(item_user_sequential_dataset):
+    train = SASRecTrainingDataset(item_user_sequential_dataset, 5)
     return torch.utils.data.DataLoader(train)
 
 
 @pytest.fixture(scope="module")
-def val_gpt_loader(item_user_sequential_dataset):
-    val = GptValidationDataset(
+def val_sasrec_loader(item_user_sequential_dataset):
+    val = SASRecValidationDataset(
         item_user_sequential_dataset, item_user_sequential_dataset, item_user_sequential_dataset, max_sequence_length=5
     )
     return torch.utils.data.DataLoader(val)
 
 
 @pytest.fixture(scope="module")
-def pred_gpt_loader(item_user_sequential_dataset):
-    pred = GptPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+def pred_sasrec_loader(item_user_sequential_dataset):
+    pred = SASRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     return torch.utils.data.DataLoader(pred)
