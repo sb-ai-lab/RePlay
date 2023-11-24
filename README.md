@@ -179,8 +179,12 @@ print(metrics.results)
 1. [01_replay_basics.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/01_replay_basics.ipynb) - get started with RePlay.
 2. [02_models_comparison.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/02_models_comparison.ipynb) - reproducible models comparison on [MovieLens-1M dataset](https://grouplens.org/datasets/movielens/1m/).
 3. [03_features_preprocessing_and_lightFM.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/03_features_preprocessing_and_lightFM.ipynb) - LightFM example with pyspark for feature preprocessing.
-3. [04_splitters.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/04_splitters.ipynb) - An example of using RePlay data splitters.
-3. [05_feature_generators.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/05_feature_generators.ipynb) - Feature generation with RePlay.
+4. [04_splitters.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/04_splitters.ipynb) - An example of using RePlay data splitters.
+5. [05_feature_generators.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/05_feature_generators.ipynb) - Feature generation with RePlay.
+6. [06_item2item_recommendations.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/06_item2item_recommendations.ipynb) - Item to Item recommendations example.
+7. [07_filters.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/07_filters.ipynb) - An example of using filters.
+8. [08_recommending_for_categories.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/08_recommending_for_categories.ipynb) - An example of recommendation for product categories.
+9. [09_sasrec_example.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/09_sasrec_example.ipynb) - An example of using transformers to generate recommendations.
 
 
 ### Videos and papers

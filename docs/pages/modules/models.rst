@@ -310,3 +310,8 @@ Bert4Rec
 ````````
 .. autoclass:: replay.models.nn.Bert4Rec
    :members: __init__, predict_step
+
+SASRec
+``````
+.. autoclass:: replay.models.nn.SASRec
+   :members: __init__, predict_step
