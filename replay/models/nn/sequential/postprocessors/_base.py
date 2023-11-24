@@ -32,6 +32,6 @@ class BasePostProcessor(abc.ABC):  # pragma: no cover
         :param scores: calculated logits
         :param ground_truth: ground truth dataset
 
-        :returns: modified query ids and scores
+        :returns: modified query ids and scores and ground truth dataset
         """
         # it is necessary to return the tuple of modified query_ids, scores and ground_truth

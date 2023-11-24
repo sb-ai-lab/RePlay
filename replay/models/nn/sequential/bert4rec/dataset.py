@@ -34,11 +34,10 @@ class BertMasker(abc.ABC):
     """
 
     @abc.abstractmethod
-    def mask(self, seq_len: int, paddings: torch.BoolTensor) -> torch.BoolTensor:  # pragma: no cover
+    def mask(self, paddings: torch.BoolTensor) -> torch.BoolTensor:  # pragma: no cover
         """
-        Mask random token with uniform distribution for only not padded tokens.
+        Mask random tokens for only not padded tokens.
 
-        :param seq_len: Sequence length.
         :param paddings: Padding mask where ``0`` is <PAD> and ``1`` otherwise.
 
         :returns: Mask of sequence where ``0`` is masked and ``1`` otherwise.
@@ -62,16 +61,15 @@ class UniformBertMasker(BertMasker):
         self.generator = generator
         self.mask_prob = mask_prob
 
-    def mask(self, seq_len: int, paddings: torch.BoolTensor) -> torch.BoolTensor:
+    def mask(self, paddings: torch.BoolTensor) -> torch.BoolTensor:
         """
         Mask random token with uniform distribution for only not padded tokens.
 
-        :param seq_len: Sequence length.
         :param paddings: Padding mask where ``0`` is <PAD> and ``1`` otherwise.
 
         :returns: Mask of sequence where ``0`` is masked and ``1`` otherwise.
         """
-        mask_prob = torch.rand(seq_len, dtype=torch.float32, generator=self.generator)
+        mask_prob = torch.rand(paddings.size(-1), dtype=torch.float32, generator=self.generator)
 
         # mask[i], 0 ~ mask_prob, 1 ~ (1 - mask_prob)
         mask = (mask_prob * paddings) >= self.mask_prob
@@ -147,7 +145,7 @@ class BertTrainingDataset(TorchDataset):
 
     def __getitem__(self, index: int) -> BertTrainingBatch:
         query_id, padding_mask, features = self._inner[index]
-        tokens_mask = self._masker.mask(self._max_sequence_length, padding_mask)
+        tokens_mask = self._masker.mask(padding_mask)
 
         assert self._label_feature_name
         labels = features[self._label_feature_name]

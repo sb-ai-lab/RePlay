@@ -156,7 +156,6 @@ class BertEmbedding(torch.nn.Module):
     BERT Embedding which is consisted with under features
         1. TokenEmbedding : normal embedding matrix
         2. PositionalEmbedding : adding positional information using sin, cos
-        2. SegmentEmbedding : adding sentence segment info, (sent_A:1, sent_B:2)
         sum of all these features are output of BertEmbedding
     """
 
@@ -436,8 +435,6 @@ class TransformerBlock(torch.nn.Module):
         :param attn_heads: Head sizes of multi-head attention.
         :param feed_forward_hidden: Feed_forward_hidden, usually 4*hidden_size.
         :param dropout: Dropout rate.
-        :param disentangled: Use disentagled attention instead of default attention.
-            Default: ``False``.
         """
         super().__init__()
         self.attention = MultiHeadedAttention(h=attn_heads, d_model=hidden, dropout=dropout)
@@ -459,10 +456,6 @@ class TransformerBlock(torch.nn.Module):
         """
         :param x: Input bert embedding.
         :param mask: Mask where 0 - <MASK>, 1 - otherwise.
-        :param pos_embeddings: Positional embedding.
-            Default: ``None``.
-        :param pos_indices: Positional indices.
-            Default: ``None``.
 
         :returns: Embedding after Transformer block applied.
         """
