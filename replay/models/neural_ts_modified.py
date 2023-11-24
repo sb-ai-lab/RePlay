@@ -265,6 +265,21 @@ class WideDeep(nn.Module):
             )
         self.head_dropout = head_dropout 
     
+    def forward_for_predict(self, wide_part, continuous_part, cat_part, users, items):
+        users_to_embed, items_to_embed, cross_users, cross_items, cross = self.embed_model(users, items)
+        input_deep = torch.cat((cat_part, continuous_part, users_to_embed, items_to_embed), dim=-1).squeeze()
+        out_deep = self.Deep(input_deep)
+        wide_part = torch.cat((wide_part, cross_users, cross_items, cross), dim=-1)
+        out_wide = self.Wide(wide_part)
+        input = torch.cat((out_wide, out_deep), dim=-1)
+        out = self.head_model(input)
+        return out 
+    
+    def forward_dropout(self, input):
+        out = nn.functional.dropout(input, p=self.head_dropout, training=True)
+        out = self.last_layer(out)
+        return out
+    
     def my_forward(self, wide_part, continuous_part, cat_part, users_to_embed, items_to_embed, cross_users, cross_items, cross):
         input_deep = torch.cat((cat_part, continuous_part, users_to_embed, items_to_embed), dim=-1).squeeze()
         out_deep = self.Deep(input_deep)
@@ -414,13 +429,13 @@ class NeuralTSModified(HybridRecommender):
         for user_dataloader in tqdm(val_dataloader):
             _, _, _, users, _, _ = next(iter(user_dataloader))
             user = int(users[0])
-            sample_pred = np.array(self.predict_test(self.model, user_dataloader, self.device))
+            sample_pred = np.array(self.predict_val(self.model, user_dataloader, self.device))
             top_k_predicts = (-sample_pred).argsort()[:k]
             ndcg += (np.isin(top_k_predicts, self.dict_true_items_val[user]).sum())/k
             idx += 1
-        return ndcg/idx            
+        return ndcg/idx      
     
-    def predict_test(self, model, val_dataloader, device):
+    def predict_val(self, model, val_dataloader, device):
         probs = []
         model = model.to(device)
         model.eval()
@@ -432,7 +447,23 @@ class NeuralTSModified(HybridRecommender):
                 users = users
                 items = items
                 preds = model(wide_part, continuous_part, cat_part, users, items)
-                probs += (preds.squeeze()).tolist()
+                probs += ((preds.squeeze()).tolist())
+        return probs
+    
+    def predict_test(self, model, val_dataloader, device, N):
+        probs = []
+        model = model.to(device)
+        model.eval()
+        with torch.no_grad():
+            for idx, (wide_part, continuous_part, cat_part, users, items, labels) in enumerate(val_dataloader): 
+                wide_part = wide_part
+                continuous_part = continuous_part
+                cat_part = cat_part
+                users = users
+                items = items
+                preds = model.forward_for_predict(wide_part, continuous_part, cat_part, users, items)
+                for i in range(N):
+                    probs.append((model.forward_dropout(preds).squeeze()).tolist())
         return probs
             
     def preproces_features_fit(self, train, item_features, user_features):
@@ -653,9 +684,7 @@ class NeuralTSModified(HybridRecommender):
                                                      batch_size=df_test_idx.shape[0],  
                                                      shuffle=False)
             #predict
-            samples = []
-            for i in range(self.cnt_samples_for_predict):
-                samples.append(self.predict_test(self.model, dataloader, self.device))
+            samples = self.predict_test(self.model, dataloader, self.device, self.cnt_samples_for_predict)
             samples = np.array(samples)
             mean = np.mean(samples, axis = 0)
             var = ((samples - mean)**2).mean(axis = 0)
