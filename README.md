@@ -188,7 +188,10 @@ print(metrics.results)
 	- [Replay for offline recommendations, AI Journey 2021](https://www.youtube.com/watch?v=ejQZKGAG0xs)
 
 * **Research papers**:
-	- Yan-Martin Tamm, Rinchin Damdinov, Alexey Vasilev [Quality Metrics in Recommender Systems: Do We Calculate Metrics Consistently?](https://dl.acm.org/doi/10.1145/3460231.3478848)
+	- [Turning Dross Into Gold Loss: is BERT4Rec really better than SASRec?](https://doi.org/10.1145/3604915.3610644) Anton Klenitskiy, Alexey Vasilev. In The 17th ACM Conference on Recommender Systems (RecSys '23)
+    - [The Long Tail of Context: Does it Exist and Matter?](https://arxiv.org/abs/2210.01023). Konstantin Bauman, Alexey Vasilev, Alexander Tuzhilin. In Workshop on Context-Aware Recommender Systems (CARS) (RecSys '22)
+    - [Multiobjective Evaluation of Reinforcement Learning Based Recommender Systems](https://doi.org/10.1145/3523227.3551485). Alexey Grishanov, Anastasia Ianina, Konstantin Vorontsov. In The 16th ACM Conference on Recommender Systems (RecSys '22)
+    - [Quality Metrics in Recommender Systems: Do We Calculate Metrics Consistently?](https://doi.org/10.1145/3460231.3478848) Yan-Martin Tamm, Rinchin Damdinov, Alexey Vasilev. In The 15th ACM Conference on Recommender Systems (RecSys '21)
 
 <a name="contributing"></a>
 ## 💡 Contributing to RePlay
