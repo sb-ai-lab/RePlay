@@ -4852,34 +4852,6 @@ files = [
 botocore = ">=1.3.0,<2.0.0"
 
 [[package]]
-name = "s3transfer"
-version = "0.1.13"
-description = "An Amazon S3 Transfer Manager"
-optional = false
-python-versions = "*"
-files = [
-    {file = "s3transfer-0.1.13-py2.py3-none-any.whl", hash = "sha256:c7a9ec356982d5e9ab2d4b46391a7d6a950e2b04c472419f5fdec70cc0ada72f"},
-    {file = "s3transfer-0.1.13.tar.gz", hash = "sha256:90dc18e028989c609146e241ea153250be451e05ecc0c2832565231dacdf59c1"},
-]
-
-[package.dependencies]
-botocore = ">=1.3.0,<2.0.0"
-
-[[package]]
-name = "s3transfer"
-version = "0.1.13"
-description = "An Amazon S3 Transfer Manager"
-optional = false
-python-versions = "*"
-files = [
-    {file = "s3transfer-0.1.13-py2.py3-none-any.whl", hash = "sha256:c7a9ec356982d5e9ab2d4b46391a7d6a950e2b04c472419f5fdec70cc0ada72f"},
-    {file = "s3transfer-0.1.13.tar.gz", hash = "sha256:90dc18e028989c609146e241ea153250be451e05ecc0c2832565231dacdf59c1"},
-]
-
-[package.dependencies]
-botocore = ">=1.3.0,<2.0.0"
-
-[[package]]
 name = "scikit-learn"
 version = "1.3.2"
 description = "A set of python modules for machine learning and data mining"
@@ -6242,36 +6214,4 @@ torch = ["lightning", "pytorch-ranger", "torch"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1, <3.11"
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-content-hash = "c10e07102edcade96db5007b9cc3d30961cebb2a8a470add5724147eb0eedd7c"
-=======
-content-hash = "7812e530c7be28c4ad81976294f6dcdc9e38cf9659871b863140de987f9f529d"
->>>>>>> Add Bert4Rec
-=======
-content-hash = "9f26b8bf6567901d7158cd2d7d229d626cecb6f3bb1a465c6c61f78d36eb31d0"
->>>>>>> experimental lock file prepared
-=======
-content-hash = "7812e530c7be28c4ad81976294f6dcdc9e38cf9659871b863140de987f9f529d"
->>>>>>> Add Bert4Rec
-=======
-content-hash = "9f26b8bf6567901d7158cd2d7d229d626cecb6f3bb1a465c6c61f78d36eb31d0"
->>>>>>> experimental lock file prepared
-=======
-content-hash = "9f26b8bf6567901d7158cd2d7d229d626cecb6f3bb1a465c6c61f78d36eb31d0"
->>>>>>> Lock files after rebase
-=======
-content-hash = "9f26b8bf6567901d7158cd2d7d229d626cecb6f3bb1a465c6c61f78d36eb31d0"
->>>>>>> fix tomls
-=======
 content-hash = "7a83de5822e640f1e5f522a92b04b8c6d00bd67f0b6b29ceb72bbd53f892e889"
->>>>>>> Update lock files
-=======
-content-hash = "7a83de5822e640f1e5f522a92b04b8c6d00bd67f0b6b29ceb72bbd53f892e889"
->>>>>>> 9a2a28a1e8d48f9de1d3fc3e81a5d482f689c771
