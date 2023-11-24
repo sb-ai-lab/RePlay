@@ -1,8 +1,15 @@
-# RePlay: End-to-End Recommendation System Framework
+<img src="docs/images/replay_logo_color.svg" height="50"/>
+<br>
+
+![GitHub License](https://img.shields.io/github/license/sb-ai-lab/RePlay)
+![PyPI - Version](https://img.shields.io/pypi/v/replay-rec)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/replay-rec)
+<br>
+[![Join the community on GitHub Discussions](https://badgen.net/badge/join%20the%20discussion/on%20github/black?icon=github)](https://github.com/sb-ai-lab/RePlay/discussions)
 
 RePlay is an advanced framework designed to facilitate the development and evaluation of recommendation systems. It provides a robust set of tools covering the entire lifecycle of a recommendation system pipeline:
 
-## Features:
+## 🚀 Features:
 * **Data Preprocessing and Splitting:** Streamlines the data preparation process for recommendation systems, ensuring optimal data structure and format for efficient processing.
 * **Wide Range of Recommendation Models:** Enables building of recommendation models from State-of-the-Art to commonly-used baselines and evaluate their performance and quality.
 * **Hyperparameter Optimization:** Offers tools for fine-tuning model parameters to achieve the best possible performance, reducing the complexity of the optimization process.
@@ -10,11 +17,11 @@ RePlay is an advanced framework designed to facilitate the development and evalu
 * **Model Ensemble and Hybridization:** Supports combining predictions from multiple models and creating two-level (ensemble) models to enhance the quality of recommendations.
 * **Seamless Mode Transition:** Facilitates easy transition from offline experimentation to online production environments, ensuring scalability and flexibility.
 
-## Hardware and Environment Compatibility:
+## 💻 Hardware and Environment Compatibility:
 1. **Diverse Hardware Support:** Compatible with various hardware configurations including CPU, GPU, Multi-GPU.
 2. **Cluster Computing Integration:** Integrating with PySpark for distributed computing, enabling scalability for large-scale recommendation systems.
 
-## Documentation is available [here](https://sb-ai-lab.github.io/RePlay/).
+## 📖 Documentation is available [here](https://sb-ai-lab.github.io/RePlay/).
 
 <a name="toc"></a>
 # Table of Contents
@@ -26,7 +33,7 @@ RePlay is an advanced framework designed to facilitate the development and evalu
 
 
 <a name="installation"></a>
-## Installation
+## 🔧 Installation
 
 Installation via `pip` package manager is recommended by default:
 
@@ -66,7 +73,7 @@ If you encounter an error during RePlay installation, check the [troubleshooting
 
 
 <a name="quickstart"></a>
-## Quickstart
+## 📈 Quickstart
 
 ```python
 from rs_datasets import MovieLens
@@ -166,7 +173,7 @@ print(metrics.results)
 ```
 
 <a name="examples"></a>
-## Resources
+## 📑  Resources
 
 ### Usage examples
 1. [01_replay_basics.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/01_replay_basics.ipynb) - get started with RePlay.
@@ -184,6 +191,6 @@ print(metrics.results)
 	- Yan-Martin Tamm, Rinchin Damdinov, Alexey Vasilev [Quality Metrics in Recommender Systems: Do We Calculate Metrics Consistently?](https://dl.acm.org/doi/10.1145/3460231.3478848)
 
 <a name="contributing"></a>
-## Contributing to RePlay
+## 💡 Contributing to RePlay
 
 We welcome community contributions. For details please check our [contributing guidelines](CONTRIBUTING.md).
