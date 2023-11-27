@@ -11,5 +11,4 @@ Modules
    modules/metrics
    modules/scenarios
    modules/utils
-   modules/data_preparator
    modules/distributions
