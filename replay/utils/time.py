@@ -51,7 +51,7 @@ def get_item_recency(
 
     >>> (
     ...     get_item_recency(df, kind="power")
-    ...     .select("item_idx", "relevance", round("relevance", 4).alias("relevance"))
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
     ...     .orderBy("item_idx")
     ...     .show()
     ... )
@@ -68,7 +68,7 @@ def get_item_recency(
 
     >>> (
     ...     get_item_recency(df, kind="exp")
-    ...     .select("item_idx", "relevance", round("relevance", 4).alias("relevance"))
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
     ...     .orderBy("item_idx")
     ...     .show()
     ... )
@@ -85,7 +85,7 @@ def get_item_recency(
 
     >>> (
     ...     get_item_recency(df, kind="linear")
-    ...     .select("item_idx", "relevance", round("relevance", 4).alias("relevance"))
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
     ...     .orderBy("item_idx")
     ...     .show()
     ... )
@@ -151,7 +151,7 @@ def smoothe_time(
 
     >>> (
     ...     smoothe_time(df, kind="power")
-    ...     .select("item_idx", "relevance", round("relevance", 4).alias("relevance"))
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
     ...     .orderBy("timestamp")
     ...     .show()
     ... )
@@ -170,7 +170,7 @@ def smoothe_time(
 
     >>> (
     ...     smoothe_time(df, kind="exp")
-    ...     .select("item_idx", "relevance", round("relevance", 4).alias("relevance"))
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
     ...     .orderBy("timestamp")
     ...     .show()
     ... )
@@ -189,7 +189,7 @@ def smoothe_time(
 
     >>> (
     ...     smoothe_time(df, kind="linear")
-    ...     .select("item_idx", "relevance", round("relevance", 4).alias("relevance"))
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
     ...     .orderBy("timestamp")
     ...     .show()
     ... )
@@ -220,7 +220,7 @@ def smoothe_time(
     2         3  2099-03-22        0.1
     >>> (
     ...     smoothe_time(df)
-    ...     .select("item_idx", "relevance", round("relevance", 4).alias("relevance"))
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
     ...     .orderBy("timestamp")
     ...     .show()
     ... )
