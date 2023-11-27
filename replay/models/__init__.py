@@ -23,4 +23,3 @@ from replay.models.ucb import UCB
 from replay.models.kl_ucb import KLUCB
 from replay.models.wilson import Wilson
 from replay.models.word2vec import Word2VecRec
-

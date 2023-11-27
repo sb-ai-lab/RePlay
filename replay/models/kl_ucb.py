@@ -2,7 +2,7 @@ import math
 
 from typing import Optional
 from replay.models import UCB
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE
 from scipy.optimize import root_scalar
 
 if PYSPARK_AVAILABLE:
@@ -156,4 +156,4 @@ class KLUCB(UCB):
         self.item_popularity = items_counts.drop("pos", "total")
 
         self.item_popularity.cache().count()
-        self.fill = 1 + math.srt(self.coef * math.log(self.full_count))
+        self.fill = 1 + math.sqrt(self.coef * math.log(self.full_count))
