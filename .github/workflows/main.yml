@@ -31,10 +31,6 @@ jobs:
 
           poetry cache clear pypi --all
           ./poetry_wrapper.sh --experimental install --all-extras
-      - name: Build docs
-        run: |
-          . ./venv/bin/activate
-          make -C docs clean html
       - name: pycodestyle
         run: |
           . ./venv/bin/activate
