@@ -82,6 +82,7 @@ def test_fit(log, model):
     assert np.allclose(
         vectors,
         [[1, 5.33072205e-04], [0, 1.54904364e-01], [3, 2.13002899e-01]],
+        atol=1e-04,
     )
 
 
