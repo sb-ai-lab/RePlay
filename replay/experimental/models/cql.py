@@ -1,4 +1,3 @@
-# pylint: disable=import-error
 """
 Using CQL implementation from `d3rlpy` package.
 """
