@@ -1,10 +1,11 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
 
-from pyspark.sql import functions as sf
-
 from replay.models import UCB, KLUCB
 from tests.utils import create_dataset, log, log2, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
+
+pyspark = pytest.importorskip("pyspark")
+from pyspark.sql import functions as sf
 
 
 @pytest.fixture
