@@ -74,7 +74,7 @@ If you encounter an error during RePlay installation, check the [troubleshooting
 
 
 <a name="quickstart"></a>
-## 📈 Quickstart
+## 📈 Quickstart (PySpark-based)
 
 ```python
 from rs_datasets import MovieLens
@@ -83,7 +83,7 @@ from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, Featur
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.metrics import HitRate, NDCG, Experiment
 from replay.models import ItemKNN
-from replay.utils import convert2spark
+from replay.utils.spark_utils import convert2spark
 from replay.utils.session_handler import State
 from replay.splitters import RatioSplitter
 
