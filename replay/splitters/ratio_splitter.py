@@ -12,7 +12,7 @@ if PYSPARK_AVAILABLE:
 # pylint: disable=too-few-public-methods, too-many-instance-attributes
 class RatioSplitter(Splitter):
     """
-    Split interactions into train and test by ratio.
+    Split interactions into train and test by ratio. Split is made for each user separately.
 
     >>> from datetime import datetime
     >>> import pandas as pd

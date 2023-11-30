@@ -7,11 +7,11 @@ import torch
 from replay.data.nn import TensorMap, TensorSchema
 from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
 from replay.models.nn.sequential.bert4rec.dataset import (
-    BertPredictionBatch,
-    BertTrainingBatch,
-    BertValidationBatch,
+    Bert4RecPredictionBatch,
+    Bert4RecTrainingBatch,
+    Bert4RecValidationBatch,
 )
-from replay.models.nn.sequential.bert4rec.model import BertModel
+from replay.models.nn.sequential.bert4rec.model import Bert4RecModel
 
 
 # pylint: disable=too-many-instance-attributes
@@ -26,7 +26,7 @@ class Bert4Rec(L.LightningModule):
         tensor_schema: TensorSchema,
         block_count: int = 2,
         head_count: int = 4,
-        embedding_dim: int = 256,
+        hidden_size: int = 256,
         max_seq_len: int = 100,
         dropout_rate: float = 0.1,
         pass_per_transformer_block_count: int = 1,
@@ -45,7 +45,7 @@ class Bert4Rec(L.LightningModule):
             Default: ``2``.
         :param head_count: Number of Attention heads.
             Default: ``4``.
-        :param embedding_dim: Embedding dimension.
+        :param hidden_size: Hidden size of transformer.
             Default: ``256``.
         :param max_seq_len: Max length of sequence.
             Default: ``100``.
@@ -76,10 +76,10 @@ class Bert4Rec(L.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
-        self._model = BertModel(
+        self._model = Bert4RecModel(
             schema=tensor_schema,
             max_len=max_seq_len,
-            embed_size=embedding_dim,
+            hidden_size=hidden_size,
             num_blocks=block_count,
             num_heads=head_count,
             num_passes_over_block=pass_per_transformer_block_count,
@@ -101,7 +101,7 @@ class Bert4Rec(L.LightningModule):
         self._vocab_size = item_count
 
     # pylint: disable=unused-argument, arguments-differ
-    def training_step(self, batch: BertTrainingBatch, batch_idx: int) -> torch.Tensor:
+    def training_step(self, batch: Bert4RecTrainingBatch, batch_idx: int) -> torch.Tensor:
         """
         :param batch: Batch of training data.
         :param batch_idx: Batch index.
@@ -128,9 +128,9 @@ class Bert4Rec(L.LightningModule):
         return self._model_predict(feature_tensors, padding_mask, tokens_mask)
 
     # pylint: disable=unused-argument
-    def predict_step(self, batch: BertPredictionBatch, batch_idx: int, dataloader_idx: int = 0) -> torch.Tensor:
+    def predict_step(self, batch: Bert4RecPredictionBatch, batch_idx: int, dataloader_idx: int = 0) -> torch.Tensor:
         """
-        :param batch (BertPredictionBatch): Batch of prediction data.
+        :param batch (Bert4RecPredictionBatch): Batch of prediction data.
         :param batch_idx (int): Batch index.
         :param dataloader_idx (int): Dataloader index.
 
@@ -139,7 +139,7 @@ class Bert4Rec(L.LightningModule):
         return self._model_predict(batch.features, batch.padding_mask, batch.tokens_mask)
 
     # pylint: disable=unused-argument
-    def validation_step(self, batch: BertValidationBatch, batch_idx: int) -> torch.Tensor:
+    def validation_step(self, batch: Bert4RecValidationBatch, batch_idx: int) -> torch.Tensor:
         """
         :param batch: Batch of prediction data.
         :param batch_idx: Batch index.
@@ -167,16 +167,16 @@ class Bert4Rec(L.LightningModule):
         padding_mask: torch.BoolTensor,
         tokens_mask: torch.BoolTensor,
     ) -> torch.Tensor:
-        model: BertModel
+        model: Bert4RecModel
         if isinstance(self._model, torch.nn.DataParallel):
-            model = cast(BertModel, self._model.module)  # multigpu
+            model = cast(Bert4RecModel, self._model.module)  # multigpu
         else:
             model = self._model
         scores = model(feature_tensors, padding_mask, tokens_mask)
         candidate_scores = scores[:, -1, :]
         return candidate_scores
 
-    def _compute_loss(self, batch: BertTrainingBatch) -> torch.Tensor:
+    def _compute_loss(self, batch: Bert4RecTrainingBatch) -> torch.Tensor:
         if self._loss_type == "BCE":
             if self._loss_sample_count is None:
                 loss_func = self._compute_loss_bce
