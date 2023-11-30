@@ -4,6 +4,7 @@ from typing import Tuple, Union
 import numpy as np
 from pandas import DataFrame as PandasDataFrame
 
+from replay.data.schema import FeatureType
 from replay.data.nn.schema import TensorSchema
 
 
@@ -87,8 +88,18 @@ class PandasSequentialDataset(SequentialDataset):
 
         self._sequences = sequences
 
+        for feature in tensor_schema.all_features:
+            if feature.feature_type == FeatureType.CATEGORICAL:
+                # pylint: disable=protected-access
+                feature._set_cardinality_callback(self.cardinality_callback)
+
     def __len__(self) -> int:
         return len(self._sequences)
+
+    def cardinality_callback(self, column: str) -> int:
+        if self._query_id_column == column:
+            return self._sequences.index.nunique()
+        return len({x for seq in self._sequences[column] for x in seq})
 
     def get_query_id(self, index: int) -> int:
         return self._sequences.index[index]

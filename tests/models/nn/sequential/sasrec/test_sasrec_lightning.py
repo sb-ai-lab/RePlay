@@ -4,7 +4,7 @@ from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
-    from replay.models.nn.sequential.sasrec import SASRec, SASRecPredictionDataset
+    from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionDataset
 
 torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
@@ -24,10 +24,10 @@ def test_training_sasrec_with_different_losses(
     item_user_sequential_dataset, train_sasrec_loader, val_sasrec_loader, loss_type, loss_sample_count
 ):
     trainer = L.Trainer(max_epochs=1)
-    model = SASRec(
+    model = SasRec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
-        embedding_dim=64,
+        hidden_size=64,
         loss_type=loss_type,
         loss_sample_count=loss_sample_count,
     )
@@ -37,8 +37,8 @@ def test_training_sasrec_with_different_losses(
 @pytest.mark.torch
 def test_init_sasrec_with_invalid_loss_type(item_user_sequential_dataset):
     with pytest.raises(NotImplementedError) as exc:
-        SASRec(
-            tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, embedding_dim=64, loss_type=""
+        SasRec(
+            tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_type=""
         )
 
     assert str(exc.value) == "Not supported loss_type"
@@ -48,10 +48,10 @@ def test_init_sasrec_with_invalid_loss_type(item_user_sequential_dataset):
 def test_train_sasrec_with_invalid_loss_type(item_user_sequential_dataset, train_sasrec_loader):
     with pytest.raises(ValueError):
         trainer = L.Trainer(max_epochs=1)
-        model = SASRec(
+        model = SasRec(
             tensor_schema=item_user_sequential_dataset._tensor_schema,
             max_seq_len=5,
-            embedding_dim=64,
+            hidden_size=64,
         )
         model._loss_type = ""
         trainer.fit(model, train_dataloaders=train_sasrec_loader)
@@ -59,13 +59,13 @@ def test_train_sasrec_with_invalid_loss_type(item_user_sequential_dataset, train
 
 @pytest.mark.torch
 def test_prediction_sasrec(item_user_sequential_dataset, train_sasrec_loader):
-    pred = SASRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_sasrec_loader = torch.utils.data.DataLoader(pred)
     trainer = L.Trainer(max_epochs=1)
-    model = SASRec(
+    model = SasRec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
-        embedding_dim=64,
+        hidden_size=64,
     )
     trainer.fit(model, train_sasrec_loader)
     predicted = trainer.predict(model, pred_sasrec_loader)
@@ -85,10 +85,10 @@ def test_prediction_sasrec(item_user_sequential_dataset, train_sasrec_loader):
     ],
 )
 def test_sasrec_configure_optimizers(item_user_sequential_dataset, optimizer_factory, lr_scheduler_factory):
-    model = SASRec(
+    model = SasRec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
-        embedding_dim=64,
+        hidden_size=64,
         lr_scheduler_factory=lr_scheduler_factory,
         optimizer_factory=optimizer_factory,
     )
@@ -119,10 +119,10 @@ def test_different_sampling_strategies(
     negatives_sharing,
 ):
     trainer = L.Trainer(max_epochs=1)
-    model = SASRec(
+    model = SasRec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
-        embedding_dim=64,
+        hidden_size=64,
         loss_type="BCE",
         loss_sample_count=6,
         negative_sampling_strategy=negative_sampling_strategy,
@@ -134,8 +134,8 @@ def test_different_sampling_strategies(
 @pytest.mark.torch
 def test_not_implemented_sampling_strategy(item_user_sequential_dataset, train_sasrec_loader, val_sasrec_loader):
     trainer = L.Trainer(max_epochs=1)
-    model = SASRec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, embedding_dim=64, loss_sample_count=6
+    model = SasRec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_sample_count=6
     )
     model._negative_sampling_strategy = ""
     with pytest.raises(NotImplementedError):
@@ -146,8 +146,8 @@ def test_not_implemented_sampling_strategy(item_user_sequential_dataset, train_s
 def test_model_predict_with_nn_parallel(item_user_sequential_dataset, simple_masks):
     item_sequences, padding_mask, tokens_mask, _ = simple_masks
 
-    model = SASRec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, embedding_dim=64, loss_sample_count=6
+    model = SasRec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_sample_count=6
     )
 
     model._model = torch.nn.DataParallel(model._model)

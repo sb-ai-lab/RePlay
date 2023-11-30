@@ -8,7 +8,7 @@ from replay.data.nn import TensorFeatureInfo, TensorMap, TensorSchema
 
 
 # pylint: disable=too-many-instance-attributes
-class BertModel(torch.nn.Module):
+class Bert4RecModel(torch.nn.Module):
     """
     BERT model
     """
@@ -17,7 +17,7 @@ class BertModel(torch.nn.Module):
         self,
         schema: TensorSchema,
         max_len: int = 100,
-        embed_size: int = 256,
+        hidden_size: int = 256,
         num_blocks: int = 2,
         num_heads: int = 4,
         num_passes_over_block: int = 1,
@@ -29,7 +29,7 @@ class BertModel(torch.nn.Module):
         :param schema: Tensor schema of features.
         :param max_len: Max length of sequence.
             Default: ``100``.
-        :param embed_size: Embedding size.
+        :param hidden_size: Hidden size of transformer.
             Default: ``256``.
         :param num_blocks: Number of Transformer blocks.
             Default: ``2``.
@@ -48,7 +48,7 @@ class BertModel(torch.nn.Module):
 
         self.schema = schema
         self.max_len = max_len
-        self.embed_size = embed_size
+        self.hidden_size = hidden_size
         self.num_blocks = num_blocks
         self.num_heads = num_heads
         self.num_passes_over_block = num_passes_over_block
@@ -68,9 +68,9 @@ class BertModel(torch.nn.Module):
         self.transformer_blocks = torch.nn.ModuleList(
             [
                 TransformerBlock(
-                    embed_size,
+                    hidden_size,
                     num_heads,
-                    4 * embed_size,
+                    4 * hidden_size,
                     dropout,
                 )
                 for _ in range(num_blocks)
@@ -81,7 +81,7 @@ class BertModel(torch.nn.Module):
         if self.enable_embedding_tying:
             self._head = EmbeddingTyingHead(self.item_embedder, self.item_count)
         else:
-            self._head = ClassificationHead(embed_size, self.item_count)
+            self._head = ClassificationHead(hidden_size, self.item_count)
 
         self._init()
 
@@ -396,13 +396,13 @@ class ClassificationHead(BaseHead):
     Classification head with linear output
     """
 
-    def __init__(self, embed_size: int, n_items: int) -> None:
+    def __init__(self, hidden_size: int, n_items: int) -> None:
         """
-        :param embed_size: Embedding size.
+        :param hidden_size: Hidden size of transformer.
         :param n_items: Number of items.
         """
         super().__init__()
-        self.linear = torch.nn.Linear(embed_size, n_items, bias=True)
+        self.linear = torch.nn.Linear(hidden_size, n_items, bias=True)
 
     def get_item_embeddings(self) -> torch.Tensor:
         """
@@ -425,25 +425,25 @@ class TransformerBlock(torch.nn.Module):
 
     def __init__(
         self,
-        hidden: int,
+        hidden_size: int,
         attn_heads: int,
         feed_forward_hidden: int,
         dropout: float,
     ) -> None:
         """
-        :param hidden: Hidden size of transformer.
+        :param hidden_size: Hidden size of transformer.
         :param attn_heads: Head sizes of multi-head attention.
         :param feed_forward_hidden: Feed_forward_hidden, usually 4*hidden_size.
         :param dropout: Dropout rate.
         """
         super().__init__()
-        self.attention = MultiHeadedAttention(h=attn_heads, d_model=hidden, dropout=dropout)
+        self.attention = MultiHeadedAttention(h=attn_heads, d_model=hidden_size, dropout=dropout)
         self.attention_dropout = torch.nn.Dropout(dropout)
-        self.attention_norm = LayerNorm(hidden)
+        self.attention_norm = LayerNorm(hidden_size)
 
-        self.pff = PositionwiseFeedForward(d_model=hidden, d_ff=feed_forward_hidden, dropout=dropout)
+        self.pff = PositionwiseFeedForward(d_model=hidden_size, d_ff=feed_forward_hidden, dropout=dropout)
         self.pff_dropout = torch.nn.Dropout(dropout)
-        self.pff_norm = LayerNorm(hidden)
+        self.pff_norm = LayerNorm(hidden_size)
 
         self.dropout = torch.nn.Dropout(p=dropout)
 
