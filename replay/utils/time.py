@@ -26,10 +26,12 @@ def get_item_recency(
     :return: DataFrame with item weights
 
     >>> import pandas as pd
-    >>> d = {}
-    >>> d["item_idx"] = [1, 1, 2, 3, 3]
-    >>> d["timestamp"] = ["2099-03-19", "2099-03-20", "2099-03-22", "2099-03-27", "2099-03-25"]
-    >>> d["relevance"] = [1, 1, 1, 1, 1]
+    >>> from pyspark.sql.functions import round
+    >>> d = {
+    ...     "item_idx": [1, 1, 2, 3, 3],
+    ...     "timestamp": ["2099-03-19", "2099-03-20", "2099-03-22", "2099-03-27", "2099-03-25"],
+    ...     "relevance": [1, 1, 1, 1, 1],
+    ... }
     >>> df = pd.DataFrame(d)
     >>> df
        item_idx   timestamp  relevance
@@ -47,38 +49,53 @@ def get_item_recency(
 
     Power smoothing falls quickly in the beginning but decays slowly afterwards as ``age^c``.
 
-    >>> get_item_recency(df, kind="power").orderBy("item_idx").show()
-    +--------+-------------------+------------------+
-    |item_idx|          timestamp|         relevance|
-    +--------+-------------------+------------------+
-    |       1|2099-03-19 12:00:00|0.6632341020947187|
-    |       2|2099-03-22 00:00:00|0.7203662792445817|
-    |       3|2099-03-26 00:00:00|               1.0|
-    +--------+-------------------+------------------+
+    >>> (
+    ...     get_item_recency(df, kind="power")
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
+    ...     .orderBy("item_idx")
+    ...     .show()
+    ... )
+    +--------+-------------------+---------+
+    |item_idx|          timestamp|relevance|
+    +--------+-------------------+---------+
+    |       1|2099-03-19 12:00:00|   0.6632|
+    |       2|2099-03-22 00:00:00|   0.7204|
+    |       3|2099-03-26 00:00:00|      1.0|
+    +--------+-------------------+---------+
     <BLANKLINE>
 
     Exponential smoothing is the other way around. Old objects decay more quickly as ``c^age``.
 
-    >>> get_item_recency(df, kind="exp").orderBy("item_idx").show()
-    +--------+-------------------+------------------+
-    |item_idx|          timestamp|         relevance|
-    +--------+-------------------+------------------+
-    |       1|2099-03-19 12:00:00|0.8605514372443304|
-    |       2|2099-03-22 00:00:00| 0.911722488558217|
-    |       3|2099-03-26 00:00:00|               1.0|
-    +--------+-------------------+------------------+
+    >>> (
+    ...     get_item_recency(df, kind="exp")
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
+    ...     .orderBy("item_idx")
+    ...     .show()
+    ... )
+    +--------+-------------------+---------+
+    |item_idx|          timestamp|relevance|
+    +--------+-------------------+---------+
+    |       1|2099-03-19 12:00:00|   0.8606|
+    |       2|2099-03-22 00:00:00|   0.9117|
+    |       3|2099-03-26 00:00:00|      1.0|
+    +--------+-------------------+---------+
     <BLANKLINE>
 
     Last type is a linear smoothing: ``1 - c*age``.
 
-    >>> get_item_recency(df, kind="linear").orderBy("item_idx").show()
-    +--------+-------------------+------------------+
-    |item_idx|          timestamp|         relevance|
-    +--------+-------------------+------------------+
-    |       1|2099-03-19 12:00:00|0.8916666666666666|
-    |       2|2099-03-22 00:00:00|0.9333333333333333|
-    |       3|2099-03-26 00:00:00|               1.0|
-    +--------+-------------------+------------------+
+    >>> (
+    ...     get_item_recency(df, kind="linear")
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
+    ...     .orderBy("item_idx")
+    ...     .show()
+    ... )
+    +--------+-------------------+---------+
+    |item_idx|          timestamp|relevance|
+    +--------+-------------------+---------+
+    |       1|2099-03-19 12:00:00|   0.8917|
+    |       2|2099-03-22 00:00:00|   0.9333|
+    |       3|2099-03-26 00:00:00|      1.0|
+    +--------+-------------------+---------+
     <BLANKLINE>
 
     This function **does not** take relevance values of interactions into account.
@@ -115,10 +132,12 @@ def smoothe_time(
     :return: modified DataFrame
 
     >>> import pandas as pd
-    >>> d = {}
-    >>> d["item_idx"] = [1, 1, 2, 3, 3]
-    >>> d["timestamp"] = ["2099-03-19", "2099-03-20", "2099-03-22", "2099-03-27", "2099-03-25"]
-    >>> d["relevance"] = [1, 1, 1, 1, 1]
+    >>> from pyspark.sql.functions import round
+    >>> d = {
+    ...     "item_idx": [1, 1, 2, 3, 3],
+    ...     "timestamp": ["2099-03-19", "2099-03-20", "2099-03-22", "2099-03-27", "2099-03-25"],
+    ...     "relevance": [1, 1, 1, 1, 1],
+    ... }
     >>> df = pd.DataFrame(d)
     >>> df
        item_idx   timestamp  relevance
@@ -130,67 +149,88 @@ def smoothe_time(
 
     Power smoothing falls quickly in the beginning but decays slowly afterwards as ``age^c``.
 
-    >>> smoothe_time(df, kind="power").orderBy("timestamp").show()
-    +--------+-------------------+------------------+
-    |item_idx|          timestamp|         relevance|
-    +--------+-------------------+------------------+
-    |       1|2099-03-19 00:00:00|0.6390430306850825|
-    |       1|2099-03-20 00:00:00| 0.654567945027101|
-    |       2|2099-03-22 00:00:00|0.6940913454809814|
-    |       3|2099-03-25 00:00:00|0.7994016704292545|
-    |       3|2099-03-27 00:00:00|               1.0|
-    +--------+-------------------+------------------+
+    >>> (
+    ...     smoothe_time(df, kind="power")
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
+    ...     .orderBy("timestamp")
+    ...     .show()
+    ... )
+    +--------+-------------------+---------+
+    |item_idx|          timestamp|relevance|
+    +--------+-------------------+---------+
+    |       1|2099-03-19 00:00:00|    0.639|
+    |       1|2099-03-20 00:00:00|   0.6546|
+    |       2|2099-03-22 00:00:00|   0.6941|
+    |       3|2099-03-25 00:00:00|   0.7994|
+    |       3|2099-03-27 00:00:00|      1.0|
+    +--------+-------------------+---------+
     <BLANKLINE>
 
     Exponential smoothing is the other way around. Old objects decay more quickly as ``c^age``.
 
-    >>> smoothe_time(df, kind="exp").orderBy("timestamp").show()
-    +--------+-------------------+------------------+
-    |item_idx|          timestamp|         relevance|
-    +--------+-------------------+------------------+
-    |       1|2099-03-19 00:00:00|0.8312378961427882|
-    |       1|2099-03-20 00:00:00| 0.850667160950856|
-    |       2|2099-03-22 00:00:00|0.8908987181403396|
-    |       3|2099-03-25 00:00:00|0.9548416039104167|
-    |       3|2099-03-27 00:00:00|               1.0|
-    +--------+-------------------+------------------+
+    >>> (
+    ...     smoothe_time(df, kind="exp")
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
+    ...     .orderBy("timestamp")
+    ...     .show()
+    ... )
+    +--------+-------------------+---------+
+    |item_idx|          timestamp|relevance|
+    +--------+-------------------+---------+
+    |       1|2099-03-19 00:00:00|   0.8312|
+    |       1|2099-03-20 00:00:00|   0.8507|
+    |       2|2099-03-22 00:00:00|   0.8909|
+    |       3|2099-03-25 00:00:00|   0.9548|
+    |       3|2099-03-27 00:00:00|      1.0|
+    +--------+-------------------+---------+
     <BLANKLINE>
 
     Last type is a linear smoothing: ``1 - c*age``.
 
-    >>> smoothe_time(df, kind="linear").orderBy("timestamp").show()
-    +--------+-------------------+------------------+
-    |item_idx|          timestamp|         relevance|
-    +--------+-------------------+------------------+
-    |       1|2099-03-19 00:00:00|0.8666666666666667|
-    |       1|2099-03-20 00:00:00|0.8833333333333333|
-    |       2|2099-03-22 00:00:00|0.9166666666666666|
-    |       3|2099-03-25 00:00:00|0.9666666666666667|
-    |       3|2099-03-27 00:00:00|               1.0|
-    +--------+-------------------+------------------+
+    >>> (
+    ...     smoothe_time(df, kind="linear")
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
+    ...     .orderBy("timestamp")
+    ...     .show()
+    ... )
+    +--------+-------------------+---------+
+    |item_idx|          timestamp|relevance|
+    +--------+-------------------+---------+
+    |       1|2099-03-19 00:00:00|   0.8667|
+    |       1|2099-03-20 00:00:00|   0.8833|
+    |       2|2099-03-22 00:00:00|   0.9167|
+    |       3|2099-03-25 00:00:00|   0.9667|
+    |       3|2099-03-27 00:00:00|      1.0|
+    +--------+-------------------+---------+
     <BLANKLINE>
 
     These examples use constant relevance 1, so resulting weight equals the time dependent weight.
     But actually this value is an updated relevance.
 
-    >>> d = {}
-    >>> d["item_idx"] = [1, 2, 3]
-    >>> d["timestamp"] = ["2099-03-19", "2099-03-20", "2099-03-22"]
-    >>> d["relevance"] = [10, 3, 0.1]
+    >>> d = {
+    ...     "item_idx": [1, 2, 3],
+    ...     "timestamp": ["2099-03-19", "2099-03-20", "2099-03-22"],
+    ...     "relevance": [10, 3, 0.1],
+    ... }
     >>> df = pd.DataFrame(d)
     >>> df
        item_idx   timestamp  relevance
     0         1  2099-03-19       10.0
     1         2  2099-03-20        3.0
     2         3  2099-03-22        0.1
-    >>> smoothe_time(df).orderBy("timestamp").show()
-    +--------+-------------------+-----------------+
-    |item_idx|          timestamp|        relevance|
-    +--------+-------------------+-----------------+
-    |       1|2099-03-19 00:00:00|9.330329915368075|
-    |       2|2099-03-20 00:00:00| 2.86452481173125|
-    |       3|2099-03-22 00:00:00|              0.1|
-    +--------+-------------------+-----------------+
+    >>> (
+    ...     smoothe_time(df)
+    ...     .select("item_idx", "timestamp", round("relevance", 4).alias("relevance"))
+    ...     .orderBy("timestamp")
+    ...     .show()
+    ... )
+    +--------+-------------------+---------+
+    |item_idx|          timestamp|relevance|
+    +--------+-------------------+---------+
+    |       1|2099-03-19 00:00:00|   9.3303|
+    |       2|2099-03-20 00:00:00|   2.8645|
+    |       3|2099-03-22 00:00:00|      0.1|
+    +--------+-------------------+---------+
     <BLANKLINE>
     """
     log = convert2spark(log)
