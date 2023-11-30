@@ -3,7 +3,7 @@ import pytest
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
-    from replay.models.nn.sequential.bert4rec import BertModel
+    from replay.models.nn.sequential.bert4rec import Bert4RecModel
     from replay.models.nn.sequential.bert4rec.model import BertEmbedding, ClassificationHead, PositionalEmbedding
 
 torch = pytest.importorskip("torch")
@@ -12,13 +12,13 @@ torch = pytest.importorskip("torch")
 @pytest.mark.torch
 def test_bert_embedding_dim_mismatch(tensor_schema):
     with pytest.raises(ValueError):
-        BertModel(schema=tensor_schema.subset(["item_id", "some_item_feature"]))
+        Bert4RecModel(schema=tensor_schema.subset(["item_id", "some_item_feature"]))
 
 
 @pytest.mark.torch
 def test_not_sequential_feature(tensor_schema):
     with pytest.raises(NotImplementedError) as exc:
-        BertModel(tensor_schema.subset(["item_id", "some_user_feature"]))
+        Bert4RecModel(tensor_schema.subset(["item_id", "some_user_feature"]))
 
     assert str(exc.value) == "Non-sequential features is not yet supported"
 
@@ -118,10 +118,10 @@ def test_dummy_bert_converges(tensor_schema, simple_masks, enable_positional_emb
 
     item_sequences, padding_mask, tokens_mask, _ = simple_masks
 
-    bert = BertModel(
+    bert = Bert4RecModel(
         tensor_schema.subset(["item_id"]),
         max_len=5,
-        embed_size=64,
+        hidden_size=64,
         enable_positional_embedding=enable_positional_embedding,
         enable_embedding_tying=enable_embedding_tying,
     )
