@@ -1589,6 +1589,27 @@ class NonPersonalizedRecommender(Recommender, ABC):
             selected_item_popularity.filter(sf.col("rank") <= k)
         ).drop("rank")
 
+    def get_items_pd(self, items: SparkDataFrame) -> pd.DataFrame:
+        """
+        Function to calculate normalized popularities(in fact, probabilities)
+        of given items. Returns pandas DataFrame.
+        """
+        selected_item_popularity = self._get_selected_item_popularity(items)
+        selected_item_popularity = selected_item_popularity.withColumn(
+            "relevance",
+            sf.when(sf.col("relevance") == sf.lit(0.0), 0.1**6).otherwise(
+                sf.col("relevance")
+            ),
+        )
+
+        items_pd = selected_item_popularity.withColumn(
+            "probability",
+            sf.col("relevance")
+            / selected_item_popularity.select(sf.sum("relevance")).first()[0],
+        ).toPandas()
+
+        return items_pd
+
     # pylint: disable=too-many-locals
     def _predict_with_sampling(
         self,

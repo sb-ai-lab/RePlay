@@ -48,8 +48,8 @@ def test_logger():
 @pytest.fixture
 def replay_obp_learner(model, bandit_feedback):
     learner = OBPOfflinePolicyLearner(n_actions=2,
-                                         replay_model=model,
-                                         len_list=1)
+                                      replay_model=model,
+                                      len_list=1)
 
     assert type(learner.replay_model) is RandomRec
 
