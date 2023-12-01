@@ -80,7 +80,7 @@ class KLUCB(UCB):
     >>> import pandas as pd
     >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
     >>> from replay.utils.spark_utils import convert2spark
-    >>> data_frame = pd.DataFrame({"user_idx": [1, 2, 3, 3], "item_idx": [1, 2, 1, 2], "rating": [1, 0, 0, 0]})
+    >>> data_frame = pd.DataFrame({"user_id": [1, 2, 3, 3], "item_id": [1, 2, 1, 2], "rating": [1, 0, 0, 0]})
     >>> interactions = convert2spark(data_frame)
     >>> feature_schema = FeatureSchema(
     ...     [
