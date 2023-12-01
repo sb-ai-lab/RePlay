@@ -1,19 +1,14 @@
 import logging
-from typing import Optional, Iterator
+from typing import Iterator, Optional
 
 import numpy as np
-import pandas as pd
-from pyspark.sql import DataFrame
 
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
-from replay.models.extensions.ann.index_inferers.hnswlib_filter_index_inferer import (
-    HnswlibFilterIndexInferer,
-)
+from replay.models.extensions.ann.index_inferers.hnswlib_filter_index_inferer import HnswlibFilterIndexInferer
 from replay.models.extensions.ann.index_inferers.hnswlib_index_inferer import HnswlibIndexInferer
-from replay.models.extensions.ann.utils import (
-    create_hnswlib_index_instance,
-)
+from replay.models.extensions.ann.utils import create_hnswlib_index_instance
+from replay.utils import PandasDataFrame, SparkDataFrame
 
 logger = logging.getLogger("replay")
 
@@ -33,7 +28,7 @@ class ExecutorHnswlibIndexBuilder(IndexBuilder):
 
     def build_index(
         self,
-        vectors: DataFrame,
+        vectors: SparkDataFrame,
         features_col: str,
         ids_col: Optional[str] = None,
     ):
@@ -43,7 +38,7 @@ class ExecutorHnswlibIndexBuilder(IndexBuilder):
         _index_store = self.index_store
         _index_params = self.index_params
 
-        def build_index_udf(iterator: Iterator[pd.DataFrame]):
+        def build_index_udf(iterator: Iterator[PandasDataFrame]):
             """Builds index on executor and writes it to shared disk or hdfs.
 
             Args:
@@ -67,7 +62,7 @@ class ExecutorHnswlibIndexBuilder(IndexBuilder):
                 )
             )
 
-            yield pd.DataFrame(data={"_success": 1}, index=[0])
+            yield PandasDataFrame(data={"_success": 1}, index=[0])
 
         # Here we perform materialization (`.collect()`) to build the hnsw index.
         cols = [ids_col, features_col] if ids_col else [features_col]

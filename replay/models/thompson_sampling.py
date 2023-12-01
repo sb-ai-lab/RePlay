@@ -1,10 +1,13 @@
 from typing import Optional
 
 import numpy as np
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
 
+from replay.data.dataset import Dataset
 from replay.models.base_rec import NonPersonalizedRecommender
+from replay.utils import PYSPARK_AVAILABLE
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 class ThompsonSampling(NonPersonalizedRecommender):
@@ -31,29 +34,27 @@ class ThompsonSampling(NonPersonalizedRecommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
-        self._check_relevance(log)
+        self._check_rating(dataset)
 
-        num_positive = log.filter(
-            log.relevance == sf.lit(1)
-        ).groupby("item_idx").agg(
-            sf.count("relevance").alias("positive")
+        num_positive = dataset.interactions.filter(
+            sf.col(self.rating_column) == sf.lit(1)
+        ).groupby(self.item_column).agg(
+            sf.count(self.rating_column).alias("positive")
         )
-        num_negative = log.filter(
-            log.relevance == sf.lit(0)
-        ).groupby("item_idx").agg(
-            sf.count("relevance").alias("negative")
+        num_negative = dataset.interactions.filter(
+            sf.col(self.rating_column) == sf.lit(0)
+        ).groupby(self.item_column).agg(
+            sf.count(self.rating_column).alias("negative")
         )
 
         self.item_popularity = num_positive.join(
-            num_negative, how="inner", on="item_idx"
+            num_negative, how="inner", on=self.item_column
         )
 
         self.item_popularity = self.item_popularity.withColumn(
-            "relevance",
+            self.rating_column,
             sf.udf(np.random.beta, "double")("positive", "negative")
         ).drop("positive", "negative")
         self.item_popularity.cache().count()

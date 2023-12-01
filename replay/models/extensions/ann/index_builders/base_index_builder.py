@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from pyspark.sql import DataFrame
-
 from replay.models.extensions.ann.entities.base_hnsw_param import BaseHnswParam
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
 from replay.models.extensions.ann.index_stores.base_index_store import IndexStore
+from replay.utils import SparkDataFrame
 
 
 class IndexBuilder(ABC):
@@ -20,14 +19,14 @@ class IndexBuilder(ABC):
     @abstractmethod
     def build_index(
         self,
-        vectors: DataFrame,
+        vectors: SparkDataFrame,
         features_col: str,
         ids_col: Optional[str] = None,
     ):
         """
         Method that builds index and stores it using the `IndexStore` class.
 
-        :param vectors: DataFrame with vectors to build index.
+        :param vectors: SparkDataFrame with vectors to build index.
             Schema: [{ids_col}: int, {features_col}: array<float>]
             or [{features_col}: array<float>]
         :param features_col: Name of column from `vectors` dataframe

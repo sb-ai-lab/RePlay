@@ -1,17 +1,12 @@
 import logging
 from typing import Optional
 
-from pyspark.sql import DataFrame
-
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.models.extensions.ann.index_builders.nmslib_index_builder_mixin import (
-    NmslibIndexBuilderMixin,
-)
+from replay.models.extensions.ann.index_builders.nmslib_index_builder_mixin import NmslibIndexBuilderMixin
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
-from replay.models.extensions.ann.index_inferers.nmslib_filter_index_inferer import (
-    NmslibFilterIndexInferer,
-)
+from replay.models.extensions.ann.index_inferers.nmslib_filter_index_inferer import NmslibFilterIndexInferer
 from replay.models.extensions.ann.index_inferers.nmslib_index_inferer import NmslibIndexInferer
+from replay.utils import SparkDataFrame
 
 logger = logging.getLogger("replay")
 
@@ -31,7 +26,7 @@ class DriverNmslibIndexBuilder(IndexBuilder):
 
     def build_index(
         self,
-        vectors: DataFrame,
+        vectors: SparkDataFrame,
         features_col: str,
         ids_col: Optional[str] = None,
     ):

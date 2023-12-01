@@ -7,9 +7,9 @@ Welcome to RePlay's documentation!
    :caption: Contents:
 
    pages/installation
-   Get Started <pages/overview.md>
-   pages/spark
+   pages/development
    pages/modules
+   pages/settings
    pages/useful
 
 

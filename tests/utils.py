@@ -1,7 +1,6 @@
 # pylint: skip-file
 import os
 import re
-
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -9,12 +8,16 @@ import numpy as np
 import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
-from pyspark.ml.linalg import DenseVector
-from pyspark.sql import DataFrame
-import torch
 
-from replay.data import REC_SCHEMA, LOG_SCHEMA
+from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType, get_schema
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 from replay.utils.session_handler import get_spark_session
+from replay.utils.spark_utils import convert2spark
+
+if PYSPARK_AVAILABLE:
+    from pyspark.ml.linalg import DenseVector
+
+    INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 from replay.models.ddpg import (
     ActorDRR,
@@ -31,7 +34,7 @@ def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
 
 @pytest.fixture
 def spark():
-    session = get_spark_session(1, 1)
+    session = get_spark_session()
     session.sparkContext.setLogLevel("ERROR")
     return session
 
@@ -46,7 +49,7 @@ def log_to_pred(spark):
             [4, 0, datetime(2019, 9, 15), 3.0],
             [4, 1, datetime(2019, 9, 15), 3.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -61,7 +64,7 @@ def log2(spark):
             [1, 0, datetime(2019, 9, 15), 3.0],
             [2, 1, datetime(2019, 9, 15), 3.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -81,7 +84,7 @@ def log(spark):
             [3, 0, datetime(2019, 8, 26), 5.0],
             [3, 0, datetime(2019, 8, 26), 1.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -149,7 +152,7 @@ def item_features(spark):
     ).toDF("item_idx", "iq", "class", "color")
 
 
-def unify_dataframe(data_frame: DataFrame):
+def unify_dataframe(data_frame: SparkDataFrame):
     pandas_df = data_frame.toPandas()
     columns_to_sort_by: List[str] = []
 
@@ -171,13 +174,13 @@ def unify_dataframe(data_frame: DataFrame):
     )
 
 
-def sparkDataFrameEqual(df1: DataFrame, df2: DataFrame):
+def sparkDataFrameEqual(df1: SparkDataFrame, df2: SparkDataFrame):
     return pd.testing.assert_frame_equal(
         unify_dataframe(df1), unify_dataframe(df2), check_like=True
     )
 
 
-def sparkDataFrameNotEqual(df1: DataFrame, df2: DataFrame):
+def sparkDataFrameNotEqual(df1: SparkDataFrame, df2: SparkDataFrame):
     try:
         sparkDataFrameEqual(df1, df2)
     except AssertionError:
@@ -205,115 +208,42 @@ def find_file_by_pattern(directory: str, pattern: str) -> Optional[str]:
     return None
 
 
-DDPG_PARAMS = [
-    dict(
-        state_repr_dim=1,
-        action_emb_dim=1,
-        hidden_dim=1,
-        heads_num=1,
-        heads_q=0.5,
-        user_num=1,
-        item_num=1,
-        embedding_dim=1,
-        memory_size=1,
-        device=torch.device("cpu"),
-        env_gamma_alpha=1,
-        min_trajectory_len=10,
-    ),
-    dict(
-        state_repr_dim=10,
-        action_emb_dim=10,
-        hidden_dim=1,
-        heads_num=15,
-        heads_q=0.1,
-        user_num=10,
-        item_num=10,
-        embedding_dim=10,
-        memory_size=10,
-        device=torch.device("cpu"),
-        env_gamma_alpha=1,
-        min_trajectory_len=10,
-    ),
-]
+def create_dataset(log, user_features=None, item_features=None, feature_schema=None):
+    log = convert2spark(log)
+    if user_features is not None:
+        user_features = convert2spark(user_features)
+    if item_features is not None:
+        item_features = convert2spark(item_features)
 
-HEADER = ["user_idx", "item_idx", "relevance"]
-
-
-def matrix_to_df(matrix):
-    x1 = np.repeat(np.arange(matrix.shape[0]), matrix.shape[1])
-    x2 = np.tile(np.arange(matrix.shape[1]), matrix.shape[0])
-    x3 = matrix.flatten()
-
-    return pd.DataFrame(np.array([x1, x2, x3]).T, columns=HEADER)
-
-
-DF_CASES = [
-    matrix_to_df(np.zeros((1, 1), dtype=int)),
-    matrix_to_df(np.ones((1, 1), dtype=int)),
-    matrix_to_df(np.zeros((10, 10), dtype=int)),
-    matrix_to_df(np.ones((10, 10), dtype=int)),
-    matrix_to_df(np.random.choice([0, 1], size=(10, 10), p=[0.9, 0.1])),
-    # pd.DataFrame(
-    #     np.array(
-    #         [
-    #             [1, 2, 1],
-    #             [3, 4, 0],
-    #             [7, 9, 1],
-    #             [11, 10, 0],
-    #             [11, 4, 1],
-    #             [7, 10, 1],
-    #         ]
-    #     ),
-    #     columns=HEADER,
-    # ),
-]
-
-
-@pytest.fixture(params=DDPG_PARAMS)
-def ddpg_critic_param(request):
-    param = request.param
-    return (
-        CriticDRR(
-            state_repr_dim=param["state_repr_dim"],
-            action_emb_dim=param["action_emb_dim"],
-            hidden_dim=param["hidden_dim"],
-            heads_num=param["heads_num"],
-            heads_q=param["heads_q"],
-        ),
-        param,
+    if feature_schema is None:
+        feature_schema = FeatureSchema(
+            [
+                FeatureInfo(
+                    column="user_idx",
+                    feature_type=FeatureType.CATEGORICAL,
+                    feature_hint=FeatureHint.QUERY_ID,
+                ),
+                FeatureInfo(
+                    column="item_idx",
+                    feature_type=FeatureType.CATEGORICAL,
+                    feature_hint=FeatureHint.ITEM_ID,
+                ),
+                FeatureInfo(
+                    column="relevance",
+                    feature_type=FeatureType.NUMERICAL,
+                    feature_hint=FeatureHint.RATING,
+                ),
+                FeatureInfo(
+                    column="timestamp",
+                    feature_type=FeatureType.NUMERICAL,
+                    feature_hint=FeatureHint.TIMESTAMP,
+                ),
+            ]
+        )
+    return Dataset(
+        feature_schema=feature_schema,
+        interactions=log,
+        query_features=user_features,
+        item_features=item_features,
+        check_consistency=False,
     )
-
-
-@pytest.fixture(params=DDPG_PARAMS)
-def ddpg_actor_param(request):
-    param = request.param
-    return (
-        ActorDRR(
-            user_num=param["user_num"],
-            item_num=param["item_num"],
-            embedding_dim=param["embedding_dim"],
-            hidden_dim=param["hidden_dim"],
-            memory_size=param["memory_size"],
-            env_gamma_alpha=param["env_gamma_alpha"],
-            device=param["device"],
-            min_trajectory_len=param["min_trajectory_len"],
-        ),
-        param,
-    )
-
-
-@pytest.fixture(params=DDPG_PARAMS)
-def ddpg_state_repr_param(request):
-    param = request.param
-    return (
-        StateReprModule(
-            user_num=param["user_num"],
-            item_num=param["item_num"],
-            embedding_dim=param["embedding_dim"],
-            memory_size=param["memory_size"],
-        ),
-        param,
-    )
-
-
-BATCH_SIZES = [1, 2, 3, 10, 15]

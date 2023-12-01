@@ -1,32 +1,30 @@
 # pylint: disable=too-many-lines
 """
-NeighbourRec - base class that requires log at prediction time.
+NeighbourRec - base class that requires interactions at prediction time.
 Part of set of abstract classes (from base_rec.py)
 """
 
 from abc import ABC
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    Optional,
-    Union,
-)
+from typing import Any, Dict, Iterable, Optional, Union
 
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-from pyspark.sql.column import Column
-
-from replay.models.extensions.ann.ann_mixin import ANNMixin
+from replay.data.dataset import Dataset
 from replay.models.base_rec import Recommender
+from replay.models.extensions.ann.ann_mixin import ANNMixin
+from replay.utils import PYSPARK_AVAILABLE, MissingImportType, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+    from pyspark.sql.column import Column
+else:
+    Column = MissingImportType
 
 
 class NeighbourRec(Recommender, ANNMixin, ABC):
-    """Base class that requires log at prediction time"""
+    """Base class that requires interactions at prediction time"""
 
-    similarity: Optional[DataFrame]
+    similarity: Optional[SparkDataFrame]
     can_predict_item_to_item: bool = True
-    can_predict_cold_users: bool = True
+    can_predict_cold_queries: bool = True
     can_change_metric: bool = False
     item_to_item_metrics = ["similarity"]
     _similarity_metric = "similarity"
@@ -59,98 +57,94 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
 
     def _predict_pairs_inner(
         self,
-        log: DataFrame,
-        filter_df: DataFrame,
+        dataset: Dataset,
+        filter_df: SparkDataFrame,
         condition: Column,
-        users: DataFrame,
-    ) -> DataFrame:
+        queries: SparkDataFrame,
+    ) -> SparkDataFrame:
         """
-        Get recommendations for all provided users
+        Get recommendations for all provided queries
         and filter results with ``filter_df`` by ``condition``.
         It allows to implement both ``predict_pairs`` and usual ``predict``@k.
 
-        :param log: historical interactions, DataFrame
-            ``[user_idx, item_idx, timestamp, relevance]``.
-        :param filter_df: DataFrame use to filter items:
+        :param interactions: historical interactions, SparkDataFrame
+            ``[user_id, item_id, timestamp, rating]``.
+        :param filter_df: SparkDataFrame use to filter items:
             ``[item_idx_filter]`` or ``[user_idx_filter, item_idx_filter]``.
         :param condition: condition used for inner join with ``filter_df``
-        :param users: users to calculate recommendations for
-        :return: DataFrame ``[user_idx, item_idx, relevance]``
+        :param queries: queries to calculate recommendations for
+        :return: SparkDataFrame ``[user_id, item_id, rating]``
         """
-        if log is None:
+        if dataset is None:
             raise ValueError(
-                "log is not provided, but it is required for prediction"
+                "interactions is not provided, but it is required for prediction"
             )
 
         recs = (
-            log.join(users, how="inner", on="user_idx")
+            dataset.interactions.join(queries, how="inner", on=self.query_column)
             .join(
                 self.similarity,
                 how="inner",
-                on=sf.col("item_idx") == sf.col("item_idx_one"),
+                on=sf.col(self.item_column) == sf.col("item_idx_one"),
             )
             .join(
                 filter_df,
                 how="inner",
                 on=condition,
             )
-            .groupby("user_idx", "item_idx_two")
-            .agg(sf.sum(self.similarity_metric).alias("relevance"))
-            .withColumnRenamed("item_idx_two", "item_idx")
+            .groupby(self.query_column, "item_idx_two")
+            .agg(sf.sum(self.similarity_metric).alias(self.rating_column))
+            .withColumnRenamed("item_idx_two", self.item_column)
         )
         return recs
 
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
 
         return self._predict_pairs_inner(
-            log=log,
-            filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
+            dataset=dataset,
+            filter_df=items.withColumnRenamed(self.item_column, "item_idx_filter"),
             condition=sf.col("item_idx_two") == sf.col("item_idx_filter"),
-            users=users,
+            queries=queries,
         )
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        pairs: SparkDataFrame,
+        dataset: Optional[Dataset] = None,
+    ) -> SparkDataFrame:
 
-        if log is None:
+        if dataset is None:
             raise ValueError(
-                "log is not provided, but it is required for prediction"
+                "interactions is not provided, but it is required for prediction"
             )
 
         return self._predict_pairs_inner(
-            log=log,
+            dataset=dataset,
             filter_df=(
                 pairs.withColumnRenamed(
-                    "user_idx", "user_idx_filter"
-                ).withColumnRenamed("item_idx", "item_idx_filter")
+                    self.query_column, "user_idx_filter"
+                ).withColumnRenamed(self.item_column, "item_idx_filter")
             ),
-            condition=(sf.col("user_idx") == sf.col("user_idx_filter"))
+            condition=(sf.col(self.query_column) == sf.col("user_idx_filter"))
             & (sf.col("item_idx_two") == sf.col("item_idx_filter")),
-            users=pairs.select("user_idx").distinct(),
+            queries=pairs.select(self.query_column).distinct(),
         )
 
     def get_nearest_items(
         self,
-        items: Union[DataFrame, Iterable],
+        items: Union[SparkDataFrame, Iterable],
         k: int,
         metric: Optional[str] = None,
-        candidates: Optional[Union[DataFrame, Iterable]] = None,
-    ) -> DataFrame:
+        candidates: Optional[Union[SparkDataFrame, Iterable]] = None,
+    ) -> SparkDataFrame:
         """
         Get k most similar items be the `metric` for each of the `items`.
 
@@ -181,19 +175,19 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
 
     def _get_nearest_items(
         self,
-        items: DataFrame,
+        items: SparkDataFrame,
         metric: Optional[str] = None,
-        candidates: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        candidates: Optional[SparkDataFrame] = None,
+    ) -> SparkDataFrame:
 
         similarity_filtered = self.similarity.join(
-            items.withColumnRenamed("item_idx", "item_idx_one"),
+            items.withColumnRenamed(self.item_column, "item_idx_one"),
             on="item_idx_one",
         )
 
         if candidates is not None:
             similarity_filtered = similarity_filtered.join(
-                candidates.withColumnRenamed("item_idx", "item_idx_two"),
+                candidates.withColumnRenamed(self.item_column, "item_idx_two"),
                 on="item_idx_two",
             )
 
@@ -203,25 +197,35 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
             "similarity" if metric is None else metric,
         )
 
-    def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
-        self.index_builder.index_params.items_count = log.select(sf.max("item_idx")).first()[0] + 1
+    def _get_ann_build_params(self, interactions: SparkDataFrame) -> Dict[str, Any]:
+        self.index_builder.index_params.items_count = interactions.select(sf.max(self.item_column)).first()[0] + 1
         return {
             "features_col": None,
         }
 
-    def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
+    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:
         similarity_df = self.similarity.select(
             "similarity", "item_idx_one", "item_idx_two"
         )
         return similarity_df
 
     def _get_vectors_to_infer_ann_inner(
-            self, log: DataFrame, users: DataFrame
-    ) -> DataFrame:
+            self, interactions: SparkDataFrame, queries: SparkDataFrame
+    ) -> SparkDataFrame:
 
         user_vectors = (
-            log.groupBy("user_idx").agg(
-                sf.collect_list("item_idx").alias("vector_items"),
-                sf.collect_list("relevance").alias("vector_relevances"))
+            interactions.groupBy(self.query_column).agg(
+                sf.collect_list(self.item_column).alias("vector_items"),
+                sf.collect_list(self.rating_column).alias("vector_ratings"))
         )
         return user_vectors
+
+    def _save_model(self, path: str, additional_params: Optional[dict] = None):
+        super()._save_model(path, additional_params)
+        if self._use_ann:
+            self._save_index(path)
+
+    def _load_model(self, path: str):
+        super()._load_model(path)
+        if self._use_ann:
+            self._load_index(path)

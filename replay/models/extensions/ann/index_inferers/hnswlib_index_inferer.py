@@ -1,11 +1,13 @@
 import numpy as np
 import pandas as pd
-from pyspark.sql import DataFrame
-from pyspark.sql.pandas.functions import pandas_udf
 
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
 from replay.models.extensions.ann.utils import create_hnswlib_index_instance
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.session_handler import State
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql.pandas.functions import pandas_udf
 
 
 # pylint: disable=too-few-public-methods
@@ -13,8 +15,8 @@ class HnswlibIndexInferer(IndexInferer):
     """Hnswlib index inferer without filter seen items. Infers hnswlib index."""
 
     def infer(
-        self, vectors: DataFrame, features_col: str, k: int
-    ) -> DataFrame:
+        self, vectors: SparkDataFrame, features_col: str, k: int
+    ) -> SparkDataFrame:
         _index_store = self.index_store
         index_params = self.index_params
 
@@ -23,7 +25,7 @@ class HnswlibIndexInferer(IndexInferer):
         )
 
         @pandas_udf(self.udf_return_type)
-        def infer_index_udf(vectors: pd.Series) -> pd.DataFrame:
+        def infer_index_udf(vectors: pd.Series) -> PandasDataFrame:
             index_store = index_store_broadcast.value
             index = index_store.load_index(
                 init_index=lambda: create_hnswlib_index_instance(index_params),

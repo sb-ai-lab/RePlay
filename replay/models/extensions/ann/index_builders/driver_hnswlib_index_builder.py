@@ -2,15 +2,13 @@ import logging
 from typing import Optional
 
 import numpy as np
-from pyspark.sql import DataFrame
 
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
-from replay.models.extensions.ann.index_inferers.hnswlib_filter_index_inferer import (
-    HnswlibFilterIndexInferer,
-)
+from replay.models.extensions.ann.index_inferers.hnswlib_filter_index_inferer import HnswlibFilterIndexInferer
 from replay.models.extensions.ann.index_inferers.hnswlib_index_inferer import HnswlibIndexInferer
 from replay.models.extensions.ann.utils import create_hnswlib_index_instance
+from replay.utils import SparkDataFrame
 
 logger = logging.getLogger("replay")
 
@@ -30,7 +28,7 @@ class DriverHnswlibIndexBuilder(IndexBuilder):
 
     def build_index(
         self,
-        vectors: DataFrame,
+        vectors: SparkDataFrame,
         features_col: str,
         ids_col: Optional[str] = None,
     ):

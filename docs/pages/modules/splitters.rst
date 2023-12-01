@@ -10,34 +10,44 @@ Splits are returned with ``split`` method.
 .. autofunction:: replay.splitters.base_splitter.Splitter.split
 
 
-UserSplitter
--------------
+TwoStageSplitter
+----------------
 
-.. autoclass:: replay.splitters.user_log_splitter.UserSplitter
+.. autoclass:: replay.splitters.two_stage_splitter.TwoStageSplitter
    :special-members: __init__
 
-k_folds
+KFolds
 ---------
 
-.. autofunction:: replay.splitters.user_log_splitter.k_folds
+.. autofunction:: replay.splitters.k_folds.KFolds
 
 
-DateSplitter
+TimeSplitter
 -------------
-.. autoclass:: replay.splitters.log_splitter.DateSplitter
+.. autoclass:: replay.splitters.time_splitter.TimeSplitter
+   :special-members: __init__
+
+LastNSplitter
+-------------
+.. autoclass:: replay.splitters.last_n_splitter.LastNSplitter
+   :special-members: __init__
+
+RatioSplitter
+-------------
+.. autoclass:: replay.splitters.ratio_splitter.RatioSplitter
    :special-members: __init__
 
 RandomSplitter
 ----------------
-.. autoclass:: replay.splitters.log_splitter.RandomSplitter
+.. autoclass:: replay.splitters.random_splitter.RandomSplitter
    :special-members: __init__
 
 NewUsersSplitter
 -----------------
-.. autoclass:: replay.splitters.log_splitter.NewUsersSplitter
+.. autoclass:: replay.splitters.new_users_splitter.NewUsersSplitter
    :special-members: __init__
 
 ColdUserRandomSplitter
 ------------------------
-.. autoclass:: replay.splitters.log_splitter.ColdUserRandomSplitter
+.. autoclass:: replay.splitters.cold_user_random_splitter.ColdUserRandomSplitter
    :special-members: __init__

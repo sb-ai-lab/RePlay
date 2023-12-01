@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-
 from replay.models.extensions.ann.entities.base_hnsw_param import BaseHnswParam
 from replay.models.extensions.ann.index_stores.base_index_store import IndexStore
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 # pylint: disable=too-few-public-methods
@@ -21,12 +22,12 @@ class IndexInferer(ABC):
 
     @abstractmethod
     def infer(
-        self, vectors: DataFrame, features_col: str, k: int
-    ) -> DataFrame:
+        self, vectors: SparkDataFrame, features_col: str, k: int
+    ) -> SparkDataFrame:
         """Infers index"""
 
     @staticmethod
-    def _unpack_infer_struct(inference_result: DataFrame) -> DataFrame:
+    def _unpack_infer_struct(inference_result: SparkDataFrame) -> SparkDataFrame:
         """Transforms input dataframe.
         Unpacks and explodes arrays from `neighbours` struct.
 

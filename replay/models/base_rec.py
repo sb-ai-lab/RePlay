@@ -2,10 +2,10 @@
 """
 Base abstract classes:
 - BaseRecommender - the simplest base class
-- Recommender - base class for models that fit on interaction log
-- HybridRecommender - base class for models that accept user or item features
-- UserRecommender - base class that accepts only user features, but not item features
-- NeighbourRec - base class that requires log at prediction time
+- Recommender - base class for models that fit on interactions
+- HybridRecommender - base class for models that accept query or item features
+- QueryRecommender - base class that accepts only query features, but not item features
+- NeighbourRec - base class that requires interactions at prediction time
 - ItemVectorModel - class for models which provides items' vectors.
     Implements similar items search.
 - NonPersonalizedRecommender - base class for non-personalized recommenders
@@ -16,46 +16,38 @@ import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from os.path import join
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Union,
-    Sequence,
-    Set,
-    Tuple,
-)
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
-import pandas as pd
 from numpy.random import default_rng
 from optuna import create_study
 from optuna.samplers import TPESampler
-from pyspark.sql import DataFrame, Window
-from pyspark.sql import functions as sf
-from pyspark.sql.column import Column
 
-from replay.data import REC_SCHEMA
-from replay.metrics import Metric, NDCG
-from replay.optimization.optuna_objective import SplitData, MainObjective
+from replay.data import Dataset, get_schema
+from replay.metrics import NDCG, Metric
+from replay.optimization.optuna_objective import MainObjective, SplitData
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.session_handler import State
-from replay.utils.spark_utils import (
-    cache_temp_view,
-    convert2spark,
-    cosine_similarity,
-    drop_temp_view,
-    filter_cold,
-    get_unique_entities,
-    get_top_k,
-    get_top_k_recs,
-    return_recs,
-    vector_euclidean_distance_similarity,
-    vector_dot,
-    save_picklable_to_parquet,
-    load_pickled_from_parquet,
-)
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import Window
+    from pyspark.sql import functions as sf
+
+    from replay.utils.spark_utils import (
+        cache_temp_view,
+        convert2spark,
+        cosine_similarity,
+        drop_temp_view,
+        filter_cold,
+        get_top_k,
+        get_top_k_recs,
+        get_unique_entities,
+        load_pickled_from_parquet,
+        return_recs,
+        save_picklable_to_parquet,
+        vector_dot,
+        vector_euclidean_distance_similarity,
+    )
 
 
 # pylint: disable=too-few-public-methods
@@ -94,6 +86,10 @@ class RecommenderCommons:
 
     _logger: Optional[logging.Logger] = None
     cached_dfs: Optional[Set] = None
+    query_column: str
+    item_column: str
+    rating_column: str
+    timestamp_column: str
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
@@ -123,7 +119,7 @@ class RecommenderCommons:
             self._logger = logging.getLogger("replay")
         return self._logger
 
-    def _cache_model_temp_view(self, df: DataFrame, df_name: str) -> None:
+    def _cache_model_temp_view(self, df: SparkDataFrame, df_name: str) -> None:
         """
         Create Spark SQL temporary view for df, cache it and add temp view name to self.cached_dfs.
         Temp view name is : "id_<python object id>_model_<RePlay model name>_<df_name>"
@@ -152,29 +148,28 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
     """Base recommender"""
 
     model: Any
-    can_predict_cold_users: bool = False
+    can_predict_cold_queries: bool = False
     can_predict_cold_items: bool = False
     _search_space: Optional[
         Dict[str, Union[str, Sequence[Union[str, int, float]]]]
     ] = None
     _objective = MainObjective
     study = None
-    fit_users: DataFrame
-    fit_items: DataFrame
-    _num_users: int
+    criterion = None
+    fit_queries: SparkDataFrame
+    fit_items: SparkDataFrame
+    _num_queries: int
     _num_items: int
-    _user_dim_size: int
+    _query_dim_size: int
     _item_dim_size: int
 
     # pylint: disable=too-many-arguments, too-many-locals, no-member
     def optimize(
         self,
-        train: DataFrame,
-        test: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        train_dataset: Dataset,
+        test_dataset: Dataset,
         param_borders: Optional[Dict[str, List[Any]]] = None,
-        criterion: Metric = NDCG(),
+        criterion: Metric = NDCG,
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
@@ -182,10 +177,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         """
         Searches the best parameters with optuna.
 
-        :param train: train data
-        :param test: test data
-        :param user_features: user features
-        :param item_features: item features
+        :param train_dataset: train data
+        :param test_dataset: test data
         :param param_borders: a dictionary with search borders, where
             key is the parameter name and value is the range of possible values
             ``{param: [low, high]}``. In case of categorical parameters it is
@@ -196,6 +189,18 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :param new_study: keep searching with previous study or start a new study
         :return: dictionary with best parameters
         """
+        self.query_column = train_dataset.feature_schema.query_id_column
+        self.item_column = train_dataset.feature_schema.item_id_column
+        self.rating_column = train_dataset.feature_schema.interactions_rating_column
+        self.timestamp_column = train_dataset.feature_schema.interactions_timestamp_column
+
+        self.criterion = criterion(
+            topk=k,
+            query_column=self.query_column,
+            item_column=self.item_column,
+            rating_column=self.rating_column,
+        )
+
         if self._search_space is None:
             self.logger.warning(
                 "%s has no hyper parameters to optimize", str(self)
@@ -214,14 +219,12 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         ):
             self.study.enqueue_trial(self._init_args)
 
-        split_data = self._prepare_split_data(
-            train, test, user_features, item_features
-        )
+        split_data = self._prepare_split_data(train_dataset, test_dataset)
         objective = self._objective(
             search_space=search_space,
             split_data=split_data,
             recommender=self,
-            criterion=criterion,
+            criterion=self.criterion,
             k=k,
         )
 
@@ -321,305 +324,303 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _prepare_split_data(
         self,
-        train: DataFrame,
-        test: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        train_dataset: Dataset,
+        test_dataset: Dataset,
     ) -> SplitData:
         """
         This method converts data to spark and packs it into a named tuple to pass into optuna.
 
-        :param train: train data
-        :param test: test data
-        :param user_features: user features
-        :param item_features: item features
+        :param train_dataset: train data
+        :param test_dataset: test data
         :return: packed PySpark DataFrames
         """
-        user_features_train, user_features_test = self._train_test_features(
-            train, test, user_features, "user_idx"
-        )
-        item_features_train, item_features_test = self._train_test_features(
-            train, test, item_features, "item_idx"
-        )
-        users = test.select("user_idx").distinct()
-        items = test.select("item_idx").distinct()
+        train = self._filter_dataset_features(train_dataset)
+        test = self._filter_dataset_features(test_dataset)
+        queries = test_dataset.interactions.select(self.query_column).distinct()
+        items = test_dataset.interactions.select(self.item_column).distinct()
         split_data = SplitData(
             train,
             test,
-            users,
+            queries,
             items,
-            user_features_train,
-            user_features_test,
-            item_features_train,
-            item_features_test,
         )
         return split_data
 
     @staticmethod
-    def _train_test_features(
-        train: DataFrame,
-        test: DataFrame,
-        features: Optional[DataFrame],
-        column: Union[str, Column],
-    ) -> Tuple[Optional[DataFrame], Optional[DataFrame]]:
+    def _filter_dataset_features(
+        dataset: Dataset,
+    ) -> Dataset:
         """
-        split dataframe with features into two dataframes representing
-        features for train and tests subset entities, defined by `column`
+        Filter features of dataset to match with items and queries of interactions
 
-        :param train: spark dataframe with the train subset
-        :param test: spark dataframe with the train subset
-        :param features: spark dataframe with users'/items' features
-        :param column: column name to use as a key for join (e.g., user_idx or item_idx)
-        :return: features for train and test subsets
+        :param dataset: dataset with interactions and features
+        :return: filtered dataset
         """
-        if features is not None:
-            features_train = features.join(
-                train.select(column).distinct(), on=column
+        if dataset.query_features is None and dataset.item_features is None:
+            return dataset
+
+        query_features = None
+        item_features = None
+        if dataset.query_features is not None:
+            query_features = dataset.query_features.join(
+                dataset.interactions.select(
+                    dataset.feature_schema.query_id_column
+                ).distinct(),
+                on=dataset.feature_schema.query_id_column,
             )
-            features_test = features.join(
-                test.select(column).distinct(), on=column
+        if dataset.item_features is not None:
+            item_features = dataset.item_features.join(
+                dataset.interactions.select(
+                    dataset.feature_schema.item_id_column
+                ).distinct(),
+                on=dataset.feature_schema.item_id_column,
             )
-        else:
-            features_train = None
-            features_test = None
-        return features_train, features_test
+
+        return Dataset(
+            feature_schema=dataset.feature_schema,
+            interactions=dataset.interactions,
+            query_features=query_features,
+            item_features=item_features,
+            check_consistency=False,
+            categorical_encoded=False,
+        )
 
     def _fit_wrap(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
         """
         Wrapper for fit to allow for fewer arguments in a model.
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param user_features: user features
-            ``[user_idx, timestamp]`` + feature columns
-        :param item_features: item features
-            ``[item_idx, timestamp]`` + feature columns
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
         :return:
         """
+        self.query_column = dataset.feature_schema.query_id_column
+        self.item_column = dataset.feature_schema.item_id_column
+        self.rating_column = dataset.feature_schema.interactions_rating_column
+        self.timestamp_column = dataset.feature_schema.interactions_timestamp_column
         self.logger.debug("Starting fit %s", type(self).__name__)
-        if user_features is None:
-            users = log.select("user_idx").distinct()
+        if dataset.query_features is None:
+            queries = dataset.interactions.select(self.query_column).distinct()
         else:
-            users = (
-                log.select("user_idx")
-                .union(user_features.select("user_idx"))
+            queries = (
+                dataset.interactions.select(self.query_column)
+                .union(dataset.query_features.select(self.query_column))
                 .distinct()
             )
-        if item_features is None:
-            items = log.select("item_idx").distinct()
+        if dataset.item_features is None:
+            items = dataset.interactions.select(self.item_column).distinct()
         else:
             items = (
-                log.select("item_idx")
-                .union(item_features.select("item_idx"))
+                dataset.interactions.select(self.item_column)
+                .union(dataset.item_features.select(self.item_column))
                 .distinct()
             )
-        self.fit_users = sf.broadcast(users)
+        self.fit_queries = sf.broadcast(queries)
         self.fit_items = sf.broadcast(items)
-        self._num_users = self.fit_users.count()
+        self._num_queries = self.fit_queries.count()
         self._num_items = self.fit_items.count()
-        self._user_dim_size = (
-            self.fit_users.agg({"user_idx": "max"}).collect()[0][0] + 1
+        self._query_dim_size = (
+            self.fit_queries.agg({self.query_column: "max"}).collect()[0][0] + 1
         )
         self._item_dim_size = (
-            self.fit_items.agg({"item_idx": "max"}).collect()[0][0] + 1
+            self.fit_items.agg({self.item_column: "max"}).collect()[0][0] + 1
         )
-        self._fit(log, user_features, item_features)
+        self._fit(dataset)
 
     @abstractmethod
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
         """
         Inner method where model actually fits.
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param user_features: user features
-            ``[user_idx, timestamp]`` + feature columns
-        :param item_features: item features
-            ``[item_idx, timestamp]`` + feature columns
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
         :return:
         """
 
     def _filter_seen(
-        self, recs: DataFrame, log: DataFrame, k: int, users: DataFrame
+        self, recs: SparkDataFrame, interactions: SparkDataFrame, k: int, queries: SparkDataFrame
     ):
         """
-        Filter seen items (presented in log) out of the users' recommendations.
-        For each user return from `k` to `k + number of seen by user` recommendations.
+        Filter seen items (presented in interactions) out of the queries' recommendations.
+        For each query return from `k` to `k + number of seen by query` recommendations.
         """
-        users_log = log.join(users, on="user_idx")
-        self._cache_model_temp_view(users_log, "filter_seen_users_log")
-        num_seen = users_log.groupBy("user_idx").agg(
-            sf.count("item_idx").alias("seen_count")
+        queries_interactions = interactions.join(queries, on=self.query_column)
+        self._cache_model_temp_view(queries_interactions, "filter_seen_queries_interactions")
+        num_seen = queries_interactions.groupBy(self.query_column).agg(
+            sf.count(self.item_column).alias("seen_count")
         )
         self._cache_model_temp_view(num_seen, "filter_seen_num_seen")
 
-        # count maximal number of items seen by users
+        # count maximal number of items seen by queries
         max_seen = 0
         if num_seen.count() > 0:
             max_seen = num_seen.select(sf.max("seen_count")).collect()[0][0]
 
-        # crop recommendations to first k + max_seen items for each user
+        # crop recommendations to first k + max_seen items for each query
         recs = recs.withColumn(
             "temp_rank",
             sf.row_number().over(
-                Window.partitionBy("user_idx").orderBy(
-                    sf.col("relevance").desc()
+                Window.partitionBy(self.query_column).orderBy(
+                    sf.col(self.rating_column).desc()
                 )
             ),
         ).filter(sf.col("temp_rank") <= sf.lit(max_seen + k))
 
-        # leave k + number of items seen by user recommendations in recs
+        # leave k + number of items seen by query recommendations in recs
         recs = (
-            recs.join(num_seen, on="user_idx", how="left")
+            recs.join(num_seen, on=self.query_column, how="left")
             .fillna(0)
             .filter(sf.col("temp_rank") <= sf.col("seen_count") + sf.lit(k))
             .drop("temp_rank", "seen_count")
         )
 
-        # filter recommendations presented in interactions log
+        # filter recommendations presented in interactions interactions
         recs = recs.join(
-            users_log.withColumnRenamed("item_idx", "item")
-            .withColumnRenamed("user_idx", "user")
-            .select("user", "item"),
-            on=(sf.col("user_idx") == sf.col("user"))
-            & (sf.col("item_idx") == sf.col("item")),
+            queries_interactions.withColumnRenamed(self.item_column, "item")
+            .withColumnRenamed(self.query_column, "query")
+            .select("query", "item"),
+            on=(sf.col(self.query_column) == sf.col("query"))
+            & (sf.col(self.item_column) == sf.col("item")),
             how="anti",
-        ).drop("user", "item")
+        ).drop("query", "item")
 
         return recs
 
-    def _filter_log_users_items_dataframes(
+    def _filter_interactions_queries_items_dataframes(
         self,
-        log: Optional[DataFrame],
+        dataset: Optional[Dataset],
         k: int,
-        users: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
-        user_features: Optional[DataFrame] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
     ):
         """
-        Returns triplet of filtered `log`, `users`, and `items`.
-        Filters out cold entities (users/items) from the `users`/`items` and `log` dataframes
+        Returns triplet of filtered `dataset`, `queries`, and `items`.
+        Filters out cold entities (queries/items) from the `queries`/`items` and `dataset`
         if the model does not predict cold.
-        Filters out duplicates from `users` and `items` dataframes,
+        Filters out duplicates from `queries` and `items` dataframes,
         and excludes all columns except `user_idx` and `item_idx`.
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
         :param k: number of recommendations for each user
-        :param users: users to create recommendations for
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``dataset``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
-            If it contains new items, ``relevance`` for them will be ``0``.
-        :param user_features: user features
-            ``[user_idx , timestamp]`` + feature columns
-        :return: triplet of filtered `log`, `users`, and `items` dataframes.
+            if ``None``, take all items from ``dataset``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :return: triplet of filtered `dataset`, `queries`, and `items`.
         """
         self.logger.debug("Starting predict %s", type(self).__name__)
-        user_data = users or log or user_features or self.fit_users
-        users = get_unique_entities(user_data, "user_idx")
-        users, log = self._filter_cold_for_predict(users, log, "user")
+        if dataset is not None:
+            query_data = queries or dataset.interactions or dataset.query_features or self.fit_queries
+            interactions = dataset.interactions
+        else:
+            query_data = queries or self.fit_queries
+            interactions = None
+
+        queries = get_unique_entities(query_data, self.query_column)
+        queries, interactions = self._filter_cold_for_predict(queries, interactions, "query")
 
         item_data = items or self.fit_items
-        items = get_unique_entities(item_data, "item_idx")
-        items, log = self._filter_cold_for_predict(items, log, "item")
+        items = get_unique_entities(item_data, self.item_column)
+        items, interactions = self._filter_cold_for_predict(items, interactions, "item")
         num_items = items.count()
         if num_items < k:
             message = f"k = {k} > number of items = {num_items}"
             self.logger.debug(message)
-        return log, users, items
+
+        if dataset is not None:
+            dataset = Dataset(
+                feature_schema=dataset.feature_schema,
+                interactions=interactions,
+                query_features=dataset.query_features,
+                item_features=dataset.item_features,
+                check_consistency=False,
+            )
+        return dataset, queries, items
 
     # pylint: disable=too-many-arguments
     def _predict_wrap(
         self,
-        log: Optional[DataFrame],
+        dataset: Optional[Dataset],
         k: int,
-        users: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Predict wrapper to allow for fewer parameters in models
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
         :param k: number of recommendations for each user
-        :param users: users to create recommendations for
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
-            If it contains new items, ``relevance`` for them will be ``0``.
+            if ``None``, take all items from ``interactions``.
+            If it contains new items, ``rating`` for them will be ``0``.
         :param user_features: user features
             ``[user_idx , timestamp]`` + feature columns
         :param item_features: item features
             ``[item_idx , timestamp]`` + feature columns
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
-        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
             or None if `file_path` is provided
         """
-        log, users, items = self._filter_log_users_items_dataframes(
-            log, k, users, items
+        dataset, queries, items = self._filter_interactions_queries_items_dataframes(
+            dataset, k, queries, items
         )
 
         recs = self._predict(
-            log,
+            dataset,
             k,
-            users,
+            queries,
             items,
-            user_features,
-            item_features,
             filter_seen_items,
         )
-        if filter_seen_items and log:
-            recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
+        if filter_seen_items and dataset is not None:
+            recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
 
-        recs = get_top_k_recs(recs, k=k).select(
-            "user_idx", "item_idx", "relevance"
+        recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
+            self.query_column, self.item_column, self.rating_column
         )
 
         output = return_recs(recs, recs_file_path)
-        self._clear_model_temp_view("filter_seen_users_log")
+        self._clear_model_temp_view("filter_seen_queries_interactions")
         self._clear_model_temp_view("filter_seen_num_seen")
         return output
 
     def _filter_cold_for_predict(
         self,
-        main_df: DataFrame,
-        log_df: Optional[DataFrame],
+        main_df: SparkDataFrame,
+        interactions_df: Optional[SparkDataFrame],
         entity: str,
-        suffix: str = "idx",
     ):
         """
-        Filter out cold entities (users/items) from the `main_df` and `log_df`
+        Filter out cold entities (queries/items) from the `main_df` and `interactions_df_df`
         if the model does not predict cold.
         Warn if cold entities are present in the `main_df`.
         """
-        if getattr(self, f"can_predict_cold_{entity}s"):
-            return main_df, log_df
-
-        fit_entities = getattr(self, f"fit_{entity}s")
+        can_predict_cold = self.can_predict_cold_queries if entity == "query" else self.can_predict_cold_items
+        fit_entities = self.fit_queries if entity == "query" else self.fit_items
+        column = self.query_column if entity == "query" else self.item_column
+        if can_predict_cold:
+            return main_df, interactions_df
 
         num_new, main_df = filter_cold(
-            main_df, fit_entities, col_name=f"{entity}_{suffix}"
+            main_df, fit_entities, col_name=column
         )
         if num_new > 0:
             self.logger.info(
@@ -627,60 +628,56 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
                 self,
                 entity,
             )
-        _, log_df = filter_cold(
-            log_df, fit_entities, col_name=f"{entity}_{suffix}"
+        _, interactions_df = filter_cold(
+            interactions_df, fit_entities, col_name=column
         )
-        return main_df, log_df
+        return main_df, interactions_df
 
     # pylint: disable=too-many-arguments
     @abstractmethod
     def _predict(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         """
         Inner method where model actually predicts.
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
         :param k: number of recommendations for each user
-        :param users: users to create recommendations for
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
-            If it contains new items, ``relevance`` for them will be ``0``.
-        :param user_features: user features
-            ``[user_idx , timestamp]`` + feature columns
-        :param item_features: item features
-            ``[item_idx , timestamp]`` + feature columns
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+            if ``None``, take all items from ``interactions``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :return: recommendation dataframe
-            ``[user_idx, item_idx, relevance]``
+            ``[user_idx, item_idx, rating]``
         """
 
     def _get_fit_counts(self, entity: str) -> int:
-        if not hasattr(self, f"_num_{entity}s"):
+        num_entities = "_num_queries" if entity == "query" else "_num_items"
+        fit_entities = self.fit_queries if entity == "query" else self.fit_items
+        if not hasattr(self, num_entities):
             setattr(
                 self,
-                f"_num_{entity}s",
-                getattr(self, f"fit_{entity}s").count(),
+                num_entities,
+                fit_entities.count(),
             )
-        return getattr(self, f"_num_{entity}s")
+        return getattr(self, num_entities)
 
     @property
-    def users_count(self) -> int:
+    def queries_count(self) -> int:
         """
-        :returns: number of users the model was trained on
+        :returns: number of queries the model was trained on
         """
-        return self._get_fit_counts("user")
+        return self._get_fit_counts("query")
 
     @property
     def items_count(self) -> int:
@@ -690,23 +687,26 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         return self._get_fit_counts("item")
 
     def _get_fit_dims(self, entity: str) -> int:
-        if not hasattr(self, f"_{entity}_dim_size"):
+        dim_size = f"_{entity}_dim_size"
+        fit_entities = self.fit_queries if entity == "query" else self.fit_items
+        column = self.query_column if entity == "query" else self.item_column
+        if not hasattr(self, dim_size):
             setattr(
                 self,
-                f"_{entity}_dim_size",
-                getattr(self, f"fit_{entity}s")
-                .agg({f"{entity}_idx": "max"})
+                dim_size,
+                fit_entities
+                .agg({column: "max"})
                 .collect()[0][0]
                 + 1,
             )
-        return getattr(self, f"_{entity}_dim_size")
+        return getattr(self, dim_size)
 
     @property
-    def _user_dim(self) -> int:
+    def _query_dim(self) -> int:
         """
-        :returns: dimension of users matrix (maximal user idx + 1)
+        :returns: dimension of queries matrix (maximal query id + 1)
         """
-        return self._get_fit_dims("user")
+        return self._get_fit_dims("query")
 
     @property
     def _item_dim(self) -> int:
@@ -717,75 +717,75 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _fit_predict(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
-        users: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
-        self._fit_wrap(log, user_features, item_features)
+    ) -> Optional[SparkDataFrame]:
+        self._fit_wrap(dataset)
         return self._predict_wrap(
-            log,
+            dataset,
             k,
-            users,
+            queries,
             items,
-            user_features,
-            item_features,
             filter_seen_items,
             recs_file_path=recs_file_path,
         )
 
     def _predict_pairs_wrap(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        pairs: SparkDataFrame,
+        dataset: Optional[Dataset] = None,
         recs_file_path: Optional[str] = None,
         k: Optional[int] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         This method
         1) converts data to spark
-        2) removes cold users and items if model does not predict them
+        2) removes cold queries and items if model does not predict them
         3) calls inner _predict_pairs method of a model
 
-        :param pairs: user-item pairs to get relevance for,
+        :param pairs: query-item pairs to get rating for,
             dataframe containing``[user_idx, item_idx]``.
-        :param log: train data
-            ``[user_idx, item_idx, timestamp, relevance]``.
+        :param dataset: train data
+            ``[user_idx, item_idx, timestamp, rating]``.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
-        :return: cached dataframe with columns ``[user_idx, item_idx, relevance]``
+        :return: cached dataframe with columns ``[user_idx, item_idx, rating]``
             or None if `file_path` is provided
         """
-        log, user_features, item_features, pairs = [
-            convert2spark(df)
-            for df in [log, user_features, item_features, pairs]
-        ]
-        if sorted(pairs.columns) != ["item_idx", "user_idx"]:
-            raise ValueError(
-                "pairs must be a dataframe with columns strictly [user_idx, item_idx]"
+        if dataset is not None:
+            interactions, query_features, item_features, pairs = [
+                convert2spark(df)
+                for df in [dataset.interactions, dataset.query_features, dataset.item_features, pairs]
+            ]
+            if set(pairs.columns) != set([self.item_column, self.query_column]):
+                raise ValueError(
+                    "pairs must be a dataframe with columns strictly [user_idx, item_idx]"
+                )
+            pairs, interactions = self._filter_cold_for_predict(pairs, interactions, "query")
+            pairs, interactions = self._filter_cold_for_predict(pairs, interactions, "item")
+
+            dataset = Dataset(
+                feature_schema=dataset.feature_schema,
+                interactions=interactions,
+                query_features=query_features,
+                item_features=item_features,
             )
-        pairs, log = self._filter_cold_for_predict(pairs, log, "user")
-        pairs, log = self._filter_cold_for_predict(pairs, log, "item")
 
         pred = self._predict_pairs(
             pairs=pairs,
-            log=log,
-            user_features=user_features,
-            item_features=item_features,
+            dataset=dataset,
         )
 
         if k:
             pred = get_top_k(
                 dataframe=pred,
-                partition_by_col=sf.col("user_idx"),
+                partition_by_col=sf.col(self.query_column),
                 order_by_col=[
-                    sf.col("relevance").desc(),
+                    sf.col(self.rating_column).desc(),
                 ],
                 k=k,
             )
@@ -799,18 +799,16 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        pairs: SparkDataFrame,
+        dataset: Optional[Dataset] = None,
+    ) -> SparkDataFrame:
         """
         Fallback method to use in case ``_predict_pairs`` is not implemented.
         Simply joins ``predict`` with given ``pairs``.
-        :param pairs: user-item pairs to get relevance for,
+        :param pairs: query-item pairs to get rating for,
             dataframe containing``[user_idx, item_idx]``.
-        :param log: train data
-            ``[user_idx, item_idx, timestamp, relevance]``.
+        :param dataset: train data
+            ``[user_idx, item_idx, timestamp, rating]``.
         """
         message = (
             "native predict_pairs is not implemented for this model. "
@@ -818,44 +816,42 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         )
         self.logger.warning(message)
 
-        users = pairs.select("user_idx").distinct()
-        items = pairs.select("item_idx").distinct()
+        queries = pairs.select(self.query_column).distinct()
+        items = pairs.select(self.item_column).distinct()
         k = items.count()
         pred = self._predict(
-            log=log,
+            dataset=dataset,
             k=k,
-            users=users,
+            queries=queries,
             items=items,
-            user_features=user_features,
-            item_features=item_features,
             filter_seen_items=False,
         )
 
         pred = pred.join(
-            pairs.select("user_idx", "item_idx"),
-            on=["user_idx", "item_idx"],
+            pairs.select(self.query_column, self.item_column),
+            on=[self.query_column, self.item_column],
             how="inner",
         )
         return pred
 
     def _get_features_wrap(
-        self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Optional[Tuple[DataFrame, int]]:
-        if "user_idx" not in ids.columns and "item_idx" not in ids.columns:
-            raise ValueError("user_idx or item_idx missing")
+        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
+    ) -> Optional[Tuple[SparkDataFrame, int]]:
+        if self.query_column not in ids.columns and self.item_column not in ids.columns:
+            raise ValueError(f"{self.query_column} or {self.item_column} missing")
         vectors, rank = self._get_features(ids, features)
         return vectors, rank
 
     # pylint: disable=unused-argument
     def _get_features(
-        self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Tuple[Optional[DataFrame], Optional[int]]:
+        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
+    ) -> Tuple[Optional[SparkDataFrame], Optional[int]]:
         """
         Get embeddings from model
 
         :param ids: id ids to get embeddings for Spark DataFrame containing user_idx or item_idx
-        :param features: user or item features
-        :return: DataFrame with biases and embeddings, and vector size
+        :param features: query or item features
+        :return: SparkDataFrame with biases and embeddings, and vector size
         """
 
         self.logger.info(
@@ -866,17 +862,17 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _get_nearest_items_wrap(
         self,
-        items: Union[DataFrame, Iterable],
+        items: Union[SparkDataFrame, Iterable],
         k: int,
         metric: Optional[str] = "cosine_similarity",
-        candidates: Optional[Union[DataFrame, Iterable]] = None,
-    ) -> Optional[DataFrame]:
+        candidates: Optional[Union[SparkDataFrame, Iterable]] = None,
+    ) -> Optional[SparkDataFrame]:
         """
         Convert indexes and leave top-k nearest items for each item in `items`.
         """
-        items = get_unique_entities(items, "item_idx")
+        items = get_unique_entities(items, self.item_column)
         if candidates is not None:
-            candidates = get_unique_entities(candidates, "item_idx")
+            candidates = get_unique_entities(candidates, self.item_column)
 
         nearest_items_to_filter = self._get_nearest_items(
             items=items,
@@ -899,16 +895,16 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             "item_idx_two", "neighbour_item_idx"
         )
         nearest_items = nearest_items.withColumnRenamed(
-            "item_idx_one", "item_idx"
+            "item_idx_one", self.item_column
         )
         return nearest_items
 
     def _get_nearest_items(
         self,
-        items: DataFrame,
+        items: SparkDataFrame,
         metric: Optional[str] = None,
-        candidates: Optional[DataFrame] = None,
-    ) -> Optional[DataFrame]:
+        candidates: Optional[SparkDataFrame] = None,
+    ) -> Optional[SparkDataFrame]:
         raise NotImplementedError(
             f"item-to-item prediction is not implemented for {self}"
         )
@@ -929,6 +925,25 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
         return False
 
+    def _save_model(self, path: str, additional_params: Optional[dict] = None):
+        saved_params = {
+            "query_column": self.query_column,
+            "item_column": self.item_column,
+            "rating_column": self.rating_column,
+            "timestamp_column": self.timestamp_column,
+        }
+        if additional_params is not None:
+            saved_params.update(additional_params)
+        save_picklable_to_parquet(
+            saved_params,
+            join(path, "params.dump")
+        )
+
+    def _load_model(self, path: str):
+        loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
+        for param, value in loaded_params.items():
+            setattr(self, param, value)
+
 
 class ItemVectorModel(BaseRecommender):
     """Parent for models generating items' vector representations"""
@@ -941,7 +956,7 @@ class ItemVectorModel(BaseRecommender):
     ]
 
     @abstractmethod
-    def _get_item_vectors(self) -> DataFrame:
+    def _get_item_vectors(self) -> SparkDataFrame:
         """
         Return dataframe with items' vectors as a
             spark dataframe with columns ``[item_idx, item_vector]``
@@ -949,11 +964,11 @@ class ItemVectorModel(BaseRecommender):
 
     def get_nearest_items(
         self,
-        items: Union[DataFrame, Iterable],
+        items: Union[SparkDataFrame, Iterable],
         k: int,
         metric: Optional[str] = "cosine_similarity",
-        candidates: Optional[Union[DataFrame, Iterable]] = None,
-    ) -> Optional[DataFrame]:
+        candidates: Optional[Union[SparkDataFrame, Iterable]] = None,
+    ) -> Optional[SparkDataFrame]:
         """
         Get k most similar items be the `metric` for each of the `items`.
 
@@ -982,10 +997,10 @@ class ItemVectorModel(BaseRecommender):
 
     def _get_nearest_items(
         self,
-        items: DataFrame,
+        items: SparkDataFrame,
         metric: str = "cosine_similarity",
-        candidates: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        candidates: Optional[SparkDataFrame] = None,
+    ) -> SparkDataFrame:
         """
         Return distance metric value for all available close items filtered by `candidates`.
 
@@ -1005,21 +1020,21 @@ class ItemVectorModel(BaseRecommender):
 
         items_vectors = self._get_item_vectors()
         left_part = (
-            items_vectors.withColumnRenamed("item_idx", "item_idx_one")
+            items_vectors.withColumnRenamed(self.item_column, "item_idx_one")
             .withColumnRenamed("item_vector", "item_vector_one")
             .join(
-                items.select(sf.col("item_idx").alias("item_idx_one")),
+                items.select(sf.col(self.item_column).alias("item_idx_one")),
                 on="item_idx_one",
             )
         )
 
         right_part = items_vectors.withColumnRenamed(
-            "item_idx", "item_idx_two"
+            self.item_column, "item_idx_two"
         ).withColumnRenamed("item_vector", "item_vector_two")
 
         if candidates is not None:
             right_part = right_part.join(
-                candidates.withColumnRenamed("item_idx", "item_idx_two"),
+                candidates.withColumnRenamed(self.item_column, "item_idx_two"),
                 on="item_idx_two",
             )
 
@@ -1047,160 +1062,126 @@ class HybridRecommender(BaseRecommender, ABC):
 
     def fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
         """
         Fit a recommendation model
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param user_features: user features
-            ``[user_idx, timestamp]`` + feature columns
-        :param item_features: item features
-            ``[item_idx, timestamp]`` + feature columns
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
         :return:
         """
-        self._fit_wrap(
-            log=log,
-            user_features=user_features,
-            item_features=item_features,
-        )
+        self._fit_wrap(dataset=dataset)
 
     # pylint: disable=too-many-arguments
     def predict(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
-        users: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Get recommendations
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param k: number of recommendations for each user
-        :param users: users to create recommendations for
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each query
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
-            If it contains new items, ``relevance`` for them will be ``0``.
-        :param user_features: user features
-            ``[user_idx , timestamp]`` + feature columns
-        :param item_features: item features
-            ``[item_idx , timestamp]`` + feature columns
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+            if ``None``, take all items from ``interactions``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
-        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
             or None if `file_path` is provided
 
         """
         return self._predict_wrap(
-            log=log,
+            dataset=dataset,
             k=k,
-            users=users,
+            queries=queries,
             items=items,
-            user_features=user_features,
-            item_features=item_features,
             filter_seen_items=filter_seen_items,
             recs_file_path=recs_file_path,
         )
 
     def fit_predict(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
-        users: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Fit model and get recommendations
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param k: number of recommendations for each user
-        :param users: users to create recommendations for
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each query
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
-            If it contains new items, ``relevance`` for them will be ``0``.
-        :param user_features: user features
-            ``[user_idx , timestamp]`` + feature columns
-        :param item_features: item features
-            ``[item_idx , timestamp]`` + feature columns
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+            if ``None``, take all items from ``interactions``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
-        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
             or None if `file_path` is provided
         """
         return self._fit_predict(
-            log=log,
+            dataset=dataset,
             k=k,
-            users=users,
+            queries=queries,
             items=items,
-            user_features=user_features,
-            item_features=item_features,
             filter_seen_items=filter_seen_items,
             recs_file_path=recs_file_path,
         )
 
     def predict_pairs(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        pairs: SparkDataFrame,
+        dataset: Optional[Dataset] = None,
         recs_file_path: Optional[str] = None,
         k: Optional[int] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
-        Get recommendations for specific user-item ``pairs``.
+        Get recommendations for specific query-item ``pairs``.
         If a model can't produce recommendation
         for specific pair it is removed from the resulting dataframe.
 
-        :param pairs: dataframe with pairs to calculate relevance for, ``[user_idx, item_idx]``.
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param user_features: user features
-            ``[user_idx , timestamp]`` + feature columns
-        :param item_features: item features
-            ``[item_idx , timestamp]`` + feature columns
+        :param pairs: dataframe with pairs to calculate rating for, ``[user_idx, item_idx]``.
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
-        :param k: top-k items for each user from pairs.
-        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
+        :param k: top-k items for each query from pairs.
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
             or None if `file_path` is provided
         """
         return self._predict_pairs_wrap(
             pairs=pairs,
-            log=log,
-            user_features=user_features,
-            item_features=item_features,
+            dataset=dataset,
             recs_file_path=recs_file_path,
             k=k,
         )
 
     def get_features(
-        self, ids: DataFrame, features: Optional[DataFrame]
-    ) -> Optional[Tuple[DataFrame, int]]:
+        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
+    ) -> Optional[Tuple[SparkDataFrame, int]]:
         """
-        Returns user or item feature vectors as a Column with type ArrayType
+        Returns query or item feature vectors as a Column with type ArrayType
         :param ids: Spark DataFrame with unique ids
         :param features: Spark DataFrame with features for provided ids
         :return: feature vectors
@@ -1213,84 +1194,78 @@ class HybridRecommender(BaseRecommender, ABC):
 class Recommender(BaseRecommender, ABC):
     """Usual recommender class for models without features."""
 
-    def fit(self, log: DataFrame) -> None:
+    def fit(self, dataset: Dataset) -> None:
         """
         Fit a recommendation model
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
         :return:
         """
-        self._fit_wrap(
-            log=log,
-            user_features=None,
-            item_features=None,
-        )
+        self._fit_wrap(dataset=dataset)
 
     # pylint: disable=too-many-arguments
     def predict(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
-        users: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Get recommendations
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param k: number of recommendations for each user
-        :param users: users to create recommendations for
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each query
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
-            If it contains new items, ``relevance`` for them will be ``0``.
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+            if ``None``, take all items from ``interactions``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
-        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
             or None if `file_path` is provided
         """
         return self._predict_wrap(
-            log=log,
+            dataset=dataset,
             k=k,
-            users=users,
+            queries=queries,
             items=items,
-            user_features=None,
-            item_features=None,
             filter_seen_items=filter_seen_items,
             recs_file_path=recs_file_path,
         )
 
     def predict_pairs(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
+        pairs: SparkDataFrame,
+        dataset: Optional[Dataset] = None,
         recs_file_path: Optional[str] = None,
         k: Optional[int] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
-        Get recommendations for specific user-item ``pairs``.
+        Get recommendations for specific query-item ``pairs``.
         If a model can't produce recommendation
         for specific pair it is removed from the resulting dataframe.
 
-        :param pairs: dataframe with pairs to calculate relevance for, ``[user_idx, item_idx]``.
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
+        :param pairs: dataframe with pairs to calculate rating for, ``[user_idx, item_idx]``.
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
-        :param k: top-k items for each user from pairs.
-        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
+        :param k: top-k items for each query from pairs.
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
             or None if `file_path` is provided
         """
         return self._predict_pairs_wrap(
             pairs=pairs,
-            log=log,
+            dataset=dataset,
             recs_file_path=recs_file_path,
             k=k,
         )
@@ -1298,46 +1273,44 @@ class Recommender(BaseRecommender, ABC):
     # pylint: disable=too-many-arguments
     def fit_predict(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
-        users: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Fit model and get recommendations
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param k: number of recommendations for each user
-        :param users: users to create recommendations for
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each query
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
-            If it contains new items, ``relevance`` for them will be ``0``.
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+            if ``None``, take all items from ``interactions``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
-        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
             or None if `file_path` is provided
         """
         return self._fit_predict(
-            log=log,
+            dataset=dataset,
             k=k,
-            users=users,
+            queries=queries,
             items=items,
-            user_features=None,
-            item_features=None,
             filter_seen_items=filter_seen_items,
             recs_file_path=recs_file_path,
         )
 
-    def get_features(self, ids: DataFrame) -> Optional[Tuple[DataFrame, int]]:
+    def get_features(self, ids: SparkDataFrame) -> Optional[Tuple[SparkDataFrame, int]]:
         """
-        Returns user or item feature vectors as a Column with type ArrayType
+        Returns query or item feature vectors as a Column with type ArrayType
 
         :param ids: Spark DataFrame with unique ids
         :return: feature vectors.
@@ -1346,96 +1319,85 @@ class Recommender(BaseRecommender, ABC):
         return self._get_features_wrap(ids, None)
 
 
-class UserRecommender(BaseRecommender, ABC):
-    """Base class for models that use user features
-    but not item features. ``log`` is not required for this class."""
+class QueryRecommender(BaseRecommender, ABC):
+    """Base class for models that use query features
+    but not item features. ``interactions`` is not required for this class."""
 
     def fit(
         self,
-        log: DataFrame,
-        user_features: DataFrame,
+        dataset: Dataset,
     ) -> None:
         """
-        Finds user clusters and calculates item similarity in that clusters.
+        Finds query clusters and calculates item similarity in that clusters.
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param user_features: user features
-            ``[user_idx, timestamp]`` + feature columns
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
         :return:
         """
-        self._fit_wrap(log=log, user_features=user_features)
+        self._fit_wrap(dataset=dataset)
 
     # pylint: disable=too-many-arguments
     def predict(
         self,
-        user_features: DataFrame,
+        dataset: Dataset,
         k: int,
-        log: Optional[DataFrame] = None,
-        users: Optional[Union[DataFrame, Iterable]] = None,
-        items: Optional[Union[DataFrame, Iterable]] = None,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
         Get recommendations
 
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param k: number of recommendations for each user
-        :param users: users to create recommendations for
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each query
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
-            If it contains new items, ``relevance`` for them will be ``0``.
-        :param user_features: user features
-            ``[user_idx , timestamp]`` + feature columns
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+            if ``None``, take all items from ``interactions``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
-        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
             or None if `file_path` is provided
         """
         return self._predict_wrap(
-            log=log,
-            user_features=user_features,
+            dataset=dataset,
             k=k,
             filter_seen_items=filter_seen_items,
-            users=users,
+            queries=queries,
             items=items,
             recs_file_path=recs_file_path,
         )
 
     def predict_pairs(
         self,
-        pairs: DataFrame,
-        user_features: DataFrame,
-        log: Optional[DataFrame] = None,
+        pairs: SparkDataFrame,
+        dataset: Dataset,
         recs_file_path: Optional[str] = None,
         k: Optional[int] = None,
-    ) -> Optional[DataFrame]:
+    ) -> Optional[SparkDataFrame]:
         """
-        Get recommendations for specific user-item ``pairs``.
+        Get recommendations for specific query-item ``pairs``.
         If a model can't produce recommendation
         for specific pair it is removed from the resulting dataframe.
 
-        :param pairs: dataframe with pairs to calculate relevance for, ``[user_idx, item_idx]``.
-        :param user_features: user features
-            ``[user_idx , timestamp]`` + feature columns
-        :param log: historical log of interactions
-            ``[user_idx, item_idx, timestamp, relevance]``
+        :param pairs: dataframe with pairs to calculate rating for, ``[user_idx, item_idx]``.
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
         :param recs_file_path: save recommendations at the given absolute path as parquet file.
             If None, cached and materialized recommendations dataframe  will be returned
-        :param k: top-k items for each user from pairs.
-        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, relevance]``
+        :param k: top-k items for each query from pairs.
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
             or None if `file_path` is provided
         """
         return self._predict_pairs_wrap(
             pairs=pairs,
-            log=log,
-            user_features=user_features,
+            dataset=dataset,
             recs_file_path=recs_file_path,
             k=k,
         )
@@ -1444,9 +1406,9 @@ class UserRecommender(BaseRecommender, ABC):
 class NonPersonalizedRecommender(Recommender, ABC):
     """Base class for non-personalized recommenders with popularity statistics."""
 
-    can_predict_cold_users = True
+    can_predict_cold_queries = True
     can_predict_cold_items = True
-    item_popularity: DataFrame
+    item_popularity: SparkDataFrame
     add_cold_items: bool
     cold_weight: float
     sample: bool
@@ -1466,59 +1428,58 @@ class NonPersonalizedRecommender(Recommender, ABC):
     def _dataframes(self):
         return {"item_popularity": self.item_popularity}
 
-    def _save_model(self, path: str):
-        save_picklable_to_parquet(self.fill, join(path, "params.dump"))
-
-    def _load_model(self, path: str):
-        self.fill = load_pickled_from_parquet(join(path, "params.dump"))
+    def _save_model(self, path: str, additional_params: Optional[dict] = None):
+        super()._save_model(path, additional_params={"fill": self.fill})
 
     def _clear_cache(self):
         if hasattr(self, "item_popularity"):
             self.item_popularity.unpersist()
 
     @staticmethod
-    def _calc_fill(item_popularity: DataFrame, weight: float) -> float:
+    def _calc_fill(item_popularity: SparkDataFrame, weight: float, rating_column: str) -> float:
         """
-        Calculating a fill value a the minimal relevance
+        Calculating a fill value a the minimal rating
         calculated during model training multiplied by weight.
         """
         return (
-            item_popularity.select(sf.min("relevance")).collect()[0][0]
+            item_popularity.select(sf.min(rating_column)).collect()[0][0]
             * weight
         )
 
     @staticmethod
-    def _check_relevance(log: DataFrame):
-
-        vals = log.select("relevance").where(
-            (sf.col("relevance") != 1) & (sf.col("relevance") != 0)
+    def _check_rating(dataset: Dataset):
+        rating_column = dataset.feature_schema.interactions_rating_column
+        vals = dataset.interactions.select(rating_column).where(
+            (sf.col(rating_column) != 1) & (sf.col(rating_column) != 0)
         )
         if vals.count() > 0:
-            raise ValueError("Relevance values in log must be 0 or 1")
+            raise ValueError("Rating values in interactions must be 0 or 1")
 
-    def _get_selected_item_popularity(self, items: DataFrame) -> DataFrame:
+    def _get_selected_item_popularity(self, items: SparkDataFrame) -> SparkDataFrame:
         """
         Choose only required item from `item_popularity` dataframe
         for further recommendations generation.
         """
         return self.item_popularity.join(
             items,
-            on="item_idx",
+            on=self.item_column,
             how="right" if self.add_cold_items else "inner",
-        ).fillna(value=self.fill, subset=["relevance"])
+        ).fillna(value=self.fill, subset=[self.rating_column])
 
     @staticmethod
-    def _calc_max_hist_len(log: DataFrame, users: DataFrame) -> int:
+    def _calc_max_hist_len(dataset: Dataset, queries: SparkDataFrame) -> int:
+        query_column = dataset.feature_schema.query_id_column
+        item_column = dataset.feature_schema.item_id_column
         max_hist_len = (
             (
-                log.join(users, on="user_idx")
-                .groupBy("user_idx")
-                .agg(sf.countDistinct("item_idx").alias("items_count"))
+                dataset.interactions.join(queries, on=query_column)
+                .groupBy(query_column)
+                .agg(sf.countDistinct(item_column).alias("items_count"))
             )
             .select(sf.max("items_count"))
             .collect()[0][0]
         )
-        # all users have empty history
+        # all queries have empty history
         if max_hist_len is None:
             max_hist_len = 0
 
@@ -1527,85 +1488,94 @@ class NonPersonalizedRecommender(Recommender, ABC):
     # pylint: disable=too-many-arguments
     def _predict_without_sampling(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         """
         Regular prediction for popularity-based models,
-        top-k most relevant items from `items` are chosen for each user
+        top-k most relevant items from `items` are chosen for each query
         """
         selected_item_popularity = self._get_selected_item_popularity(items)
         selected_item_popularity = selected_item_popularity.withColumn(
             "rank",
             sf.row_number().over(
                 Window.orderBy(
-                    sf.col("relevance").desc(), sf.col("item_idx").desc()
+                    sf.col(self.rating_column).desc(), sf.col(self.item_column).desc()
                 )
             ),
         )
 
-        if filter_seen_items and log is not None:
-            user_to_num_items = (
-                log.join(users, on="user_idx")
-                .groupBy("user_idx")
-                .agg(sf.countDistinct("item_idx").alias("num_items"))
+        if filter_seen_items and dataset is not None:
+            query_to_num_items = (
+                dataset.interactions.join(queries, on=self.query_column)
+                .groupBy(self.query_column)
+                .agg(sf.countDistinct(self.item_column).alias("num_items"))
             )
-            users = users.join(user_to_num_items, on="user_idx", how="left")
-            users = users.fillna(0, "num_items")
+            queries = queries.join(query_to_num_items, on=self.query_column, how="left")
+            queries = queries.fillna(0, "num_items")
             # 'selected_item_popularity' truncation by k + max_seen
-            max_seen = users.select(sf.coalesce(sf.max("num_items"), sf.lit(0))).collect()[0][0]
+            max_seen = queries.select(sf.coalesce(sf.max("num_items"), sf.lit(0))).collect()[0][0]
             selected_item_popularity = selected_item_popularity\
                 .filter(sf.col("rank") <= k + max_seen)
-            return users.join(
+            return queries.join(
                 selected_item_popularity, on=(sf.col("rank") <= k + sf.col("num_items")), how="left"
             )
 
-        return users.crossJoin(
+        return queries.crossJoin(
             selected_item_popularity.filter(sf.col("rank") <= k)
         ).drop("rank")
 
+    # pylint: disable=too-many-locals
     def _predict_with_sampling(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         """
         Randomized prediction for popularity-based models,
-        top-k items from `items` are sampled for each user based with
+        top-k items from `items` are sampled for each query based with
         probability proportional to items' popularity
         """
         selected_item_popularity = self._get_selected_item_popularity(items)
         selected_item_popularity = selected_item_popularity.withColumn(
-            "relevance",
-            sf.when(sf.col("relevance") == sf.lit(0.0), 0.1**6).otherwise(
-                sf.col("relevance")
+            self.rating_column,
+            sf.when(sf.col(self.rating_column) == sf.lit(0.0), 0.1**6).otherwise(
+                sf.col(self.rating_column)
             ),
         )
 
         items_pd = selected_item_popularity.withColumn(
             "probability",
-            sf.col("relevance")
-            / selected_item_popularity.select(sf.sum("relevance")).first()[0],
+            sf.col(self.rating_column)
+            / selected_item_popularity.select(sf.sum(self.rating_column)).first()[0],
         ).toPandas()
-
+        rec_schema = get_schema(
+            query_column=self.query_column,
+            item_column=self.item_column,
+            rating_column=self.rating_column,
+            has_timestamp=False,
+        )
         if items_pd.shape[0] == 0:
-            return State().session.createDataFrame([], REC_SCHEMA)
+            return State().session.createDataFrame([], rec_schema)
 
         seed = self.seed
+        query_column = self.query_column
+        item_column = self.item_column
+        rating_column = self.rating_column
         class_name = self.__class__.__name__
 
-        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
-            user_idx = pandas_df["user_idx"][0]
+        def grouped_map(pandas_df: PandasDataFrame) -> PandasDataFrame:
+            query_idx = pandas_df[query_column][0]
             cnt = pandas_df["cnt"][0]
 
             if seed is not None:
-                local_rng = default_rng(seed + user_idx)
+                local_rng = default_rng(seed + query_idx)
             else:
                 local_rng = default_rng()
 
@@ -1618,73 +1588,69 @@ class NonPersonalizedRecommender(Recommender, ABC):
 
             # workaround to unify RandomRec and UCB
             if class_name == "RandomRec":
-                relevance = 1 / np.arange(1, cnt + 1)
+                rating = 1 / np.arange(1, cnt + 1)
             else:
-                relevance = items_pd["probability"].values[items_positions]
+                rating = items_pd["probability"].values[items_positions]
 
-            return pd.DataFrame(
+            return PandasDataFrame(
                 {
-                    "user_idx": cnt * [user_idx],
-                    "item_idx": items_pd["item_idx"].values[items_positions],
-                    "relevance": relevance,
+                    query_column: cnt * [query_idx],
+                    item_column: items_pd[item_column].values[items_positions],
+                    rating_column: rating,
                 }
             )
 
-        if log is not None and filter_seen_items:
+        if dataset is not None and filter_seen_items:
             recs = (
-                log.select("user_idx", "item_idx")
+                dataset.interactions.select(self.query_column, self.item_column)
                 .distinct()
-                .join(users, how="right", on="user_idx")
-                .groupby("user_idx")
-                .agg(sf.countDistinct("item_idx").alias("cnt"))
+                .join(queries, how="right", on=self.query_column)
+                .groupby(self.query_column)
+                .agg(sf.countDistinct(self.item_column).alias("cnt"))
                 .selectExpr(
-                    "user_idx",
+                    self.query_column,
                     f"LEAST(cnt + {k}, {items_pd.shape[0]}) AS cnt",
                 )
             )
         else:
-            recs = users.withColumn("cnt", sf.lit(min(k, items_pd.shape[0])))
+            recs = queries.withColumn("cnt", sf.lit(min(k, items_pd.shape[0])))
 
-        return recs.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
+        return recs.groupby(self.query_column).applyInPandas(grouped_map, rec_schema)
 
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
 
         if self.sample:
             return self._predict_with_sampling(
-                log=log,
+                dataset=dataset,
                 k=k,
-                users=users,
+                queries=queries,
                 items=items,
                 filter_seen_items=filter_seen_items,
             )
         else:
             return self._predict_without_sampling(
-                log, k, users, items, filter_seen_items
+                dataset, k, queries, items, filter_seen_items
             )
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        pairs: SparkDataFrame,
+        dataset: Optional[Dataset] = None,
+    ) -> SparkDataFrame:
         return (
             pairs.join(
                 self.item_popularity,
-                on="item_idx",
+                on=self.item_column,
                 how="left" if self.add_cold_items else "inner",
             )
-            .fillna(value=self.fill, subset=["relevance"])
-            .select("user_idx", "item_idx", "relevance")
+            .fillna(value=self.fill, subset=[self.rating_column])
+            .select(self.query_column, self.item_column, self.rating_column)
         )

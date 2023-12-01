@@ -5,6 +5,15 @@
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 
+# PyTorch-Lightning logs
+lightning_logs/
+.logs/
+.checkpoints/
+
+# Poetry (since they are generated from template automatically)
+/poetry.lock
+/pyproject.toml
+
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -37,6 +46,7 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.xml
 MANIFEST
 
 # PyInstaller
@@ -168,7 +178,7 @@ requirements.txt
 airflow.yaml
 
 # temporary
-experiments/tests
+examples/tests
 
 ### d3rlpy logs
 d3rlpy_logs/

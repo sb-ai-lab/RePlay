@@ -3,12 +3,11 @@ import os
 import shutil
 import weakref
 from pathlib import Path
-from typing import Callable, Any
+from typing import Any, Callable
 
 from pyarrow import fs
 
 from replay.models.extensions.ann.index_stores.base_index_store import IndexStore
-
 
 logger = logging.getLogger("replay")
 
