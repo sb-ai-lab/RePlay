@@ -7,9 +7,9 @@ from replay.data.nn import TensorMap, TensorSchema
 
 
 # pylint: disable=too-many-instance-attributes
-class SASRecModel(torch.nn.Module):
+class SasRecModel(torch.nn.Module):
     """
-    SASRec model
+    SasRec model
     """
 
     # pylint: disable=too-many-arguments
@@ -18,7 +18,7 @@ class SASRecModel(torch.nn.Module):
         schema: TensorSchema,
         num_blocks: int = 2,
         num_heads: int = 1,
-        embed_size: int = 50,
+        hidden_size: int = 50,
         max_len: int = 200,
         dropout: float = 0.2,
         ti_modification: bool = False,
@@ -30,7 +30,7 @@ class SASRecModel(torch.nn.Module):
             Default: ``2``.
         :param num_heads: Number of Attention heads.
             Default: ``1``.
-        :param embed_size: Embedding size.
+        :param hidden_size: Hidden size of transformer.
             Default: ``50``.
         :param max_len: Max length of sequence.
             Default: ``200``.
@@ -46,7 +46,7 @@ class SASRecModel(torch.nn.Module):
         # Hyperparams
         self.num_blocks = num_blocks
         self.num_heads = num_heads
-        self.embed_size = embed_size
+        self.hidden_size = hidden_size
         self.max_len = max_len
         self.dropout = dropout
         self.ti_modification = ti_modification
@@ -62,44 +62,44 @@ class SASRecModel(torch.nn.Module):
         self.register_buffer("candidates_to_score", torch.LongTensor(list(range(self.item_count))))
 
         # Model blocks
-        self.masking = SASRecMasks(
+        self.masking = SasRecMasks(
             schema=schema,
             padding_idx=self.padding_idx,
         )
-        self.item_embedder: Union[TiSASRecEmbeddings, SASRecEmbeddings]
+        self.item_embedder: Union[TiSasRecEmbeddings, SasRecEmbeddings]
         self.sasrec_layers: torch.nn.Module
 
         if self.ti_modification:
-            self.item_embedder = TiSASRecEmbeddings(
+            self.item_embedder = TiSasRecEmbeddings(
                 schema=schema,
-                embed_size=self.embed_size,
+                embed_size=self.hidden_size,
                 max_len=self.max_len,
                 dropout=self.dropout,
                 padding_idx=self.padding_idx,
                 time_span=self.time_span,
             )
-            self.sasrec_layers = TiSASRecLayers(
-                embed_size=self.embed_size,
+            self.sasrec_layers = TiSasRecLayers(
+                hidden_size=self.hidden_size,
                 num_heads=self.num_heads,
                 num_blocks=self.num_blocks,
                 dropout=self.dropout,
             )
         else:
-            self.item_embedder = SASRecEmbeddings(
+            self.item_embedder = SasRecEmbeddings(
                 schema=schema,
-                embed_size=self.embed_size,
+                embed_size=self.hidden_size,
                 max_len=self.max_len,
                 dropout=self.dropout,
                 padding_idx=self.padding_idx,
             )
-            self.sasrec_layers = SASRecLayers(
-                embed_size=self.embed_size,
+            self.sasrec_layers = SasRecLayers(
+                hidden_size=self.hidden_size,
                 num_heads=self.num_heads,
                 num_blocks=self.num_blocks,
                 dropout=self.dropout,
             )
-        self.output_normalization = SASRecNormalizer(
-            embed_size=self.embed_size,
+        self.output_normalization = SasRecNormalizer(
+            hidden_size=self.hidden_size,
         )
         self._head = EmbeddingTyingHead(self.item_embedder)
         self._init()
@@ -186,9 +186,9 @@ class SASRecModel(torch.nn.Module):
 
 
 # pylint: disable=too-few-public-methods
-class SASRecMasks:
+class SasRecMasks:
     """
-    SASRec Masks
+    SasRec Masks
         1. AttentionMask
         2. PaddingMask
     """
@@ -235,9 +235,9 @@ class SASRecMasks:
         )
 
 
-class BaseSASRecEmbeddings(abc.ABC):
+class BaseSasRecEmbeddings(abc.ABC):
     """
-    Base SASRec embedding class
+    Base SasRec embedding class
     """
 
     @abc.abstractmethod
@@ -260,9 +260,9 @@ class EmbeddingTyingHead(torch.nn.Module):
     Head that calculate logits for all item_ids given output embeddings
     """
 
-    def __init__(self, item_embedder: BaseSASRecEmbeddings):
+    def __init__(self, item_embedder: BaseSasRecEmbeddings):
         """
-        :param item_embedder: SASRec embedding.
+        :param item_embedder: SasRec embedding.
         """
         super().__init__()
         self._item_embedder = item_embedder
@@ -291,9 +291,9 @@ class EmbeddingTyingHead(torch.nn.Module):
         return logits
 
 
-class SASRecEmbeddings(torch.nn.Module, BaseSASRecEmbeddings):
+class SasRecEmbeddings(torch.nn.Module, BaseSasRecEmbeddings):
     """
-    SASRec Embedding:
+    SasRec Embedding:
         1. ItemEmbedding : normal embedding matrix
         2. PositionalEmbedding : adding positional information
 
@@ -322,7 +322,7 @@ class SASRecEmbeddings(torch.nn.Module, BaseSASRecEmbeddings):
         assert item_count
 
         self.item_emb = torch.nn.Embedding(item_count + 1, embed_size, padding_idx=padding_idx)
-        self.pos_emb = SASRecPositionalEmbedding(max_len=max_len, d_model=embed_size)
+        self.pos_emb = SasRecPositionalEmbedding(max_len=max_len, d_model=embed_size)
         self.item_emb_dropout = torch.nn.Dropout(p=dropout)
 
         assert schema.item_id_feature_name
@@ -357,9 +357,9 @@ class SASRecEmbeddings(torch.nn.Module, BaseSASRecEmbeddings):
         return self.item_emb.weight[:-1, :]
 
 
-class SASRecLayers(torch.nn.Module):
+class SasRecLayers(torch.nn.Module):
     """
-    SASRec vanilla layers:
+    SasRec vanilla layers:
         1. SelfAttention layers
         2. FeedForward layers
 
@@ -368,24 +368,24 @@ class SASRecLayers(torch.nn.Module):
 
     def __init__(
         self,
-        embed_size: int,
+        hidden_size: int,
         num_heads: int,
         num_blocks: int,
         dropout: float,
     ) -> None:
         """
-        :param embed_size: Embedding size.
+        :param hidden_size: Hidden size of transformer.
         :param num_heads: Number of Attention heads.
         :param num_blocks: Number of Transformer blocks.
         :param dropout: Dropout rate.
         """
         super().__init__()
         self.attention_layers = self._layers_stacker(
-            torch.nn.MultiheadAttention(embed_size, num_heads, dropout), num_blocks
+            torch.nn.MultiheadAttention(hidden_size, num_heads, dropout), num_blocks
         )
-        self.attention_layernorms = self._layers_stacker(torch.nn.LayerNorm(embed_size, eps=1e-8), num_blocks)
-        self.forward_layers = self._layers_stacker(SASRecPointWiseFeedForward(embed_size, dropout), num_blocks)
-        self.forward_layernorms = self._layers_stacker(torch.nn.LayerNorm(embed_size, eps=1e-8), num_blocks)
+        self.attention_layernorms = self._layers_stacker(torch.nn.LayerNorm(hidden_size, eps=1e-8), num_blocks)
+        self.forward_layers = self._layers_stacker(SasRecPointWiseFeedForward(hidden_size, dropout), num_blocks)
+        self.forward_layernorms = self._layers_stacker(torch.nn.LayerNorm(hidden_size, eps=1e-8), num_blocks)
 
     def forward(
         self,
@@ -418,22 +418,22 @@ class SASRecLayers(torch.nn.Module):
         return torch.nn.ModuleList([layer] * num_blocks)
 
 
-class SASRecNormalizer(torch.nn.Module):
+class SasRecNormalizer(torch.nn.Module):
     """
-    SASRec notmilization layers
+    SasRec notmilization layers
 
     Link: https://arxiv.org/pdf/1808.09781.pdf
     """
 
     def __init__(
         self,
-        embed_size: int,
+        hidden_size: int,
     ) -> None:
         """
-        :param embed_size: Embedding size.
+        :param hidden_size: Hidden size of transformer.
         """
         super().__init__()
-        self.last_layernorm = torch.nn.LayerNorm(embed_size, eps=1e-8)
+        self.last_layernorm = torch.nn.LayerNorm(hidden_size, eps=1e-8)
 
     def forward(self, seqs: torch.Tensor) -> torch.Tensor:
         """
@@ -446,7 +446,7 @@ class SASRecNormalizer(torch.nn.Module):
         return output_emb
 
 
-class SASRecPointWiseFeedForward(torch.nn.Module):
+class SasRecPointWiseFeedForward(torch.nn.Module):
     """
     Point wise feed forward layers
 
@@ -479,7 +479,7 @@ class SASRecPointWiseFeedForward(torch.nn.Module):
         return outputs
 
 
-class SASRecPositionalEmbedding(torch.nn.Module):
+class SasRecPositionalEmbedding(torch.nn.Module):
     """
     Positional embedding.
     """
@@ -503,12 +503,12 @@ class SASRecPositionalEmbedding(torch.nn.Module):
         return self.pe.weight.unsqueeze(0).repeat(batch_size, 1, 1)
 
 
-class TiSASRecEmbeddings(torch.nn.Module, BaseSASRecEmbeddings):
+class TiSasRecEmbeddings(torch.nn.Module, BaseSasRecEmbeddings):
     """
-    TiSASRec Embedding:
+    TiSasRec Embedding:
         1. ItemEmbedding : normal embedding matrix
-        2. TimeRelativeEmbedding: based on TiSASRec architecture
-        3. TimeRelativePositionalEmbedding: based on TiSASRec architecture
+        2. TimeRelativeEmbedding: based on TiSasRec architecture
+        3. TimeRelativePositionalEmbedding: based on TiSasRec architecture
 
     Link: https://cseweb.ucsd.edu/~jmcauley/pdfs/wsdm20b.pdf
     """
@@ -538,8 +538,8 @@ class TiSASRecEmbeddings(torch.nn.Module, BaseSASRecEmbeddings):
         assert item_count
 
         self.item_emb = torch.nn.Embedding(item_count + 1, embed_size, padding_idx=padding_idx)
-        self.abs_pos_k_emb = SASRecPositionalEmbedding(max_len=max_len, d_model=embed_size)
-        self.abs_pos_v_emb = SASRecPositionalEmbedding(max_len=max_len, d_model=embed_size)
+        self.abs_pos_k_emb = SasRecPositionalEmbedding(max_len=max_len, d_model=embed_size)
+        self.abs_pos_v_emb = SasRecPositionalEmbedding(max_len=max_len, d_model=embed_size)
         self.time_matrix_k_emb = torch.nn.Embedding(time_span + 1, embed_size)
         self.time_matrix_v_emb = torch.nn.Embedding(time_span + 1, embed_size)
 
@@ -609,9 +609,9 @@ class TiSASRecEmbeddings(torch.nn.Module, BaseSASRecEmbeddings):
         return self.item_emb.weight[:-1, :]
 
 
-class TiSASRecLayers(torch.nn.Module):
+class TiSasRecLayers(torch.nn.Module):
     """
-    TiSASRec layers:
+    TiSasRec layers:
         1. Time-relative SelfAttention layers
         2. FeedForward layers
 
@@ -620,22 +620,22 @@ class TiSASRecLayers(torch.nn.Module):
 
     def __init__(
         self,
-        embed_size: int,
+        hidden_size: int,
         num_heads: int,
         num_blocks: int,
         dropout: float,
     ) -> None:
         """
-        :param embed_size: Embedding size.
+        :param hidden_size: Hidden size of transformer.
         :param num_heads: Number of Attention heads.
         :param num_blocks: Number of Transformer blocks.
         :param dropout: Dropout rate.
         """
         super().__init__()
-        self.attention_layers = self._layers_stacker(TiSASRecAttention(embed_size, num_heads, dropout), num_blocks)
-        self.forward_layers = self._layers_stacker(SASRecPointWiseFeedForward(embed_size, dropout), num_blocks)
-        self.attention_layernorms = self._layers_stacker(torch.nn.LayerNorm(embed_size, eps=1e-8), num_blocks)
-        self.forward_layernorms = self._layers_stacker(torch.nn.LayerNorm(embed_size, eps=1e-8), num_blocks)
+        self.attention_layers = self._layers_stacker(TiSasRecAttention(hidden_size, num_heads, dropout), num_blocks)
+        self.forward_layers = self._layers_stacker(SasRecPointWiseFeedForward(hidden_size, dropout), num_blocks)
+        self.attention_layernorms = self._layers_stacker(torch.nn.LayerNorm(hidden_size, eps=1e-8), num_blocks)
+        self.forward_layernorms = self._layers_stacker(torch.nn.LayerNorm(hidden_size, eps=1e-8), num_blocks)
 
     # pylint: disable=too-many-arguments
     def forward(
@@ -671,7 +671,7 @@ class TiSASRecLayers(torch.nn.Module):
         return torch.nn.ModuleList([layer] * num_blocks)
 
 
-class TiSASRecAttention(torch.nn.Module):
+class TiSasRecAttention(torch.nn.Module):
     """
     Time interval aware multihead attention
 

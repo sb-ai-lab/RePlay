@@ -1,10 +1,11 @@
 <img src="docs/images/replay_logo_color.svg" height="50"/>
 <br>
 
-![GitHub License](https://img.shields.io/github/license/sb-ai-lab/RePlay)
-![PyPI - Version](https://img.shields.io/pypi/v/replay-rec)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/replay-rec)
+[![GitHub License](https://img.shields.io/github/license/sb-ai-lab/RePlay)](https://github.com/sb-ai-lab/RePlay/blob/main/LICENSE)
+[![PyPI - Version](https://img.shields.io/pypi/v/replay-rec)](https://pypi.org/project/replay-rec)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/replay-rec)](https://pypistats.org/packages/replay-rec)
 <br>
+[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/sb-ai-lab/replay/main.yml)](https://github.com/sb-ai-lab/RePlay/actions/workflows/main.yml?query=branch%3Amain)
 [![Join the community on GitHub Discussions](https://badgen.net/badge/join%20the%20discussion/on%20github/black?icon=github)](https://github.com/sb-ai-lab/RePlay/discussions)
 
 RePlay is an advanced framework designed to facilitate the development and evaluation of recommendation systems. It provides a robust set of tools covering the entire lifecycle of a recommendation system pipeline:
@@ -73,7 +74,7 @@ If you encounter an error during RePlay installation, check the [troubleshooting
 
 
 <a name="quickstart"></a>
-## 📈 Quickstart
+## 📈 Quickstart (PySpark-based)
 
 ```python
 from rs_datasets import MovieLens
@@ -82,7 +83,7 @@ from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, Featur
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.metrics import HitRate, NDCG, Experiment
 from replay.models import ItemKNN
-from replay.utils import convert2spark
+from replay.utils.spark_utils import convert2spark
 from replay.utils.session_handler import State
 from replay.splitters import RatioSplitter
 

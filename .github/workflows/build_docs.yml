@@ -1,4 +1,4 @@
-name: CI
+name: Build Docs
 
 # Controls when the workflow will run
 on:
@@ -13,34 +13,21 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  run_tests:
+  build_docs:
     runs-on: ubuntu-20.04
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.9"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.9"
       - name: Install full package
         run: |
           python -m venv venv
           . ./venv/bin/activate
           pip install --upgrade pip wheel poetry==1.5.1 lightfm
-
           poetry cache clear pypi --all
           ./poetry_wrapper.sh --experimental install --all-extras
-      - name: pycodestyle
+      - name: Build docs
         run: |
           . ./venv/bin/activate
-          pycodestyle replay tests
-      - name: pylint
-        run: |
-          . ./venv/bin/activate
-          pylint replay
-      - name: pytest
-        run: |
-          . ./venv/bin/activate
-          pytest
+          make -C docs clean html

@@ -11,6 +11,7 @@ from typing import (
     Set,
     Union,
     ValuesView,
+    Callable
 )
 
 import torch
@@ -201,10 +202,22 @@ class TensorFeatureInfo:
             raise RuntimeError(
                 f"Can not get cardinality because feature type of {self.name} column is not categorical."
             )
+        if hasattr(self, "_cardinality_callback") and self._cardinality is None:
+            self._set_cardinality(self._cardinality_callback(self._name))
         return self._cardinality
+
+    # pylint: disable=attribute-defined-outside-init
+    def _set_cardinality_callback(self, callback: Callable) -> None:
+        self._cardinality_callback = callback
 
     def _set_cardinality(self, cardinality: int) -> None:
         self._cardinality = cardinality
+
+    def reset_cardinality(self) -> None:
+        """
+        Reset cardinality of the feature to None.
+        """
+        self._cardinality = None
 
     @property
     def tensor_dim(self) -> Optional[int]:

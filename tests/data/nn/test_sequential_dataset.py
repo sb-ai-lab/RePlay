@@ -6,17 +6,39 @@ import pytest
 
 pytest.importorskip("torch")
 
-from replay.data import FeatureHint
+from replay.data import FeatureHint, FeatureType
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
-    from replay.data.nn import PandasSequentialDataset
+    from replay.data.nn import PandasSequentialDataset, TensorSchema, TensorFeatureInfo
     from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
 
 
 @pytest.mark.torch
 def test_can_create_sequential_dataset_with_valid_schema(sequential_info):
     PandasSequentialDataset(**sequential_info)
+
+
+@pytest.mark.torch
+def test_callback_for_cardinality(sequential_info):
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo("user_id", feature_type=FeatureType.CATEGORICAL, is_seq=True),
+            TensorFeatureInfo("item_id", feature_type=FeatureType.CATEGORICAL, is_seq=True),
+            TensorFeatureInfo("some_user_feature", feature_type=FeatureType.CATEGORICAL),
+            TensorFeatureInfo("some_item_feature", feature_type=FeatureType.CATEGORICAL, is_seq=True),
+        ]
+    )
+
+    for f in schema.all_features:
+        assert f.cardinality is None
+
+    PandasSequentialDataset(schema, "user_id", "item_id", sequential_info["sequences"])
+
+    assert schema.all_features[0].cardinality == 4
+    assert schema.all_features[1].cardinality == 6
+    assert schema.all_features[2].cardinality == 4
+    assert schema.all_features[3].cardinality == 6
 
 
 @pytest.mark.torch

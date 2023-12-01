@@ -3,7 +3,7 @@ import pytest
 from replay.utils import PYSPARK_AVAILABLE, TORCH_AVAILABLE, PandasDataFrame, SparkDataFrame, get_spark_session
 
 if TORCH_AVAILABLE:
-    from replay.models.nn.sequential.bert4rec import Bert4Rec, BertPredictionDataset
+    from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionDataset
     from replay.models.nn.sequential.callbacks import (
         PandasPredictionCallback,
         TorchPredictionCallback,
@@ -27,7 +27,7 @@ L = pytest.importorskip("lightning")
     ],
 )
 def test_torch_prediction_callback_fast_forward(item_user_sequential_dataset, train_loader, is_postprocessor):
-    pred = BertPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_loader = torch.utils.data.DataLoader(pred)
 
     callback = TorchPredictionCallback(
@@ -39,7 +39,7 @@ def test_torch_prediction_callback_fast_forward(item_user_sequential_dataset, tr
     model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
-        embedding_dim=64,
+        hidden_size=64,
     )
     trainer.fit(model, train_loader)
     predicted = trainer.predict(model, pred_loader)
@@ -61,7 +61,7 @@ def test_torch_prediction_callback_fast_forward(item_user_sequential_dataset, tr
     ],
 )
 def test_pandas_prediction_callback_fast_forward(item_user_sequential_dataset, train_loader, is_postprocessor):
-    pred = BertPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_loader = torch.utils.data.DataLoader(pred)
 
     callback = PandasPredictionCallback(
@@ -75,7 +75,7 @@ def test_pandas_prediction_callback_fast_forward(item_user_sequential_dataset, t
     model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
-        embedding_dim=64,
+        hidden_size=64,
     )
     trainer.fit(model, train_loader)
     predicted = trainer.predict(model, pred_loader)
@@ -95,7 +95,7 @@ def test_pandas_prediction_callback_fast_forward(item_user_sequential_dataset, t
     ],
 )
 def test_spark_prediction_callback_fast_forward(item_user_sequential_dataset, train_loader, is_postprocessor):
-    pred = BertPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_loader = torch.utils.data.DataLoader(pred)
 
     callback = SparkPredictionCallback(
@@ -111,7 +111,7 @@ def test_spark_prediction_callback_fast_forward(item_user_sequential_dataset, tr
     model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
-        embedding_dim=64,
+        hidden_size=64,
     )
     trainer.fit(model, train_loader)
     predicted = trainer.predict(model, pred_loader)
@@ -143,13 +143,13 @@ def test_validation_callbacks(item_user_sequential_dataset, train_loader, val_lo
     model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
-        embedding_dim=64,
+        hidden_size=64,
         loss_type="BCE",
         loss_sample_count=6,
     )
     trainer.fit(model, train_loader, val_loader)
 
-    pred = BertPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_loader = torch.utils.data.DataLoader(pred)
     predicted = trainer.predict(model, pred_loader)
 
