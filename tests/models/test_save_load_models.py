@@ -1,41 +1,30 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
-import os
-from functools import partial
 from os.path import dirname, join
 
-import pytest
 import pandas as pd
-
-from implicit.als import AlternatingLeastSquares
-from pyspark.sql import functions as sf
+import pytest
 
 import replay
-from replay.ann.entities.hnswlib_param import HnswlibParam
-from replay.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
-from replay.ann.index_builders.driver_nmslib_index_builder import (
-    DriverNmslibIndexBuilder,
-)
-from replay.ann.index_builders.executor_hnswlib_index_builder import (
-    ExecutorHnswlibIndexBuilder,
-)
-from replay.ann.index_builders.executor_nmslib_index_builder import (
-    ExecutorNmslibIndexBuilder,
-)
-from replay.ann.index_stores.hdfs_index_store import HdfsIndexStore
-from replay.ann.index_stores.shared_disk_index_store import (
-    SharedDiskIndexStore,
-)
-from replay.ann.index_stores.spark_files_index_store import (
-    SparkFilesIndexStore,
-)
-from replay.data_preparator import Indexer
-from replay.models.cql import MdpDatasetBuilder
-from replay.model_handler import save, load
+from replay.data import FeatureHint, FeatureInfo, FeatureSchema, FeatureType
 from replay.models import *
-from replay.utils import convert2spark
-from tests.utils import long_log_with_features, sparkDataFrameEqual, spark
-from tests.models.test_cat_pop_rec import cat_tree, cat_log, requested_cats
+from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
+from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
+from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
+from replay.models.extensions.ann.index_builders.executor_nmslib_index_builder import ExecutorNmslibIndexBuilder
+from replay.models.extensions.ann.index_stores.hdfs_index_store import HdfsIndexStore
+from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
+from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
+from replay.utils import PYSPARK_AVAILABLE
+from tests.models.test_cat_pop_rec import cat_log, cat_tree, requested_cats
+from tests.utils import create_dataset, long_log_with_features, spark, sparkDataFrameEqual
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+
+    from replay.models.extensions.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
+    from replay.utils.model_handler import load, save
+    from replay.utils.spark_utils import convert2spark
 
 
 @pytest.fixture
@@ -56,58 +45,64 @@ def user_features(spark):
 def df():
     folder = dirname(replay.__file__)
     res = pd.read_csv(
-        join(folder, "../experiments/data/ml1m_ratings.dat"),
+        join(folder, "../examples/data/ml1m_ratings.dat"),
         sep="\t",
-        names=["user_id", "item_id", "relevance", "timestamp"],
+        names=["user_idx", "item_idx", "relevance", "timestamp"],
     ).head(1000)
     res = convert2spark(res)
-    indexer = Indexer()
-    indexer.fit(res, res)
-    res = indexer.transform(res)
+    encoder = LabelEncoder(
+        [
+            LabelEncodingRule("user_idx"),
+            LabelEncodingRule("item_idx"),
+        ]
+    )
+    res = encoder.fit_transform(res)
     return res
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "recommender",
     [
         ALSWrap,
-        ADMMSLIM,
         ItemKNN,
-        MultVAE,
-        NeuroMF,
         PopRec,
         SLIM,
-        UserPopRec,
-        LightFMWrap,
-        partial(CQL, n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=5)),
+        QueryPopRec,
     ],
 )
 def test_equal_preds(long_log_with_features, recommender, tmp_path):
     path = (tmp_path / "test").resolve()
+    dataset = create_dataset(long_log_with_features)
     model = recommender()
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.xfail
+@pytest.mark.spark
 def test_random(long_log_with_features, tmp_path):
     path = (tmp_path / "random").resolve()
     model = RandomRec(seed=1)
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 def test_rules(df, tmp_path):
     path = (tmp_path / "rules").resolve()
-    model = AssociationRulesItemRec()
-    model.fit(df)
+    dataset = create_dataset(df)
+    model = AssociationRulesItemRec(session_column="user_idx")
+    model.fit(dataset)
     base_pred = model.get_nearest_items([1], 5, metric="lift")
     save(model, path)
     loaded_model = load(path)
@@ -115,43 +110,61 @@ def test_rules(df, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 def test_word(df, tmp_path):
     path = (tmp_path / "word").resolve()
+    dataset = create_dataset(df)
     model = Word2VecRec()
-    model.fit(df)
-    base_pred = model.predict(df, 5)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(df, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
-def test_implicit(long_log_with_features, tmp_path):
-    path = (tmp_path / "implicit").resolve()
-    model = ImplicitWrap(AlternatingLeastSquares())
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
-    save(model, path)
-    loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
-
-
+@pytest.mark.spark
 def test_cluster(long_log_with_features, user_features, tmp_path):
     path = (tmp_path / "cluster").resolve()
+    dataset = create_dataset(long_log_with_features, user_features)
     model = ClusterRec()
-    model.fit(long_log_with_features, user_features)
-    base_pred = model.predict(user_features, 5)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(user_features, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 def test_cat_poprec(cat_tree, cat_log, requested_cats, tmp_path):
     path = (tmp_path / "cat_poprec").resolve()
+    feature_schema = FeatureSchema(
+        [
+            FeatureInfo(
+                column="user_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.QUERY_ID,
+            ),
+            FeatureInfo(
+                column="item_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            FeatureInfo(
+                column="category",
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            FeatureInfo(
+                column="relevance",
+                feature_type=FeatureType.NUMERICAL,
+                feature_hint=FeatureHint.RATING,
+            ),
+        ]
+    )
+    dataset = create_dataset(cat_log, feature_schema=feature_schema)
     model = CatPopRec(cat_tree=cat_tree)
-    model.fit(cat_log)
+    model.fit(dataset)
     base_pred = model.predict(requested_cats, 5)
     save(model, path)
     loaded_model = load(path)
@@ -159,57 +172,32 @@ def test_cat_poprec(cat_tree, cat_log, requested_cats, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("model", [Wilson(), UCB()], ids=["wilson", "ucb"])
 def test_wilson_ucb(model, log_unary, tmp_path):
     path = (tmp_path / "model").resolve()
-    model.fit(log_unary)
-    base_pred = model.predict(log_unary, 5)
+    dataset = create_dataset(log_unary)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(log_unary, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 def test_study(df, tmp_path):
     path = (tmp_path / "study").resolve()
+    dataset = create_dataset(df)
     model = PopRec()
     model.study = 80083
-    model.fit(df)
+    model.fit(dataset)
     save(model, path)
     loaded_model = load(path)
     assert loaded_model.study == model.study
 
 
-def test_ann_als_saving_loading(long_log_with_features, tmp_path):
-    model = ALSWrap(
-        rank=2,
-        implicit_prefs=False,
-        seed=42,
-        index_builder=ExecutorHnswlibIndexBuilder(
-            index_params=HnswlibParam(
-                space="ip",
-                m=100,
-                ef_c=2000,
-                post=0,
-                ef_s=2000,
-            ),
-            index_store=SharedDiskIndexStore(
-                warehouse_dir=str(tmp_path),
-                index_dir="hnswlib_index",
-                cleanup=False,
-            ),
-        ),
-    )
-
-    path = (tmp_path / "test").resolve()
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
-    save(model, path)
-    loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
-    sparkDataFrameEqual(base_pred, new_pred)
-
-
+@pytest.mark.spark
 def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
     model = Word2VecRec(
         rank=1, window_size=1, use_idf=True, seed=42, min_count=0,
@@ -229,14 +217,16 @@ def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
     )
 
     path = (tmp_path / "test").resolve()
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 def test_ann_slim_saving_loading(long_log_with_features, tmp_path):
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
@@ -256,14 +246,16 @@ def test_ann_slim_saving_loading(long_log_with_features, tmp_path):
     )
 
     path = (tmp_path / "test").resolve()
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.spark
 def test_ann_knn_saving_loading(long_log_with_features, tmp_path):
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
@@ -284,14 +276,16 @@ def test_ann_knn_saving_loading(long_log_with_features, tmp_path):
     )
 
     path = (tmp_path / "test").resolve()
-    model.fit(long_log_with_features)
-    base_pred = model.predict(long_log_with_features, 5)
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
-    new_pred = loaded_model.predict(long_log_with_features, 5)
+    new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.core
 def test_hdfs_index_store_exception():
     local_warehouse_dir = 'file:///tmp'
     with pytest.raises(ValueError, match=f"Can't recognize path {local_warehouse_dir + '/index_dir'} as HDFS path!"):

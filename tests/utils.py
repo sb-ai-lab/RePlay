@@ -1,7 +1,6 @@
 # pylint: skip-file
 import os
 import re
-
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -9,11 +8,16 @@ import numpy as np
 import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
-from pyspark.ml.linalg import DenseVector
-from pyspark.sql import DataFrame
 
-from replay.constants import REC_SCHEMA, LOG_SCHEMA
-from replay.session_handler import get_spark_session
+from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType, get_schema
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from replay.utils.session_handler import get_spark_session
+from replay.utils.spark_utils import convert2spark
+
+if PYSPARK_AVAILABLE:
+    from pyspark.ml.linalg import DenseVector
+
+    INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
 def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
@@ -24,7 +28,9 @@ def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
 
 @pytest.fixture
 def spark():
-    return get_spark_session(1, 1)
+    session = get_spark_session()
+    session.sparkContext.setLogLevel("ERROR")
+    return session
 
 
 @pytest.fixture
@@ -37,7 +43,7 @@ def log_to_pred(spark):
             [4, 0, datetime(2019, 9, 15), 3.0],
             [4, 1, datetime(2019, 9, 15), 3.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -52,7 +58,7 @@ def log2(spark):
             [1, 0, datetime(2019, 9, 15), 3.0],
             [2, 1, datetime(2019, 9, 15), 3.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -72,7 +78,7 @@ def log(spark):
             [3, 0, datetime(2019, 8, 26), 5.0],
             [3, 0, datetime(2019, 8, 26), 1.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -118,7 +124,11 @@ def short_log_with_features(spark):
 @pytest.fixture
 def user_features(spark):
     return spark.createDataFrame(
-        [(0, 20.0, -3.0, "M"), (1, 30.0, 4.0, "F"), (2, 75.0, -1.0, "M"),]
+        [
+            (0, 20.0, -3.0, "M"),
+            (1, 30.0, 4.0, "F"),
+            (2, 75.0, -1.0, "M"),
+        ]
     ).toDF("user_idx", "age", "mood", "gender")
 
 
@@ -136,7 +146,7 @@ def item_features(spark):
     ).toDF("item_idx", "iq", "class", "color")
 
 
-def unify_dataframe(data_frame: DataFrame):
+def unify_dataframe(data_frame: SparkDataFrame):
     pandas_df = data_frame.toPandas()
     columns_to_sort_by: List[str] = []
 
@@ -158,13 +168,13 @@ def unify_dataframe(data_frame: DataFrame):
     )
 
 
-def sparkDataFrameEqual(df1: DataFrame, df2: DataFrame):
+def sparkDataFrameEqual(df1: SparkDataFrame, df2: SparkDataFrame):
     return pd.testing.assert_frame_equal(
         unify_dataframe(df1), unify_dataframe(df2), check_like=True
     )
 
 
-def sparkDataFrameNotEqual(df1: DataFrame, df2: DataFrame):
+def sparkDataFrameNotEqual(df1: SparkDataFrame, df2: SparkDataFrame):
     try:
         sparkDataFrameEqual(df1, df2)
     except AssertionError:
@@ -190,3 +200,44 @@ def find_file_by_pattern(directory: str, pattern: str) -> Optional[str]:
         if re.match(pattern, filename):
             return os.path.join(directory, filename)
     return None
+
+
+def create_dataset(log, user_features=None, item_features=None, feature_schema=None):
+    log = convert2spark(log)
+    if user_features is not None:
+        user_features = convert2spark(user_features)
+    if item_features is not None:
+        item_features = convert2spark(item_features)
+
+    if feature_schema is None:
+        feature_schema = FeatureSchema(
+            [
+                FeatureInfo(
+                    column="user_idx",
+                    feature_type=FeatureType.CATEGORICAL,
+                    feature_hint=FeatureHint.QUERY_ID,
+                ),
+                FeatureInfo(
+                    column="item_idx",
+                    feature_type=FeatureType.CATEGORICAL,
+                    feature_hint=FeatureHint.ITEM_ID,
+                ),
+                FeatureInfo(
+                    column="relevance",
+                    feature_type=FeatureType.NUMERICAL,
+                    feature_hint=FeatureHint.RATING,
+                ),
+                FeatureInfo(
+                    column="timestamp",
+                    feature_type=FeatureType.NUMERICAL,
+                    feature_hint=FeatureHint.TIMESTAMP,
+                ),
+            ]
+        )
+    return Dataset(
+        feature_schema=feature_schema,
+        interactions=log,
+        query_features=user_features,
+        item_features=item_features,
+        check_consistency=False,
+    )

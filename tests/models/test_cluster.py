@@ -2,21 +2,25 @@
 
 import pandas as pd
 import pytest
-import pyspark.sql.functions as sf
 
 from replay.models import ClusterRec
-from replay.utils import convert2spark
 from tests.utils import (
-    spark,
+    create_dataset,
     long_log_with_features,
     short_log_with_features,
-    user_features,
+    spark,
     sparkDataFrameEqual,
+    user_features,
 )
+
+pyspark = pytest.importorskip("pyspark")
+import pyspark.sql.functions as sf
+
+from replay.utils.spark_utils import convert2spark
 
 
 @pytest.fixture
-def users_features(spark, user_features):
+def users_features(user_features):
     return user_features.drop("gender")
 
 
@@ -24,24 +28,26 @@ def test_works(
     long_log_with_features, short_log_with_features, users_features
 ):
     model = ClusterRec()
-    model.fit(long_log_with_features, users_features)
-    model.predict(users_features, k=1)
+    train_dataset = create_dataset(long_log_with_features, user_features=users_features)
+    test_dataset = create_dataset(short_log_with_features, user_features=users_features)
+    model.fit(train_dataset)
+    model.predict(train_dataset, k=1)
     res = model.optimize(
-        long_log_with_features,
-        short_log_with_features,
-        users_features,
+        train_dataset,
+        test_dataset,
         k=1,
         budget=1,
     )
-    assert type(res["num_clusters"]) == int
+    assert isinstance(res["num_clusters"], int)
 
 
 def test_cold_user(long_log_with_features, users_features):
     model = ClusterRec(2)
     train = long_log_with_features.filter("user_idx < 2")
-    model.fit(train, user_features=users_features)
+    train_dataset = create_dataset(train, users_features)
+    model.fit(train_dataset)
     res = model.predict(
-        users_features, 2, users=convert2spark(pd.DataFrame({"user_idx": [1]}))
+        train_dataset, 2, queries=convert2spark(pd.DataFrame({"user_idx": [1]}))
     )
     assert res.count() == 2
     assert res.select("user_idx").distinct().collect()[0][0] == 1
@@ -50,14 +56,14 @@ def test_cold_user(long_log_with_features, users_features):
 
 def test_predict_pairs(long_log_with_features, users_features):
     model = ClusterRec()
-    model.fit(long_log_with_features, user_features=users_features)
+    train_dataset = create_dataset(long_log_with_features, users_features)
+    model.fit(train_dataset)
     pairs = long_log_with_features.select("user_idx", "item_idx").filter(
         sf.col("user_idx") == 1
     )
     res = model.predict_pairs(
         pairs,
-        log=long_log_with_features,
-        user_features=users_features,
+        dataset=train_dataset,
     )
     sparkDataFrameEqual(res.select("user_idx", "item_idx"), pairs)
     assert res.count() == 4
@@ -69,7 +75,8 @@ def test_raises(long_log_with_features, users_features):
     with pytest.raises(
         TypeError, match="missing 1 required positional argument"
     ):
-        model.fit(long_log_with_features, user_features=users_features)
+        train_dataset = create_dataset(long_log_with_features, users_features)
+        model.fit(train_dataset)
         model.predict_pairs(
             long_log_with_features.filter(sf.col("user_idx") == 1).select(
                 "user_idx", "item_idx"

@@ -11,11 +11,11 @@ ___________________
    :widths: 10, 10
 
     "Popular Recommender", "PySpark"
-    "Popular By Users", "PySpark"
+    "Popular By Queries", "PySpark"
     "Wilson Recommender", "PySpark"
     "Random Recommender", "PySpark"
     "UCB", "PySpark"
-    "uLinUCB", "Python CPU"
+    "KL-UCB", "PySpark/Python CPU"
     "Thompson Sampling", "PySpark"
     "K-Nearest Neighbours", "PySpark"
     "Alternating Least Squares", "PySpark"
@@ -23,14 +23,13 @@ ___________________
     "Word2Vec Recommender", "PySpark"
     "Association Rules Item-to-Item Recommender", "PySpark"
     "Cluster Recommender", "PySpark"
-    "Neural Matrix Factorization", "Python CPU/GPU"
-    "MultVAE", "Python CPU/GPU"
-    "DDPG", "Python CPU"
-    "ADMM SLIM", "Python CPU"
-    "Wrapper for implicit", "Python CPU"
-    "Wrapper for LightFM", "Python CPU"
-    "RL-based CQL Recommender", "PySpark"
-    "Hierarchical Recommender", "Python CPU"
+    "Neural Matrix Factorization (Experimental)", "Python CPU/GPU"
+    "MultVAE (Experimental)", "Python CPU/GPU"
+    "DDPG (Experimental)", "Python CPU"
+    "ADMM SLIM (Experimental)", "Python CPU"
+    "Wrapper for implicit (Experimental)", "Python CPU"
+    "Wrapper for LightFM (Experimental)", "Python CPU"
+    "RL-based CQL Recommender (Experimental)", "PySpark"
 
 To get more info on how to choose base model, please see this  :doc:`page </pages/useful_data/algorithm_selection>`.
 
@@ -52,9 +51,9 @@ Popular Recommender
 ```````````````````
 .. autoclass:: replay.models.PopRec
 
-User Popular Recommender
-````````````````````````
-.. autoclass:: replay.models.UserPopRec
+Query Popular Recommender
+```````````````````````````
+.. autoclass:: replay.models.QueryPopRec
 
 Wilson Recommender
 ``````````````````
@@ -83,6 +82,11 @@ UCB Recommender
 .. autoclass:: replay.models.UCB
    :special-members: __init__
 
+KL-UCB Recommender
+``````````````````
+.. autoclass:: replay.models.KLUCB
+   :special-members: __init__
+
 Thompson Sampling
 ``````````````````
 .. autoclass:: replay.models.ThompsonSampling
@@ -98,6 +102,11 @@ K Nearest Neighbours
 Alternating Least Squares
 `````````````````````````
 .. autoclass:: replay.models.ALSWrap
+    :special-members: __init__
+
+Alternating Least Squares on Scala (Experimental)
+``````````````````````````````````````````````````````
+.. autoclass:: replay.experimental.models.ScalaALSWrap
     :special-members: __init__
 
 SLIM
@@ -153,13 +162,13 @@ Neural models with distributed inference
 ________________________________________
 Models implemented in pytorch with distributed inference in pyspark.
 
-Neural Matrix Factorization
-```````````````````````````
-.. autoclass:: replay.models.NeuroMF
+Neural Matrix Factorization (Experimental)
+```````````````````````````````````````````````
+.. autoclass:: replay.experimental.models.NeuroMF
     :special-members: __init__
 
-Mult-VAE
-````````
+Mult-VAE (Experimental)
+````````````````````````````
 Variation AutoEncoder
 
 .. image:: /images/vae-gaussian.png
@@ -259,23 +268,23 @@ With :math:`\beta = 0` VAE is the same as the
 Denoising AutoEncoder.
 
 
-.. autoclass:: replay.models.MultVAE
+.. autoclass:: replay.experimental.models.MultVAE
     :special-members: __init__
 
-DDPG
+DDPG (Experimental)
 ```````````````````````````
-.. autoclass:: replay.models.DDPG
+.. autoclass:: replay.experimental.models.DDPG
     :special-members: __init__
 
 
-CQL Recommender
-```````````````
+CQL Recommender (Experimental)
+```````````````````````````````````
 Conservative Q-Learning (CQL) algorithm is a SAC-based data-driven deep reinforcement learning algorithm, 
 which achieves state-of-the-art performance in offline RL problems.
 
 .. image:: /images/cql_comparison.png
 
-.. autoclass:: replay.models.CQL
+.. autoclass:: replay.experimental.models.CQL
     :special-members: __init__
 
 
@@ -284,31 +293,31 @@ ____________________________________________________
 Wrappers for popular recommendation libraries and algorithms
 implemented in python with distributed inference in pyspark.
 
-ADMM SLIM
-`````````
-.. autoclass:: replay.models.ADMMSLIM
+ADMM SLIM (Experimental)
+`````````````````````````````
+.. autoclass:: replay.experimental.models.ADMMSLIM
     :special-members: __init__
 
-LightFM
-```````
-.. autoclass:: replay.models.LightFMWrap
+LightFM (Experimental)
+```````````````````````````
+.. autoclass:: replay.experimental.models.LightFMWrap
     :special-members: __init__
 
-implicit
+implicit (Experimental)
+````````````````````````````
+.. autoclass:: replay.experimental.models.ImplicitWrap
+    :special-members: __init__
+
+
+Neural Networks recommenders
+____________________________
+
+Bert4Rec
 ````````
-.. autoclass:: replay.models.ImplicitWrap
-    :special-members: __init__
+.. autoclass:: replay.models.nn.Bert4Rec
+   :members: __init__, predict_step
 
-
-Other models
-____________________________________________________
-
-uLinUCB
-```````
-.. autoclass:: replay.models.uLinUCB
-   :special-members: __init__
-
-Hierarchical Recommender
-````````````````````````
-.. autoclass:: replay.models.HierarchicalRecommender
-   :special-members: __init__
+SasRec
+``````
+.. autoclass:: replay.models.nn.SasRec
+   :members: __init__, predict_step

@@ -1,620 +1,310 @@
-"""
-Base classes for quality and diversity metrics.
-"""
-import logging
+import warnings
 from abc import ABC, abstractmethod
-from typing import Dict, List, Union, Optional
+from typing import Any, Dict, List, Mapping, Union
 
-import pandas as pd
-from pyspark.sql import Column
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
-from pyspark.sql import types as st
-from pyspark.sql.types import DataType
-from pyspark.sql import Window
-from pyspark.sql.column import _to_java_column, _to_seq
-from scipy.stats import norm
+import numpy as np
 
-from replay.constants import AnyDataFrame, IntOrList, NumType
-from replay.session_handler import State
-from replay.utils import convert2spark, get_top_k_recs
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+
+from .descriptors import CalculationDescriptor, Mean
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+    from pyspark.sql.types import ArrayType, DoubleType, StructType
 
 
-def fill_na_with_empty_array(
-    df: DataFrame, col_name: str, element_type: DataType
-) -> DataFrame:
-    """
-    Fill empty values in array column with empty array of `element_type` values.
-    :param df: dataframe with `col_name` column of ArrayType(`element_type`)
-    :param col_name: name of a column to fill missing values
-    :param element_type: DataType of an array element
-    :return: df with `col_name` na values filled with empty arrays
-    """
-    return df.withColumn(
-        col_name,
-        sf.coalesce(
-            col_name,
-            sf.array().cast(st.ArrayType(element_type)),
-        ),
-    )
+MetricsDataFrameLike = Union[DataFrameLike, Dict]
+MetricsMeanReturnType = Mapping[str, float]
+MetricsPerUserReturnType = Mapping[str, Mapping[Any, float]]
+MetricsReturnType = Union[MetricsMeanReturnType, MetricsPerUserReturnType]
 
 
-def preprocess_gt(
-    ground_truth: AnyDataFrame,
-    ground_truth_users: Optional[AnyDataFrame] = None,
-) -> DataFrame:
-    """
-    Preprocess `ground_truth` data before metric calculation
-    :param ground_truth: spark dataframe with columns ``[user_idx, item_idx, relevance]``
-    :param ground_truth_users: spark dataframe with column ``[user_idx]``
-    :return: spark dataframe with columns ``[user_idx, ground_truth]``
-    """
-    ground_truth = convert2spark(ground_truth)
-    ground_truth_users = convert2spark(ground_truth_users)
-
-    true_items_by_users = ground_truth.groupby("user_idx").agg(
-        sf.collect_set("item_idx").alias("ground_truth")
-    )
-    if ground_truth_users is not None:
-        true_items_by_users = true_items_by_users.join(
-            ground_truth_users, on="user_idx", how="right"
-        )
-        true_items_by_users = fill_na_with_empty_array(
-            true_items_by_users,
-            "ground_truth",
-            ground_truth.schema["item_idx"].dataType,
-        )
-
-    return true_items_by_users
-
-
-def drop_duplicates(recommendations: AnyDataFrame) -> DataFrame:
-
-    """
-    Filter duplicated predictions by choosing the most relevant
-    """
-    return (
-        recommendations.withColumn(
-            "_num",
-            sf.row_number().over(
-                Window.partitionBy("user_idx", "item_idx").orderBy(sf.col("relevance").desc())
-            ),
-        )
-        .where(sf.col("_num") == 1)
-        .drop("_num")
-    )
-
-
-def filter_sort(recommendations: DataFrame, extra_column: str = None) -> DataFrame:
-    """
-    Filters duplicated predictions by choosing items with the highest relevance,
-    Sorts items in predictions by its relevance,
-    If `extra_column` is not None return DataFrame with extra_column e.g. item weight.
-
-    :param recommendations: recommendation list
-    :param extra_column: column in recommendations
-        which will be return besides ``[user_idx, item_idx]``
-    :return: ``[user_idx, item_idx]`` if extra_column = None
-        or ``[user_idx, item_idx, extra_column]`` if extra_column exists.
-    """
-    item_type = recommendations.schema["item_idx"].dataType
-    extra_column_type = recommendations.schema[extra_column].dataType if extra_column else None
-
-    recommendations = drop_duplicates(recommendations)
-
-    recommendations = (
-        recommendations
-        .groupby("user_idx")
-        .agg(
-            sf.collect_list(
-                sf.struct(*[c for c in ["relevance", "item_idx", extra_column] if c is not None]))
-            .alias("pred_list"))
-        .withColumn("pred_list", sf.reverse(sf.array_sort("pred_list")))
-    )
-
-    selection = [
-        "user_idx",
-        sf.col("pred_list.item_idx")
-        .cast(st.ArrayType(item_type, True)).alias("pred")
-    ]
-    if extra_column:
-        selection.append(
-            sf.col(f"pred_list.{extra_column}")
-            .cast(st.ArrayType(extra_column_type, True))
-        )
-
-    recommendations = recommendations.select(*selection)
-
-    return recommendations
-
-
-def get_enriched_recommendations(
-    recommendations: AnyDataFrame,
-    ground_truth: AnyDataFrame,
-    max_k: int,
-    ground_truth_users: Optional[AnyDataFrame] = None,
-) -> DataFrame:
-    """
-    Leave max_k recommendations for each user,
-    merge recommendations and ground truth into a single DataFrame
-    and aggregate items into lists so that each user has only one record.
-
-    :param recommendations: recommendation list
-    :param ground_truth: test data
-    :param max_k: maximal k value to calculate the metric for.
-        `max_k` most relevant predictions are left for each user
-    :param ground_truth_users: list of users to consider in metric calculation.
-        if None, only the users from ground_truth are considered.
-    :return:  ``[user_idx, pred, ground_truth]``
-    """
-    recommendations = convert2spark(recommendations)
-    # if there are duplicates in recommendations,
-    # we will leave fewer than k recommendations after sort_udf
-    recommendations = get_top_k_recs(recommendations, k=max_k)
-
-    true_items_by_users = preprocess_gt(ground_truth, ground_truth_users)
-    joined = filter_sort(recommendations).join(
-        true_items_by_users, how="right", on=["user_idx"]
-    )
-
-    return fill_na_with_empty_array(
-        joined, "pred", recommendations.schema["item_idx"].dataType
-    )
-
-
-def process_k(func):
-    """Decorator that converts k to list and unpacks result"""
-
-    def wrap(self, recs: DataFrame, k: IntOrList, *args):
-        if isinstance(k, int):
-            k_list = [k]
-        else:
-            k_list = k
-
-        res = func(self, recs, k_list, *args)
-
-        if isinstance(k, int):
-            return res[k]
-        return res
-
-    return wrap
+class MetricDuplicatesWarning(Warning):
+    """Recommendations contain duplicates"""
 
 
 class Metric(ABC):
     """Base metric class"""
 
-    _logger: Optional[logging.Logger] = None
-    _scala_udf_name: Optional[str] = None
-
-    def __init__(self, use_scala_udf: bool = False) -> None:
-        self._use_scala_udf = use_scala_udf
-
-    @property
-    def logger(self) -> logging.Logger:
+    def __init__(  # pylint: disable=too-many-arguments
+        self,
+        topk: Union[List[int], int],
+        query_column: str = "query_id",
+        item_column: str = "item_id",
+        rating_column: str = "rating",
+        mode: CalculationDescriptor = Mean(),
+    ) -> None:
         """
-        :returns: get library logger
+        :param topk: (list or int): Consider the highest k scores in the ranking.
+        :param query_column: (str): The name of the user column.
+        :param item_column: (str): The name of the item column.
+        :param rating_column: (str): The name of the score column.
+        :param mode: (CalculationDescriptor): class for calculating aggregation metrics.
+            Default: ``Mean``.
         """
-        if self._logger is None:
-            self._logger = logging.getLogger("replay")
-        return self._logger
-
-    @property
-    def scala_udf_name(self) -> str:
-        """Returns UDF name from `org.apache.spark.replay.utils.ScalaPySparkUDFs`"""
-        if self._scala_udf_name:
-            return self._scala_udf_name
+        if isinstance(topk, list):
+            for item in topk:
+                if not isinstance(item, int):
+                    raise ValueError(f"{item} is not int")
+        elif isinstance(topk, int):
+            topk = [topk]
         else:
-            raise NotImplementedError(f"Scala UDF not implemented for {type(self).__name__} class!")
+            raise ValueError("topk not list or int")
+        self.topk = sorted(topk)
+        self.query_column = query_column
+        self.item_column = item_column
+        self.rating_column = rating_column
+        self._mode = mode
 
-    def __str__(self):
-        return type(self).__name__
+    @property
+    def __name__(self) -> str:
+        mode_name = self._mode.__name__
+        return str(type(self).__name__) + (
+            f"-{mode_name}" if mode_name != "Mean" else ""
+        )
+
+    # pylint: disable=no-self-use
+    def _check_dataframes_equal_types(
+        self,
+        recommendations: MetricsDataFrameLike,
+        ground_truth: MetricsDataFrameLike,
+    ) -> None:
+        """
+        Types of all data frames must be the same.
+        """
+        if not isinstance(recommendations, type(ground_truth)):
+            raise ValueError("All given data frames must have the same type")
+
+    def _duplicate_warn(self):
+        warnings.warn(
+            "The recommendations contain duplicated users and items."
+            "The metrics may be higher than the actual ones.",
+            MetricDuplicatesWarning,
+        )
+
+    def _check_duplicates_spark(self, recommendations: SparkDataFrame) -> None:
+        duplicates_count = (
+            recommendations.groupBy(self.query_column, self.item_column)
+            .count()
+            .filter("count >= 2")
+            .count()
+        )
+        if duplicates_count:
+            self._duplicate_warn()
+
+    def _check_duplicates_dict(self, recommendations: Dict) -> None:
+        for _, items in recommendations.items():
+            items_set = set(items)
+            if len(items) != len(items_set):
+                self._duplicate_warn()
+                return
 
     def __call__(
         self,
-        recommendations: AnyDataFrame,
-        ground_truth: AnyDataFrame,
-        k: IntOrList,
-        ground_truth_users: Optional[AnyDataFrame] = None,
-    ) -> Union[Dict[int, NumType], NumType]:
+        recommendations: MetricsDataFrameLike,
+        ground_truth: MetricsDataFrameLike,
+    ) -> MetricsReturnType:
         """
-        :param recommendations: model predictions in a
-            DataFrame ``[user_idx, item_idx, relevance]``
-        :param ground_truth: test data
-            ``[user_idx, item_idx, timestamp, relevance]``
-        :param k: depth cut-off. Truncates recommendation lists to top-k items.
-        :param ground_truth_users: list of users to consider in metric calculation.
-            if None, only the users from ground_truth are considered.
-        :return: metric value
+        Compute metric.
+
+        :param recommendations: (PySpark DataFrame or Pandas DataFrame or dict): model predictions.
+            If DataFrame then it must contains user, item and score columns.
+            If dict then key represents user_ids, value represents list of tuple(item_id, score).
+        :param ground_truth: (PySpark DataFrame or Pandas DataFrame or dict): test data.
+            If DataFrame then it must contains user and item columns.
+            If dict then key represents user_ids, value represents list of item_ids.
+
+        :return: metric values
         """
-        recs = get_enriched_recommendations(
-            recommendations,
-            ground_truth,
-            max_k=k if isinstance(k, int) else max(k),
-            ground_truth_users=ground_truth_users,
+        self._check_dataframes_equal_types(recommendations, ground_truth)
+        if isinstance(recommendations, SparkDataFrame):
+            self._check_duplicates_spark(recommendations)
+            assert isinstance(ground_truth, SparkDataFrame)
+            return self._spark_call(recommendations, ground_truth)
+        is_pandas = isinstance(recommendations, PandasDataFrame)
+        recommendations = (
+            self._convert_pandas_to_dict_with_score(recommendations)
+            if is_pandas
+            else self._convert_dict_to_dict_with_score(recommendations)
         )
-        return self._mean(recs, k)
+        self._check_duplicates_dict(recommendations)
+        ground_truth = (
+            self._convert_pandas_to_dict_without_score(ground_truth)
+            if is_pandas
+            else ground_truth
+        )
+        assert isinstance(ground_truth, dict)
+        return self._dict_call(
+            list(ground_truth),
+            pred_item_id=recommendations,
+            ground_truth=ground_truth,
+        )
 
-    @process_k
-    def _conf_interval(self, recs: DataFrame, k_list: list, alpha: float):
-        res = {}
-        quantile = norm.ppf((1 + alpha) / 2)
-        for k in k_list:
-            distribution = self._get_metric_distribution(recs, k)
-            value = (
-                distribution.agg(
-                    sf.stddev("value").alias("std"),
-                    sf.count("value").alias("count"),
-                )
-                .select(
-                    sf.when(
-                        sf.isnan(sf.col("std")) | sf.col("std").isNull(),
-                        sf.lit(0.0),
+    def _convert_pandas_to_dict_with_score(self, data: PandasDataFrame) -> Dict:
+        return (
+            data.sort_values(by=self.rating_column, ascending=False)
+            .groupby(self.query_column)[self.item_column]
+            .apply(list)
+            .to_dict()
+        )
+
+    # pylint: disable=no-self-use
+    def _convert_dict_to_dict_with_score(self, data: Dict) -> Dict:
+        converted_data = {}
+        for user, items in data.items():
+            is_sorted = True
+            for i in range(1, len(items)):
+                is_sorted &= items[i - 1][1] >= items[i][1]
+                if not is_sorted:
+                    break
+            if not is_sorted:
+                items = sorted(items, key=lambda x: x[1], reverse=True)
+            converted_data[user] = [item for item, _ in items]
+        return converted_data
+
+    def _convert_pandas_to_dict_without_score(self, data: PandasDataFrame) -> Dict:
+        return data.groupby(self.query_column)[self.item_column].apply(list).to_dict()
+
+    def _dict_call(self, users: List, **kwargs: Dict) -> MetricsReturnType:
+        """
+        Calculating metrics in dict format.
+        kwargs can contain different dicts (for example, ground_truth or train), it depends on the metric.
+        """
+
+        keys_list = sorted(kwargs.keys())
+        distribution_per_user = {}
+        for user in users:
+            args = [kwargs[key].get(user, None) for key in keys_list]
+            distribution_per_user[user] = self._get_metric_value_by_user(
+                self.topk, *args
+            )  # pylint: disable=protected-access
+        if self._mode.__name__ == "PerUser":
+            return self._aggregate_results_per_user(distribution_per_user)
+        distribution = np.stack(list(distribution_per_user.values()))
+        assert distribution.shape[1] == len(self.topk)
+        metrics = []
+        for k in range(distribution.shape[1]):
+            metrics.append(self._mode.cpu(distribution[:, k]))
+        return self._aggregate_results(metrics)
+
+    def _get_items_list_per_user(
+        self, recommendations: SparkDataFrame, extra_column: str = None
+    ) -> SparkDataFrame:
+        recommendations = recommendations.groupby(self.query_column).agg(
+            sf.sort_array(
+                sf.collect_list(
+                    sf.struct(
+                        *[
+                            c
+                            for c in [self.rating_column, self.item_column, extra_column]
+                            if c is not None
+                        ]
                     )
-                    .otherwise(sf.col("std"))
-                    .cast("float")
-                    .alias("std"),
-                    "count",
+                ),
+                False,
+            ).alias("pred")
+        )
+        selection = [
+            self.query_column,
+            sf.col(f"pred.{self.item_column}").alias("pred_item_id"),
+        ]
+        if extra_column:
+            selection.append(sf.col(f"pred.{extra_column}").alias(extra_column))
+
+        recommendations = recommendations.select(*selection)
+        return recommendations
+
+    def _rearrange_columns(self, data: SparkDataFrame) -> SparkDataFrame:
+        cols = data.columns
+        cols.remove(self.query_column)
+        cols = [self.query_column] + sorted(cols)
+        return data.select(*cols)
+
+    def _get_enriched_recommendations(
+        self,
+        recommendations: SparkDataFrame,
+        ground_truth: SparkDataFrame,
+    ) -> SparkDataFrame:
+        true_items_by_users = ground_truth.groupby(self.query_column).agg(
+            sf.collect_set(self.item_column).alias("ground_truth")
+        )
+
+        sorted_by_score_recommendations = self._get_items_list_per_user(recommendations)
+
+        enriched_recommendations = sorted_by_score_recommendations.join(
+            true_items_by_users, on=self.query_column, how="right"
+        )
+        return self._rearrange_columns(enriched_recommendations)
+
+    def _aggregate_results_per_user(
+        self, distribution_per_user: Dict[Any, List[float]]
+    ) -> MetricsPerUserReturnType:
+        res: MetricsPerUserReturnType = {}
+        for index, val in enumerate(self.topk):
+            metric_name = f"{self.__name__}@{val}"
+            res[metric_name] = {}
+            for user, metrics in distribution_per_user.items():
+                res[metric_name][user] = metrics[index]
+        return res
+
+    def _aggregate_results(self, metrics: list) -> MetricsMeanReturnType:
+        res = {}
+        for index, val in enumerate(self.topk):
+            metric_name = f"{self.__name__}@{val}"
+            res[metric_name] = metrics[index]
+        return res
+
+    def _spark_compute(self, recs: SparkDataFrame) -> MetricsReturnType:
+        """
+        Calculating metrics for PySpark DataFrame.
+        """
+        recs_with_topk_list = recs.withColumn(
+            "k", sf.array(*[sf.lit(x) for x in self.topk])
+        )
+        distribution = self._get_metric_distribution(recs_with_topk_list)
+        if self._mode.__name__ == "PerUser":
+            return self._aggregate_results_per_user(distribution.rdd.collectAsMap())
+        metrics = [
+            self._mode.spark(
+                distribution.select(sf.col("value").getItem(i)).withColumnRenamed(
+                    f"value[{i}]", "val"
                 )
-                .first()
             )
-            res[k] = quantile * value["std"] / (value["count"] ** 0.5)
-        return res
+            for i in range(len(self.topk))
+        ]
+        return self._aggregate_results(metrics)
 
-    @process_k
-    def _median(self, recs: DataFrame, k_list: list):
-        res = {}
-        for k in k_list:
-            distribution = self._get_metric_distribution(recs, k)
-            value = distribution.agg(
-                sf.expr("percentile_approx(value, 0.5)").alias("value")
-            ).first()["value"]
-            res[k] = value
-        return res
-
-    @process_k
-    def _mean(self, recs: DataFrame, k_list: list):
-        res = {}
-        for k in k_list:
-            distribution = self._get_metric_distribution(recs, k)
-            value = distribution.agg(sf.avg("value").alias("value")).first()[
-                "value"
-            ]
-            res[k] = value
-        return res
-
-    def _get_metric_distribution(self, recs: DataFrame, k: int) -> DataFrame:
+    def _spark_call(
+        self, recommendations: SparkDataFrame, ground_truth: SparkDataFrame
+    ) -> MetricsReturnType:
         """
-        :param recs: recommendations
-        :param k: depth cut-off
-        :return: metric distribution for different cut-offs and users
+        Implementation for PySpark DataFrame.
         """
-        if self._use_scala_udf:
-            metric_value_col = self.get_scala_udf(
-                self.scala_udf_name, [sf.lit(k).alias("k"), *recs.columns[1:]]
-            ).alias("value")
-            return recs.select("user_idx", metric_value_col)
+        recs = self._get_enriched_recommendations(recommendations, ground_truth)
+        return self._spark_compute(recs)
 
+    def _get_metric_distribution(self, recs: SparkDataFrame) -> SparkDataFrame:
         cur_class = self.__class__
-        distribution = recs.rdd.flatMap(
-            # pylint: disable=protected-access
-            lambda x: [
-                (x[0], float(cur_class._get_metric_value_by_user(k, *x[1:])))
-            ]
+        distribution = recs.rdd.flatMap(  # pragma: no cover, due to incorrect work of coverage tool
+            lambda x: [(x[0], cur_class._get_metric_value_by_user(x[-1], *x[1:-1]))]
         ).toDF(
-            f"user_idx {recs.schema['user_idx'].dataType.typeName()}, value double"
+            StructType()
+            .add("user_id", recs.schema[self.query_column].dataType.typeName(), False)
+            .add("value", ArrayType(DoubleType()), False)
         )
         return distribution
 
     @staticmethod
     @abstractmethod
-    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
+    def _get_metric_value_by_user(  # pylint: disable=invalid-name
+        ks: List[int], *args: List
+    ) -> List[float]:  # pragma: no cover
         """
         Metric calculation for one user.
 
         :param k: depth cut-off
+        :param ground_truth: test data
         :param pred: recommendations
-        :param ground_truth: test data
         :return: metric value for current user
         """
-
-    # pylint: disable=too-many-arguments
-    def user_distribution(
-        self,
-        log: AnyDataFrame,
-        recommendations: AnyDataFrame,
-        ground_truth: AnyDataFrame,
-        k: IntOrList,
-        ground_truth_users: Optional[AnyDataFrame] = None,
-    ) -> pd.DataFrame:
-        """
-        Get mean value of metric for all users with the same number of ratings.
-
-        :param log: history DataFrame to calculate number of ratings per user
-        :param recommendations: prediction DataFrame
-        :param ground_truth: test data
-        :param k: depth cut-off
-        :param ground_truth_users: list of users to consider in metric calculation.
-            if None, only the users from ground_truth are considered.
-        :return: pandas DataFrame
-        """
-        log = convert2spark(log)
-        count = log.groupBy("user_idx").count()
-        if hasattr(self, "_get_enriched_recommendations"):
-            recs = self._get_enriched_recommendations(
-                recommendations,
-                ground_truth,
-                max_k=k if isinstance(k, int) else max(k),
-                ground_truth_users=ground_truth_users,
-            )
-        else:
-            recs = get_enriched_recommendations(
-                recommendations,
-                ground_truth,
-                max_k=k if isinstance(k, int) else max(k),
-                ground_truth_users=ground_truth_users,
-            )
-        if isinstance(k, int):
-            k_list = [k]
-        else:
-            k_list = k
-        res = pd.DataFrame()
-        for cut_off in k_list:
-            dist = self._get_metric_distribution(recs, cut_off)
-            val = count.join(dist, on="user_idx", how="right").fillna(
-                0, subset="count"
-            )
-            val = (
-                val.groupBy("count")
-                .agg(sf.avg("value").alias("value"))
-                .orderBy(["count"])
-                .select("count", "value")
-                .toPandas()
-            )
-            res = res.append(val, ignore_index=True)
-        return res
-
-    @staticmethod
-    def get_scala_udf(udf_name: str, params: List) -> Column:
-        """
-        Returns expression of calling scala UDF as column
-
-        :param udf_name: UDF name from `org.apache.spark.replay.utils.ScalaPySparkUDFs`
-        :param params: list of UDF params in right order
-        :return: column expression
-        """
-        sc = State().session.sparkContext  # pylint: disable=invalid-name
-        scala_udf = getattr(
-            sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs, udf_name
-        )()
-        return Column(scala_udf.apply(_to_seq(sc, params, _to_java_column)))
-
-
-# pylint: disable=too-few-public-methods
-class RecOnlyMetric(Metric):
-    """Base class for metrics that do not need holdout data"""
-
-    @abstractmethod
-    def __init__(self, log: AnyDataFrame, *args, **kwargs):  # pylint: disable=super-init-not-called
-        pass
-
-    # pylint: disable=no-self-use
-    @abstractmethod
-    def _get_enriched_recommendations(
-        self,
-        recommendations: AnyDataFrame,
-        ground_truth: Optional[AnyDataFrame],
-        max_k: int,
-        ground_truth_users: Optional[AnyDataFrame] = None,
-    ) -> DataFrame:
-        pass
-
-    def __call__(
-        self,
-        recommendations: AnyDataFrame,
-        k: IntOrList,
-        ground_truth_users: Optional[AnyDataFrame] = None,
-    ) -> Union[Dict[int, NumType], NumType]:
-        """
-        :param recommendations: predictions of a model,
-            DataFrame  ``[user_idx, item_idx, relevance]``
-        :param k: depth cut-off
-        :param ground_truth_users: list of users to consider in metric calculation.
-            if None, only the users from ground_truth are considered.
-        :return: metric value
-        """
-        recs = self._get_enriched_recommendations(
-            recommendations,
-            None,
-            max_k=k if isinstance(k, int) else max(k),
-            ground_truth_users=ground_truth_users,
-        )
-        return self._mean(recs, k)
-
-    @staticmethod
-    @abstractmethod
-    def _get_metric_value_by_user(k, *args) -> float:
-        """
-        Metric calculation for one user.
-
-        :param k: depth cut-off
-        :param *args: extra parameters, returned by
-            '''self._get_enriched_recommendations''' method
-        :return: metric value for current user
-        """
-
-
-class NCISMetric(Metric):
-    """
-    Normalized capped importance sampling, where each recommendation is being weighted
-    by the ratio of current policy score on previous policy score.
-    The weight is also capped by some threshold value.
-
-    Source: arxiv.org/abs/1801.07030
-    """
-
-    def __init__(
-        self,
-        prev_policy_weights: AnyDataFrame,
-        threshold: float = 10.0,
-        activation: Optional[str] = None,
-        use_scala_udf: bool = False,
-    ):  # pylint: disable=super-init-not-called
-        """
-        :param prev_policy_weights: historical item of user-item relevance (previous policy values)
-        :threshold: capping threshold, applied after activation,
-            relevance values are cropped to interval [1/`threshold`, `threshold`]
-        :activation: activation function, applied over relevance values.
-            "logit"/"sigmoid", "softmax" or None
-        """
-        self._use_scala_udf = use_scala_udf
-        self.prev_policy_weights = convert2spark(
-            prev_policy_weights
-        ).withColumnRenamed("relevance", "prev_relevance")
-        self.threshold = threshold
-        if activation is None or activation in ("logit", "sigmoid", "softmax"):
-            self.activation = activation
-            if activation == "softmax":
-                self.logger.info(
-                    "For accurate softmax calculation pass only one `k` value "
-                    "in the NCISMetric metrics `call`"
-                )
-        else:
-            raise ValueError(f"Unexpected `activation` - {activation}")
-        if threshold <= 0:
-            raise ValueError("Threshold should be positive real number")
-
-    @staticmethod
-    def _softmax_by_user(df: DataFrame, col_name: str) -> DataFrame:
-        """
-        Subtract minimal value (relevance) by user from `col_name`
-        and apply softmax by user to `col_name`.
-        """
-        return (
-            df.withColumn(
-                "_min_rel_user",
-                sf.min(col_name).over(Window.partitionBy("user_idx")),
-            )
-            .withColumn(
-                col_name, sf.exp(sf.col(col_name) - sf.col("_min_rel_user"))
-            )
-            .withColumn(
-                col_name,
-                sf.col(col_name)
-                / sf.sum(col_name).over(Window.partitionBy("user_idx")),
-            )
-            .drop("_min_rel_user")
-        )
-
-    @staticmethod
-    def _sigmoid(df: DataFrame, col_name: str) -> DataFrame:
-        """
-        Apply sigmoid/logistic function to column `col_name`
-        """
-        return df.withColumn(
-            col_name, sf.lit(1.0) / (sf.lit(1.0) + sf.exp(-sf.col(col_name)))
-        )
-
-    @staticmethod
-    def _weigh_and_clip(
-        df: DataFrame,
-        threshold: float,
-        target_policy_col: str = "relevance",
-        prev_policy_col: str = "prev_relevance",
-    ):
-        """
-        Clip weights to fit into interval [1/threshold, threshold].
-        """
-        lower, upper = 1 / threshold, threshold
-        return (
-            df.withColumn(
-                "weight_unbounded",
-                sf.col(target_policy_col) / sf.col(prev_policy_col),
-            )
-            .withColumn(
-                "weight",
-                sf.when(sf.col(prev_policy_col) == sf.lit(0.0), sf.lit(upper))
-                .when(
-                    sf.col("weight_unbounded") < sf.lit(lower), sf.lit(lower)
-                )
-                .when(
-                    sf.col("weight_unbounded") > sf.lit(upper), sf.lit(upper)
-                )
-                .otherwise(sf.col("weight_unbounded")),
-            )
-            .select("user_idx", "item_idx", "relevance", "weight")
-        )
-
-    def _reweighing(self, recommendations):
-        if self.activation == "softmax":
-            recommendations = self._softmax_by_user(
-                recommendations, col_name="prev_relevance"
-            )
-            recommendations = self._softmax_by_user(
-                recommendations, col_name="relevance"
-            )
-        elif self.activation in ["logit", "sigmoid"]:
-            recommendations = self._sigmoid(
-                recommendations, col_name="prev_relevance"
-            )
-            recommendations = self._sigmoid(
-                recommendations, col_name="relevance"
-            )
-
-        return self._weigh_and_clip(recommendations, self.threshold)
-
-    def _get_enriched_recommendations(
-        self,
-        recommendations: AnyDataFrame,
-        ground_truth: AnyDataFrame,
-        max_k: int,
-        ground_truth_users: Optional[AnyDataFrame] = None,
-    ) -> DataFrame:
-        """
-        Merge recommendations and ground truth into a single DataFrame
-        and aggregate items into lists so that each user has only one record.
-
-        :param recommendations: recommendation list
-        :param ground_truth: test data
-        :param max_k: maximal k value to calculate the metric for.
-            `max_k` most relevant predictions are left for each user
-        :param ground_truth_users: list of users to consider in metric calculation.
-            if None, only the users from ground_truth are considered.
-        :return:  ``[user_idx, pred, ground_truth]``
-        """
-        recommendations = convert2spark(recommendations)
-        ground_truth = convert2spark(ground_truth)
-        ground_truth_users = convert2spark(ground_truth_users)
-
-        true_items_by_users = ground_truth.groupby("user_idx").agg(
-            sf.collect_set("item_idx").alias("ground_truth")
-        )
-
-        group_on = ["item_idx"]
-        if "user_idx" in self.prev_policy_weights.columns:
-            group_on.append("user_idx")
-        recommendations = get_top_k_recs(recommendations, k=max_k)
-
-        recommendations = recommendations.join(
-            self.prev_policy_weights, on=group_on, how="left"
-        ).na.fill(0.0, subset=["prev_relevance"])
-
-        recommendations = self._reweighing(recommendations)
-
-        weight_type = recommendations.schema["weight"].dataType
-        item_type = ground_truth.schema["item_idx"].dataType
-
-        recommendations = filter_sort(recommendations, "weight")
-
-        if ground_truth_users is not None:
-            true_items_by_users = true_items_by_users.join(
-                ground_truth_users, on="user_idx", how="right"
-            )
-
-        recommendations = recommendations.join(
-            true_items_by_users, how="right", on=["user_idx"]
-        )
-        return fill_na_with_empty_array(
-            fill_na_with_empty_array(recommendations, "pred", item_type),
-            "weight",
-            weight_type,
-        )
+        raise NotImplementedError()
