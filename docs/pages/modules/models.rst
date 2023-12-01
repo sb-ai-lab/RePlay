@@ -278,7 +278,7 @@ which achieves state-of-the-art performance in offline RL problems.
 
 .. image:: /images/cql_comparison.png
 
-.. autoclass:: replay.experimental.models.CQL
+.. autoclass:: replay.experimental.models.cql.CQL
     :special-members: __init__
 
 
