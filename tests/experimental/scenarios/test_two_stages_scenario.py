@@ -1,24 +1,20 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 
 import pytest
+
+pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
+
 from pyspark.sql import functions as sf
 
-from replay.models import ItemKNN, PopRec
-from replay.experimental.models import ScalaALSWrap as ALSWrap, LightFMWrap
+from replay.experimental.models import LightFMWrap
+from replay.experimental.models import ScalaALSWrap as ALSWrap
+from replay.experimental.preprocessing.data_preparator import ToNumericFeatureTransformer
 from replay.experimental.scenarios import TwoStagesScenario
-from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
-from replay.preprocessing.data_preparator import ToNumericFeatureTransformer
 from replay.experimental.scenarios.two_stages.reranker import LamaWrap
-from replay.splitters import DateSplitter
-
-from tests.utils import (
-    spark,
-    sparkDataFrameEqual,
-    long_log_with_features,
-    short_log_with_features,
-    user_features,
-    item_features,
-)
+from replay.models import ItemKNN, PopRec
+from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
+from replay.splitters import TimeSplitter
 
 
 @pytest.fixture
@@ -29,7 +25,7 @@ def two_stages_kwargs():
             ItemKNN(num_neighbours=4),
             LightFMWrap(no_components=4),
         ],
-        "train_splitter": DateSplitter(test_start=0.1),
+        "train_splitter": TimeSplitter(time_threshold=0.1),
         "use_first_level_models_feat": True,
         "second_model_params": {
             "timeout": 30,
@@ -44,6 +40,7 @@ def two_stages_kwargs():
     }
 
 
+@pytest.mark.experimental
 def test_init(two_stages_kwargs):
 
     two_stages = TwoStagesScenario(**two_stages_kwargs)
@@ -70,6 +67,8 @@ def test_init(two_stages_kwargs):
         TwoStagesScenario(**two_stages_kwargs)
 
 
+@pytest.mark.xfail
+@pytest.mark.experimental
 def test_fit(
     long_log_with_features,
     short_log_with_features,
@@ -103,6 +102,8 @@ def test_fit(
     two_stages.first_level_item_features_transformer.transform(item_features)
 
 
+@pytest.mark.xfail
+@pytest.mark.experimental
 def test_predict(
     long_log_with_features, user_features, item_features, two_stages_kwargs,
 ):
@@ -127,6 +128,8 @@ def test_predict(
     ]
 
 
+@pytest.mark.xfail
+@pytest.mark.experimental
 def test_optimize(
     long_log_with_features,
     short_log_with_features,

@@ -9,9 +9,14 @@ from math import floor
 from typing import Any, Dict, Optional
 
 import psutil
-import torch
-from pyspark import __version__ as pyspark_version
-from pyspark.sql import SparkSession
+
+from .types import PYSPARK_AVAILABLE, MissingImportType
+
+if PYSPARK_AVAILABLE:
+    from pyspark import __version__ as pyspark_version
+    from pyspark.sql import SparkSession
+else:
+    SparkSession = MissingImportType
 
 
 def get_spark_session(
@@ -26,6 +31,7 @@ def get_spark_session(
     :param shuffle_partitions: number of partitions for Spark; triple CPU count by default
     """
     if os.environ.get("SCRIPT_ENV", None) == "cluster":
+        # pylint: disable=no-member
         return SparkSession.builder.getOrCreate()
 
     os.environ["PYSPARK_PYTHON"] = sys.executable
@@ -55,6 +61,7 @@ def get_spark_session(
         shuffle_partitions = os.cpu_count() * 3
     driver_memory = f"{spark_memory}g"
     user_home = os.environ["HOME"]
+    # pylint: disable=no-member
     spark = (
         SparkSession.builder.config("spark.driver.memory", driver_memory)
         .config(
@@ -109,14 +116,11 @@ class Borg:
 class State(Borg):
     """
     All modules look for Spark session via this class. You can put your own session here.
-
-    Other parameters are stored here too: ``default device`` for ``pytorch`` (CPU/CUDA)
     """
 
     def __init__(
         self,
         session: Optional[SparkSession] = None,
-        device: Optional[torch.device] = None,
     ):
         Borg.__init__(self)
         if not hasattr(self, "logger_set"):
@@ -128,14 +132,3 @@ class State(Borg):
                 self.session = get_spark_session()
         else:
             self.session = session
-
-        if device is None:
-            if not hasattr(self, "device"):
-                if torch.cuda.is_available():
-                    self.device = torch.device(
-                        f"cuda:{torch.cuda.current_device()}"
-                    )
-                else:
-                    self.device = torch.device("cpu")
-        else:
-            self.device = device

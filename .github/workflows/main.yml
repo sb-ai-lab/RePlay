@@ -2,7 +2,9 @@ name: CI
 
 # Controls when the workflow will run
 on:
-  # Triggers the workflow on pull request events but only for the main branch
+  # Triggers the workflow on push and pull request events but only for the main branch
+  push:
+    branches: [main]
   pull_request:
     branches: [main, refactoring]
 
@@ -14,25 +16,22 @@ jobs:
   run_tests:
     runs-on: ubuntu-20.04
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.7", "3.8", "3.9"]
+        python-version: ["3.9"]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install package
+      - name: Install full package
         run: |
           python -m venv venv
           . ./venv/bin/activate
           pip install --upgrade pip wheel poetry==1.5.1 lightfm
 
           poetry cache clear pypi --all
-          poetry install
-      - name: Build docs
-        run: |
-          . ./venv/bin/activate
-          make -C docs clean html
+          ./poetry_wrapper.sh --experimental install --all-extras
       - name: pycodestyle
         run: |
           . ./venv/bin/activate

@@ -2,18 +2,19 @@ from abc import abstractmethod
 from typing import Any, Dict, Optional
 
 import numpy as np
-import pandas as pd
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
 import torch
 from torch import nn
-from torch.optim.optimizer import Optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
-from replay.data import REC_SCHEMA
-from replay.models.base_rec import Recommender
-from replay.utils.session_handler import State
+from replay.data import get_schema
+from replay.experimental.models.base_rec import Recommender
+from replay.experimental.utils.session_handler import State
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 class TorchRecommender(Recommender):
@@ -117,22 +118,23 @@ class TorchRecommender(Recommender):
         """
 
     # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-locals
     def _predict(
         self,
-        log: DataFrame,
+        log: SparkDataFrame,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         items_consider_in_pred = items.toPandas()["item_idx"].values
         items_count = self._item_dim
         model = self.model.cpu()
         agg_fn = self._predict_by_user
 
-        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+        def grouped_map(pandas_df: PandasDataFrame) -> PandasDataFrame:
             return agg_fn(
                 pandas_df, model, items_consider_in_pred, k, items_count
             )[["user_idx", "item_idx", "relevance"]]
@@ -140,27 +142,33 @@ class TorchRecommender(Recommender):
         self.logger.debug("Predict started")
         # do not apply map on cold users for MultVAE predict
         join_type = "inner" if str(self) == "MultVAE" else "left"
+        rec_schema = get_schema(
+            query_column="user_idx",
+            item_column="item_idx",
+            rating_column="relevance",
+            has_timestamp=False,
+        )
         recs = (
             users.join(log, how=join_type, on="user_idx")
             .select("user_idx", "item_idx")
             .groupby("user_idx")
-            .applyInPandas(grouped_map, REC_SCHEMA)
+            .applyInPandas(grouped_map, rec_schema)
         )
         return recs
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        pairs: SparkDataFrame,
+        log: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
+    ) -> SparkDataFrame:
         items_count = self._item_dim
         model = self.model.cpu()
         agg_fn = self._predict_by_user_pairs
         users = pairs.select("user_idx").distinct()
 
-        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+        def grouped_map(pandas_df: PandasDataFrame) -> PandasDataFrame:
             return agg_fn(pandas_df, model, items_count)[
                 ["user_idx", "item_idx", "relevance"]
             ]
@@ -176,8 +184,14 @@ class TorchRecommender(Recommender):
         )
         full_df = user_pairs.join(user_history, on="user_idx", how="inner")
 
+        rec_schema = get_schema(
+            query_column="user_idx",
+            item_column="item_idx",
+            rating_column="relevance",
+            has_timestamp=False,
+        )
         recs = full_df.groupby("user_idx").applyInPandas(
-            grouped_map, REC_SCHEMA
+            grouped_map, rec_schema
         )
 
         return recs
@@ -185,12 +199,12 @@ class TorchRecommender(Recommender):
     @staticmethod
     @abstractmethod
     def _predict_by_user(
-        pandas_df: pd.DataFrame,
+        pandas_df: PandasDataFrame,
         model: nn.Module,
         items_np: np.ndarray,
         k: int,
         item_count: int,
-    ) -> pd.DataFrame:
+    ) -> PandasDataFrame:
         """
         Calculate predictions.
 
@@ -205,10 +219,10 @@ class TorchRecommender(Recommender):
     @staticmethod
     @abstractmethod
     def _predict_by_user_pairs(
-        pandas_df: pd.DataFrame,
+        pandas_df: PandasDataFrame,
         model: nn.Module,
         item_count: int,
-    ) -> pd.DataFrame:
+    ) -> PandasDataFrame:
         """
         Get relevance for provided pairs
 

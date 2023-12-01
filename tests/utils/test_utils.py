@@ -1,18 +1,21 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-from datetime import datetime
-from datetime import timezone
+from datetime import datetime, timezone
 from functools import partial
 
 import numpy as np
 import pandas as pd
+import pytest
+
+from tests.utils import long_log_with_features, spark, sparkDataFrameEqual
+
+pyspark = pytest.importorskip("pyspark")
+
 import pyspark.sql.functions as sf
 from pyspark.sql import SparkSession
 from pyspark.sql.types import TimestampType
-import pytest
 
 import replay.utils.session_handler
 from replay.utils import spark_utils as utils
-from tests.utils import long_log_with_features, spark, sparkDataFrameEqual
 
 datetime = partial(datetime, tzinfo=timezone.utc)
 
@@ -62,6 +65,7 @@ different_timestamp_formats_data = [
 ]
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "log_data, ground_truth_data, schema", different_timestamp_formats_data
 )
@@ -81,11 +85,13 @@ def test_process_timestamp(log_data, ground_truth_data, schema, spark):
     spark.conf.unset("spark.sql.session.timeZone")
 
 
+@pytest.mark.core
 def test_func_get():
     vector = np.arange(2)
     assert utils.func_get(vector, 0) == 0.0
 
 
+@pytest.mark.spark
 def test_get_spark_session():
     spark = replay.utils.session_handler.get_spark_session(1)
     assert isinstance(spark, SparkSession)
@@ -94,6 +100,7 @@ def test_get_spark_session():
     assert replay.utils.session_handler.State().session is spark
 
 
+@pytest.mark.spark
 def test_convert():
     dataframe = pd.DataFrame(
         [[1, "a", 3.0], [3, "b", 5.0]], columns=["a", "b", "c"]
@@ -103,6 +110,7 @@ def test_convert():
     assert utils.convert2spark(spark_df) is spark_df
 
 
+@pytest.mark.spark
 def test_sample_top_k(long_log_with_features):
     res = utils.sample_top_k_recs(long_log_with_features, 1, seed=123)
     assert (
@@ -119,6 +127,7 @@ def test_sample_top_k(long_log_with_features):
     assert test_rel.selectExpr("any(wrong_rel)").collect()[0][0] is False
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("array", [None, [1, 2, 2, 3]])
 def test_get_unique_entities(spark, array):
     log = spark.createDataFrame(data=[[1], [2], [3]], schema=["test"])

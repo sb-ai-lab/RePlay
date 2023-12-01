@@ -5,18 +5,17 @@ from datetime import datetime
 
 import pytest
 
-from pyspark.sql import functions as sf
-
 from replay.preprocessing.history_based_fp import (
     ConditionalPopularityProcessor,
     EmptyFeatureProcessor,
     HistoryBasedFeaturesProcessor,
     LogStatFeaturesProcessor,
 )
-from tests.utils import (
-    spark,
-    sparkDataFrameEqual,
-)
+from replay.utils import PYSPARK_AVAILABLE
+from tests.utils import spark, sparkDataFrameEqual
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 simple_u_columns = ["u_log_num_interact", "u_mean_i_log_num_interact"]
 simple_i_columns = ["i_log_num_interact", "i_mean_u_log_num_interact"]
@@ -67,6 +66,7 @@ def log_proc():
     return LogStatFeaturesProcessor()
 
 
+@pytest.mark.spark
 def test_log_proc_no_ts_rel(spark, log_proc, log_for_feature_gen):
     log_proc.fit(
         log_for_feature_gen.withColumn("relevance", sf.lit(1)).withColumn(
@@ -102,6 +102,7 @@ def test_log_proc_no_ts_rel(spark, log_proc, log_for_feature_gen):
     sparkDataFrameEqual(gt_item_features, log_proc.item_log_features)
 
 
+@pytest.mark.spark
 def test_log_proc_ts_no_rel(spark, log_proc, log_for_feature_gen):
     log_proc.fit(log_for_feature_gen.withColumn("relevance", sf.lit(1)))
 
@@ -138,6 +139,7 @@ def test_log_proc_ts_no_rel(spark, log_proc, log_for_feature_gen):
     )
 
 
+@pytest.mark.spark
 def test_log_proc_relevance_ts(spark, log_proc, log_for_feature_gen):
     log_proc.fit(log_for_feature_gen)
 
@@ -203,6 +205,7 @@ def test_log_proc_relevance_ts(spark, log_proc, log_for_feature_gen):
     )
 
 
+@pytest.mark.spark
 def test_conditional_features(spark, log_for_feature_gen, user_features):
 
     cond_pop_proc = ConditionalPopularityProcessor(
@@ -222,6 +225,7 @@ def test_conditional_features(spark, log_for_feature_gen, user_features):
     )
 
 
+@pytest.mark.spark
 def test_history_based_fp_fit_transform(
     log_for_feature_gen,
     user_features,
@@ -252,6 +256,7 @@ def test_history_based_fp_fit_transform(
     assert "na_u_pop_by_class" in res.columns
 
 
+@pytest.mark.spark
 def test_history_based_fp_one_features_df(log_for_feature_gen, user_features):
     history_based_fp = HistoryBasedFeaturesProcessor(
         user_cat_features_list=["gender"]

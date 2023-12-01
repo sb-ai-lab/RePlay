@@ -1,15 +1,17 @@
 """Distribution calculations"""
 
-import pandas as pd
 import seaborn as sns
-from pyspark.sql import functions as sf
 
-from replay.data import AnyDataFrame
-from replay.utils.spark_utils import convert2spark, get_top_k_recs
+from .types import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+
+    from replay.utils.spark_utils import convert2spark, get_top_k_recs
 
 
 def plot_user_dist(
-    user_dist: pd.DataFrame, window: int = 1, title: str = ""
+    user_dist: PandasDataFrame, window: int = 1, title: str = ""
 ):  # pragma: no cover
     """
     Plot mean metric value by the number of user ratings
@@ -33,12 +35,12 @@ def plot_user_dist(
 
 
 def plot_item_dist(
-    item_dist: pd.DataFrame, palette: str = "magma", col: str = "rec_count"
+    item_dist: PandasDataFrame, palette: str = "magma", col: str = "rec_count"
 ):  # pragma: no cover
     """
     Show the results of  ``item_distribution`` method
 
-    :param item_dist: ``pd.DataFrame``
+    :param item_dist: PandasDataFrame
     :param palette: colour scheme for seaborn
     :param col: column to use for a plot
     :return: plot
@@ -60,8 +62,8 @@ def plot_item_dist(
 
 
 def item_distribution(
-    log: AnyDataFrame, recommendations: AnyDataFrame, k: int
-) -> pd.DataFrame:
+    log: DataFrameLike, recommendations: DataFrameLike, k: int
+) -> PandasDataFrame:
     """
     Calculate item distribution in ``log`` and ``recommendations``.
 

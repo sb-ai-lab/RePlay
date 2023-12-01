@@ -1,22 +1,19 @@
-import pandas as pd
 import implicit
 import pytest
-import numpy as np
-from datetime import datetime
+
+pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
+
 from pyspark.sql import functions as sf
-from pyspark.sql.types import (
-    IntegerType,
-    StructField,
-    StructType,
-)
 
-from replay.data import LOG_SCHEMA
+from replay.data import get_schema
 from replay.experimental.models import ImplicitWrap
-from tests.utils import spark, log, sparkDataFrameEqual, long_log_with_features
-from implicit.als import AlternatingLeastSquares
-from replay.utils.session_handler import get_spark_session
+from tests.utils import log, long_log_with_features, spark, sparkDataFrameEqual
+
+INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize(
     "model",
     [
@@ -32,7 +29,7 @@ from replay.utils.session_handler import get_spark_session
         False
     ]
 )
-def test_predict(model, log,filter_seen):
+def test_predict(model, log, filter_seen):
     model.fit(log)
     pred = model.predict(
         log=log,
@@ -45,6 +42,7 @@ def test_predict(model, log,filter_seen):
     assert pred.count() == 2 if filter_seen else 4
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize(
     "model",
     [
@@ -73,6 +71,7 @@ def test_predict_pairs(model, log, log_in_pred):
     sparkDataFrameEqual(pairs.select("user_idx","item_idx"), pred.select("user_idx","item_idx"))
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize(
     "model",
     [

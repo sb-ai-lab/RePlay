@@ -1,8 +1,8 @@
-from replay.experimental.metrics.base_metric import ScalaMetric
+from .base_metric import Metric
 
 
 # pylint: disable=too-few-public-methods
-class ScalaRocAuc(ScalaMetric):
+class RocAuc(Metric):
     """
     Receiver Operating Characteristic/Area Under the Curve is the aggregated performance measure,
     that depends only on the order of recommended items.
@@ -29,3 +29,22 @@ class ScalaRocAuc(ScalaMetric):
     """
 
     _scala_udf_name = "getRocAucMetricValue"
+
+    @staticmethod
+    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
+        length = min(k, len(pred))
+        if len(ground_truth) == 0 or len(pred) == 0:
+            return 0
+
+        fp_cur = 0
+        fp_cum = 0
+        for item in pred[:length]:
+            if item in ground_truth:
+                fp_cum += fp_cur
+            else:
+                fp_cur += 1
+        if fp_cur == length:
+            return 0
+        if fp_cum == 0:
+            return 1
+        return 1 - fp_cum / (fp_cur * (length - fp_cur))

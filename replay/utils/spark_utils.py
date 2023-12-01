@@ -1,26 +1,55 @@
 import collections
-import pickle
 import logging
 import os
+import pickle
+import warnings
 from typing import Any, Iterable, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import pandas as pd
-import pyspark.sql.types as st
 from numpy.random import default_rng
-from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
-from pyspark.sql import SparkSession, Column, DataFrame, Window, functions as sf
-from pyspark.sql.column import _to_java_column, _to_seq
-from scipy.sparse import csr_matrix
 
-from replay.data import AnyDataFrame, NumType, REC_SCHEMA
 from replay.utils.session_handler import State
+
+from .types import PYSPARK_AVAILABLE, DataFrameLike, MissingImportType, NumType, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.types as st
+    from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
+    from pyspark.sql import Column, SparkSession, Window
+    from pyspark.sql import functions as sf
+    from pyspark.sql.column import _to_java_column, _to_seq
+    from pyspark.sql.types import DoubleType, IntegerType, StructField, StructType
+else:
+    Column = MissingImportType
+
+
+class SparkCollectToMasterWarning(Warning):  # pragma: no cover
+    """
+    Collect to master warning for Spark DataFrames.
+    """
+
+
+def spark_to_pandas(data: SparkDataFrame, allow_collect_to_master: bool = False) -> pd.DataFrame:  # pragma: no cover
+    """
+    Convert Spark DataFrame to Pandas DataFrame.
+
+    :param data: Spark DataFrame.
+    :param allow_collect_to_master: Flag allowing spark to make a collection to the master node, default: ``False``.
+
+    :returns: Converted Pandas DataFrame.
+    """
+    if not allow_collect_to_master:
+        warnings.warn(
+            "Spark Data Frame is collected to master node, this may lead to OOM exception for larger dataset. "
+            "To remove this warning set allow_collect_to_master=True in the recommender constructor.",
+            SparkCollectToMasterWarning,
+        )
+    return data.toPandas()
 
 
 # pylint: disable=invalid-name
-
-
-def convert2spark(data_frame: Optional[AnyDataFrame]) -> Optional[DataFrame]:
+def convert2spark(data_frame: Optional[DataFrameLike]) -> Optional[SparkDataFrame]:
     """
     Converts Pandas DataFrame to Spark DataFrame
 
@@ -29,14 +58,14 @@ def convert2spark(data_frame: Optional[AnyDataFrame]) -> Optional[DataFrame]:
     """
     if data_frame is None:
         return None
-    if isinstance(data_frame, DataFrame):
+    if isinstance(data_frame, SparkDataFrame):
         return data_frame
     spark = State().session
     return spark.createDataFrame(data_frame)  # type: ignore
 
 
 def get_distinct_values_in_column(
-    dataframe: DataFrame, column: str
+    dataframe: SparkDataFrame, column: str
 ) -> Set[Any]:
     """
     Get unique values from a column as a set.
@@ -62,11 +91,11 @@ def func_get(vector: np.ndarray, i: int) -> float:
 
 
 def get_top_k(
-    dataframe: DataFrame,
+    dataframe: SparkDataFrame,
     partition_by_col: Column,
     order_by_col: List[Column],
     k: int,
-) -> DataFrame:
+) -> SparkDataFrame:
     """
     Return top ``k`` rows for each entity in ``partition_by_col`` ordered by
     ``order_by_col``.
@@ -114,102 +143,145 @@ def get_top_k(
     )
 
 
-def get_top_k_recs(recs: DataFrame, k: int, id_type: str = "idx") -> DataFrame:
+def get_top_k_recs(
+    recs: SparkDataFrame,
+    k: int,
+    query_column: str = "user_idx",
+    rating_column: str = "relevance",
+) -> SparkDataFrame:
     """
-    Get top k recommendations by `relevance`.
+    Get top k recommendations by `rating`.
 
     :param recs: recommendations DataFrame
-        `[user_id, item_id, relevance]`
+        `[user_idx, item_idx, rating]`
     :param k: length of a recommendation list
     :param id_type: id or idx
-    :return: top k recommendations `[user_id, item_id, relevance]`
+    :return: top k recommendations `[user_id, item_id, rating]`
     """
     return get_top_k(
         dataframe=recs,
-        partition_by_col=sf.col(f"user_{id_type}"),
-        order_by_col=[sf.col("relevance").desc()],
+        partition_by_col=sf.col(query_column),
+        order_by_col=[sf.col(rating_column).desc()],
         k=k,
     )
 
 
-@sf.udf(returnType=st.DoubleType())
-def vector_dot(one: DenseVector, two: DenseVector) -> float:
-    """
-    dot product of two column vectors
+if PYSPARK_AVAILABLE:
+    @sf.udf(returnType=st.DoubleType())
+    def vector_dot(one: DenseVector, two: DenseVector) -> float:
+        """
+        dot product of two column vectors
 
-    >>> from replay.utils.session_handler import State
-    >>> from pyspark.ml.linalg import Vectors
-    >>> spark = State().session
-    >>> input_data = (
-    ...     spark.createDataFrame([(Vectors.dense([1.0, 2.0]), Vectors.dense([3.0, 4.0]))])
-    ...     .toDF("one", "two")
-    ... )
-    >>> input_data.dtypes
-    [('one', 'vector'), ('two', 'vector')]
-    >>> input_data.show()
-    +---------+---------+
-    |      one|      two|
-    +---------+---------+
-    |[1.0,2.0]|[3.0,4.0]|
-    +---------+---------+
-    <BLANKLINE>
-    >>> output_data = input_data.select(vector_dot("one", "two").alias("dot"))
-    >>> output_data.schema
-    StructType(List(StructField(dot,DoubleType,true)))
-    >>> output_data.show()
-    +----+
-    | dot|
-    +----+
-    |11.0|
-    +----+
-    <BLANKLINE>
+        >>> from replay.utils.session_handler import State
+        >>> from pyspark.ml.linalg import Vectors
+        >>> spark = State().session
+        >>> input_data = (
+        ...     spark.createDataFrame([(Vectors.dense([1.0, 2.0]), Vectors.dense([3.0, 4.0]))])
+        ...     .toDF("one", "two")
+        ... )
+        >>> input_data.dtypes
+        [('one', 'vector'), ('two', 'vector')]
+        >>> input_data.show()
+        +---------+---------+
+        |      one|      two|
+        +---------+---------+
+        |[1.0,2.0]|[3.0,4.0]|
+        +---------+---------+
+        <BLANKLINE>
+        >>> output_data = input_data.select(vector_dot("one", "two").alias("dot"))
+        >>> output_data.schema
+        StructType(List(StructField(dot,DoubleType,true)))
+        >>> output_data.show()
+        +----+
+        | dot|
+        +----+
+        |11.0|
+        +----+
+        <BLANKLINE>
 
-    :param one: vector one
-    :param two: vector two
-    :returns: dot product
-    """
-    return float(one.dot(two))
+        :param one: vector one
+        :param two: vector two
+        :returns: dot product
+        """
+        return float(one.dot(two))
 
+    @sf.udf(returnType=VectorUDT())  # type: ignore
+    def vector_mult(
+        one: Union[DenseVector, NumType], two: DenseVector
+    ) -> DenseVector:
+        """
+        elementwise vector multiplication
 
-@sf.udf(returnType=VectorUDT())  # type: ignore
-def vector_mult(
-    one: Union[DenseVector, NumType], two: DenseVector
-) -> DenseVector:
-    """
-    elementwise vector multiplication
+        >>> from replay.utils.session_handler import State
+        >>> from pyspark.ml.linalg import Vectors
+        >>> spark = State().session
+        >>> input_data = (
+        ...     spark.createDataFrame([(Vectors.dense([1.0, 2.0]), Vectors.dense([3.0, 4.0]))])
+        ...     .toDF("one", "two")
+        ... )
+        >>> input_data.dtypes
+        [('one', 'vector'), ('two', 'vector')]
+        >>> input_data.show()
+        +---------+---------+
+        |      one|      two|
+        +---------+---------+
+        |[1.0,2.0]|[3.0,4.0]|
+        +---------+---------+
+        <BLANKLINE>
+        >>> output_data = input_data.select(vector_mult("one", "two").alias("mult"))
+        >>> output_data.schema
+        StructType(List(StructField(mult,VectorUDT,true)))
+        >>> output_data.show()
+        +---------+
+        |     mult|
+        +---------+
+        |[3.0,8.0]|
+        +---------+
+        <BLANKLINE>
 
-    >>> from replay.utils.session_handler import State
-    >>> from pyspark.ml.linalg import Vectors
-    >>> spark = State().session
-    >>> input_data = (
-    ...     spark.createDataFrame([(Vectors.dense([1.0, 2.0]), Vectors.dense([3.0, 4.0]))])
-    ...     .toDF("one", "two")
-    ... )
-    >>> input_data.dtypes
-    [('one', 'vector'), ('two', 'vector')]
-    >>> input_data.show()
-    +---------+---------+
-    |      one|      two|
-    +---------+---------+
-    |[1.0,2.0]|[3.0,4.0]|
-    +---------+---------+
-    <BLANKLINE>
-    >>> output_data = input_data.select(vector_mult("one", "two").alias("mult"))
-    >>> output_data.schema
-    StructType(List(StructField(mult,VectorUDT,true)))
-    >>> output_data.show()
-    +---------+
-    |     mult|
-    +---------+
-    |[3.0,8.0]|
-    +---------+
-    <BLANKLINE>
+        :param one: vector one
+        :param two: vector two
+        :returns: result
+        """
+        return one * two
 
-    :param one: vector one
-    :param two: vector two
-    :returns: result
-    """
-    return one * two
+    @sf.udf(returnType=st.ArrayType(st.DoubleType()))
+    def array_mult(first: st.ArrayType, second: st.ArrayType):
+        """
+        elementwise array multiplication
+
+        >>> from replay.utils.session_handler import State
+        >>> spark = State().session
+        >>> input_data = (
+        ...     spark.createDataFrame([([1.0, 2.0], [3.0, 4.0])])
+        ...     .toDF("one", "two")
+        ... )
+        >>> input_data.dtypes
+        [('one', 'array<double>'), ('two', 'array<double>')]
+        >>> input_data.show()
+        +----------+----------+
+        |       one|       two|
+        +----------+----------+
+        |[1.0, 2.0]|[3.0, 4.0]|
+        +----------+----------+
+        <BLANKLINE>
+        >>> output_data = input_data.select(array_mult("one", "two").alias("mult"))
+        >>> output_data.schema
+        StructType(List(StructField(mult,ArrayType(DoubleType,true),true)))
+        >>> output_data.show()
+        +----------+
+        |      mult|
+        +----------+
+        |[3.0, 8.0]|
+        +----------+
+        <BLANKLINE>
+
+        :param first: first array
+        :param second: second array
+        :returns: result
+        """
+
+        return [first[i] * second[i] for i in range(len(first))]
 
 
 def multiply_scala_udf(scalar, vector):
@@ -225,47 +297,8 @@ def multiply_scala_udf(scalar, vector):
     return Column(_f.apply(_to_seq(sc, [scalar, vector], _to_java_column)))
 
 
-@sf.udf(returnType=st.ArrayType(st.DoubleType()))
-def array_mult(first: st.ArrayType, second: st.ArrayType):
-    """
-    elementwise array multiplication
-
-    >>> from replay.utils.session_handler import State
-    >>> spark = State().session
-    >>> input_data = (
-    ...     spark.createDataFrame([([1.0, 2.0], [3.0, 4.0])])
-    ...     .toDF("one", "two")
-    ... )
-    >>> input_data.dtypes
-    [('one', 'array<double>'), ('two', 'array<double>')]
-    >>> input_data.show()
-    +----------+----------+
-    |       one|       two|
-    +----------+----------+
-    |[1.0, 2.0]|[3.0, 4.0]|
-    +----------+----------+
-    <BLANKLINE>
-    >>> output_data = input_data.select(array_mult("one", "two").alias("mult"))
-    >>> output_data.schema
-    StructType(List(StructField(mult,ArrayType(DoubleType,true),true)))
-    >>> output_data.show()
-    +----------+
-    |      mult|
-    +----------+
-    |[3.0, 8.0]|
-    +----------+
-    <BLANKLINE>
-
-    :param first: first array
-    :param second: second array
-    :returns: result
-    """
-
-    return [first[i] * second[i] for i in range(len(first))]
-
-
 def get_log_info(
-    log: DataFrame, user_col="user_idx", item_col="item_idx"
+    log: SparkDataFrame, user_col="user_idx", item_col="item_idx"
 ) -> str:
     """
     Basic log statistics
@@ -304,8 +337,8 @@ def get_log_info(
 
 
 def get_stats(
-    log: DataFrame, group_by: str = "user_id", target_column: str = "relevance"
-) -> DataFrame:
+    log: SparkDataFrame, group_by: str = "user_id", target_column: str = "relevance"
+) -> SparkDataFrame:
     """
     Calculate log statistics: min, max, mean, median ratings, number of ratings.
     >>> from replay.utils.session_handler import get_spark_session, State
@@ -356,7 +389,7 @@ def get_stats(
     return log.groupBy(group_by).agg(*agg_functions_list)
 
 
-def check_numeric(feature_table: DataFrame) -> None:
+def check_numeric(feature_table: SparkDataFrame) -> None:
     """
     Check if spark DataFrame columns are of NumericType
     :param feature_table: spark DataFrame
@@ -371,63 +404,12 @@ def check_numeric(feature_table: DataFrame) -> None:
             )
 
 
-def to_csr(
-    log: DataFrame,
-    user_count: Optional[int] = None,
-    item_count: Optional[int] = None,
-) -> csr_matrix:
-    """
-    Convert DataFrame to csr matrix
-
-    >>> import pandas as pd
-    >>> from replay.utils.spark_utils import convert2spark
-    >>> data_frame = pd.DataFrame({"user_idx": [0, 1], "item_idx": [0, 2], "relevance": [1, 2]})
-    >>> data_frame = convert2spark(data_frame)
-    >>> m = to_csr(data_frame)
-    >>> m.toarray()
-    array([[1, 0, 0],
-           [0, 0, 2]])
-
-    :param log: interaction log with ``user_idx``, ``item_idx`` and
-    ``relevance`` columns
-    :param user_count: number of rows in resulting matrix
-    :param item_count: number of columns in resulting matrix
-    """
-    pandas_df = log.select("user_idx", "item_idx", "relevance").toPandas()
-    if pandas_df.empty:
-        return csr_matrix(
-            (
-                [],
-                ([], []),
-            ),
-            shape=(0, 0),
-        )
-
-    row_count = int(
-        user_count
-        if user_count is not None
-        else pandas_df["user_idx"].max() + 1
-    )
-    col_count = int(
-        item_count
-        if item_count is not None
-        else pandas_df["item_idx"].max() + 1
-    )
-    return csr_matrix(
-        (
-            pandas_df["relevance"],
-            (pandas_df["user_idx"], pandas_df["item_idx"]),
-        ),
-        shape=(row_count, col_count),
-    )
-
-
 def horizontal_explode(
-    data_frame: DataFrame,
+    data_frame: SparkDataFrame,
     column_to_explode: str,
     prefix: str,
     other_columns: List[Column],
-) -> DataFrame:
+) -> SparkDataFrame:
     """
     Transform a column with an array of values into separate columns.
     Each array must contain the same amount of values.
@@ -486,9 +468,15 @@ def join_or_return(first, second, on, how):
     return first.join(second, on=on, how=how)
 
 
+# pylint: disable=too-many-arguments
 def fallback(
-    base: DataFrame, fill: DataFrame, k: int, id_type: str = "idx"
-) -> DataFrame:
+    base: SparkDataFrame,
+    fill: SparkDataFrame,
+    k: int,
+    query_column: str = "user_idx",
+    item_column: str = "item_idx",
+    rating_column: str = "relevance",
+) -> SparkDataFrame:
     """
     Fill missing recommendations for users that have less than ``k`` recommended items.
     Score values for the fallback model may be decreased to preserve sorting.
@@ -502,27 +490,27 @@ def fallback(
     if fill is None:
         return base
     if base.count() == 0:
-        return get_top_k_recs(fill, k, id_type)
+        return get_top_k_recs(fill, k, query_column=query_column, rating_column=rating_column)
     margin = 0.1
-    min_in_base = base.agg({"relevance": "min"}).collect()[0][0]
-    max_in_fill = fill.agg({"relevance": "max"}).collect()[0][0]
+    min_in_base = base.agg({rating_column: "min"}).collect()[0][0]
+    max_in_fill = fill.agg({rating_column: "max"}).collect()[0][0]
     diff = max_in_fill - min_in_base
-    fill = fill.withColumnRenamed("relevance", "relevance_fallback")
+    fill = fill.withColumnRenamed(rating_column, "relevance_fallback")
     if diff >= 0:
         fill = fill.withColumn(
             "relevance_fallback", sf.col("relevance_fallback") - diff - margin
         )
     recs = base.join(
-        fill, on=["user_" + id_type, "item_" + id_type], how="full_outer"
+        fill, on=[query_column, item_column], how="full_outer"
     )
     recs = recs.withColumn(
-        "relevance", sf.coalesce("relevance", "relevance_fallback")
-    ).select("user_" + id_type, "item_" + id_type, "relevance")
-    recs = get_top_k_recs(recs, k, id_type)
+        rating_column, sf.coalesce(rating_column, "relevance_fallback")
+    ).select(query_column, item_column, rating_column)
+    recs = get_top_k_recs(recs, k, query_column=query_column, rating_column=rating_column)
     return recs
 
 
-def cache_if_exists(dataframe: Optional[DataFrame]) -> Optional[DataFrame]:
+def cache_if_exists(dataframe: Optional[SparkDataFrame]) -> Optional[SparkDataFrame]:
     """
     Cache a DataFrame
     :param dataframe: Spark DataFrame or None
@@ -533,7 +521,7 @@ def cache_if_exists(dataframe: Optional[DataFrame]) -> Optional[DataFrame]:
     return dataframe
 
 
-def unpersist_if_exists(dataframe: Optional[DataFrame]) -> None:
+def unpersist_if_exists(dataframe: Optional[SparkDataFrame]) -> None:
     """
     :param dataframe: DataFrame or None
     """
@@ -542,12 +530,12 @@ def unpersist_if_exists(dataframe: Optional[DataFrame]) -> None:
 
 
 def join_with_col_renaming(
-    left: DataFrame,
-    right: DataFrame,
+    left: SparkDataFrame,
+    right: SparkDataFrame,
     on_col_name: Union[str, List],
     how: str = "inner",
     suffix="join",
-) -> DataFrame:
+) -> SparkDataFrame:
     """
     There is a bug in some Spark versions (e.g. 3.0.2), which causes errors
     in joins of DataFrames derived form the same DataFrame on the columns with the same name:
@@ -581,11 +569,11 @@ def join_with_col_renaming(
 
 
 def add_to_date(
-    dataframe: DataFrame,
+    dataframe: SparkDataFrame,
     column_name: str,
     base_date: str,
     base_date_format: Optional[str] = None,
-) -> DataFrame:
+) -> SparkDataFrame:
     """
     Get user or item features from replay model.
     If a model can return both user and item embeddings,
@@ -640,10 +628,10 @@ def add_to_date(
 
 
 def process_timestamp_column(
-    dataframe: DataFrame,
+    dataframe: SparkDataFrame,
     column_name: str,
     date_format: Optional[str] = None,
-) -> DataFrame:
+) -> SparkDataFrame:
     """
     Convert ``column_name`` column of numeric/string/timestamp type
     to TimestampType.
@@ -679,52 +667,50 @@ def process_timestamp_column(
     return dataframe
 
 
-@sf.udf(returnType=VectorUDT())
-def list_to_vector_udf(array: st.ArrayType) -> DenseVector:
-    """
-    convert spark array to vector
+if PYSPARK_AVAILABLE:
+    @sf.udf(returnType=VectorUDT())
+    def list_to_vector_udf(array: st.ArrayType) -> DenseVector:
+        """
+        convert spark array to vector
 
-    :param array: spark Array to convert
-    :return:  spark DenseVector
-    """
-    return Vectors.dense(array)
+        :param array: spark Array to convert
+        :return:  spark DenseVector
+        """
+        return Vectors.dense(array)
 
+    @sf.udf(returnType=st.FloatType())
+    def vector_squared_distance(first: DenseVector, second: DenseVector) -> float:
+        """
+        :param first: first vector
+        :param second: second vector
+        :returns: squared distance value
+        """
+        return float(first.squared_distance(second))
 
-@sf.udf(returnType=st.FloatType())
-def vector_squared_distance(first: DenseVector, second: DenseVector) -> float:
-    """
-    :param first: first vector
-    :param second: second vector
-    :returns: squared distance value
-    """
-    return float(first.squared_distance(second))
+    @sf.udf(returnType=st.FloatType())
+    def vector_euclidean_distance_similarity(
+        first: DenseVector, second: DenseVector
+    ) -> float:
+        """
+        :param first: first vector
+        :param second: second vector
+        :returns: 1/(1 + euclidean distance value)
+        """
+        return 1 / (1 + float(first.squared_distance(second)) ** 0.5)
 
-
-@sf.udf(returnType=st.FloatType())
-def vector_euclidean_distance_similarity(
-    first: DenseVector, second: DenseVector
-) -> float:
-    """
-    :param first: first vector
-    :param second: second vector
-    :returns: 1/(1 + euclidean distance value)
-    """
-    return 1 / (1 + float(first.squared_distance(second)) ** 0.5)
-
-
-@sf.udf(returnType=st.FloatType())
-def cosine_similarity(first: DenseVector, second: DenseVector) -> float:
-    """
-    :param first: first vector
-    :param second: second vector
-    :returns: cosine similarity value
-    """
-    num = first.dot(second)
-    denom = first.dot(first) ** 0.5 * second.dot(second) ** 0.5
-    return float(num / denom)
+    @sf.udf(returnType=st.FloatType())
+    def cosine_similarity(first: DenseVector, second: DenseVector) -> float:
+        """
+        :param first: first vector
+        :param second: second vector
+        :returns: cosine similarity value
+        """
+        num = first.dot(second)
+        denom = first.dot(first) ** 0.5 * second.dot(second) ** 0.5
+        return float(num / denom)
 
 
-def cache_temp_view(df: DataFrame, name: str) -> None:
+def cache_temp_view(df: SparkDataFrame, name: str) -> None:
     """
     Create Spark SQL temporary view with `name` and cache it
     """
@@ -741,7 +727,7 @@ def drop_temp_view(temp_view_name: str) -> None:
     spark.catalog.dropTempView(temp_view_name)
 
 
-def sample_top_k_recs(pairs: DataFrame, k: int, seed: int = None):
+def sample_top_k_recs(pairs: SparkDataFrame, k: int, seed: int = None):
     """
     Sample k items for each user with probability proportional to the relevance score.
 
@@ -785,17 +771,23 @@ def sample_top_k_recs(pairs: DataFrame, k: int, seed: int = None):
                 "relevance": pandas_df["relevance"].values[items_positions],
             }
         )
-
-    recs = pairs.groupby("user_idx").applyInPandas(grouped_map, REC_SCHEMA)
+    rec_schema = StructType(
+        [
+            StructField("user_idx", IntegerType()),
+            StructField("item_idx", IntegerType()),
+            StructField("relevance", DoubleType()),
+        ]
+    )
+    recs = pairs.groupby("user_idx").applyInPandas(grouped_map, rec_schema)
 
     return recs
 
 
 def filter_cold(
-    df: Optional[DataFrame],
-    warm_df: DataFrame,
+    df: Optional[SparkDataFrame],
+    warm_df: SparkDataFrame,
     col_name: str,
-) -> Tuple[int, Optional[DataFrame]]:
+) -> Tuple[int, Optional[SparkDataFrame]]:
     """
     Filter out new user/item ids absent in `warm_df`.
     Return number of new users/items and filtered dataframe.
@@ -825,9 +817,9 @@ def filter_cold(
 
 
 def get_unique_entities(
-    df: Union[Iterable, DataFrame],
+    df: Union[Iterable, SparkDataFrame],
     column: str,
-) -> DataFrame:
+) -> SparkDataFrame:
     """
     Get unique values from ``df`` and put them into dataframe with column ``column``.
     :param df: spark dataframe with ``column`` or python iterable
@@ -835,7 +827,7 @@ def get_unique_entities(
     :return:  spark dataframe with column ``[`column`]``
     """
     spark = State().session
-    if isinstance(df, DataFrame):
+    if isinstance(df, SparkDataFrame):
         unique = df.select(column).distinct()
     elif isinstance(df, collections.abc.Iterable):
         unique = spark.createDataFrame(
@@ -847,8 +839,8 @@ def get_unique_entities(
 
 
 def return_recs(
-    recs: DataFrame, recs_file_path: Optional[str] = None
-) -> Optional[DataFrame]:
+    recs: SparkDataFrame, recs_file_path: Optional[str] = None
+) -> Optional[SparkDataFrame]:
     """
     Save dataframe `recs` to `recs_file_path` if presents otherwise cache
     and materialize the dataframe.

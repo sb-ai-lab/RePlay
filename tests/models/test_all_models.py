@@ -1,35 +1,36 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-import pytest
 import numpy as np
-
-from pyspark.sql import functions as sf
+import pytest
 
 from replay.models import (
+    SLIM,
+    UCB,
     ALSWrap,
+    AssociationRulesItemRec,
     ClusterRec,
     ItemKNN,
     PopRec,
     RandomRec,
-    SLIM,
-    UCB,
     Wilson,
     Word2VecRec,
-    AssociationRulesItemRec,
 )
-from replay.models.base_rec import HybridRecommender, UserRecommender
-
 from tests.utils import (
-    spark,
+    create_dataset,
     log,
     log_to_pred,
     long_log_with_features,
-    user_features,
+    spark,
     sparkDataFrameEqual,
+    user_features,
 )
+
+pyspark = pytest.importorskip("pyspark")
+from pyspark.sql import functions as sf
 
 SEED = 123
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -37,7 +38,7 @@ SEED = 123
         ItemKNN(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
     ],
     ids=[
         "als",
@@ -48,22 +49,24 @@ SEED = 123
     ],
 )
 def test_predict_pairs_warm_items_only(log, log_to_pred, model):
-    model.fit(log)
+    train_dataset = create_dataset(log)
+    pred_dataset = create_dataset(log.unionByName(log_to_pred))
+    model.fit(train_dataset)
     recs = model.predict(
-        log.unionByName(log_to_pred),
+        pred_dataset,
         k=3,
-        users=log_to_pred.select("user_idx").distinct(),
+        queries=log_to_pred.select("user_idx").distinct(),
         items=log_to_pred.select("item_idx").distinct(),
         filter_seen_items=False,
     )
 
     pairs_pred = model.predict_pairs(
         pairs=log_to_pred.select("user_idx", "item_idx"),
-        log=log.unionByName(log_to_pred),
+        dataset=pred_dataset,
     )
 
     condition = ~sf.col("item_idx").isin([4, 5])
-    if not model.can_predict_cold_users:
+    if not model.can_predict_cold_queries:
         condition = condition & (sf.col("user_idx") != 4)
 
     sparkDataFrameEqual(
@@ -83,6 +86,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
     )
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -90,7 +94,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
         ItemKNN(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
         PopRec(),
         RandomRec(seed=SEED),
     ],
@@ -105,17 +109,18 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
     ],
 )
 def test_predict_pairs_k(log, model):
-    model.fit(log)
+    train_dataset = create_dataset(log)
+    model.fit(train_dataset)
 
     pairs_pred_k = model.predict_pairs(
         pairs=log.select("user_idx", "item_idx"),
-        log=log,
+        dataset=train_dataset,
         k=1,
     )
 
     pairs_pred = model.predict_pairs(
         pairs=log.select("user_idx", "item_idx"),
-        log=log,
+        dataset=train_dataset,
         k=None,
     )
 
@@ -136,6 +141,7 @@ def test_predict_pairs_k(log, model):
     )
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -143,7 +149,7 @@ def test_predict_pairs_k(log, model):
         ItemKNN(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
         PopRec(),
         RandomRec(seed=SEED),
     ],
@@ -158,17 +164,21 @@ def test_predict_pairs_k(log, model):
     ],
 )
 def test_predict_empty_log(log, model):
-    model.fit(log)
-    model.predict(log.limit(0), 1)
+    dataset = create_dataset(log)
+    pred_dataset = create_dataset(log.limit(0))
+
+    model.fit(dataset)
+    model.predict(pred_dataset, 1)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
         ItemKNN(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
     ],
     ids=[
         "knn",
@@ -178,12 +188,14 @@ def test_predict_empty_log(log, model):
     ],
 )
 def test_predict_pairs_raises(log, model):
-    with pytest.raises(ValueError, match="log is not provided,.*"):
-        model.fit(log)
+    with pytest.raises(ValueError, match="interactions is not provided,.*"):
+        dataset = create_dataset(log)
+        model.fit(dataset)
         model.predict_pairs(log.select("user_idx", "item_idx"))
 
 
 # for NeighbourRec and ItemVectorModel
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model, metric",
     [
@@ -193,13 +205,13 @@ def test_predict_pairs_raises(log, model):
         (Word2VecRec(seed=SEED, min_count=0), "cosine_similarity"),
         (ItemKNN(), None),
         (SLIM(seed=SEED), None),
-        (AssociationRulesItemRec(min_item_count=1, min_pair_count=0), "lift"),
+        (AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"), "lift"),
         (
-            AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+            AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
             "confidence",
         ),
         (
-            AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+            AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
             "confidence_gain",
         ),
     ],
@@ -216,7 +228,8 @@ def test_predict_pairs_raises(log, model):
     ],
 )
 def test_get_nearest_items(log, model, metric):
-    model.fit(log.filter(sf.col("item_idx") != 3))
+    train_dataset = create_dataset(log.filter(sf.col("item_idx") != 3))
+    model.fit(train_dataset)
     res = model.get_nearest_items(items=[0, 1], k=2, metric=metric)
 
     assert res.count() == 4
@@ -246,30 +259,33 @@ def test_get_nearest_items(log, model, metric):
     )
 
 
+@pytest.mark.spark
 def test_filter_seen(log):
     model = PopRec()
     # filter seen works with empty log to filter (cold_user)
-    model.fit(log.filter(sf.col("user_idx") != 0))
-    pred = model.predict(log=log, users=[3], k=5)
+    train_dataset = create_dataset(log.filter(sf.col("user_idx") != 0))
+    pred_dataset = create_dataset(log)
+    model.fit(train_dataset)
+    pred = model.predict(dataset=pred_dataset, queries=[3], k=5)
     assert pred.count() == 2
 
     # filter seen works with log not presented during training (for user1)
-    pred = model.predict(log=log, users=[0], k=5)
+    pred = model.predict(dataset=pred_dataset, queries=[0], k=5)
     assert pred.count() == 1
 
     # filter seen turns off
-    pred = model.predict(log=log, users=[0], k=5, filter_seen_items=False)
+    pred = model.predict(dataset=pred_dataset, queries=[0], k=5, filter_seen_items=False)
     assert pred.count() == 4
 
 
-def fit_predict_selected(model, train_log, inf_log, user_features, users):
-    kwargs = {}
-    if isinstance(model, (HybridRecommender, UserRecommender)):
-        kwargs = {"user_features": user_features}
-    model.fit(train_log, **kwargs)
-    return model.predict(log=inf_log, users=users, k=1, **kwargs)
+def fit_predict_selected(model, train_log, inf_log, user_features, queries):
+    train_dataset = create_dataset(train_log, user_features=user_features)
+    pred_dataset = create_dataset(inf_log, user_features=user_features)
+    model.fit(train_dataset)
+    return model.predict(dataset=pred_dataset, queries=queries, k=1)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -279,7 +295,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
         PopRec(),
         RandomRec(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
     ],
     ids=[
         "cluster",
@@ -291,18 +307,19 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
         "association_rules",
     ],
 )
-def test_predict_new_users(model, long_log_with_features, user_features):
+def test_predict_new_queries(model, long_log_with_features, user_features):
     pred = fit_predict_selected(
         model,
         train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
         inf_log=long_log_with_features,
         user_features=user_features.drop("gender"),
-        users=[0],
+        queries=[0],
     )
     assert pred.count() == 1
     assert pred.collect()[0][0] == 0
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -316,18 +333,19 @@ def test_predict_new_users(model, long_log_with_features, user_features):
         "random_rec",
     ],
 )
-def test_predict_cold_users(model, long_log_with_features, user_features):
+def test_predict_cold_queries(model, long_log_with_features, user_features):
     pred = fit_predict_selected(
         model,
         train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
         inf_log=long_log_with_features.filter(sf.col("user_idx") != 0),
         user_features=user_features.drop("gender"),
-        users=[0],
+        queries=[0],
     )
     assert pred.count() == 1
     assert pred.collect()[0][0] == 0
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -335,7 +353,7 @@ def test_predict_cold_users(model, long_log_with_features, user_features):
         ItemKNN(),
         SLIM(seed=SEED),
         Word2VecRec(seed=SEED, min_count=0),
-        AssociationRulesItemRec(min_item_count=1, min_pair_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
     ],
     ids=[
         "als",
@@ -351,15 +369,16 @@ def test_predict_cold_and_new_filter_out(model, long_log_with_features):
         train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
         inf_log=long_log_with_features,
         user_features=None,
-        users=[0, 3],
+        queries=[0, 3],
     )
-    # assert new/cold users are filtered out in `predict`
-    if not model.can_predict_cold_users:
+    # assert new/cold queries are filtered out in `predict`
+    if not model.can_predict_cold_queries:
         assert pred.count() == 0
     else:
         assert 1 <= pred.count() <= 2
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -374,17 +393,18 @@ def test_predict_cold_and_new_filter_out(model, long_log_with_features):
     ],
 )
 def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
+    train_dataset = create_dataset(long_log_with_features)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
-    model.fit(long_log_with_features)
+    model.fit(train_dataset)
     model.predict_pairs(
-        log=long_log_with_features,
+        dataset=train_dataset,
         pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
             "user_idx", "item_idx"
         ),
         recs_file_path=path,
     )
     pred_cached = model.predict_pairs(
-        log=long_log_with_features,
+        dataset=train_dataset,
         pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
             "user_idx", "item_idx"
         ),
@@ -394,6 +414,7 @@ def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
     sparkDataFrameEqual(pred_cached, pred_from_file)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -408,15 +429,17 @@ def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
     ],
 )
 def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
+    train_dataset = create_dataset(long_log_with_features)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
-    model.fit_predict(long_log_with_features, k=10, recs_file_path=path)
+    model.fit_predict(train_dataset, k=10, recs_file_path=path)
     pred_cached = model.predict(
-        long_log_with_features, k=10, recs_file_path=None
+        train_dataset, k=10, recs_file_path=None
     )
     pred_from_file = spark.read.parquet(path)
     sparkDataFrameEqual(pred_cached, pred_from_file)
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize("add_cold_items", [True, False])
 @pytest.mark.parametrize("predict_cold_only", [True, False])
 @pytest.mark.parametrize(
@@ -453,7 +476,8 @@ def test_add_cold_items_for_nonpersonalized(
         )
     )
     train_log = log.filter(sf.col("item_idx") < num_warm)
-    model.fit(train_log)
+    train_dataset = create_dataset(train_log)
+    model.fit(train_dataset)
     # ucb always adds cold items to prediction
     if not isinstance(model, UCB):
         model.add_cold_items = add_cold_items
@@ -461,9 +485,11 @@ def test_add_cold_items_for_nonpersonalized(
     items = log.select("item_idx").distinct()
     if predict_cold_only:
         items = items.filter(sf.col("item_idx") >= num_warm)
+
+    pred_dataset = create_dataset(log.filter(sf.col("item_idx") < num_warm))
     pred = model.predict(
-        log=log.filter(sf.col("item_idx") < num_warm),
-        users=[1],
+        dataset=pred_dataset,
+        queries=[1],
         items=items,
         k=k,
         filter_seen_items=False,
@@ -491,6 +517,7 @@ def test_add_cold_items_for_nonpersonalized(
             )
 
 
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
     [
@@ -507,5 +534,6 @@ def test_similarity_metric_raises(log, model):
         ValueError,
         match="This class does not support changing similarity metrics",
     ):
-        model.fit(log)
+        train_dataset = create_dataset(log)
+        model.fit(train_dataset)
         model.similarity_metric = "some"

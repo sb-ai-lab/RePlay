@@ -1,562 +1,482 @@
-# pylint: disable=invalid-name, missing-function-docstring, redefined-outer-name,
-# pylint: disable=too-many-arguments, unused-import, unused-wildcard-import, wildcard-import
-import math
+import random
+import string
+
 import pytest
+from pytest import approx
 
-from datetime import datetime
-
-import numpy as np
-import pandas as pd
-
-import pyspark.sql.functions as sf
-from pyspark.sql.types import (
-    IntegerType,
-    StructField,
-    StructType, ArrayType, DoubleType
+from replay.metrics import (
+    MAP,
+    MRR,
+    NDCG,
+    CategoricalDiversity,
+    Coverage,
+    HitRate,
+    Mean,
+    Novelty,
+    OfflineMetrics,
+    PerUser,
+    Precision,
+    Recall,
+    RocAuc,
+    Surprisal,
+    Unexpectedness,
 )
+from replay.utils import DataFrameLike, PandasDataFrame, SparkDataFrame
 
-from replay.data import LOG_SCHEMA, REC_SCHEMA
-from replay.metrics import *
-from replay.utils.distributions import item_distribution
-from replay.metrics.base_metric import get_enriched_recommendations, drop_duplicates, filter_sort
-
-from tests.utils import (
-    assert_allclose,
-    assertDictAlmostEqual,
-    log,
-    sparkDataFrameEqual,
-    spark,
-)
-
-
-@pytest.fixture
-def one_user():
-    df = pd.DataFrame({"user_idx": [1], "item_idx": [1], "relevance": [1]})
-    return df
+ABS = 1e-5
+QUERY_COLUMN = "uid"
+ITEM_COLUMN = "iid"
+CATEGORY_COLUMN = "cid"
+RATING_COLUMN = "scores"
+INIT_DICT = {
+    "query_column": QUERY_COLUMN,
+    "item_column": ITEM_COLUMN,
+    "rating_column": RATING_COLUMN,
+}
+DIVERSITY_DICT = {
+    "query_column": QUERY_COLUMN,
+    "category_column": CATEGORY_COLUMN,
+    "rating_column": RATING_COLUMN,
+}
 
 
-@pytest.fixture
-def two_users():
-    df = pd.DataFrame(
-        {"user_idx": [1, 2], "item_idx": [1, 2], "relevance": [1, 1]}
-    )
-    return df
+def compute_mean_from_result_per_user(result_per_user):
+    mean_result = {}
+    for metric_name, user_metrics in result_per_user.items():
+        value = 0
+        for _, metric_value in user_metrics.items():
+            value += metric_value
+        value /= max(1, len(user_metrics))
+        mean_result[metric_name] = value
+    return mean_result
 
 
-@pytest.fixture
-def recs(spark):
-    return spark.createDataFrame(
-        data=[
-            [0, 0, 3.0],
-            [0, 1, 2.0],
-            [0, 2, 1.0],
-            [1, 0, 3.0],
-            [1, 1, 4.0],
-            [1, 4, 1.0],
-            [2, 0, 5.0],
-            [2, 2, 1.0],
-            [2, 3, 2.0],
-        ],
-        schema=REC_SCHEMA,
-    )
-
-
-@pytest.fixture
-def recs2(spark):
-    return spark.createDataFrame(
-        data=[[0, 3, 4.0], [0, 4, 5.0]],
-        schema=REC_SCHEMA,
-    )
-
-
-@pytest.fixture
-def empty_recs(spark):
-    return spark.createDataFrame(
-        data=[],
-        schema=REC_SCHEMA,
-    )
-
-
-@pytest.fixture
-def true(spark):
-    return spark.createDataFrame(
-        data=[
-            [0, 0, datetime(2019, 9, 12), 3.0],
-            [0, 4, datetime(2019, 9, 13), 2.0],
-            [0, 1, datetime(2019, 9, 17), 1.0],
-            [1, 5, datetime(2019, 9, 14), 4.0],
-            [1, 0, datetime(2019, 9, 15), 3.0],
-            [2, 1, datetime(2019, 9, 15), 3.0],
-        ],
-        schema=LOG_SCHEMA,
-    )
-
-
-@pytest.fixture
-def true_users(spark):
-    return spark.createDataFrame(
-        data=[[1], [2], [3], [4]],
-        schema=StructType([StructField("user_idx", IntegerType())]),
-    )
-
-
-@pytest.fixture
-def prev_relevance(spark):
-    return spark.createDataFrame(
-        data=[
-            [0, 0, 100.0],
-            [0, 4, 0.0],
-            [1, 10, -5.0],
-            [4, 6, 11.5],
-        ],
-        schema=REC_SCHEMA,
-    )
-
-
-@pytest.fixture
-def quality_metrics():
-    return [NDCG(), HitRate(), Precision(), Recall(), MAP(), MRR(), RocAuc()]
-
-
-@pytest.fixture
-def duplicate_recs(spark):
-    return spark.createDataFrame(
-        data=[
-            [0, 0, 3.0],
-            [0, 1, 2.0],
-            [0, 2, 1.0],
-            [0, 0, 3.0],
-            [1, 0, 3.0],
-            [1, 1, 4.0],
-            [1, 4, 1.0],
-            [1, 1, 2.0],
-            [2, 0, 5.0],
-            [2, 2, 1.0],
-            [2, 3, 2.0],
-        ],
-        schema=REC_SCHEMA,
-    )
-
-
-def test_get_enriched_recommendations_true_users(
-    spark, recs, true, true_users
-):
-    enriched = get_enriched_recommendations(
-        recs, true, 2, ground_truth_users=true_users
-    )
-    gt = spark.createDataFrame(
-        data=[
-            [1, ([1, 0]), ([0, 5])],
-            [2, ([0, 3]), ([1])],
-            [3, ([]), ([])],
-            [4, ([]), ([])],
-        ],
-        schema="user_idx int, pred array<int>, ground_truth array<int>",
-    ).withColumnRenamed("relevance", "weight")
-    sparkDataFrameEqual(enriched, gt)
-
-
-def test_metric_calc_with_gt_users(quality_metrics, recs, true):
-    for metric in quality_metrics:
-        assert metric(
-            recs,
-            true,
-            1,
-            ground_truth_users=true.select("user_idx").distinct(),
-        ) == metric(recs, true, 1), str(metric)
-
-
-def test_test_is_bigger(quality_metrics, one_user, two_users):
-    for metric in quality_metrics:
-        assert metric(one_user, two_users, 1) == 0.5, str(metric)
-
-
-def test_pred_is_bigger(quality_metrics, one_user, two_users):
-    for metric in quality_metrics:
-        assert metric(two_users, one_user, 1) == 1.0, str(metric)
-
-
+@pytest.mark.spark
 @pytest.mark.parametrize(
-    "gt_users, result",
-    [(False, {3: 2 / 3, 1: 1 / 3}), (True, {3: 1 / 4, 1: 0 / 3})],
-)
-def test_hit_rate_at_k(recs, true, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(
-        HitRate()(recs, true, [3, 1], users),
-        result,
-    )
-
-
-def test_hit_rate_at_k_old(recs, true, true_users):
-    assertDictAlmostEqual(
-        HitRate()(recs, true, [3, 1]),
-        {3: 2 / 3, 1: 1 / 3},
-    )
-    assertDictAlmostEqual(
-        HitRate()(recs, true, [3, 1], true_users),
-        {3: 1 / 4, 1: 0 / 3},
-    )
-
-
-@pytest.mark.parametrize(
-    "gt_users, result",
+    "metric",
     [
-        (False, pd.DataFrame({"count": [2, 3], "value": [1.0, 0.5]})),
-        (True, pd.DataFrame({"count": [0, 2, 3], "value": [0.0, 1.0, 0.0]})),
+        MAP,
+        MRR,
+        NDCG,
+        Coverage,
+        HitRate,
+        Novelty,
+        Precision,
+        Recall,
+        RocAuc,
     ],
 )
-def test_user_dist(log, recs, true, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    vals = (
-        HitRate()
-        .user_distribution(log, recs, true, 3, users)
-        .sort_values("count")
+@pytest.mark.usefixtures("predict_spark", "gt_spark")
+def test_metric_with_different_column_names(
+    metric, predict_spark: SparkDataFrame, gt_spark: SparkDataFrame
+):
+    metric_value = metric(topk=[5], **INIT_DICT)(predict_spark, gt_spark)
+
+    def generate_string():
+        len = random.randint(1, 10)
+        letters = string.ascii_letters
+        return "".join(random.choice(letters) for _ in range(len))
+
+    new_query_column = generate_string()
+    new_item_column = generate_string()
+    new_rating_column = generate_string()
+    predict_spark = (
+        predict_spark.withColumnRenamed(QUERY_COLUMN, new_query_column)
+        .withColumnRenamed(ITEM_COLUMN, new_item_column)
+        .withColumnRenamed(RATING_COLUMN, new_rating_column)
     )
-    pd.testing.assert_frame_equal(vals, result, check_dtype=False)
-
-
-def test_item_dist(log, recs):
-    assert_allclose(
-        item_distribution(log, recs, 1)["rec_count"].to_list(),
-        [0, 0, 1, 2],
+    gt_spark = gt_spark.withColumnRenamed(
+        QUERY_COLUMN, new_query_column
+    ).withColumnRenamed(ITEM_COLUMN, new_item_column)
+    new_metric_value = metric(
+        topk=[5],
+        query_column=new_query_column,
+        item_column=new_item_column,
+        rating_column=new_rating_column,
+    )(predict_spark, gt_spark)
+    assert list(metric_value.values()) == approx(
+        list(new_metric_value.values()), abs=ABS
     )
 
 
 @pytest.mark.parametrize(
-    "gt_users, result",
+    "metric, topk, answer",
+    [
+        (Precision, [3, 5, 10], [0.55555, 0.333333, 0.166666]),
+        (HitRate, [3, 5, 10], [1.0, 1.0, 1.0]),
+        (MRR, [3, 5, 10], [0.61111, 0.61111, 0.61111]),
+        (MAP, [3, 5, 10], [0.35185, 0.21111, 0.198148]),
+        (NDCG, [3, 5, 10], [0.48975, 0.35396, 0.34018]),
+        (RocAuc, [3, 5, 10], [0.16666, 0.55555, 0.55555]),
+    ],
+)
+@pytest.mark.parametrize(
+    "predict_data, gt_data",
+    [
+        pytest.param("predict_spark", "gt_spark", marks=pytest.mark.spark),
+        pytest.param("predict_pd", "gt_pd", marks=pytest.mark.core),
+        pytest.param("predict_sorted_dict", "gt_dict", marks=pytest.mark.core),
+        pytest.param("predict_unsorted_dict", "gt_dict", marks=pytest.mark.core),
+    ],
+)
+@pytest.mark.parametrize("per_user", [False, True])
+def test_metric(metric, topk, answer, predict_data, gt_data, per_user, request):
+    predict_data = request.getfixturevalue(predict_data)
+    gt_data = request.getfixturevalue(gt_data)
+
+    mode = Mean() if per_user is False else PerUser()
+    result = metric(topk, mode=mode, **INIT_DICT)(predict_data, gt_data)
+    if per_user:
+        result = compute_mean_from_result_per_user(result)
+
+    assert list(result.values()) == approx(answer, abs=ABS)
+
+
+@pytest.mark.parametrize(
+    "topk, answer",
+    [
+        ([3, 5], [1.0, 0.866666]),
+    ],
+)
+@pytest.mark.parametrize(
+    "predict_data",
+    [
+        pytest.param("predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_spark", marks=pytest.mark.spark),
+    ],
+)
+@pytest.mark.parametrize("per_user", [False, True])
+def test_diversity_metric(topk, answer, predict_data, per_user, request):
+    predict_data = request.getfixturevalue(predict_data)
+
+    def rename_cols(data: DataFrameLike, map):
+        if isinstance(data, PandasDataFrame):
+            return data.rename(columns=map)
+        for _from, _to in map.items():
+            data = data.withColumnRenamed(_from, _to)
+        return data
+
+    predict_data = rename_cols(predict_data, {ITEM_COLUMN: CATEGORY_COLUMN})
+    mode = Mean() if per_user is False else PerUser()
+    result = CategoricalDiversity(topk, mode=mode, **DIVERSITY_DICT)(predict_data)
+    if per_user:
+        result = compute_mean_from_result_per_user(result)
+    assert list(result.values()) == approx(answer, abs=ABS)
+
+
+@pytest.mark.parametrize(
+    "topk, answer",
+    [
+        ([3, 5], [0.9, 1.0]),
+    ],
+)
+@pytest.mark.parametrize(
+    "predict_data",
+    [
+        pytest.param("predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_spark", marks=pytest.mark.spark),
+    ],
+)
+def test_coverage_metric(topk, answer, predict_data, request):
+    predict_data = request.getfixturevalue(predict_data)
+    metric_value = Coverage(topk, **INIT_DICT)(predict_data, predict_data)
+    assert list(metric_value.values()) == approx(answer, abs=ABS)
+
+
+@pytest.mark.parametrize(
+    "topk, answer, base_recs, recs",
+    [
+        pytest.param(5, [0.133333], "predict_pd", "predict_pd", marks=pytest.mark.core),
+        pytest.param(5, [0.133333], "predict_spark", "predict_spark", marks=pytest.mark.spark),
+        pytest.param(
+            [3, 5],
+            [0.111111111, 0.133333],
+            "base_recs_pd",
+            "predict_pd",
+            marks=pytest.mark.core,
+        ),
+        pytest.param(
+            [3, 5],
+            [0.111111111, 0.133333],
+            "base_recs_spark",
+            "predict_spark",
+            marks=pytest.mark.spark,
+        ),
+    ],
+)
+def test_unexpectedness(topk, answer, base_recs, recs, request):
+    base_recs = request.getfixturevalue(base_recs)
+    recs = request.getfixturevalue(recs)
+    metric_value = Unexpectedness(topk, **INIT_DICT)(recs, base_recs)
+    assert list(metric_value.values()) == approx(answer, abs=ABS)
+
+
+@pytest.mark.parametrize(
+    "topk, answer",
+    [
+        ([5, 10], [0.31111, 0.31111]),
+    ],
+)
+@pytest.mark.parametrize(
+    "predict_data, gt_data",
+    [
+        pytest.param("predict_pd", "gt_pd", marks=pytest.mark.core),
+        pytest.param("predict_spark", "gt_spark", marks=pytest.mark.spark),
+    ],
+)
+def test_recall(topk, answer, predict_data, gt_data, request):
+    predict_data = request.getfixturevalue(predict_data)
+    gt_data = request.getfixturevalue(gt_data)
+    metric_value = Recall(topk, **INIT_DICT)(predict_data, gt_data)
+    assert list(metric_value.values()) == approx(answer, abs=ABS)
+
+
+@pytest.mark.parametrize(
+    "topk, answer",
+    [(5, [0.333333])],
+)
+@pytest.mark.parametrize(
+    "predict_data, gt_data",
+    [
+        pytest.param("predict_pd", "gt_pd", marks=pytest.mark.core),
+        pytest.param("predict_spark", "gt_spark", marks=pytest.mark.spark),
+    ],
+)
+def test_precision(topk, answer, predict_data, gt_data, request):
+    predict_data = request.getfixturevalue(predict_data)
+    gt_data = request.getfixturevalue(gt_data)
+    metric_value = Precision(topk=topk, **INIT_DICT)(predict_data, gt_data)
+    assert list(metric_value.values()) == approx(answer, abs=ABS)
+
+
+@pytest.mark.parametrize(
+    "topk, answer, recs, train",
+    [
+        pytest.param([3, 5], [0, 0], "predict_pd", "predict_pd", marks=pytest.mark.core),
+        pytest.param([3, 5], [0, 0], "predict_spark", "predict_spark", marks=pytest.mark.spark),
+        pytest.param([3, 5], [0.444444, 0.577777], "predict_pd", "gt_pd", marks=pytest.mark.core),
+        pytest.param(
+            [3, 5], [0.444444, 0.577777], "predict_spark", "gt_spark", marks=pytest.mark.spark
+        ),
+    ],
+)
+def test_novelty(topk, answer, recs, train, request):
+    recs = request.getfixturevalue(recs)
+    train = request.getfixturevalue(train)
+    metric_value = Novelty(topk, **INIT_DICT)(recs, train)
+    assert list(metric_value.values()) == approx(answer, abs=ABS)
+
+
+@pytest.mark.parametrize(
+    "topk, answer, recs, train",
+    [
+        pytest.param(
+            [3, 5], [0.78969, 0.614294], "predict_pd", "predict_pd", marks=pytest.mark.core
+        ),
+        pytest.param(
+            [3, 5],
+            [0.78969, 0.614294],
+            "predict_spark",
+            "predict_spark",
+            marks=pytest.mark.spark,
+        ),
+        pytest.param(
+            [3, 5], [0.719586, 0.698418], "predict_pd", "gt_pd", marks=pytest.mark.core
+        ),
+        pytest.param(
+            [3, 5],
+            [0.719586, 0.698418],
+            "predict_spark",
+            "gt_spark",
+            marks=pytest.mark.spark,
+        ),
+    ],
+)
+def test_surprisal(topk, answer, recs, train, request):
+    recs = request.getfixturevalue(recs)
+    train = request.getfixturevalue(train)
+    metric_value = Surprisal(topk, **INIT_DICT)(recs, train)
+    assert list(metric_value.values()) == approx(answer, abs=ABS)
+
+
+@pytest.mark.parametrize(
+    "metrics, answer",
+    [
+        (
+            [
+                Coverage(5),
+                Recall(5),
+                Precision(5),
+                Novelty(5),
+            ],
+            [
+                1.0,
+                0.311111,
+                0.333333,
+                0,
+            ],
+        ),
+        (
+            [
+                Recall(5),
+                Precision(5),
+                Novelty(5),
+            ],
+            [0.31111, 0.333333, 0],
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "predict_data, gt_data, train_data",
+    [
+        pytest.param(
+            "predict_spark", "gt_spark", "predict_spark", marks=pytest.mark.spark
+        ),
+        pytest.param("predict_pd", "gt_pd", "predict_pd", marks=pytest.mark.core),
+        pytest.param(
+            "predict_sorted_dict", "gt_dict", "fake_train_dict", marks=pytest.mark.core
+        ),
+    ],
+)
+def test_offline_metrics(metrics, answer, predict_data, gt_data, train_data, request):
+    predict_data = request.getfixturevalue(predict_data)
+    gt_data = request.getfixturevalue(gt_data)
+    train_data = request.getfixturevalue(train_data)
+    result = OfflineMetrics(metrics, **INIT_DICT)(predict_data, gt_data, train_data)
+    assert list(result.values()) == approx(answer, abs=ABS)
+
+
+@pytest.mark.parametrize(
+    "metrics, answer",
+    [
+        (
+            [
+                Unexpectedness([2, 5, 10, 20]),
+                CategoricalDiversity([2, 5, 10, 20]),
+            ],
+            [0.16666, 0.133333, 0.566666, 0.783333, 1, 0.86666, 0.43333, 0.21666],
+        )
+    ],
+)
+@pytest.mark.parametrize(
+    "predict_data, gt_data, base_recs",
+    [
+        pytest.param(
+            "predict_spark", "gt_spark", "base_recs_spark", marks=pytest.mark.spark
+        ),
+        pytest.param("predict_pd", "gt_pd", "base_recs_pd", marks=pytest.mark.core),
+        pytest.param(
+            "predict_sorted_dict", "gt_dict", "base_recs_dict", marks=pytest.mark.core
+        ),
+    ],
+)
+def test_offline_metrics_unexpectedness_and_diversity(
+    metrics, answer, predict_data, gt_data, base_recs, request
+):
+    predict_data = request.getfixturevalue(predict_data)
+    gt_data = request.getfixturevalue(gt_data)
+    base_recs = request.getfixturevalue(base_recs)
+    result = OfflineMetrics(
+        metrics,
+        query_column=QUERY_COLUMN,
+        category_column=ITEM_COLUMN,
+        rating_column=RATING_COLUMN,
+        item_column=ITEM_COLUMN,
+    )(
+        predict_data,
+        gt_data,
+        predict_data,
+        base_recs,
+    )
+    assert list(result.values()) == approx(answer, abs=ABS)
+
+
+@pytest.mark.parametrize(
+    "cnt_base_recommendations, answer",
     [
         (
             None,
-            {
-                1: 1 / 3,
-                3: 1
-                / 3
-                * (
-                    1
-                    / (1 / np.log2(2) + 1 / np.log2(3) + 1 / np.log2(4))
-                    * (1 / np.log2(2) + 1 / np.log2(3))
-                    + 1 / (1 / np.log2(2) + 1 / np.log2(3)) * (1 / np.log2(3))
-                ),
-            },
+            [],
         ),
         (
-            True,
-            {
-                1: 0,
-                3: 1
-                / 4
-                * (1 / (1 / np.log2(2) + 1 / np.log2(3)) * (1 / np.log2(3))),
-            },
-        ),
-    ],
-)
-def test_ndcg_at_k(recs, true, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(NDCG()(recs, true, [1, 3], users), result)
-
-
-@pytest.mark.parametrize(
-    "gt_users, result",
-    [
-        (False, {1: 1 / 3, 3: (2 / 3 + 1 / 3) / 3}),
-        (True, {3: 1 / 4 * 1 / 3, 1: 0 / 4}),
-    ],
-)
-def test_precision_at_k(recs, true, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(
-        Precision()(recs, true, [1, 3], users),
-        result,
-    )
-
-
-@pytest.mark.parametrize(
-    "gt_users, result",
-    [
-        (
-            False,
-            {1: 1 / 3, 3: ((1 + 1) / 3 + (0 + 1 / 2) / 3) / 3},
-        ),
-        (True, {1: 0 / 4, 3: 1 / 2 * 1 / 3 * 1 / 4}),
-    ],
-)
-def test_map_at_k(recs, true, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(
-        MAP()(recs, true, [1, 3], users),
-        result,
-    )
-
-
-@pytest.mark.parametrize(
-    "gt_users, result",
-    [
-        (False, {1: 1 / 9, 3: (1 / 2 + 2 / 3) / 3}),
-        (True, {1: 0 / 4, 3: 1 / 2 * 1 / 4}),
-    ],
-)
-def test_recall_at_k(recs, true, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(
-        Recall()(recs, true, [1, 3], users),
-        result,
-    )
-
-
-@pytest.mark.parametrize(
-    "gt_users, result",
-    [
-        (
-            False,
-            {1: (1 - 1 / np.log2(3)), 3: 5 * (1 - 1 / np.log2(3)) / 9 + 4 / 9},
+            1,
+            [0.16666, 0.5666666],
         ),
         (
-            True,
-            {
-                1: (1 - 1 / np.log2(3)) / 2,
-                3: 3 * (1 - 1 / np.log2(3)) / 12 + 3 / 12,
-            },
+            2,
+            [0.16666, 0.5666666, 0, 0.5666666],
         ),
     ],
 )
-def test_surprisal_at_k(true, recs, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(
-        Surprisal(true)(recs, [1, 3], ground_truth_users=users),
-        result,
-    )
-
-
-def test_unexpectedness_at_k_by_user():
-    assert Unexpectedness._get_metric_value_by_user(2, (), (2, 3)) == 0
-    assert Unexpectedness._get_metric_value_by_user(2, (1, 2), (1,)) == 0.5
-
-
-def test_map_metric_value_by_user():
-    assert MAP._get_metric_value_by_user(2, (), (2, 3)) == 0
-    assert MAP._get_metric_value_by_user(2, (1, 2), (1,)) == 0.5
-
-
-def test_recall_metric_value_by_user():
-    assert Recall._get_metric_value_by_user(2, (), (2, 3)) == 0
-    assert Recall._get_metric_value_by_user(2, (1, 2), ()) == 0
-    assert Recall._get_metric_value_by_user(2, (1, 2), (1,)) == 1.0
-
-
-def test_rocauc_metric_value_by_user():
-    assert RocAuc._get_metric_value_by_user(2, (), (2, 3)) == 0
-    assert RocAuc._get_metric_value_by_user(2, (1, 2), (3,)) == 0
-    assert RocAuc._get_metric_value_by_user(2, (1, 2), (1,)) == 1
-
-
-def test_surprisal_metric_value_by_user():
-    assert Surprisal._get_metric_value_by_user(2, (), (2, 3)) == 0
-    assert Surprisal._get_metric_value_by_user(2, (1, 2), (1,)) == 1.5
-
-
-def test_coverage_conf_interval(recs):
-    assert Coverage(recs)._conf_interval(recs=recs, k_list=3) == 0
-    assert Coverage(recs)._conf_interval(recs=recs, k_list=[1, 2, 10])[2] == 0.0
-
-
 @pytest.mark.parametrize(
-    "gt_users, result",
+    "predict_data, gt_data, base_recommendations",
     [
-        (False, {1: 2 / 3, 3: (1 / 3 + 2 / 3 + 1) / 3}),
-        (True, {1: 1 / 2, 3: (2 / 3 + 1) / 4}),
+        pytest.param(
+            "predict_spark", "gt_spark", "base_recs_spark", marks=pytest.mark.spark
+        ),
+        pytest.param("predict_pd", "gt_pd", "base_recs_pd", marks=pytest.mark.core),
+        pytest.param(
+            "predict_sorted_dict", "gt_dict", "base_recs_dict", marks=pytest.mark.core
+        ),
     ],
 )
-def test_unexpectedness_at_k(true, recs, true_users, gt_users, result):
-    users = true_users if gt_users else None
-    assertDictAlmostEqual(
-        Unexpectedness(true)(recs, [1, 3], ground_truth_users=users),
-        result,
-    )
+def test_offline_metrics_unexpectedness_different_base_recs(
+    cnt_base_recommendations,
+    answer,
+    predict_data,
+    gt_data,
+    base_recommendations,
+    request,
+):
+    predict_data = request.getfixturevalue(predict_data)
+    gt_data = request.getfixturevalue(gt_data)
+    base_recommendations = request.getfixturevalue(base_recommendations)
 
-
-def test_coverage(true, recs, empty_recs):
-    coverage = Coverage(recs.union(true.drop("timestamp")))
-    assertDictAlmostEqual(
-        coverage(recs, [1, 3, 5]),
-        {1: 0.3333333333333333, 3: 0.8333333333333334, 5: 0.8333333333333334},
-    )
-    assertDictAlmostEqual(
-        coverage(
-            recs, [1, 3, 5], ground_truth_users=pd.DataFrame({"user_idx": [1]})
-        ),
-        {1: 0.16666666666666666, 3: 0.5, 5: 0.5},
-    )
-    assertDictAlmostEqual(
-        coverage(empty_recs, [1, 3, 5]),
-        {1: 0.0, 3: 0.0, 5: 0.0},
-    )
-
-
-def test_bad_coverage(true, recs):
-    assert_allclose(Coverage(true)(recs, 3), 1.25)
-
-
-def test_empty_recs(quality_metrics):
-    for metric in quality_metrics:
-        assert_allclose(
-            metric._get_metric_value_by_user(
-                k=4, pred=[], ground_truth=[2, 4]
-            ),
-            0,
-            err_msg=str(metric),
-        )
-
-
-def test_bad_recs(quality_metrics):
-    for metric in quality_metrics:
-        assert_allclose(
-            metric._get_metric_value_by_user(
-                k=4, pred=[1, 3], ground_truth=[2, 4]
-            ),
-            0,
-            err_msg=str(metric),
-        )
-
-
-def test_not_full_recs(quality_metrics):
-    for metric in quality_metrics:
-        if not isinstance(metric, (Precision, MAP)):
-            assert_allclose(
-                metric._get_metric_value_by_user(
-                    k=4, pred=[4, 1, 2], ground_truth=[2, 4]
-                ),
-                metric._get_metric_value_by_user(
-                    k=3, pred=[4, 1, 2], ground_truth=[2, 4]
-                ),
-                err_msg=str(metric),
+    base_recs = None
+    if cnt_base_recommendations == 1:
+        base_recs = base_recommendations
+    elif cnt_base_recommendations == 2:
+        base_recs = {"1": base_recommendations, "2": predict_data}
+    offline_metrics_instance = OfflineMetrics([Unexpectedness([2, 10])], **INIT_DICT)
+    if base_recs is None:
+        with pytest.raises(ValueError):
+            offline_metrics_instance(
+                predict_data, gt_data, base_recommendations=base_recs
             )
-
-
-def test_duplicate_recs(quality_metrics, duplicate_recs, recs, true):
-    for metric in quality_metrics:
-        assert_allclose(
-            metric(k=4, recommendations=duplicate_recs, ground_truth=true),
-            metric(k=4, recommendations=recs, ground_truth=true),
-            err_msg=str(metric),
+    else:
+        result = offline_metrics_instance(
+            predict_data,
+            gt_data,
+            base_recommendations=base_recs,
         )
+        assert list(result.values()) == approx(answer, abs=ABS)
 
 
-def test_drop_duplicates(spark, duplicate_recs):
-    recs = drop_duplicates(duplicate_recs)
-    gt = spark.createDataFrame(
-        data=[
-            [0, 0, 3.0],
-            [0, 1, 2.0],
-            [0, 2, 1.0],
-            [1, 0, 3.0],
-            [1, 1, 4.0],
-            [1, 4, 1.0],
-            [2, 0, 5.0],
-            [2, 2, 1.0],
-            [2, 3, 2.0]
-        ],
-        schema=REC_SCHEMA,)
-    sparkDataFrameEqual(recs, gt)
-
-
-def test_filter_sort(spark, duplicate_recs):
-    recs = filter_sort(duplicate_recs)
-    gt = spark.createDataFrame(
-        data=[
-            [0, [0, 1, 2]],
-            [1, [1, 0, 4]],
-            [2, [0, 3, 2]]
-        ],
-        schema=StructType(
-            [
-                StructField("user_idx", IntegerType()),
-                StructField("pred", ArrayType(IntegerType()))
-            ]
-        )
-    )
-    sparkDataFrameEqual(recs, gt)
-
-
-def test_ncis_raises(prev_relevance):
+@pytest.mark.parametrize("metric", [MRR])
+@pytest.mark.parametrize(
+    "predict_data, gt_data",
+    [
+        pytest.param("predict_spark", "gt_pd", marks=pytest.mark.spark),
+        pytest.param("predict_spark", "gt_dict", marks=pytest.mark.spark),
+        pytest.param("predict_pd", "gt_spark", marks=pytest.mark.spark),
+        pytest.param("predict_pd", "gt_dict", marks=pytest.mark.core),
+        pytest.param("predict_sorted_dict", "gt_spark", marks=pytest.mark.spark),
+        pytest.param("predict_sorted_dict", "gt_pd", marks=pytest.mark.core),
+    ],
+)
+def test_check_types(metric, predict_data, gt_data, request):
+    predict_data = request.getfixturevalue(predict_data)
+    gt_data = request.getfixturevalue(gt_data)
     with pytest.raises(ValueError):
-        NCISPrecision(prev_policy_weights=prev_relevance, activation="absent")
+        metric(topk=2)(predict_data, gt_data)
 
 
-def test_ncis_activations_softmax(spark, prev_relevance):
-    res = NCISPrecision._softmax_by_user(prev_relevance, "relevance")
-    gt = spark.createDataFrame(
-        data=[
-            [0, 0, math.e**100 / (math.e**100 + math.e**0)],
-            [0, 4, math.e**0 / (math.e**100 + math.e**0)],
-            [1, 10, math.e**0 / (math.e**0)],
-            [4, 6, math.e**0 / (math.e**0)],
-        ],
-        schema=REC_SCHEMA,
-    )
-    sparkDataFrameEqual(res, gt)
-
-
-def test_ncis_activations_sigmoid(spark, prev_relevance):
-    res = NCISPrecision._sigmoid(prev_relevance, "relevance")
-    gt = spark.createDataFrame(
-        data=[
-            [0, 0, 1 / (1 + math.e ** (-100))],
-            [0, 4, 1 / (1 + math.e**0)],
-            [1, 10, 1 / (1 + math.e**5)],
-            [4, 6, 1 / (1 + math.e ** (-11.5))],
-        ],
-        schema=REC_SCHEMA,
-    )
-    sparkDataFrameEqual(res, gt)
-
-
-def test_ncis_weigh_and_clip(spark, prev_relevance):
-    res = NCISPrecision._weigh_and_clip(
-        df=(
-            prev_relevance.withColumn(
-                "prev_relevance",
-                sf.when(sf.col("user_idx") == 1, sf.lit(0)).otherwise(
-                    sf.lit(20)
-                ),
-            )
-        ),
-        threshold=10,
-    )
-    gt = spark.createDataFrame(
-        data=[[0, 0, 5.0], [0, 4, 0.1], [1, 10, 10.0], [4, 6, 11.5 / 20]],
-        schema=REC_SCHEMA,
-    ).withColumnRenamed("relevance", "weight")
-    sparkDataFrameEqual(res.select("user_idx", "item_idx", "weight"), gt)
-
-
-def test_ncis_get_enriched_recommendations(spark, recs, prev_relevance, true):
-    ncis_precision = NCISPrecision(prev_policy_weights=prev_relevance)
-    enriched = ncis_precision._get_enriched_recommendations(recs, true, 3)
-    gt = spark.createDataFrame(
-        data=[
-            [0, ([0, 1, 2]), ([0.1, 10.0, 10.0]), ([0, 1, 4])],
-            [1, ([1, 0, 4]), ([10.0, 10.0, 10.0]), ([0, 5])],
-            [2, ([0, 3, 2]), ([10.0, 10.0, 10.0]), ([1])],
-        ],
-        schema="user_idx int, pred array<int>, weight array<double>, ground_truth array<int>",
-    ).withColumnRenamed("relevance", "weight")
-    sparkDataFrameEqual(enriched, gt)
-
-
-def test_ncis_precision(prev_relevance):
-    ncis_precision = NCISPrecision(prev_policy_weights=prev_relevance)
-    assert (
-        ncis_precision._get_metric_value_by_user(
-            4, [1, 0, 4], [0, 5, 4], [20.0, 5.0, 15.0]
-        )
-        == 0.5
-    )
-    assert ncis_precision._get_metric_value_by_user(4, [], [0, 5, 4], []) == 0
-    assert (
-        ncis_precision._get_metric_value_by_user(4, [1], [0, 5, 4], [100]) == 0
-    )
-    assert (
-        ncis_precision._get_metric_value_by_user(4, [1], [1, 5, 4], [100]) == 1
-    )
-    assert ncis_precision._get_metric_value_by_user(4, [1], [], [1]) == 0
+@pytest.mark.core
+@pytest.mark.parametrize(
+    "metric",
+    [MAP, MRR, NDCG, Coverage, CategoricalDiversity, HitRate, Novelty, Precision, Recall, RocAuc],
+)
+@pytest.mark.parametrize("topk", ["2", ["2", "3"], "['2', '3']"])
+def test_topk_instance(metric, topk):
+    with pytest.raises(ValueError):
+        metric(topk)

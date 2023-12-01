@@ -1,11 +1,10 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, pointless-statement
-from typing import Optional
-
 import pytest
-from pandas import DataFrame
 
+from replay.data.dataset import Dataset
 from replay.models import Recommender
-from tests.utils import spark, log
+from replay.utils import PandasDataFrame
+from tests.utils import create_dataset, log, spark
 
 
 # pylint: disable=missing-class-docstring, too-many-arguments
@@ -16,22 +15,18 @@ class DerivedRec(Recommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
         pass
 
     def _predict(
         self,
-        log: DataFrame,
+        dataset: PandasDataFrame,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        queries: PandasDataFrame,
+        items: PandasDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> PandasDataFrame:
         pass
 
 
@@ -40,19 +35,24 @@ def model():
     return DerivedRec()
 
 
+@pytest.mark.spark
 def test_users_count(model, log):
     with pytest.raises(AttributeError):
-        model._user_dim
-    model.fit(log)
-    assert model._user_dim == 4
+        model._qiery_dim
+    dataset = create_dataset(log)
+    model.fit(dataset)
+    assert model._query_dim == 4
 
 
+@pytest.mark.spark
 def test_items_count(model, log):
     with pytest.raises(AttributeError):
         model._item_dim
-    model.fit(log)
+    dataset = create_dataset(log)
+    model.fit(dataset)
     assert model._item_dim == 4
 
 
+@pytest.mark.core
 def test_str(model):
     assert str(model) == "DerivedRec"

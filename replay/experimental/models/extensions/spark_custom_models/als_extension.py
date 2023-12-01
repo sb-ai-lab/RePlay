@@ -23,18 +23,22 @@
 
 import sys
 
-from pyspark import since, keyword_only
-from pyspark.ml.param.shared import HasPredictionCol, HasBlockSize, HasMaxIter, HasRegParam, \
-    HasCheckpointInterval, HasSeed
-from pyspark.ml.wrapper import JavaEstimator, JavaModel
-from pyspark.ml.common import inherit_doc
-from pyspark.ml.param import Params, TypeConverters, Param
-from pyspark.ml.util import JavaMLWritable, JavaMLReadable
-from pyspark.ml.util import MLReadable
-from pyspark.ml.util import JavaMLReader
-from pyspark.ml.wrapper import JavaParams
-from pyspark.ml.util import _jvm
+from replay.utils import PYSPARK_AVAILABLE
 
+if PYSPARK_AVAILABLE:
+    from pyspark import keyword_only, since
+    from pyspark.ml.common import inherit_doc
+    from pyspark.ml.param import Param, Params, TypeConverters
+    from pyspark.ml.param.shared import (
+        HasBlockSize,
+        HasCheckpointInterval,
+        HasMaxIter,
+        HasPredictionCol,
+        HasRegParam,
+        HasSeed,
+    )
+    from pyspark.ml.util import JavaMLReadable, JavaMLReader, JavaMLWritable, MLReadable, _jvm
+    from pyspark.ml.wrapper import JavaEstimator, JavaModel, JavaParams
 
 __all__ = ['ALS', 'ALSModel']
 
@@ -700,6 +704,7 @@ class ALSModel(JavaModel, _ALSModelParams, JavaMLWritable, ALSModelJavaMLReadabl
 
 if __name__ == "__main__":
     import doctest
+
     import pyspark.ml.recommendation
     from pyspark.sql import SparkSession
     globs = pyspark.ml.recommendation.__dict__.copy()

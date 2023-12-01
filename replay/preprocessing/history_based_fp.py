@@ -8,32 +8,29 @@ Contains classes for users' and items' features generation based on interactions
     and ConditionalPopularityProcessor as a pipeline.
 """
 
-from typing import Dict, Optional, List
-
-import pyspark.sql.functions as sf
-
 from datetime import datetime
-from pyspark.sql import DataFrame
-from pyspark.sql.types import TimestampType
+from typing import Dict, List, Optional
 
-from replay.utils.spark_utils import (
-    join_or_return,
-    join_with_col_renaming,
-    unpersist_if_exists,
-)
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+    from pyspark.sql.types import TimestampType
+
+    from replay.utils.spark_utils import join_or_return, join_with_col_renaming, unpersist_if_exists
 
 
 class EmptyFeatureProcessor:
     """Do not perform any transformations on the dataframe"""
 
-    def fit(self, log: DataFrame, features: Optional[DataFrame]) -> None:
+    def fit(self, log: SparkDataFrame, features: Optional[SparkDataFrame]) -> None:
         """
         :param log: input DataFrame ``[user_idx, item_idx, timestamp, relevance]``
         :param features: DataFrame with ``user_idx/item_idx`` and feature columns
         """
 
     # pylint: disable=no-self-use
-    def transform(self, log: DataFrame) -> DataFrame:
+    def transform(self, log: SparkDataFrame) -> SparkDataFrame:
         """
         Return log without any transformations
         :param log: spark DataFrame
@@ -65,8 +62,8 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
 
     calc_timestamp_based: bool = False
     calc_relevance_based: bool = False
-    user_log_features: Optional[DataFrame] = None
-    item_log_features: Optional[DataFrame] = None
+    user_log_features: Optional[SparkDataFrame] = None
+    item_log_features: Optional[SparkDataFrame] = None
 
     def _create_log_aggregates(self, agg_col: str = "user_idx") -> List:
         """
@@ -126,8 +123,8 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
 
     @staticmethod
     def _add_ts_based(
-        features: DataFrame, max_log_date: datetime, prefix: str
-    ) -> DataFrame:
+        features: SparkDataFrame, max_log_date: datetime, prefix: str
+    ) -> SparkDataFrame:
         """
         Add history length (max - min timestamp) and difference in days between
         last date in log and last interaction of the user/item
@@ -152,8 +149,8 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
 
     @staticmethod
     def _cals_cross_interactions_count(
-        log: DataFrame, features: DataFrame
-    ) -> DataFrame:
+        log: SparkDataFrame, features: SparkDataFrame
+    ) -> SparkDataFrame:
         """
         Calculate difference between the log number of interactions by the user
         and average log number of interactions users interacted with the item has.
@@ -182,8 +179,8 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
 
     @staticmethod
     def _calc_abnormality(
-        log: DataFrame, item_features: DataFrame
-    ) -> DataFrame:
+        log: SparkDataFrame, item_features: SparkDataFrame
+    ) -> SparkDataFrame:
         """
         Calculate  discrepancy between a rating on a resource
         and the average rating of this resource (Abnormality) and
@@ -230,12 +227,12 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
         return abnormality_df.groupBy("user_idx").agg(*abnormality_aggs)
 
     def fit(
-        self, log: DataFrame, features: Optional[DataFrame] = None
+        self, log: SparkDataFrame, features: Optional[SparkDataFrame] = None
     ) -> None:
         """
         Calculate log-based features for users and items
 
-         :param log: input DataFrame ``[user_idx, item_idx, timestamp, relevance]``
+         :param log: input SparkDataFrame ``[user_idx, item_idx, timestamp, relevance]``
          :param features: not required
         """
         self.calc_timestamp_based = (
@@ -293,11 +290,11 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
             how="left",
         ).cache()
 
-    def transform(self, log: DataFrame) -> DataFrame:
+    def transform(self, log: SparkDataFrame) -> SparkDataFrame:
         """
         Add log-based features for users and items
 
-        :param log: input DataFrame with
+        :param log: input SparkDataFrame with
             ``[user_idx, item_idx, <features columns>]`` columns
         :return: log with log-based feature columns
         """
@@ -357,7 +354,7 @@ class ConditionalPopularityProcessor(EmptyFeatureProcessor):
     If user features are provided, item features will be generated and vice versa.
     """
 
-    conditional_pop_dict: Optional[Dict[str, DataFrame]]
+    conditional_pop_dict: Optional[Dict[str, SparkDataFrame]]
     entity_name: str
 
     def __init__(
@@ -370,13 +367,13 @@ class ConditionalPopularityProcessor(EmptyFeatureProcessor):
         """
         self.cat_features_list = cat_features_list
 
-    def fit(self, log: DataFrame, features: DataFrame) -> None:
+    def fit(self, log: SparkDataFrame, features: SparkDataFrame) -> None:
         """
         Calculate conditional popularity for id and categorical features
         defined in `cat_features_list`
 
-        :param log: input DataFrame ``[user_idx, item_idx, timestamp, relevance]``
-        :param features: DataFrame with ``user_idx/item_idx`` and feature columns
+        :param log: input SparkDataFrame ``[user_idx, item_idx, timestamp, relevance]``
+        :param features: SparkDataFrame with ``user_idx/item_idx`` and feature columns
         """
         if len(
             set(self.cat_features_list).intersection(features.columns)
@@ -416,11 +413,11 @@ class ConditionalPopularityProcessor(EmptyFeatureProcessor):
             ).drop(count_by_entity_col_name)
             self.conditional_pop_dict[cat_col].cache()
 
-    def transform(self, log: DataFrame) -> DataFrame:
+    def transform(self, log: SparkDataFrame) -> SparkDataFrame:
         """
         Add conditional popularity features
 
-        :param log: input DataFrame with
+        :param log: input SparkDataFrame with
             ``[user_idx, item_idx, <features columns>]`` columns
         :return: log with conditional popularity feature columns
         """
@@ -498,16 +495,16 @@ class HistoryBasedFeaturesProcessor:
 
     def fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ) -> None:
         """
         Calculate log and conditional popularity features.
 
-        :param log: input DataFrame ``[user_idx, item_idx, timestamp, relevance]``
-        :param user_features: DataFrame with ``user_idx`` and feature columns
-        :param item_features: DataFrame with ``item_idx`` and feature columns
+        :param log: input SparkDataFrame ``[user_idx, item_idx, timestamp, relevance]``
+        :param user_features: SparkDataFrame with ``user_idx`` and feature columns
+        :param item_features: SparkDataFrame with ``item_idx`` and feature columns
         """
         log = log.cache()
         self.log_processor.fit(log=log, features=user_features)
@@ -518,13 +515,13 @@ class HistoryBasedFeaturesProcessor:
 
     def transform(
         self,
-        log: DataFrame,
+        log: SparkDataFrame,
     ):
         """
         Add features
-        :param log: input DataFrame with
+        :param log: input SparkDataFrame with
             ``[user_idx, item_idx, <features columns>]`` columns
-        :return: augmented DataFrame
+        :return: augmented SparkDataFrame
         """
         if not self.fitted:
             raise AttributeError("Call fit before running transform")

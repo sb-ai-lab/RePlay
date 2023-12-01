@@ -1,21 +1,23 @@
-import tqdm
+# pylint: disable=too-many-lines
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import numpy as np
-import pandas as pd
 import scipy.sparse as sp
 import torch
-from pandas import DataFrame
-from pyspark.sql import functions as sf
+import tqdm
 from pytorch_ranger import Ranger
 from torch import nn
 from torch.distributions.gamma import Gamma
 
-from replay.data import REC_SCHEMA
+from replay.data import get_schema
 from replay.experimental.models.base_torch_rec import Recommender
-from replay.utils import convert2spark
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
+from replay.utils.spark_utils import convert2spark
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
 def to_np(tensor: torch.Tensor) -> np.array:
@@ -679,7 +681,7 @@ class DDPG(Recommender):
         model,
         user_idx: int,
         items_np: np.ndarray,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         with torch.no_grad():
             # user_batch, memory = model.environment.reset([user_idx])
             user_batch = torch.tensor([user_idx], dtype=torch.int64)
@@ -690,7 +692,7 @@ class DDPG(Recommender):
                 action_emb, items, torch.full_like(items, True), True
             )
             scores = scores.squeeze()
-            return pd.DataFrame(
+            return PandasDataFrame(
                 {
                     "user_idx": scores.shape[0] * [user_idx],
                     "item_idx": items_np,
@@ -701,18 +703,18 @@ class DDPG(Recommender):
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        log: SparkDataFrame,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         items_consider_in_pred = items.toPandas()["item_idx"].values
         model = self.model.cpu()
 
-        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+        def grouped_map(pandas_df: PandasDataFrame) -> PandasDataFrame:
             return DDPG._predict_pairs_inner(
                 model=model,
                 user_idx=pandas_df["user_idx"][0],
@@ -720,24 +722,30 @@ class DDPG(Recommender):
             )[["user_idx", "item_idx", "relevance"]]
 
         self.logger.debug("Predict started")
+        rec_schema = get_schema(
+            query_column="user_idx",
+            item_column="item_idx",
+            rating_column="relevance",
+            has_timestamp=False,
+        )
         recs = (
             users.join(log, how="left", on="user_idx")
             .select("user_idx", "item_idx")
             .groupby("user_idx")
-            .applyInPandas(grouped_map, REC_SCHEMA)
+            .applyInPandas(grouped_map, rec_schema)
         )
         return recs
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        pairs: SparkDataFrame,
+        log: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
+    ) -> SparkDataFrame:
         model = self.model.cpu()
 
-        def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+        def grouped_map(pandas_df: PandasDataFrame) -> PandasDataFrame:
             return DDPG._predict_pairs_inner(
                 model=model,
                 user_idx=pandas_df["user_idx"][0],
@@ -746,6 +754,12 @@ class DDPG(Recommender):
 
         self.logger.debug("Calculate relevance for user-item pairs")
 
+        rec_schema = get_schema(
+            query_column="user_idx",
+            item_column="item_idx",
+            rating_column="relevance",
+            has_timestamp=False,
+        )
         recs = (
             pairs.groupBy("user_idx")
             .agg(sf.collect_list("item_idx").alias("item_idx_to_pred"))
@@ -753,7 +767,7 @@ class DDPG(Recommender):
                 log.select("user_idx").distinct(), on="user_idx", how="inner"
             )
             .groupby("user_idx")
-            .applyInPandas(grouped_map, REC_SCHEMA)
+            .applyInPandas(grouped_map, rec_schema)
         )
 
         return recs
@@ -880,9 +894,9 @@ class DDPG(Recommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ) -> None:
         data = log.toPandas()
         self._fit_df(data)

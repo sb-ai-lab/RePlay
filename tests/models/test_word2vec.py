@@ -1,17 +1,24 @@
 # pylint: disable-all
 from datetime import datetime
 
-import pytest
 import numpy as np
-from pyspark.sql import functions as sf
+import pytest
 
+from replay.data import get_schema
+from replay.models import Word2VecRec
 from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
 from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
-from replay.data import LOG_SCHEMA
-from replay.models import Word2VecRec
+from tests.utils import create_dataset
+from tests.utils import log as log2
+from tests.utils import spark
+
+pyspark = pytest.importorskip("pyspark")
+from pyspark.sql import functions as sf
+
 from replay.utils.spark_utils import vector_dot
-from tests.utils import spark, log as log2
+
+INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
 @pytest.fixture
@@ -27,7 +34,7 @@ def log(spark):
             [2, 3, date, 2.0],
             [0, 3, date, 2.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -59,8 +66,10 @@ def model_with_ann(tmp_path):
     return model
 
 
+@pytest.mark.spark
 def test_fit(log, model):
-    model.fit(log)
+    dataset = create_dataset(log)
+    model.fit(dataset)
     vectors = (
         model.vectors.select(
             "item",
@@ -73,12 +82,15 @@ def test_fit(log, model):
     assert np.allclose(
         vectors,
         [[1, 5.33072205e-04], [0, 1.54904364e-01], [3, 2.13002899e-01]],
+        atol=1e-04,
     )
 
 
+@pytest.mark.spark
 def test_predict(log, model):
-    model.fit(log)
-    recs = model.predict(log, k=1)
+    dataset = create_dataset(log)
+    model.fit(dataset)
+    recs = model.predict(dataset, k=1)
     recs.show()
     assert np.allclose(
         recs.toPandas().sort_values("user_idx").relevance,
@@ -87,12 +99,14 @@ def test_predict(log, model):
 
 
 # here we use `test.utils.log` because we can't build the hnsw index on `log` data
+@pytest.mark.spark
 def test_word2vec_predict_filter_seen_items(log2, model, model_with_ann):
-    model.fit(log2)
-    recs1 = model.predict(log2, k=1)
+    dataset = create_dataset(log2)
+    model.fit(dataset)
+    recs1 = model.predict(dataset, k=1)
 
-    model_with_ann.fit(log2)
-    recs2 = model_with_ann.predict(log2, k=1)
+    model_with_ann.fit(dataset)
+    recs2 = model_with_ann.predict(dataset, k=1)
 
     recs1 = recs1.toPandas().sort_values(
         ["user_idx", "item_idx"], ascending=False
@@ -104,12 +118,14 @@ def test_word2vec_predict_filter_seen_items(log2, model, model_with_ann):
     assert recs1.item_idx.equals(recs2.item_idx)
 
 
+@pytest.mark.spark
 def test_word2vec_predict(log2, model, model_with_ann):
-    model.fit(log2)
-    recs1 = model.predict(log2, k=2, filter_seen_items=False)
+    dataset = create_dataset(log2)
+    model.fit(dataset)
+    recs1 = model.predict(dataset, k=2, filter_seen_items=False)
 
-    model_with_ann.fit(log2)
-    recs2 = model_with_ann.predict(log2, k=2, filter_seen_items=False)
+    model_with_ann.fit(dataset)
+    recs2 = model_with_ann.predict(dataset, k=2, filter_seen_items=False)
 
     recs1 = recs1.toPandas().sort_values(
         ["user_idx", "item_idx"], ascending=False

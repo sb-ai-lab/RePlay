@@ -1,27 +1,26 @@
 # pylint: disable-all
 from datetime import datetime
 
-import pytest
 import numpy as np
+import pytest
+
+pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
+
 from pyspark.sql import functions as sf
 
-from replay.data import LOG_SCHEMA
+from replay.data import get_schema
 from replay.experimental.models import ADMMSLIM
-from replay.models.base_rec import HybridRecommender, UserRecommender
-from replay.utils.model_handler import save, load
-from tests.utils import (
-    spark,
-    log,
-    log_to_pred,
-    long_log_with_features,
-    user_features,
-    sparkDataFrameEqual,
-)
-
+from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.utils.model_handler import save
+from replay.utils.model_handler import load
+from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
 
 SEED = 123
+INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
+@pytest.mark.experimental
 def test_equal_preds(long_log_with_features, tmp_path):
     path = (tmp_path / "test").resolve()
     model = ADMMSLIM()
@@ -54,7 +53,7 @@ def simple_log(spark):
             [0, 2, date, 2.0],
             [3, 0, date, 2.0],
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -63,6 +62,7 @@ def model():
     return ADMMSLIM(1, 10, 42)
 
 
+@pytest.mark.experimental
 def test_fit(simple_log, model):
     model.fit(simple_log)
     assert np.allclose(
@@ -78,12 +78,14 @@ def test_fit(simple_log, model):
     )
 
 
+@pytest.mark.experimental
 def test_predict(simple_log, model):
     model.fit(simple_log)
     recs = model.predict(simple_log, k=1)
     assert recs.count() == 4
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize(
     "lambda_1,lambda_2", [(0.0, 0.0), (-0.1, 0.1), (0.1, -0.1)]
 )
@@ -92,6 +94,7 @@ def test_exceptions(lambda_1, lambda_2):
         ADMMSLIM(lambda_1, lambda_2)
 
 
+@pytest.mark.experimental
 def test_predict_pairs_warm_items_only(log, log_to_pred):
     model = ADMMSLIM(seed=SEED)
     model.fit(log)
@@ -129,6 +132,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
     )
 
 
+@pytest.mark.experimental
 def test_predict_pairs_k(log):
     model = ADMMSLIM(seed=SEED)
     model.fit(log)
@@ -162,12 +166,14 @@ def test_predict_pairs_k(log):
     )
 
 
+@pytest.mark.experimental
 def test_predict_empty_log(log):
     model = ADMMSLIM(seed=SEED)
     model.fit(log)
     model.predict(log.limit(0), 1)
 
 
+@pytest.mark.experimental
 def test_predict_pairs_raises(log):
     model = ADMMSLIM(seed=SEED)
     with pytest.raises(ValueError, match="log is not provided,.*"):
@@ -175,6 +181,7 @@ def test_predict_pairs_raises(log):
         model.predict_pairs(log.select("user_idx", "item_idx"))
 
 
+@pytest.mark.experimental
 def test_get_nearest_items(log):
     model = ADMMSLIM(seed=SEED)
     model.fit(log.filter(sf.col("item_idx") != 3))
@@ -207,6 +214,7 @@ def test_get_nearest_items(log):
     )
 
 
+@pytest.mark.experimental
 def test_predict_new_users(long_log_with_features, user_features):
     model = ADMMSLIM(seed=SEED)
     pred = fit_predict_selected(

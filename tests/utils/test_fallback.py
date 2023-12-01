@@ -1,12 +1,16 @@
 # pylint: disable-all
 import pandas as pd
+import pytest
+
+pyspark = pytest.importorskip("pyspark")
 
 from replay.models import ItemKNN
 from replay.scenarios import Fallback
-from replay.utils.spark_utils import fallback, convert2spark
-from tests.utils import log, log2, spark
+from replay.utils.spark_utils import convert2spark, fallback
+from tests.utils import create_dataset, log, log2, spark
 
 
+@pytest.mark.spark
 def test_fallback():
     base = pd.DataFrame({"user_idx": [1], "item_idx": [1], "relevance": [1]})
     extra = pd.DataFrame(
@@ -26,12 +30,15 @@ def test_fallback():
     assert a > b
 
 
+@pytest.mark.spark
 def test_class(log, log2):
     model = Fallback(ItemKNN(), threshold=3)
     s = str(model)
     assert s == "Fallback_ItemKNN_PopRec"
-    model.fit(log2)
-    p1, p2 = model.optimize(log, log2, k=1, budget=1)
+    dataset = create_dataset(log)
+    dataset2 = create_dataset(log2)
+    model.fit(dataset2)
+    p1, p2 = model.optimize(dataset, dataset2, k=1, budget=1)
     assert p2 is None
     assert isinstance(p1, dict)
-    model.predict(log2, k=1)
+    model.predict(dataset2, k=1)

@@ -1,46 +1,48 @@
 # pylint: disable=wildcard-import,invalid-name,unused-wildcard-import,unspecified-encoding
 import json
+import os
+import pickle
 from inspect import getfullargspec
 from os.path import join
 from pathlib import Path
 from typing import Union
 
-import pyspark.sql.types as st
-from pyspark.ml.feature import StringIndexerModel, IndexToString
-from pyspark.sql import SparkSession
-
-from replay.preprocessing.data_preparator import Indexer
+from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import *
 from replay.models.base_rec import BaseRecommender
-from replay.utils.session_handler import State
 from replay.splitters import *
-from replay.utils.spark_utils import save_picklable_to_parquet, load_pickled_from_parquet
+from replay.utils.session_handler import State
 
+from .types import PYSPARK_AVAILABLE
 
-def get_fs(spark: SparkSession):
-    """
-    Gets `org.apache.hadoop.fs.FileSystem` instance from JVM gateway
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import SparkSession
 
-    :param spark: spark session
-    :return:
-    """
-    fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(
-        spark._jsc.hadoopConfiguration()
-    )
-    return fs
+    from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 
+    def get_fs(spark: SparkSession):
+        """
+        Gets `org.apache.hadoop.fs.FileSystem` instance from JVM gateway
 
-def get_list_of_paths(spark: SparkSession, dir_path: str):
-    """
-    Returns list of paths to files in the `dir_path`
+        :param spark: spark session
+        :return:
+        """
+        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(
+            spark._jsc.hadoopConfiguration()
+        )
+        return fs
 
-    :param spark: spark session
-    :param dir_path: path to dir in hdfs or local disk
-    :return: list of paths to files
-    """
-    fs = get_fs(spark)
-    statuses = fs.listStatus(spark._jvm.org.apache.hadoop.fs.Path(dir_path))
-    return [str(f.getPath()) for f in statuses]
+    def get_list_of_paths(spark: SparkSession, dir_path: str):
+        """
+        Returns list of paths to files in the `dir_path`
+
+        :param spark: spark session
+        :param dir_path: path to dir in hdfs or local disk
+        :return: list of paths to files
+        """
+        fs = get_fs(spark)
+        statuses = fs.listStatus(spark._jvm.org.apache.hadoop.fs.Path(dir_path))
+        return [str(f.getPath()) for f in statuses]
 
 
 def save(
@@ -83,9 +85,9 @@ def save(
         if df is not None:
             df.write.mode("overwrite").parquet(join(df_path, name))
 
-    if hasattr(model, "fit_users"):
-        model.fit_users.write.mode("overwrite").parquet(
-            join(df_path, "fit_users")
+    if hasattr(model, "fit_queries"):
+        model.fit_queries.write.mode("overwrite").parquet(
+            join(df_path, "fit_queries")
         )
     if hasattr(model, "fit_items"):
         model.fit_items.write.mode("overwrite").parquet(
@@ -146,75 +148,35 @@ def load(path: str, model_type=None) -> BaseRecommender:
     return model
 
 
-def save_indexer(
-    indexer: Indexer, path: Union[str, Path], overwrite: bool = False
-):
+def save_encoder(encoder: DatasetLabelEncoder, path: Union[str, Path]) -> None:
     """
-    Save fitted indexer to disk as a folder
+    Save fitted DatasetLabelEncoder to disk as a folder
 
-    :param indexer: Trained indexer
-    :param path: destination where indexer files will be stored
+    :param encoder: Trained encoder
+    :param path: destination where encoder files will be stored
     """
     if isinstance(path, Path):
         path = str(path)
 
-    spark = State().session
-
-    if not overwrite:
-        fs = get_fs(spark)
-        is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
-        if is_exists:
-            raise FileExistsError(
-                f"Path '{path}' already exists. Mode is 'overwrite = False'."
-            )
-
-    init_args = indexer._init_args
-    init_args["user_type"] = str(indexer.user_type)
-    init_args["item_type"] = str(indexer.item_type)
-    sc = spark.sparkContext
-    df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
-    df.coalesce(1).write.mode("overwrite").json(join(path, "init_args.json"))
-
-    indexer.user_indexer.write().overwrite().save(join(path, "user_indexer"))
-    indexer.item_indexer.write().overwrite().save(join(path, "item_indexer"))
-    indexer.inv_user_indexer.write().overwrite().save(
-        join(path, "inv_user_indexer")
-    )
-    indexer.inv_item_indexer.write().overwrite().save(
-        join(path, "inv_item_indexer")
-    )
+    os.makedirs(path, exist_ok=True)
+    with open(os.path.join(path, "encoder.pickle"), "wb") as cached_file:
+        pickle.dump(encoder, cached_file)
 
 
-def load_indexer(path: str) -> Indexer:
+def load_encoder(path: Union[str, Path]) -> DatasetLabelEncoder:
     """
-    Load saved indexer from disk
+    Load saved encoder from disk
 
     :param path: path to folder
-    :return: restored Indexer
+    :return: restored DatasetLabelEncoder
     """
-    spark = State().session
-    args = spark.read.json(join(path, "init_args.json")).first().asDict()
+    if isinstance(path, Path):
+        path = str(path)
 
-    user_type = args["user_type"]
-    del args["user_type"]
-    item_type = args["item_type"]
-    del args["item_type"]
+    with open(os.path.join(path, "encoder.pickle"), "rb") as f:
+        encoder = pickle.load(f)
 
-    indexer = Indexer(**args)
-
-    indexer.user_type = getattr(st, user_type)()
-    indexer.item_type = getattr(st, item_type)()
-
-    indexer.user_indexer = StringIndexerModel.load(join(path, "user_indexer"))
-    indexer.item_indexer = StringIndexerModel.load(join(path, "item_indexer"))
-    indexer.inv_user_indexer = IndexToString.load(
-        join(path, "inv_user_indexer")
-    )
-    indexer.inv_item_indexer = IndexToString.load(
-        join(path, "inv_item_indexer")
-    )
-
-    return indexer
+    return encoder
 
 
 def save_splitter(splitter: Splitter, path: str, overwrite: bool = False):

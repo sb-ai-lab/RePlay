@@ -1,12 +1,11 @@
 from os.path import join
 from typing import Optional
 
-import pandas as pd
-from pyspark.sql import DataFrame
-
-from replay.models.base_rec import Recommender
-from replay.utils.spark_utils import to_csr, save_picklable_to_parquet, load_pickled_from_parquet
-from replay.data import REC_SCHEMA
+from replay.data import get_schema
+from replay.experimental.models.base_rec import Recommender
+from replay.preprocessing import CSRConverter
+from replay.utils import PandasDataFrame, SparkDataFrame
+from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 
 
 class ImplicitWrap(Recommender):
@@ -50,11 +49,15 @@ class ImplicitWrap(Recommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ) -> None:
-        matrix = to_csr(log)
+        matrix = CSRConverter(
+            first_dim_column="user_idx",
+            second_dim_column="item_idx",
+            data_column="relevance"
+        ).transform(log)
         self.model.fit(matrix)
 
     @staticmethod
@@ -70,7 +73,7 @@ class ImplicitWrap(Recommender):
                 filter_already_liked_items=filter_seen_items,
                 items=items,
             )
-            return pd.DataFrame(
+            return PandasDataFrame(
                 {
                     "user_idx": [user] * len(items_res),
                     "item_idx": items_res,
@@ -83,18 +86,28 @@ class ImplicitWrap(Recommender):
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        log: SparkDataFrame,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
 
         items_to_use = items.distinct().toPandas().item_idx.tolist()
-        user_item_data = to_csr(log)
+        user_item_data = CSRConverter(
+            first_dim_column="user_idx",
+            second_dim_column="item_idx",
+            data_column="relevance"
+        ).transform(log)
         model = self.model
+        rec_schema = get_schema(
+            query_column="user_idx",
+            item_column="item_idx",
+            rating_column="relevance",
+            has_timestamp=False,
+        )
         return (
             users.select("user_idx")
             .groupby("user_idx")
@@ -102,18 +115,24 @@ class ImplicitWrap(Recommender):
                 model=model,
                 items_to_use=items_to_use,
                 user_item_data=user_item_data,
-                filter_seen_items=filter_seen_items), REC_SCHEMA)
+                filter_seen_items=filter_seen_items), rec_schema)
         )
 
     def _predict_pairs(
         self,
-        pairs: DataFrame,
-        log: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-    ) -> DataFrame:
+        pairs: SparkDataFrame,
+        log: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
+    ) -> SparkDataFrame:
 
         model = self.model
+        rec_schema = get_schema(
+            query_column="user_idx",
+            item_column="item_idx",
+            rating_column="relevance",
+            has_timestamp=False,
+        )
         return pairs.groupby("user_idx").applyInPandas(
             self._pd_func(model=model, filter_seen_items=False),
-            REC_SCHEMA)
+            rec_schema)

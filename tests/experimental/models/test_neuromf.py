@@ -1,29 +1,32 @@
 # pylint: disable-all
 from datetime import datetime
 
-import pytest
-import torch
 import numpy as np
+import pytest
+
+pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
+
 from pyspark.sql import functions as sf
 
-from replay.data import LOG_SCHEMA
+from replay.data import get_schema
 from replay.experimental.models import NeuroMF
-from replay.experimental.models.neuromf import NMF
-from replay.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.utils.model_handler import save
+from replay.utils.model_handler import load
 from tests.utils import (
     del_files_by_pattern,
     find_file_by_pattern,
-    spark,
     log,
     log_to_pred,
     long_log_with_features,
-    user_features,
+    spark,
     sparkDataFrameEqual,
+    user_features,
 )
-from replay.utils.model_handler import save, load
-
 
 SEED = 123
+INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
 def fit_predict_selected(model, train_log, inf_log, user_features, users):
@@ -64,7 +67,7 @@ def log(spark):
             (1, 1, date, 1.0),
             (2, 3, date, 1.0),
         ],
-        schema=LOG_SCHEMA,
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -81,6 +84,7 @@ def model():
     return model
 
 
+@pytest.mark.experimental
 def test_equal_preds(long_log_with_features, tmp_path):
     path = (tmp_path / "test").resolve()
     model = NeuroMF()
@@ -92,6 +96,7 @@ def test_equal_preds(long_log_with_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.experimental
 def test_fit(log, model):
     model.fit(log)
     assert len(list(model.model.parameters())) == 12
@@ -113,6 +118,7 @@ def test_fit(log, model):
         assert param_shapes[i] == tuple(parameter.shape)
 
 
+@pytest.mark.experimental
 def test_predict(log, model):
     model.fit(log)
     try:
@@ -122,6 +128,7 @@ def test_predict(log, model):
         pytest.fail()
 
 
+@pytest.mark.experimental
 def test_check_gmf_only(log):
     params = {"learning_rate": 0.5, "epochs": 1, "embedding_gmf_dim": 2}
     model = NeuroMF(**params)
@@ -131,6 +138,7 @@ def test_check_gmf_only(log):
         pytest.fail()
 
 
+@pytest.mark.experimental
 def test_check_mlp_only(log):
     params = {
         "learning_rate": 0.5,
@@ -145,6 +153,7 @@ def test_check_mlp_only(log):
         pytest.fail()
 
 
+@pytest.mark.experimental
 def test_check_simple_mlp_only(log):
     params = {"learning_rate": 0.5, "epochs": 1, "embedding_mlp_dim": 2}
     model = NeuroMF(**params)
@@ -154,6 +163,7 @@ def test_check_simple_mlp_only(log):
         pytest.fail()
 
 
+@pytest.mark.experimental
 def test_embeddings_size():
     model = NeuroMF()
     assert model.embedding_gmf_dim == 128 and model.embedding_mlp_dim == 128
@@ -165,11 +175,13 @@ def test_embeddings_size():
     assert model.embedding_gmf_dim == 16 and model.embedding_mlp_dim == 32
 
 
+@pytest.mark.experimental
 def test_negative_dims_exception():
     with pytest.raises(ValueError):
         NeuroMF(embedding_gmf_dim=-2, embedding_mlp_dim=-1)
 
 
+@pytest.mark.experimental
 def test_predict_pairs_warm_items_only(log, log_to_pred):
     model = NeuroMF()
     model.fit(log)
@@ -207,6 +219,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
     )
 
 
+@pytest.mark.experimental
 def test_predict_pairs_k(log):
     model = NeuroMF()
     model.fit(log)
@@ -240,12 +253,14 @@ def test_predict_pairs_k(log):
     )
 
 
+@pytest.mark.experimental
 def test_predict_empty_log(log):
     model = NeuroMF()
     model.fit(log)
     model.predict(log.limit(0), 1)
 
 
+@pytest.mark.experimental
 def test_predict_cold_and_new_filter_out(long_log_with_features):
     model = NeuroMF()
     pred = fit_predict_selected(

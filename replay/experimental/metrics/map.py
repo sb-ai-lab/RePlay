@@ -1,8 +1,8 @@
-from replay.experimental.metrics.base_metric import ScalaMetric
+from .base_metric import Metric
 
 
 # pylint: disable=too-few-public-methods
-class ScalaMAP(ScalaMetric):
+class MAP(Metric):
     """
     Mean Average Precision -- average the ``Precision`` at relevant positions for each user,
         and then calculate the mean across all users.
@@ -16,3 +16,16 @@ class ScalaMAP(ScalaMetric):
     """
 
     _scala_udf_name = "getMAPMetricValue"
+
+    @staticmethod
+    def _get_metric_value_by_user(k, pred, ground_truth) -> float:
+        length = min(k, len(pred))
+        if len(ground_truth) == 0 or len(pred) == 0:
+            return 0
+        tp_cum = 0
+        result = 0
+        for i in range(length):
+            if pred[i] in ground_truth:
+                tp_cum += 1
+                result += tp_cum / (i + 1)
+        return result / k

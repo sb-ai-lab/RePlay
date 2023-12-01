@@ -1,26 +1,27 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 
-import pytest
 import numpy as np
-import torch
+import pytest
+
+pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
+
 import pyspark.sql.functions as sf
 
 from replay.experimental.models import MultVAE
-from replay.experimental.models.mult_vae import VAE
+from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
+from replay.utils.model_handler import load, save
 from tests.utils import (
     del_files_by_pattern,
     find_file_by_pattern,
     log,
     log2,
-    spark,
     log_to_pred,
     long_log_with_features,
-    user_features,
+    spark,
     sparkDataFrameEqual,
+    user_features,
 )
-from replay.models.base_rec import HybridRecommender, UserRecommender
-from replay.utils.model_handler import save, load
-
 
 SEED = 123
 
@@ -54,6 +55,7 @@ def model(log):
     return model
 
 
+@pytest.mark.experimental
 def test_equal_preds(long_log_with_features, tmp_path):
     path = (tmp_path / "test").resolve()
     model = MultVAE()
@@ -65,6 +67,7 @@ def test_equal_preds(long_log_with_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.experimental
 def test_fit(model):
     param_shapes = [
         (1, 4),
@@ -81,6 +84,7 @@ def test_fit(model):
         assert param_shapes[i] == tuple(parameter.shape)
 
 
+@pytest.mark.experimental
 def test_predict(log, model):
     recs = model.predict(log, users=[0, 1, 7], k=1)
     # new users with history
@@ -90,6 +94,7 @@ def test_predict(log, model):
     assert recs.count() == 2
 
 
+@pytest.mark.experimental
 def test_predict_pairs(log, log2, model):
     recs = model.predict_pairs(
         pairs=log2.select("user_idx", "item_idx"), log=log
@@ -106,6 +111,7 @@ def test_predict_pairs(log, log2, model):
     )
 
 
+@pytest.mark.experimental
 def test_predict_pairs_warm_items_only(log, log_to_pred):
     model = MultVAE()
     model.fit(log)
@@ -143,6 +149,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
     )
 
 
+@pytest.mark.experimental
 def test_predict_pairs_k(log):
     model = MultVAE()
     model.fit(log)
@@ -176,12 +183,14 @@ def test_predict_pairs_k(log):
     )
 
 
+@pytest.mark.experimental
 def test_predict_empty_log(log):
     model = MultVAE()
     model.fit(log)
     model.predict(log.limit(0), 1)
 
 
+@pytest.mark.experimental
 def test_predict_new_users(long_log_with_features, user_features):
     model = MultVAE()
     pred = fit_predict_selected(
@@ -195,6 +204,7 @@ def test_predict_new_users(long_log_with_features, user_features):
     assert pred.collect()[0][0] == 0
 
 
+@pytest.mark.experimental
 def test_predict_cold_and_new_filter_out(long_log_with_features):
     model = MultVAE()
     pred = fit_predict_selected(

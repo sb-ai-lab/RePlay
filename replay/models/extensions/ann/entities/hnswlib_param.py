@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+
 from typing_extensions import Literal
 
 from replay.models.extensions.ann.entities.base_hnsw_param import BaseHnswParam
