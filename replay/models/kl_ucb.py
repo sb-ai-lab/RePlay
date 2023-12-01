@@ -107,7 +107,7 @@ class KLUCB(UCB):
     >>> model.predict(dataset, k=2, queries=[1,2,3,4], items=[1,2,3]
     ... ).toPandas().sort_values(["user_id","rating","item_id"],
     ... ascending=[True,False,True]).reset_index(drop=True)
-       user_idx  item_idx  relevance
+        user_id   item_id     rating
     0         1         3   1.000000
     1         1	        2   0.750000
     2         2	        3   1.000000
