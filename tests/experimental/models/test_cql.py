@@ -1,16 +1,23 @@
 # pylint: disable-all
+import sys
 import numpy as np
 import pytest
 from _pytest.python_api import approx
 from pytest import approx
+
+if sys.version_info > (3, 9):
+    pytest.skip(
+        reason="d3rlpy does't support 3.10",
+        allow_module_level=True,
+    )
 
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
 
 from pyspark.sql import functions as sf
 
-from replay.experimental.models import CQL
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.models.cql import CQL
 from replay.experimental.models.cql import MdpDatasetBuilder
 from replay.utils import SparkDataFrame
 from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
