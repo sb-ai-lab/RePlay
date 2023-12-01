@@ -78,13 +78,34 @@ class KLUCB(UCB):
     each user with probabilites proportional to obtained relevances.
 
     >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"user_idx": [1, 2, 3, 3], "item_idx": [1, 2, 1, 2], "relevance": [1, 0, 0, 0]})
+    >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
     >>> from replay.utils.spark_utils import convert2spark
-    >>> data_frame = convert2spark(data_frame)
+    >>> data_frame = pd.DataFrame({"user_idx": [1, 2, 3, 3], "item_idx": [1, 2, 1, 2], "rating": [1, 0, 0, 0]})
+    >>> interactions = convert2spark(data_frame)
+    >>> feature_schema = FeatureSchema(
+    ...     [
+    ...         FeatureInfo(
+    ...             column="user_id",
+    ...             feature_type=FeatureType.CATEGORICAL,
+    ...             feature_hint=FeatureHint.QUERY_ID,
+    ...         ),
+    ...         FeatureInfo(
+    ...             column="item_id",
+    ...             feature_type=FeatureType.CATEGORICAL,
+    ...             feature_hint=FeatureHint.ITEM_ID,
+    ...         ),
+    ...         FeatureInfo(
+    ...             column="rating",
+    ...             feature_type=FeatureType.NUMERICAL,
+    ...             feature_hint=FeatureHint.RATING,
+    ...         ),
+    ...     ]
+    ... )
+    >>> dataset = Dataset(feature_schema, interactions)
     >>> model = KL_UCB()
-    >>> model.fit(data_frame)
+    >>> model.fit(dataset)
     >>> model.predict(data_frame,k=2,users=[1,2,3,4], items=[1,2,3]
-    ... ).toPandas().sort_values(["user_idx","relevance","item_idx"],
+    ... ).toPandas().sort_values(["user_idx","rating","item_idx"],
     ... ascending=[True,False,True]).reset_index(drop=True)
        user_idx  item_idx  relevance
     0         1         3   1.000000
