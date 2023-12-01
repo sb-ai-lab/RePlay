@@ -1,8 +1,9 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
 
-from replay.models import UCB
+from replay.models import UCB, KLUCB
 from tests.utils import create_dataset, log, log2, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
+
 
 pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
@@ -22,10 +23,10 @@ def log_ucb2(log2):
     )
 
 
-@pytest.fixture
-def fitted_model(log_ucb):
-    model = UCB()
+@pytest.fixture(params=[UCB()])
+def fitted_model(request, log_ucb):
     dataset = create_dataset(log_ucb)
+    model = request.param
     model.fit(dataset)
     return model
 
