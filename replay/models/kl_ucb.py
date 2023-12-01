@@ -102,7 +102,7 @@ class KLUCB(UCB):
     ...     ]
     ... )
     >>> dataset = Dataset(feature_schema, interactions)
-    >>> model = KL_UCB()
+    >>> model = KLUCB()
     >>> model.fit(dataset)
     >>> model.predict(data_frame,k=2,users=[1,2,3,4], items=[1,2,3]
     ... ).toPandas().sort_values(["user_idx","rating","item_idx"],
