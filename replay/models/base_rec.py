@@ -1596,16 +1596,16 @@ class NonPersonalizedRecommender(Recommender, ABC):
         """
         selected_item_popularity = self._get_selected_item_popularity(items)
         selected_item_popularity = selected_item_popularity.withColumn(
-            "relevance",
-            sf.when(sf.col("relevance") == sf.lit(0.0), 0.1**6).otherwise(
-                sf.col("relevance")
+            self.rating_column,
+            sf.when(sf.col(self.rating_column) == sf.lit(0.0), 0.1**6).otherwise(
+                sf.col(self.rating_column)
             ),
         )
 
         items_pd = selected_item_popularity.withColumn(
             "probability",
-            sf.col("relevance")
-            / selected_item_popularity.select(sf.sum("relevance")).first()[0],
+            sf.col(self.rating_column)
+            / selected_item_popularity.select(sf.sum(self.rating_column)).first()[0],
         ).toPandas()
 
         return items_pd
