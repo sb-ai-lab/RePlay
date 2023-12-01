@@ -79,7 +79,7 @@ class KLUCB(UCB):
 
     >>> import pandas as pd
     >>> data_frame = pd.DataFrame({"user_idx": [1, 2, 3, 3], "item_idx": [1, 2, 1, 2], "relevance": [1, 0, 0, 0]})
-    >>> from replay.utils import convert2spark
+    >>> from replay.utils.spark_utils import convert2spark
     >>> data_frame = convert2spark(data_frame)
     >>> model = KL_UCB()
     >>> model.fit(data_frame)
