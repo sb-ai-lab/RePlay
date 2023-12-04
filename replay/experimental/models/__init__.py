@@ -1,6 +1,5 @@
 from replay.experimental.models.admm_slim import ADMMSLIM
 from replay.experimental.models.base_torch_rec import TorchRecommender
-from replay.experimental.models.cql import CQL
 from replay.experimental.models.ddpg import DDPG
 from replay.experimental.models.implicit_wrap import ImplicitWrap
 from replay.experimental.models.lightfm_wrap import LightFMWrap
