@@ -11,4 +11,3 @@ Modules
    modules/metrics
    modules/scenarios
    modules/utils
-   modules/distributions
