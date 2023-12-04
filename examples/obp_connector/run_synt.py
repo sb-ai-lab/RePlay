@@ -16,8 +16,8 @@ from replay.models import (
     RandomRec,
     PopRec
 )
-from replay.experimental.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
-from replay.experimental.obp_wrapper.utils import get_est_rewards_by_reg
+from replay.experimental.scenarios.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
+from replay.experimental.scenarios.obp_wrapper.utils import get_est_rewards_by_reg
 
 from sklearn.ensemble import RandomForestClassifier as RandomForest
 from sklearn.linear_model import LogisticRegression

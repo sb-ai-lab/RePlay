@@ -8,8 +8,8 @@ from obp.policy.base import BaseOfflinePolicyLearner
 from pyspark.sql import DataFrame
 
 from replay.utils.spark_utils import convert2spark
-from replay.experimental.obp_wrapper.obp_optuna_objective import OBPObjective
-from replay.experimental.obp_wrapper.utils import split_bandit_feedback
+from replay.experimental.scenarios.obp_wrapper.obp_optuna_objective import OBPObjective
+from replay.experimental.scenarios.obp_wrapper.utils import split_bandit_feedback
 from replay.models.base_rec import BaseRecommender
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
 

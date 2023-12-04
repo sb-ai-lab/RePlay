@@ -5,4 +5,4 @@
     methods of RePlay model. Optimize is based on optimization over CTR estimated by OBP.
 """
 
-from replay.experimental.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
+from replay.experimental.scenarios.obp_wrapper.replay_offline import OBPOfflinePolicyLearner

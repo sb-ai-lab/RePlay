@@ -11,7 +11,7 @@ from obp.ope import (
     DoublyRobust
 )
 from replay.optimization.optuna_objective import ObjectiveWrapper, suggest_params
-from replay.experimental.obp_wrapper.utils import get_est_rewards_by_reg
+from replay.experimental.scenarios.obp_wrapper.utils import get_est_rewards_by_reg
 
 
 # pylint: disable=too-many-arguments
