@@ -2,7 +2,7 @@ from os.path import join
 from typing import Iterable, Optional, Union
 
 from replay.data import Dataset
-from replay.models.base_rec import IsSavable, RecommenderCommons
+from .base_rec import IsSavable, RecommenderCommons
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 if PYSPARK_AVAILABLE:

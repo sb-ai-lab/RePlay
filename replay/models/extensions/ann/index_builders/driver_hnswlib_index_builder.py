@@ -3,7 +3,7 @@ from typing import Optional
 
 import numpy as np
 
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from .base_index_builder import IndexBuilder
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
 from replay.models.extensions.ann.index_inferers.hnswlib_filter_index_inferer import HnswlibFilterIndexInferer
 from replay.models.extensions.ann.index_inferers.hnswlib_index_inferer import HnswlibIndexInferer

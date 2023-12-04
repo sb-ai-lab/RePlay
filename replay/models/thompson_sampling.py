@@ -3,7 +3,7 @@ from typing import Optional
 import numpy as np
 
 from replay.data.dataset import Dataset
-from replay.models.base_rec import NonPersonalizedRecommender
+from .base_rec import NonPersonalizedRecommender
 from replay.utils import PYSPARK_AVAILABLE
 
 if PYSPARK_AVAILABLE:

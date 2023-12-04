@@ -5,7 +5,7 @@ import numpy as np
 from pandas import DataFrame as PandasDataFrame
 
 from replay.data.schema import FeatureType
-from replay.data.nn.schema import TensorSchema
+from .schema import TensorSchema
 
 
 # pylint: disable=missing-function-docstring

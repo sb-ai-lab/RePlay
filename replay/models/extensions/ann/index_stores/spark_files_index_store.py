@@ -7,8 +7,8 @@ from typing import Any, Callable
 
 from pyarrow import fs
 
-from replay.models.extensions.ann.index_stores.base_index_store import IndexStore
-from replay.models.extensions.ann.index_stores.utils import FileSystem, get_filesystem
+from .base_index_store import IndexStore
+from .utils import FileSystem, get_filesystem
 from replay.utils import PYSPARK_AVAILABLE
 from replay.utils.session_handler import State
 

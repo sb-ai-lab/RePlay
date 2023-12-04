@@ -7,7 +7,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence
 
 import numpy as np
 
-from replay.data.schema import FeatureHint, FeatureInfo, FeatureSchema, FeatureSource, FeatureType
+from .schema import FeatureHint, FeatureInfo, FeatureSchema, FeatureSource, FeatureType
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:

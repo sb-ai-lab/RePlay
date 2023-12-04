@@ -6,12 +6,12 @@ import torch
 
 from replay.data.nn import TensorMap, TensorSchema
 from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
-from replay.models.nn.sequential.bert4rec.dataset import (
+from .dataset import (
     Bert4RecPredictionBatch,
     Bert4RecTrainingBatch,
     Bert4RecValidationBatch,
 )
-from replay.models.nn.sequential.bert4rec.model import Bert4RecModel
+from .model import Bert4RecModel
 
 
 # pylint: disable=too-many-instance-attributes

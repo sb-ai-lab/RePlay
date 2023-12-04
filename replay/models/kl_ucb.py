@@ -1,7 +1,7 @@
 import math
 
 from typing import Optional
-from replay.models import UCB
+from .ucb import UCB
 from replay.utils import PYSPARK_AVAILABLE
 from scipy.optimize import root_scalar
 
