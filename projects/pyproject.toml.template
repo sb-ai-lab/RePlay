@@ -61,7 +61,7 @@ lightfm = "1.17"
 lightautoml = "~0.3.1"
 numba = ">=0.50"
 llvmlite = ">=0.32.1"
-d3rlpy = "1.1.1"
+d3rlpy = { version = "1.1.1", python = "<3.10" }
 implicit = "~0.7.0"
 gym = "0.17.2"
 {% endif %}
