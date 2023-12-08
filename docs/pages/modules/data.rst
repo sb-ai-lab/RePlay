@@ -49,6 +49,11 @@ This submodule is only available when the `PyTorch` is installed.
 
 .. automodule:: replay.data.nn
 
+TensorFeatureInfo
+______________________
+.. autoclass:: replay.data.nn.TensorFeatureInfo
+    :members:
+
 TensorFeatureSource
 ______________________
 .. autoclass:: replay.data.nn.TensorFeatureSource
@@ -68,18 +73,7 @@ PandasSequentialDataset
 _______________________
 .. autoclass:: replay.data.nn.PandasSequentialDataset
     :members:
-        __init__,
-        keep_common_query_ids,
-        __len__,
-        cardinality_callback,
-        get_query_id,
-        get_all_query_ids,
-        get_sequence_length,
-        get_max_sequence_length,
-        get_sequence,
-        get_sequence_by_query_id,
-        filter_by_query_id,
-        schema
+    :inherited-members:
 
 TorchSequentialBatch
 ______________________
