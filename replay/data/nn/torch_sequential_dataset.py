@@ -169,6 +169,18 @@ class TorchSequentialValidationDataset(TorchDataset):
         sliding_window_step: Optional[int] = None,
         label_feature_name: Optional[str] = None,
     ):
+        """
+        :param sequential: validation sequential dataset
+        :param ground_truth: validation ground_truth sequential dataset
+        :param train: train sequential dataset
+        :param max_sequence_length: the maximum length of sequence
+        :param padding_value: value to pad sequences to desired length
+        :param sliding_window_step: value of offset from each sequence start during iteration,
+            `None` means the offset will be equals to difference between actual sequence
+            length and `max_sequence_length`.
+            Default: `None`
+        :param label_feature_name: the name of the column containing the sequence of items.
+        """
         self._check_if_schema_match(sequential.schema, ground_truth.schema)
         self._check_if_schema_match(sequential.schema, train.schema)
 
