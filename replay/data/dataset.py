@@ -180,6 +180,8 @@ class Dataset:
             Sets the storage level to persist SparkDataFrame for interactions, item_features
             and user_features.
 
+            The function is only available when the PySpark is installed.
+
             :param storage_level: storage level to set for persistance.
                 default: ```MEMORY_AND_DISK_DESER```.
             """
@@ -195,6 +197,8 @@ class Dataset:
             Marks SparkDataFrame as non-persistent, and remove all blocks for it from memory and disk
             for interactions, item_features and user_features.
 
+            The function is only available when the PySpark is installed.
+
             :param blocking: whether to block until all blocks are deleted.
                 default: ```False```.
             """
@@ -209,6 +213,8 @@ class Dataset:
             """
             Persists the SparkDataFrame with the default storage level (MEMORY_AND_DISK)
             for interactions, item_features and user_features.
+
+            The function is only available when the PySpark is installed.
             """
             if self.is_spark:
                 self.interactions.cache()
