@@ -51,7 +51,7 @@ class ValidationMetricsCallback(L.Callback):
         :param metrics: Sequence of metrics to calculate.
         :param ks: highest k scores in ranking. Default: will be `[1, 5, 10, 20]`.
         :param postprocessors: postprocessors to validation stage.
-        :param item_count: the total number of items in the dataset.
+        :param item_count: the total number of items in the dataset, required only for Coverage calculations.
         """
         self._metrics_builder = TorchMetricsBuilder(metrics, ks, item_count)
         self._postprocessors: List[BasePostProcessor] = postprocessors or []

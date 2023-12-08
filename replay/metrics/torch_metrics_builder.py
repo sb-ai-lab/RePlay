@@ -225,7 +225,9 @@ class TorchMetricsBuilder(_MetricBuilder):
             self._map_weights: torch.Tensor
             self._reserve_map_constants()
         self._item_count = item_count
-        self._coverage_helper = _CoverageHelper(top_k=self._mr.top_k, item_count=item_count)
+        if self._mr.need_coverage:
+            assert self._item_count is not None, "For Coverage calculations item_count should be defined."
+            self._coverage_helper = _CoverageHelper(top_k=self._mr.top_k, item_count=item_count)
         self.reset()
 
     @property
