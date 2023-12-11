@@ -3,8 +3,8 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 import numpy as np
 
 from replay.data import Dataset
-from replay.models.base_neighbour_rec import NeighbourRec
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from .base_neighbour_rec import NeighbourRec
+from .extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 if PYSPARK_AVAILABLE:

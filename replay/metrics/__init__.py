@@ -42,19 +42,19 @@ For each metric, a formula for its calculation is given, because this is
 important for the correct comparison of algorithms, as mentioned in our
 `article <https://arxiv.org/abs/2206.12858>`_.
 """
-from replay.metrics.base_metric import Metric
-from replay.metrics.categorical_diversity import CategoricalDiversity
-from replay.metrics.coverage import Coverage
-from replay.metrics.descriptors import CalculationDescriptor, ConfidenceInterval, Mean, Median, PerUser
-from replay.metrics.experiment import Experiment
-from replay.metrics.hitrate import HitRate
-from replay.metrics.map import MAP
-from replay.metrics.mrr import MRR
-from replay.metrics.ndcg import NDCG
-from replay.metrics.novelty import Novelty
-from replay.metrics.offline_metrics import OfflineMetrics
-from replay.metrics.precision import Precision
-from replay.metrics.recall import Recall
-from replay.metrics.rocauc import RocAuc
-from replay.metrics.surprisal import Surprisal
-from replay.metrics.unexpectedness import Unexpectedness
+from .base_metric import Metric
+from .categorical_diversity import CategoricalDiversity
+from .coverage import Coverage
+from .descriptors import CalculationDescriptor, ConfidenceInterval, Mean, Median, PerUser
+from .experiment import Experiment
+from .hitrate import HitRate
+from .map import MAP
+from .mrr import MRR
+from .ndcg import NDCG
+from .novelty import Novelty
+from .offline_metrics import OfflineMetrics
+from .precision import Precision
+from .recall import Recall
+from .rocauc import RocAuc
+from .surprisal import Surprisal
+from .unexpectedness import Unexpectedness

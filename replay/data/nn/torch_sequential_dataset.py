@@ -4,8 +4,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset as TorchDataset
 
-from replay.data.nn.schema import TensorFeatureInfo, TensorMap, TensorSchema
-from replay.data.nn.sequential_dataset import SequentialDataset
+from .schema import TensorFeatureInfo, TensorMap, TensorSchema
+from .sequential_dataset import SequentialDataset
 
 
 # We do not use dataclasses as PyTorch default collate

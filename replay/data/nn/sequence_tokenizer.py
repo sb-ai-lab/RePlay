@@ -6,9 +6,9 @@ from pandas import DataFrame as PandasDataFrame
 
 from replay.data import Dataset, FeatureSchema, FeatureSource
 from replay.data.dataset_utils import DatasetLabelEncoder
-from replay.data.nn.schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
-from replay.data.nn.sequential_dataset import PandasSequentialDataset, SequentialDataset
-from replay.data.nn.utils import ensure_pandas, groupby_sequences
+from .schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
+from .sequential_dataset import PandasSequentialDataset, SequentialDataset
+from .utils import ensure_pandas, groupby_sequences
 from replay.preprocessing import LabelEncoder
 from replay.preprocessing.label_encoder import HandleUnknownStrategies
 
