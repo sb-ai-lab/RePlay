@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How to choose a recommender &mdash; RePlay  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="How to optimize a model" href="optuna.html" />
+    <link rel="prev" title="Useful Info" href="../useful.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            RePlay
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../settings.html">Settings</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../useful.html">Useful Info</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#"> How to choose a recommender</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#input-data">Input Data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#what-is-the-input"><em>What is the input?</em></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#are-interactions-explicit"><em>Are interactions explicit?</em></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#will-there-be-new-users"><em>Will there be new users?</em></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#will-there-be-new-items"><em>Will there be new items?</em></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#model-requirements">Model requirements</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#should-recommendations-be-personalized"><em>Should recommendations be personalized?</em></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#should-cold-users-get-recommendations-without-any-interactions"><em>Should cold users get recommendations?</em> (without any interactions).</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#should-model-recommend-cold-items-that-no-one-interacted-with"><em>Should model recommend cold items?</em> (that no one interacted with).</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#should-model-be-able-to-recommend-unseen-items"><em>Should model be able to recommend unseen items?</em></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#model-comparison">Model Comparison</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#movielens-1m">MovieLens 1m</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="optuna.html"> How to optimize hyper parameters</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">RePlay</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../useful.html">Useful Info</a></li>
+      <li class="breadcrumb-item active">How to choose a recommender</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/pages/useful_data/algorithm_selection.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="how-to-choose-a-recommender">
+<h1>How to choose a recommender<a class="headerlink" href="#how-to-choose-a-recommender" title="Permalink to this heading"></a></h1>
+<div class="section" id="input-data">
+<h2>Input Data<a class="headerlink" href="#input-data" title="Permalink to this heading"></a></h2>
+<div class="section" id="what-is-the-input">
+<h3><em>What is the input?</em><a class="headerlink" href="#what-is-the-input" title="Permalink to this heading"></a></h3>
+<p>RePlay models differ by types of data they can process:</p>
+<ul class="simple">
+<li><p>Collaborative use only user-item interaction logs.</p></li>
+<li><p>Content-based use only user or item features.</p></li>
+<li><p>Hybrid can use both intercations and features.</p></li>
+</ul>
+</div>
+<div class="section" id="are-interactions-explicit">
+<h3><em>Are interactions explicit?</em><a class="headerlink" href="#are-interactions-explicit" title="Permalink to this heading"></a></h3>
+<p>Our information can be either <em>explicit</em> e.g. ratings, or <em>implicit</em> e.g. view, number of play counts.
+<br />
+Some models transform any type of data to implicit (<em>unary ratings</em>).</p>
+</div>
+<div class="section" id="will-there-be-new-users">
+<h3><em>Will there be new users?</em><a class="headerlink" href="#will-there-be-new-users" title="Permalink to this heading"></a></h3>
+<p>Some models need to be completely retrained to give predictions for new users (not present in train data,
+but have interactions history) while others don’t.</p>
+</div>
+<div class="section" id="will-there-be-new-items">
+<h3><em>Will there be new items?</em><a class="headerlink" href="#will-there-be-new-items" title="Permalink to this heading"></a></h3>
+<p>The same goes for new items.</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Algorithm</p></th>
+<th class="head"><p>Data</p></th>
+<th class="head"><p>Interactions</p></th>
+<th class="head"><p>New Users</p></th>
+<th class="head"><p>New Items</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Popular Recommender</p></td>
+<td><p>Collaborative</p></td>
+<td><p>converted to unary ratings</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-odd"><td><p>Popular By Users</p></td>
+<td><p>Collaborative</p></td>
+<td><p>implicit feedback</p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-even"><td><p>Wilson Recommender</p></td>
+<td><p>Collaborative</p></td>
+<td><p>binary ratings</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-odd"><td><p>UCB</p></td>
+<td><p>Collaborative</p></td>
+<td><p>binary ratings</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-even"><td><p>KL-UCB</p></td>
+<td><p>Collaborative</p></td>
+<td><p>binary ratings</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-odd"><td><p>Random Recommender</p></td>
+<td><p>Collaborative</p></td>
+<td><p>converted to unary ratings</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-even"><td><p>K-Nearest Neighbours</p></td>
+<td><p>Collaborative</p></td>
+<td><p>converted to unary ratings</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-odd"><td><p>Alternating Least Squares</p></td>
+<td><p>Collaborative</p></td>
+<td><p>implicit feedback</p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-even"><td><p>Neural Matrix Factorization (Experimental)</p></td>
+<td><p>Collaborative</p></td>
+<td><p>converted to unary ratings</p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-odd"><td><p>SLIM</p></td>
+<td><p>Collaborative</p></td>
+<td><p>unary ratings, explicit feedback</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-even"><td><p>ADMM SLIM (Experimental)</p></td>
+<td><p>Collaborative</p></td>
+<td><p>unary ratings, explicit feedback</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-odd"><td><p>Mult-VAE (Experimental)</p></td>
+<td><p>Collaborative</p></td>
+<td><p>converted to unary ratings</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-even"><td><p>Word2Vec Recommender</p></td>
+<td><p>Collaborative</p></td>
+<td><p>converted to unary ratings</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-odd"><td><p>Association Rules</p></td>
+<td><p>Collaborative</p></td>
+<td><p>converted to unary ratings</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-even"><td><p>Cluster Recommender</p></td>
+<td><p>Hybrid</p></td>
+<td><p>converted to unary ratings</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-odd"><td><p>LightFM Wrap (Experimental)</p></td>
+<td><p>Hybrid</p></td>
+<td><p><a class="reference external" href="https://making.lyst.com/lightfm/docs/lightfm.html#lightfm">depends on loss</a></p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-even"><td><p>Implicit Wrap (Experimental)</p></td>
+<td><p>Collaborative</p></td>
+<td><p><a class="reference external" href="https://implicit.readthedocs.io/en/latest/index.html">depends on model</a></p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-odd"><td><p>Two Stages Scenario (Experimental)</p></td>
+<td><p>Hybrid</p></td>
+<td><p>converted to unary ratings for second level</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p><code class="docutils literal notranslate"><span class="pre">*</span></code> - depends on base models.</p>
+</div>
+</div>
+<div class="section" id="model-requirements">
+<h2>Model requirements<a class="headerlink" href="#model-requirements" title="Permalink to this heading"></a></h2>
+<div class="section" id="should-recommendations-be-personalized">
+<h3><em>Should recommendations be personalized?</em><a class="headerlink" href="#should-recommendations-be-personalized" title="Permalink to this heading"></a></h3>
+</div>
+<div class="section" id="should-cold-users-get-recommendations-without-any-interactions">
+<h3><em>Should cold users get recommendations?</em> (without any interactions).<a class="headerlink" href="#should-cold-users-get-recommendations-without-any-interactions" title="Permalink to this heading"></a></h3>
+</div>
+<div class="section" id="should-model-recommend-cold-items-that-no-one-interacted-with">
+<h3><em>Should model recommend cold items?</em> (that no one interacted with).<a class="headerlink" href="#should-model-recommend-cold-items-that-no-one-interacted-with" title="Permalink to this heading"></a></h3>
+</div>
+<div class="section" id="should-model-be-able-to-recommend-unseen-items">
+<h3><em>Should model be able to recommend unseen items?</em><a class="headerlink" href="#should-model-be-able-to-recommend-unseen-items" title="Permalink to this heading"></a></h3>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Algorithm</p></th>
+<th class="head"><p>Personalized</p></th>
+<th class="head"><p>Cold Users</p></th>
+<th class="head"><p>Cold Items</p></th>
+<th class="head"><p>Recommends Unseen Items</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Popular Recommender</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-odd"><td><p>Popular By Users</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+</tr>
+<tr class="row-even"><td><p>Wilson Recommender</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-odd"><td><p>UCB</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-even"><td><p>KL-UCB</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-odd"><td><p>Random Recommender</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-even"><td><p>K-Nearest Neighbours</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-odd"><td><p>Alternating Least Squares</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-even"><td><p>Neural Matrix Factorization (Experimental)</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-odd"><td><p>SLIM</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-even"><td><p>ADMM SLIM (Experimental)</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-odd"><td><p>Mult-VAE (Experimental)</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-even"><td><p>Word2Vec Recommender</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-odd"><td><p>Association Rules</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-even"><td><p>Cluster Recommender</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-odd"><td><p>LightFM  Wrap (Experimental)</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-even"><td><p>Implicit Wrap (Experimental)</p></td>
+<td><p>+</p></td>
+<td><p>-</p></td>
+<td><p>-</p></td>
+<td><p>+</p></td>
+</tr>
+<tr class="row-odd"><td><p>Two Stages Scenario (Experimental)</p></td>
+<td><p>+</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p><code class="docutils literal notranslate"><span class="pre">*</span></code> - depends on base models.</p>
+<p>More info on <a class="reference internal" href="../modules/models.html"><span class="doc std std-doc">models</span></a>.</p>
+</div>
+</div>
+<div class="section" id="model-comparison">
+<h2>Model Comparison<a class="headerlink" href="#model-comparison" title="Permalink to this heading"></a></h2>
+<p>All metrics are calculated at $k=10$</p>
+<div class="section" id="movielens-1m">
+<h3>MovieLens 1m<a class="headerlink" href="#movielens-1m" title="Permalink to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 13%" />
+<col style="width: 13%" />
+<col style="width: 13%" />
+<col style="width: 13%" />
+<col style="width: 13%" />
+<col style="width: 13%" />
+<col style="width: 13%" />
+<col style="width: 13%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head stub"><p>Model</p></th>
+<th class="head"><p>HitRate</p></th>
+<th class="head"><p>MAP</p></th>
+<th class="head"><p>MRR</p></th>
+<th class="head"><p>NDCG</p></th>
+<th class="head"><p>Coverage</p></th>
+<th class="head"><p>Surprisal</p></th>
+<th class="head"><p>fit_pred_time</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><th class="stub"><p>ALS (Implicit)</p></th>
+<td><p>0.686</p></td>
+<td><p>0.172</p></td>
+<td><p>0.419</p></td>
+<td><p>0.265</p></td>
+<td><p>0.133</p></td>
+<td><p>0.163</p></td>
+<td><p>10.128</p></td>
+</tr>
+<tr class="row-odd"><th class="stub"><p>LightFM</p></th>
+<td><p>0.699</p></td>
+<td><p>0.167</p></td>
+<td><p>0.431</p></td>
+<td><p>0.263</p></td>
+<td><p>0.151</p></td>
+<td><p>0.168</p></td>
+<td><p>10.833</p></td>
+</tr>
+<tr class="row-even"><th class="stub"><p>SLIM</p></th>
+<td><p>0.669</p></td>
+<td><p>0.172</p></td>
+<td><p>0.419</p></td>
+<td><p>0.261</p></td>
+<td><p>0.04</p></td>
+<td><p>0.124</p></td>
+<td><p>12.456</p></td>
+</tr>
+<tr class="row-odd"><th class="stub"><p>ItemKNN</p></th>
+<td><p>0.655</p></td>
+<td><p>0.166</p></td>
+<td><p>0.409</p></td>
+<td><p>0.256</p></td>
+<td><p>0.056</p></td>
+<td><p>0.138</p></td>
+<td><p>17.964</p></td>
+</tr>
+<tr class="row-even"><th class="stub"><p>LightFM (w/ feats)</p></th>
+<td><p>0.691</p></td>
+<td><p>0.16</p></td>
+<td><p>0.412</p></td>
+<td><p>0.255</p></td>
+<td><p>0.232</p></td>
+<td><p>0.195</p></td>
+<td><p>86.704</p></td>
+</tr>
+<tr class="row-odd"><th class="stub"><p>PopRec</p></th>
+<td><p>0.645</p></td>
+<td><p>0.157</p></td>
+<td><p>0.39</p></td>
+<td><p>0.244</p></td>
+<td><p>0.034</p></td>
+<td><p>0.118</p></td>
+<td><p>12.3</p></td>
+</tr>
+<tr class="row-even"><th class="stub"><p>MultVAE</p></th>
+<td><p>0.64</p></td>
+<td><p>0.151</p></td>
+<td><p>0.396</p></td>
+<td><p>0.238</p></td>
+<td><p>0.031</p></td>
+<td><p>0.123</p></td>
+<td><p>26.977</p></td>
+</tr>
+<tr class="row-odd"><th class="stub"><p>NeuroMF</p></th>
+<td><p>0.627</p></td>
+<td><p>0.111</p></td>
+<td><p>0.318</p></td>
+<td><p>0.193</p></td>
+<td><p>0.257</p></td>
+<td><p>0.235</p></td>
+<td><p>350.737</p></td>
+</tr>
+<tr class="row-even"><th class="stub"><p>ADMM SLIM</p></th>
+<td><p>0.591</p></td>
+<td><p>0.084</p></td>
+<td><p>0.304</p></td>
+<td><p>0.159</p></td>
+<td><p>0.367</p></td>
+<td><p>0.237</p></td>
+<td><p>77.647</p></td>
+</tr>
+<tr class="row-odd"><th class="stub"><p>Word2Vec</p></th>
+<td><p>0.515</p></td>
+<td><p>0.072</p></td>
+<td><p>0.244</p></td>
+<td><p>0.138</p></td>
+<td><p>0.145</p></td>
+<td><p>0.24</p></td>
+<td><p>25.133</p></td>
+</tr>
+<tr class="row-even"><th class="stub"><p>Wilson</p></th>
+<td><p>0.414</p></td>
+<td><p>0.045</p></td>
+<td><p>0.181</p></td>
+<td><p>0.092</p></td>
+<td><p>0.017</p></td>
+<td><p>0.262</p></td>
+<td><p>10.034</p></td>
+</tr>
+<tr class="row-odd"><th class="stub"><p>RandomRec (popular)</p></th>
+<td><p>0.382</p></td>
+<td><p>0.028</p></td>
+<td><p>0.142</p></td>
+<td><p>0.069</p></td>
+<td><p>0.654</p></td>
+<td><p>0.318</p></td>
+<td><p>6.827</p></td>
+</tr>
+<tr class="row-even"><th class="stub"><p>RandomRec (uniform)</p></th>
+<td><p>0.183</p></td>
+<td><p>0.009</p></td>
+<td><p>0.068</p></td>
+<td><p>0.026</p></td>
+<td><p>0.961</p></td>
+<td><p>0.537</p></td>
+<td><p>7.898</p></td>
+</tr>
+<tr class="row-odd"><th class="stub"><p>ALS (Explicit)</p></th>
+<td><p>0.093</p></td>
+<td><p>0.005</p></td>
+<td><p>0.033</p></td>
+<td><p>0.013</p></td>
+<td><p>0.266</p></td>
+<td><p>0.684</p></td>
+<td><p>13.876</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../useful.html" class="btn btn-neutral float-left" title="Useful Info" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="optuna.html" class="btn btn-neutral float-right" title="How to optimize a model" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Sberbank AI Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

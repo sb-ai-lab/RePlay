@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How to optimize a model &mdash; RePlay  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="prev" title="How to choose a recommender" href="algorithm_selection.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            RePlay
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../settings.html">Settings</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../useful.html">Useful Info</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="algorithm_selection.html"> How to choose a recommender</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#"> How to optimize hyper parameters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#replay.models.base_rec.BaseRecommender.optimize"><code class="docutils literal notranslate"><span class="pre">optimize()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">RePlay</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../useful.html">Useful Info</a></li>
+      <li class="breadcrumb-item active">How to optimize a model</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/pages/useful_data/optuna.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="how-to-optimize-a-model">
+<h1>How to optimize a model<a class="headerlink" href="#how-to-optimize-a-model" title="Permalink to this heading"></a></h1>
+<p>This page will explore different ways to optimize models in RePlay.</p>
+<p>First we initialize a model</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">replay.models</span> <span class="kn">import</span> <span class="n">SLIM</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">SLIM</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>If you just want to optimize a model with default settings, all you have to specify is a data to use for optimization.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This will return a dict with the best parameters and set them.</p>
+<p>If you are not pleased with the results you can continue optimizing by calling <code class="docutils literal notranslate"><span class="pre">optimize</span></code> with <code class="docutils literal notranslate"><span class="pre">new_study=False</span></code>,
+it will continue optimizing right where it stopped. Optuna study is stored as a model attribute.
+For example, you can see all trials with <code class="docutils literal notranslate"><span class="pre">model.study.trials</span></code>.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="replay.models.base_rec.BaseRecommender.optimize">
+<span class="sig-prename descclassname"><span class="pre">replay.models.base_rec.BaseRecommender.</span></span><span class="sig-name descname"><span class="pre">optimize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">param_borders=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">criterion=&lt;class</span> <span class="pre">'replay.metrics.ndcg.NDCG'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k=10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">budget=10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_study=True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.models.base_rec.BaseRecommender.optimize" title="Permalink to this definition"></a></dt>
+<dd><p>Searches the best parameters with optuna.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>train_dataset</strong> (<a class="reference internal" href="../modules/data.html#replay.data.Dataset" title="replay.data.dataset.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a>) – train data</p></li>
+<li><p><strong>test_dataset</strong> (<a class="reference internal" href="../modules/data.html#replay.data.Dataset" title="replay.data.dataset.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a>) – test data</p></li>
+<li><p><strong>param_borders</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code>[<code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code>]]]) – a dictionary with search borders, where
+key is the parameter name and value is the range of possible values
+<code class="docutils literal notranslate"><span class="pre">{param:</span> <span class="pre">[low,</span> <span class="pre">high]}</span></code>. In case of categorical parameters it is
+all possible values: <code class="docutils literal notranslate"><span class="pre">{cat_param:</span> <span class="pre">[cat_1,</span> <span class="pre">cat_2,</span> <span class="pre">cat_3]}</span></code>.</p></li>
+<li><p><strong>criterion</strong> (<a class="reference internal" href="../modules/metrics.html#replay.metrics.base_metric.Metric" title="replay.metrics.base_metric.Metric"><code class="xref py py-class docutils literal notranslate"><span class="pre">Metric</span></code></a>) – metric to use for optimization</p></li>
+<li><p><strong>k</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – recommendation list length</p></li>
+<li><p><strong>budget</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – number of points to try</p></li>
+<li><p><strong>new_study</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – keep searching with previous study or start a new study</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code>]]</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>dictionary with best parameters</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p>You can either use default borders or specify them yourself.
+A list of searchable parameters is specified in <code class="docutils literal notranslate"><span class="pre">_search_space</span></code> attribute.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">_search_space</span>
+
+<span class="p">{</span><span class="s1">&#39;beta&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;loguniform&#39;</span><span class="p">,</span> <span class="s1">&#39;args&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1e-06</span><span class="p">,</span> <span class="mi">5</span><span class="p">]},</span>
+ <span class="s1">&#39;lambda_&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;loguniform&#39;</span><span class="p">,</span> <span class="s1">&#39;args&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1e-06</span><span class="p">,</span> <span class="mi">2</span><span class="p">]}}</span>
+</pre></div>
+</div>
+<p>If you specify only one of the parameters, the other one will not be optimized.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">SLIM</span><span class="p">(</span><span class="n">lambda_</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">param_borders</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;beta&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]})</span>
+</pre></div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="algorithm_selection.html" class="btn btn-neutral float-left" title="How to choose a recommender" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Sberbank AI Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

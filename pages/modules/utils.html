@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Utils &mdash; RePlay  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Settings" href="../settings.html" />
+    <link rel="prev" title="Scenarios" href="scenarios.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            RePlay
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Development</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preprocessing.html">Preprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitters.html">Splitters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="metrics.html">Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scenarios.html">Scenarios</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Utils</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#time-smoothing">Time Smoothing</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.utils.time.smoothe_time"><code class="docutils literal notranslate"><span class="pre">smoothe_time()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#replay.utils.time.get_item_recency"><code class="docutils literal notranslate"><span class="pre">get_item_recency()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#serializer">Serializer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.utils.model_handler.save"><code class="docutils literal notranslate"><span class="pre">save()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#replay.utils.model_handler.load"><code class="docutils literal notranslate"><span class="pre">load()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#distributions">Distributions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#item-distribution">Item Distribution</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../settings.html">Settings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../useful.html">Useful Info</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">RePlay</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../modules.html">Modules</a></li>
+      <li class="breadcrumb-item active">Utils</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/pages/modules/utils.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="utils">
+<h1>Utils<a class="headerlink" href="#utils" title="Permalink to this heading"></a></h1>
+<div class="section" id="time-smoothing">
+<h2>Time Smoothing<a class="headerlink" href="#time-smoothing" title="Permalink to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">time</span></code> module provides function to apply time smoothing to item or interaction relevance.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="replay.utils.time.smoothe_time">
+<span class="sig-prename descclassname"><span class="pre">replay.utils.time.</span></span><span class="sig-name descname"><span class="pre">smoothe_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kind</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'exp'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.utils.time.smoothe_time" title="Permalink to this definition"></a></dt>
+<dd><p>Weighs <code class="docutils literal notranslate"><span class="pre">relevance</span></code> column with a time-dependent weight.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>log</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]) – interactions log</p></li>
+<li><p><strong>decay</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – number of days after which the weight is reduced by half, must be grater than 1</p></li>
+<li><p><strong>limit</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – minimal value the weight can reach</p></li>
+<li><p><strong>kind</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – type of smoothing, one of [power, exp, linear].
+Corresponding functions are <code class="docutils literal notranslate"><span class="pre">power</span></code>: <code class="docutils literal notranslate"><span class="pre">age^c</span></code>,
+<code class="docutils literal notranslate"><span class="pre">exp</span></code>: <code class="docutils literal notranslate"><span class="pre">c^age</span></code>, <code class="docutils literal notranslate"><span class="pre">linear</span></code>: <code class="docutils literal notranslate"><span class="pre">1-c*age</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>modified DataFrame</p>
+</dd>
+</dl>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">pyspark.sql.functions</span> <span class="kn">import</span> <span class="nb">round</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">d</span> <span class="o">=</span> <span class="p">{</span>
+<span class="gp">... </span>    <span class="s2">&quot;item_idx&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2099-03-19&quot;</span><span class="p">,</span> <span class="s2">&quot;2099-03-20&quot;</span><span class="p">,</span> <span class="s2">&quot;2099-03-22&quot;</span><span class="p">,</span> <span class="s2">&quot;2099-03-27&quot;</span><span class="p">,</span> <span class="s2">&quot;2099-03-25&quot;</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s2">&quot;relevance&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+<span class="gp">... </span><span class="p">}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">df</span>
+<span class="go">   item_idx   timestamp  relevance</span>
+<span class="go">0         1  2099-03-19          1</span>
+<span class="go">1         1  2099-03-20          1</span>
+<span class="go">2         2  2099-03-22          1</span>
+<span class="go">3         3  2099-03-27          1</span>
+<span class="go">4         3  2099-03-25          1</span>
+</pre></div>
+</div>
+<p>Power smoothing falls quickly in the beginning but decays slowly afterwards as <code class="docutils literal notranslate"><span class="pre">age^c</span></code>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">smoothe_time</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;power&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="s2">&quot;item_idx&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|item_idx|          timestamp|relevance|</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|       1|2099-03-19 00:00:00|    0.639|</span>
+<span class="go">|       1|2099-03-20 00:00:00|   0.6546|</span>
+<span class="go">|       2|2099-03-22 00:00:00|   0.6941|</span>
+<span class="go">|       3|2099-03-25 00:00:00|   0.7994|</span>
+<span class="go">|       3|2099-03-27 00:00:00|      1.0|</span>
+<span class="go">+--------+-------------------+---------+</span>
+</pre></div>
+</div>
+<p>Exponential smoothing is the other way around. Old objects decay more quickly as <code class="docutils literal notranslate"><span class="pre">c^age</span></code>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">smoothe_time</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;exp&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="s2">&quot;item_idx&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|item_idx|          timestamp|relevance|</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|       1|2099-03-19 00:00:00|   0.8312|</span>
+<span class="go">|       1|2099-03-20 00:00:00|   0.8507|</span>
+<span class="go">|       2|2099-03-22 00:00:00|   0.8909|</span>
+<span class="go">|       3|2099-03-25 00:00:00|   0.9548|</span>
+<span class="go">|       3|2099-03-27 00:00:00|      1.0|</span>
+<span class="go">+--------+-------------------+---------+</span>
+</pre></div>
+</div>
+<p>Last type is a linear smoothing: <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">-</span> <span class="pre">c*age</span></code>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">smoothe_time</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="s2">&quot;item_idx&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|item_idx|          timestamp|relevance|</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|       1|2099-03-19 00:00:00|   0.8667|</span>
+<span class="go">|       1|2099-03-20 00:00:00|   0.8833|</span>
+<span class="go">|       2|2099-03-22 00:00:00|   0.9167|</span>
+<span class="go">|       3|2099-03-25 00:00:00|   0.9667|</span>
+<span class="go">|       3|2099-03-27 00:00:00|      1.0|</span>
+<span class="go">+--------+-------------------+---------+</span>
+</pre></div>
+</div>
+<p>These examples use constant relevance 1, so resulting weight equals the time dependent weight.
+But actually this value is an updated relevance.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">d</span> <span class="o">=</span> <span class="p">{</span>
+<span class="gp">... </span>    <span class="s2">&quot;item_idx&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2099-03-19&quot;</span><span class="p">,</span> <span class="s2">&quot;2099-03-20&quot;</span><span class="p">,</span> <span class="s2">&quot;2099-03-22&quot;</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s2">&quot;relevance&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">],</span>
+<span class="gp">... </span><span class="p">}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">df</span>
+<span class="go">   item_idx   timestamp  relevance</span>
+<span class="go">0         1  2099-03-19       10.0</span>
+<span class="go">1         2  2099-03-20        3.0</span>
+<span class="go">2         3  2099-03-22        0.1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">smoothe_time</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="s2">&quot;item_idx&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|item_idx|          timestamp|relevance|</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|       1|2099-03-19 00:00:00|   9.3303|</span>
+<span class="go">|       2|2099-03-20 00:00:00|   2.8645|</span>
+<span class="go">|       3|2099-03-22 00:00:00|      0.1|</span>
+<span class="go">+--------+-------------------+---------+</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="replay.utils.time.get_item_recency">
+<span class="sig-prename descclassname"><span class="pre">replay.utils.time.</span></span><span class="sig-name descname"><span class="pre">get_item_recency</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kind</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'exp'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.utils.time.get_item_recency" title="Permalink to this definition"></a></dt>
+<dd><p>Calculate item weight showing when the majority of interactions with this item happened.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>log</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]) – interactions log</p></li>
+<li><p><strong>decay</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – number of days after which the weight is reduced by half, must be grater than 1</p></li>
+<li><p><strong>limit</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – minimal value the weight can reach</p></li>
+<li><p><strong>kind</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – type of smoothing, one of [power, exp, linear]
+Corresponding functions are <code class="docutils literal notranslate"><span class="pre">power</span></code>: <code class="docutils literal notranslate"><span class="pre">age^c</span></code>,
+<code class="docutils literal notranslate"><span class="pre">exp</span></code>: <code class="docutils literal notranslate"><span class="pre">c^age</span></code>, <code class="docutils literal notranslate"><span class="pre">linear</span></code>: <code class="docutils literal notranslate"><span class="pre">1-c*age</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>DataFrame with item weights</p>
+</dd>
+</dl>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">pyspark.sql.functions</span> <span class="kn">import</span> <span class="nb">round</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">d</span> <span class="o">=</span> <span class="p">{</span>
+<span class="gp">... </span>    <span class="s2">&quot;item_idx&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2099-03-19&quot;</span><span class="p">,</span> <span class="s2">&quot;2099-03-20&quot;</span><span class="p">,</span> <span class="s2">&quot;2099-03-22&quot;</span><span class="p">,</span> <span class="s2">&quot;2099-03-27&quot;</span><span class="p">,</span> <span class="s2">&quot;2099-03-25&quot;</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s2">&quot;relevance&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+<span class="gp">... </span><span class="p">}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">df</span>
+<span class="go">   item_idx   timestamp  relevance</span>
+<span class="go">0         1  2099-03-19          1</span>
+<span class="go">1         1  2099-03-20          1</span>
+<span class="go">2         2  2099-03-22          1</span>
+<span class="go">3         3  2099-03-27          1</span>
+<span class="go">4         3  2099-03-25          1</span>
+</pre></div>
+</div>
+<p>Age in days is calculated for every item,
+which is transformed into a weight using some function.
+There are three types of smoothing types available: power, exp and linear.
+Each type calculates a parameter <code class="docutils literal notranslate"><span class="pre">c</span></code> based on the <code class="docutils literal notranslate"><span class="pre">decay</span></code> argument,
+so that an item with <code class="docutils literal notranslate"><span class="pre">age==decay</span></code> has weight 0.5.</p>
+<p>Power smoothing falls quickly in the beginning but decays slowly afterwards as <code class="docutils literal notranslate"><span class="pre">age^c</span></code>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">get_item_recency</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;power&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="s2">&quot;item_idx&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s2">&quot;item_idx&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|item_idx|          timestamp|relevance|</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|       1|2099-03-19 12:00:00|   0.6632|</span>
+<span class="go">|       2|2099-03-22 00:00:00|   0.7204|</span>
+<span class="go">|       3|2099-03-26 00:00:00|      1.0|</span>
+<span class="go">+--------+-------------------+---------+</span>
+</pre></div>
+</div>
+<p>Exponential smoothing is the other way around. Old objects decay more quickly as <code class="docutils literal notranslate"><span class="pre">c^age</span></code>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">get_item_recency</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;exp&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="s2">&quot;item_idx&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s2">&quot;item_idx&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|item_idx|          timestamp|relevance|</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|       1|2099-03-19 12:00:00|   0.8606|</span>
+<span class="go">|       2|2099-03-22 00:00:00|   0.9117|</span>
+<span class="go">|       3|2099-03-26 00:00:00|      1.0|</span>
+<span class="go">+--------+-------------------+---------+</span>
+</pre></div>
+</div>
+<p>Last type is a linear smoothing: <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">-</span> <span class="pre">c*age</span></code>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">get_item_recency</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="s2">&quot;item_idx&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;relevance&quot;</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s2">&quot;item_idx&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|item_idx|          timestamp|relevance|</span>
+<span class="go">+--------+-------------------+---------+</span>
+<span class="go">|       1|2099-03-19 12:00:00|   0.8917|</span>
+<span class="go">|       2|2099-03-22 00:00:00|   0.9333|</span>
+<span class="go">|       3|2099-03-26 00:00:00|      1.0|</span>
+<span class="go">+--------+-------------------+---------+</span>
+</pre></div>
+</div>
+<p>This function <strong>does not</strong> take relevance values of interactions into account.
+Only item age is used.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="serializer">
+<h2>Serializer<a class="headerlink" href="#serializer" title="Permalink to this heading"></a></h2>
+<p>You can save trained models to disk and restore them later with <code class="docutils literal notranslate"><span class="pre">save</span></code> and <code class="docutils literal notranslate"><span class="pre">load</span></code> functions.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="replay.utils.model_handler.save">
+<span class="sig-prename descclassname"><span class="pre">replay.utils.model_handler.</span></span><span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.utils.model_handler.save" title="Permalink to this definition"></a></dt>
+<dd><p>Save fitted model to disk as a folder</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">BaseRecommender</span></code>) – Trained recommender</p></li>
+<li><p><strong>path</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Path</span></code>]) – destination where model files will be stored</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="replay.utils.model_handler.load">
+<span class="sig-prename descclassname"><span class="pre">replay.utils.model_handler.</span></span><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.utils.model_handler.load" title="Permalink to this definition"></a></dt>
+<dd><p>Load saved model from disk</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>path</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – path to model folder</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseRecommender</span></code></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Restored trained model</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="distributions">
+<h2>Distributions<a class="headerlink" href="#distributions" title="Permalink to this heading"></a></h2>
+<div class="section" id="item-distribution">
+<h3>Item Distribution<a class="headerlink" href="#item-distribution" title="Permalink to this heading"></a></h3>
+<p>Calculates item popularity in recommendations using 10 popularity bins.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="replay.utils.distributions.item_distribution">
+<span class="sig-prename descclassname"><span class="pre">replay.utils.distributions.</span></span><span class="sig-name descname"><span class="pre">item_distribution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recommendations</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.utils.distributions.item_distribution" title="Permalink to this definition"></a></dt>
+<dd><p>Calculate item distribution in <code class="docutils literal notranslate"><span class="pre">log</span></code> and <code class="docutils literal notranslate"><span class="pre">recommendations</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>log</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]) – historical DataFrame used to calculate popularity</p></li>
+<li><p><strong>recommendations</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]) – model recommendations</p></li>
+<li><p><strong>k</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – length of a recommendation list</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>DataFrame with results</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p>You can plot the result. Here is the example for MovieLens log.</p>
+<img alt="../../_images/item_pop.jpg" src="../../_images/item_pop.jpg" />
+<dl class="py function">
+<dt class="sig sig-object py" id="replay.utils.distributions.plot_item_dist">
+<span class="sig-prename descclassname"><span class="pre">replay.utils.distributions.</span></span><span class="sig-name descname"><span class="pre">plot_item_dist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item_dist</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">palette</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'magma'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rec_count'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.utils.distributions.plot_item_dist" title="Permalink to this definition"></a></dt>
+<dd><p>Show the results of  <code class="docutils literal notranslate"><span class="pre">item_distribution</span></code> method</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>item_dist</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>) – PandasDataFrame</p></li>
+<li><p><strong>palette</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – colour scheme for seaborn</p></li>
+<li><p><strong>col</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – column to use for a plot</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>plot</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="scenarios.html" class="btn btn-neutral float-left" title="Scenarios" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../settings.html" class="btn btn-neutral float-right" title="Settings" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Sberbank AI Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

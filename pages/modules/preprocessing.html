@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Preprocessing &mdash; RePlay  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Splitters" href="splitters.html" />
+    <link rel="prev" title="Data" href="data.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            RePlay
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Development</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Preprocessing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-replay.preprocessing.filters">Filters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.preprocessing.filters.EntityDaysFilter"><code class="docutils literal notranslate"><span class="pre">EntityDaysFilter</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#replay.preprocessing.filters.GlobalDaysFilter"><code class="docutils literal notranslate"><span class="pre">GlobalDaysFilter</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#replay.preprocessing.filters.InteractionEntriesFilter"><code class="docutils literal notranslate"><span class="pre">InteractionEntriesFilter</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#replay.preprocessing.filters.LowRatingFilter"><code class="docutils literal notranslate"><span class="pre">LowRatingFilter</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#replay.preprocessing.filters.MinCountFilter"><code class="docutils literal notranslate"><span class="pre">MinCountFilter</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#replay.preprocessing.filters.NumInteractionsFilter"><code class="docutils literal notranslate"><span class="pre">NumInteractionsFilter</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#replay.preprocessing.filters.TimePeriodFilter"><code class="docutils literal notranslate"><span class="pre">TimePeriodFilter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#csrconverter">CSRConverter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.preprocessing.converter.CSRConverter"><code class="docutils literal notranslate"><span class="pre">CSRConverter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#sessionizer">Sessionizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.preprocessing.sessionizer.Sessionizer"><code class="docutils literal notranslate"><span class="pre">Sessionizer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#padder-experimental">Padder (Experimental)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.experimental.preprocessing.padder.Padder"><code class="docutils literal notranslate"><span class="pre">Padder</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#sequencegenerator-experimental">SequenceGenerator (Experimental)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.experimental.preprocessing.sequence_generator.SequenceGenerator"><code class="docutils literal notranslate"><span class="pre">SequenceGenerator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#data-preparation-experimental">Data Preparation (Experimental)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.experimental.preprocessing.data_preparator.Indexer"><code class="docutils literal notranslate"><span class="pre">Indexer</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#replay.experimental.preprocessing.data_preparator.DataPreparator"><code class="docutils literal notranslate"><span class="pre">DataPreparator</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="splitters.html">Splitters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="metrics.html">Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scenarios.html">Scenarios</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html">Utils</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../settings.html">Settings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../useful.html">Useful Info</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">RePlay</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../modules.html">Modules</a></li>
+      <li class="breadcrumb-item active">Preprocessing</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/pages/modules/preprocessing.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="module-replay.preprocessing">
+<span id="preprocessing"></span><h1>Preprocessing<a class="headerlink" href="#module-replay.preprocessing" title="Permalink to this heading"></a></h1>
+<p>This module contains tools for preprocessing data including:</p>
+<ul class="simple">
+<li><p>filters</p></li>
+<li><p>processors for feature transforms</p></li>
+</ul>
+<div class="section" id="module-replay.preprocessing.filters">
+<span id="filters"></span><h2>Filters<a class="headerlink" href="#module-replay.preprocessing.filters" title="Permalink to this heading"></a></h2>
+<p>Select or remove data by some criteria</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.preprocessing.filters.EntityDaysFilter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.preprocessing.filters.</span></span><span class="sig-name descname"><span class="pre">EntityDaysFilter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">days</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">first</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entity_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'user_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.preprocessing.filters.EntityDaysFilter" title="Permalink to this definition"></a></dt>
+<dd><p>Get first/last <code class="docutils literal notranslate"><span class="pre">days</span></code> of interactions by entity.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">replay.utils.spark_utils</span> <span class="kn">import</span> <span class="n">convert2spark</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_pd</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;u1&quot;</span><span class="p">,</span> <span class="s2">&quot;u2&quot;</span><span class="p">,</span> <span class="s2">&quot;u2&quot;</span><span class="p">,</span> <span class="s2">&quot;u3&quot;</span><span class="p">,</span> <span class="s2">&quot;u3&quot;</span><span class="p">,</span> <span class="s2">&quot;u3&quot;</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;i1&quot;</span><span class="p">,</span> <span class="s2">&quot;i2&quot;</span><span class="p">,</span><span class="s2">&quot;i3&quot;</span><span class="p">,</span> <span class="s2">&quot;i1&quot;</span><span class="p">,</span> <span class="s2">&quot;i2&quot;</span><span class="p">,</span><span class="s2">&quot;i3&quot;</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;rating&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2020-01-01 23:59:59&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-02-01&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                                  <span class="s2">&quot;2020-02-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-01-01 00:04:15&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                                  <span class="s2">&quot;2020-01-02 00:04:14&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-01-05 23:59:59&quot;</span><span class="p">]},</span>
+<span class="gp">... </span>            <span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_pd</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">log_pd</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_sp</span> <span class="o">=</span> <span class="n">convert2spark</span><span class="p">(</span><span class="n">log_pd</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_sp</span><span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s1">&#39;user_id&#39;</span><span class="p">,</span> <span class="s1">&#39;item_id&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|user_id|item_id|rating|          timestamp|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|     u1|     i1|   1.0|2020-01-01 23:59:59|</span>
+<span class="go">|     u2|     i2|   0.5|2020-02-01 00:00:00|</span>
+<span class="go">|     u2|     i3|   3.0|2020-02-01 00:00:00|</span>
+<span class="go">|     u3|     i1|   1.0|2020-01-01 00:04:15|</span>
+<span class="go">|     u3|     i2|   0.0|2020-01-02 00:04:14|</span>
+<span class="go">|     u3|     i3|   1.0|2020-01-05 23:59:59|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+</pre></div>
+</div>
+<p>Get first day by users:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">EntityDaysFilter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">entity_column</span><span class="o">=</span><span class="s1">&#39;user_id&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">log_sp</span><span class="p">)</span><span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s1">&#39;user_id&#39;</span><span class="p">,</span> <span class="s1">&#39;item_id&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|user_id|item_id|rating|          timestamp|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|     u1|     i1|   1.0|2020-01-01 23:59:59|</span>
+<span class="go">|     u2|     i2|   0.5|2020-02-01 00:00:00|</span>
+<span class="go">|     u2|     i3|   3.0|2020-02-01 00:00:00|</span>
+<span class="go">|     u3|     i1|   1.0|2020-01-01 00:04:15|</span>
+<span class="go">|     u3|     i2|   0.0|2020-01-02 00:04:14|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+</pre></div>
+</div>
+<p>Get last day by item:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">EntityDaysFilter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">entity_column</span><span class="o">=</span><span class="s1">&#39;item_id&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">log_sp</span><span class="p">)</span><span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s1">&#39;item_id&#39;</span><span class="p">,</span> <span class="s1">&#39;user_id&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|user_id|item_id|rating|          timestamp|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|     u1|     i1|   1.0|2020-01-01 23:59:59|</span>
+<span class="go">|     u3|     i1|   1.0|2020-01-01 00:04:15|</span>
+<span class="go">|     u2|     i2|   0.5|2020-02-01 00:00:00|</span>
+<span class="go">|     u2|     i3|   3.0|2020-02-01 00:00:00|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.preprocessing.filters.GlobalDaysFilter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.preprocessing.filters.</span></span><span class="sig-name descname"><span class="pre">GlobalDaysFilter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">days</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">first</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.preprocessing.filters.GlobalDaysFilter" title="Permalink to this definition"></a></dt>
+<dd><p>Select first/last days from <code class="docutils literal notranslate"><span class="pre">interactions</span></code>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">replay.utils.spark_utils</span> <span class="kn">import</span> <span class="n">convert2spark</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_pd</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;u1&quot;</span><span class="p">,</span> <span class="s2">&quot;u2&quot;</span><span class="p">,</span> <span class="s2">&quot;u2&quot;</span><span class="p">,</span> <span class="s2">&quot;u3&quot;</span><span class="p">,</span> <span class="s2">&quot;u3&quot;</span><span class="p">,</span> <span class="s2">&quot;u3&quot;</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;i1&quot;</span><span class="p">,</span> <span class="s2">&quot;i2&quot;</span><span class="p">,</span><span class="s2">&quot;i3&quot;</span><span class="p">,</span> <span class="s2">&quot;i1&quot;</span><span class="p">,</span> <span class="s2">&quot;i2&quot;</span><span class="p">,</span><span class="s2">&quot;i3&quot;</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;rating&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2020-01-01 23:59:59&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-02-01&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                                  <span class="s2">&quot;2020-02-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-01-01 00:04:15&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                                  <span class="s2">&quot;2020-01-02 00:04:14&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-01-05 23:59:59&quot;</span><span class="p">]},</span>
+<span class="gp">... </span>            <span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_pd</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">log_pd</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_sp</span> <span class="o">=</span> <span class="n">convert2spark</span><span class="p">(</span><span class="n">log_pd</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_sp</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|user_id|item_id|rating|          timestamp|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|     u1|     i1|   1.0|2020-01-01 23:59:59|</span>
+<span class="go">|     u2|     i2|   0.5|2020-02-01 00:00:00|</span>
+<span class="go">|     u2|     i3|   3.0|2020-02-01 00:00:00|</span>
+<span class="go">|     u3|     i1|   1.0|2020-01-01 00:04:15|</span>
+<span class="go">|     u3|     i2|   0.0|2020-01-02 00:04:14|</span>
+<span class="go">|     u3|     i3|   1.0|2020-01-05 23:59:59|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">GlobalDaysFilter</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">log_sp</span><span class="p">)</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|user_id|item_id|rating|          timestamp|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|     u1|     i1|   1.0|2020-01-01 23:59:59|</span>
+<span class="go">|     u3|     i1|   1.0|2020-01-01 00:04:15|</span>
+<span class="go">|     u3|     i2|   0.0|2020-01-02 00:04:14|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">GlobalDaysFilter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">first</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">log_sp</span><span class="p">)</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|user_id|item_id|rating|          timestamp|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|     u2|     i2|   0.5|2020-02-01 00:00:00|</span>
+<span class="go">|     u2|     i3|   3.0|2020-02-01 00:00:00|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.preprocessing.filters.InteractionEntriesFilter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.preprocessing.filters.</span></span><span class="sig-name descname"><span class="pre">InteractionEntriesFilter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'user_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_inter_per_user</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_inter_per_user</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_inter_per_item</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_inter_per_item</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_caching</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.preprocessing.filters.InteractionEntriesFilter" title="Permalink to this definition"></a></dt>
+<dd><p>Remove interactions less than minimum constraint value and greater
+than maximum constraint value for each column.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">interactions</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+<span class="gp">... </span>   <span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;rating&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">interactions</span>
+<span class="go">    user_id  item_id  rating</span>
+<span class="go">0        1        3       1</span>
+<span class="go">1        1        7       2</span>
+<span class="go">2        1       10       3</span>
+<span class="go">3        2        5       3</span>
+<span class="go">4        2        8       2</span>
+<span class="go">5        2       11       1</span>
+<span class="go">6        3        4       3</span>
+<span class="go">7        3        9      12</span>
+<span class="go">8        3        2       1</span>
+<span class="go">9        3        5       4</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">filtered_interactions</span> <span class="o">=</span> <span class="n">InteractionEntriesFilter</span><span class="p">(</span><span class="n">min_inter_per_user</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">interactions</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">filtered_interactions</span>
+<span class="go">    user_id  item_id  rating</span>
+<span class="go">6        3        4       3</span>
+<span class="go">7        3        9      12</span>
+<span class="go">8        3        2       1</span>
+<span class="go">9        3        5       4</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.preprocessing.filters.LowRatingFilter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.preprocessing.filters.</span></span><span class="sig-name descname"><span class="pre">LowRatingFilter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rating_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rating'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.preprocessing.filters.LowRatingFilter" title="Permalink to this definition"></a></dt>
+<dd><p>Remove records with records less than <code class="docutils literal notranslate"><span class="pre">value</span></code> in <code class="docutils literal notranslate"><span class="pre">column</span></code>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data_frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;rating&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mf">3.5</span><span class="p">,</span> <span class="mi">4</span><span class="p">]})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">LowRatingFilter</span><span class="p">(</span><span class="mf">3.5</span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">data_frame</span><span class="p">)</span>
+<span class="go">     rating</span>
+<span class="go">1       5.0</span>
+<span class="go">2       3.5</span>
+<span class="go">3       4.0</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.preprocessing.filters.MinCountFilter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.preprocessing.filters.</span></span><span class="sig-name descname"><span class="pre">MinCountFilter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_entries</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groupby_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'user_id'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.preprocessing.filters.MinCountFilter" title="Permalink to this definition"></a></dt>
+<dd><p>Remove entries with entities (e.g. users, items) which are presented in <cite>interactions</cite>
+less than <cite>num_entries</cite> times. The <cite>interactions</cite> is grouped by <cite>groupby_column</cite>,
+which is entry column name, to calculate counts.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data_frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">MinCountFilter</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">data_frame</span><span class="p">)</span>
+<span class="go">    user_id</span>
+<span class="go">0         1</span>
+<span class="go">1         1</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.preprocessing.filters.NumInteractionsFilter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.preprocessing.filters.</span></span><span class="sig-name descname"><span class="pre">NumInteractionsFilter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_interactions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">first</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'user_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.preprocessing.filters.NumInteractionsFilter" title="Permalink to this definition"></a></dt>
+<dd><p>Get first/last <code class="docutils literal notranslate"><span class="pre">num_interactions</span></code> interactions for each query.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">replay.utils.spark_utils</span> <span class="kn">import</span> <span class="n">convert2spark</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_pd</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;u1&quot;</span><span class="p">,</span> <span class="s2">&quot;u2&quot;</span><span class="p">,</span> <span class="s2">&quot;u2&quot;</span><span class="p">,</span> <span class="s2">&quot;u3&quot;</span><span class="p">,</span> <span class="s2">&quot;u3&quot;</span><span class="p">,</span> <span class="s2">&quot;u3&quot;</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;i1&quot;</span><span class="p">,</span> <span class="s2">&quot;i2&quot;</span><span class="p">,</span><span class="s2">&quot;i3&quot;</span><span class="p">,</span> <span class="s2">&quot;i1&quot;</span><span class="p">,</span> <span class="s2">&quot;i2&quot;</span><span class="p">,</span><span class="s2">&quot;i3&quot;</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;rating&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2020-01-01 23:59:59&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-02-01&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                                  <span class="s2">&quot;2020-02-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-01-01 00:04:15&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                                  <span class="s2">&quot;2020-01-02 00:04:14&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-01-05 23:59:59&quot;</span><span class="p">]},</span>
+<span class="gp">... </span>            <span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_pd</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">log_pd</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_sp</span> <span class="o">=</span> <span class="n">convert2spark</span><span class="p">(</span><span class="n">log_pd</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_sp</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|user_id|item_id|rating|          timestamp|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|     u1|     i1|   1.0|2020-01-01 23:59:59|</span>
+<span class="go">|     u2|     i2|   0.5|2020-02-01 00:00:00|</span>
+<span class="go">|     u2|     i3|   3.0|2020-02-01 00:00:00|</span>
+<span class="go">|     u3|     i1|   1.0|2020-01-01 00:04:15|</span>
+<span class="go">|     u3|     i2|   0.0|2020-01-02 00:04:14|</span>
+<span class="go">|     u3|     i3|   1.0|2020-01-05 23:59:59|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+</pre></div>
+</div>
+<p>Only first interaction:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">NumInteractionsFilter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">item_column</span><span class="o">=</span><span class="s1">&#39;item_id&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">log_sp</span><span class="p">)</span><span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s1">&#39;user_id&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|user_id|item_id|rating|          timestamp|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|     u1|     i1|   1.0|2020-01-01 23:59:59|</span>
+<span class="go">|     u2|     i2|   0.5|2020-02-01 00:00:00|</span>
+<span class="go">|     u3|     i1|   1.0|2020-01-01 00:04:15|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+</pre></div>
+</div>
+<p>Only last interaction:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">NumInteractionsFilter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">log_sp</span><span class="p">)</span><span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s1">&#39;user_id&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|user_id|item_id|rating|          timestamp|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|     u1|     i1|   1.0|2020-01-01 23:59:59|</span>
+<span class="go">|     u2|     i2|   0.5|2020-02-01 00:00:00|</span>
+<span class="go">|     u3|     i3|   1.0|2020-01-05 23:59:59|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">NumInteractionsFilter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">item_column</span><span class="o">=</span><span class="s1">&#39;item_id&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">log_sp</span><span class="p">)</span><span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s1">&#39;user_id&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|user_id|item_id|rating|          timestamp|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|     u1|     i1|   1.0|2020-01-01 23:59:59|</span>
+<span class="go">|     u2|     i3|   3.0|2020-02-01 00:00:00|</span>
+<span class="go">|     u3|     i3|   1.0|2020-01-05 23:59:59|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.preprocessing.filters.TimePeriodFilter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.preprocessing.filters.</span></span><span class="sig-name descname"><span class="pre">TimePeriodFilter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_date</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_date</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.preprocessing.filters.TimePeriodFilter" title="Permalink to this definition"></a></dt>
+<dd><p>Select a part of data between <code class="docutils literal notranslate"><span class="pre">[start_date,</span> <span class="pre">end_date)</span></code>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">replay.utils.spark_utils</span> <span class="kn">import</span> <span class="n">convert2spark</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_pd</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;u1&quot;</span><span class="p">,</span> <span class="s2">&quot;u2&quot;</span><span class="p">,</span> <span class="s2">&quot;u2&quot;</span><span class="p">,</span> <span class="s2">&quot;u3&quot;</span><span class="p">,</span> <span class="s2">&quot;u3&quot;</span><span class="p">,</span> <span class="s2">&quot;u3&quot;</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;i1&quot;</span><span class="p">,</span> <span class="s2">&quot;i2&quot;</span><span class="p">,</span><span class="s2">&quot;i3&quot;</span><span class="p">,</span> <span class="s2">&quot;i1&quot;</span><span class="p">,</span> <span class="s2">&quot;i2&quot;</span><span class="p">,</span><span class="s2">&quot;i3&quot;</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;rating&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2020-01-01 23:59:59&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-02-01&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                                  <span class="s2">&quot;2020-02-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-01-01 00:04:15&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                                  <span class="s2">&quot;2020-01-02 00:04:14&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-01-05 23:59:59&quot;</span><span class="p">]},</span>
+<span class="gp">... </span>            <span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_pd</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">log_pd</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_sp</span> <span class="o">=</span> <span class="n">convert2spark</span><span class="p">(</span><span class="n">log_pd</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log_sp</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|user_id|item_id|rating|          timestamp|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|     u1|     i1|   1.0|2020-01-01 23:59:59|</span>
+<span class="go">|     u2|     i2|   0.5|2020-02-01 00:00:00|</span>
+<span class="go">|     u2|     i3|   3.0|2020-02-01 00:00:00|</span>
+<span class="go">|     u3|     i1|   1.0|2020-01-01 00:04:15|</span>
+<span class="go">|     u3|     i2|   0.0|2020-01-02 00:04:14|</span>
+<span class="go">|     u3|     i3|   1.0|2020-01-05 23:59:59|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">TimePeriodFilter</span><span class="p">(</span><span class="n">start_date</span><span class="o">=</span><span class="s2">&quot;2020-01-01 14:00:00&quot;</span><span class="p">,</span> <span class="n">end_date</span><span class="o">=</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">log_sp</span><span class="p">)</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|user_id|item_id|rating|          timestamp|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+<span class="go">|     u1|     i1|   1.0|2020-01-01 23:59:59|</span>
+<span class="go">|     u3|     i2|   0.0|2020-01-02 00:04:14|</span>
+<span class="go">+-------+-------+------+-------------------+</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</div>
+<div class="section" id="csrconverter">
+<h2>CSRConverter<a class="headerlink" href="#csrconverter" title="Permalink to this heading"></a></h2>
+<p>Convert input data to csr sparse matrix.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.preprocessing.converter.CSRConverter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.preprocessing.converter.</span></span><span class="sig-name descname"><span class="pre">CSRConverter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">first_dim_column</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">second_dim_column</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">row_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">column_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_collect_to_master</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.preprocessing.converter.CSRConverter" title="Permalink to this definition"></a></dt>
+<dd><p>Convert input data to csr sparse matrix.
+Where <code class="docutils literal notranslate"><span class="pre">data_column</span></code>, <code class="docutils literal notranslate"><span class="pre">first_dim_column</span></code> and <code class="docutils literal notranslate"><span class="pre">second_dim_column</span></code> satisfy the relationship
+<code class="docutils literal notranslate"><span class="pre">matrix[first_dim_column[i],</span> <span class="pre">second_dim_column[i]]</span> <span class="pre">=</span> <span class="pre">data_column[i]</span></code>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">interactions</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+<span class="gp">... </span>   <span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;rating&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">interactions</span>
+<span class="go">    user_id  item_id  rating</span>
+<span class="go">0        1        3       1</span>
+<span class="go">1        1        7       2</span>
+<span class="go">2        1       10       3</span>
+<span class="go">3        2        5       3</span>
+<span class="go">4        2        8       2</span>
+<span class="go">5        2       11       1</span>
+<span class="go">6        3        4       3</span>
+<span class="go">7        3        9      12</span>
+<span class="go">8        3        2       1</span>
+<span class="go">9        3        5       4</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">csr_interactions</span> <span class="o">=</span> <span class="n">CSRConverter</span><span class="p">(</span>
+<span class="gp">... </span>   <span class="n">first_dim_column</span><span class="o">=</span><span class="s2">&quot;user_id&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="n">second_dim_column</span><span class="o">=</span><span class="s2">&quot;item_id&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="n">data_column</span><span class="o">=</span><span class="s2">&quot;rating&quot;</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">interactions</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">csr_interactions</span><span class="o">.</span><span class="n">todense</span><span class="p">()</span>
+<span class="go">matrix([[ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],</span>
+<span class="go">        [ 0,  0,  0,  1,  0,  0,  0,  2,  0,  0,  3,  0],</span>
+<span class="go">        [ 0,  0,  0,  0,  0,  3,  0,  0,  2,  0,  0,  1],</span>
+<span class="go">        [ 0,  0,  1,  0,  3,  4,  0,  0,  0, 12,  0,  0]])</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.preprocessing.converter.CSRConverter.transform">
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.preprocessing.converter.CSRConverter.transform" title="Permalink to this definition"></a></dt>
+<dd><p>Transform Spark or Pandas Data Frame to csr.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>data</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]) – Spark or Pandas Data Frame containing columns
+<code class="docutils literal notranslate"><span class="pre">first_dim_column</span></code>, <code class="docutils literal notranslate"><span class="pre">second_dim_column</span></code>, and optional <code class="docutils literal notranslate"><span class="pre">data_column</span></code>.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">csr_matrix</span></code></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Sparse interactions.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="sessionizer">
+<h2>Sessionizer<a class="headerlink" href="#sessionizer" title="Permalink to this heading"></a></h2>
+<p>Create and filter sessions from given interactions.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.preprocessing.sessionizer.Sessionizer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.preprocessing.sessionizer.</span></span><span class="sig-name descname"><span class="pre">Sessionizer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">user_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'user_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'session_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_gap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">86400</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_column_format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'yyyy-MM-dd</span> <span class="pre">HH:mm:ss'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_inter_per_session</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_inter_per_session</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_sessions_per_user</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_sessions_per_user</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.preprocessing.sessionizer.Sessionizer" title="Permalink to this definition"></a></dt>
+<dd><p>Create and filter sessions from given interactions.
+Session ids are formed as subtraction between unique
+users cumulative sum and number of entries inside each
+user history that are greater than session gap.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">time_interactions</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+<span class="gp">... </span>   <span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">time_interactions</span>
+<span class="go">   user_id  item_id  timestamp</span>
+<span class="go">0        1        3          1</span>
+<span class="go">1        1        7          2</span>
+<span class="go">2        1       10          3</span>
+<span class="go">3        2        5          3</span>
+<span class="go">4        2        8          2</span>
+<span class="go">5        2       11          1</span>
+<span class="go">6        3        4          3</span>
+<span class="go">7        3        9         12</span>
+<span class="go">8        3        2          1</span>
+<span class="go">9        3        5          4</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Sessionizer</span><span class="p">(</span><span class="n">session_gap</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">time_interactions</span><span class="p">)</span>
+<span class="go">   user_id  item_id  timestamp  session_id</span>
+<span class="go">0        1        3          1           2</span>
+<span class="go">1        1        7          2           2</span>
+<span class="go">2        1       10          3           2</span>
+<span class="go">3        2        5          3           5</span>
+<span class="go">4        2        8          2           5</span>
+<span class="go">5        2       11          1           5</span>
+<span class="go">6        3        4          3           9</span>
+<span class="go">7        3        9         12           8</span>
+<span class="go">8        3        2          1           9</span>
+<span class="go">9        3        5          4           9</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.preprocessing.sessionizer.Sessionizer.transform">
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interactions</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.preprocessing.sessionizer.Sessionizer.transform" title="Permalink to this definition"></a></dt>
+<dd><p>Create and filter sessions from given interactions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>interactions</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]) – DataFrame containing columns <code class="docutils literal notranslate"><span class="pre">user_column</span></code>, <code class="docutils literal notranslate"><span class="pre">time_column</span></code>.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>DataFrame with created and filtered sessions.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="padder-experimental">
+<h2>Padder (Experimental)<a class="headerlink" href="#padder-experimental" title="Permalink to this heading"></a></h2>
+<p>Pad array columns in dataframe.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.padder.Padder">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.experimental.preprocessing.padder.</span></span><span class="sig-name descname"><span class="pre">Padder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pad_columns</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_side</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'right'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cut_array</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cut_side</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'right'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.experimental.preprocessing.padder.Padder" title="Permalink to this definition"></a></dt>
+<dd><p>Pad array columns in dataframe.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pad_interactions</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+<span class="gp">... </span>   <span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">12</span><span class="p">],</span>
+<span class="gp">... </span>                 <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">126</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+<span class="gp">... </span>                 <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">]],</span>
+<span class="gp">... </span>   <span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="p">[[</span><span class="s1">&#39;a&#39;</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">,</span> <span class="s1">&#39;m&#39;</span><span class="p">],</span>
+<span class="gp">... </span>               <span class="p">[</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">,</span> <span class="s1">&#39;m&#39;</span><span class="p">,</span> <span class="s1">&#39;g&#39;</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">],</span>
+<span class="gp">... </span>               <span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">]]</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pad_interactions</span>
+<span class="go">    user_id              timestamp                item_id</span>
+<span class="go">0        1                    [1]                    [a]</span>
+<span class="go">1        1                 [1, 2]                 [a, b]</span>
+<span class="go">2        1              [1, 2, 4]              [a, b, d]</span>
+<span class="go">3        1           [1, 2, 4, 6]           [a, b, d, f]</span>
+<span class="go">4        2             [4, 7, 12]              [d, e, m]</span>
+<span class="go">5        2        [4, 7, 12, 126]           [d, e, m, g]</span>
+<span class="go">6        3        [1, 2, 3, 4, 5]        [a, b, c, d, a]</span>
+<span class="go">7        3     [1, 2, 3, 4, 5, 6]     [a, b, c, d, a, f]</span>
+<span class="go">8        3  [1, 2, 3, 4, 5, 6, 7]  [a, b, c, d, a, f, e]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Padder</span><span class="p">(</span>
+<span class="gp">... </span>   <span class="n">pad_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;item_id&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="n">padding_side</span><span class="o">=</span><span class="s2">&quot;right&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="n">padding_value</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;[PAD]&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="n">array_size</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="n">cut_array</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="n">cut_side</span><span class="o">=</span><span class="s2">&quot;right&quot;</span>
+<span class="gp">... </span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">pad_interactions</span><span class="p">)</span>
+<span class="go">   user_id           timestamp                          item_id</span>
+<span class="go">0        1     [1, 0, 0, 0, 0]  [a, [PAD], [PAD], [PAD], [PAD]]</span>
+<span class="go">1        1     [1, 2, 0, 0, 0]      [a, b, [PAD], [PAD], [PAD]]</span>
+<span class="go">2        1     [1, 2, 4, 0, 0]          [a, b, d, [PAD], [PAD]]</span>
+<span class="go">3        1     [1, 2, 4, 6, 0]              [a, b, d, f, [PAD]]</span>
+<span class="go">4        2    [4, 7, 12, 0, 0]          [d, e, m, [PAD], [PAD]]</span>
+<span class="go">5        2  [4, 7, 12, 126, 0]              [d, e, m, g, [PAD]]</span>
+<span class="go">6        3     [1, 2, 3, 4, 5]                  [a, b, c, d, a]</span>
+<span class="go">7        3     [2, 3, 4, 5, 6]                  [b, c, d, a, f]</span>
+<span class="go">8        3     [3, 4, 5, 6, 7]                  [c, d, a, f, e]</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.padder.Padder.transform">
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interactions</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.experimental.preprocessing.padder.Padder.transform" title="Permalink to this definition"></a></dt>
+<dd><p>Pad dataframe.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>interactions</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]) – DataFrame with array columns with names pad_columns.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>DataFrame with padded array columns.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="sequencegenerator-experimental">
+<h2>SequenceGenerator (Experimental)<a class="headerlink" href="#sequencegenerator-experimental" title="Permalink to this heading"></a></h2>
+<p>Creating sequences for sequential models.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.sequence_generator.SequenceGenerator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.experimental.preprocessing.sequence_generator.</span></span><span class="sig-name descname"><span class="pre">SequenceGenerator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">groupby_column</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orderby_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform_columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">len_window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sequence_prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sequence_suffix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'_list'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label_prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'label_'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label_suffix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">get_list_len</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">list_len_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'list_len'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.experimental.preprocessing.sequence_generator.SequenceGenerator" title="Permalink to this definition"></a></dt>
+<dd><p>Creating sequences for sequential models.</p>
+<p>E.g., <code class="docutils literal notranslate"><span class="pre">u1</span></code> has purchase sequence <code class="docutils literal notranslate"><span class="pre">&lt;i1,</span> <span class="pre">i2,</span> <span class="pre">i3,</span> <span class="pre">i4&gt;</span></code>,
+then after processing, there will be generated three cases.</p>
+<p><code class="docutils literal notranslate"><span class="pre">u1,</span> <span class="pre">&lt;i1&gt;</span> <span class="pre">|</span> <span class="pre">i2</span></code></p>
+<p>(Which means given user_id <code class="docutils literal notranslate"><span class="pre">u1</span></code> and item_seq <code class="docutils literal notranslate"><span class="pre">&lt;i1&gt;</span></code>,
+model need to predict the next item <code class="docutils literal notranslate"><span class="pre">i2</span></code>.)</p>
+<p>The other cases are below:</p>
+<p><code class="docutils literal notranslate"><span class="pre">u1,</span> <span class="pre">&lt;i1,</span> <span class="pre">i2&gt;</span> <span class="pre">|</span> <span class="pre">i3</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">u1,</span> <span class="pre">&lt;i1,</span> <span class="pre">i2,</span> <span class="pre">i3&gt;</span> <span class="pre">|</span> <span class="pre">i4</span></code></p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">time_interactions</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+<span class="gp">... </span>   <span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">time_interactions</span>
+<span class="go">   user_id  item_id  timestamp</span>
+<span class="go">0        1        3          1</span>
+<span class="go">1        1        7          2</span>
+<span class="go">2        1       10          3</span>
+<span class="go">3        2        5          3</span>
+<span class="go">4        2        8          2</span>
+<span class="go">5        2       11          1</span>
+<span class="go">6        3        4          3</span>
+<span class="go">7        3        9         12</span>
+<span class="go">8        3        2          1</span>
+<span class="go">9        3        5          4</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sequences</span> <span class="o">=</span> <span class="p">(</span>
+<span class="gp">... </span>   <span class="n">SequenceGenerator</span><span class="p">(</span>
+<span class="gp">... </span>       <span class="n">groupby_column</span><span class="o">=</span><span class="s2">&quot;user_id&quot;</span><span class="p">,</span> <span class="n">transform_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;item_id&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">]</span>
+<span class="gp">... </span>   <span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">time_interactions</span><span class="p">)</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sequences</span>
+<span class="go">   user_id item_id_list timestamp_list  label_item_id  label_timestamp</span>
+<span class="go">0        1          [3]            [1]              7                2</span>
+<span class="go">1        1       [3, 7]         [1, 2]             10                3</span>
+<span class="go">2        2          [5]            [3]              8                2</span>
+<span class="go">3        2       [5, 8]         [3, 2]             11                1</span>
+<span class="go">4        3          [4]            [3]              9               12</span>
+<span class="go">5        3       [4, 9]        [3, 12]              2                1</span>
+<span class="go">6        3    [4, 9, 2]     [3, 12, 1]              5                4</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.sequence_generator.SequenceGenerator.transform">
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interactions</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.experimental.preprocessing.sequence_generator.SequenceGenerator.transform" title="Permalink to this definition"></a></dt>
+<dd><p>Create sequences from given interactions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>interactions</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]) – DataFrame.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>DataFrame with transformed interactions. Sequential interactions in list.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="data-preparation-experimental">
+<h2>Data Preparation (Experimental)<a class="headerlink" href="#data-preparation-experimental" title="Permalink to this heading"></a></h2>
+<p>Replay has a number of requirements for input data.
+We await that input columns are in the form <code class="docutils literal notranslate"><span class="pre">[user_id,</span> <span class="pre">item_id,</span> <span class="pre">timestamp,</span> <span class="pre">relevance]</span></code>.
+And internal format is a spark DataFrame with indexed integer values for <code class="docutils literal notranslate"><span class="pre">[user_idx,</span> <span class="pre">item_idx]</span></code>.
+You can convert indexes of your Spark DataFrame with <code class="docutils literal notranslate"><span class="pre">Indexer</span></code> class.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.data_preparator.Indexer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.experimental.preprocessing.data_preparator.</span></span><span class="sig-name descname"><span class="pre">Indexer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">user_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'user_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.experimental.preprocessing.data_preparator.Indexer" title="Permalink to this definition"></a></dt>
+<dd><p>This class is used to convert arbitrary id to numerical idx and back.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.data_preparator.Indexer.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">users</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">items</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.experimental.preprocessing.data_preparator.Indexer.fit" title="Permalink to this definition"></a></dt>
+<dd><p>Creates indexers to map raw id to numerical idx so that spark can handle them.
+:type users: <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>
+:param users: SparkDataFrame containing user column
+:type items: <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>
+:param items: SparkDataFrame containing item column
+:rtype: <code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>
+:return:</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.data_preparator.Indexer.inverse_transform">
+<span class="sig-name descname"><span class="pre">inverse_transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.experimental.preprocessing.data_preparator.Indexer.inverse_transform" title="Permalink to this definition"></a></dt>
+<dd><p>Convert SparkDataFrame to the initial indexes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>df</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>) – SparkDataFrame with numerical <code class="docutils literal notranslate"><span class="pre">user_idx/item_idx</span></code> columns</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>SparkDataFrame with original user/item columns</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.data_preparator.Indexer.transform">
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.experimental.preprocessing.data_preparator.Indexer.transform" title="Permalink to this definition"></a></dt>
+<dd><p>Convert raw <code class="docutils literal notranslate"><span class="pre">user_col</span></code> and <code class="docutils literal notranslate"><span class="pre">item_col</span></code> to numerical <code class="docutils literal notranslate"><span class="pre">user_idx</span></code> and <code class="docutils literal notranslate"><span class="pre">item_idx</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>df</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>) – dataframe with raw indexes</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>dataframe with converted indexes</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<p>If your DataFrame is in the form of Pandas DataFrame and has different column names, you can either
+preprocess it yourself with <code class="docutils literal notranslate"><span class="pre">convert2spark</span></code> function or use <code class="docutils literal notranslate"><span class="pre">DataPreparator</span></code> class</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.data_preparator.DataPreparator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.experimental.preprocessing.data_preparator.</span></span><span class="sig-name descname"><span class="pre">DataPreparator</span></span><a class="headerlink" href="#replay.experimental.preprocessing.data_preparator.DataPreparator" title="Permalink to this definition"></a></dt>
+<dd><dl class="simple">
+<dt>Transforms data to a library format:</dt><dd><ul class="simple">
+<li><p>read as a spark dataframe/ convert pandas dataframe to spark</p></li>
+<li><p>check for nulls</p></li>
+<li><p>create relevance/timestamp columns if absent</p></li>
+<li><p>convert dates to TimestampType</p></li>
+</ul>
+</dd>
+</dl>
+<p>Examples:</p>
+<p>Loading log DataFrame</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">replay.experimental.preprocessing.data_preparator</span> <span class="kn">import</span> <span class="n">DataPreparator</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;user&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;rel&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">]}</span>
+<span class="gp">... </span>                   <span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dp</span> <span class="o">=</span> <span class="n">DataPreparator</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">correct_log</span> <span class="o">=</span> <span class="n">dp</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">log</span><span class="p">,</span>
+<span class="gp">... </span>                           <span class="n">columns_mapping</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                                          <span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="s2">&quot;item_id&quot;</span><span class="p">,</span>
+<span class="gp">... </span>                                          <span class="s2">&quot;relevance&quot;</span><span class="p">:</span> <span class="s2">&quot;rel&quot;</span><span class="p">}</span>
+<span class="gp">... </span>                            <span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">correct_log</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="go">+-------+-------+---------+-------------------+</span>
+<span class="go">|user_id|item_id|relevance|          timestamp|</span>
+<span class="go">+-------+-------+---------+-------------------+</span>
+<span class="go">|      2|      1|      5.0|2099-01-01 00:00:00|</span>
+<span class="go">|      2|      2|      5.0|2099-01-01 00:00:00|</span>
+<span class="go">+-------+-------+---------+-------------------+</span>
+<span class="go">only showing top 2 rows</span>
+</pre></div>
+</div>
+<p>Loading user features</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">replay.experimental.preprocessing.data_preparator</span> <span class="kn">import</span> <span class="n">DataPreparator</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">log</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;user&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;user1&quot;</span><span class="p">,</span> <span class="s2">&quot;user1&quot;</span><span class="p">,</span> <span class="s2">&quot;user2&quot;</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;f0&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;feature1&quot;</span><span class="p">,</span><span class="s2">&quot;feature2&quot;</span><span class="p">,</span><span class="s2">&quot;feature1&quot;</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;f1&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;left&quot;</span><span class="p">,</span><span class="s2">&quot;left&quot;</span><span class="p">,</span><span class="s2">&quot;center&quot;</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="s2">&quot;ts&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2019-01-01&quot;</span><span class="p">,</span><span class="s2">&quot;2019-01-01&quot;</span><span class="p">,</span><span class="s2">&quot;2019-01-01&quot;</span><span class="p">]}</span>
+<span class="gp">... </span>            <span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dp</span> <span class="o">=</span> <span class="n">DataPreparator</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">correct_log</span> <span class="o">=</span> <span class="n">dp</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">log</span><span class="p">,</span>
+<span class="gp">... </span>                           <span class="n">columns_mapping</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">},</span>
+<span class="gp">... </span>                            <span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">correct_log</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="go">+-------+--------+------+----------+</span>
+<span class="go">|user_id|      f0|    f1|        ts|</span>
+<span class="go">+-------+--------+------+----------+</span>
+<span class="go">|  user1|feature1|  left|2019-01-01|</span>
+<span class="go">|  user1|feature2|  left|2019-01-01|</span>
+<span class="go">|  user2|feature1|center|2019-01-01|</span>
+<span class="go">+-------+--------+------+----------+</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.data_preparator.DataPreparator.add_absent_log_cols">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">add_absent_log_cols</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataframe</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">columns_mapping</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_relevance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_ts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'2099-01-01'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.experimental.preprocessing.data_preparator.DataPreparator.add_absent_log_cols" title="Permalink to this definition"></a></dt>
+<dd><p>Add <code class="docutils literal notranslate"><span class="pre">relevance</span></code> and <code class="docutils literal notranslate"><span class="pre">timestamp</span></code> columns with default values if
+<code class="docutils literal notranslate"><span class="pre">relevance</span></code> or <code class="docutils literal notranslate"><span class="pre">timestamp</span></code> is absent among mapping keys.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataframe</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>) – interactions log to process</p></li>
+<li><p><strong>columns_mapping</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – dictionary mapping “key: column name in input DataFrame”.
+Possible keys: <code class="docutils literal notranslate"><span class="pre">[user_id,</span> <span class="pre">user_id,</span> <span class="pre">timestamp,</span> <span class="pre">relevance]</span></code></p></li>
+<li><p><strong>default_relevance</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – default value for generated <cite>relevance</cite> column</p></li>
+<li><p><strong>default_ts</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – str, default value for generated <cite>timestamp</cite> column</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>spark DataFrame with generated <code class="docutils literal notranslate"><span class="pre">timestamp</span></code> and <code class="docutils literal notranslate"><span class="pre">relevance</span></code> columns
+if absent in original dataframe</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.data_preparator.DataPreparator.check_df">
+<span class="sig-name descname"><span class="pre">check_df</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataframe</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">columns_mapping</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.experimental.preprocessing.data_preparator.DataPreparator.check_df" title="Permalink to this definition"></a></dt>
+<dd><p>Check:
+- if dataframe is not empty,
+- if columns from <code class="docutils literal notranslate"><span class="pre">columns_mapping</span></code> are present in dataframe
+- warn about nulls in columns from <code class="docutils literal notranslate"><span class="pre">columns_mapping</span></code>
+- warn about absent of <code class="docutils literal notranslate"><span class="pre">timestamp/relevance</span></code> columns for interactions log
+- warn about wrong relevance DataType</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataframe</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>) – spark DataFrame to process</p></li>
+<li><p><strong>columns_mapping</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – dictionary mapping “key: column name in input DataFrame”.
+Possible keys: <code class="docutils literal notranslate"><span class="pre">[user_id,</span> <span class="pre">user_id,</span> <span class="pre">timestamp,</span> <span class="pre">relevance]</span></code>
+<code class="docutils literal notranslate"><span class="pre">columns_mapping</span></code> values specifies the nature of the DataFrame:
+- if both <code class="docutils literal notranslate"><span class="pre">[user_id,</span> <span class="pre">item_id]</span></code> are present,
+then the dataframe is a log of interactions.
+Specify <code class="docutils literal notranslate"><span class="pre">timestamp,</span> <span class="pre">relevance</span></code> columns in mapping if available.
+- if ether <code class="docutils literal notranslate"><span class="pre">user_id</span></code> or <code class="docutils literal notranslate"><span class="pre">item_id</span></code> is present,
+then the dataframe is a dataframe of user/item features</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.data_preparator.DataPreparator.logger">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">logger</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Logger</span></em><a class="headerlink" href="#replay.experimental.preprocessing.data_preparator.DataPreparator.logger" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>get library logger</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.data_preparator.DataPreparator.read_as_spark_df">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">read_as_spark_df</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">format_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.experimental.preprocessing.data_preparator.DataPreparator.read_as_spark_df" title="Permalink to this definition"></a></dt>
+<dd><p>Read spark dataframe from file of transform pandas dataframe.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>]) – DataFrame to process (<code class="docutils literal notranslate"><span class="pre">pass</span></code> or <code class="docutils literal notranslate"><span class="pre">data</span></code> should be defined)</p></li>
+<li><p><strong>path</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – path to data (<code class="docutils literal notranslate"><span class="pre">pass</span></code> or <code class="docutils literal notranslate"><span class="pre">data</span></code> should be defined)</p></li>
+<li><p><strong>format_type</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – file type, one of <code class="docutils literal notranslate"><span class="pre">[csv</span> <span class="pre">,</span> <span class="pre">parquet</span> <span class="pre">,</span> <span class="pre">json</span> <span class="pre">,</span> <span class="pre">table]</span></code></p></li>
+<li><p><strong>kwargs</strong> – extra arguments passed to
+<code class="docutils literal notranslate"><span class="pre">spark.read.&lt;format&gt;(path,</span> <span class="pre">**reader_kwargs)</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>spark DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.experimental.preprocessing.data_preparator.DataPreparator.transform">
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">columns_mapping</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">format_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">date_format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reader_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.experimental.preprocessing.data_preparator.DataPreparator.transform" title="Permalink to this definition"></a></dt>
+<dd><p>Transforms log, user or item features into a Spark DataFrame
+<code class="docutils literal notranslate"><span class="pre">[user_id,</span> <span class="pre">user_id,</span> <span class="pre">timestamp,</span> <span class="pre">relevance]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">[user_id,</span> <span class="pre">*features]</span></code>, or  <code class="docutils literal notranslate"><span class="pre">[item_id,</span> <span class="pre">*features]</span></code>.
+Input is either file of <code class="docutils literal notranslate"><span class="pre">format_type</span></code>
+at <code class="docutils literal notranslate"><span class="pre">path</span></code>, or <code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> or <code class="docutils literal notranslate"><span class="pre">spark.DataFrame</span></code>.
+Transform performs:
+- dataframe reading/convert to spark DataFrame format
+- check dataframe (nulls, columns_mapping)
+- rename columns from mapping to standard names (user_id, user_id, timestamp, relevance)
+- for interactions log: create absent columns,
+convert <code class="docutils literal notranslate"><span class="pre">timestamp</span></code> column to TimestampType and <code class="docutils literal notranslate"><span class="pre">relevance</span></code> to DoubleType</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>columns_mapping</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – dictionary mapping “key: column name in input DataFrame”.
+Possible keys: <code class="docutils literal notranslate"><span class="pre">[user_id,</span> <span class="pre">user_id,</span> <span class="pre">timestamp,</span> <span class="pre">relevance]</span></code>
+<code class="docutils literal notranslate"><span class="pre">columns_mapping</span></code> values specifies the nature of the DataFrame:
+- if both <code class="docutils literal notranslate"><span class="pre">[user_id,</span> <span class="pre">item_id]</span></code> are present,
+then the dataframe is a log of interactions.
+Specify <code class="docutils literal notranslate"><span class="pre">timestamp,</span> <span class="pre">relevance</span></code> columns in mapping if present.
+- if ether <code class="docutils literal notranslate"><span class="pre">user_id</span></code> or <code class="docutils literal notranslate"><span class="pre">item_id</span></code> is present,
+then the dataframe is a dataframe of user/item features</p></li>
+<li><p><strong>data</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>]) – DataFrame to process</p></li>
+<li><p><strong>path</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – path to data</p></li>
+<li><p><strong>format_type</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – file type, one of <code class="docutils literal notranslate"><span class="pre">[csv</span> <span class="pre">,</span> <span class="pre">parquet</span> <span class="pre">,</span> <span class="pre">json</span> <span class="pre">,</span> <span class="pre">table]</span></code></p></li>
+<li><p><strong>date_format</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – format for the <code class="docutils literal notranslate"><span class="pre">timestamp</span></code> column</p></li>
+<li><p><strong>reader_kwargs</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code>]) – extra arguments passed to
+<code class="docutils literal notranslate"><span class="pre">spark.read.&lt;format&gt;(path,</span> <span class="pre">**reader_kwargs)</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>processed DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="data.html" class="btn btn-neutral float-left" title="Data" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="splitters.html" class="btn btn-neutral float-right" title="Splitters" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Sberbank AI Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

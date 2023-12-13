@@ -1,0 +1,1741 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data &mdash; RePlay  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Preprocessing" href="preprocessing.html" />
+    <link rel="prev" title="Modules" href="../modules.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            RePlay
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Development</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#dataset">Dataset</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.data.Dataset"><code class="docutils literal notranslate"><span class="pre">Dataset</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#datasetlabelencoder">DatasetLabelEncoder</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.data.dataset_utils.DatasetLabelEncoder"><code class="docutils literal notranslate"><span class="pre">DatasetLabelEncoder</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#featuretype">FeatureType</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.data.FeatureType"><code class="docutils literal notranslate"><span class="pre">FeatureType</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#featuresource">FeatureSource</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.data.FeatureSource"><code class="docutils literal notranslate"><span class="pre">FeatureSource</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#featurehint">FeatureHint</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.data.FeatureHint"><code class="docutils literal notranslate"><span class="pre">FeatureHint</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#featureinfo">FeatureInfo</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.data.FeatureInfo"><code class="docutils literal notranslate"><span class="pre">FeatureInfo</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#featureschema">FeatureSchema</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.data.FeatureSchema"><code class="docutils literal notranslate"><span class="pre">FeatureSchema</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#getschema">GetSchema</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.data.get_schema"><code class="docutils literal notranslate"><span class="pre">get_schema()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#neural-networks">Neural Networks</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#tensorfeatureinfo">TensorFeatureInfo</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tensorfeaturesource">TensorFeatureSource</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tensorschema">TensorSchema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sequencetokenizer">SequenceTokenizer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pandassequentialdataset">PandasSequentialDataset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#torchsequentialbatch">TorchSequentialBatch</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#torchsequentialdataset">TorchSequentialDataset</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#torchsequentialvalidationbatch">TorchSequentialValidationBatch</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#torchsequentialvalidationdataset">TorchSequentialValidationDataset</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="preprocessing.html">Preprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitters.html">Splitters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="metrics.html">Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scenarios.html">Scenarios</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html">Utils</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../settings.html">Settings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../useful.html">Useful Info</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">RePlay</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../modules.html">Modules</a></li>
+      <li class="breadcrumb-item active">Data</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/pages/modules/data.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="module-replay.data">
+<span id="data"></span><h1>Data<a class="headerlink" href="#module-replay.data" title="Permalink to this heading"></a></h1>
+<div class="section" id="dataset">
+<h2>Dataset<a class="headerlink" href="#dataset" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.Dataset">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.</span></span><span class="sig-name descname"><span class="pre">Dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feature_schema</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interactions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_consistency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">categorical_encoded</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.Dataset" title="Permalink to this definition"></a></dt>
+<dd><p>Universal dataset for feeding data to models.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.Dataset.cache">
+<span class="sig-name descname"><span class="pre">cache</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.Dataset.cache" title="Permalink to this definition"></a></dt>
+<dd><p>Persists the SparkDataFrame with the default storage level (MEMORY_AND_DISK)
+for interactions, item_features and user_features.</p>
+<p>The function is only available when the PySpark is installed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.Dataset.feature_schema">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">feature_schema</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.FeatureSchema" title="replay.data.schema.FeatureSchema"><span class="pre">FeatureSchema</span></a></em><a class="headerlink" href="#replay.data.Dataset.feature_schema" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>List of features.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.Dataset.interactions">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">interactions</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.Dataset.interactions" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>interactions dataset.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.Dataset.is_categorical_encoded">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_categorical_encoded</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#replay.data.Dataset.is_categorical_encoded" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>is categorical features are encoded.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.Dataset.item_count">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">item_count</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#replay.data.Dataset.item_count" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The number of items.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.Dataset.item_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">item_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.Dataset.item_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>item features dataset.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.Dataset.item_ids">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">item_ids</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.Dataset.item_ids" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>dataset with unique item ids.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.Dataset.persist">
+<span class="sig-name descname"><span class="pre">persist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">storage_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">StorageLevel(True,</span> <span class="pre">True,</span> <span class="pre">False,</span> <span class="pre">True,</span> <span class="pre">1)</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.Dataset.persist" title="Permalink to this definition"></a></dt>
+<dd><p>Sets the storage level to persist SparkDataFrame for interactions, item_features
+and user_features.</p>
+<p>The function is only available when the PySpark is installed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>storage_level</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">StorageLevel</span></code>) – storage level to set for persistance.
+default: <code class="docutils literal notranslate"><span class="pre">`MEMORY_AND_DISK_DESER`</span></code>.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.Dataset.query_count">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_count</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#replay.data.Dataset.query_count" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>the number of queries.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.Dataset.query_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.Dataset.query_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>query features dataset.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.Dataset.query_ids">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_ids</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.Dataset.query_ids" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>dataset with unique query ids.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.Dataset.subset">
+<span class="sig-name descname"><span class="pre">subset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">features_to_keep</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.Dataset.subset" title="Permalink to this definition"></a></dt>
+<dd><p>Returns subset of features. Keeps query and item IDs even if
+the corresponding sources are not explicitly passed to this functions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>features_to_keep</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – sequence of features to keep.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#replay.data.Dataset" title="replay.data.dataset.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>new Dataset with given features.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.Dataset.unpersist">
+<span class="sig-name descname"><span class="pre">unpersist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blocking</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.Dataset.unpersist" title="Permalink to this definition"></a></dt>
+<dd><p>Marks SparkDataFrame as non-persistent, and remove all blocks for it from memory and disk
+for interactions, item_features and user_features.</p>
+<p>The function is only available when the PySpark is installed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>blocking</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – whether to block until all blocks are deleted.
+default: <code class="docutils literal notranslate"><span class="pre">`False`</span></code>.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="datasetlabelencoder">
+<h2>DatasetLabelEncoder<a class="headerlink" href="#datasetlabelencoder" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.dataset_utils.DatasetLabelEncoder">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.dataset_utils.</span></span><span class="sig-name descname"><span class="pre">DatasetLabelEncoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle_unknown_rule</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'error'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_value_rule</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.dataset_utils.DatasetLabelEncoder" title="Permalink to this definition"></a></dt>
+<dd><p>Categorical features encoder for the Dataset class</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.dataset_utils.DatasetLabelEncoder.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.dataset_utils.DatasetLabelEncoder.fit" title="Permalink to this definition"></a></dt>
+<dd><p>Fits an encoder by the input Dataset for categorical features.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>dataset</strong> (<a class="reference internal" href="#replay.data.Dataset" title="replay.data.dataset.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a>) – the Dataset object.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#replay.data.dataset_utils.DatasetLabelEncoder" title="replay.data.dataset_utils.dataset_label_encoder.DatasetLabelEncoder"><code class="xref py py-class docutils literal notranslate"><span class="pre">DatasetLabelEncoder</span></code></a></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>fitted DatasetLabelEncoder.</p>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><dl class="simple">
+<dt>AssertionError: if any of <cite>dataset</cite> categorical features contains</dt><dd><p>invalid <code class="docutils literal notranslate"><span class="pre">FeatureSource</span></code> type.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.dataset_utils.DatasetLabelEncoder.fit_transform">
+<span class="sig-name descname"><span class="pre">fit_transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.dataset_utils.DatasetLabelEncoder.fit_transform" title="Permalink to this definition"></a></dt>
+<dd><p>Fits an encoder and transforms the input Dataset categorical features.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>dataset</strong> (<a class="reference internal" href="#replay.data.Dataset" title="replay.data.dataset.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a>) – the Dataset object.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#replay.data.Dataset" title="replay.data.dataset.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>transformed dataset.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.dataset_utils.DatasetLabelEncoder.get_encoder">
+<span class="sig-name descname"><span class="pre">get_encoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">columns</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.dataset_utils.DatasetLabelEncoder.get_encoder" title="Permalink to this definition"></a></dt>
+<dd><p>Get the encoder of fitted Dataset for columns.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>columns</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]]) – columns to filter by.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">LabelEncoder</span></code>]</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>LabelEncoder.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.dataset_utils.DatasetLabelEncoder.interactions_encoder">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">interactions_encoder</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">LabelEncoder</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.dataset_utils.DatasetLabelEncoder.interactions_encoder" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>interactions LabelEncoder.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.dataset_utils.DatasetLabelEncoder.item_features_encoder">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">item_features_encoder</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">LabelEncoder</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.dataset_utils.DatasetLabelEncoder.item_features_encoder" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>item features LabelEncoder.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.dataset_utils.DatasetLabelEncoder.item_id_encoder">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">item_id_encoder</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">LabelEncoder</span></em><a class="headerlink" href="#replay.data.dataset_utils.DatasetLabelEncoder.item_id_encoder" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>item id LabelEncoder.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.dataset_utils.DatasetLabelEncoder.query_and_item_id_encoder">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_and_item_id_encoder</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">LabelEncoder</span></em><a class="headerlink" href="#replay.data.dataset_utils.DatasetLabelEncoder.query_and_item_id_encoder" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>query id and item id LabelEncoder.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.dataset_utils.DatasetLabelEncoder.query_features_encoder">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_features_encoder</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">LabelEncoder</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.dataset_utils.DatasetLabelEncoder.query_features_encoder" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>query features LabelEncoder.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.dataset_utils.DatasetLabelEncoder.query_id_encoder">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_id_encoder</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">LabelEncoder</span></em><a class="headerlink" href="#replay.data.dataset_utils.DatasetLabelEncoder.query_id_encoder" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>query id LabelEncoder.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.dataset_utils.DatasetLabelEncoder.transform">
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.dataset_utils.DatasetLabelEncoder.transform" title="Permalink to this definition"></a></dt>
+<dd><p>Transforms the input Dataset categorical features by rules.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>dataset</strong> (<a class="reference internal" href="#replay.data.Dataset" title="replay.data.dataset.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a>) – The Dataset object.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#replay.data.Dataset" title="replay.data.dataset.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>transformed dataset.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="featuretype">
+<h2>FeatureType<a class="headerlink" href="#featuretype" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.FeatureType">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.</span></span><span class="sig-name descname"><span class="pre">FeatureType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureType" title="Permalink to this definition"></a></dt>
+<dd><p>Type of Feature.</p>
+<dl class="simple">
+<dt><strong>CATEGORICAL</strong>= categorical</dt><dd><p>Type of Feature.</p>
+</dd>
+<dt><strong>NUMERICAL</strong>= numerical</dt><dd><p>Type of Feature.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="featuresource">
+<h2>FeatureSource<a class="headerlink" href="#featuresource" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.FeatureSource">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.</span></span><span class="sig-name descname"><span class="pre">FeatureSource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureSource" title="Permalink to this definition"></a></dt>
+<dd><p>Name of DataFrame.</p>
+<dl class="simple">
+<dt><strong>ITEM_FEATURES</strong>= item_features</dt><dd><p>Name of DataFrame.</p>
+</dd>
+<dt><strong>QUERY_FEATURES</strong>= query_features</dt><dd><p>Name of DataFrame.</p>
+</dd>
+<dt><strong>INTERACTIONS</strong>= interactions</dt><dd><p>Name of DataFrame.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="featurehint">
+<h2>FeatureHint<a class="headerlink" href="#featurehint" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.FeatureHint">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.</span></span><span class="sig-name descname"><span class="pre">FeatureHint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureHint" title="Permalink to this definition"></a></dt>
+<dd><p>Hint to algorithm about column.</p>
+<dl class="simple">
+<dt><strong>ITEM_ID</strong>= item_id</dt><dd><p>Hint to algorithm about column.</p>
+</dd>
+<dt><strong>QUERY_ID</strong>= query_id</dt><dd><p>Hint to algorithm about column.</p>
+</dd>
+<dt><strong>RATING</strong>= rating</dt><dd><p>Hint to algorithm about column.</p>
+</dd>
+<dt><strong>TIMESTAMP</strong>= timestamp</dt><dd><p>Hint to algorithm about column.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="featureinfo">
+<h2>FeatureInfo<a class="headerlink" href="#featureinfo" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.FeatureInfo">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.</span></span><span class="sig-name descname"><span class="pre">FeatureInfo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">column</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cardinality</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureInfo" title="Permalink to this definition"></a></dt>
+<dd><p>Information about a feature.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureInfo.cardinality">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">cardinality</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.FeatureInfo.cardinality" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>cardinality of the feature.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureInfo.column">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">column</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#replay.data.FeatureInfo.column" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>the feature name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureInfo.feature_hint">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">feature_hint</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#replay.data.FeatureHint" title="replay.data.schema.FeatureHint"><span class="pre">FeatureHint</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.FeatureInfo.feature_hint" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>the feature hint.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureInfo.feature_source">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">feature_source</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#replay.data.FeatureSource" title="replay.data.schema.FeatureSource"><span class="pre">FeatureSource</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.FeatureInfo.feature_source" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>the name of source dataframe of feature.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureInfo.feature_type">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">feature_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.FeatureType" title="replay.data.schema.FeatureType"><span class="pre">FeatureType</span></a></em><a class="headerlink" href="#replay.data.FeatureInfo.feature_type" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>the type of feature.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.FeatureInfo.reset_cardinality">
+<span class="sig-name descname"><span class="pre">reset_cardinality</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureInfo.reset_cardinality" title="Permalink to this definition"></a></dt>
+<dd><p>Reset cardinality of the feature to None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="featureschema">
+<h2>FeatureSchema<a class="headerlink" href="#featureschema" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.</span></span><span class="sig-name descname"><span class="pre">FeatureSchema</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">features_list</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureSchema" title="Permalink to this definition"></a></dt>
+<dd><p>Key-value like collection with information about all dataset features.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.all_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">all_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#replay.data.FeatureInfo" title="replay.data.schema.FeatureInfo"><span class="pre">FeatureInfo</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.FeatureSchema.all_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>sequence of all features.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.categorical_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">categorical_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.FeatureSchema" title="replay.data.schema.FeatureSchema"><span class="pre">FeatureSchema</span></a></em><a class="headerlink" href="#replay.data.FeatureSchema.categorical_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>sequence of categorical features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.columns">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">columns</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.FeatureSchema.columns" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>list of all feature’s column names.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureSchema.copy" title="Permalink to this definition"></a></dt>
+<dd><p>Creates a copy of all features.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#replay.data.FeatureSchema" title="replay.data.schema.FeatureSchema"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureSchema</span></code></a></p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>copy of the initial feature schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.drop">
+<span class="sig-name descname"><span class="pre">drop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureSchema.drop" title="Permalink to this definition"></a></dt>
+<dd><p>Drop features from list by <code class="docutils literal notranslate"><span class="pre">column</span></code>, <code class="docutils literal notranslate"><span class="pre">feature_source</span></code>, <code class="docutils literal notranslate"><span class="pre">feature_type</span></code> and <code class="docutils literal notranslate"><span class="pre">feature_hint</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>column</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – Column name to filter by.
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>feature_hint</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference internal" href="#replay.data.FeatureHint" title="replay.data.schema.FeatureHint"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureHint</span></code></a>]) – Feature hint to filter by.
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>feature_source</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference internal" href="#replay.data.FeatureSource" title="replay.data.schema.FeatureSource"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureSource</span></code></a>]) – Feature source to filter by.
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>feature_type</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference internal" href="#replay.data.FeatureType" title="replay.data.schema.FeatureType"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureType</span></code></a>]) – Feature type to filter by.
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#replay.data.FeatureSchema" title="replay.data.schema.FeatureSchema"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureSchema</span></code></a></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>new filtered feature schema without selected features.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.filter">
+<span class="sig-name descname"><span class="pre">filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureSchema.filter" title="Permalink to this definition"></a></dt>
+<dd><p>Filter list by <code class="docutils literal notranslate"><span class="pre">column</span></code>, <code class="docutils literal notranslate"><span class="pre">feature_source</span></code>, <code class="docutils literal notranslate"><span class="pre">feature_type</span></code> and <code class="docutils literal notranslate"><span class="pre">feature_hint</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>column</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – Column name to filter by.
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>feature_hint</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference internal" href="#replay.data.FeatureHint" title="replay.data.schema.FeatureHint"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureHint</span></code></a>]) – Feature hint to filter by.
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>feature_source</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference internal" href="#replay.data.FeatureSource" title="replay.data.schema.FeatureSource"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureSource</span></code></a>]) – Feature source to filter by.
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>feature_type</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference internal" href="#replay.data.FeatureType" title="replay.data.schema.FeatureType"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureType</span></code></a>]) – Feature type to filter by.
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#replay.data.FeatureSchema" title="replay.data.schema.FeatureSchema"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureSchema</span></code></a></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>new filtered feature schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureSchema.get" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference internal" href="#replay.data.FeatureInfo" title="replay.data.schema.FeatureInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureInfo</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.interaction_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">interaction_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.FeatureSchema" title="replay.data.schema.FeatureSchema"><span class="pre">FeatureSchema</span></a></em><a class="headerlink" href="#replay.data.FeatureSchema.interaction_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>sequence of interaction features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.interactions_rating_column">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">interactions_rating_column</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.FeatureSchema.interactions_rating_column" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>interactions-rating column name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.interactions_rating_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">interactions_rating_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.FeatureSchema" title="replay.data.schema.FeatureSchema"><span class="pre">FeatureSchema</span></a></em><a class="headerlink" href="#replay.data.FeatureSchema.interactions_rating_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>sequence of interactions-rating features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.interactions_timestamp_column">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">interactions_timestamp_column</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.FeatureSchema.interactions_timestamp_column" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>interactions-timestamp column name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.interactions_timestamp_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">interactions_timestamp_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.FeatureSchema" title="replay.data.schema.FeatureSchema"><span class="pre">FeatureSchema</span></a></em><a class="headerlink" href="#replay.data.FeatureSchema.interactions_timestamp_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>sequence of interactions-timestamp features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.item">
+<span class="sig-name descname"><span class="pre">item</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureSchema.item" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#replay.data.FeatureInfo" title="replay.data.schema.FeatureInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureInfo</span></code></a></p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>extract a feature information from a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.item_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">item_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.FeatureSchema" title="replay.data.schema.FeatureSchema"><span class="pre">FeatureSchema</span></a></em><a class="headerlink" href="#replay.data.FeatureSchema.item_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>sequence of item features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.item_id_column">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">item_id_column</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#replay.data.FeatureSchema.item_id_column" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>item id column name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.item_id_feature">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">item_id_feature</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.FeatureInfo" title="replay.data.schema.FeatureInfo"><span class="pre">FeatureInfo</span></a></em><a class="headerlink" href="#replay.data.FeatureSchema.item_id_feature" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>sequence of item id features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.items">
+<span class="sig-name descname"><span class="pre">items</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureSchema.items" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">ItemsView</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <a class="reference internal" href="#replay.data.FeatureInfo" title="replay.data.schema.FeatureInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureInfo</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.keys">
+<span class="sig-name descname"><span class="pre">keys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureSchema.keys" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">KeysView</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.numerical_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">numerical_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.FeatureSchema" title="replay.data.schema.FeatureSchema"><span class="pre">FeatureSchema</span></a></em><a class="headerlink" href="#replay.data.FeatureSchema.numerical_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>sequence of numerical features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.query_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.FeatureSchema" title="replay.data.schema.FeatureSchema"><span class="pre">FeatureSchema</span></a></em><a class="headerlink" href="#replay.data.FeatureSchema.query_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>sequence of query features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.query_id_column">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_id_column</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#replay.data.FeatureSchema.query_id_column" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>query id column name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.query_id_feature">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_id_feature</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.FeatureInfo" title="replay.data.schema.FeatureInfo"><span class="pre">FeatureInfo</span></a></em><a class="headerlink" href="#replay.data.FeatureSchema.query_id_feature" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>sequence of query id features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.subset">
+<span class="sig-name descname"><span class="pre">subset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">features_to_keep</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureSchema.subset" title="Permalink to this definition"></a></dt>
+<dd><p>Creates a subset of given features.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>features_to_keep</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – a sequence of feature columns
+in original schema to keep in subset.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#replay.data.FeatureSchema" title="replay.data.schema.FeatureSchema"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureSchema</span></code></a></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>new feature schema of given features.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.FeatureSchema.values">
+<span class="sig-name descname"><span class="pre">values</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.FeatureSchema.values" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">ValuesView</span></code>[<a class="reference internal" href="#replay.data.FeatureInfo" title="replay.data.schema.FeatureInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureInfo</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="getschema">
+<h2>GetSchema<a class="headerlink" href="#getschema" title="Permalink to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="replay.data.get_schema">
+<span class="sig-prename descclassname"><span class="pre">replay.data.</span></span><span class="sig-name descname"><span class="pre">get_schema</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rating_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rating'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">has_timestamp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">has_rating</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.get_schema" title="Permalink to this definition"></a></dt>
+<dd><p>Get Spark Schema with query_id, item_id, rating, timestamp columns</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – column name with query ids</p></li>
+<li><p><strong>item_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – column name with item ids</p></li>
+<li><p><strong>timestamp_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – column name with timestamps</p></li>
+<li><p><strong>rating_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – column name with ratings</p></li>
+<li><p><strong>has_rating</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – flag to add rating to schema</p></li>
+<li><p><strong>has_timestamp</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – flag to add tomestamp to schema</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="neural-networks">
+<h2>Neural Networks<a class="headerlink" href="#neural-networks" title="Permalink to this heading"></a></h2>
+<p>This submodule is only available when the <cite>PyTorch</cite> is installed.</p>
+<span class="target" id="module-replay.data.nn"></span><div class="section" id="tensorfeatureinfo">
+<h3>TensorFeatureInfo<a class="headerlink" href="#tensorfeatureinfo" title="Permalink to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureInfo">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.nn.</span></span><span class="sig-name descname"><span class="pre">TensorFeatureInfo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_seq</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_sources</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cardinality</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TensorFeatureInfo" title="Permalink to this definition"></a></dt>
+<dd><p>Information about a tensor feature.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureInfo.cardinality">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">cardinality</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.TensorFeatureInfo.cardinality" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Cardinality of the feature.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureInfo.embedding_dim">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">embedding_dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.TensorFeatureInfo.embedding_dim" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Embedding dimensions of the feature.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureInfo.feature_hint">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">feature_hint</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#replay.data.FeatureHint" title="replay.data.schema.FeatureHint"><span class="pre">FeatureHint</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.TensorFeatureInfo.feature_hint" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The feature hint.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureInfo.feature_source">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">feature_source</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#replay.data.nn.TensorFeatureSource" title="replay.data.nn.schema.TensorFeatureSource"><span class="pre">TensorFeatureSource</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.TensorFeatureInfo.feature_source" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Dataframe info of feature.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureInfo.feature_sources">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">feature_sources</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#replay.data.nn.TensorFeatureSource" title="replay.data.nn.schema.TensorFeatureSource"><span class="pre">TensorFeatureSource</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.TensorFeatureInfo.feature_sources" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>List of sources feature came from.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureInfo.feature_type">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">feature_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.FeatureType" title="replay.data.schema.FeatureType"><span class="pre">FeatureType</span></a></em><a class="headerlink" href="#replay.data.nn.TensorFeatureInfo.feature_type" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The type of feature.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureInfo.is_cat">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_cat</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#replay.data.nn.TensorFeatureInfo.is_cat" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Flag that feature is categorical.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureInfo.is_num">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#replay.data.nn.TensorFeatureInfo.is_num" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Flag that feature is numerical.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureInfo.is_seq">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_seq</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#replay.data.nn.TensorFeatureInfo.is_seq" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Flag that feature is sequential.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureInfo.name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#replay.data.nn.TensorFeatureInfo.name" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The feature name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureInfo.reset_cardinality">
+<span class="sig-name descname"><span class="pre">reset_cardinality</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TensorFeatureInfo.reset_cardinality" title="Permalink to this definition"></a></dt>
+<dd><p>Reset cardinality of the feature to None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureInfo.tensor_dim">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">tensor_dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.TensorFeatureInfo.tensor_dim" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Dimensions of the numerical feature.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="tensorfeaturesource">
+<h3>TensorFeatureSource<a class="headerlink" href="#tensorfeaturesource" title="Permalink to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureSource">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.nn.</span></span><span class="sig-name descname"><span class="pre">TensorFeatureSource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">column</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TensorFeatureSource" title="Permalink to this definition"></a></dt>
+<dd><p>Describes source of a feature</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureSource.column">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">column</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#replay.data.nn.TensorFeatureSource.column" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>column name</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureSource.index">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">index</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.TensorFeatureSource.index" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>provided index</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorFeatureSource.source">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">source</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.FeatureSource" title="replay.data.schema.FeatureSource"><span class="pre">FeatureSource</span></a></em><a class="headerlink" href="#replay.data.nn.TensorFeatureSource.source" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>feature source</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="tensorschema">
+<h3>TensorSchema<a class="headerlink" href="#tensorschema" title="Permalink to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.nn.</span></span><span class="sig-name descname"><span class="pre">TensorSchema</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">features_list</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TensorSchema" title="Permalink to this definition"></a></dt>
+<dd><p>Key-value like collection that stores tensor features</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.all_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">all_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#replay.data.nn.TensorFeatureInfo" title="replay.data.nn.schema.TensorFeatureInfo"><span class="pre">TensorFeatureInfo</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.TensorSchema.all_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Sequence of all features.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.categorical_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">categorical_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.nn.TensorSchema" title="replay.data.nn.schema.TensorSchema"><span class="pre">TensorSchema</span></a></em><a class="headerlink" href="#replay.data.nn.TensorSchema.categorical_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Sequence of categorical features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.filter">
+<span class="sig-name descname"><span class="pre">filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_seq</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TensorSchema.filter" title="Permalink to this definition"></a></dt>
+<dd><p>Filter list by <code class="docutils literal notranslate"><span class="pre">name</span></code>, <code class="docutils literal notranslate"><span class="pre">feature_type</span></code>, <code class="docutils literal notranslate"><span class="pre">is_seq</span></code> and <code class="docutils literal notranslate"><span class="pre">feature_hint</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – Feature name to filter by.
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>feature_hint</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference internal" href="#replay.data.FeatureHint" title="replay.data.schema.FeatureHint"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureHint</span></code></a>]) – Feature hint to filter by.
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>feature_source</strong> – Feature source to filter by.
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>feature_type</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference internal" href="#replay.data.FeatureType" title="replay.data.schema.FeatureType"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeatureType</span></code></a>]) – Feature type to filter by.
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#replay.data.nn.TensorSchema" title="replay.data.nn.schema.TensorSchema"><code class="xref py py-class docutils literal notranslate"><span class="pre">TensorSchema</span></code></a></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>New filtered feature schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TensorSchema.get" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference internal" href="#replay.data.nn.TensorFeatureInfo" title="replay.data.nn.schema.TensorFeatureInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">TensorFeatureInfo</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.item">
+<span class="sig-name descname"><span class="pre">item</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TensorSchema.item" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#replay.data.nn.TensorFeatureInfo" title="replay.data.nn.schema.TensorFeatureInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">TensorFeatureInfo</span></code></a></p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Extract single feature from a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.item_id_feature_name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">item_id_feature_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.TensorSchema.item_id_feature_name" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Item id feature name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.item_id_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">item_id_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.nn.TensorSchema" title="replay.data.nn.schema.TensorSchema"><span class="pre">TensorSchema</span></a></em><a class="headerlink" href="#replay.data.nn.TensorSchema.item_id_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Sequence of item id features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.items">
+<span class="sig-name descname"><span class="pre">items</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TensorSchema.items" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">ItemsView</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <a class="reference internal" href="#replay.data.nn.TensorFeatureInfo" title="replay.data.nn.schema.TensorFeatureInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">TensorFeatureInfo</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.keys">
+<span class="sig-name descname"><span class="pre">keys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TensorSchema.keys" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">KeysView</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.names">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">names</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.TensorSchema.names" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>List of all feature’s names.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.numerical_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">numerical_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.nn.TensorSchema" title="replay.data.nn.schema.TensorSchema"><span class="pre">TensorSchema</span></a></em><a class="headerlink" href="#replay.data.nn.TensorSchema.numerical_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Sequence of numerical features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.query_id_feature_name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_id_feature_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.TensorSchema.query_id_feature_name" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Query id feature name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.query_id_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_id_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.nn.TensorSchema" title="replay.data.nn.schema.TensorSchema"><span class="pre">TensorSchema</span></a></em><a class="headerlink" href="#replay.data.nn.TensorSchema.query_id_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Sequence of query id features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.rating_feature_name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">rating_feature_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.TensorSchema.rating_feature_name" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Rating feature name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.rating_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">rating_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.nn.TensorSchema" title="replay.data.nn.schema.TensorSchema"><span class="pre">TensorSchema</span></a></em><a class="headerlink" href="#replay.data.nn.TensorSchema.rating_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Sequence of rating features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.sequential_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sequential_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.nn.TensorSchema" title="replay.data.nn.schema.TensorSchema"><span class="pre">TensorSchema</span></a></em><a class="headerlink" href="#replay.data.nn.TensorSchema.sequential_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Sequence of sequential features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.subset">
+<span class="sig-name descname"><span class="pre">subset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">features_to_keep</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TensorSchema.subset" title="Permalink to this definition"></a></dt>
+<dd><p>Creates a subset of given features.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>features_to_keep</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – A sequence of feature names
+in original schema to keep in subset.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#replay.data.nn.TensorSchema" title="replay.data.nn.schema.TensorSchema"><code class="xref py py-class docutils literal notranslate"><span class="pre">TensorSchema</span></code></a></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>New tensor schema of given features.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.timestamp_feature_name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">timestamp_feature_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.TensorSchema.timestamp_feature_name" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Timestamp feature name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.timestamp_features">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">timestamp_features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.nn.TensorSchema" title="replay.data.nn.schema.TensorSchema"><span class="pre">TensorSchema</span></a></em><a class="headerlink" href="#replay.data.nn.TensorSchema.timestamp_features" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Sequence of timestamp features in a schema.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.TensorSchema.values">
+<span class="sig-name descname"><span class="pre">values</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TensorSchema.values" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">ValuesView</span></code>[<a class="reference internal" href="#replay.data.nn.TensorFeatureInfo" title="replay.data.nn.schema.TensorFeatureInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">TensorFeatureInfo</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="sequencetokenizer">
+<h3>SequenceTokenizer<a class="headerlink" href="#sequencetokenizer" title="Permalink to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.nn.SequenceTokenizer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.nn.</span></span><span class="sig-name descname"><span class="pre">SequenceTokenizer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor_schema</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">handle_unknown_rule</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'error'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_value_rule</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_collect_to_master</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.SequenceTokenizer" title="Permalink to this definition"></a></dt>
+<dd><p>Data tokenizer for transformers</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.SequenceTokenizer.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.SequenceTokenizer.fit" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>dataset</strong> (<a class="reference internal" href="#replay.data.Dataset" title="replay.data.dataset.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a>) – input dataset to fit</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#replay.data.nn.SequenceTokenizer" title="replay.data.nn.sequence_tokenizer.SequenceTokenizer"><code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceTokenizer</span></code></a></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>fitted SequenceTokenizer</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.SequenceTokenizer.fit_transform">
+<span class="sig-name descname"><span class="pre">fit_transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.SequenceTokenizer.fit_transform" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>dataset</strong> (<a class="reference internal" href="#replay.data.Dataset" title="replay.data.dataset.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a>) – input dataset to transform</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">SequentialDataset</span></code></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>SequentialDataset</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.SequenceTokenizer.interactions_encoder">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">interactions_encoder</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">LabelEncoder</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.SequenceTokenizer.interactions_encoder" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>encoder for interactions</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.SequenceTokenizer.item_features_encoder">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">item_features_encoder</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">LabelEncoder</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.SequenceTokenizer.item_features_encoder" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>encoder for item features</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.SequenceTokenizer.item_id_encoder">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">item_id_encoder</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">LabelEncoder</span></em><a class="headerlink" href="#replay.data.nn.SequenceTokenizer.item_id_encoder" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>encoder for item id</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.SequenceTokenizer.load">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.SequenceTokenizer.load" title="Permalink to this definition"></a></dt>
+<dd><p>Load tokenizer object from the given path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>path</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Path to load the tokenizer.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#replay.data.nn.SequenceTokenizer" title="replay.data.nn.sequence_tokenizer.SequenceTokenizer"><code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceTokenizer</span></code></a></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Loaded tokenizer object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.SequenceTokenizer.query_and_item_id_encoder">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_and_item_id_encoder</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">LabelEncoder</span></em><a class="headerlink" href="#replay.data.nn.SequenceTokenizer.query_and_item_id_encoder" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>encoder for query and item id</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.SequenceTokenizer.query_features_encoder">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_features_encoder</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">LabelEncoder</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#replay.data.nn.SequenceTokenizer.query_features_encoder" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>encoder for query features</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.SequenceTokenizer.query_id_encoder">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_id_encoder</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">LabelEncoder</span></em><a class="headerlink" href="#replay.data.nn.SequenceTokenizer.query_id_encoder" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>encoder for query id</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.SequenceTokenizer.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.SequenceTokenizer.save" title="Permalink to this definition"></a></dt>
+<dd><p>Save the tokenizer to the given path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>path</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Path to save the tokenizer.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.SequenceTokenizer.tensor_schema">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">tensor_schema</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.nn.TensorSchema" title="replay.data.nn.schema.TensorSchema"><span class="pre">TensorSchema</span></a></em><a class="headerlink" href="#replay.data.nn.SequenceTokenizer.tensor_schema" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>tensor schema</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.SequenceTokenizer.transform">
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_features_to_keep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.SequenceTokenizer.transform" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataset</strong> (<a class="reference internal" href="#replay.data.Dataset" title="replay.data.dataset.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a>) – input dataset to transform</p></li>
+<li><p><strong>tensor_features_to_keep</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]]) – specified feature names to transform</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">SequentialDataset</span></code></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>SequentialDataset</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="pandassequentialdataset">
+<h3>PandasSequentialDataset<a class="headerlink" href="#pandassequentialdataset" title="Permalink to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.nn.PandasSequentialDataset">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.nn.</span></span><span class="sig-name descname"><span class="pre">PandasSequentialDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor_schema</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_id_column</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_id_column</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sequences</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.PandasSequentialDataset" title="Permalink to this definition"></a></dt>
+<dd><p>Sequential dataset that stores sequences in PandasDataFrame format.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.PandasSequentialDataset.filter_by_query_id">
+<span class="sig-name descname"><span class="pre">filter_by_query_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_ids_to_keep</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.PandasSequentialDataset.filter_by_query_id" title="Permalink to this definition"></a></dt>
+<dd><p>Returns a <cite>SequentialDataset</cite> that contains only query ids from the specified list.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>query_ids_to_keep</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>) – list of query ids.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#replay.data.nn.PandasSequentialDataset" title="replay.data.nn.sequential_dataset.PandasSequentialDataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">PandasSequentialDataset</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.PandasSequentialDataset.get_all_query_ids">
+<span class="sig-name descname"><span class="pre">get_all_query_ids</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.PandasSequentialDataset.get_all_query_ids" title="Permalink to this definition"></a></dt>
+<dd><p>Getting a list of all query ids.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.PandasSequentialDataset.get_max_sequence_length">
+<span class="sig-name descname"><span class="pre">get_max_sequence_length</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.PandasSequentialDataset.get_max_sequence_length" title="Permalink to this definition"></a></dt>
+<dd><p>Returns the maximum length among all sequences from the <cite>SequentialDataset</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.PandasSequentialDataset.get_query_id">
+<span class="sig-name descname"><span class="pre">get_query_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.PandasSequentialDataset.get_query_id" title="Permalink to this definition"></a></dt>
+<dd><p>Getting a query id for a given index.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>index</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – the row number in the dataset.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.PandasSequentialDataset.get_sequence">
+<span class="sig-name descname"><span class="pre">get_sequence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.PandasSequentialDataset.get_sequence" title="Permalink to this definition"></a></dt>
+<dd><p>Getting a sequence based on a given index and feature name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>index</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>]) – single index or list of indices.</p></li>
+<li><p><strong>feature_name</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – the name of the feature.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.PandasSequentialDataset.get_sequence_by_query_id">
+<span class="sig-name descname"><span class="pre">get_sequence_by_query_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.PandasSequentialDataset.get_sequence_by_query_id" title="Permalink to this definition"></a></dt>
+<dd><p>Getting a sequence based on a given query id and feature name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query_id</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>]) – single query id or list of query ids.</p></li>
+<li><p><strong>feature_name</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – the name of the feature.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.PandasSequentialDataset.get_sequence_length">
+<span class="sig-name descname"><span class="pre">get_sequence_length</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.PandasSequentialDataset.get_sequence_length" title="Permalink to this definition"></a></dt>
+<dd><p>Returns the length of the sequence at the specified index.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>index</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – the row number in the dataset.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.PandasSequentialDataset.keep_common_query_ids">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">keep_common_query_ids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.PandasSequentialDataset.keep_common_query_ids" title="Permalink to this definition"></a></dt>
+<dd><p>Returns <cite>SequentialDatasets</cite> that contain query ids from both datasets.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lhs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">SequentialDataset</span></code>) – <cite>SequentialDataset</cite>.</p></li>
+<li><p><strong>rhs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">SequentialDataset</span></code>) – <cite>SequentialDataset</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">SequentialDataset</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">SequentialDataset</span></code>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="replay.data.nn.PandasSequentialDataset.schema">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">schema</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#replay.data.nn.TensorSchema" title="replay.data.nn.schema.TensorSchema"><span class="pre">TensorSchema</span></a></em><a class="headerlink" href="#replay.data.nn.PandasSequentialDataset.schema" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>List of tensor features.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="torchsequentialbatch">
+<h3>TorchSequentialBatch<a class="headerlink" href="#torchsequentialbatch" title="Permalink to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialBatch">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.nn.</span></span><span class="sig-name descname"><span class="pre">TorchSequentialBatch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">LongTensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_mask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BoolTensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">features</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TorchSequentialBatch" title="Permalink to this definition"></a></dt>
+<dd><p>Batch of TorchSequentialDataset</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialBatch.features">
+<span class="sig-name descname"><span class="pre">features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code><span class="pre">[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code><span class="pre">,</span> <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code><span class="pre">]</span></em><a class="headerlink" href="#replay.data.nn.TorchSequentialBatch.features" title="Permalink to this definition"></a></dt>
+<dd><p>Alias for field number 2</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialBatch.padding_mask">
+<span class="sig-name descname"><span class="pre">padding_mask</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">BoolTensor</span></code></em><a class="headerlink" href="#replay.data.nn.TorchSequentialBatch.padding_mask" title="Permalink to this definition"></a></dt>
+<dd><p>Alias for field number 1</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialBatch.query_id">
+<span class="sig-name descname"><span class="pre">query_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">LongTensor</span></code></em><a class="headerlink" href="#replay.data.nn.TorchSequentialBatch.query_id" title="Permalink to this definition"></a></dt>
+<dd><p>Alias for field number 0</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="torchsequentialdataset">
+<h3>TorchSequentialDataset<a class="headerlink" href="#torchsequentialdataset" title="Permalink to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialDataset">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.nn.</span></span><span class="sig-name descname"><span class="pre">TorchSequentialDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequential</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_sequence_length</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sliding_window_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TorchSequentialDataset" title="Permalink to this definition"></a></dt>
+<dd><p>Torch dataset for sequential recommender models</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialDataset.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequential</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_sequence_length</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sliding_window_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TorchSequentialDataset.__init__" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sequential</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">SequentialDataset</span></code>) – sequential dataset</p></li>
+<li><p><strong>max_sequence_length</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – the maximum length of sequence</p></li>
+<li><p><strong>sliding_window_step</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – value of offset from each sequence start during iteration,
+<cite>None</cite> means the offset will be equals to difference between actual sequence
+length and <cite>max_sequence_length</cite>.
+Default: <cite>None</cite></p></li>
+<li><p><strong>padding_value</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – value to pad sequences to desired length</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="torchsequentialvalidationbatch">
+<h3>TorchSequentialValidationBatch<a class="headerlink" href="#torchsequentialvalidationbatch" title="Permalink to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialValidationBatch">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.nn.</span></span><span class="sig-name descname"><span class="pre">TorchSequentialValidationBatch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">LongTensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_mask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BoolTensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">features</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ground_truth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">LongTensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">LongTensor</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TorchSequentialValidationBatch" title="Permalink to this definition"></a></dt>
+<dd><p>Batch of TorchSequentialValidationDataset</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialValidationBatch.features">
+<span class="sig-name descname"><span class="pre">features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">Mapping</span></code><span class="pre">[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code><span class="pre">,</span> <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code><span class="pre">]</span></em><a class="headerlink" href="#replay.data.nn.TorchSequentialValidationBatch.features" title="Permalink to this definition"></a></dt>
+<dd><p>Alias for field number 2</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialValidationBatch.ground_truth">
+<span class="sig-name descname"><span class="pre">ground_truth</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">LongTensor</span></code></em><a class="headerlink" href="#replay.data.nn.TorchSequentialValidationBatch.ground_truth" title="Permalink to this definition"></a></dt>
+<dd><p>Alias for field number 3</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialValidationBatch.padding_mask">
+<span class="sig-name descname"><span class="pre">padding_mask</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">BoolTensor</span></code></em><a class="headerlink" href="#replay.data.nn.TorchSequentialValidationBatch.padding_mask" title="Permalink to this definition"></a></dt>
+<dd><p>Alias for field number 1</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialValidationBatch.query_id">
+<span class="sig-name descname"><span class="pre">query_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">LongTensor</span></code></em><a class="headerlink" href="#replay.data.nn.TorchSequentialValidationBatch.query_id" title="Permalink to this definition"></a></dt>
+<dd><p>Alias for field number 0</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialValidationBatch.train">
+<span class="sig-name descname"><span class="pre">train</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">LongTensor</span></code></em><a class="headerlink" href="#replay.data.nn.TorchSequentialValidationBatch.train" title="Permalink to this definition"></a></dt>
+<dd><p>Alias for field number 4</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="torchsequentialvalidationdataset">
+<h3>TorchSequentialValidationDataset<a class="headerlink" href="#torchsequentialvalidationdataset" title="Permalink to this heading"></a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialValidationDataset">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.data.nn.</span></span><span class="sig-name descname"><span class="pre">TorchSequentialValidationDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequential</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ground_truth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_sequence_length</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sliding_window_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label_feature_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TorchSequentialValidationDataset" title="Permalink to this definition"></a></dt>
+<dd><p>Torch dataset for sequential recommender models that additionally stores ground truth</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.data.nn.TorchSequentialValidationDataset.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequential</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ground_truth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_sequence_length</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sliding_window_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label_feature_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.data.nn.TorchSequentialValidationDataset.__init__" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sequential</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">SequentialDataset</span></code>) – validation sequential dataset</p></li>
+<li><p><strong>ground_truth</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">SequentialDataset</span></code>) – validation ground_truth sequential dataset</p></li>
+<li><p><strong>train</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">SequentialDataset</span></code>) – train sequential dataset</p></li>
+<li><p><strong>max_sequence_length</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – the maximum length of sequence</p></li>
+<li><p><strong>padding_value</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – value to pad sequences to desired length</p></li>
+<li><p><strong>sliding_window_step</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – value of offset from each sequence start during iteration,
+<cite>None</cite> means the offset will be equals to difference between actual sequence
+length and <cite>max_sequence_length</cite>.
+Default: <cite>None</cite></p></li>
+<li><p><strong>label_feature_name</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – the name of the column containing the sequence of items.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../modules.html" class="btn btn-neutral float-left" title="Modules" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="preprocessing.html" class="btn btn-neutral float-right" title="Preprocessing" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Sberbank AI Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

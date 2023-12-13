@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Splitters &mdash; RePlay  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Models" href="models.html" />
+    <link rel="prev" title="Preprocessing" href="preprocessing.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            RePlay
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Development</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preprocessing.html">Preprocessing</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Splitters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#replay.splitters.base_splitter.Splitter.split"><code class="docutils literal notranslate"><span class="pre">split()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#twostagesplitter">TwoStageSplitter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.splitters.two_stage_splitter.TwoStageSplitter"><code class="docutils literal notranslate"><span class="pre">TwoStageSplitter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#kfolds">KFolds</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.splitters.k_folds.KFolds"><code class="docutils literal notranslate"><span class="pre">KFolds()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#timesplitter">TimeSplitter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.splitters.time_splitter.TimeSplitter"><code class="docutils literal notranslate"><span class="pre">TimeSplitter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#lastnsplitter">LastNSplitter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.splitters.last_n_splitter.LastNSplitter"><code class="docutils literal notranslate"><span class="pre">LastNSplitter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#ratiosplitter">RatioSplitter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.splitters.ratio_splitter.RatioSplitter"><code class="docutils literal notranslate"><span class="pre">RatioSplitter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#randomsplitter">RandomSplitter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.splitters.random_splitter.RandomSplitter"><code class="docutils literal notranslate"><span class="pre">RandomSplitter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#newuserssplitter">NewUsersSplitter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.splitters.new_users_splitter.NewUsersSplitter"><code class="docutils literal notranslate"><span class="pre">NewUsersSplitter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#colduserrandomsplitter">ColdUserRandomSplitter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#replay.splitters.cold_user_random_splitter.ColdUserRandomSplitter"><code class="docutils literal notranslate"><span class="pre">ColdUserRandomSplitter</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="models.html">Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="metrics.html">Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scenarios.html">Scenarios</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html">Utils</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../settings.html">Settings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../useful.html">Useful Info</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">RePlay</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../modules.html">Modules</a></li>
+      <li class="breadcrumb-item active">Splitters</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/pages/modules/splitters.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="splitters">
+<span id="id1"></span><h1>Splitters<a class="headerlink" href="#splitters" title="Permalink to this heading"></a></h1>
+<span class="target" id="module-replay.splitters"></span><p>Splits data into train and test</p>
+<p>Splits are returned with <code class="docutils literal notranslate"><span class="pre">split</span></code> method.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="replay.splitters.base_splitter.Splitter.split">
+<span class="sig-prename descclassname"><span class="pre">replay.splitters.base_splitter.Splitter.</span></span><span class="sig-name descname"><span class="pre">split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interactions</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.base_splitter.Splitter.split" title="Permalink to this definition"></a></dt>
+<dd><p>Splits input DataFrame into train and test</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>interactions</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]) – input DataFrame <code class="docutils literal notranslate"><span class="pre">[timestamp,</span> <span class="pre">user_id,</span> <span class="pre">item_id,</span> <span class="pre">relevance]</span></code></p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code>[<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>], <code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code>]]</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>List of splitted DataFrames</p>
+</dd>
+</dl>
+</dd></dl>
+
+<div class="section" id="twostagesplitter">
+<h2>TwoStageSplitter<a class="headerlink" href="#twostagesplitter" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.splitters.two_stage_splitter.TwoStageSplitter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.splitters.two_stage_splitter.</span></span><span class="sig-name descname"><span class="pre">TwoStageSplitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">first_divide_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">second_divide_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">first_divide_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">second_divide_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shuffle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_users</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.two_stage_splitter.TwoStageSplitter" title="Permalink to this definition"></a></dt>
+<dd><p>Split data by two columns.
+First step: takes <cite>first_divide_size</cite> distinct values of <cite>first_divide_column</cite> to the test split.
+Second step: takes <cite>second_divide_size</cite> of <cite>second_divide_column</cite> among the data
+provided after first step to the test split.</p>
+<p>Example:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">replay.utils.session_handler</span> <span class="kn">import</span> <span class="n">get_spark_session</span><span class="p">,</span> <span class="n">State</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">spark</span> <span class="o">=</span> <span class="n">get_spark_session</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">state</span> <span class="o">=</span> <span class="n">State</span><span class="p">(</span><span class="n">spark</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">replay.splitters</span> <span class="kn">import</span> <span class="n">TwoStageSplitter</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data_frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;query_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;relevance&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">]})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data_frame</span>
+<span class="go">   query_id  item_id  relevance  timestamp</span>
+<span class="go">0         1         1          1          1</span>
+<span class="go">1         1         2          2          2</span>
+<span class="go">2         1         3          3          3</span>
+<span class="go">3         2         1          4          3</span>
+<span class="go">4         2         2          5          2</span>
+<span class="go">5         2         3          6          1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">train</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">TwoStageSplitter</span><span class="p">(</span><span class="n">first_divide_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">second_divide_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">data_frame</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span>
+<span class="go">   query_id  item_id  relevance  timestamp</span>
+<span class="go">3         2         1          4          3</span>
+<span class="go">4         2         2          5          2</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">train</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">TwoStageSplitter</span><span class="p">(</span><span class="n">first_divide_size</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">second_divide_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">data_frame</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span>
+<span class="go">   query_id  item_id  relevance  timestamp</span>
+<span class="go">3         2         1          4          3</span>
+<span class="go">4         2         2          5          2</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">train</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">TwoStageSplitter</span><span class="p">(</span><span class="n">first_divide_size</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">second_divide_size</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">data_frame</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span>
+<span class="go">   query_id  item_id  relevance  timestamp</span>
+<span class="go">3         2         1          4          3</span>
+<span class="go">4         2         2          5          2</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.splitters.two_stage_splitter.TwoStageSplitter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">first_divide_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">second_divide_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">first_divide_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">second_divide_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shuffle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_users</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.two_stage_splitter.TwoStageSplitter.__init__" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>second_divide_size</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – fraction or a number of items per user</p></li>
+<li><p><strong>first_divide_size</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – similar to <code class="docutils literal notranslate"><span class="pre">item_test_size</span></code>,
+but corresponds to the number of users.
+<code class="docutils literal notranslate"><span class="pre">None</span></code> is all available users.</p></li>
+<li><p><strong>shuffle</strong> – take random items and not last based on <code class="docutils literal notranslate"><span class="pre">timestamp</span></code>.</p></li>
+<li><p><strong>drop_cold_items</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – flag to drop cold items from test</p></li>
+<li><p><strong>drop_cold_users</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – flag to drop cold users from test</p></li>
+<li><p><strong>seed</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – random seed</p></li>
+<li><p><strong>query_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – query id column name</p></li>
+<li><p><strong>item_column</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – item id column name</p></li>
+<li><p><strong>timestamp_column</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – timestamp column name</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="kfolds">
+<h2>KFolds<a class="headerlink" href="#kfolds" title="Permalink to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="replay.splitters.k_folds.KFolds">
+<span class="sig-prename descclassname"><span class="pre">replay.splitters.k_folds.</span></span><span class="sig-name descname"><span class="pre">KFolds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_folds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_users</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_processing_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'test'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.k_folds.KFolds" title="Permalink to this definition"></a></dt>
+<dd><p>Splits interactions inside each query into folds at random.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="timesplitter">
+<h2>TimeSplitter<a class="headerlink" href="#timesplitter" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.splitters.time_splitter.TimeSplitter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.splitters.time_splitter.</span></span><span class="sig-name descname"><span class="pre">TimeSplitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time_threshold</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_users</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_processing_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'test'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_column_format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'%Y-%m-%d</span> <span class="pre">%H:%M:%S'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.time_splitter.TimeSplitter" title="Permalink to this definition"></a></dt>
+<dd><p>Split interactions by time.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;query_id&quot;</span><span class="p">,</span> <span class="s2">&quot;item_id&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;01-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;02-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;03-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;04-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;05-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;06-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;07-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;08-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="s2">&quot;09-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;10-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;01-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;02-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;03-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;04-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;05-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">dataset</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">],</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2">-%m-%Y&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span>
+<span class="go">   query_id  item_id  timestamp</span>
+<span class="go">0         1        1 2020-01-01</span>
+<span class="go">1         1        2 2020-01-02</span>
+<span class="go">2         1        3 2020-01-03</span>
+<span class="go">3         1        4 2020-01-04</span>
+<span class="go">4         1        5 2020-01-05</span>
+<span class="go">5         2        1 2020-01-06</span>
+<span class="go">6         2        2 2020-01-07</span>
+<span class="go">7         2        3 2020-01-08</span>
+<span class="go">8         2        9 2020-01-09</span>
+<span class="go">9         2       10 2020-01-10</span>
+<span class="go">10        3        1 2020-01-01</span>
+<span class="go">11        3        5 2020-01-02</span>
+<span class="go">12        3        3 2020-01-03</span>
+<span class="go">13        3        1 2020-01-04</span>
+<span class="go">14        3        2 2020-01-05</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">train</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">TimeSplitter</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">time_threshold</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="s2">&quot;2020-01-04&quot;</span><span class="p">,</span> <span class="s2">&quot;%Y-%M-</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="gp">... </span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">train</span>
+<span class="go">   query_id  item_id  timestamp</span>
+<span class="go">0         1        1 2020-01-01</span>
+<span class="go">1         1        2 2020-01-02</span>
+<span class="go">2         1        3 2020-01-03</span>
+<span class="go">3         1        4 2020-01-04</span>
+<span class="go">10        3        1 2020-01-01</span>
+<span class="go">11        3        5 2020-01-02</span>
+<span class="go">12        3        3 2020-01-03</span>
+<span class="go">13        3        1 2020-01-04</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span>
+<span class="go">   query_id  item_id  timestamp</span>
+<span class="go">4         1        5 2020-01-05</span>
+<span class="go">5         2        1 2020-01-06</span>
+<span class="go">6         2        2 2020-01-07</span>
+<span class="go">7         2        3 2020-01-08</span>
+<span class="go">8         2        9 2020-01-09</span>
+<span class="go">9         2       10 2020-01-10</span>
+<span class="go">14        3        2 2020-01-05</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.splitters.time_splitter.TimeSplitter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time_threshold</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_users</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_processing_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'test'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_column_format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'%Y-%m-%d</span> <span class="pre">%H:%M:%S'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.time_splitter.TimeSplitter.__init__" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>time_threshold</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">datetime</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]) – Array of test threshold.</p></li>
+<li><p><strong>query_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Name of user interaction column.</p></li>
+<li><p><strong>drop_cold_users</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – Drop users from test DataFrame.
+which are not in train DataFrame, default: False.</p></li>
+<li><p><strong>drop_cold_items</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – Drop items from test DataFrame
+which are not in train DataFrame, default: False.</p></li>
+<li><p><strong>item_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Name of item interaction column.
+If <code class="docutils literal notranslate"><span class="pre">drop_cold_items</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>, then you can omit this parameter.
+Default: <code class="docutils literal notranslate"><span class="pre">item_id</span></code>.</p></li>
+<li><p><strong>timestamp_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Name of time column,
+Default: <code class="docutils literal notranslate"><span class="pre">timestamp</span></code>.</p></li>
+<li><p><strong>session_id_column</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – Name of session id column, which values can not be split,
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>session_id_processing_strategy</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – strategy of processing session if it is split,
+values: <code class="docutils literal notranslate"><span class="pre">train,</span> <span class="pre">test</span></code>, train: whole split session goes to train. test: same but to test.
+default: <code class="docutils literal notranslate"><span class="pre">test</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="lastnsplitter">
+<h2>LastNSplitter<a class="headerlink" href="#lastnsplitter" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.splitters.last_n_splitter.LastNSplitter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.splitters.last_n_splitter.</span></span><span class="sig-name descname"><span class="pre">LastNSplitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">divide_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_column_format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'yyyy-MM-dd</span> <span class="pre">HH:mm:ss'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'interactions'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_users</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_processing_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'test'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.last_n_splitter.LastNSplitter" title="Permalink to this definition"></a></dt>
+<dd><p>Split interactions by last N interactions/timedelta per user.
+Type of splitting depends on the <code class="docutils literal notranslate"><span class="pre">strategy</span></code> parameter.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;query_id&quot;</span><span class="p">,</span> <span class="s2">&quot;item_id&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;01-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;02-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;03-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;04-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;05-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;06-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;07-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;08-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="s2">&quot;09-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;10-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;01-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;02-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;03-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;04-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;05-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">dataset</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">],</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2">-%m-%Y&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span>
+<span class="go">   query_id  item_id  timestamp</span>
+<span class="go">0         1        1 2020-01-01</span>
+<span class="go">1         1        2 2020-01-02</span>
+<span class="go">2         1        3 2020-01-03</span>
+<span class="go">3         1        4 2020-01-04</span>
+<span class="go">4         1        5 2020-01-05</span>
+<span class="go">5         2        1 2020-01-06</span>
+<span class="go">6         2        2 2020-01-07</span>
+<span class="go">7         2        3 2020-01-08</span>
+<span class="go">8         2        9 2020-01-09</span>
+<span class="go">9         2       10 2020-01-10</span>
+<span class="go">10        3        1 2020-01-01</span>
+<span class="go">11        3        5 2020-01-02</span>
+<span class="go">12        3        3 2020-01-03</span>
+<span class="go">13        3        1 2020-01-04</span>
+<span class="go">14        3        2 2020-01-05</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">splitter</span> <span class="o">=</span> <span class="n">LastNSplitter</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">N</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">divide_column</span><span class="o">=</span><span class="s2">&quot;query_id&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">time_column_format</span><span class="o">=</span><span class="s2">&quot;yyyy-MM-dd&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">query_column</span><span class="o">=</span><span class="s2">&quot;query_id&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">item_column</span><span class="o">=</span><span class="s2">&quot;item_id&quot;</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">train</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">splitter</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">train</span>
+<span class="go">   query_id  item_id  timestamp</span>
+<span class="go">0         1        1 2020-01-01</span>
+<span class="go">1         1        2 2020-01-02</span>
+<span class="go">2         1        3 2020-01-03</span>
+<span class="go">5         2        1 2020-01-06</span>
+<span class="go">6         2        2 2020-01-07</span>
+<span class="go">7         2        3 2020-01-08</span>
+<span class="go">10        3        1 2020-01-01</span>
+<span class="go">11        3        5 2020-01-02</span>
+<span class="go">12        3        3 2020-01-03</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span>
+<span class="go">   query_id  item_id  timestamp</span>
+<span class="go">3         1        4 2020-01-04</span>
+<span class="go">4         1        5 2020-01-05</span>
+<span class="go">8         2        9 2020-01-09</span>
+<span class="go">9         2       10 2020-01-10</span>
+<span class="go">13        3        1 2020-01-04</span>
+<span class="go">14        3        2 2020-01-05</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.splitters.last_n_splitter.LastNSplitter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">divide_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_column_format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'yyyy-MM-dd</span> <span class="pre">HH:mm:ss'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'interactions'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_users</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_processing_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'test'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.last_n_splitter.LastNSplitter.__init__" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>N</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – Array of interactions/timedelta to split.</p></li>
+<li><p><strong>divide_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Name of column for dividing
+in dataframe, default: <code class="docutils literal notranslate"><span class="pre">query_id</span></code>.</p></li>
+<li><p><strong>time_column_format</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Format of time_column,
+needs for convert time_column into unix_timestamp type.
+If strategy is set to ‘interactions’, then you can omit this parameter.
+If time_column has already transformed into unix_timestamp type,
+then you can omit this parameter.
+default: <code class="docutils literal notranslate"><span class="pre">yyyy-MM-dd</span> <span class="pre">HH:mm:ss</span></code></p></li>
+<li><p><strong>strategy</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Literal</span></code>[<code class="docutils literal notranslate"><span class="pre">'interactions'</span></code>, <code class="docutils literal notranslate"><span class="pre">'timedelta'</span></code>]) – Defines the type of data splitting.
+Must be <code class="docutils literal notranslate"><span class="pre">interactions</span></code> or <code class="docutils literal notranslate"><span class="pre">timedelta</span></code>.
+default: <code class="docutils literal notranslate"><span class="pre">interactions</span></code>.</p></li>
+<li><p><strong>query_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Name of query interaction column.</p></li>
+<li><p><strong>drop_cold_users</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – Drop users from test DataFrame.
+which are not in train DataFrame, default: False.</p></li>
+<li><p><strong>drop_cold_items</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – Drop items from test DataFrame
+which are not in train DataFrame, default: False.</p></li>
+<li><p><strong>item_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Name of item interaction column.
+If <code class="docutils literal notranslate"><span class="pre">drop_cold_items</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>, then you can omit this parameter.
+Default: <code class="docutils literal notranslate"><span class="pre">item_id</span></code>.</p></li>
+<li><p><strong>timestamp_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Name of time column,
+Default: <code class="docutils literal notranslate"><span class="pre">timestamp</span></code>.</p></li>
+<li><p><strong>session_id_column</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – Name of session id column, which values can not be split,
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>session_id_processing_strategy</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – strategy of processing session if it is split,
+values: <code class="docutils literal notranslate"><span class="pre">train,</span> <span class="pre">test</span></code>, train: whole split session goes to train. test: same but to test.
+default: <code class="docutils literal notranslate"><span class="pre">test</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="ratiosplitter">
+<h2>RatioSplitter<a class="headerlink" href="#ratiosplitter" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.splitters.ratio_splitter.RatioSplitter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.splitters.ratio_splitter.</span></span><span class="sig-name descname"><span class="pre">RatioSplitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">test_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">divide_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_users</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_interactions_per_group</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_by_fraqtions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_processing_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'test'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.ratio_splitter.RatioSplitter" title="Permalink to this definition"></a></dt>
+<dd><p>Split interactions into train and test by ratio. Split is made for each user separately.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;query_id&quot;</span><span class="p">,</span> <span class="s2">&quot;item_id&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;01-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;02-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;03-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;04-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;05-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;06-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;07-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;08-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="s2">&quot;09-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;10-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;01-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;02-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;03-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;04-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;05-01-2020&quot;</span><span class="p">),</span>
+<span class="gp">... </span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">dataset</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">],</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2">-%m-%Y&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span>
+<span class="go">    query_id  item_id  timestamp</span>
+<span class="go">0         1        1 2020-01-01</span>
+<span class="go">1         1        2 2020-01-02</span>
+<span class="go">2         1        3 2020-01-03</span>
+<span class="go">3         1        4 2020-01-04</span>
+<span class="go">4         1        5 2020-01-05</span>
+<span class="go">5         2        1 2020-01-06</span>
+<span class="go">6         2        2 2020-01-07</span>
+<span class="go">7         2        3 2020-01-08</span>
+<span class="go">8         2        9 2020-01-09</span>
+<span class="go">9         2       10 2020-01-10</span>
+<span class="go">10        3        1 2020-01-01</span>
+<span class="go">11        3        5 2020-01-02</span>
+<span class="go">12        3        3 2020-01-03</span>
+<span class="go">13        3        1 2020-01-04</span>
+<span class="go">14        3        2 2020-01-05</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">splitter</span> <span class="o">=</span> <span class="n">RatioSplitter</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">test_size</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">divide_column</span><span class="o">=</span><span class="s2">&quot;query_id&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">query_column</span><span class="o">=</span><span class="s2">&quot;query_id&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">item_column</span><span class="o">=</span><span class="s2">&quot;item_id&quot;</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">train</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">splitter</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">train</span>
+<span class="go">   query_id  item_id  timestamp</span>
+<span class="go">0         1        1 2020-01-01</span>
+<span class="go">1         1        2 2020-01-02</span>
+<span class="go">5         2        1 2020-01-06</span>
+<span class="go">6         2        2 2020-01-07</span>
+<span class="go">10        3        1 2020-01-01</span>
+<span class="go">11        3        5 2020-01-02</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span>
+<span class="go">   query_id  item_id  timestamp</span>
+<span class="go">2         1        3 2020-01-03</span>
+<span class="go">3         1        4 2020-01-04</span>
+<span class="go">4         1        5 2020-01-05</span>
+<span class="go">7         2        3 2020-01-08</span>
+<span class="go">8         2        9 2020-01-09</span>
+<span class="go">9         2       10 2020-01-10</span>
+<span class="go">12        3        3 2020-01-03</span>
+<span class="go">13        3        1 2020-01-04</span>
+<span class="go">14        3        2 2020-01-05</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.splitters.ratio_splitter.RatioSplitter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">test_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">divide_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_users</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_interactions_per_group</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_by_fraqtions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_processing_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'test'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.ratio_splitter.RatioSplitter.__init__" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ratio</strong> – test size, must be in <span class="math notranslate nohighlight">\((0, 1)\)</span>.</p></li>
+<li><p><strong>divide_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Name of column for dividing
+in dataframe, default: <code class="docutils literal notranslate"><span class="pre">query_id</span></code>.</p></li>
+<li><p><strong>drop_cold_users</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – Drop users from test DataFrame.
+which are not in train DataFrame, default: False.</p></li>
+<li><p><strong>drop_cold_items</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – Drop items from test DataFrame
+which are not in train DataFrame, default: False.</p></li>
+<li><p><strong>query_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Name of query interaction column.
+If <code class="docutils literal notranslate"><span class="pre">drop_cold_users</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>, then you can omit this parameter.
+Default: <code class="docutils literal notranslate"><span class="pre">query_id</span></code>.</p></li>
+<li><p><strong>item_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Name of item interaction column.
+If <code class="docutils literal notranslate"><span class="pre">drop_cold_items</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>, then you can omit this parameter.
+Default: <code class="docutils literal notranslate"><span class="pre">item_id</span></code>.</p></li>
+<li><p><strong>timestamp_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Name of time column,
+Default: <code class="docutils literal notranslate"><span class="pre">timestamp</span></code>.</p></li>
+<li><p><strong>min_interactions_per_group</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – minimal required interactions per group to make first split.
+if value is less than min_interactions_per_group, than whole group goes to train.
+If not set, than any amount of interactions will be split.
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>split_by_fraqtions</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – the variable that is responsible for using the split by fractions.
+Split by fractions means that each line is marked with its fraq (line number / number of lines)
+and only those lines with a fraq &gt; test_ratio get into the test.
+Split not by fractions means that the number of rows in the train is calculated by rounding the formula:
+the total number of rows minus the number of rows multiplied by the test ratio.
+The difference between these two methods is that due to rounding in the second method,
+1 more interaction in each group (1 item for each user) falls into the train.
+When split by fractions, these items fall into the test.
+default: <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><strong>session_id_column</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – Name of session id column, which values can not be split,
+default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>session_id_processing_strategy</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – strategy of processing session if it is split,
+values: <code class="docutils literal notranslate"><span class="pre">train,</span> <span class="pre">test</span></code>, train: whole split session goes to train. test: same but to test.
+default: <code class="docutils literal notranslate"><span class="pre">test</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="randomsplitter">
+<h2>RandomSplitter<a class="headerlink" href="#randomsplitter" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.splitters.random_splitter.RandomSplitter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.splitters.random_splitter.</span></span><span class="sig-name descname"><span class="pre">RandomSplitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">test_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_users</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.random_splitter.RandomSplitter" title="Permalink to this definition"></a></dt>
+<dd><p>Assign records into train and test at random.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.splitters.random_splitter.RandomSplitter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">test_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_users</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.random_splitter.RandomSplitter.__init__" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>test_size</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – test size 0 to 1</p></li>
+<li><p><strong>drop_cold_items</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – flag to drop cold items from test</p></li>
+<li><p><strong>drop_cold_users</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – flag to drop cold users from test</p></li>
+<li><p><strong>seed</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – random seed</p></li>
+<li><p><strong>query_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Name of query interaction column</p></li>
+<li><p><strong>item_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – Name of item interaction column</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="newuserssplitter">
+<h2>NewUsersSplitter<a class="headerlink" href="#newuserssplitter" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.splitters.new_users_splitter.NewUsersSplitter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.splitters.new_users_splitter.</span></span><span class="sig-name descname"><span class="pre">NewUsersSplitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">test_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_processing_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'test'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.new_users_splitter.NewUsersSplitter" title="Permalink to this definition"></a></dt>
+<dd><p>Only new users will be assigned to test set.
+Splits interactions by timestamp so that test has <cite>test_size</cite> fraction of most recent users.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">replay.splitters</span> <span class="kn">import</span> <span class="n">NewUsersSplitter</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data_frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;query_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;relevance&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">],</span>
+<span class="gp">... </span>   <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="mi">40</span><span class="p">,</span><span class="mi">20</span><span class="p">,</span><span class="mi">30</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">40</span><span class="p">]})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data_frame</span>
+<span class="go">   query_id   item_id  relevance  timestamp</span>
+<span class="go">0         1         1          1         20</span>
+<span class="go">1         1         2          2         40</span>
+<span class="go">2         2         3          3         20</span>
+<span class="go">3         2         1          4         30</span>
+<span class="go">4         3         2          5         10</span>
+<span class="go">5         4         3          6         40</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">train</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">NewUsersSplitter</span><span class="p">(</span><span class="n">test_size</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">data_frame</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">train</span>
+<span class="go">  query_id  item_id  relevance  timestamp</span>
+<span class="go">0        1        1          1         20</span>
+<span class="go">2        2        3          3         20</span>
+<span class="go">3        2        1          4         30</span>
+<span class="go">4        3        2          5         10</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span>
+<span class="go">  query_id  item_id  relevance  timestamp</span>
+<span class="go">0        4        3          6         40</span>
+</pre></div>
+</div>
+<p>Train DataFrame can be drastically reduced even with moderate
+<cite>test_size</cite> if the amount of new users is small.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">train</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">NewUsersSplitter</span><span class="p">(</span><span class="n">test_size</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">data_frame</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">train</span>
+<span class="go">  query_id  item_id  relevance  timestamp</span>
+<span class="go">4        3        2          5         10</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.splitters.new_users_splitter.NewUsersSplitter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">test_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'timestamp'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id_processing_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'test'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.new_users_splitter.NewUsersSplitter.__init__" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>test_size</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – test size 0 to 1</p></li>
+<li><p><strong>drop_cold_items</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – flag to drop cold items from test</p></li>
+<li><p><strong>query_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – query id column name</p></li>
+<li><p><strong>item_column</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – item id column name</p></li>
+<li><p><strong>timestamp_column</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – timestamp column name</p></li>
+<li><p><strong>session_id_column</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – name of session id column, which values can not be split.</p></li>
+<li><p><strong>session_id_processing_strategy</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – strategy of processing session if it is split,
+values: <code class="docutils literal notranslate"><span class="pre">train,</span> <span class="pre">test</span></code>, train: whole split session goes to train. test: same but to test.
+default: <code class="docutils literal notranslate"><span class="pre">test</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="colduserrandomsplitter">
+<h2>ColdUserRandomSplitter<a class="headerlink" href="#colduserrandomsplitter" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="replay.splitters.cold_user_random_splitter.ColdUserRandomSplitter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">replay.splitters.cold_user_random_splitter.</span></span><span class="sig-name descname"><span class="pre">ColdUserRandomSplitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">test_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.cold_user_random_splitter.ColdUserRandomSplitter" title="Permalink to this definition"></a></dt>
+<dd><p>Test set consists of all actions of randomly chosen users.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="replay.splitters.cold_user_random_splitter.ColdUserRandomSplitter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">test_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_cold_items</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'query_id'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item_column</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'item_id'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#replay.splitters.cold_user_random_splitter.ColdUserRandomSplitter.__init__" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>test_size</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – fraction of users to be in test</p></li>
+<li><p><strong>drop_cold_items</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – flag to drop cold items from test</p></li>
+<li><p><strong>drop_cold_users</strong> – flag to drop cold users from test</p></li>
+<li><p><strong>seed</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – random seed</p></li>
+<li><p><strong>query_column</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>) – query id column name</p></li>
+<li><p><strong>item_column</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>]) – item id column name</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="preprocessing.html" class="btn btn-neutral float-left" title="Preprocessing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="models.html" class="btn btn-neutral float-right" title="Models" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Sberbank AI Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

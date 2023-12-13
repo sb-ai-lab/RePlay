@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Modules &mdash; RePlay  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Data" href="modules/data.html" />
+    <link rel="prev" title="Development" href="development.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            RePlay
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Modules</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/data.html">Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/preprocessing.html">Preprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/splitters.html">Splitters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/models.html">Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html">Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/scenarios.html">Scenarios</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/utils.html">Utils</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="settings.html">Settings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="useful.html">Useful Info</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">RePlay</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Modules</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/pages/modules.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="modules">
+<h1>Modules<a class="headerlink" href="#modules" title="Permalink to this heading"></a></h1>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modules/data.html">Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/data.html#dataset">Dataset</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#replay.data.Dataset"><code class="docutils literal notranslate"><span class="pre">Dataset</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.Dataset.cache"><code class="docutils literal notranslate"><span class="pre">Dataset.cache()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.Dataset.feature_schema"><code class="docutils literal notranslate"><span class="pre">Dataset.feature_schema</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.Dataset.interactions"><code class="docutils literal notranslate"><span class="pre">Dataset.interactions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.Dataset.is_categorical_encoded"><code class="docutils literal notranslate"><span class="pre">Dataset.is_categorical_encoded</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.Dataset.item_count"><code class="docutils literal notranslate"><span class="pre">Dataset.item_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.Dataset.item_features"><code class="docutils literal notranslate"><span class="pre">Dataset.item_features</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.Dataset.item_ids"><code class="docutils literal notranslate"><span class="pre">Dataset.item_ids</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.Dataset.persist"><code class="docutils literal notranslate"><span class="pre">Dataset.persist()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.Dataset.query_count"><code class="docutils literal notranslate"><span class="pre">Dataset.query_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.Dataset.query_features"><code class="docutils literal notranslate"><span class="pre">Dataset.query_features</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.Dataset.query_ids"><code class="docutils literal notranslate"><span class="pre">Dataset.query_ids</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.Dataset.subset"><code class="docutils literal notranslate"><span class="pre">Dataset.subset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.Dataset.unpersist"><code class="docutils literal notranslate"><span class="pre">Dataset.unpersist()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data.html#datasetlabelencoder">DatasetLabelEncoder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#replay.data.dataset_utils.DatasetLabelEncoder"><code class="docutils literal notranslate"><span class="pre">DatasetLabelEncoder</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.dataset_utils.DatasetLabelEncoder.fit"><code class="docutils literal notranslate"><span class="pre">DatasetLabelEncoder.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.dataset_utils.DatasetLabelEncoder.fit_transform"><code class="docutils literal notranslate"><span class="pre">DatasetLabelEncoder.fit_transform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.dataset_utils.DatasetLabelEncoder.get_encoder"><code class="docutils literal notranslate"><span class="pre">DatasetLabelEncoder.get_encoder()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.dataset_utils.DatasetLabelEncoder.interactions_encoder"><code class="docutils literal notranslate"><span class="pre">DatasetLabelEncoder.interactions_encoder</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.dataset_utils.DatasetLabelEncoder.item_features_encoder"><code class="docutils literal notranslate"><span class="pre">DatasetLabelEncoder.item_features_encoder</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.dataset_utils.DatasetLabelEncoder.item_id_encoder"><code class="docutils literal notranslate"><span class="pre">DatasetLabelEncoder.item_id_encoder</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.dataset_utils.DatasetLabelEncoder.query_and_item_id_encoder"><code class="docutils literal notranslate"><span class="pre">DatasetLabelEncoder.query_and_item_id_encoder</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.dataset_utils.DatasetLabelEncoder.query_features_encoder"><code class="docutils literal notranslate"><span class="pre">DatasetLabelEncoder.query_features_encoder</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.dataset_utils.DatasetLabelEncoder.query_id_encoder"><code class="docutils literal notranslate"><span class="pre">DatasetLabelEncoder.query_id_encoder</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.dataset_utils.DatasetLabelEncoder.transform"><code class="docutils literal notranslate"><span class="pre">DatasetLabelEncoder.transform()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data.html#featuretype">FeatureType</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#replay.data.FeatureType"><code class="docutils literal notranslate"><span class="pre">FeatureType</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data.html#featuresource">FeatureSource</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#replay.data.FeatureSource"><code class="docutils literal notranslate"><span class="pre">FeatureSource</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data.html#featurehint">FeatureHint</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#replay.data.FeatureHint"><code class="docutils literal notranslate"><span class="pre">FeatureHint</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data.html#featureinfo">FeatureInfo</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#replay.data.FeatureInfo"><code class="docutils literal notranslate"><span class="pre">FeatureInfo</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureInfo.cardinality"><code class="docutils literal notranslate"><span class="pre">FeatureInfo.cardinality</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureInfo.column"><code class="docutils literal notranslate"><span class="pre">FeatureInfo.column</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureInfo.feature_hint"><code class="docutils literal notranslate"><span class="pre">FeatureInfo.feature_hint</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureInfo.feature_source"><code class="docutils literal notranslate"><span class="pre">FeatureInfo.feature_source</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureInfo.feature_type"><code class="docutils literal notranslate"><span class="pre">FeatureInfo.feature_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureInfo.reset_cardinality"><code class="docutils literal notranslate"><span class="pre">FeatureInfo.reset_cardinality()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data.html#featureschema">FeatureSchema</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema"><code class="docutils literal notranslate"><span class="pre">FeatureSchema</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.all_features"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.all_features</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.categorical_features"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.categorical_features</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.columns"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.columns</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.copy"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.copy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.drop"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.drop()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.filter"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.filter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.get"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.get()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.interaction_features"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.interaction_features</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.interactions_rating_column"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.interactions_rating_column</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.interactions_rating_features"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.interactions_rating_features</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.interactions_timestamp_column"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.interactions_timestamp_column</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.interactions_timestamp_features"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.interactions_timestamp_features</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.item"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.item()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.item_features"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.item_features</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.item_id_column"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.item_id_column</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.item_id_feature"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.item_id_feature</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.items"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.items()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.keys"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.keys()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.numerical_features"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.numerical_features</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.query_features"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.query_features</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.query_id_column"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.query_id_column</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.query_id_feature"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.query_id_feature</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.subset"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.subset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.FeatureSchema.values"><code class="docutils literal notranslate"><span class="pre">FeatureSchema.values()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data.html#getschema">GetSchema</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#replay.data.get_schema"><code class="docutils literal notranslate"><span class="pre">get_schema()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data.html#neural-networks">Neural Networks</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#tensorfeatureinfo">TensorFeatureInfo</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.nn.TensorFeatureInfo"><code class="docutils literal notranslate"><span class="pre">TensorFeatureInfo</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#tensorfeaturesource">TensorFeatureSource</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.nn.TensorFeatureSource"><code class="docutils literal notranslate"><span class="pre">TensorFeatureSource</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#tensorschema">TensorSchema</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.nn.TensorSchema"><code class="docutils literal notranslate"><span class="pre">TensorSchema</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#sequencetokenizer">SequenceTokenizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.nn.SequenceTokenizer"><code class="docutils literal notranslate"><span class="pre">SequenceTokenizer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#pandassequentialdataset">PandasSequentialDataset</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.nn.PandasSequentialDataset"><code class="docutils literal notranslate"><span class="pre">PandasSequentialDataset</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#torchsequentialbatch">TorchSequentialBatch</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.nn.TorchSequentialBatch"><code class="docutils literal notranslate"><span class="pre">TorchSequentialBatch</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#torchsequentialdataset">TorchSequentialDataset</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.nn.TorchSequentialDataset"><code class="docutils literal notranslate"><span class="pre">TorchSequentialDataset</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#torchsequentialvalidationbatch">TorchSequentialValidationBatch</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.nn.TorchSequentialValidationBatch"><code class="docutils literal notranslate"><span class="pre">TorchSequentialValidationBatch</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/data.html#torchsequentialvalidationdataset">TorchSequentialValidationDataset</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/data.html#replay.data.nn.TorchSequentialValidationDataset"><code class="docutils literal notranslate"><span class="pre">TorchSequentialValidationDataset</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/preprocessing.html">Preprocessing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/preprocessing.html#module-replay.preprocessing.filters">Filters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/preprocessing.html#replay.preprocessing.filters.EntityDaysFilter"><code class="docutils literal notranslate"><span class="pre">EntityDaysFilter</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="modules/preprocessing.html#replay.preprocessing.filters.GlobalDaysFilter"><code class="docutils literal notranslate"><span class="pre">GlobalDaysFilter</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="modules/preprocessing.html#replay.preprocessing.filters.InteractionEntriesFilter"><code class="docutils literal notranslate"><span class="pre">InteractionEntriesFilter</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="modules/preprocessing.html#replay.preprocessing.filters.LowRatingFilter"><code class="docutils literal notranslate"><span class="pre">LowRatingFilter</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="modules/preprocessing.html#replay.preprocessing.filters.MinCountFilter"><code class="docutils literal notranslate"><span class="pre">MinCountFilter</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="modules/preprocessing.html#replay.preprocessing.filters.NumInteractionsFilter"><code class="docutils literal notranslate"><span class="pre">NumInteractionsFilter</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="modules/preprocessing.html#replay.preprocessing.filters.TimePeriodFilter"><code class="docutils literal notranslate"><span class="pre">TimePeriodFilter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/preprocessing.html#csrconverter">CSRConverter</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/preprocessing.html#replay.preprocessing.converter.CSRConverter"><code class="docutils literal notranslate"><span class="pre">CSRConverter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/preprocessing.html#replay.preprocessing.converter.CSRConverter.transform"><code class="docutils literal notranslate"><span class="pre">CSRConverter.transform()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/preprocessing.html#sessionizer">Sessionizer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/preprocessing.html#replay.preprocessing.sessionizer.Sessionizer"><code class="docutils literal notranslate"><span class="pre">Sessionizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/preprocessing.html#replay.preprocessing.sessionizer.Sessionizer.transform"><code class="docutils literal notranslate"><span class="pre">Sessionizer.transform()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/preprocessing.html#padder-experimental">Padder (Experimental)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.padder.Padder"><code class="docutils literal notranslate"><span class="pre">Padder</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.padder.Padder.transform"><code class="docutils literal notranslate"><span class="pre">Padder.transform()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/preprocessing.html#sequencegenerator-experimental">SequenceGenerator (Experimental)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.sequence_generator.SequenceGenerator"><code class="docutils literal notranslate"><span class="pre">SequenceGenerator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.sequence_generator.SequenceGenerator.transform"><code class="docutils literal notranslate"><span class="pre">SequenceGenerator.transform()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/preprocessing.html#data-preparation-experimental">Data Preparation (Experimental)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.data_preparator.Indexer"><code class="docutils literal notranslate"><span class="pre">Indexer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.data_preparator.Indexer.fit"><code class="docutils literal notranslate"><span class="pre">Indexer.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.data_preparator.Indexer.inverse_transform"><code class="docutils literal notranslate"><span class="pre">Indexer.inverse_transform()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.data_preparator.Indexer.transform"><code class="docutils literal notranslate"><span class="pre">Indexer.transform()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.data_preparator.DataPreparator"><code class="docutils literal notranslate"><span class="pre">DataPreparator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.data_preparator.DataPreparator.add_absent_log_cols"><code class="docutils literal notranslate"><span class="pre">DataPreparator.add_absent_log_cols()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.data_preparator.DataPreparator.check_df"><code class="docutils literal notranslate"><span class="pre">DataPreparator.check_df()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.data_preparator.DataPreparator.logger"><code class="docutils literal notranslate"><span class="pre">DataPreparator.logger</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.data_preparator.DataPreparator.read_as_spark_df"><code class="docutils literal notranslate"><span class="pre">DataPreparator.read_as_spark_df()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/preprocessing.html#replay.experimental.preprocessing.data_preparator.DataPreparator.transform"><code class="docutils literal notranslate"><span class="pre">DataPreparator.transform()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/splitters.html">Splitters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/splitters.html#replay.splitters.base_splitter.Splitter.split"><code class="docutils literal notranslate"><span class="pre">split()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/splitters.html#twostagesplitter">TwoStageSplitter</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/splitters.html#replay.splitters.two_stage_splitter.TwoStageSplitter"><code class="docutils literal notranslate"><span class="pre">TwoStageSplitter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/splitters.html#replay.splitters.two_stage_splitter.TwoStageSplitter.__init__"><code class="docutils literal notranslate"><span class="pre">TwoStageSplitter.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/splitters.html#kfolds">KFolds</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/splitters.html#replay.splitters.k_folds.KFolds"><code class="docutils literal notranslate"><span class="pre">KFolds()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/splitters.html#timesplitter">TimeSplitter</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/splitters.html#replay.splitters.time_splitter.TimeSplitter"><code class="docutils literal notranslate"><span class="pre">TimeSplitter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/splitters.html#replay.splitters.time_splitter.TimeSplitter.__init__"><code class="docutils literal notranslate"><span class="pre">TimeSplitter.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/splitters.html#lastnsplitter">LastNSplitter</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/splitters.html#replay.splitters.last_n_splitter.LastNSplitter"><code class="docutils literal notranslate"><span class="pre">LastNSplitter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/splitters.html#replay.splitters.last_n_splitter.LastNSplitter.__init__"><code class="docutils literal notranslate"><span class="pre">LastNSplitter.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/splitters.html#ratiosplitter">RatioSplitter</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/splitters.html#replay.splitters.ratio_splitter.RatioSplitter"><code class="docutils literal notranslate"><span class="pre">RatioSplitter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/splitters.html#replay.splitters.ratio_splitter.RatioSplitter.__init__"><code class="docutils literal notranslate"><span class="pre">RatioSplitter.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/splitters.html#randomsplitter">RandomSplitter</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/splitters.html#replay.splitters.random_splitter.RandomSplitter"><code class="docutils literal notranslate"><span class="pre">RandomSplitter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/splitters.html#replay.splitters.random_splitter.RandomSplitter.__init__"><code class="docutils literal notranslate"><span class="pre">RandomSplitter.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/splitters.html#newuserssplitter">NewUsersSplitter</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/splitters.html#replay.splitters.new_users_splitter.NewUsersSplitter"><code class="docutils literal notranslate"><span class="pre">NewUsersSplitter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/splitters.html#replay.splitters.new_users_splitter.NewUsersSplitter.__init__"><code class="docutils literal notranslate"><span class="pre">NewUsersSplitter.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/splitters.html#colduserrandomsplitter">ColdUserRandomSplitter</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/splitters.html#replay.splitters.cold_user_random_splitter.ColdUserRandomSplitter"><code class="docutils literal notranslate"><span class="pre">ColdUserRandomSplitter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/splitters.html#replay.splitters.cold_user_random_splitter.ColdUserRandomSplitter.__init__"><code class="docutils literal notranslate"><span class="pre">ColdUserRandomSplitter.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/models.html">Models</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/models.html#replay-recommenders">RePlay Recommenders</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/models.html#recommender-interface">Recommender interface</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#replay.models.Recommender"><code class="docutils literal notranslate"><span class="pre">Recommender</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.Recommender.fit"><code class="docutils literal notranslate"><span class="pre">Recommender.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.Recommender.fit_predict"><code class="docutils literal notranslate"><span class="pre">Recommender.fit_predict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.Recommender.get_features"><code class="docutils literal notranslate"><span class="pre">Recommender.get_features()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.Recommender.predict"><code class="docutils literal notranslate"><span class="pre">Recommender.predict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.Recommender.predict_pairs"><code class="docutils literal notranslate"><span class="pre">Recommender.predict_pairs()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/models.html#distributed-models">Distributed models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#popular-recommender">Popular Recommender</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.PopRec"><code class="docutils literal notranslate"><span class="pre">PopRec</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#query-popular-recommender">Query Popular Recommender</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.QueryPopRec"><code class="docutils literal notranslate"><span class="pre">QueryPopRec</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#wilson-recommender">Wilson Recommender</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.Wilson"><code class="docutils literal notranslate"><span class="pre">Wilson</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#random-recommender">Random Recommender</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.RandomRec"><code class="docutils literal notranslate"><span class="pre">RandomRec</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#ucb-recommender">UCB Recommender</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.UCB"><code class="docutils literal notranslate"><span class="pre">UCB</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#kl-ucb-recommender">KL-UCB Recommender</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.KLUCB"><code class="docutils literal notranslate"><span class="pre">KLUCB</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#thompson-sampling">Thompson Sampling</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.ThompsonSampling"><code class="docutils literal notranslate"><span class="pre">ThompsonSampling</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#k-nearest-neighbours">K Nearest Neighbours</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.ItemKNN"><code class="docutils literal notranslate"><span class="pre">ItemKNN</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#alternating-least-squares">Alternating Least Squares</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.ALSWrap"><code class="docutils literal notranslate"><span class="pre">ALSWrap</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#alternating-least-squares-on-scala-experimental">Alternating Least Squares on Scala (Experimental)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.experimental.models.ScalaALSWrap"><code class="docutils literal notranslate"><span class="pre">ScalaALSWrap</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#slim">SLIM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.SLIM"><code class="docutils literal notranslate"><span class="pre">SLIM</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#word2vec-recommender">Word2Vec Recommender</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.Word2VecRec"><code class="docutils literal notranslate"><span class="pre">Word2VecRec</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#association-rules-item-to-item-recommender">Association Rules Item-to-Item Recommender</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.AssociationRulesItemRec"><code class="docutils literal notranslate"><span class="pre">AssociationRulesItemRec</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#cluster-recommender">Cluster Recommender</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.ClusterRec"><code class="docutils literal notranslate"><span class="pre">ClusterRec</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/models.html#neural-models-with-distributed-inference">Neural models with distributed inference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#neural-matrix-factorization-experimental">Neural Matrix Factorization (Experimental)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.experimental.models.NeuroMF"><code class="docutils literal notranslate"><span class="pre">NeuroMF</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#mult-vae-experimental">Mult-VAE (Experimental)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.experimental.models.MultVAE"><code class="docutils literal notranslate"><span class="pre">MultVAE</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#ddpg-experimental">DDPG (Experimental)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.experimental.models.DDPG"><code class="docutils literal notranslate"><span class="pre">DDPG</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#cql-recommender-experimental">CQL Recommender (Experimental)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.experimental.models.cql.CQL"><code class="docutils literal notranslate"><span class="pre">CQL</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/models.html#wrappers-and-other-models-with-distributed-inference">Wrappers and other models with distributed inference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#admm-slim-experimental">ADMM SLIM (Experimental)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.experimental.models.ADMMSLIM"><code class="docutils literal notranslate"><span class="pre">ADMMSLIM</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#lightfm-experimental">LightFM (Experimental)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.experimental.models.LightFMWrap"><code class="docutils literal notranslate"><span class="pre">LightFMWrap</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#implicit-experimental">implicit (Experimental)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.experimental.models.ImplicitWrap"><code class="docutils literal notranslate"><span class="pre">ImplicitWrap</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/models.html#neural-networks-recommenders">Neural Networks recommenders</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#bert4rec">Bert4Rec</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.nn.Bert4Rec"><code class="docutils literal notranslate"><span class="pre">Bert4Rec</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="modules/models.html#sasrec">SasRec</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/models.html#replay.models.nn.SasRec"><code class="docutils literal notranslate"><span class="pre">SasRec</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/metrics.html">Metrics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#precision">Precision</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.Precision"><code class="docutils literal notranslate"><span class="pre">Precision</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.Precision.__call__"><code class="docutils literal notranslate"><span class="pre">Precision.__call__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.Precision.__init__"><code class="docutils literal notranslate"><span class="pre">Precision.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#recall">Recall</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.Recall"><code class="docutils literal notranslate"><span class="pre">Recall</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.Recall.__call__"><code class="docutils literal notranslate"><span class="pre">Recall.__call__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.Recall.__init__"><code class="docutils literal notranslate"><span class="pre">Recall.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#map">MAP</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.MAP"><code class="docutils literal notranslate"><span class="pre">MAP</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.MAP.__call__"><code class="docutils literal notranslate"><span class="pre">MAP.__call__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.MAP.__init__"><code class="docutils literal notranslate"><span class="pre">MAP.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#mrr">MRR</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.MRR"><code class="docutils literal notranslate"><span class="pre">MRR</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.MRR.__call__"><code class="docutils literal notranslate"><span class="pre">MRR.__call__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.MRR.__init__"><code class="docutils literal notranslate"><span class="pre">MRR.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#ndcg">NDCG</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.NDCG"><code class="docutils literal notranslate"><span class="pre">NDCG</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.NDCG.__call__"><code class="docutils literal notranslate"><span class="pre">NDCG.__call__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.NDCG.__init__"><code class="docutils literal notranslate"><span class="pre">NDCG.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#hitrate">HitRate</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.HitRate"><code class="docutils literal notranslate"><span class="pre">HitRate</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.HitRate.__call__"><code class="docutils literal notranslate"><span class="pre">HitRate.__call__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.HitRate.__init__"><code class="docutils literal notranslate"><span class="pre">HitRate.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#rocauc">RocAuc</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.RocAuc"><code class="docutils literal notranslate"><span class="pre">RocAuc</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.RocAuc.__call__"><code class="docutils literal notranslate"><span class="pre">RocAuc.__call__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.RocAuc.__init__"><code class="docutils literal notranslate"><span class="pre">RocAuc.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#unexpectedness">Unexpectedness</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.Unexpectedness"><code class="docutils literal notranslate"><span class="pre">Unexpectedness</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.Unexpectedness.__call__"><code class="docutils literal notranslate"><span class="pre">Unexpectedness.__call__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.Unexpectedness.__init__"><code class="docutils literal notranslate"><span class="pre">Unexpectedness.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#coverage">Coverage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.Coverage"><code class="docutils literal notranslate"><span class="pre">Coverage</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.Coverage.__call__"><code class="docutils literal notranslate"><span class="pre">Coverage.__call__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.Coverage.__init__"><code class="docutils literal notranslate"><span class="pre">Coverage.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#categoricaldiversity">CategoricalDiversity</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.CategoricalDiversity"><code class="docutils literal notranslate"><span class="pre">CategoricalDiversity</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.CategoricalDiversity.__call__"><code class="docutils literal notranslate"><span class="pre">CategoricalDiversity.__call__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.CategoricalDiversity.__init__"><code class="docutils literal notranslate"><span class="pre">CategoricalDiversity.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#novelty">Novelty</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.Novelty"><code class="docutils literal notranslate"><span class="pre">Novelty</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.Novelty.__call__"><code class="docutils literal notranslate"><span class="pre">Novelty.__call__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.Novelty.__init__"><code class="docutils literal notranslate"><span class="pre">Novelty.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#surprisal">Surprisal</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.Surprisal"><code class="docutils literal notranslate"><span class="pre">Surprisal</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#offlinemetrics">OfflineMetrics</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.OfflineMetrics"><code class="docutils literal notranslate"><span class="pre">OfflineMetrics</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.OfflineMetrics.__call__"><code class="docutils literal notranslate"><span class="pre">OfflineMetrics.__call__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.OfflineMetrics.__init__"><code class="docutils literal notranslate"><span class="pre">OfflineMetrics.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#compare-results">Compare Results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.Experiment"><code class="docutils literal notranslate"><span class="pre">Experiment</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.Experiment.__init__"><code class="docutils literal notranslate"><span class="pre">Experiment.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.Experiment.add_result"><code class="docutils literal notranslate"><span class="pre">Experiment.add_result()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.Experiment.compare"><code class="docutils literal notranslate"><span class="pre">Experiment.compare()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/metrics.html#custom-metric">Custom Metric</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/metrics.html#replay.metrics.base_metric.Metric"><code class="docutils literal notranslate"><span class="pre">Metric</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/metrics.html#replay.metrics.base_metric.Metric._get_metric_value_by_user"><code class="docutils literal notranslate"><span class="pre">Metric._get_metric_value_by_user()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/scenarios.html">Scenarios</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/scenarios.html#fallback">Fallback</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/scenarios.html#replay.scenarios.Fallback"><code class="docutils literal notranslate"><span class="pre">Fallback</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/scenarios.html#replay.scenarios.Fallback.__init__"><code class="docutils literal notranslate"><span class="pre">Fallback.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/scenarios.html#replay.scenarios.Fallback.optimize"><code class="docutils literal notranslate"><span class="pre">Fallback.optimize()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/scenarios.html#two-stage-scenario-experimental">Two Stage Scenario (Experimental)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/scenarios.html#replay.experimental.scenarios.TwoStagesScenario"><code class="docutils literal notranslate"><span class="pre">TwoStagesScenario</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/scenarios.html#replay.experimental.scenarios.TwoStagesScenario.__init__"><code class="docutils literal notranslate"><span class="pre">TwoStagesScenario.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/scenarios.html#replay.experimental.scenarios.TwoStagesScenario.fit"><code class="docutils literal notranslate"><span class="pre">TwoStagesScenario.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/scenarios.html#replay.experimental.scenarios.TwoStagesScenario.optimize"><code class="docutils literal notranslate"><span class="pre">TwoStagesScenario.optimize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/scenarios.html#replay.experimental.scenarios.TwoStagesScenario.predict"><code class="docutils literal notranslate"><span class="pre">TwoStagesScenario.predict()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/utils.html">Utils</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/utils.html#time-smoothing">Time Smoothing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/utils.html#replay.utils.time.smoothe_time"><code class="docutils literal notranslate"><span class="pre">smoothe_time()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="modules/utils.html#replay.utils.time.get_item_recency"><code class="docutils literal notranslate"><span class="pre">get_item_recency()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/utils.html#serializer">Serializer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/utils.html#replay.utils.model_handler.save"><code class="docutils literal notranslate"><span class="pre">save()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="modules/utils.html#replay.utils.model_handler.load"><code class="docutils literal notranslate"><span class="pre">load()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modules/utils.html#distributions">Distributions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="modules/utils.html#item-distribution">Item Distribution</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="modules/utils.html#replay.utils.distributions.item_distribution"><code class="docutils literal notranslate"><span class="pre">item_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="modules/utils.html#replay.utils.distributions.plot_item_dist"><code class="docutils literal notranslate"><span class="pre">plot_item_dist()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="development.html" class="btn btn-neutral float-left" title="Development" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="modules/data.html" class="btn btn-neutral float-right" title="Data" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Sberbank AI Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
