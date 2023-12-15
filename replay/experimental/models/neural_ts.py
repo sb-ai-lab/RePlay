@@ -1,12 +1,10 @@
-import math
 import numpy as np
 import pandas as pd
 import os
 
-from typing import Any, Dict, List, Optional
+from typing import  Dict, List, Optional
 
 from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
 
 from replay.experimental.models.base_rec import HybridRecommender
 from replay.utils.spark_utils import convert2spark
@@ -15,23 +13,19 @@ import torch
 from torch import nn
 from torch import Tensor
 import torch.utils.data as td
-from tqdm import tqdm_notebook, tqdm
+from tqdm import tqdm
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import MinMaxScaler
 from IPython.display import clear_output
 import matplotlib.pyplot as plt
-from torch.utils.data.sampler import WeightedRandomSampler
-import copy
 from replay.splitters import TimeSplitter
 
 import json
-import os
 import joblib
 
 pd.options.mode.chained_assignment = None
 
-#export
-import torch
+
 
 def num_tries_gt_zero(scores, batch_size, max_trials, max_num, device):
     '''
@@ -41,18 +35,18 @@ def num_tries_gt_zero(scores, batch_size, max_trials, max_num, device):
     tmp = scores.gt(0).nonzero().t()
     # We offset these values by 1 to look for unset values (zeros) later
     values = tmp[1] + 1
-    # TODO just allocate normal zero-tensor and fill it?
     # Sparse tensors can't be moved with .to() or .cuda() if you want to send in cuda variables first
     if device.type == 'cuda':
-        t = torch.cuda.sparse.LongTensor(tmp, values, torch.Size((batch_size, max_trials+1))).to_dense()
+        tau = torch.cuda.sparse.LongTensor(tmp, values, torch.Size((batch_size, max_trials + 1))).to_dense()
     else:
-        t = torch.sparse.LongTensor(tmp, values, torch.Size((batch_size, max_trials+1))).to_dense()
-    t[(t == 0)] += max_num # set all unused indices to be max possible number so its not picked by min() call
+        tau = torch.sparse.LongTensor(tmp, values, torch.Size((batch_size, max_trials + 1))).to_dense()
+    tau[(tau == 0)] += max_num  # set all unused indices to be max possible number so its not picked by min() call
 
-    tries = torch.min(t, dim=1)[0]
+    tries = torch.min(tau, dim=1)[0]
     return tries
 
 
+# pylint: disable=too-many-locals
 def warp_loss(positive_predictions, negative_predictions, num_labels, device):
     '''
     positive_predictions: [batch_size x 1] floats between -1 to 1
@@ -64,30 +58,35 @@ def warp_loss(positive_predictions, negative_predictions, num_labels, device):
 
     offsets, ones, max_num = (torch.arange(0, batch_size, 1).long().to(device) * (max_trials + 1),
                               torch.ones(batch_size, 1).float().to(device),
-                              batch_size * (max_trials + 1) )
+                              batch_size * (max_trials + 1))
 
-    sample_scores = (1 + negative_predictions - positive_predictions)
+    sample_scores = 1 + negative_predictions - positive_predictions
     # Add column of ones so we know when we used all our attempts, This is used for indexing and computing should_count_loss if no real value is above 0
     sample_scores, negative_predictions = (torch.cat([sample_scores, ones], dim=1),
                                            torch.cat([negative_predictions, ones], dim=1))
 
     tries = num_tries_gt_zero(sample_scores, batch_size, max_trials, max_num, device)
     attempts, trial_offset = tries.float(), (tries - 1) + offsets
-    loss_weights, should_count_loss = ( torch.log(torch.floor((num_labels - 1) / attempts)),
-                                        (attempts <= max_trials).float()) #Don't count loss if we used max number of attempts
+    loss_weights, should_count_loss = (torch.log(torch.floor((num_labels - 1) / attempts)),(attempts <= max_trials).float())  # Don't count loss if we used max number of attempts
 
     losses = loss_weights * ((1 - positive_predictions.view(-1)) + negative_predictions.view(-1)[trial_offset]) * should_count_loss
 
     return losses.sum()
 
+
 def cartesian_product_basic(left, right):
+    '''
+        This function computes cartesian product.
+    '''
     return (left.assign(key=1).merge(right.assign(key=1), on='key').drop('key', 1))
-    
+
+
 class SamplerWithReset(td.SequentialSampler):
     def __iter__(self):
         self.data_source.reset()
         return super().__iter__()
-        
+
+
 class MyDatasetreset(torch.utils.data.Dataset):
     def __init__(self, idx, log_train, user_features, item_features, list_items, union_cols, cnt_neg_samples, device, target: str = None):
         if cnt_neg_samples is not None:
@@ -152,36 +151,40 @@ class MyDatasetreset(torch.utils.data.Dataset):
             sample_item_feat = self.item_features.loc[self.item_features["item_idx"].isin(sample_item)]
             sample_item_feat = sample_item_feat.set_axis(range(sample_item_feat.shape[0]), axis='index')
             df_sample = cartesian_product_basic(self.user_features.loc[self.user_features['user_idx'] == self.user_idx], sample_item_feat)
-            df_sample[self.target_column]=0
+            df_sample[self.target_column] = 0
             self.data_sample = pd.concat([self.dataframe, df_sample], axis=0, ignore_index=True)
             self.get_parts(self.data_sample)
         return
 
+
 class Wide(nn.Module):
-    def __init__(self,
+    def __init__(
+        self,
         input_dim: int,
         out_dim: int = 1
-        ):
+    ):
         super().__init__()
 
         self.linear = nn.Sequential(
             nn.Linear(input_dim, out_dim),
             nn.ReLU(),
             nn.BatchNorm1d(out_dim)
-            )
+        )
         self.out_dim = out_dim
 
     def forward(self, input):
         output = self.linear(input)
         return output
 
+
 class Deep(nn.Module):
-    def __init__(self,
+    def __init__(
+        self,
         input_dim: int,
         out_dim: int,
         hidden_layers: List[int],
         deep_dropout: float
-        ):
+    ):
         super().__init__()
         model = []
         last_size = input_dim
@@ -201,29 +204,34 @@ class Deep(nn.Module):
         output = self.deep_model(input)
         return output
 
+
 class Embed_model(nn.Module):
-    def __init__(self,
+    def __init__(
+        self,
         cnt_users: int,
         cnt_items: int,
         user_embed: int,
         item_embed: int,
         crossed_embed: int
-        ):
+    ):
         super().__init__()
         self.user_embed = nn.Embedding(num_embeddings=cnt_users, embedding_dim=user_embed)
         self.item_embed = nn.Embedding(num_embeddings=cnt_items, embedding_dim=item_embed)
         self.user_crossed_embed = nn.Embedding(num_embeddings=cnt_users, embedding_dim=crossed_embed)
         self.item_crossed_embed = nn.Embedding(num_embeddings=cnt_items, embedding_dim=crossed_embed)
+
     def forward(self, users, items):
         users_to_embed = self.user_embed(users).squeeze()
         items_to_embed = self.item_embed(items).squeeze()
         cross_users = self.user_crossed_embed(users).squeeze()
         cross_items = self.item_crossed_embed(items).squeeze()
-        cross = (cross_users*cross_items).sum(dim=-1).unsqueeze(-1)
+        cross = (cross_users * cross_items).sum(dim=-1).unsqueeze(-1)
         return users_to_embed, items_to_embed, cross_users, cross_items, cross
 
+
 class WideDeep(nn.Module):
-    def __init__(self,
+    def __init__(
+        self,
         dim_head: int,
         deep_out_dim: int,
         hidden_layers: List[int],
@@ -238,28 +246,24 @@ class WideDeep(nn.Module):
         user_embed: int,
         item_embed: int,
         crossed_embed: int
-        ):
+    ):
         super().__init__()
-        # self.embedding_layer = nn.Sequential(
-        #     nn.Linear(size_cat_features, embedding_size),
-        #     nn.BatchNorm1d(embedding_size),
-        # )
         self.embed_model = Embed_model(
             cnt_users,
             cnt_items,
             user_embed,
             item_embed,
             crossed_embed
-            )
-        self.Wide = Wide(size_wide_features+crossed_embed*2+1, wide_out_dim)
-        self.Deep = Deep(size_cat_features+size_continuous_features + user_embed + item_embed, deep_out_dim, hidden_layers, deep_dropout)
+        )
+        self.Wide = Wide(size_wide_features + crossed_embed * 2 + 1, wide_out_dim)
+        self.Deep = Deep(size_cat_features + size_continuous_features + user_embed + item_embed, deep_out_dim, hidden_layers, deep_dropout)
         self.head_model = nn.Sequential(
             nn.Linear(wide_out_dim + deep_out_dim, dim_head),
             nn.ReLU()
-            )
+        )
         self.last_layer = nn.Sequential(
             nn.Linear(dim_head, 1)
-            )
+        )
         self.head_dropout = head_dropout
 
     def forward_for_predict(self, wide_part, continuous_part, cat_part, users, items):
@@ -293,19 +297,21 @@ class WideDeep(nn.Module):
         out = self.my_forward(wide_part, continuous_part, cat_part, users_to_embed, items_to_embed, cross_users, cross_items, cross)
         return out
 
+
 def w_log_loss(input, target, device):
     input = torch.nn.functional.sigmoid(input)
-    input = torch.clamp(input,min=1e-7,max=1-1e-7)
+    input = torch.clamp(input, min=1e-7, max=1 - 1e-7)
     count_1 = target.sum().item()
     count_0 = target.shape[0] - count_1
-    class_count=np.array([count_0,count_1])
+    class_count = np.array([count_0, count_1])
     if count_1 == 0 or count_0 == 0:
-        weight= np.array([1.0, 1.0])
+        weight = np.array([1.0, 1.0])
     else:
-        weight= np.max(class_count)/class_count
+        weight = np.max(class_count) / class_count
     weight = Tensor(weight).to(device)
-    loss = weight[1] * target * torch.log(input) + weight[0] * (1 - target)*torch.log(1-input)
+    loss = weight[1] * target * torch.log(input) + weight[0] * (1 - target) * torch.log(1 - input)
     return -loss.mean()
+
 
 class NeuralTS(HybridRecommender):
     def __init__(
@@ -328,8 +334,6 @@ class NeuralTS(HybridRecommender):
         cnt_neg_samples: int = 100,
         cnt_samples_for_predict: int = 10,
         eps: float = 0.0
-
-
     ):
         self.user_cols = user_cols
         self.item_cols = item_cols
@@ -366,12 +370,12 @@ class NeuralTS(HybridRecommender):
             val_ndcg.append(ndcg)
             train_loss.append(loss)
             if plot_dir is not None and epoch > 0:
-                clear_output(wait = True)
+                clear_output(wait=True)
                 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(30, 15))
-                ax1.plot(train_loss, label = 'train', color = 'b')
-                ax2.plot(val_ndcg, label = 'val_ndcg', color = 'g')
-                sz = max(1, round(epoch/10))
-                plt.xticks(range(epoch -1)[::sz])
+                ax1.plot(train_loss, label='train', color='b')
+                ax2.plot(val_ndcg, label='val_ndcg', color='g')
+                sz = max(1, round(epoch / 10))
+                plt.xticks(range(epoch - 1)[::sz])
                 ax1.set_ylabel('loss')
                 ax1.set_xlabel('epoch')
                 ax2.set_ylabel('ndcg')
@@ -386,15 +390,9 @@ class NeuralTS(HybridRecommender):
         model.train()
         idx = 0
         cumulative_loss = 0
-        preds=None
+        preds = None
         for user_dataloader in tqdm(train_dataloader):
             for (wide_part, continuous_part, cat_part, users, items, labels) in user_dataloader:
-                wide_part = wide_part
-                continuous_part = continuous_part
-                cat_part = cat_part
-                users = users
-                items = items
-                labels = labels
                 self.optimizer.zero_grad()
                 preds = model(wide_part, continuous_part, cat_part, users, items)
                 if is_warp_loss:
@@ -402,14 +400,14 @@ class NeuralTS(HybridRecommender):
                     ind_neg = torch.where(labels == 0)[0]
                     min_batch = ind_pos.shape[0]
                     if ind_pos.shape[0] == 0 or ind_neg.shape[0] == 0:
-                        continue 
+                        continue
                     indexes_pos = ind_pos
                     pos = preds.squeeze()[indexes_pos].unsqueeze(-1)
                     list_neg = []
                     for i in range(min_batch):
                         indexes_neg = ind_neg[torch.randperm(ind_neg.shape[0])]
                         list_neg.append(preds.squeeze()[indexes_neg].unsqueeze(-1))
-                    neg = torch.cat(list_neg, dim = -1)
+                    neg = torch.cat(list_neg, dim=-1)
                     neg = neg.transpose(0,1)
                     loss = self.criterion(pos, neg, self.num_of_train_labels, device)
                 else:
@@ -419,7 +417,7 @@ class NeuralTS(HybridRecommender):
                 cumulative_loss += loss.item()
                 idx += 1
         self.lr_scheduler.step()
-        return cumulative_loss / idx,
+        return cumulative_loss / idx
 
     def predict_val_with_ndcg(self, model, val_dataloader, device, k):
         ndcg = 0
@@ -429,9 +427,9 @@ class NeuralTS(HybridRecommender):
             user = int(users[0])
             sample_pred = np.array(self.predict_val(self.model, user_dataloader, self.device))
             top_k_predicts = (-sample_pred).argsort()[:k]
-            ndcg += (np.isin(top_k_predicts, self.dict_true_items_val[user]).sum())/k
+            ndcg += (np.isin(top_k_predicts, self.dict_true_items_val[user]).sum()) / k
             idx += 1
-        return ndcg/idx
+        return ndcg / idx
 
     def predict_val(self, model, val_dataloader, device):
         probs = []
@@ -439,11 +437,6 @@ class NeuralTS(HybridRecommender):
         model.eval()
         with torch.no_grad():
             for idx, (wide_part, continuous_part, cat_part, users, items, labels) in enumerate(val_dataloader):
-                wide_part = wide_part
-                continuous_part = continuous_part
-                cat_part = cat_part
-                users = users
-                items = items
                 preds = model(wide_part, continuous_part, cat_part, users, items)
                 probs += ((preds.squeeze()).tolist())
         return probs
@@ -454,11 +447,6 @@ class NeuralTS(HybridRecommender):
         model.eval()
         with torch.no_grad():
             for idx, (wide_part, continuous_part, cat_part, users, items, labels) in enumerate(val_dataloader):
-                wide_part = wide_part
-                continuous_part = continuous_part
-                cat_part = cat_part
-                users = users
-                items = items
                 preds = model.forward_for_predict(wide_part, continuous_part, cat_part, users, items)
                 for i in range(N):
                     probs.append((model.forward_dropout(preds).squeeze()).tolist())
@@ -478,7 +466,7 @@ class NeuralTS(HybridRecommender):
             self.myEncoder_intersept_user.fit(train_users[wide_cols_cat])
         else:
             self.myEncoder_intersept_user = None
-        if len(cat_embed_cols_not_wide)!=0:
+        if len(cat_embed_cols_not_wide) != 0:
             self.myEncoder_diff_user = OneHotEncoder(sparse=False, handle_unknown='ignore')
             self.myEncoder_diff_user.fit(train_users[cat_embed_cols_not_wide])
         else:
@@ -496,10 +484,10 @@ class NeuralTS(HybridRecommender):
             self.myEncoder_intersept_item.fit(train_items[wide_cols_cat])
         else:
             self.myEncoder_intersept_item = None
-        if len(cat_embed_cols_not_wide)!=0:
+        if len(cat_embed_cols_not_wide) != 0:
             self.myEncoder_diff_item = OneHotEncoder(sparse=False, handle_unknown='ignore')
             self.myEncoder_diff_item.fit(train_items[cat_embed_cols_not_wide])
-        else: 
+        else:
             self.myEncoder_diff_item = None
         return
 
@@ -508,51 +496,51 @@ class NeuralTS(HybridRecommender):
         wide_cols_cat = list(set(self.user_cols['cat_embed_cols']) & set(self.user_cols['wide_cols']))
         cat_embed_cols_not_wide = list(set(self.user_cols['cat_embed_cols']).difference(set(wide_cols_cat)))
         if len(self.user_cols['continuous_cols']) != 0:
-            users_continuous = pd.DataFrame(self.scaler_user.transform(user_features[self.user_cols['continuous_cols']]), columns= self.user_cols['continuous_cols'])
+            users_continuous = pd.DataFrame(self.scaler_user.transform(user_features[self.user_cols['continuous_cols']]), columns=self.user_cols['continuous_cols'])
             self.union_cols['continuous_cols'] += self.user_cols['continuous_cols']
         else:
             users_continuous = user_features[[]]
         if len(wide_cols_cat) != 0:
             users_wide_cat = pd.DataFrame(self.myEncoder_intersept_user.transform(user_features[wide_cols_cat]),
-                                            columns=list(self.myEncoder_intersept_user.get_feature_names_out(wide_cols_cat)))
+                                          columns=list(self.myEncoder_intersept_user.get_feature_names_out(wide_cols_cat)))
             self.union_cols['cat_embed_cols'] += list(self.myEncoder_intersept_user.get_feature_names_out(wide_cols_cat))
-            self.union_cols['wide_cols'] += list(set(self.user_cols['wide_cols']).difference(set(self.user_cols['cat_embed_cols']))) + list(self.myEncoder_intersept_user.get_feature_names_out(wide_cols_cat))  
+            self.union_cols['wide_cols'] += list(set(self.user_cols['wide_cols']).difference(set(self.user_cols['cat_embed_cols']))) + list(self.myEncoder_intersept_user.get_feature_names_out(wide_cols_cat))
         else:
             users_wide_cat = user_features[[]]
-        if len(cat_embed_cols_not_wide)!=0:
+        if len(cat_embed_cols_not_wide) != 0:
             users_cat = pd.DataFrame(self.myEncoder_diff_user.transform(user_features[cat_embed_cols_not_wide]),
-                                            columns=list(self.myEncoder_diff_user.get_feature_names_out(cat_embed_cols_not_wide)))
+                                     columns=list(self.myEncoder_diff_user.get_feature_names_out(cat_embed_cols_not_wide)))
             self.union_cols['cat_embed_cols'] += list(self.myEncoder_diff_user.get_feature_names_out(cat_embed_cols_not_wide))
         else:
             users_cat = user_features[[]]
         transform_user_features = pd.concat(
             [user_features[['user_idx']], users_continuous, users_wide_cat, users_cat],
             axis=1
-            )
+        )
         wide_cols_cat = list(set(self.item_cols['cat_embed_cols']) & set(self.item_cols['wide_cols']))
         cat_embed_cols_not_wide = list(set(self.item_cols['cat_embed_cols']).difference(set(wide_cols_cat)))
         if len(self.item_cols['continuous_cols']) != 0:
-            items_continuous = pd.DataFrame(self.scaler_item.transform(item_features[self.item_cols['continuous_cols']]), columns= self.item_cols['continuous_cols'])
+            items_continuous = pd.DataFrame(self.scaler_item.transform(item_features[self.item_cols['continuous_cols']]), columns=self.item_cols['continuous_cols'])
             self.union_cols['continuous_cols'] += self.item_cols['continuous_cols']
         else:
             items_continuous = item_features[[]]
         if len(wide_cols_cat) != 0:
             items_wide_cat = pd.DataFrame(self.myEncoder_intersept_item.transform(item_features[wide_cols_cat]),
-                                            columns=list(self.myEncoder_intersept_item.get_feature_names_out(wide_cols_cat)))
+                                          columns=list(self.myEncoder_intersept_item.get_feature_names_out(wide_cols_cat)))
             self.union_cols['cat_embed_cols'] += list(self.myEncoder_intersept_item.get_feature_names_out(wide_cols_cat))
             self.union_cols['wide_cols'] += list(set(self.item_cols['wide_cols']).difference(set(self.item_cols['cat_embed_cols']))) + list(self.myEncoder_intersept_item.get_feature_names_out(wide_cols_cat))
         else:
             items_wide_cat = item_features[[]]
-        if len(cat_embed_cols_not_wide)!=0:
+        if len(cat_embed_cols_not_wide) != 0:
             items_cat = pd.DataFrame(self.myEncoder_diff_item.transform(item_features[cat_embed_cols_not_wide]),
-                                            columns=list(self.myEncoder_diff_item.get_feature_names_out(cat_embed_cols_not_wide)))
+                                     columns=list(self.myEncoder_diff_item.get_feature_names_out(cat_embed_cols_not_wide)))
             self.union_cols['cat_embed_cols'] += list(self.myEncoder_diff_item.get_feature_names_out(cat_embed_cols_not_wide))
-        else: 
+        else:
             items_cat = item_features[[]]
         transform_item_features = pd.concat(
             [item_features[['item_idx']], items_continuous, items_wide_cat, items_cat],
             axis=1
-            )
+        )
         return transform_user_features, transform_item_features
 
     @property
@@ -568,20 +556,20 @@ class NeuralTS(HybridRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        #should not work if user features or item features are unavailable
+        # should not work if user features or item features are unavailable
         if user_features is None:
             raise ValueError("User features are missing for fitting")
         if item_features is None:
             raise ValueError("Item features are missing for fitting")
-        #assuming that user_features and item_features are both dataframes
-        #common dataframe
+        # assuming that user_features and item_features are both dataframes
+        # common dataframe
         train_spl = TimeSplitter(
-                        time_threshold=0.2,
-                        drop_cold_items=True,
-                        drop_cold_users=True,
-                        query_column="user_idx",
-                        item_column="item_idx"
-                    )
+            time_threshold=0.2,
+            drop_cold_items=True,
+            drop_cold_users=True,
+            query_column="user_idx",
+            item_column="item_idx"
+        )
         train, val = train_spl.split(log)
         train = train.drop('timestamp')
         val = val.drop('timestamp')
@@ -598,25 +586,25 @@ class NeuralTS(HybridRecommender):
 
         target = 'relevance'
         self.num_of_train_labels = self.cnt_items
-        train = train.set_axis(range(train.shape[0]), axis = 'index')
-        val = val.set_axis(range(val.shape[0]), axis = 'index')
-
-
-        #for batch by users
+        train = train.set_axis(range(train.shape[0]), axis='index')
+        val = val.set_axis(range(val.shape[0]), axis='index')
+        # for batch by users
         dataloader_train_users = []
         size_wide_features, size_continuous_features, size_cat_features = 0, 0, 0
         train_group_by_users = train.groupby("user_idx")
         for idx, df_train_idx in tqdm(train_group_by_users):
-            df_train_idx = df_train_idx.loc[df_train_idx[target]==1]
+            df_train_idx = df_train_idx.loc[df_train_idx[target] == 1]
             if df_train_idx.shape[0] == 0:
                 continue
             df_train_idx = df_train_idx.set_axis(range(df_train_idx.shape[0]), axis='index')
             dataset = MyDatasetreset(idx, df_train_idx, transform_user_features, transform_item_features, list_items, self.union_cols, self.cnt_neg_samples, self.device, target)
             sampler = SamplerWithReset(dataset)
-            dataloader_train_users.append(torch.utils.data.DataLoader(dataset,
-                                                     batch_size=df_train_idx.shape[0]+self.cnt_neg_samples,
-                                                     sampler=sampler))
-            self.size_wide_features, self.size_continuous_features, self.size_cat_features= dataset.get_size_features()
+            dataloader_train_users.append(torch.utils.data.DataLoader(
+                dataset,
+                batch_size=df_train_idx.shape[0] + self.cnt_neg_samples,
+                sampler=sampler)
+            )
+            self.size_wide_features, self.size_continuous_features, self.size_cat_features = dataset.get_size_features()
 
         dataloader_val_users = []
         self.dict_true_items_val = {}
@@ -624,30 +612,31 @@ class NeuralTS(HybridRecommender):
         target = None
         val_group_by_users = val.groupby("user_idx")
         for idx, df_val_idx in tqdm(val_group_by_users):
-            self.dict_true_items_val[idx] = df_val_idx.loc[(df_val_idx['relevance']==1)]['item_idx'].values.tolist()
-            #sample_users = pd.concat([pd_user_features.loc[pd_user_features['user_idx'] == idx]]*self.cnt_items, axis=0, ignore_index=True)
+            self.dict_true_items_val[idx] = df_val_idx.loc[(df_val_idx['relevance'] == 1)]['item_idx'].values.tolist()
             df_val = cartesian_product_basic(pd.DataFrame({'user_idx': [idx]}), transform_item_features[['item_idx']])
             df_val = df_val.set_axis(range(df_val.shape[0]), axis='index')
             dataset = MyDatasetreset(idx, df_val, transform_user_features, transform_item_features, list_items, self.union_cols, None, self.device, target)
-            dataloader_val_users.append(torch.utils.data.DataLoader(dataset,
-                                                     batch_size=df_val.shape[0],
-                                                     shuffle=False))
+            dataloader_val_users.append(torch.utils.data.DataLoader(
+                dataset,
+                batch_size=df_val.shape[0],
+                shuffle=False)
+            )
         self.model = WideDeep(
-                    dim_head=self.dim_head,
-                    deep_out_dim=self.deep_out_dim,
-                    hidden_layers=self.hidden_layers,
-                    size_wide_features=self.size_wide_features,
-                    size_continuous_features=self.size_continuous_features,
-                    size_cat_features=self.size_cat_features,
-                    wide_out_dim=self.wide_out_dim,
-                    head_dropout=self.head_dropout,
-                    deep_dropout=self.deep_dropout,
-                    cnt_users=self.cnt_users,
-                    cnt_items=self.cnt_items,
-                    user_embed = self.embedding_sizes[0],
-                    item_embed = self.embedding_sizes[1],
-                    crossed_embed = self.embedding_sizes[2],
-                )
+            dim_head=self.dim_head,
+            deep_out_dim=self.deep_out_dim,
+            hidden_layers=self.hidden_layers,
+            size_wide_features=self.size_wide_features,
+            size_continuous_features=self.size_continuous_features,
+            size_cat_features=self.size_cat_features,
+            wide_out_dim=self.wide_out_dim,
+            head_dropout=self.head_dropout,
+            deep_dropout=self.deep_dropout,
+            cnt_users=self.cnt_users,
+            cnt_items=self.cnt_items,
+            user_embed=self.embedding_sizes[0],
+            item_embed=self.embedding_sizes[1],
+            crossed_embed=self.embedding_sizes[2],
+        )
         if self.is_warp_loss:
             self.criterion = warp_loss
         else:
@@ -670,10 +659,6 @@ class NeuralTS(HybridRecommender):
         if user_features is None or item_features is None:
             raise ValueError("Can not make predict in the Neural TS method")
 
-        #preprocess
-        # log_pred = users.crossJoin(items.select("item_idx")).select("user_idx", "item_idx")
-        # log_pred = log_pred.toPandas()
-        # val_group_by_users = log_pred.groupby("user_idx")
         pd_users = users.toPandas()
         pd_items = items.toPandas()
 
@@ -681,30 +666,30 @@ class NeuralTS(HybridRecommender):
         pd_item_features = item_features.toPandas()
         list_items = pd_item_features['item_idx'].values.tolist()
         transform_user_features, transform_item_features = self.preproces_features_trasform(pd_item_features, pd_user_features)
-        target=None
+        target = None
         preds = []
         users_ans = []
         items_ans = []
-        #preprocess
+        # preprocess
         for idx in tqdm(pd_users['user_idx'].unique()):
             df_test_idx = cartesian_product_basic(pd.DataFrame({'user_idx': [idx]}), pd_items)
-            df_test_idx = df_test_idx.set_axis(range(df_test_idx.shape[0]), axis = 'index')
+            df_test_idx = df_test_idx.set_axis(range(df_test_idx.shape[0]), axis='index')
             users_ans += [idx] * df_test_idx.shape[0]
             items_ans += df_test_idx['item_idx'].values.tolist()
             dataset = MyDatasetreset(idx, df_test_idx, transform_user_features, transform_item_features, list_items, self.union_cols, None, self.device, target)
             dataloader = torch.utils.data.DataLoader(dataset,
                                                      batch_size=df_test_idx.shape[0],
                                                      shuffle=False)
-            #predict
+            # predict
             samples = self.predict_test(self.model, dataloader, self.device, self.cnt_samples_for_predict)
             samples = np.array(samples)
-            mean = np.mean(samples, axis = 0)
-            var = ((samples - mean)**2).mean(axis = 0)
-            sample_pred = mean + (self.eps)*np.sqrt(var)
+            mean = np.mean(samples, axis=0)
+            var = ((samples - mean)**2).mean(axis=0)
+            sample_pred = mean + (self.eps) * np.sqrt(var)
             preds += sample_pred.tolist()
-        #return everything in a PySpark template
+        # return everything in a PySpark template
         res_df = pd.DataFrame(
-        {'user_idx': users_ans, 'item_idx': items_ans, 'relevance': preds}
+            {'user_idx': users_ans, 'item_idx': items_ans, 'relevance': preds}
         )
         pred = convert2spark(res_df)
         return pred
@@ -759,9 +744,6 @@ class NeuralTS(HybridRecommender):
             path,
         )
 
-
-
-
     def model_load(self, dir_name):
         path = os.path.join(dir_name, 'union_cols.json')
         with open(path, "r") as my_file:
@@ -795,21 +777,21 @@ class NeuralTS(HybridRecommender):
         self.size_continuous_features = dict_scalars['size_continuous_features']
         self.size_cat_features = dict_scalars['size_cat_features']
         self.model = WideDeep(
-                    dim_head=self.dim_head,
-                    deep_out_dim=self.deep_out_dim,
-                    hidden_layers=self.hidden_layers,
-                    size_wide_features=self.size_wide_features,
-                    size_continuous_features=self.size_continuous_features,
-                    size_cat_features=self.size_cat_features,
-                    wide_out_dim=self.wide_out_dim,
-                    head_dropout=self.head_dropout,
-                    deep_dropout=self.deep_dropout,
-                    cnt_users=self.cnt_users,
-                    cnt_items=self.cnt_items,
-                    user_embed = self.embedding_sizes[0],
-                    item_embed = self.embedding_sizes[1],
-                    crossed_embed = self.embedding_sizes[2],
-                )
+            dim_head=self.dim_head,
+            deep_out_dim=self.deep_out_dim,
+            hidden_layers=self.hidden_layers,
+            size_wide_features=self.size_wide_features,
+            size_continuous_features=self.size_continuous_features,
+            size_cat_features=self.size_cat_features,
+            wide_out_dim=self.wide_out_dim,
+            head_dropout=self.head_dropout,
+            deep_dropout=self.deep_dropout,
+            cnt_users=self.cnt_users,
+            cnt_items=self.cnt_items,
+            user_embed=self.embedding_sizes[0],
+            item_embed=self.embedding_sizes[1],
+            crossed_embed=self.embedding_sizes[2],
+        )
         path = os.path.join(dir_name, 'model_weights.pth')
         self.model.load_state_dict(torch.load(path))
 

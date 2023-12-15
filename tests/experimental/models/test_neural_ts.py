@@ -68,8 +68,8 @@ def model():
     cols_item = {'continuous_cols':[], 'cat_embed_cols':[], 'wide_cols': []}
     cols_user = {'continuous_cols':[], 'cat_embed_cols':[], 'wide_cols': []}
 
-    model = NeuralTS(user_cols = cols_user,
-                     item_cols = cols_item,
+    model = NeuralTS(user_cols=cols_user,
+                     item_cols=cols_item,
                      dim_head=1,
                      deep_out_dim=1,
                      hidden_layers=[2, 5],
@@ -86,7 +86,7 @@ def model():
                      cnt_neg_samples=1,
                      cnt_samples_for_predict=2,
                      eps=1.0
-    )
+                     )
 
     return model
 
@@ -101,8 +101,8 @@ def model_with_features():
                  'cat_embed_cols':["user_feature_cat"],
                  'wide_cols': ["user_feature_cat", "user_feature_cont"]}
 
-    model_with_features = NeuralTS(user_cols = cols_user,
-                                   item_cols = cols_item,
+    model_with_features = NeuralTS(user_cols=cols_user,
+                                   item_cols=cols_item,
                                    dim_head=1,
                                    deep_out_dim=1,
                                    hidden_layers=[2, 5],
@@ -119,7 +119,7 @@ def model_with_features():
                                    cnt_neg_samples=1,
                                    cnt_samples_for_predict=2,
                                    eps=1.0
-    )
+                                   )
 
     return model_with_features
 
