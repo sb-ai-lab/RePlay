@@ -1,0 +1,47 @@
+name: Publish to test PyPI
+
+on: 
+  push:
+    branches: [test_release]
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  
+  publish_test:
+    runs-on: ubuntu-20.04
+    permissions:
+        id-token: write
+    environment:
+        name: testpypi
+        url: https://test.pypi.org/p/replay-rec
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install full package
+        run: |
+          python -m venv venv
+          . ./venv/bin/activate
+          pip install --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning lightfm==1.17
+
+          poetry cache clear pypi --all
+          ./poetry_wrapper.sh --experimental install --all-extras
+
+      - name: Build
+        run: |
+          . ./venv/bin/activate
+          export PACKAGE_SUFFIX=.preview
+          echo $PACKAGE_SUFFIX
+          poetry build
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with: 
+          repository-url: https://test.pypi.org/legacy/
