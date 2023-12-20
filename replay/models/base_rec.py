@@ -13,6 +13,7 @@ Base abstract classes:
 """
 
 import logging
+import warnings
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from os.path import join
@@ -28,6 +29,7 @@ from replay.metrics import NDCG, Metric
 from replay.optimization.optuna_objective import MainObjective, SplitData
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.session_handler import State
+from replay.utils.spark_utils import SparkCollectToMasterWarning
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import Window
@@ -1548,6 +1550,12 @@ class NonPersonalizedRecommender(Recommender, ABC):
             sf.when(sf.col(self.rating_column) == sf.lit(0.0), 0.1**6).otherwise(
                 sf.col(self.rating_column)
             ),
+        )
+
+        warnings.warn(
+            "Prediction with sampling performs spark to pandas convertion to master node, "
+            "this may lead to OOM exception for large item catalogue.",
+            SparkCollectToMasterWarning
         )
 
         items_pd = selected_item_popularity.withColumn(

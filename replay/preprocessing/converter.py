@@ -3,7 +3,7 @@ from typing import Optional
 import numpy as np
 from scipy.sparse import csr_matrix
 
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, SparkDataFrame
+from replay.utils import DataFrameLike, SparkDataFrame, PYSPARK_AVAILABLE
 
 if PYSPARK_AVAILABLE:
     from replay.utils.spark_utils import spark_to_pandas
