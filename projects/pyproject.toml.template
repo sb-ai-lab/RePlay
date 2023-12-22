@@ -61,9 +61,9 @@ lightfm = "1.17"
 lightautoml = "~0.3.1"
 numba = ">=0.50"
 llvmlite = ">=0.32.1"
-d3rlpy = { version = "1.1.1", python = "<3.10" }
+d3rlpy = "^2.0.4"
 implicit = "~0.7.0"
-gym = "0.17.2"
+gym = "^0.26.0"
 {% endif %}
 
 [tool.poetry.group.dev.dependencies]
