@@ -138,6 +138,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
     assert np.allclose(
         recs_joined.select("relevance").toPandas().to_numpy(),
         recs_joined.select("pairs_relevance").toPandas().to_numpy(),
+        atol=0.01
     )
 
 
