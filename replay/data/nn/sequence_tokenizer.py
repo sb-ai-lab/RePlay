@@ -256,7 +256,7 @@ class SequenceTokenizer:
             item_id_column,
         ]
 
-        for tensor_feature in tensor_schema.categorical_features.values():
+        for tensor_feature in tensor_schema.values():
             source = tensor_feature.feature_source
             assert source is not None
 
@@ -432,7 +432,26 @@ class _SequenceProcessor:
         assert False, "Unknown tensor feature source table"
 
     def _process_num_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
-        raise NotImplementedError()
+        assert tensor_feature.feature_sources is not None
+        assert tensor_feature.is_seq
+
+        values: List[np.ndarray] = []
+        for pos, item_id_sequence in enumerate(self._grouped_interactions[self._item_id_column]):
+            all_features_for_user = []
+            for source in tensor_feature.feature_sources:
+                if source.source == FeatureSource.ITEM_FEATURES:
+                    item_feature = self._item_features[source.column]
+                    feature_sequence = item_feature.loc[item_id_sequence].values
+                    all_features_for_user.append(feature_sequence)
+                elif source.source == FeatureSource.INTERACTIONS:
+                    sequence = self._grouped_interactions[source.column][pos]
+                    all_features_for_user.append(sequence)
+                else:
+                    assert False, "Unknown tensor feature source table"
+            all_seqs = np.array(all_features_for_user, dtype=np.float32)
+            all_seqs = all_seqs.reshape(-1, (len(tensor_feature.feature_sources)))
+            values.append(all_seqs)
+        return values
 
     def _process_cat_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
         assert tensor_feature.is_seq

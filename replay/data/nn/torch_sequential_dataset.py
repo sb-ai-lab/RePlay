@@ -1,4 +1,4 @@
-from typing import Generator, NamedTuple, Optional, Sequence, Tuple, cast
+from typing import Generator, NamedTuple, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import torch
@@ -102,8 +102,17 @@ class TorchSequentialDataset(TorchDataset):
         if len(sequence) == self._max_sequence_length:
             return sequence
 
+        # form shape for padded_sequence. Now supported one and two-dimentions features
+        padded_sequence_shape: Union[Tuple[int, int], Tuple[int]]
+        if len(sequence.shape) == 1:
+            padded_sequence_shape = (self._max_sequence_length,)
+        elif len(sequence.shape) == 2:
+            padded_sequence_shape = (self._max_sequence_length, sequence.shape[1])
+        else:
+            raise ValueError(f"Unsupported shape for sequence: {len(sequence.shape)}")
+
         padded_sequence = torch.full(
-            (self._max_sequence_length,),
+            padded_sequence_shape,
             self._padding_value,
             dtype=sequence.dtype,
         )
