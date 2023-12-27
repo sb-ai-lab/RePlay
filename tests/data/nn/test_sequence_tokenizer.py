@@ -375,29 +375,6 @@ def test_invalid_source_table():
 
 
 @pytest.mark.torch
-def test_notimplemented_num_features(small_dataset):
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .numerical(
-            "feature",
-            64,
-            is_seq=True,
-        )
-        .build()
-    )
-
-    with pytest.raises(NotImplementedError):
-        _SequenceProcessor(schema, "user_id", "item_id", pd.DataFrame()).process_feature("feature")
-
-
-@pytest.mark.torch
 def test_unknown_source_table_in_processor():
     schema = (
         TensorSchemaBuilder()
