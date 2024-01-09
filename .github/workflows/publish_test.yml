@@ -1,10 +1,7 @@
 name: Publish to test PyPI
 
 on: 
-  push:
-    branches: [test_release]
-    tags:
-      - 'v*.*.*'
+  workflow_dispatch:
 
 jobs:
   
@@ -39,7 +36,7 @@ jobs:
           . ./venv/bin/activate
           export PACKAGE_SUFFIX=.preview
           echo $PACKAGE_SUFFIX
-          poetry build
+          ./poetry_wrapper.sh --experimental build
 
       - name: Publish
         uses: pypa/gh-action-pypi-publish@release/v1
