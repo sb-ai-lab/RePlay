@@ -6,6 +6,8 @@ on:
     tags:
       - 'v*.*.*'
 
+  workflow_dispatch:
+
 jobs:
   
   publish_test:
@@ -39,7 +41,7 @@ jobs:
           . ./venv/bin/activate
           export PACKAGE_SUFFIX=.preview
           echo $PACKAGE_SUFFIX
-          poetry build
+          ./poetry_wrapper.sh --experimental build
 
       - name: Publish
         uses: pypa/gh-action-pypi-publish@release/v1
