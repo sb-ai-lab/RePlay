@@ -1,12 +1,13 @@
-from typing import Optional, List
+from typing import List
 
 import pandas as pd
 import torch
-from pandas import DataFrame
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
-from replay.models.base_rec import Recommender
+from replay.data import Dataset
+from ..base_rec import Recommender
+from replay.utils import SparkDataFrame
 from replay.utils.spark_utils import convert2spark
 
 from .gpt1 import GPT, GPTConfig
@@ -143,25 +144,21 @@ class DT4Rec(Recommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
     ) -> None:
-        self.train(log)
+        self.train(dataset.interactions)
 
     # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: DataFrame,
+        dataset: Dataset,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         items_consider_in_pred = items.toPandas()["item_idx"].values
-        users_consider_in_pred = users.toPandas()["user_idx"].values
+        users_consider_in_pred = queries.toPandas()["user_idx"].values
         ans = self._predict_helper(users_consider_in_pred, items_consider_in_pred)
         return convert2spark(ans)
 
