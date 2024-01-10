@@ -4,24 +4,24 @@ import pandas as pd
 from tqdm import tqdm
 
 from ..base_rec import Recommender
-from .gpt1 import GPT, GPTConfig
-from .trainer import Trainer, TrainerConfig
-from .utils import (
-    Collator,
-    StateActionReturnDataset,
-    ValidateDataset,
-    WarmUpScheduler,
-    create_dataset,
-    matrix2df,
-    set_seed,
-)
-
 from replay.data import Dataset
 from replay.utils import SparkDataFrame, TORCH_AVAILABLE
 from replay.utils.spark_utils import convert2spark
 if TORCH_AVAILABLE:
     import torch
     from torch.utils.data.dataloader import DataLoader
+
+    from .gpt1 import GPT, GPTConfig
+    from .trainer import Trainer, TrainerConfig
+    from .utils import (
+        Collator,
+        StateActionReturnDataset,
+        ValidateDataset,
+        WarmUpScheduler,
+        create_dataset,
+        matrix2df,
+        set_seed,
+    )
 
 
 # pylint: disable=too-many-instance-attributes
