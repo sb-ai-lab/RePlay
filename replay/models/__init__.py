@@ -12,6 +12,7 @@ from replay.models.association_rules import AssociationRulesItemRec
 from replay.models.base_rec import Recommender
 from replay.models.cat_pop_rec import CatPopRec
 from replay.models.cluster import ClusterRec
+from replay.models.dt4rec.dt4rec import DT4Rec
 from replay.models.knn import ItemKNN
 from replay.models.pop_rec import PopRec
 from replay.models.query_pop_rec import QueryPopRec

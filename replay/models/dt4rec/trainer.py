@@ -1,9 +1,12 @@
 import logging
 
 import pandas as pd
-import torch
-from torch.nn import functional as F
 from tqdm import tqdm
+
+from replay.utils import TORCH_AVAILABLE
+if TORCH_AVAILABLE:
+    import torch
+    from torch.nn import functional as F
 
 from .utils import matrix2df
 

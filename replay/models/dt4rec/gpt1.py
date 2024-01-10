@@ -3,9 +3,11 @@
 import logging
 import math
 
-import torch
-from torch import nn
-from torch.nn import functional as F
+from replay.utils import TORCH_AVAILABLE
+if TORCH_AVAILABLE:
+    import torch
+    from torch import nn
+    from torch.nn import functional as F
 
 logger = logging.getLogger(__name__)
 

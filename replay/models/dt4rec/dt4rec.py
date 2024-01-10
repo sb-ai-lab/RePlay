@@ -1,14 +1,15 @@
 from typing import List
 
 import pandas as pd
-import torch
-from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
 from replay.data import Dataset
 from ..base_rec import Recommender
-from replay.utils import SparkDataFrame
+from replay.utils import SparkDataFrame, TORCH_AVAILABLE
 from replay.utils.spark_utils import convert2spark
+if TORCH_AVAILABLE:
+    import torch
+    from torch.utils.data.dataloader import DataLoader
 
 from .gpt1 import GPT, GPTConfig
 from .trainer import Trainer, TrainerConfig

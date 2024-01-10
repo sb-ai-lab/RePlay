@@ -6,11 +6,14 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
-import torch
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler
-from torch.utils.data import Dataset
 from tqdm import tqdm
+
+from replay.utils import TORCH_AVAILABLE
+if TORCH_AVAILABLE:
+    import torch
+    from torch.optim import Optimizer
+    from torch.optim.lr_scheduler import _LRScheduler
+    from torch.utils.data import Dataset
 
 
 def set_seed(seed):
