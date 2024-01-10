@@ -19,12 +19,6 @@ if PYSPARK_AVAILABLE:
 
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
-from replay.models.ddpg import (
-    ActorDRR,
-    CriticDRR,
-    StateReprModule,
-)
-
 
 def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
     assert set(d1.keys()) == set(d2.keys())
