@@ -23,23 +23,23 @@ from replay.data import get_schema
 from replay.experimental.utils.session_handler import State
 from replay.models.base_rec import IsSavable, RecommenderCommons
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
-from replay.utils.spark_utils import (
-    convert2spark,
-    cosine_similarity,
-    filter_cold,
-    get_top_k,
-    get_top_k_recs,
-    get_unique_entities,
-    load_pickled_from_parquet,
-    return_recs,
-    save_picklable_to_parquet,
-    vector_dot,
-    vector_euclidean_distance_similarity,
-)
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import Window
     from pyspark.sql import functions as sf
+    from replay.utils.spark_utils import (
+        convert2spark,
+        cosine_similarity,
+        filter_cold,
+        get_top_k,
+        get_top_k_recs,
+        get_unique_entities,
+        load_pickled_from_parquet,
+        return_recs,
+        save_picklable_to_parquet,
+        vector_dot,
+        vector_euclidean_distance_similarity,
+    )
 
 
 # pylint: disable=too-many-instance-attributes
