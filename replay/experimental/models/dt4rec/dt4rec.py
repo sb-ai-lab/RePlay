@@ -3,10 +3,10 @@ from typing import Optional, List
 import pandas as pd
 from tqdm import tqdm
 
-from ..base_rec import Recommender
 from replay.utils import SparkDataFrame, PYSPARK_AVAILABLE, TORCH_AVAILABLE
 
 if PYSPARK_AVAILABLE:
+    from ..base_rec import Recommender
     from replay.utils.spark_utils import convert2spark
 
 if TORCH_AVAILABLE:
