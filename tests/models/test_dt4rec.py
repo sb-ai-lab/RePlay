@@ -6,16 +6,20 @@ import torch
 import numpy as np
 import pandas as pd
 
-from replay.models.dt4rec.utils import create_dataset, fast_create_dataset, ValidateDataset, matrix2df
+from replay.models.dt4rec.utils import (
+    create_dataset as create_dt4rec_dataset,
+    fast_create_dataset,
+    ValidateDataset,
+    matrix2df
+)
 from replay.models.dt4rec.gpt1 import CausalSelfAttention, Block, GPT
 from dataclasses import dataclass
 
 from replay.metrics import MAP, MRR, NDCG, Coverage, HitRate, Surprisal
 from replay.metrics.experiment import Experiment
-from replay.models import DT4Rec
-from replay.preprocessing.data_preparator import DataPreparator, Indexer
-from replay.splitters import DateSplitter
+from replay.models.dt4rec.dt4rec import DT4Rec
 
+import tests.utils
 from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
 
 
@@ -76,7 +80,7 @@ def test_create_dataset_good_items():
             "rtgs": np.array([3, 2, 1]),
         }
     ]
-    result = create_dataset(df, user_num=1, item_pad=0)
+    result = create_dt4rec_dataset(df, user_num=1, item_pad=0)
     for key, value in ans[0].items():
         assert (value == result[0][key]).all()
 
@@ -106,7 +110,7 @@ def test_create_dataset_bad_items():
             "rtgs": np.array([0, 0, 0]),
         }
     ]
-    result = create_dataset(df, user_num=1, item_pad=0)
+    result = create_dt4rec_dataset(df, user_num=1, item_pad=0)
 
     for key, value in ans[0].items():
         assert (value == result[0][key]).all()
@@ -136,52 +140,23 @@ def test_matrix2df():
     assert (df[df.user_idx == 0].relevance.values == np.array([1, 3])).any()
     assert (df[df.item_idx == 0].relevance.values == np.array([1, 3])).all()
 
-
 def test_train():
     df = pd.DataFrame(
         {
             "timestamp": [i for i in range(60)] + [i for i in range(60)],
-            "user_id": [0 for i in range(60)] + [1 for i in range(60)],
-            "item_id": [i for i in range(60)] + [i for i in range(60)],
-            "rating": [1 for i in range(60)] + [1 for i in range(60)],
+            "user_idx": [0 for i in range(60)] + [1 for i in range(60)],
+            "item_idx": [i for i in range(60)] + [i for i in range(60)],
+            "relevance": [1 for i in range(60)] + [1 for i in range(60)],
         }
     )
+    dataset = tests.utils.create_dataset(df)
 
-    preparator = DataPreparator()
-    log = preparator.transform(
-        columns_mapping={
-            "user_id": "user_id",
-            "item_id": "item_id",
-            "relevance": "rating",
-            "timestamp": "timestamp",
-        },
-        data=df,
-    )
-
-    train_spl = DateSplitter(
-        test_start=0.5,
-        drop_cold_items=True,
-        drop_cold_users=True,
-        item_col="item_id",
-        user_col="user_id",
-    )
-    train, test = train_spl.split(log)
-    indexer = Indexer(user_col="user_id", item_col="item_id")
-    indexer.fit(users=train.select("user_id"), items=train.select("item_id"))
-    train = indexer.transform(train)
-    test = indexer.transform(test)
-
-    item_num = train.toPandas()["item_idx"].max() + 1
-    user_num = train.toPandas()["user_idx"].max() + 1
-
-    rec_sys = DT4Rec(item_num, user_num, use_cuda=False)
-    rec_sys.train_batch_size = 10
-    rec_sys.val_batch_size = 10
-    rec_sys.fit(train)
-    rec_sys.predict(
-        log=train,
+    decision_transformer = DT4Rec(dataset.item_count, dataset.query_count, use_cuda=False)
+    decision_transformer.train_batch_size = 10
+    decision_transformer.val_batch_size = 10
+    decision_transformer.fit(dataset=dataset)
+    decision_transformer.predict(
+        dataset=dataset,
         k=1,
-        # users=test.select("user_idx").distinct(),
-        # items=train.select("item_idx").distinct(),
     )
     assert True
