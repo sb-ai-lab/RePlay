@@ -40,8 +40,26 @@ if PYSPARK_AVAILABLE:
     from pyspark.ml.util import JavaMLReadable, JavaMLReader, JavaMLWritable, MLReadable, _jvm
     from pyspark.ml.wrapper import JavaEstimator, JavaModel, JavaParams
 else:
+    keyword_only = MissingImportType
+    since = MissingImportType
+    inherit_doc = MissingImportType
+    Param = MissingImportType
+    Params = MissingImportType
+    TypeConverters = MissingImportType
+    HasBlockSize = MissingImportType
+    HasCheckpointInterval = MissingImportType
+    HasMaxIter = MissingImportType
+    HasPredictionCol = MissingImportType
+    HasRegParam = MissingImportType
+    HasSeed = MissingImportType
+    JavaMLReadable = MissingImportType
     JavaMLReader = MissingImportType
+    JavaMLWritable = MissingImportType
     MLReadable = MissingImportType
+    _jvm = MissingImportType
+    JavaEstimator = MissingImportType
+    JavaModel = MissingImportType
+    JavaParams = MissingImportType
 
 __all__ = ['ALS', 'ALSModel']
 
