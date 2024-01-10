@@ -15,14 +15,14 @@ if PYSPARK_AVAILABLE:
     from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
 
 if TORCH_AVAILABLE:
-    from replay.models.dt4rec.utils import (
+    from replay.experimental.models.dt4rec.utils import (
         create_dataset as create_dt4rec_dataset,
         fast_create_dataset,
         ValidateDataset,
         matrix2df
     )
-    from replay.models.dt4rec.gpt1 import CausalSelfAttention, Block, GPT
-    from replay.models.dt4rec.dt4rec import DT4Rec
+    from replay.experimental.models.dt4rec.gpt1 import CausalSelfAttention, Block, GPT
+    from replay.experimental.models.dt4rec.dt4rec import DT4Rec
 
 torch = pytest.importorskip("torch")
 
