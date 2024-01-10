@@ -1,26 +1,30 @@
 # pylint: disable-all
+from dataclasses import dataclass
 from datetime import datetime
 
 import pytest
-import torch
 import numpy as np
 import pandas as pd
 
-from replay.models.dt4rec.utils import (
-    create_dataset as create_dt4rec_dataset,
-    fast_create_dataset,
-    ValidateDataset,
-    matrix2df
-)
-from replay.models.dt4rec.gpt1 import CausalSelfAttention, Block, GPT
-from dataclasses import dataclass
-
 from replay.metrics import MAP, MRR, NDCG, Coverage, HitRate, Surprisal
 from replay.metrics.experiment import Experiment
-from replay.models.dt4rec.dt4rec import DT4Rec
+from replay.utils import PYSPARK_AVAILABLE, TORCH_AVAILABLE
 
-import tests.utils
-from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
+if PYSPARK_AVAILABLE:
+    import tests.utils
+    from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
+
+if TORCH_AVAILABLE:
+    from replay.models.dt4rec.utils import (
+        create_dataset as create_dt4rec_dataset,
+        fast_create_dataset,
+        ValidateDataset,
+        matrix2df
+    )
+    from replay.models.dt4rec.gpt1 import CausalSelfAttention, Block, GPT
+    from replay.models.dt4rec.dt4rec import DT4Rec
+
+torch = pytest.importorskip("torch")
 
 
 @dataclass
@@ -43,6 +47,7 @@ class TestConfig:
     vocab_size = item_num + 1
 
 
+@pytest.mark.torch
 def test_casual_self_attention():
     cfg = TestConfig()
     csa = CausalSelfAttention(cfg)
@@ -50,6 +55,7 @@ def test_casual_self_attention():
     assert csa(batch).shape == batch.shape
 
 
+@pytest.mark.torch
 def test_block():
     cfg = TestConfig()
     block = Block(cfg)
@@ -57,6 +63,7 @@ def test_block():
     assert block(batch).shape == batch.shape
 
 
+@pytest.mark.torch
 def test_gpt1():
     cfg = TestConfig()
     gpt = GPT(cfg)
@@ -134,6 +141,7 @@ def test_fast_create_dataset_bag_items():
         assert (value == result[0][key]).all()
 
 
+@pytest.mark.torch
 def test_matrix2df():
     matrix = torch.tensor([[1, 2], [3, 4]])
     df = matrix2df(matrix)
@@ -141,6 +149,7 @@ def test_matrix2df():
     assert (df[df.item_idx == 0].relevance.values == np.array([1, 3])).all()
 
 
+@pytest.mark.torch
 def test_train():
     df = pd.DataFrame(
         {
