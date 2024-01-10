@@ -140,6 +140,7 @@ def test_matrix2df():
     assert (df[df.user_idx == 0].relevance.values == np.array([1, 3])).any()
     assert (df[df.item_idx == 0].relevance.values == np.array([1, 3])).all()
 
+
 def test_train():
     df = pd.DataFrame(
         {
