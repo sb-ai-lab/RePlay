@@ -187,25 +187,3 @@ def test_train():
     decision_transformer.predict(log=log, k=1)
 
     assert True
-
-
-# def test_train():
-#     df = pd.DataFrame(
-#         {
-#             "timestamp": [i for i in range(60)] + [i for i in range(60)],
-#             "user_idx": [0 for i in range(60)] + [1 for i in range(60)],
-#             "item_idx": [i for i in range(60)] + [i for i in range(60)],
-#             "relevance": [1 for i in range(60)] + [1 for i in range(60)],
-#         }
-#     )
-#     dataset = tests.utils.create_dataset(df)
-
-#     decision_transformer = DT4Rec(dataset.item_count, dataset.query_count, use_cuda=False)
-#     decision_transformer.train_batch_size = 10
-#     decision_transformer.val_batch_size = 10
-#     decision_transformer.fit(dataset=dataset)
-#     decision_transformer.predict(
-#         dataset=dataset,
-#         k=1,
-#     )
-#     assert True
