@@ -8,6 +8,7 @@ import pandas as pd
 
 from replay.metrics import MAP, MRR, NDCG, Coverage, HitRate, Surprisal
 from replay.metrics.experiment import Experiment
+from replay.experimental.preprocessing.data_preparator import DataPreparator
 from replay.utils import PYSPARK_AVAILABLE, TORCH_AVAILABLE
 
 if PYSPARK_AVAILABLE:
@@ -159,19 +160,52 @@ def test_train():
     df = pd.DataFrame(
         {
             "timestamp": [i for i in range(60)] + [i for i in range(60)],
-            "user_idx": [0 for i in range(60)] + [1 for i in range(60)],
-            "item_idx": [i for i in range(60)] + [i for i in range(60)],
-            "relevance": [1 for i in range(60)] + [1 for i in range(60)],
+            "user_id": [0 for i in range(60)] + [1 for i in range(60)],
+            "item_id": [i for i in range(60)] + [i for i in range(60)],
+            "rating": [1 for i in range(60)] + [1 for i in range(60)],
         }
     )
-    dataset = tests.utils.create_dataset(df)
 
-    decision_transformer = DT4Rec(dataset.item_count, dataset.query_count, use_cuda=False)
+    preparator = DataPreparator()
+    log = preparator.transform(
+        columns_mapping={
+            "user_id": "user_id",
+            "item_id": "item_id",
+            "relevance": "rating",
+            "timestamp": "timestamp",
+        },
+        data=df,
+    )
+
+    item_num = log.toPandas()["item_idx"].max() + 1
+    user_num = log.toPandas()["user_idx"].max() + 1
+
+    decision_transformer = DT4Rec(item_num, user_num, use_cuda=False)
     decision_transformer.train_batch_size = 10
     decision_transformer.val_batch_size = 10
-    decision_transformer.fit(dataset=dataset)
-    decision_transformer.predict(
-        dataset=dataset,
-        k=1,
-    )
+    decision_transformer.fit(log)
+    decision_transformer.predict(log=log, k=1)
+
     assert True
+
+
+# def test_train():
+#     df = pd.DataFrame(
+#         {
+#             "timestamp": [i for i in range(60)] + [i for i in range(60)],
+#             "user_idx": [0 for i in range(60)] + [1 for i in range(60)],
+#             "item_idx": [i for i in range(60)] + [i for i in range(60)],
+#             "relevance": [1 for i in range(60)] + [1 for i in range(60)],
+#         }
+#     )
+#     dataset = tests.utils.create_dataset(df)
+
+#     decision_transformer = DT4Rec(dataset.item_count, dataset.query_count, use_cuda=False)
+#     decision_transformer.train_batch_size = 10
+#     decision_transformer.val_batch_size = 10
+#     decision_transformer.fit(dataset=dataset)
+#     decision_transformer.predict(
+#         dataset=dataset,
+#         k=1,
+#     )
+#     assert True

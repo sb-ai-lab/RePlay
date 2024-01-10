@@ -279,7 +279,7 @@ DDPG (Experimental)
 
 DT4Rec (Experimental)
 ```````````````````````````
-.. autoclass:: replay.experimental.models.dt4rec.DT4Rec
+.. autoclass:: replay.experimental.models.dt4rec.dt4rec.DT4Rec
     :special-members: __init__
 
 CQL Recommender (Experimental)
