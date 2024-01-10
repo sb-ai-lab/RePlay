@@ -77,6 +77,7 @@ def test_gpt1():
     assert gpt(states, actions, rtgs, timesteps, users).shape == (4, cfg.block_size // 3, cfg.vocab_size)
 
 
+@pytest.mark.torch
 def test_create_dataset_good_items():
     df = pd.DataFrame({"timestamp": [10, 11, 12], "user_idx": [0, 0, 0], "item_idx": [3, 4, 5], "relevance": [5, 5, 5]})
     ans = [
@@ -92,6 +93,7 @@ def test_create_dataset_good_items():
         assert (value == result[0][key]).all()
 
 
+@pytest.mark.torch
 def test_fast_create_dataset_good_items():
     df = pd.DataFrame({"timestamp": [10, 11, 12], "user_idx": [0, 0, 0], "item_idx": [3, 4, 5], "relevance": [5, 5, 5]})
     ans = [
@@ -107,6 +109,7 @@ def test_fast_create_dataset_good_items():
         assert (value == result[0][key]).all()
 
 
+@pytest.mark.torch
 def test_create_dataset_bad_items():
     df = pd.DataFrame({"timestamp": [10, 11, 12], "user_idx": [0, 0, 0], "item_idx": [3, 4, 5], "relevance": [0, 0, 0]})
     ans = [
@@ -126,6 +129,7 @@ def test_create_dataset_bad_items():
     val_ds[0]
 
 
+@pytest.mark.torch
 def test_fast_create_dataset_bag_items():
     df = pd.DataFrame({"timestamp": [10, 11, 12], "user_idx": [0, 0, 0], "item_idx": [3, 4, 5], "relevance": [0, 0, 0]})
     ans = [
@@ -149,6 +153,7 @@ def test_matrix2df():
     assert (df[df.item_idx == 0].relevance.values == np.array([1, 3])).all()
 
 
+@pytest.mark.spark
 @pytest.mark.torch
 def test_train():
     df = pd.DataFrame(
