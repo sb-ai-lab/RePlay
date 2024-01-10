@@ -9,7 +9,6 @@ from replay.utils import SparkDataFrame
 from replay.experimental.models.base_neighbour_rec import NeighbourRec
 from replay.experimental.utils.session_handler import State
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.utils import SparkDataFrame
 
 
 # pylint: disable=too-many-arguments, too-many-locals
