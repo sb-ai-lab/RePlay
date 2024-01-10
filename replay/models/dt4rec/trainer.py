@@ -1,5 +1,6 @@
 import logging
 
+from .utils import matrix2df
 import pandas as pd
 from tqdm import tqdm
 
@@ -8,7 +9,6 @@ if TORCH_AVAILABLE:
     import torch
     from torch.nn import functional as F
 
-from .utils import matrix2df
 
 logger = logging.getLogger(__name__)
 
