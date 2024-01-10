@@ -6,8 +6,8 @@ import torch
 
 from replay.data.nn import TensorMap, TensorSchema
 from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
-from replay.models.nn.sequential.sasrec.dataset import SasRecPredictionBatch, SasRecTrainingBatch, SasRecValidationBatch
-from replay.models.nn.sequential.sasrec.model import SasRecModel
+from .dataset import SasRecPredictionBatch, SasRecTrainingBatch, SasRecValidationBatch
+from .model import SasRecModel
 
 
 # pylint: disable=too-many-instance-attributes

@@ -3,7 +3,7 @@ from typing import Optional
 from scipy.stats import norm
 
 from replay.data import Dataset
-from replay.models.pop_rec import PopRec
+from .pop_rec import PopRec
 from replay.utils import PYSPARK_AVAILABLE
 
 if PYSPARK_AVAILABLE:

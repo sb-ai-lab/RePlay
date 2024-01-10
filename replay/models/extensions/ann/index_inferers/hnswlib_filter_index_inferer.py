@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
+from .base_inferer import IndexInferer
 from replay.models.extensions.ann.utils import create_hnswlib_index_instance
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.session_handler import State

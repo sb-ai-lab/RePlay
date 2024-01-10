@@ -3,7 +3,7 @@ from typing import ClassVar, Optional
 
 from typing_extensions import Literal
 
-from replay.models.extensions.ann.entities.base_hnsw_param import BaseHnswParam
+from .base_hnsw_param import BaseHnswParam
 
 
 @dataclass

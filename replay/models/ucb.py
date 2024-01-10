@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from replay.data.dataset import Dataset
 from replay.metrics import NDCG, Metric
-from replay.models.base_rec import NonPersonalizedRecommender
+from .base_rec import NonPersonalizedRecommender
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 if PYSPARK_AVAILABLE:

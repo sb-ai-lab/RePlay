@@ -1,6 +1,6 @@
 from typing import Optional, Union
 
-from replay.splitters.base_splitter import Splitter, SplitterReturnType
+from .base_splitter import Splitter, SplitterReturnType
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:

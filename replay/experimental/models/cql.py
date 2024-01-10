@@ -5,20 +5,22 @@ import io
 import logging
 import tempfile
 import timeit
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
-import d3rlpy.algos.cql as CQL_d3rlpy
+from d3rlpy.algos import CQLConfig, CQL as CQL_d3rlpy
 import numpy as np
 import torch
-from d3rlpy.argument_utility import ActionScalerArg, EncoderArg, QFuncArg, RewardScalerArg, ScalerArg, UseGPUArg
-from d3rlpy.base import ImplBase, LearnableBase, _serialize_params
+from d3rlpy.base import LearnableConfigWithShape
 from d3rlpy.constants import IMPL_NOT_INITIALIZED_ERROR
-from d3rlpy.context import disable_parallel
 from d3rlpy.dataset import MDPDataset
-from d3rlpy.models.encoders import create_encoder_factory
-from d3rlpy.models.optimizers import AdamFactory, OptimizerFactory
-from d3rlpy.models.q_functions import create_q_func_factory
-from d3rlpy.preprocessing import create_action_scaler, create_reward_scaler, create_scaler
+from d3rlpy.models.encoders import EncoderFactory, DefaultEncoderFactory
+from d3rlpy.models.optimizers import OptimizerFactory, AdamFactory
+from d3rlpy.models.q_functions import QFunctionFactory, MeanQFunctionFactory
+from d3rlpy.preprocessing import (
+    ObservationScaler,
+    ActionScaler,
+    RewardScaler,
+)
 
 from replay.data import get_schema
 from replay.experimental.models.base_rec import Recommender
@@ -76,7 +78,6 @@ class CQL(Recommender):
           Learning. <https://arxiv.org/abs/2006.04779>`_
 
     Args:
-        n_epochs (int): the number of epochs to learn.
         mdp_dataset_builder (MdpDatasetBuilder): the MDP dataset builder from users' log.
         actor_learning_rate (float): learning rate for policy function.
         critic_learning_rate (float): learning rate for Q functions.
@@ -106,8 +107,7 @@ class CQL(Recommender):
         Q function factory. The available options are `['mean', 'qr', 'iqn', 'fqf']`.
         See d3rlpy.models.q_functions.QFunctionFactory for details.
         batch_size (int): mini-batch size.
-        n_frames (int): the number of frames to stack for image observation.
-        n_steps (int): N-step TD calculation.
+        n_steps (int): Number of training steps.
         gamma (float): discount factor.
         tau (float): target network synchronization coefficient.
         n_critics (int): the number of Q functions for ensemble.
@@ -118,9 +118,11 @@ class CQL(Recommender):
         n_action_samples (int): the number of sampled actions to compute
         :math:`\log{\sum_a \exp{Q(s, a)}}`.
         soft_q_backup (bool): flag to use SAC-style backup.
-        use_gpu (bool, int or d3rlpy.gpu.Device):
-        flag to use GPU, device ID or device.
-        scaler (d3rlpy.preprocessing.Scaler or str): preprocessor.
+        use_gpu (Union[int, str, bool]): device option.
+        If the value is boolean and True, cuda:0 will be used.
+        If the value is integer, cuda:<device> will be used.
+        If the value is string in torch device style, the specified device will be used.
+        observation_scaler (d3rlpy.preprocessing.Scaler or str): preprocessor.
         The available options are `['pixel', 'min_max', 'standard']`.
         action_scaler (d3rlpy.preprocessing.ActionScaler or str):
         action preprocessor. The available options are `['min_max']`.
@@ -130,9 +132,8 @@ class CQL(Recommender):
         impl (d3rlpy.algos.torch.cql_impl.CQLImpl): algorithm implementation.
     """
 
-    n_epochs: int
     mdp_dataset_builder: 'MdpDatasetBuilder'
-    model: CQL_d3rlpy.CQL
+    model: CQL_d3rlpy
 
     can_predict_cold_users = True
 
@@ -142,7 +143,6 @@ class CQL(Recommender):
     _search_space = {
         "actor_learning_rate": {"type": "loguniform", "args": [1e-5, 1e-3]},
         "critic_learning_rate": {"type": "loguniform", "args": [3e-5, 3e-4]},
-        "n_epochs": {"type": "int", "args": [3, 20]},
         "temp_learning_rate": {"type": "loguniform", "args": [1e-5, 1e-3]},
         "alpha_learning_rate": {"type": "loguniform", "args": [1e-5, 1e-3]},
         "gamma": {"type": "loguniform", "args": [0.9, 0.999]},
@@ -153,7 +153,6 @@ class CQL(Recommender):
     def __init__(
             self,
             mdp_dataset_builder: 'MdpDatasetBuilder',
-            n_epochs: int = 1,
 
             # CQL inner params
             actor_learning_rate: float = 1e-4,
@@ -164,11 +163,10 @@ class CQL(Recommender):
             critic_optim_factory: OptimizerFactory = AdamFactory(),
             temp_optim_factory: OptimizerFactory = AdamFactory(),
             alpha_optim_factory: OptimizerFactory = AdamFactory(),
-            actor_encoder_factory: EncoderArg = "default",
-            critic_encoder_factory: EncoderArg = "default",
-            q_func_factory: QFuncArg = "mean",
+            actor_encoder_factory: EncoderFactory = DefaultEncoderFactory(),
+            critic_encoder_factory: EncoderFactory = DefaultEncoderFactory(),
+            q_func_factory: QFunctionFactory = MeanQFunctionFactory(),
             batch_size: int = 64,
-            n_frames: int = 1,
             n_steps: int = 1,
             gamma: float = 0.99,
             tau: float = 0.005,
@@ -179,38 +177,42 @@ class CQL(Recommender):
             conservative_weight: float = 5.0,
             n_action_samples: int = 10,
             soft_q_backup: bool = False,
-            use_gpu: UseGPUArg = False,
-            scaler: ScalerArg = None,
-            action_scaler: ActionScalerArg = None,
-            reward_scaler: RewardScalerArg = None,
+            use_gpu: Union[int, str, bool] = False,
+            observation_scaler: ObservationScaler = None,
+            action_scaler: ActionScaler = None,
+            reward_scaler: RewardScaler = None,
             **params
     ):
         super().__init__()
-        self.n_epochs = n_epochs
         assert_omp_single_thread()
 
         if isinstance(actor_optim_factory, dict):
+            local = {}
+            local["config"] = {}
+            local["config"]["params"] = dict(locals().items())
+            local["config"]["type"] = "cql"
+            local["observation_shape"] = self._observation_shape
+            local["action_size"] = self._action_size
+            deserialized_config = LearnableConfigWithShape.deserialize_from_dict(local)
+
             self.logger.info('-- Desiarializing CQL parameters')
-            actor_optim_factory = _deserialize_param('actor_optim_factory', actor_optim_factory)
-            critic_optim_factory = _deserialize_param('critic_optim_factory', critic_optim_factory)
-            temp_optim_factory = _deserialize_param('temp_optim_factory', temp_optim_factory)
-            alpha_optim_factory = _deserialize_param('alpha_optim_factory', alpha_optim_factory)
-            actor_encoder_factory = _deserialize_param(
-                'actor_encoder_factory', actor_encoder_factory
-            )
-            critic_encoder_factory = _deserialize_param(
-                'critic_encoder_factory', critic_encoder_factory
-            )
-            q_func_factory = _deserialize_param('q_func_factory', q_func_factory)
-            scaler = _deserialize_param('scaler', scaler)
-            action_scaler = _deserialize_param('action_scaler', action_scaler)
-            reward_scaler = _deserialize_param('reward_scaler', reward_scaler)
+            actor_optim_factory = deserialized_config.config.actor_optim_factory
+            critic_optim_factory = deserialized_config.config.critic_optim_factory
+            temp_optim_factory = deserialized_config.config.temp_optim_factory
+            alpha_optim_factory = deserialized_config.config.alpha_optim_factory
+            actor_encoder_factory = deserialized_config.config.actor_encoder_factory
+            critic_encoder_factory = deserialized_config.config.critic_encoder_factory
+            q_func_factory = deserialized_config.config.q_func_factory
+            observation_scaler = deserialized_config.config.observation_scaler
+            action_scaler = deserialized_config.config.action_scaler
+            reward_scaler = deserialized_config.config.reward_scaler
             # non-model params
-            mdp_dataset_builder = _deserialize_param('mdp_dataset_builder', mdp_dataset_builder)
+            mdp_dataset_builder = MdpDatasetBuilder(**mdp_dataset_builder)
 
         self.mdp_dataset_builder = mdp_dataset_builder
+        self.n_steps = n_steps
 
-        self.model = CQL_d3rlpy.CQL(
+        self.model = CQLConfig(
             actor_learning_rate=actor_learning_rate,
             critic_learning_rate=critic_learning_rate,
             temp_learning_rate=temp_learning_rate,
@@ -223,8 +225,6 @@ class CQL(Recommender):
             critic_encoder_factory=critic_encoder_factory,
             q_func_factory=q_func_factory,
             batch_size=batch_size,
-            n_frames=n_frames,
-            n_steps=n_steps,
             gamma=gamma,
             tau=tau,
             n_critics=n_critics,
@@ -234,12 +234,11 @@ class CQL(Recommender):
             conservative_weight=conservative_weight,
             n_action_samples=n_action_samples,
             soft_q_backup=soft_q_backup,
-            use_gpu=use_gpu,
-            scaler=scaler,
+            observation_scaler=observation_scaler,
             action_scaler=action_scaler,
             reward_scaler=reward_scaler,
             **params
-        )
+        ).create(device=use_gpu)
 
         # explicitly create the model's algorithm implementation at init stage
         # despite the lazy on-fit init convention in d3rlpy a) to avoid serialization
@@ -256,7 +255,7 @@ class CQL(Recommender):
         item_features: Optional[SparkDataFrame] = None,
     ) -> None:
         mdp_dataset: MDPDataset = self.mdp_dataset_builder.build(log)
-        self.model.fit(mdp_dataset, n_epochs=self.n_epochs)
+        self.model.fit(mdp_dataset, self.n_steps)
 
     @staticmethod
     def _predict_pairs_inner(
@@ -344,11 +343,11 @@ class CQL(Recommender):
     def _init_args(self) -> Dict[str, Any]:
         return {
             # non-model hyperparams
-            "n_epochs": self.n_epochs,
             "mdp_dataset_builder": self.mdp_dataset_builder.init_args(),
-
+            "n_steps": self.n_steps,
             # model internal hyperparams
-            **self._get_model_hyperparams()
+            **self._get_model_hyperparams(),
+            "use_gpu": self.model._impl.device
         }
 
     def _save_model(self, path: str) -> None:
@@ -361,33 +360,27 @@ class CQL(Recommender):
 
     def _get_model_hyperparams(self) -> Dict[str, Any]:
         """Get model hyperparams as dictionary.
-
-        NB: The code is taken from a `d3rlpy.LearnableBase.save_params(logger)` method as
+        NB: The code is taken from a `d3rlpy.base.save_config(logger)` method as
         there's no method to just return such params without saving them.
         """
         assert self.model._impl is not None, IMPL_NOT_INITIALIZED_ERROR
+        config = LearnableConfigWithShape(
+            observation_shape=self.model.impl.observation_shape,
+            action_size=self.model.impl.action_size,
+            config=self.model.config,
+        )
+        config = config.serialize_to_dict()
+        config.update(config["config"]["params"])
+        for key_to_delete in ["observation_shape", "action_size", "config"]:
+            config.pop(key_to_delete)
 
-        # pylint: disable=invalid-name
-        # get hyperparameters without impl
-        params = {}
-        with disable_parallel():
-            for k, v in self.model.get_params(deep=False).items():
-                if isinstance(v, (ImplBase, LearnableBase)):
-                    continue
-                params[k] = v
-
-        # save algorithm name
-        params["algorithm"] = self.model.__class__.__name__
-
-        # serialize objects
-        params = _serialize_params(params)
-        return params
+        return config
 
     def _serialize_policy(self) -> bytes:
         # store using temporary file and immediately read serialized version
         with tempfile.NamedTemporaryFile(suffix='.pt') as tmp:
             # noinspection PyProtectedMember
-            self.model._impl.save_policy(tmp.name)
+            self.model.save_policy(tmp.name)
             with open(tmp.name, 'rb') as policy_file:
                 return policy_file.read()
 
@@ -403,28 +396,6 @@ class CQL(Recommender):
         items = torch.from_numpy(items).float().cpu()
         with torch.no_grad():
             return policy.forward(items).numpy()
-
-
-def _deserialize_param(name: str, value: Any) -> Any:
-    if not isinstance(value, dict):
-        # not a serialized object
-        return value
-
-    if name == "scaler":
-        value = create_scaler(value["type"], **value["params"])
-    elif name == "action_scaler":
-        value = create_action_scaler(value["type"], **value["params"])
-    elif name == "reward_scaler":
-        value = create_reward_scaler(value["type"], **value["params"])
-    elif "optim_factory" in name:
-        value = OptimizerFactory(**value)
-    elif "encoder_factory" in name:
-        value = create_encoder_factory(value["type"], **value["params"])
-    elif name == "q_func_factory":
-        value = create_q_func_factory(value["type"], **value["params"])
-    elif name == "mdp_dataset_builder":
-        value = MdpDatasetBuilder(**value)
-    return value
 
 
 class MdpDatasetBuilder:

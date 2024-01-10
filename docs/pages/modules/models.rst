@@ -282,9 +282,11 @@ CQL Recommender (Experimental)
 Conservative Q-Learning (CQL) algorithm is a SAC-based data-driven deep reinforcement learning algorithm, 
 which achieves state-of-the-art performance in offline RL problems.
 
+\* incompatible with python 3.10
+
 .. image:: /images/cql_comparison.png
 
-.. autoclass:: replay.experimental.models.CQL
+.. autoclass:: replay.experimental.models.cql.CQL
     :special-members: __init__
 
 

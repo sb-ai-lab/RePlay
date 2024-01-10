@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from numpy.random import default_rng
 
-from replay.utils.session_handler import State
+from .session_handler import State
 
 from .types import PYSPARK_AVAILABLE, DataFrameLike, MissingImportType, NumType, SparkDataFrame
 

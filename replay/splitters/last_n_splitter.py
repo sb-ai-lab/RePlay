@@ -3,7 +3,7 @@ from typing import List, Literal, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from replay.splitters.base_splitter import Splitter
+from .base_splitter import Splitter
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:

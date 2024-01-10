@@ -1,7 +1,7 @@
 from typing import Optional
 
 from replay.data import Dataset
-from replay.models.base_rec import NonPersonalizedRecommender
+from .base_rec import NonPersonalizedRecommender
 from replay.utils import PYSPARK_AVAILABLE
 
 if PYSPARK_AVAILABLE:

@@ -1,6 +1,6 @@
 
 from replay.data import Dataset
-from replay.models.base_rec import Recommender
+from .base_rec import Recommender
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
