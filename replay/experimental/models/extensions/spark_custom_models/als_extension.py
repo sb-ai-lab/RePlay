@@ -23,7 +23,7 @@
 
 import sys
 
-from replay.utils import MissingImportType, PYSPARK_AVAILABLE
+from replay.utils import PYSPARK_AVAILABLE
 
 if PYSPARK_AVAILABLE:
     from pyspark import keyword_only, since
