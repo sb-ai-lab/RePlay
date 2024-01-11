@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import List, Optional
 
 import pandas as pd
 import torch
@@ -26,6 +26,16 @@ from .utils import (
 class DT4Rec(Recommender):
     """
     Decision Transformer for Recommendations
+
+    General Idea:
+        `User Retention-oriented Recommendation with Decision
+        Transformer <https://arxiv.org/pdf/2303.06347.pdf>`_.
+
+    Ideas for improvements:
+        `Decision Transformer: Reinforcement Learning
+        via Sequence Modeling <https://arxiv.org/pdf/2106.01345.pdf>`_.
+
+    Also, some sources are listed in their respective classes
     """
 
     optimizer = None
