@@ -6,26 +6,24 @@ import pytest
 import numpy as np
 import pandas as pd
 
+pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
+
 from replay.metrics import MAP, MRR, NDCG, Coverage, HitRate, Surprisal
 from replay.metrics.experiment import Experiment
 from replay.experimental.preprocessing.data_preparator import DataPreparator
-from replay.utils import PYSPARK_AVAILABLE, TORCH_AVAILABLE
 
-if PYSPARK_AVAILABLE:
-    import tests.utils
-    from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
+import tests.utils
+from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
 
-if TORCH_AVAILABLE:
-    from replay.experimental.models.dt4rec.utils import (
-        create_dataset as create_dt4rec_dataset,
-        fast_create_dataset,
-        ValidateDataset,
-        matrix2df
-    )
-    from replay.experimental.models.dt4rec.gpt1 import CausalSelfAttention, Block, GPT
-    from replay.experimental.models.dt4rec.dt4rec import DT4Rec
-
-torch = pytest.importorskip("torch")
+from replay.experimental.models.dt4rec.utils import (
+    create_dataset as create_dt4rec_dataset,
+    fast_create_dataset,
+    ValidateDataset,
+    matrix2df
+)
+from replay.experimental.models.dt4rec.gpt1 import CausalSelfAttention, Block, GPT
+from replay.experimental.models.dt4rec.dt4rec import DT4Rec
 
 
 @dataclass

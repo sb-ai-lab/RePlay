@@ -9,13 +9,11 @@ from typing import Any, Dict, Iterable, Optional, Union
 
 from replay.experimental.models.base_rec import Recommender
 from replay.models.extensions.ann.ann_mixin import ANNMixin
-from replay.utils import MissingImportType, PYSPARK_AVAILABLE, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
     from pyspark.sql.column import Column
-else:
-    Column = MissingImportType
 
 
 class NeighbourRec(Recommender, ANNMixin, ABC):
