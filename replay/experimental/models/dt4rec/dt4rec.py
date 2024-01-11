@@ -30,15 +30,15 @@ if TORCH_AVAILABLE:
 class DT4Rec(Recommender):
     """
     Decision Transformer for Recommendations
-    
+
     General Idea:
         `Decision Transformer: Reinforcement Learning
         via Sequence Modeling <https://arxiv.org/pdf/2106.01345.pdf>`_.
-    
+
     Ideas for improvements:
         `User Retention-oriented Recommendation with Decision
         Transformer <https://arxiv.org/pdf/2303.06347.pdf>`_.
-    
+
     Also, some sources are listed in their respective classes
     """
 
