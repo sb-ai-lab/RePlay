@@ -1,0 +1,52 @@
+name: Deploy Docs to Pages
+
+on:
+  push:
+    branches: [release]
+    tags:
+      - 'v*.*.*'
+  
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy_docs:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      - name: Install full package
+        run: |
+          python -m venv venv
+          . ./venv/bin/activate
+          pip install --upgrade pip wheel poetry==1.5.1 lightfm==1.17
+          poetry cache clear pypi --all
+          ./poetry_wrapper.sh --experimental install --all-extras
+      - name: Build docs
+        run: |
+          . ./venv/bin/activate
+          make -C docs clean html
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: 'docs/_build/html/'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v3
