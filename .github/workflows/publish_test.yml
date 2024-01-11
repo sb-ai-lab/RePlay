@@ -1,11 +1,6 @@
 name: Publish to test PyPI
 
 on: 
-  push:
-    branches: [test_release]
-    tags:
-      - 'v*.*.*'
-
   workflow_dispatch:
 
 jobs:
