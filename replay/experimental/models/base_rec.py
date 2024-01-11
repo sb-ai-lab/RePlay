@@ -23,11 +23,7 @@ from replay.data import get_schema
 from replay.experimental.utils.session_handler import State
 from replay.models.base_rec import IsSavable, RecommenderCommons
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
-
-if PYSPARK_AVAILABLE:
-    from pyspark.sql import Window
-    from pyspark.sql import functions as sf
-    from replay.utils.spark_utils import (
+from replay.utils.spark_utils import (
         convert2spark,
         cosine_similarity,
         filter_cold,
@@ -40,6 +36,11 @@ if PYSPARK_AVAILABLE:
         vector_dot,
         vector_euclidean_distance_similarity,
     )
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import Window
+    from pyspark.sql import functions as sf
+    
 
 
 # pylint: disable=too-many-instance-attributes
