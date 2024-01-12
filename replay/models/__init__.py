@@ -29,3 +29,4 @@ from replay.models.cat_pop_rec import CatPopRec
 from replay.models.ucb import UCB
 from replay.models.thompson_sampling import ThompsonSampling
 from replay.models.cql import CQL
+from replay.models.dt4rec.dt4rec import DT4Rec
