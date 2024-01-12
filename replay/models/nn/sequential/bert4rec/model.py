@@ -1,6 +1,6 @@
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Union, cast
+from typing import Optional, Tuple, Union, cast, Dict
 
 import torch
 
@@ -284,6 +284,21 @@ class BertEmbedding(torch.nn.Module):
         :returns: Item embeddings.
         """
         return self.cat_embeddings[self.schema.item_id_feature_name].weight
+
+    def get_all_embeddings(self) -> Dict[str, torch.Tensor]:
+        """
+        :returns: copy of all embeddings presented in this layer as a dict.
+        """
+        embeddings = {
+            "item_embedding": self.item_embeddings.data.detach().clone(),
+        }
+        for feature_name, _ in self.schema.items():
+            if feature_name != self.schema.item_id_feature_name:
+                embeddings[feature_name] = self.cat_embeddings[feature_name].weight.data.detach().clone()
+        if self.enable_positional_embedding:
+            embeddings["positional_embedding"] = self.position.pe.weight.data.detach().clone()
+
+        return embeddings
 
 
 class CatFeatureEmbedding(torch.nn.Embedding):
