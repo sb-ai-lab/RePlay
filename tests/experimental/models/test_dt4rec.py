@@ -11,7 +11,7 @@ torch = pytest.importorskip("torch")
 
 from replay.metrics import MAP, MRR, NDCG, Coverage, HitRate, Surprisal
 from replay.metrics.experiment import Experiment
-from replay.experimental.preprocessing.data_preparator import DataPreparator
+from replay.experimental.preprocessing.data_preparator import DataPreparator, Indexer
 
 import tests.utils
 from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
@@ -46,6 +46,7 @@ class TestConfig:
     vocab_size = item_num + 1
 
 
+@pytest.mark.experimental
 @pytest.mark.torch
 def test_casual_self_attention():
     cfg = TestConfig()
@@ -54,6 +55,7 @@ def test_casual_self_attention():
     assert csa(batch).shape == batch.shape
 
 
+@pytest.mark.experimental
 @pytest.mark.torch
 def test_block():
     cfg = TestConfig()
@@ -62,6 +64,7 @@ def test_block():
     assert block(batch).shape == batch.shape
 
 
+@pytest.mark.experimental
 @pytest.mark.torch
 def test_gpt1():
     cfg = TestConfig()
@@ -76,6 +79,7 @@ def test_gpt1():
     assert gpt(states, actions, rtgs, timesteps, users).shape == (4, cfg.block_size // 3, cfg.vocab_size)
 
 
+@pytest.mark.experimental
 @pytest.mark.torch
 def test_create_dataset_good_items():
     df = pd.DataFrame({"timestamp": [10, 11, 12], "user_idx": [0, 0, 0], "item_idx": [3, 4, 5], "relevance": [5, 5, 5]})
@@ -92,6 +96,7 @@ def test_create_dataset_good_items():
         assert (value == result[0][key]).all()
 
 
+@pytest.mark.experimental
 @pytest.mark.torch
 def test_fast_create_dataset_good_items():
     df = pd.DataFrame({"timestamp": [10, 11, 12], "user_idx": [0, 0, 0], "item_idx": [3, 4, 5], "relevance": [5, 5, 5]})
@@ -108,6 +113,7 @@ def test_fast_create_dataset_good_items():
         assert (value == result[0][key]).all()
 
 
+@pytest.mark.experimental
 @pytest.mark.torch
 def test_create_dataset_bad_items():
     df = pd.DataFrame({"timestamp": [10, 11, 12], "user_idx": [0, 0, 0], "item_idx": [3, 4, 5], "relevance": [0, 0, 0]})
@@ -128,6 +134,7 @@ def test_create_dataset_bad_items():
     val_ds[0]
 
 
+@pytest.mark.experimental
 @pytest.mark.torch
 def test_fast_create_dataset_bag_items():
     df = pd.DataFrame({"timestamp": [10, 11, 12], "user_idx": [0, 0, 0], "item_idx": [3, 4, 5], "relevance": [0, 0, 0]})
@@ -144,6 +151,7 @@ def test_fast_create_dataset_bag_items():
         assert (value == result[0][key]).all()
 
 
+@pytest.mark.experimental
 @pytest.mark.torch
 def test_matrix2df():
     matrix = torch.tensor([[1, 2], [3, 4]])
@@ -152,6 +160,7 @@ def test_matrix2df():
     assert (df[df.item_idx == 0].relevance.values == np.array([1, 3])).all()
 
 
+@pytest.mark.experimental
 @pytest.mark.spark
 @pytest.mark.torch
 def test_train():
@@ -165,7 +174,7 @@ def test_train():
     )
 
     preparator = DataPreparator()
-    log = preparator.transform(
+    prepared_log = preparator.transform(
         columns_mapping={
             "user_id": "user_id",
             "item_id": "item_id",
@@ -174,6 +183,10 @@ def test_train():
         },
         data=df,
     )
+
+    indexer = Indexer(user_col="user_id", item_col="item_id")
+    indexer.fit(users=prepared_log.select("user_id"), items=prepared_log.select("item_id"))
+    log = indexer.transform(prepared_log)
 
     item_num = log.toPandas()["item_idx"].max() + 1
     user_num = log.toPandas()["user_idx"].max() + 1
