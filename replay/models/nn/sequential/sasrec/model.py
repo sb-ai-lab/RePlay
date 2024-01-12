@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Optional, Tuple, Union, cast
+from typing import Any, Optional, Tuple, Union, cast, Dict
 
 import torch
 
@@ -254,6 +254,12 @@ class BaseSasRecEmbeddings(abc.ABC):
         :returns: Item weights for all items.
         """
 
+    @abc.abstractmethod
+    def get_all_embeddings(self) -> Dict[str, torch.Tensor]:
+        """
+        :returns: copy of all embeddings presented in a layer as a dict.
+        """
+
 
 class EmbeddingTyingHead(torch.nn.Module):
     """
@@ -355,6 +361,15 @@ class SasRecEmbeddings(torch.nn.Module, BaseSasRecEmbeddings):
         """
         # Last one is reserved for padding, so we remove it
         return self.item_emb.weight[:-1, :]
+
+    def get_all_embeddings(self) -> Dict[str, torch.Tensor]:
+        """
+        :returns: copy of all embeddings presented in this layer as a dict.
+        """
+        return {
+            "item_embedding": self.item_emb.weight.data[:-1, :].detach().clone(),
+            "positional_embedding": self.pos_emb.pe.weight.data.detach().clone(),
+        }
 
 
 class SasRecLayers(torch.nn.Module):
@@ -607,6 +622,18 @@ class TiSasRecEmbeddings(torch.nn.Module, BaseSasRecEmbeddings):
         """
         # Last one is reserved for padding, so we remove it
         return self.item_emb.weight[:-1, :]
+
+    def get_all_embeddings(self) -> Dict[str, torch.Tensor]:
+        """
+        :returns: copy of all embeddings presented in this layer as a dict.
+        """
+        return {
+            "item_embedding": self.item_emb.weight.data[:-1, :].detach().clone(),
+            "abs_pos_k_emb": self.abs_pos_k_emb.pe.weight.data.detach().clone(),
+            "abs_pos_v_emb": self.abs_pos_v_emb.pe.weight.data.detach().clone(),
+            "time_matrix_k_emb": self.time_matrix_k_emb.weight.data.detach().clone(),
+            "time_matrix_v_emb": self.time_matrix_v_emb.weight.data.detach().clone(),
+        }
 
 
 class TiSasRecLayers(torch.nn.Module):
