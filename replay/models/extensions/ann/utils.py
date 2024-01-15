@@ -1,8 +1,8 @@
 import hnswlib
 import nmslib
 
-from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
-from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from .entities.hnswlib_param import HnswlibParam
+from .entities.nmslib_hnsw_param import NmslibHnswParam
 
 
 def create_hnswlib_index_instance(params: HnswlibParam, init: bool = False):

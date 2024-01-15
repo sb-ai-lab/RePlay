@@ -2,7 +2,7 @@ from os.path import join
 from typing import Optional, Tuple
 
 from replay.data import Dataset
-from replay.models.base_rec import ItemVectorModel, Recommender
+from .base_rec import ItemVectorModel, Recommender
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 if PYSPARK_AVAILABLE:

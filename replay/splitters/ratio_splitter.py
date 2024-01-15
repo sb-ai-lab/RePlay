@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple
 
-from replay.splitters.base_splitter import Splitter
+from .base_splitter import Splitter
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:

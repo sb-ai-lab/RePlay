@@ -6,7 +6,6 @@ from argparse import ArgumentParser
 from math import floor
 from pathlib import Path
 
-import psutil
 import torch
 import tqdm
 from optuna.exceptions import ExperimentalWarning
@@ -18,12 +17,13 @@ from replay.metrics import MAP, MRR, NDCG, Coverage, HitRate, Surprisal
 from replay.metrics.experiment import Experiment
 from replay.models import SLIM, UCB, ALSWrap, ItemKNN, Recommender, Wilson
 from replay.splitters import TimeSplitter
+from replay.data import Dataset, FeatureSchema, FeatureHint, FeatureInfo, FeatureType
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
-    from replay.utils.model_handler import load, save
+    from replay.experimental.utils.model_handler import load, save
     from replay.utils.session_handler import State, get_spark_session
     from replay.utils.spark_utils import get_log_info
 
@@ -39,10 +39,19 @@ def fit_predict_add_res(
     start_time = time.time()
 
     if not predict_only:
-        model.fit(log=train)
+        if isinstance(model, CQL) or isinstance(model, LightFMWrap):
+            model.fit(train.interactions)
+        else:
+            model.fit(train)
     fit_time = time.time() - start_time
 
-    pred = model.predict(log=train, k=top_k, users=test_users)
+    print("-----------------")
+    print(type(model))
+    print("-----------------")
+    if isinstance(model, CQL) or isinstance(model, LightFMWrap):
+        pred = model.predict(train.interactions, k=top_k, users=test_users)
+    else:
+        pred = model.predict(train, k=top_k, queries=test_users)
     pred.cache()
     pred.count()
     predict_time = time.time() - start_time - fit_time
@@ -100,10 +109,7 @@ def main():
 
     model_path = (Path.home() / 'tmp' / 'recsys').resolve()
 
-    spark = get_spark_session(
-        spark_memory=floor(psutil.virtual_memory().total / 1024 ** 3 * args.memory),
-        shuffle_partitions=floor(os.cpu_count() * args.partitions),
-    )
+    spark = get_spark_session()
     spark = State(session=spark).session
     spark.sparkContext.setLogLevel('ERROR')
 
@@ -129,10 +135,11 @@ def main():
 
     # train/test split
     date_splitter = TimeSplitter(
-        test_start=0.2,
+        time_threshold=0.2,
         drop_cold_items=True,
         drop_cold_users=True,
-        drop_zero_rel_in_test=True,
+        query_column="user_idx",
+        item_column="item_idx"
     )
     train, test = date_splitter.split(pos_log)
     train.cache(), test.cache()
@@ -154,16 +161,27 @@ def main():
     pos_neg_train.cache()
     pos_neg_train.count()
 
-    experiment = Experiment(test, {
-        MAP(): K, NDCG(): K, HitRate(): K_list_metrics, Coverage(train): K, Surprisal(train): K,
-        MRR(): K
-    })
+    experiment = Experiment(
+        [
+            MAP(K),
+            NDCG(K),
+            HitRate(K_list_metrics),
+            Coverage(K),
+            Surprisal(K),
+            MRR(K)
+        ],
+        test,
+        train,
+        query_column="user_idx",
+        item_column="item_idx",
+        rating_column="relevance"
+    )
 
     algorithms = {
         f'CQL_{e}': CQL(
             use_gpu=use_gpu,
             mdp_dataset_builder=MdpDatasetBuilder(K, args.action_randomization_scale),
-            n_epochs=e,
+            n_steps=e,
         )
         for e in n_epochs
     }
@@ -179,6 +197,25 @@ def main():
     logger = logging.getLogger("replay")
     test_users = test.select('user_idx').distinct()
 
+    features = [
+        FeatureInfo(
+            column="user_idx",
+            feature_hint=FeatureHint.QUERY_ID,
+            feature_type=FeatureType.CATEGORICAL,
+        ),
+        FeatureInfo(
+            column="item_idx",
+            feature_hint=FeatureHint.ITEM_ID,
+            feature_type=FeatureType.CATEGORICAL,
+        ),
+        FeatureInfo(
+            column="relevance",
+            feature_type=FeatureType.NUMERICAL,
+            feature_hint=FeatureHint.RATING,
+        )
+    ]
+    schema = FeatureSchema(features)
+
     for name in tqdm.tqdm(algorithms.keys(), desc='Model'):
         model = algorithms[name]
 
@@ -187,21 +224,28 @@ def main():
         train_ = train
         if isinstance(model, (Wilson, UCB)):
             train_ = pos_neg_train
+        
+        train_dataset = Dataset(schema, train_)
         fit_predict_add_res(
-            name, model, experiment, train=train_, top_k=K, test_users=test_users
+            name,
+            model,
+            experiment,
+            train=train_dataset,
+            top_k=K,
+            test_users=test_users
         )
         if name == f'CQL_{max(n_epochs)}':
-            save(model, model_path)
+            save(model, model_path, True)
             loaded_model = load(model_path)
 
             # noinspection PyTypeChecker
             fit_predict_add_res(
-                name + '_loaded', loaded_model, experiment, train=train_, top_k=K,
+                name + '_loaded', loaded_model, experiment, train=train_dataset, top_k=K,
                 test_users=test_users, predict_only=True
             )
             # noinspection PyTypeChecker
             fit_predict_add_res(
-                name + '_valid', model, experiment, train=train_, top_k=K, test_users=test_users,
+                name + '_valid', model, experiment, train=train_dataset, top_k=K, test_users=test_users,
                 predict_only=True
             )
 

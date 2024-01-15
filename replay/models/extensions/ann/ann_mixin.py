@@ -5,13 +5,13 @@ from typing import Any, Dict, Iterable, Optional, Union
 
 from replay.data import Dataset
 from replay.models.base_rec import BaseRecommender
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from .index_builders.base_index_builder import IndexBuilder
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
-    from replay.models.extensions.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
+    from .index_stores.spark_files_index_store import SparkFilesIndexStore
     from replay.utils.spark_utils import get_top_k_recs, return_recs
 
 

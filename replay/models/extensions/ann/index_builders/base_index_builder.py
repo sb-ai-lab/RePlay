@@ -12,9 +12,15 @@ class IndexBuilder(ABC):
     Describes a common interface for index builders. And provides common methods for them.
     """
 
-    def __init__(self, index_params: BaseHnswParam, index_store: IndexStore):
+    def __init__(
+        self,
+        index_params: BaseHnswParam,
+        index_store: IndexStore,
+        allow_collect_to_master: bool = False,
+    ):
         self.index_store = index_store
         self.index_params = index_params
+        self.allow_collect_to_master = allow_collect_to_master
 
     @abstractmethod
     def build_index(

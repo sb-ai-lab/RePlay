@@ -5,7 +5,7 @@ This module contains tools for preprocessing data including:
 - processors for feature transforms
 """
 
-from replay.preprocessing.history_based_fp import (
+from .history_based_fp import (
     ConditionalPopularityProcessor,
     EmptyFeatureProcessor,
     HistoryBasedFeaturesProcessor,

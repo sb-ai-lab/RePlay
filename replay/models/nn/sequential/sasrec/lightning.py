@@ -1,19 +1,22 @@
 import math
-from typing import Any, Optional, Tuple, Union, cast
+from typing import Any, Optional, Tuple, Union, cast, Dict
 
 import lightning as L
 import torch
 
 from replay.data.nn import TensorMap, TensorSchema
 from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
-from replay.models.nn.sequential.sasrec.dataset import SasRecPredictionBatch, SasRecTrainingBatch, SasRecValidationBatch
-from replay.models.nn.sequential.sasrec.model import SasRecModel
+from .dataset import SasRecPredictionBatch, SasRecTrainingBatch, SasRecValidationBatch
+from .model import SasRecModel
 
 
 # pylint: disable=too-many-instance-attributes
 class SasRec(L.LightningModule):
     """
-    SASRec Lightning module
+    SASRec Lightning module.
+
+    You can get initialization parameters with attribute `hparams`
+    for object of SasRec instance.
     """
 
     # pylint: disable=too-many-arguments, too-many-locals
@@ -370,3 +373,86 @@ class SasRec(L.LightningModule):
             return torch.nn.CrossEntropyLoss()
 
         raise NotImplementedError("Not supported loss_type")
+
+    def get_all_embeddings(self) -> Dict[str, torch.nn.Embedding]:
+        """
+        :returns: copy of all embeddings as a dictionary.
+        """
+        return self._model.item_embedder.get_all_embeddings()
+
+    def set_item_embeddings_by_size(self, new_vocab_size: int):
+        """
+        Set item embeddings initialized with xavier_normal_ by new size of vocabulary
+        to item embedder.
+
+        :param new_vocab_size: Size of vocabulary with new items.
+            Must be greater then already fitted.
+        """
+        old_vocab_size = self._model.item_embedder.item_emb.weight.data.shape[0] - 1
+        hidden_size = self._model.hidden_size
+
+        if new_vocab_size <= old_vocab_size:
+            raise ValueError("New vocabulary size must be greater then already fitted")
+
+        new_embedding = torch.nn.Embedding(new_vocab_size + 1, hidden_size, padding_idx=new_vocab_size)
+        torch.nn.init.xavier_normal_(new_embedding.weight)
+        new_embedding.weight.data[:old_vocab_size, :] = self._model.item_embedder.item_emb.weight.data[:-1, :]
+
+        self._set_new_item_embedder_to_model(new_embedding, new_vocab_size)
+
+    def set_item_embeddings_by_tensor(self, all_item_embeddings: torch.Tensor):
+        """
+        Set item embeddings with provided weights for all items.
+        If new items presented, then tensor is expanded.
+        The already fitted weights will be replaced with new ones.
+
+        :param all_item_embeddings: tensor of weights for all items with
+            shape (n, h), where n - number of all items, h - model hidden size.
+        """
+        if all_item_embeddings.dim() != 2:
+            raise ValueError("Input tensor must have (number of all items, model hidden size) shape")
+
+        old_vocab_size = self._model.item_embedder.item_emb.weight.data.shape[0] - 1
+        new_vocab_size = all_item_embeddings.shape[0]
+        hidden_size = self._model.hidden_size
+
+        if new_vocab_size < old_vocab_size:
+            raise ValueError("New vocabulary size can't be less then already fitted")
+        if all_item_embeddings.shape[1] != hidden_size:
+            raise ValueError("Input tensor second dimension doesn't match model hidden size")
+
+        new_embedding = torch.nn.Embedding(new_vocab_size + 1, hidden_size, padding_idx=new_vocab_size)
+        new_embedding.weight.data[:-1, :] = all_item_embeddings
+
+        self._set_new_item_embedder_to_model(new_embedding, new_vocab_size)
+
+    def append_item_embeddings(self, item_embeddings: torch.Tensor):
+        """
+        Append provided weights for new items only to item embedder.
+
+        :param item_embeddings: tensor of shape (n, h), where
+            n - number of only new items, h - model hidden size.
+        """
+        if item_embeddings.dim() != 2:
+            raise ValueError("Input tensor must have (number of new items, model hidden size) shape")
+
+        old_vocab_size = self._model.item_embedder.item_emb.weight.data.shape[0] - 1
+        new_vocab_size = item_embeddings.shape[0] + old_vocab_size
+        hidden_size = self._model.hidden_size
+
+        if item_embeddings.shape[1] != hidden_size:
+            raise ValueError("Input tensor second dimension doesn't match model hidden size")
+
+        new_embedding = torch.nn.Embedding(new_vocab_size + 1, hidden_size, padding_idx=new_vocab_size)
+        new_embedding.weight.data[:old_vocab_size, :] = self._model.item_embedder.item_emb.weight.data[:-1, :]
+        new_embedding.weight.data[old_vocab_size:-1, :] = item_embeddings
+
+        self._set_new_item_embedder_to_model(new_embedding, new_vocab_size)
+
+    def _set_new_item_embedder_to_model(self, new_embedding: torch.nn.Embedding, new_vocab_size: int):
+        self._model.item_embedder.item_emb = new_embedding
+        self._model._head._item_embedder = self._model.item_embedder
+        self._vocab_size = new_vocab_size
+        self._model.item_count = new_vocab_size
+        self._model.padding_idx = new_vocab_size
+        self._model.masking.padding_idx = new_vocab_size

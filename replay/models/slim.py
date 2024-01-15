@@ -6,10 +6,11 @@ from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
 from replay.data import Dataset
-from replay.models.base_neighbour_rec import NeighbourRec
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from .base_neighbour_rec import NeighbourRec
+from .extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.utils import PYSPARK_AVAILABLE
 from replay.utils.session_handler import State
+from replay.utils.spark_utils import spark_to_pandas
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import types as st
@@ -30,12 +31,14 @@ class SLIM(NeighbourRec):
         "lambda_": {"type": "loguniform", "args": [1e-6, 2]},
     }
 
+    # pylint: disable=R0913
     def __init__(
         self,
         beta: float = 0.01,
         lambda_: float = 0.01,
         seed: Optional[int] = None,
         index_builder: Optional[IndexBuilder] = None,
+        allow_collect_to_master: bool = False,
     ):
         """
         :param beta: l2 regularization
@@ -43,12 +46,15 @@ class SLIM(NeighbourRec):
         :param seed: random seed
         :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
+        :param allow_collect_to_master: Flag allowing spark to make a collection to the master node,
+            Default: ``False``.
         """
         if beta < 0 or lambda_ <= 0:
             raise ValueError("Invalid regularization parameters")
         self.beta = beta
         self.lambda_ = lambda_
         self.seed = seed
+        self.allow_collect_to_master = allow_collect_to_master
         if isinstance(index_builder, (IndexBuilder, type(None))):
             self.index_builder = index_builder
         elif isinstance(index_builder, dict):
@@ -61,18 +67,18 @@ class SLIM(NeighbourRec):
             "lambda_": self.lambda_,
             "seed": self.seed,
             "index_builder": self.index_builder.init_meta_as_dict() if self.index_builder else None,
+            "allow_collect_to_master": self.allow_collect_to_master,
         }
 
     def _fit(
         self,
         dataset: Dataset,
     ) -> None:
-        pandas_interactions = (
+        interactions = (
             dataset.interactions
             .select(self.query_column, self.item_column, self.rating_column)
-            .toPandas()
         )
-
+        pandas_interactions = spark_to_pandas(interactions, self.allow_collect_to_master)
         interactions_matrix = csc_matrix(
             (
                 pandas_interactions[self.rating_column],
