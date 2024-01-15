@@ -1,7 +1,7 @@
 Scenarios
 ==========
 .. automodule:: replay.scenarios
-.. automodule:: replay.experimental.obp_wrapper
+.. automodule:: replay.experimental.scenarios.obp_wrapper
 
 
 Fallback
@@ -18,6 +18,6 @@ Two Stage Scenario (Experimental)
 
 Offline Policy Learners
 -----------------------
-.. autoclass:: replay.experimental.obp_wrapper.OBPOfflinePolicyLearner
+.. autoclass:: replay.experimental.scenarios.obp_wrapper.OBPOfflinePolicyLearner
    :members:
 

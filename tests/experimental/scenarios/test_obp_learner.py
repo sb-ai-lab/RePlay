@@ -3,8 +3,8 @@ import logging
 import numpy as np
 import pandas as pd
 
-from replay.experimental.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
-from replay.experimental.obp_wrapper.utils import split_bandit_feedback
+from replay.experimental.scenarios.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
+from replay.experimental.scenarios.obp_wrapper.utils import split_bandit_feedback
 from replay.models import RandomRec
 from replay.experimental.utils.logger import get_logger
 

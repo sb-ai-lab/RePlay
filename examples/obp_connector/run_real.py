@@ -21,8 +21,8 @@ from replay.models import (
 )
 # from replay.experimental.models import LightFMWrap
 
-from replay.experimental.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
-from replay.experimental.obp_wrapper.utils import get_est_rewards_by_reg, bandit_subset
+from replay.experimental.scenarios.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
+from replay.experimental.scenarios.obp_wrapper.utils import get_est_rewards_by_reg, bandit_subset
 
 from sklearn.ensemble import RandomForestClassifier as RandomForest
 from sklearn.linear_model import LogisticRegression
