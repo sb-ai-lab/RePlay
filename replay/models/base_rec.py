@@ -341,6 +341,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         test = self._filter_dataset_features(test_dataset)
         queries = test_dataset.interactions.select(self.query_column).distinct()
         items = test_dataset.interactions.select(self.item_column).distinct()
+
         split_data = SplitData(
             train,
             test,
@@ -602,6 +603,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
         output = return_recs(recs, recs_file_path)
         self._clear_model_temp_view("filter_seen_queries_interactions")
+
         self._clear_model_temp_view("filter_seen_num_seen")
         return output
 
@@ -1640,6 +1642,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
             rating_column=self.rating_column,
             has_timestamp=False,
         )
+
         if items_pd.shape[0] == 0:
             return State().session.createDataFrame([], rec_schema)
 
