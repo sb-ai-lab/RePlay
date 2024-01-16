@@ -1580,13 +1580,13 @@ numpy = "*"
 
 [[package]]
 name = "holidays"
-version = "0.40"
+version = "0.41"
 description = "Generate and work with holidays in Python"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "holidays-0.40-py3-none-any.whl", hash = "sha256:bfaeccb3d02815e33b0c3260735deedeeb5f18755408c18caa14c28d470cfbcf"},
-    {file = "holidays-0.40.tar.gz", hash = "sha256:c6301dcfb9bd2213e8cf6d9774e84e58692b5486af8e100dc3f9cd49ddf8e1ed"},
+    {file = "holidays-0.41-py3-none-any.whl", hash = "sha256:105ac1838c705df0f193d2b7133e59c93373562b33d164b84aa523be173b0f4d"},
+    {file = "holidays-0.41.tar.gz", hash = "sha256:be481dbb7949920fd5b6f1eb2968fdd31381f5c46ded9c3d7263feae576a1589"},
 ]
 
 [package.dependencies]
