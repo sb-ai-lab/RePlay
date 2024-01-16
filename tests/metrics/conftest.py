@@ -119,6 +119,11 @@ def gt_pd():
 
 
 @pytest.fixture(scope="module")
+def predict_fake_query_pd():
+    return pd.DataFrame(gt_data, columns=["fake_query_id", "iid"])
+
+
+@pytest.fixture(scope="module")
 def gt_dict():
     converted_dict = {}
     for user, item in gt_data:
