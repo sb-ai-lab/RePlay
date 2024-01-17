@@ -1,7 +1,16 @@
-import pytest
+import sys
+
 import logging
 import numpy as np
+import pytest
 import pandas as pd
+
+
+if sys.version_info > (3, 9):
+    pytest.skip(
+        reason="obp does't support 3.10",
+        allow_module_level=True,
+    )
 
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
