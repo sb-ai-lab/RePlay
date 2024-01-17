@@ -3,6 +3,9 @@ import logging
 import numpy as np
 import pandas as pd
 
+pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
+
 from replay.experimental.scenarios.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
 from replay.experimental.scenarios.obp_wrapper.utils import split_bandit_feedback
 from replay.models import RandomRec
