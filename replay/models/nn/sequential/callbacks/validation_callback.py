@@ -10,15 +10,10 @@ from replay.models.nn.sequential.postprocessors import BasePostProcessor
 
 CallbackMetricName = Literal[
     "recall",
-    "unseen-recall",
     "precision",
-    "unseen-precision",
     "ndcg",
-    "unseen-ndcg",
     "map",
-    "unseen-map",
     "mrr",
-    "unseen-mrr",
     "novelty",
     "coverage",
 ]

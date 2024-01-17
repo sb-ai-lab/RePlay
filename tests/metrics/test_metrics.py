@@ -347,6 +347,49 @@ def test_offline_metrics(metrics, answer, predict_data, gt_data, train_data, req
 
 
 @pytest.mark.parametrize(
+    "predict_data, gt_data, train_data",
+    [
+        pytest.param(
+            "predict_spark", "gt_spark", "predict_spark", marks=pytest.mark.spark
+        ),
+        pytest.param("predict_pd", "gt_pd", "predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_fake_query_pd", "gt_pd", "predict_pd", marks=pytest.mark.core),
+    ],
+)
+def test_offline_metrics_query_id_errors(predict_data, gt_data, train_data, request):
+    predict_data = request.getfixturevalue(predict_data)
+    gt_data = request.getfixturevalue(gt_data)
+    train_data = request.getfixturevalue(train_data)
+    with pytest.raises(KeyError):
+        OfflineMetrics(
+            [Coverage(5), Recall(5), Precision(5), Novelty(5)],
+            query_column="fake_query_id"
+        )(predict_data, gt_data, train_data)
+
+
+@pytest.mark.cpu
+def test_offline_metrics_subset_queries_works(predict_pd, gt_pd):
+    OfflineMetrics([
+        Recall(5),
+        Precision(5),
+    ], **INIT_DICT)(
+        predict_pd,
+        gt_pd[gt_pd["uid"] != 3]
+    )
+
+
+@pytest.mark.cpu
+def test_offline_metrics_diversity_metric_only_works(predict_pd, gt_pd):
+    OfflineMetrics(
+        [CategoricalDiversity([5])],
+        query_column=QUERY_COLUMN,
+        category_column=ITEM_COLUMN,
+        rating_column=RATING_COLUMN,
+        item_column=ITEM_COLUMN,
+    )(predict_pd, gt_pd)
+
+
+@pytest.mark.parametrize(
     "metrics, answer",
     [
         (

@@ -280,7 +280,7 @@ class TorchMetricsBuilder(_MetricBuilder):
             If users have a test set of different sizes then you need to do the padding using -1.
         :param train: (optional, int): A batch corresponding to the train set for each user.
             If users have a train set of different sizes then you need to do the padding using -2.
-            You can omit this parameter if you don't need to calculate the unseen metrics.
+            You can omit this parameter if you don't need to calculate the coverage or novelty metrics.
         """
         self._ensure_constants_on_device(predictions.device)
         metrics_sum = np.array(self._compute_metrics_sum(predictions, ground_truth, train), dtype=np.float64)
