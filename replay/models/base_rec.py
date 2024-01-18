@@ -20,6 +20,7 @@ from os.path import join
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
+import pandas as pd
 from numpy.random import default_rng
 from optuna import create_study
 from optuna.samplers import TPESampler
@@ -340,6 +341,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         test = self._filter_dataset_features(test_dataset)
         queries = test_dataset.interactions.select(self.query_column).distinct()
         items = test_dataset.interactions.select(self.item_column).distinct()
+
         split_data = SplitData(
             train,
             test,
@@ -601,6 +603,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
         output = return_recs(recs, recs_file_path)
         self._clear_model_temp_view("filter_seen_queries_interactions")
+
         self._clear_model_temp_view("filter_seen_num_seen")
         return output
 
@@ -662,6 +665,66 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :return: recommendation dataframe
             ``[user_idx, item_idx, rating]``
         """
+
+    def _predict_proba(
+        self,
+        dataset : Dataset,
+        k: int,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
+        filter_seen_items: bool = True
+    ) -> np.ndarray:
+        """
+        Inner method where model actually predicts.
+
+        :param log: historical log of interactions
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each user
+        :param users: users to create recommendations for
+            dataframe containing ``[user_idx]`` or ``array-like``;
+            if ``None``, recommend to all users from ``log``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_idx]`` or ``array-like``;
+            if ``None``, take all items from ``log``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :param user_features: user features
+            ``[user_idx , timestamp]`` + feature columns
+        :param item_features: item features
+            ``[item_idx , timestamp]`` + feature columns
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :return: distribution over items for each user with shape
+            ``(n_users, n_items, k)``
+            where we have probability for each user to choose item at fixed position(top-k).
+        """
+
+        n_users = queries.select("user_idx").count()
+        n_items = items.select("item_idx").count()
+
+        recs = self._predict(dataset,
+                             k,
+                             queries,
+                             items,
+                             filter_seen_items)
+
+        recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
+            self.query_column, self.item_column, self.rating_column
+        )
+
+        cols = [f"k{i}" for i in range(k)]
+
+        recs_items = recs.groupBy("user_idx").agg(
+            sf.collect_list("item_idx").alias("item_idx")).select(
+                [sf.col("item_idx")[i].alias(cols[i]) for i in range(k)]
+        )
+
+        action_dist = np.zeros(shape=(n_users, n_items, k))
+
+        for i in range(k):
+            action_dist[np.arange(n_users),
+                        recs_items.select(cols[i]).toPandas()[cols[i]].to_numpy(),
+                        np.ones(n_users, dtype=int) * i] += 1
+
+        return action_dist
 
     def _get_fit_counts(self, entity: str) -> int:
         num_entities = "_num_queries" if entity == "query" else "_num_items"
@@ -1530,19 +1593,10 @@ class NonPersonalizedRecommender(Recommender, ABC):
             selected_item_popularity.filter(sf.col("rank") <= k)
         ).drop("rank")
 
-    # pylint: disable=too-many-locals
-    def _predict_with_sampling(
-        self,
-        dataset: Dataset,
-        k: int,
-        queries: SparkDataFrame,
-        items: SparkDataFrame,
-        filter_seen_items: bool = True,
-    ) -> SparkDataFrame:
+    def get_items_pd(self, items: SparkDataFrame) -> pd.DataFrame:
         """
-        Randomized prediction for popularity-based models,
-        top-k items from `items` are sampled for each query based with
-        probability proportional to items' popularity
+        Function to calculate normalized popularities(in fact, probabilities)
+        of given items. Returns pandas DataFrame.
         """
         selected_item_popularity = self._get_selected_item_popularity(items)
         selected_item_popularity = selected_item_popularity.withColumn(
@@ -1563,12 +1617,32 @@ class NonPersonalizedRecommender(Recommender, ABC):
             sf.col(self.rating_column)
             / selected_item_popularity.select(sf.sum(self.rating_column)).first()[0],
         ).toPandas()
+
+        return items_pd
+
+    # pylint: disable=too-many-locals
+    def _predict_with_sampling(
+        self,
+        dataset: Dataset,
+        k: int,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
+        filter_seen_items: bool = True,
+    ) -> SparkDataFrame:
+        """
+        Randomized prediction for popularity-based models,
+        top-k items from `items` are sampled for each query based with
+        probability proportional to items' popularity
+        """
+        items_pd = self.get_items_pd(items)
+
         rec_schema = get_schema(
             query_column=self.query_column,
             item_column=self.item_column,
             rating_column=self.rating_column,
             has_timestamp=False,
         )
+
         if items_pd.shape[0] == 0:
             return State().session.createDataFrame([], rec_schema)
 
@@ -1662,3 +1736,54 @@ class NonPersonalizedRecommender(Recommender, ABC):
             .fillna(value=self.fill, subset=[self.rating_column])
             .select(self.query_column, self.item_column, self.rating_column)
         )
+
+    def _predict_proba(
+        self,
+        dataset : Dataset,
+        k: int,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
+        filter_seen_items: bool = True
+    ) -> np.ndarray:
+        """
+        Inner method where model actually predicts.
+
+        :param log: historical log of interactions
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each user
+        :param users: users to create recommendations for
+            dataframe containing ``[user_idx]`` or ``array-like``;
+            if ``None``, recommend to all users from ``log``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_idx]`` or ``array-like``;
+            if ``None``, take all items from ``log``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :param user_features: user features
+            ``[user_idx , timestamp]`` + feature columns
+        :param item_features: item features
+            ``[item_idx , timestamp]`` + feature columns
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :return: distribution over items for each user with shape
+            ``(n_users, n_items, k)``
+            where we have probability for each user to choose item at fixed position(top-k).
+        """
+
+        n_users = queries.select("user_idx").count()
+        n_items = items.select("item_idx").count()
+
+        if self.sample:
+            items_pd = self.get_items_pd(items)
+
+            items_idx = items_pd["item_idx"].to_numpy()
+            items_idx_inv = np.zeros_like(items_idx)
+            items_idx_inv[items_idx] = np.arange(len(items_idx))
+
+            items_pd = items_pd["probability"].to_numpy()[items_idx_inv]
+
+            return np.tile(items_pd, (n_users, k)).reshape(n_users, k, n_items).transpose((0, 2, 1))
+
+        return super()._predict_proba(dataset,
+                                      k,
+                                      queries,
+                                      items,
+                                      filter_seen_items)
