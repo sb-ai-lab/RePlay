@@ -10,6 +10,7 @@ image: "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
 variables:
   VERSION: "0.0.7"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  RUNNER: amazme-1
 
 .setup_env: &setup_env
   - pip install -q --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning
@@ -66,24 +67,32 @@ resolve-job:
       - projects/experimental/poetry.lock
       - ${dependencies}
     expire_in: 2 week
+  tags: 
+    - ${RUNNER}
 
 pylint-job:
   <<: *install_experimental_replay_with_spark
   stage: code_quality
   script:
     - pylint replay
+  tags: 
+    - ${RUNNER}
 
 pycodestyle-job:
   <<: *install_experimental_replay_with_spark
   stage: code_quality
   script:
     - pycodestyle replay tests
+  tags: 
+    - ${RUNNER}
 
 sphinx-job:
   <<: *install_experimental_replay_with_spark
   stage: code_quality
   script:
     - make -C docs clean html
+  tags: 
+    - ${RUNNER}
 
 pytest-core:
   stage: test
@@ -96,6 +105,8 @@ pytest-core:
     paths:
       - .coverage_core
     expire_in: 1 day
+  tags: 
+    - ${RUNNER}
 
 pytest-torch:
   stage: test
@@ -108,6 +119,8 @@ pytest-torch:
     paths:
       - .coverage_torch
     expire_in: 1 day
+  tags: 
+    - ${RUNNER}
 
 pytest-spark:
   stage: test
@@ -120,6 +133,8 @@ pytest-spark:
     paths:
       - .coverage_spark
     expire_in: 1 day
+  tags: 
+    - ${RUNNER}
 
 pytest-spark-and-torch:
   stage: test
@@ -132,6 +147,8 @@ pytest-spark-and-torch:
     paths:
       - .coverage_all
     expire_in: 1 day
+  tags: 
+    - ${RUNNER}
 
 pytest-experimental:
   stage: test
@@ -144,6 +161,8 @@ pytest-experimental:
     paths:
       - .coverage_experimental
     expire_in: 1 day
+  tags: 
+    - ${RUNNER}
 
 merge-coverage:
   stage: merge coverage
@@ -162,6 +181,8 @@ merge-coverage:
       coverage_report:
         coverage_format: cobertura
         path: coverage.xml
+  tags: 
+    - ${RUNNER}
 
 
 examples-execute-job:
@@ -173,6 +194,8 @@ examples-execute-job:
     - export EXAMPLES_EXCLUDE=02_models_comparison.ipynb,06_item2item_recommendations.ipynb
     - cd examples
     - for i in *.ipynb; do [[ ! "$EXAMPLES_EXCLUDE" =~ "$i" ]] && jupyter nbconvert --to notebook --execute $i; done
+  tags: 
+    - ${RUNNER}
 
 build-production-package:
   rules:
@@ -186,6 +209,8 @@ build-production-package:
     - poetry version
     - poetry config repositories.replay ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
     - poetry publish --build -r replay -u gitlab-ci-token -p ${CI_JOB_TOKEN}
+  tags: 
+    - ${RUNNER}
 
 
 build-experimental-package:
@@ -199,3 +224,5 @@ build-experimental-package:
     - poetry version
     - poetry config repositories.replay ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
     - poetry publish --build -r replay -u gitlab-ci-token -p ${CI_JOB_TOKEN}
+  tags: 
+    - ${RUNNER}
