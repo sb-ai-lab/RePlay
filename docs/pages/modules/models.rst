@@ -26,6 +26,7 @@ ___________________
     "Neural Matrix Factorization (Experimental)", "Python CPU/GPU"
     "MultVAE (Experimental)", "Python CPU/GPU"
     "DDPG (Experimental)", "Python CPU"
+    "DT4Rec (Experimental)", "Python CPU/GPU"
     "ADMM SLIM (Experimental)", "Python CPU"
     "Wrapper for implicit (Experimental)", "Python CPU"
     "Wrapper for LightFM (Experimental)", "Python CPU"
@@ -276,6 +277,10 @@ DDPG (Experimental)
 .. autoclass:: replay.experimental.models.DDPG
     :special-members: __init__
 
+DT4Rec (Experimental)
+```````````````````````````
+.. autoclass:: replay.experimental.models.dt4rec.dt4rec.DT4Rec
+    :special-members: __init__
 
 CQL Recommender (Experimental)
 ```````````````````````````````````
@@ -284,7 +289,7 @@ which achieves state-of-the-art performance in offline RL problems.
 
 .. image:: /images/cql_comparison.png
 
-.. autoclass:: replay.experimental.models.CQL
+.. autoclass:: replay.experimental.models.cql.CQL
     :special-members: __init__
 
 

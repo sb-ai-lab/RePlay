@@ -225,7 +225,9 @@ class TorchMetricsBuilder(_MetricBuilder):
             self._map_weights: torch.Tensor
             self._reserve_map_constants()
         self._item_count = item_count
-        self._coverage_helper = _CoverageHelper(top_k=self._mr.top_k, item_count=item_count)
+        if self._mr.need_coverage:
+            assert self._item_count is not None, "For Coverage calculations item_count should be defined."
+            self._coverage_helper = _CoverageHelper(top_k=self._mr.top_k, item_count=item_count)
         self.reset()
 
     @property
@@ -278,7 +280,7 @@ class TorchMetricsBuilder(_MetricBuilder):
             If users have a test set of different sizes then you need to do the padding using -1.
         :param train: (optional, int): A batch corresponding to the train set for each user.
             If users have a train set of different sizes then you need to do the padding using -2.
-            You can omit this parameter if you don't need to calculate the unseen metrics.
+            You can omit this parameter if you don't need to calculate the coverage or novelty metrics.
         """
         self._ensure_constants_on_device(predictions.device)
         metrics_sum = np.array(self._compute_metrics_sum(predictions, ground_truth, train), dtype=np.float64)

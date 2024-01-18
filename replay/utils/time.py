@@ -1,6 +1,6 @@
 import numpy as np
 
-from replay.utils.spark_utils import convert2spark
+from .spark_utils import convert2spark
 
 from .types import PYSPARK_AVAILABLE, DataFrameLike
 

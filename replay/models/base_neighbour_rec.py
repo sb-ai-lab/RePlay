@@ -8,8 +8,8 @@ from abc import ABC
 from typing import Any, Dict, Iterable, Optional, Union
 
 from replay.data.dataset import Dataset
-from replay.models.base_rec import Recommender
-from replay.models.extensions.ann.ann_mixin import ANNMixin
+from .base_rec import Recommender
+from .extensions.ann.ann_mixin import ANNMixin
 from replay.utils import PYSPARK_AVAILABLE, MissingImportType, SparkDataFrame
 
 if PYSPARK_AVAILABLE:

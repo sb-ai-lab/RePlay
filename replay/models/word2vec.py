@@ -1,9 +1,9 @@
 from typing import Any, Dict, Optional
 
 from replay.data import Dataset
-from replay.models.base_rec import ItemVectorModel, Recommender
-from replay.models.extensions.ann.ann_mixin import ANNMixin
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from .base_rec import ItemVectorModel, Recommender
+from .extensions.ann.ann_mixin import ANNMixin
+from .extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 if PYSPARK_AVAILABLE:

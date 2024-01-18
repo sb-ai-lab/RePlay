@@ -24,7 +24,7 @@ jobs:
         run: |
           python -m venv venv
           . ./venv/bin/activate
-          pip install --upgrade pip wheel poetry==1.5.1 lightfm
+          pip install --upgrade pip wheel poetry==1.5.1 lightfm==1.17
           poetry cache clear pypi --all
           ./poetry_wrapper.sh --experimental install --all-extras
       - name: Build docs
