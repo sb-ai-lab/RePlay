@@ -5,7 +5,7 @@ from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
-    from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionDataset
+    from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionDataset, Bert4RecPredictionBatch
     from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
 
 torch = pytest.importorskip("torch")
@@ -304,3 +304,27 @@ def test_bert4rec_fine_tuning_errors(fitted_bert4rec):
         model.append_item_embeddings(torch.rand(1, 1, 1))
     with pytest.raises(ValueError):
         model.append_item_embeddings(torch.rand(1, 1))
+
+
+def test_predict_step_with_small_seq_len(item_user_sequential_dataset, simple_masks):
+    item_sequences, padding_mask, tokens_mask, _ = simple_masks
+
+    model = Bert4Rec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=10, hidden_size=64, loss_sample_count=6
+    )
+
+    batch = Bert4RecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences}, tokens_mask)
+    model.predict_step(batch, 0)
+
+
+@pytest.mark.torch
+def test_predict_step_with_big_seq_len(item_user_sequential_dataset, simple_masks):
+    item_sequences, padding_mask, tokens_mask, _ = simple_masks
+
+    model = Bert4Rec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=3, hidden_size=64, loss_sample_count=6
+    )
+
+    batch = Bert4RecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences}, tokens_mask)
+    with pytest.raises(ValueError):
+        model.predict_step(batch, 0)

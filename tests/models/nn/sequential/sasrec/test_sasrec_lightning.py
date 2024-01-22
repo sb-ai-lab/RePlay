@@ -4,7 +4,7 @@ from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
-    from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionDataset
+    from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionDataset, SasRecPredictionBatch
 
 torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
@@ -270,3 +270,27 @@ def test_sasrec_get_init_parameters(fitted_sasrec):
     assert params["tensor_schema"].item().cardinality == 4
     assert params["max_seq_len"] == 200
     assert params["hidden_size"] == 50
+
+
+def test_predict_step_with_small_seq_len(item_user_sequential_dataset, simple_masks):
+    item_sequences, padding_mask, _, _ = simple_masks
+
+    model = SasRec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=10, hidden_size=64, loss_sample_count=6
+    )
+
+    batch = SasRecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences})
+    model.predict_step(batch, 0)
+
+
+@pytest.mark.torch
+def test_predict_step_with_big_seq_len(item_user_sequential_dataset, simple_masks):
+    item_sequences, padding_mask, _, _ = simple_masks
+
+    model = SasRec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=3, hidden_size=64, loss_sample_count=6
+    )
+
+    batch = SasRecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences})
+    with pytest.raises(ValueError):
+        model.predict_step(batch, 0)
