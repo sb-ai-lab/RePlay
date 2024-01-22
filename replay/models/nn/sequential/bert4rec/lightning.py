@@ -10,6 +10,7 @@ from .dataset import (
     Bert4RecPredictionBatch,
     Bert4RecTrainingBatch,
     Bert4RecValidationBatch,
+    _shift_features
 )
 from .model import Bert4RecModel, CatFeatureEmbedding
 
@@ -94,6 +95,7 @@ class Bert4Rec(L.LightningModule):
         self._optimizer_factory = optimizer_factory
         self._lr_scheduler_factory = lr_scheduler_factory
         self._loss = self._create_loss()
+        self._schema = tensor_schema
         assert negative_sampling_strategy in {"global_uniform", "inbatch"}
 
         item_count = tensor_schema.item_id_features.item().cardinality
@@ -136,6 +138,7 @@ class Bert4Rec(L.LightningModule):
 
         :returns: Calculated scores on prediction batch.
         """
+        batch = self._prepare_prediction_batch(batch)
         return self._model_predict(batch.features, batch.padding_mask, batch.tokens_mask)
 
     # pylint: disable=unused-argument
@@ -160,6 +163,38 @@ class Bert4Rec(L.LightningModule):
 
         lr_scheduler = self._lr_scheduler_factory.create(optimizer)
         return [optimizer], [lr_scheduler]
+
+    def _prepare_prediction_batch(self, batch: Bert4RecPredictionBatch) -> Bert4RecPredictionBatch:
+        if batch.padding_mask.shape[1] > self._model.max_len:
+            raise ValueError(
+                f"The length of the submitted sequence \
+                must not exceed the maximum length of the sequence. \
+                The length of the sequence is given {batch.padding_mask.shape[1]}, \
+                while the maximum length is {self._model.max_len}")
+        if batch.padding_mask.shape[1] < self._model.max_len:
+            query_id, padding_mask, features, _ = batch
+            sequence_item_count = padding_mask.shape[1]
+            for feature_name, feature_tensor in features.items():
+                if self._schema[feature_name].is_cat:
+                    features[feature_name] = torch.nn.functional.pad(
+                        feature_tensor,
+                        (self._model.max_len - sequence_item_count, 0),
+                        value=0
+                    )
+                else:
+                    features[feature_name] = torch.nn.functional.pad(
+                        feature_tensor.view(feature_tensor.size(0), feature_tensor.size(1)),
+                        (self._model.max_len - sequence_item_count, 0),
+                        value=0
+                    ).unsqueeze(-1)
+            padding_mask = torch.nn.functional.pad(
+                padding_mask,
+                (self._model.max_len - sequence_item_count, 0),
+                value=0
+            )
+            shifted_features, shifted_padding_mask, tokens_mask = _shift_features(self._schema, features, padding_mask)
+            batch = Bert4RecPredictionBatch(query_id, shifted_padding_mask, shifted_features, tokens_mask)
+        return batch
 
     def _model_predict(
         self,
