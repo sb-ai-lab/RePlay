@@ -1,9 +1,14 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, pointless-statement
 import pytest
 
+import numpy as np
+import pandas as pd
+
 from replay.data.dataset import Dataset
-from replay.models import Recommender
+from replay.models import RandomRec, Recommender
+
 from replay.utils import PandasDataFrame
+from replay.utils.spark_utils import convert2spark
 from tests.utils import create_dataset, log, spark
 
 
@@ -56,3 +61,22 @@ def test_items_count(model, log):
 @pytest.mark.core
 def test_str(model):
     assert str(model) == "DerivedRec"
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize("sample", [True, False])
+def test_predict_proba(log, sample, n_users=2, n_actions=5, K=3):
+    users = convert2spark(pd.DataFrame({"user_idx": np.arange(n_users)}))
+    items = convert2spark(pd.DataFrame({"item_idx": np.arange(n_actions)}))
+
+    model = RandomRec(seed=42)
+    model.sample = sample
+    dataset = create_dataset(log)
+    model.fit(dataset)
+
+    pred = model._predict_proba(
+        dataset, K, users, items, filter_seen_items=False
+    )
+
+    assert pred.shape == (n_users, n_actions, K)
+    assert np.allclose(pred.sum(1), np.ones(shape=(n_users, K)))
