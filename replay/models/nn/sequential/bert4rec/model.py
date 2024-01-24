@@ -137,6 +137,21 @@ class Bert4RecModel(torch.nn.Module):
         """
         return self._head(out_embeddings, item_ids)
 
+    def get_query_embeddings(
+        self,
+        inputs: TensorMap,
+        pad_mask: torch.BoolTensor,
+        token_mask: torch.BoolTensor
+    ):
+        """
+        :param inputs: Batch of features.
+        :param pad_mask: Padding mask where 0 - <PAD>, 1 otherwise.
+        :param token_mask: Token mask where 0 - <MASK> tokens, 1 otherwise.
+
+        :returns: Query embeddings.
+        """
+        return self.forward_step(inputs, pad_mask, token_mask)[:, -1, :]
+
     def _get_attention_mask_from_padding(self, pad_mask: torch.BoolTensor) -> torch.BoolTensor:
         # (B x L) -> (B x 1 x L x L)
         pad_mask_for_attention = pad_mask.unsqueeze(1).repeat(1, self.max_len, 1).unsqueeze(1)

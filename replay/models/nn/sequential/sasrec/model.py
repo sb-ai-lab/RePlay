@@ -134,13 +134,23 @@ class SasRecModel(torch.nn.Module):
 
         :returns: Prediction among canditates_to_score items.
         """
-        output_emb = self.forward_step(feature_tensor, padding_mask)
-
-        # output_emb: [B x L x E]
         # final_emb: [B x E]
-        final_emb = output_emb[:, -1, :]  # last item
+        final_emb = self.get_query_embeddings(feature_tensor, padding_mask)
         candidate_scores = self.get_logits(final_emb, candidates_to_score)
         return candidate_scores
+
+    def get_query_embeddings(
+        self,
+        feature_tensor: TensorMap,
+        padding_mask: torch.BoolTensor,
+    ):
+        """
+        :param feature_tensor: Batch of features.
+        :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
+
+        :returns: Query embeddings.
+        """
+        return self.forward_step(feature_tensor, padding_mask)[:, -1, :]
 
     def forward_step(
         self,
