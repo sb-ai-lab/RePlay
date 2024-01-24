@@ -64,12 +64,13 @@ def test_str(model):
 
 
 @pytest.mark.spark
-def test_predict_proba(log, n_users=2, n_actions=5, K=3):
+@pytest.mark.parametrize("sample", [True, False])
+def test_predict_proba(log, sample, n_users=2, n_actions=5, K=3):
     users = convert2spark(pd.DataFrame({"user_idx": np.arange(n_users)}))
     items = convert2spark(pd.DataFrame({"item_idx": np.arange(n_actions)}))
 
     model = RandomRec(seed=42)
-    model.sample = False
+    model.sample = sample
     dataset = create_dataset(log)
     model.fit(dataset)
 
