@@ -8,7 +8,7 @@ import numpy as np
 import logging
 
 from replay.utils.session_handler import get_spark_session, State
-from replay.utils.logger import get_logger
+from replay.experimental.utils.logger import get_logger
 
 from replay.models import (
     UCB,
