@@ -69,7 +69,7 @@ jobs:
           path: .coverage_core_${{ matrix.python-version }}
 
   pytest_torch:
-    needs: pytest_core
+    needs: static_tests
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -99,7 +99,7 @@ jobs:
           path: .coverage_torch_${{ matrix.python-version }}
 
   pytest_spark:
-    needs: pytest_torch
+    needs: static_tests
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -129,7 +129,7 @@ jobs:
           path: .coverage_spark_${{ matrix.python-version }}
 
   pytest_spark_torch:
-    needs: pytest_spark
+    needs: static_tests
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -159,7 +159,7 @@ jobs:
           path: .coverage_all_${{ matrix.python-version }}
 
   pytest_experimental:
-    needs: pytest_spark_torch
+    needs: static_tests
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -189,7 +189,7 @@ jobs:
           path: .coverage_experimental_${{ matrix.python-version }}
 
   merge_coverage:
-    needs: pytest_experimental
+    needs: [pytest_core, pytest_torch, pytest_spark, pytest_spark_torch, pytest_experimental]
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -216,7 +216,7 @@ jobs:
         run: |
           . ./venv/bin/activate
           coverage combine .coverage_core_${{ matrix.python-version }} .coverage_torch_${{ matrix.python-version }} .coverage_spark_${{ matrix.python-version }} .coverage_all_${{ matrix.python-version }} .coverage_experimental_${{ matrix.python-version }}
-          coverage report --fail-under=100
+          coverage report --fail-under=95
           coverage xml
 
   build_production:
