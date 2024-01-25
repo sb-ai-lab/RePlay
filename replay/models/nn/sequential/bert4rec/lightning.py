@@ -1,5 +1,5 @@
 import math
-from typing import Any, Optional, Tuple, Union, cast
+from typing import Any, Optional, Tuple, Union, cast, Dict
 
 import lightning as L
 import torch
@@ -10,8 +10,9 @@ from .dataset import (
     Bert4RecPredictionBatch,
     Bert4RecTrainingBatch,
     Bert4RecValidationBatch,
+    _shift_features
 )
-from .model import Bert4RecModel
+from .model import Bert4RecModel, CatFeatureEmbedding
 
 
 # pylint: disable=too-many-instance-attributes
@@ -94,6 +95,7 @@ class Bert4Rec(L.LightningModule):
         self._optimizer_factory = optimizer_factory
         self._lr_scheduler_factory = lr_scheduler_factory
         self._loss = self._create_loss()
+        self._schema = tensor_schema
         assert negative_sampling_strategy in {"global_uniform", "inbatch"}
 
         item_count = tensor_schema.item_id_features.item().cardinality
@@ -136,6 +138,7 @@ class Bert4Rec(L.LightningModule):
 
         :returns: Calculated scores on prediction batch.
         """
+        batch = self._prepare_prediction_batch(batch)
         return self._model_predict(batch.features, batch.padding_mask, batch.tokens_mask)
 
     # pylint: disable=unused-argument
@@ -160,6 +163,38 @@ class Bert4Rec(L.LightningModule):
 
         lr_scheduler = self._lr_scheduler_factory.create(optimizer)
         return [optimizer], [lr_scheduler]
+
+    def _prepare_prediction_batch(self, batch: Bert4RecPredictionBatch) -> Bert4RecPredictionBatch:
+        if batch.padding_mask.shape[1] > self._model.max_len:
+            raise ValueError(
+                f"The length of the submitted sequence \
+                must not exceed the maximum length of the sequence. \
+                The length of the sequence is given {batch.padding_mask.shape[1]}, \
+                while the maximum length is {self._model.max_len}")
+        if batch.padding_mask.shape[1] < self._model.max_len:
+            query_id, padding_mask, features, _ = batch
+            sequence_item_count = padding_mask.shape[1]
+            for feature_name, feature_tensor in features.items():
+                if self._schema[feature_name].is_cat:
+                    features[feature_name] = torch.nn.functional.pad(
+                        feature_tensor,
+                        (self._model.max_len - sequence_item_count, 0),
+                        value=0
+                    )
+                else:
+                    features[feature_name] = torch.nn.functional.pad(
+                        feature_tensor.view(feature_tensor.size(0), feature_tensor.size(1)),
+                        (self._model.max_len - sequence_item_count, 0),
+                        value=0
+                    ).unsqueeze(-1)
+            padding_mask = torch.nn.functional.pad(
+                padding_mask,
+                (self._model.max_len - sequence_item_count, 0),
+                value=0
+            )
+            shifted_features, shifted_padding_mask, tokens_mask = _shift_features(self._schema, features, padding_mask)
+            batch = Bert4RecPredictionBatch(query_id, shifted_padding_mask, shifted_features, tokens_mask)
+        return batch
 
     def _model_predict(
         self,
@@ -392,3 +427,100 @@ class Bert4Rec(L.LightningModule):
             return torch.nn.CrossEntropyLoss()
 
         raise NotImplementedError("Not supported loss_type")
+
+    def get_all_embeddings(self) -> Dict[str, torch.nn.Embedding]:
+        """
+        :returns: copy of all embeddings as a dictionary.
+        """
+        return self._model.item_embedder.get_all_embeddings()
+
+    def set_item_embeddings_by_size(self, new_vocab_size: int):
+        """
+        Set item embeddings initialized with xavier_normal_ by new size of vocabulary
+        to item embedder.
+
+        :param new_vocab_size: Size of vocabulary with new items.
+            Must be greater then already fitted.
+        """
+        if new_vocab_size <= self._vocab_size:
+            raise ValueError("New vocabulary size must be greater then already fitted")
+
+        item_tensor_feature_info = self._model.schema.item_id_features.item()
+        item_tensor_feature_info._set_cardinality(new_vocab_size)
+
+        weights_new = CatFeatureEmbedding(item_tensor_feature_info)
+        torch.nn.init.xavier_normal_(weights_new.weight)
+        weights_new.weight.data[:self._vocab_size, :] = self._model.item_embedder.item_embeddings.data
+
+        self._set_new_item_embedder_to_model(weights_new, new_vocab_size)
+
+    def set_item_embeddings_by_tensor(self, all_item_embeddings: torch.Tensor):
+        """
+        Set item embeddings with provided weights for all items.
+        If new items presented, then tensor is expanded.
+        The already fitted weights will be replaced with new ones.
+
+        :param all_item_embeddings: tensor of weights for all items with
+            shape (n, h), where n - number of all items, h - model hidden size.
+        """
+        if all_item_embeddings.dim() != 2:
+            raise ValueError("Input tensor must have (number of all items, model hidden size) shape")
+
+        new_vocab_size = all_item_embeddings.shape[0]
+        if new_vocab_size < self._vocab_size:
+            raise ValueError("New vocabulary size can't be less then already fitted")
+
+        item_tensor_feature_info = self._model.schema.item_id_features.item()
+        if all_item_embeddings.shape[1] != item_tensor_feature_info.embedding_dim:
+            raise ValueError("Input tensor second dimension doesn't match embedding dim")
+
+        item_tensor_feature_info._set_cardinality(new_vocab_size)
+
+        weights_new = CatFeatureEmbedding(item_tensor_feature_info)
+        torch.nn.init.xavier_normal_(weights_new.weight)
+        weights_new.weight.data[:new_vocab_size, :] = all_item_embeddings.data
+
+        self._set_new_item_embedder_to_model(weights_new, new_vocab_size)
+
+    def append_item_embeddings(self, item_embeddings: torch.Tensor):
+        """
+        Append provided weights for new items only to item embedder.
+
+        :param item_embeddings: tensor of shape (n, h), where
+            n - number of only new items, h - model hidden size.
+        """
+        if item_embeddings.dim() != 2:
+            raise ValueError("Input tensor must have (number of all items, model hidden size) shape")
+
+        new_vocab_size = item_embeddings.shape[0] + self._vocab_size
+
+        item_tensor_feature_info = self._model.schema.item_id_features.item()
+        if item_embeddings.shape[1] != item_tensor_feature_info.embedding_dim:
+            raise ValueError("Input tensor second dimension doesn't match embedding dim")
+
+        item_tensor_feature_info._set_cardinality(new_vocab_size)
+
+        weights_new = CatFeatureEmbedding(item_tensor_feature_info)
+        torch.nn.init.xavier_normal_(weights_new.weight)
+        weights_new.weight.data[:self._vocab_size, :] = self._model.item_embedder.item_embeddings.data
+        weights_new.weight.data[self._vocab_size:, :] = item_embeddings.data
+
+        self._set_new_item_embedder_to_model(weights_new, new_vocab_size)
+
+    def _set_new_item_embedder_to_model(self, weights_new: torch.nn.Embedding, new_vocab_size: int):
+        self._model.item_embedder.cat_embeddings[self._model.schema.item_id_feature_name] = weights_new
+
+        if self._model.enable_embedding_tying is True:
+            self._model._head._item_embedder = self._model.item_embedder
+            new_bias = torch.Tensor(new_vocab_size)
+            new_bias.normal_(0, 0.01)
+            new_bias[:self._vocab_size] = self._model._head.out_bias.data
+            self._model._head.out_bias = torch.nn.Parameter(new_bias)
+        else:
+            new_linear = torch.nn.Linear(self._model.hidden_size, new_vocab_size)
+            new_linear.weight.data[:self._vocab_size, :] = self._model._head.linear.weight.data
+            new_linear.bias.data[:self._vocab_size] = self._model._head.linear.bias.data
+            self._model._head.linear = new_linear
+
+        self._vocab_size = new_vocab_size
+        self._model.item_count = new_vocab_size

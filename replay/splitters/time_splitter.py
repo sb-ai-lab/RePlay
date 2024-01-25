@@ -103,7 +103,11 @@ class TimeSplitter(Splitter):
         time_column_format: str = "%Y-%m-%d %H:%M:%S",
     ):
         """
-        :param time_threshold: Array of test threshold.
+        :param time_threshold: Test threshold, can be datetime, string, int or float.
+            datetime is in case of splitting by datetime,
+            int      is in case of splitting by datetime (Unix format),
+            string   will be converted to datetime using ``time_column_format``,
+            float    is in case of splitting by ratio, the value must be between 0 and 1.
         :param query_column: Name of user interaction column.
         :param drop_cold_users: Drop users from test DataFrame.
             which are not in train DataFrame, default: False.
@@ -132,7 +136,7 @@ class TimeSplitter(Splitter):
         self._precision = 3
         self.time_column_format = time_column_format
         if isinstance(time_threshold, float) and (time_threshold < 0 or time_threshold > 1):
-            raise ValueError("test_size must between 0 and 1")
+            raise ValueError("time_threshold must be between 0 and 1")
         self.time_threshold = time_threshold
 
     def _partial_split(

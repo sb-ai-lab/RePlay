@@ -1,6 +1,6 @@
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Union, cast
+from typing import Optional, Tuple, Union, cast, Dict
 
 import torch
 
@@ -136,6 +136,21 @@ class Bert4RecModel(torch.nn.Module):
         :returns: Logits for each element in `item_ids`.
         """
         return self._head(out_embeddings, item_ids)
+
+    def get_query_embeddings(
+        self,
+        inputs: TensorMap,
+        pad_mask: torch.BoolTensor,
+        token_mask: torch.BoolTensor
+    ):
+        """
+        :param inputs: Batch of features.
+        :param pad_mask: Padding mask where 0 - <PAD>, 1 otherwise.
+        :param token_mask: Token mask where 0 - <MASK> tokens, 1 otherwise.
+
+        :returns: Query embeddings.
+        """
+        return self.forward_step(inputs, pad_mask, token_mask)[:, -1, :]
 
     def _get_attention_mask_from_padding(self, pad_mask: torch.BoolTensor) -> torch.BoolTensor:
         # (B x L) -> (B x 1 x L x L)
@@ -284,6 +299,21 @@ class BertEmbedding(torch.nn.Module):
         :returns: Item embeddings.
         """
         return self.cat_embeddings[self.schema.item_id_feature_name].weight
+
+    def get_all_embeddings(self) -> Dict[str, torch.Tensor]:
+        """
+        :returns: copy of all embeddings presented in this layer as a dict.
+        """
+        embeddings = {
+            "item_embedding": self.item_embeddings.data.detach().clone(),
+        }
+        for feature_name, _ in self.schema.items():
+            if feature_name != self.schema.item_id_feature_name:
+                embeddings[feature_name] = self.cat_embeddings[feature_name].weight.data.detach().clone()
+        if self.enable_positional_embedding:
+            embeddings["positional_embedding"] = self.position.pe.weight.data.detach().clone()
+
+        return embeddings
 
 
 class CatFeatureEmbedding(torch.nn.Embedding):

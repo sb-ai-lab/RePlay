@@ -8,6 +8,7 @@ if TORCH_AVAILABLE:
         PandasPredictionCallback,
         TorchPredictionCallback,
         ValidationMetricsCallback,
+        QueryEmbeddingsPredictionCallback,
     )
     from replay.models.nn.sequential.postprocessors import RemoveSeenItems
 
@@ -155,3 +156,26 @@ def test_validation_callbacks(item_user_sequential_dataset, train_loader, val_lo
 
     assert len(predicted) == len(pred)
     assert predicted[0].size() == (1, 6)
+
+
+@pytest.mark.torch
+def test_query_embeddings_callback(item_user_sequential_dataset):
+    callback = QueryEmbeddingsPredictionCallback()
+    model = Bert4Rec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        max_seq_len=5,
+        hidden_size=64,
+        loss_type="BCE",
+        loss_sample_count=6,
+    )
+    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred_loader = torch.utils.data.DataLoader(pred)
+
+    trainer = L.Trainer(
+        callbacks=[callback],
+        inference_mode=True
+    )
+    trainer.predict(model, pred_loader)
+    embs = callback.get_result()
+
+    assert embs.shape == (4, 64)
