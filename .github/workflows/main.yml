@@ -59,7 +59,7 @@ jobs:
       - name: pytest
         run: |
           . ./venv/bin/activate
-          pytest -m core
+          pytest -m core tests/ --ignore=tests/experimental
           mv .coverage .coverage_core_${{ matrix.python-version }}
       - name: Upload coverage
         uses: actions/upload-artifact@v4
