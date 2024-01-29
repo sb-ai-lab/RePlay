@@ -10,6 +10,7 @@ from replay.data import FeatureHint, FeatureType
 from replay.utils import TORCH_AVAILABLE, MissingImportType
 
 if TORCH_AVAILABLE:
+    import torch
     from replay.data.nn import (
         PandasSequentialDataset,
         SequentialDataset,
@@ -279,6 +280,39 @@ def test_validation_dataset(sequential_dataset, item_user_sequential_dataset):
 
     assert len(df) == 4
     assert df[0].query_id == 0
+
+
+@pytest.mark.torch
+@pytest.mark.parametrize(
+    "sequence, answer",
+    [
+        ([0, 1], [-1, 0, 1]),
+        ([[0, 1, 3], [4, 5, 6]], [[-1, -1, -1], [0, 1, 3], [4, 5, 6]])
+    ],
+)
+def test_pad_sequence(sequential_dataset, sequence, answer):
+    dataset = TorchSequentialDataset(
+        sequential_dataset,
+        max_sequence_length=3,
+        sliding_window_step=2,
+        padding_value=-1,
+    )
+
+    padded_sequence = dataset._pad_sequence(torch.tensor(sequence, dtype=torch.long)).tolist()
+    assert padded_sequence == answer
+
+
+@pytest.mark.torch
+def test_pad_sequence_raise(sequential_dataset):
+    dataset = TorchSequentialDataset(
+        sequential_dataset,
+        max_sequence_length=3,
+        sliding_window_step=2,
+        padding_value=-1,
+    )
+    sequence = [[[1, 1]], [[2, 2]]]
+    with pytest.raises(ValueError, match="Unsupported shape for sequence"):
+        dataset._pad_sequence(torch.tensor(sequence, dtype=torch.long)).tolist()
 
 
 def _compare_sequence(dataset: TorchSequentialDataset, index: int, feature_name: str, expected: List[int]) -> None:

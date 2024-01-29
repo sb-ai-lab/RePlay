@@ -248,10 +248,44 @@ def test_ann_slim_saving_loading(long_log_with_features, tmp_path):
     path = (tmp_path / "test").resolve()
     dataset = create_dataset(long_log_with_features)
     model.fit(dataset)
+    # Do rewriting ann index
+    model.fit(dataset)
     base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
     new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
+def test_ann_association_rule_saving_loading(long_log_with_features, tmp_path):
+    nmslib_hnsw_params = NmslibHnswParam(
+        space="negdotprod_sparse",
+        m=10,
+        ef_s=200,
+        ef_c=200,
+        post=0,
+    )
+    model = AssociationRulesItemRec(
+        min_item_count=1,
+        min_pair_count=0,
+        session_column="user_idx",
+        index_builder=DriverNmslibIndexBuilder(
+            index_params=nmslib_hnsw_params,
+            index_store=SparkFilesIndexStore(),
+        ),
+    )
+
+    path = (tmp_path / "test").resolve()
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    base_items = model.get_nearest_items([1], 5, metric="lift")
+    base_pred = model.predict(dataset, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_items = loaded_model.get_nearest_items([1], 5, metric="lift")
+    new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_items, new_items)
     sparkDataFrameEqual(base_pred, new_pred)
 
 

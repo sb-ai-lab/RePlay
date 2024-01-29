@@ -174,3 +174,12 @@ def test_failed_coverage():
         TorchMetricsBuilder(["coverage"], top_k=TOP_K)
 
     assert str(exc.value) == "For Coverage calculations item_count should be defined."
+
+
+@pytest.mark.spark
+@pytest.mark.torch
+def test_item_count():
+    builder = TorchMetricsBuilder()
+    items_count = 10
+    builder.item_count = items_count
+    assert builder.item_count == items_count

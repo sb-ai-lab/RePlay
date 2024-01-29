@@ -1,6 +1,7 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import numpy as np
 import pytest
+import logging
 
 from replay.models import (
     SLIM,
@@ -13,6 +14,9 @@ from replay.models import (
     RandomRec,
     Wilson,
     Word2VecRec,
+    ThompsonSampling,
+    KLUCB,
+    QueryPopRec,
 )
 from tests.utils import (
     create_dataset,
@@ -28,6 +32,13 @@ pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
 
 SEED = 123
+
+
+@pytest.fixture
+def log_binary_rating(log):
+    return log.withColumn(
+        "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
+    )
 
 
 @pytest.mark.spark
@@ -152,6 +163,11 @@ def test_predict_pairs_k(log, model):
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
         PopRec(),
         RandomRec(seed=SEED),
+        ThompsonSampling(seed=SEED),
+        UCB(seed=SEED),
+        KLUCB(seed=SEED),
+        Wilson(seed=SEED),
+        QueryPopRec(),
     ],
     ids=[
         "als",
@@ -161,14 +177,83 @@ def test_predict_pairs_k(log, model):
         "association_rules",
         "pop_rec",
         "random_rec",
+        "thompson",
+        "ucb",
+        "klucb",
+        "wilson",
+        "query_pop_rec",
     ],
 )
-def test_predict_empty_log(log, model):
-    dataset = create_dataset(log)
-    pred_dataset = create_dataset(log.limit(0))
+def test_predict_empty_log(log, log_binary_rating, model):
+    if type(model) in [ThompsonSampling, UCB, KLUCB, Wilson]:
+        log_fit = log_binary_rating
+    else:
+        log_fit = log
+    dataset = create_dataset(log_fit)
+    pred_dataset = create_dataset(log_fit.limit(0))
 
     model.fit(dataset)
     model.predict(pred_dataset, 1)
+
+    model._clear_cache()
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "model",
+    [
+        ALSWrap(seed=SEED),
+        PopRec(),
+        RandomRec(seed=SEED),
+        ThompsonSampling(seed=SEED),
+        UCB(seed=SEED),
+        KLUCB(seed=SEED),
+        Wilson(seed=SEED),
+        QueryPopRec(),
+    ],
+    ids=[
+        "als",
+        "pop_rec",
+        "random_rec",
+        "thompson",
+        "ucb",
+        "klucb",
+        "wilson",
+        "query_pop_rec",
+    ],
+)
+def test_predict_empty_dataset(log, log_binary_rating, model):
+    if type(model) in [ThompsonSampling, UCB, KLUCB, Wilson]:
+        log_fit = log_binary_rating
+    else:
+        log_fit = log
+
+    dataset = create_dataset(log_fit)
+    model.fit(dataset)
+    model.predict(None, 1)
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "model",
+    [
+        ItemKNN(),
+        SLIM(seed=SEED),
+        Word2VecRec(seed=SEED, min_count=0),
+        AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
+    ],
+    ids=[
+        "knn",
+        "slim",
+        "word2vec",
+        "association_rules",
+    ],
+)
+def test_predict_empty_dataset_raises(log, model):
+    with pytest.raises(ValueError, match="interactions is not provided,.*"):
+        dataset = create_dataset(log)
+        model.fit(dataset)
+        model.predict(None, 1)
 
 
 @pytest.mark.spark
@@ -227,7 +312,7 @@ def test_predict_pairs_raises(log, model):
         "association_rules_confidence_gain",
     ],
 )
-def test_get_nearest_items(log, model, metric):
+def test_get_nearest_items(log, model, metric, caplog):
     train_dataset = create_dataset(log.filter(sf.col("item_idx") != 3))
     model.fit(train_dataset)
     res = model.get_nearest_items(items=[0, 1], k=2, metric=metric)
@@ -257,6 +342,36 @@ def test_get_nearest_items(log, model, metric):
         )
         == 0
     )
+
+    if metric is None:
+        caplog.set_level(logging.DEBUG, logger="replay")
+        res = model.get_nearest_items(items=[0, 1], k=2, metric="similarity")
+        assert caplog.record_tuples == [
+            ("replay", logging.DEBUG, f"Metric is not used to determine nearest items in {str(model)} model")
+        ]
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "model, metric",
+    [
+        (ItemKNN(), "cosine_similarity"),
+        (ItemKNN(), "lift"),
+        (SLIM(seed=SEED), "dot_product"),
+        (SLIM(seed=SEED), "confidence_gain"),
+    ],
+    ids=[
+        "knn_cos",
+        "knn_lift",
+        "slim_dot",
+        "slim_conf",
+    ],
+)
+def test_get_nearest_items_metric_error(log, model, metric):
+    with pytest.raises(ValueError, match="Select one of the valid distance metrics*"):
+        train_dataset = create_dataset(log)
+        model.fit(train_dataset)
+        res = model.get_nearest_items(items=[0, 1], k=2, metric=metric)
 
 
 @pytest.mark.spark

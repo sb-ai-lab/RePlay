@@ -272,14 +272,14 @@ def test_sasrec_get_init_parameters(fitted_sasrec):
     assert params["hidden_size"] == 50
 
 
-def test_predict_step_with_small_seq_len(item_user_sequential_dataset, simple_masks):
+def test_predict_step_with_small_seq_len(item_user_num_sequential_dataset, simple_masks):
     item_sequences, padding_mask, _, _ = simple_masks
 
     model = SasRec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=10, hidden_size=64, loss_sample_count=6
+        tensor_schema=item_user_num_sequential_dataset._tensor_schema, max_seq_len=10, hidden_size=64, loss_sample_count=6
     )
 
-    batch = SasRecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences})
+    batch = SasRecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences, "num_feature": item_sequences})
     model.predict_step(batch, 0)
 
 

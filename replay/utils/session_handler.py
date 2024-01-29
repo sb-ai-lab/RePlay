@@ -30,25 +30,25 @@ def get_spark_session(
         70% of RAM by default.
     :param shuffle_partitions: number of partitions for Spark; triple CPU count by default
     """
-    if os.environ.get("SCRIPT_ENV", None) == "cluster":
+    if os.environ.get("SCRIPT_ENV", None) == "cluster":  # pragma: no cover
         # pylint: disable=no-member
         return SparkSession.builder.getOrCreate()
 
     os.environ["PYSPARK_PYTHON"] = sys.executable
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
-    if os.environ.get("REPLAY_JAR_PATH"):
+    if os.environ.get("REPLAY_JAR_PATH"):  # pragma: no cover
         path_to_replay_jar = os.environ.get("REPLAY_JAR_PATH")
     else:
-        if pyspark_version.startswith("3.1"):
+        if pyspark_version.startswith("3.1"):  # pragma: no cover
             path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
         elif pyspark_version.startswith("3.2") or pyspark_version.startswith(
             "3.3"
         ):
             path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.2.0_als_metrics/replay_2.12-3.2.0_als_metrics.jar"
-        elif pyspark_version.startswith("3.4"):
+        elif pyspark_version.startswith("3.4"):  # pragma: no cover
             path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.4.0_als_metrics/replay_2.12-3.4.0_als_metrics.jar"
-        else:
+        else:  # pragma: no cover
             path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
             logging.warning(
                 "Replay ALS model support only spark 3.1-3.4 versions! "

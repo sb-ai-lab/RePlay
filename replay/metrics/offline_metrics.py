@@ -94,6 +94,7 @@ class OfflineMetrics:
     ...     RocAuc(2),
     ...     Coverage(2),
     ...     Novelty(2),
+    ...     Surprisal(2),
     ... ]
     >>> OfflineMetrics(metrics)(recommendations, groundtruth, train)
     {'Precision@2': 0.3333333333333333,
@@ -107,7 +108,8 @@ class OfflineMetrics:
      'HitRate@2': 0.6666666666666666,
      'RocAuc@2': 0.3333333333333333,
      'Coverage@2': 0.5555555555555556,
-     'Novelty@2': 0.3333333333333333}
+     'Novelty@2': 0.3333333333333333,
+     'Surprisal@2': 0.6845351232142715}
     >>> metrics = [
     ...     Precision(2),
     ...     Unexpectedness([1, 2]),
@@ -489,11 +491,6 @@ class OfflineMetrics:
                             unexpectedness_result["@".join(splitted)] = cur_result[
                                 metric_name
                             ]
-            else:
-                for unexp in self.unexpectedness_metric:
-                    unexpectedness_result.update(
-                        unexp(recommendations, base_recommendations)
-                    )
 
         if len(self.diversity_metric) != 0:
             for diversity in self.diversity_metric:

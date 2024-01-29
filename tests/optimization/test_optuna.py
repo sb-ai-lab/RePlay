@@ -1,8 +1,17 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
+import logging
 
 from replay.models import SLIM, ALSWrap, ItemKNN
-from tests.utils import create_dataset, log, spark
+from tests.utils import (
+    create_dataset,
+    log,
+    spark,
+    all_users_features,
+    item_features,
+    sparkDataFrameEqual,
+    sparkDataFrameNotEqual
+)
 
 
 @pytest.fixture
@@ -68,6 +77,14 @@ def test_param_in_borders(model, borders, answer):
     assert model._init_params_in_search_space(search_space) == answer
 
 
+@pytest.mark.core
+def test_missing_categorical_borders():
+    borders = {"num_neighbours": [5, 10]}
+    model = ItemKNN(weighting="bm25")
+    search_space = model._prepare_param_borders(borders)
+    assert search_space["weighting"]["args"] == ["bm25"]
+
+
 @pytest.mark.spark
 def test_it_works(model, log):
     dataset = create_dataset(log)
@@ -79,3 +96,27 @@ def test_it_works(model, log):
     assert len(model.study.trials) == 1
     model.optimize(dataset, dataset, k=2, budget=1, new_study=False)
     assert len(model.study.trials) == 2
+
+
+@pytest.mark.spark
+def test_empty_search_space(log, caplog):
+    with caplog.at_level(logging.WARNING):
+        model = ItemKNN()
+        model._search_space = None
+        dataset = create_dataset(log)
+        res = model.optimize(dataset, dataset, k=2, budget=1)
+        assert (
+            f"{model} has no hyper parameters to optimize"
+            in caplog.text
+        )
+        assert res is None
+
+
+@pytest.mark.spark
+def test_filter_dataset_features(log, all_users_features, item_features):
+    model = ItemKNN()
+    dataset = create_dataset(log, all_users_features, item_features)
+    filtered_dataset = model._filter_dataset_features(dataset)
+    sparkDataFrameEqual(dataset.interactions, filtered_dataset.interactions)
+    sparkDataFrameEqual(dataset.query_features, filtered_dataset.query_features)
+    sparkDataFrameNotEqual(dataset.item_features, filtered_dataset.item_features)

@@ -133,6 +133,18 @@ def user_features(spark):
 
 
 @pytest.fixture
+def all_users_features(spark):
+    return spark.createDataFrame(
+        [
+            (0, 20.0, -3.0, "M"),
+            (1, 30.0, 4.0, "F"),
+            (2, 75.0, -1.0, "M"),
+            (3, 35.0, 42.0, "M"),
+        ]
+    ).toDF("user_idx", "age", "mood", "gender")
+
+
+@pytest.fixture
 def item_features(spark):
     return spark.createDataFrame(
         [
@@ -144,6 +156,35 @@ def item_features(spark):
             (5, 0.0, "mouse", "yellow"),
         ]
     ).toDF("item_idx", "iq", "class", "color")
+
+
+@pytest.fixture
+def fake_fit_items(spark):
+    return spark.createDataFrame(
+        [
+            (0,),
+            (1,),
+            (1,),
+            (2,),
+            (3,),
+            (4,),
+            (5,),
+        ]
+    ).toDF("item_idx")
+
+
+@pytest.fixture
+def fake_fit_queries(spark):
+    return spark.createDataFrame(
+        [
+            (0,),
+            (1,),
+            (2,),
+            (0,),
+            (2,),
+            (3,),
+        ]
+    ).toDF("user_idx")
 
 
 def unify_dataframe(data_frame: SparkDataFrame):

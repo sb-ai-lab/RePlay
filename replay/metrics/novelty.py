@@ -136,7 +136,7 @@ class Novelty(Metric):
     @staticmethod
     def _get_metric_value_by_user(
         ks: List[int], pred: List, train: List
-    ) -> List[float]:  # pragma: no cover
+    ) -> List[float]:
         if not train or not pred:
             return [1.0 for _ in ks]
         set_train = set(train)
