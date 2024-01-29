@@ -34,7 +34,7 @@ class SharedDiskIndexStore(IndexStore):
         init_index: Callable[[], None],
         load_index: Callable[[Any, str], None],
         configure_index: Callable[[Any], None],
-    ):
+    ):  # pragma: no cover
         if self._index:
             return self._index
 

@@ -25,7 +25,7 @@ class HnswlibIndexInferer(IndexInferer):
         )
 
         @pandas_udf(self.udf_return_type)
-        def infer_index_udf(vectors: pd.Series) -> PandasDataFrame:
+        def infer_index_udf(vectors: pd.Series) -> PandasDataFrame:  # pragma: no cover
             index_store = index_store_broadcast.value
             index = index_store.load_index(
                 init_index=lambda: create_hnswlib_index_instance(index_params),

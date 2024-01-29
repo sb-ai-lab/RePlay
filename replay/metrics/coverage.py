@@ -188,5 +188,5 @@ class Coverage(Metric):
         return self._dict_call(recommendations, train)
 
     @staticmethod
-    def _get_metric_value_by_user(ks, *args) -> List[float]:
+    def _get_metric_value_by_user(ks, *args) -> List[float]:  # pragma: no cover
         pass

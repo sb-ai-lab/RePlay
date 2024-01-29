@@ -152,7 +152,7 @@ merge-coverage:
     - ./poetry_wrapper.sh install --only dev
   script:
     - coverage combine .coverage_core .coverage_spark .coverage_torch .coverage_all .coverage_experimental
-    - coverage report --fail-under=93
+    - coverage report --fail-under=100
     - coverage xml
   needs: ["pytest-core", "pytest-experimental", "pytest-spark", "pytest-spark-and-torch", "pytest-torch"]
   coverage: '/TOTAL.*\s+(\d+%)$/'

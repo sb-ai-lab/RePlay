@@ -321,3 +321,18 @@ def test_default_value_after_partial_fit(
     assert after_fit["item2"].tolist()[-1] == 5
     assert after_partial_fit["item1"].tolist()[-1] == 3
     assert after_partial_fit["item2"].tolist()[-1] == 5
+
+
+@pytest.mark.core
+@pytest.mark.usefixtures("simple_dataframe_pandas")
+def test_label_encoder_pandas_transform_optimization(simple_dataframe_pandas):
+    rule = LabelEncodingRule("user_id", default_value="last")
+    encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
+
+    mapped_data = encoder.transform(simple_dataframe_pandas)
+    rule._TRANSFORM_PERFORMANCE_THRESHOLD_FOR_PANDAS = 1
+
+    encoder_mod = LabelEncoder([rule]).fit(simple_dataframe_pandas)
+    mapped_data_mod = encoder_mod.transform(simple_dataframe_pandas)
+
+    assert mapped_data.equals(mapped_data_mod)

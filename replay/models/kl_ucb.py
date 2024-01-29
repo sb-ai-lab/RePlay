@@ -142,12 +142,12 @@ class KLUCB(UCB):
             + self.coef * math.log(math.log(self.full_count))
         eps = 1e-12
 
-        def bernoulli_kl(proba_p, proba_q):
+        def bernoulli_kl(proba_p, proba_q):  # pragma: no cover
             return proba_p * math.log(proba_p / proba_q) +\
                 (1 - proba_p) * math.log((1 - proba_p) / (1 - proba_q))
 
         @udf(returnType=DoubleType())
-        def get_ucb(pos, total):
+        def get_ucb(pos, total):  # pragma: no cover
             proba = pos / total
 
             if proba == 0:

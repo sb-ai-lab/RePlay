@@ -29,7 +29,7 @@ class NmslibIndexInferer(IndexInferer):
             user_idx: pd.Series,
             vector_items: pd.Series,
             vector_ratings: pd.Series,
-        ) -> PandasDataFrame:
+        ) -> PandasDataFrame:  # pragma: no cover
             index_store = index_store_broadcast.value
             index = index_store.load_index(
                 init_index=lambda: create_nmslib_index_instance(index_params),

@@ -306,14 +306,14 @@ def test_bert4rec_fine_tuning_errors(fitted_bert4rec):
         model.append_item_embeddings(torch.rand(1, 1))
 
 
-def test_predict_step_with_small_seq_len(item_user_sequential_dataset, simple_masks):
+def test_predict_step_with_small_seq_len(item_user_num_sequential_dataset, simple_masks):
     item_sequences, padding_mask, tokens_mask, _ = simple_masks
 
     model = Bert4Rec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=10, hidden_size=64, loss_sample_count=6
+        tensor_schema=item_user_num_sequential_dataset._tensor_schema, max_seq_len=10, hidden_size=64, loss_sample_count=6
     )
 
-    batch = Bert4RecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences}, tokens_mask)
+    batch = Bert4RecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences, "num_feature": item_sequences}, tokens_mask)
     model.predict_step(batch, 0)
 
 

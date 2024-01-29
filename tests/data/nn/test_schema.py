@@ -97,6 +97,9 @@ def test_tensor_feature_setters(some_num_tensor_feature, some_cat_tensor_feature
     assert some_cat_tensor_feature.cardinality == 42
     assert some_cat_tensor_feature.embedding_dim == 42
 
+    some_cat_tensor_feature.reset_cardinality()
+    assert some_cat_tensor_feature.cardinality is None
+
 
 @pytest.mark.torch
 def test_tensor_feature_invalid_init():

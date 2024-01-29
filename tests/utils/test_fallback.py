@@ -7,7 +7,7 @@ pyspark = pytest.importorskip("pyspark")
 from replay.models import ItemKNN
 from replay.scenarios import Fallback
 from replay.utils.spark_utils import convert2spark, fallback
-from tests.utils import create_dataset, log, log2, spark
+from tests.utils import create_dataset, log, log2, spark, sparkDataFrameEqual
 
 
 @pytest.mark.spark
@@ -28,11 +28,14 @@ def test_fallback():
         (res["user_idx"] == 1) & (res["item_idx"] == 2), "relevance"
     ].iloc[0]
     assert a > b
+    bypass_res = fallback(base, None, 2)
+    sparkDataFrameEqual(bypass_res, base)
 
 
 @pytest.mark.spark
 def test_class(log, log2):
     model = Fallback(ItemKNN(), threshold=3)
+    assert model._init_args == {"threshold": 3}
     s = str(model)
     assert s == "Fallback_ItemKNN_PopRec"
     dataset = create_dataset(log)
@@ -42,3 +45,8 @@ def test_class(log, log2):
     assert p2 is None
     assert isinstance(p1, dict)
     model.predict(dataset2, k=1)
+
+    model = Fallback(ItemKNN(), ItemKNN(), threshold=3)
+    p1, p2 = model.optimize(dataset, dataset2, k=1, budget=1)
+    assert isinstance(p1, dict)
+    assert isinstance(p2, dict)

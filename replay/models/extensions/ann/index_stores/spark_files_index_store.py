@@ -24,7 +24,7 @@ if PYSPARK_AVAILABLE:
         """Class that responsible for index store in spark files.
         Works through SparkContext.addFile()."""
 
-        def _clean_up(self):
+        def _clean_up(self):  # pragma: no cover
             """Removes directory with index files
             before the instance is garbage collected."""
             if self.index_dir_path:
@@ -41,7 +41,7 @@ if PYSPARK_AVAILABLE:
             init_index: Callable[[], None],
             load_index: Callable[[Any, str], None],
             configure_index: Callable[[Any], None],
-        ):
+        ):  # pragma: no cover
             if self._index:
                 return self._index
 

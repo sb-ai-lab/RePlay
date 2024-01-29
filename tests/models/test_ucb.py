@@ -1,5 +1,6 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
+import logging
 
 from replay.models import UCB, KLUCB
 from tests.utils import create_dataset, log, log2, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
@@ -23,7 +24,7 @@ def log_ucb2(log2):
     )
 
 
-@pytest.fixture(params=[UCB()])
+@pytest.fixture(params=[UCB(), KLUCB()])
 def fitted_model(request, log_ucb):
     dataset = create_dataset(log_ucb)
     model = request.param
@@ -129,3 +130,21 @@ def test_refit(fitted_model, log_ucb, log_ucb2):
 
     # predictions are equal/non-equal after model refit and full fit on all log
     equality_check(pred_after_full_fit, pred_after_refit)
+
+
+@pytest.mark.spark
+def test_optimize(fitted_model, log_ucb, caplog):
+    dataset = create_dataset(log_ucb)
+    with caplog.at_level(logging.WARNING):
+        fitted_model.optimize(
+            dataset,
+            dataset,
+            k=1,
+            budget=1,
+        )
+
+        assert (
+            "The UCB model has only exploration coefficient parameter, "
+            "which cannot not be directly optimized"
+            in caplog.text
+        )

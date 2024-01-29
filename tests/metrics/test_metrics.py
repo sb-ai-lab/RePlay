@@ -1,6 +1,7 @@
 import random
 import string
 
+import pandas as pd
 import pytest
 from pytest import approx
 
@@ -9,9 +10,11 @@ from replay.metrics import (
     MRR,
     NDCG,
     CategoricalDiversity,
+    ConfidenceInterval,
     Coverage,
     HitRate,
     Mean,
+    Median,
     Novelty,
     OfflineMetrics,
     PerUser,
@@ -20,7 +23,9 @@ from replay.metrics import (
     RocAuc,
     Surprisal,
     Unexpectedness,
+    Experiment,
 )
+from replay.metrics.base_metric import MetricDuplicatesWarning
 from replay.utils import DataFrameLike, PandasDataFrame, SparkDataFrame
 
 ABS = 1e-5
@@ -308,12 +313,14 @@ def test_surprisal(topk, answer, recs, train, request):
                 Recall(5),
                 Precision(5),
                 Novelty(5),
+                Surprisal(5),
             ],
             [
                 1.0,
                 0.311111,
                 0.333333,
                 0,
+                0.614294,
             ],
         ),
         (
@@ -321,8 +328,9 @@ def test_surprisal(topk, answer, recs, train, request):
                 Recall(5),
                 Precision(5),
                 Novelty(5),
+                Surprisal(5),
             ],
-            [0.31111, 0.333333, 0],
+            [0.31111, 0.333333, 0, 0.614294],
         ),
     ],
 )
@@ -344,6 +352,15 @@ def test_offline_metrics(metrics, answer, predict_data, gt_data, train_data, req
     train_data = request.getfixturevalue(train_data)
     result = OfflineMetrics(metrics, **INIT_DICT)(predict_data, gt_data, train_data)
     assert list(result.values()) == approx(answer, abs=ABS)
+
+
+@pytest.mark.spark
+def test_offline_metrics_types_raises(request):
+    predict_data = request.getfixturevalue("predict_spark")
+    gt_data = request.getfixturevalue("gt_pd")
+    train_data = request.getfixturevalue("fake_train_dict")
+    with pytest.raises(ValueError, match="All given data frames must have the same type"):
+        OfflineMetrics([Recall(5), Precision(5)], **INIT_DICT)(predict_data, gt_data, train_data)
 
 
 @pytest.mark.parametrize(
@@ -523,3 +540,96 @@ def test_check_types(metric, predict_data, gt_data, request):
 def test_topk_instance(metric, topk):
     with pytest.raises(ValueError):
         metric(topk)
+
+
+@pytest.mark.parametrize(
+    "predict_data",
+    [
+        pytest.param("predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_spark", marks=pytest.mark.spark),
+    ],
+)
+def test_experiment_raise(predict_data):
+    with pytest.raises(ValueError, match="No results for model*"):
+        result = Experiment([NDCG(1), Surprisal(1)], predict_data)
+        result.compare("test_metric")
+
+
+@pytest.mark.parametrize(
+    "metric, answer_inter, answer_none, answer_non_inter",
+    [
+        (HitRate, [1.0, 1.0], [0.0, 0.0], [0.0, 0.0]),
+        (MAP, [1.0, 0.5], [0.0, 0.0], [0.0, 0.0]),
+        (MRR, [1.0, 1.0], [0.0, 0.0], [0.0, 0.0]),
+        (NDCG, [1.0, 0.6131471927654584], [0.0, 0.0], [0.0, 0.0]),
+        (Novelty, [0.0, 0.5], [1.0, 1.0], [1.0, 1.0]),
+        (Precision, [1.0, 0.2], [0.0, 0.0], [0.0, 0.0]),
+        (Recall, [0.5, 0.5], [0.0, 0.0], [0.0, 0.0]),
+        (RocAuc, [1.0, 1.0], [0.0, 0.0], [0.0, 0.0]),
+        (Surprisal, [1.0, 0.8], [0.0, 0.0], [3.0, 1.4]),
+        (Unexpectedness, [0.0, 0.8], [0.0, 0.0], [1.0, 1.0]),
+    ],
+)
+@pytest.mark.core
+def test_metric_value_by_user(metric, answer_inter, answer_none, answer_non_inter):
+    assert metric._get_metric_value_by_user([1, 5], [1, 2], [1, 3]) == answer_inter
+    assert metric._get_metric_value_by_user([1, 5], None, [1, 3]) == answer_none
+    assert metric._get_metric_value_by_user([1, 5], [1, 2], [3, 4]) == answer_non_inter
+
+
+@pytest.mark.parametrize(
+    "predict_data",
+    [
+        pytest.param("predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_spark", marks=pytest.mark.spark),
+    ],
+)
+def test_duplicates_warning(predict_data, request):
+    predict_data = request.getfixturevalue(predict_data)
+    if isinstance(predict_data, SparkDataFrame):
+        df_duplicated = predict_data.union(predict_data)
+    else:
+        df_duplicated = pd.concat([predict_data, predict_data])
+
+    with pytest.warns(MetricDuplicatesWarning):
+        Precision([1,5], **INIT_DICT)(df_duplicated, df_duplicated)
+
+
+@pytest.mark.parametrize(
+    "descriptor, answer",
+    [
+        (Mean(), [0.86666]),
+        (PerUser(), [{1: 1.0, 2: 1.0, 3: 0.6}]),
+        (Median(), [1.0]),
+        (ConfidenceInterval(alpha=0.05), [0.00836]),
+    ],
+)
+@pytest.mark.parametrize(
+    "predict_data",
+    [
+        pytest.param("predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_spark", marks=pytest.mark.spark),
+    ],
+)
+def test_descriptors(descriptor, answer, predict_data, request):
+    predict_data = request.getfixturevalue(predict_data)
+    scores = Precision([5], mode=descriptor, **INIT_DICT)(predict_data, predict_data)
+    assert list(scores.values()) == approx(answer, abs=ABS)
+
+
+@pytest.mark.parametrize(
+    "predict_data",
+    [
+        pytest.param("predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_spark", marks=pytest.mark.spark),
+    ],
+)
+def test_per_user_descriptor(predict_data, request):
+    predict_data = request.getfixturevalue(predict_data)
+    calc_dist = PerUser()
+    if isinstance(predict_data, SparkDataFrame):
+        distribution = calc_dist.spark(predict_data)
+    else:
+        distribution = calc_dist.cpu(predict_data)
+
+    assert predict_data is distribution
