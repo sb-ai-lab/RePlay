@@ -99,6 +99,8 @@ pytest-core:
     paths:
       - .coverage_core
     expire_in: 1 day
+  tags:
+    - amazme-1
 
 pytest-torch:
   stage: test
@@ -114,6 +116,8 @@ pytest-torch:
     paths:
       - .coverage_torch
     expire_in: 1 day
+  tags:
+    - amazme-1
 
 pytest-spark:
   stage: test
@@ -129,6 +133,8 @@ pytest-spark:
     paths:
       - .coverage_spark
     expire_in: 1 day
+  tags:
+    - amazme-1
 
 pytest-spark-and-torch:
   stage: test
@@ -144,6 +150,8 @@ pytest-spark-and-torch:
     paths:
       - .coverage_all
     expire_in: 1 day
+  tags:
+    - amazme-1
 
 pytest-experimental:
   stage: test
@@ -159,6 +167,8 @@ pytest-experimental:
     paths:
       - .coverage_experimental
     expire_in: 1 day
+  tags:
+    - amazme-1
 
 merge-coverage:
   stage: merge coverage
