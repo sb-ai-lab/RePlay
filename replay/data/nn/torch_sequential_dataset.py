@@ -209,9 +209,6 @@ class TorchSequentialValidationDataset(TorchDataset):
         if len(np.intersect1d(sequential.get_all_query_ids(), ground_truth.get_all_query_ids())) == 0:
             raise ValueError("Sequential data and ground truth must contain the same query IDs")
 
-        if len(np.intersect1d(sequential.get_all_query_ids(), train.get_all_query_ids())) == 0:
-            raise ValueError("Sequential data and train must contain the same query IDs")
-
         self._ground_truth = ground_truth
         self._train = train
         self._item_count = ground_truth.schema.item_id_features.item().cardinality
