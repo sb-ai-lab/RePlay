@@ -88,8 +88,11 @@ sphinx-job:
 pytest-core:
   stage: test
   script:
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - ./poetry_wrapper.sh install
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - pytest -m core tests/
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - mv .coverage .coverage_core
   needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
   artifacts:
@@ -100,8 +103,11 @@ pytest-core:
 pytest-torch:
   stage: test
   script:
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - ./poetry_wrapper.sh install -E torch
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - pytest -m "not spark and not experimental" tests/
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - mv .coverage .coverage_torch
   needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
   artifacts:
@@ -112,8 +118,11 @@ pytest-torch:
 pytest-spark:
   stage: test
   script:
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - ./poetry_wrapper.sh install -E spark
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - pytest -m "not torch and not experimental" tests/
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - mv .coverage .coverage_spark
   needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
   artifacts:
@@ -124,8 +133,11 @@ pytest-spark:
 pytest-spark-and-torch:
   stage: test
   script:
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - ./poetry_wrapper.sh install --all-extras
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - pytest -m "not experimental" --ignore=replay/experimental --ignore=tests/experimental
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - mv .coverage .coverage_all
   needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
   artifacts:
@@ -136,8 +148,11 @@ pytest-spark-and-torch:
 pytest-experimental:
   stage: test
   script:
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - ./poetry_wrapper.sh --experimental install --all-extras
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - pytest -m "experimental"
+    - date -u '+%d-%m-%YT%H:%M:%S.%NZ'
     - mv .coverage .coverage_experimental
   needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
   artifacts:
