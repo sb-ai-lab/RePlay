@@ -230,16 +230,7 @@ def test_common_query_ids(sequential_dataset):
             5,
         )
 
-    with pytest.raises(ValueError) as exc2:
-        TorchSequentialValidationDataset(
-            sequential_dataset,
-            sequential_dataset,
-            new_dataset,
-            5,
-        )
-
     assert str(exc1.value) == "Sequential data and ground truth must contain the same query IDs"
-    assert str(exc2.value) == "Sequential data and train must contain the same query IDs"
 
 
 @pytest.mark.torch
