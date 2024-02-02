@@ -22,6 +22,7 @@ else:
 def get_spark_session(
     spark_memory: Optional[int] = None,
     shuffle_partitions: Optional[int] = None,
+    core_count: Optional[int] = None,
 ) -> SparkSession:
     """
     Get default SparkSession
@@ -29,6 +30,10 @@ def get_spark_session(
     :param spark_memory: GB of memory allocated for Spark;
         70% of RAM by default.
     :param shuffle_partitions: number of partitions for Spark; triple CPU count by default
+    :param core_count: Count of cores to execute, ``-1`` means using all available cores.
+        If ``None`` then checking out environment variable ``REPLAY_SPARK_CORE_COUNT``,
+        if variable is not set then using ``-1``.
+        Default: ``None``.
     """
     if os.environ.get("SCRIPT_ENV", None) == "cluster":  # pragma: no cover
         # pylint: disable=no-member
@@ -55,8 +60,14 @@ def get_spark_session(
                 "Replay will use 'https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar' in 'spark.jars' property."
             )
 
+    if core_count is None:  # checking out env variable
+        core_count = int(os.environ.get("REPLAY_SPARK_CORE_COUNT", "-1"))
     if spark_memory is None:
-        spark_memory = floor(psutil.virtual_memory().total / 1024**3 * 0.7)
+        env_var = os.environ.get("REPLAY_SPARK_MEMORY")
+        if env_var is not None:
+            spark_memory = int(env_var)
+        else:  # pragma: no cover
+            spark_memory = floor(psutil.virtual_memory().total / 1024**3 * 0.7)
     if shuffle_partitions is None:
         shuffle_partitions = os.cpu_count() * 3
     driver_memory = f"{spark_memory}g"
@@ -77,7 +88,7 @@ def get_spark_session(
         .config("spark.sql.execution.arrow.pyspark.enabled", "true")
         .config("spark.kryoserializer.buffer.max", "256m")
         .config("spark.files.overwrite", "true")
-        .master("local[*]")
+        .master(f"local[{'*' if core_count == -1 else core_count}]")
         .enableHiveSupport()
         .getOrCreate()
     )

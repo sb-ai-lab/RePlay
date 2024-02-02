@@ -68,7 +68,7 @@ class AssociationRulesItemRec(NeighbourRec):
     >>> pred_dataset = Dataset(feature_schema.subset(["user_id", "item_id"]), pred_interactions)
     >>> model = AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_id")
     >>> res = model.fit(train_dataset)
-    >>> model.similarity.show()
+    >>> model.similarity.orderBy("item_idx_one").show()
     +------------+------------+----------+----------+----+---------------+
     |item_idx_one|item_idx_two|similarity|confidence|lift|confidence_gain|
     +------------+------------+----------+----------+----+---------------+
