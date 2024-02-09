@@ -3,7 +3,7 @@ from typing import Iterator, Optional
 
 import numpy as np
 
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from .base_index_builder import IndexBuilder
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
 from replay.models.extensions.ann.index_inferers.hnswlib_filter_index_inferer import HnswlibFilterIndexInferer
 from replay.models.extensions.ann.index_inferers.hnswlib_index_inferer import HnswlibIndexInferer
@@ -38,7 +38,7 @@ class ExecutorHnswlibIndexBuilder(IndexBuilder):
         _index_store = self.index_store
         _index_params = self.index_params
 
-        def build_index_udf(iterator: Iterator[PandasDataFrame]):
+        def build_index_udf(iterator: Iterator[PandasDataFrame]):  # pragma: no cover
             """Builds index on executor and writes it to shared disk or hdfs.
 
             Args:

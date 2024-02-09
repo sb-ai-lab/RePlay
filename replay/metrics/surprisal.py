@@ -164,7 +164,7 @@ class Surprisal(Metric):
     @staticmethod
     def _get_metric_value_by_user(  # pylint: disable=arguments-differ
         ks: List[int], pred_item_ids: List, pred_weights: List
-    ) -> List[float]:  # pragma: no cover
+    ) -> List[float]:
         if not pred_item_ids:
             return [0.0 for _ in ks]
         res = []

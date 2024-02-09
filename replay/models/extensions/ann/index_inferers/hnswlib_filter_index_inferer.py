@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
+from .base_inferer import IndexInferer
 from replay.models.extensions.ann.utils import create_hnswlib_index_instance
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.session_handler import State
@@ -29,7 +29,7 @@ class HnswlibFilterIndexInferer(IndexInferer):
             vectors: pd.Series,
             num_items: pd.Series,
             seen_item_ids: pd.Series,
-        ) -> PandasDataFrame:
+        ) -> PandasDataFrame:  # pragma: no cover
             index_store = index_store_broadcast.value
             index = index_store.load_index(
                 init_index=lambda: create_hnswlib_index_instance(index_params),

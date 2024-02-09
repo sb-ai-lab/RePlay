@@ -2,9 +2,11 @@
 from datetime import datetime, timezone
 from functools import partial
 
+import os
 import numpy as np
 import pandas as pd
 import pytest
+import logging
 
 from tests.utils import long_log_with_features, spark, sparkDataFrameEqual
 
@@ -16,6 +18,7 @@ from pyspark.sql.types import TimestampType
 
 import replay.utils.session_handler
 from replay.utils import spark_utils as utils
+from replay.utils.time import get_item_recency
 
 datetime = partial(datetime, tzinfo=timezone.utc)
 
@@ -85,12 +88,6 @@ def test_process_timestamp(log_data, ground_truth_data, schema, spark):
     spark.conf.unset("spark.sql.session.timeZone")
 
 
-@pytest.mark.core
-def test_func_get():
-    vector = np.arange(2)
-    assert utils.func_get(vector, 0) == 0.0
-
-
 @pytest.mark.spark
 def test_get_spark_session():
     spark = replay.utils.session_handler.get_spark_session(1)
@@ -111,6 +108,89 @@ def test_convert():
 
 
 @pytest.mark.spark
+@pytest.mark.parametrize("array", [None, [1, 2, 2, 3]])
+def test_get_unique_entities(spark, array):
+    log = spark.createDataFrame(data=[[1], [2], [3]], schema=["test"])
+    assert sorted(
+        list(utils.get_unique_entities(array or log, "test").toPandas()["test"])
+    ) == [1, 2, 3]
+
+
+@pytest.mark.spark
+def test_utils_time_raise():
+    d = {
+        "item_idx": [1, 1, 2, 3, 3],
+        "timestamp": ["2099-03-19", "2099-03-20", "2099-03-22", "2099-03-27", "2099-03-25"],
+        "relevance": [1, 1, 1, 1, 1],
+    }
+    df = pd.DataFrame(d)
+    with pytest.raises(ValueError, match="parameter kind must be one of [power, exp, linear]*"):
+        get_item_recency(df, kind="fake_kind")
+
+
+@pytest.mark.spark
+def test_check_numeric_raise(spark):
+    log = spark.createDataFrame(data=[["category1"], ["category2"], ["category3"]], schema=["test"])
+    with pytest.raises(ValueError):
+        utils.check_numeric(log)
+
+
+@pytest.mark.spark
+def test_join_or_return_return(spark):
+    log = spark.createDataFrame(data=[["category1"], ["category2"], ["category3"]], schema=["test"])
+    returned_log = utils.join_or_return(log, None, on="none", how="left")
+    sparkDataFrameEqual(log, returned_log)
+
+
+@pytest.mark.spark
+def test_cache_if_exists(spark):
+    log = spark.createDataFrame(data=[["category1"], ["category2"], ["category3"]], schema=["test"])
+    returned_log = utils.cache_if_exists(log)
+    sparkDataFrameEqual(log, returned_log)
+    assert utils.cache_if_exists(None) is None
+
+
+@pytest.mark.spark
+def test_join_with_col_renaming(spark):
+    log1 = spark.createDataFrame(data=[["category1", 1], ["category2", 2], ["category3", 3]], schema=["cat_feature", "num_feature1"])
+    log2 = spark.createDataFrame(data=[["category1", 1], ["category4", 4]], schema=["cat_feature", "num_feature2"])
+    returned_log = utils.join_with_col_renaming(left=log1, right=log2, on_col_name="cat_feature", how="right")
+    assert returned_log.count() == 2
+
+
+@pytest.mark.spark
+def test_process_timestamp_column_raise(spark):
+    log = spark.createDataFrame(data=[["category1", 1], ["category2", 2], ["category3", 3]], schema=["cat_feature", "num_feature1"])
+    with pytest.raises(ValueError):
+        utils.process_timestamp_column(dataframe=log, column_name="fake_column")
+
+
+@pytest.mark.spark
+def test_get_unique_entities():
+    log = 42
+    with pytest.raises(ValueError, match="Wrong type <class 'int'>"):
+        utils.get_unique_entities(df=log, column="fake_column")
+
+
+@pytest.mark.spark
+def test_assert_omp_single_thread(caplog):
+    saved_omp = os.environ.get('OMP_NUM_THREADS', None)
+    os.environ["OMP_NUM_THREADS"] = "42"
+    with caplog.at_level(logging.WARNING):
+        utils.assert_omp_single_thread()
+        assert (
+            'Environment variable "OMP_NUM_THREADS" is set to "42". '
+            'Set it to 1 if the working process freezes.'
+            in caplog.text
+        )
+
+    if saved_omp is not None:
+        os.environ["OMP_NUM_THREADS"] = saved_omp
+    else:
+        del os.environ["OMP_NUM_THREADS"]
+
+
+@pytest.mark.spark
 def test_sample_top_k(long_log_with_features):
     res = utils.sample_top_k_recs(long_log_with_features, 1, seed=123)
     assert (
@@ -125,12 +205,3 @@ def test_sample_top_k(long_log_with_features):
         )
     )
     assert test_rel.selectExpr("any(wrong_rel)").collect()[0][0] is False
-
-
-@pytest.mark.spark
-@pytest.mark.parametrize("array", [None, [1, 2, 2, 3]])
-def test_get_unique_entities(spark, array):
-    log = spark.createDataFrame(data=[[1], [2], [3]], schema=["test"])
-    assert sorted(
-        list(utils.get_unique_entities(array or log, "test").toPandas()["test"])
-    ) == [1, 2, 3]

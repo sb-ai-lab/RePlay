@@ -1,5 +1,6 @@
 # pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
 from os.path import dirname, join
+from typing import Optional
 
 import pandas as pd
 import pytest
@@ -7,10 +8,21 @@ import pytest
 pyspark = pytest.importorskip("pyspark")
 
 import replay
+from replay.data import Dataset
 from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
 from replay.splitters import *
-from replay.utils.model_handler import load_splitter, save_splitter
+from replay.models import ItemKNN, Recommender
+from replay.utils import SparkDataFrame
+from replay.utils.model_handler import (
+    save,
+    load,
+    load_splitter,
+    save_splitter,
+    load_encoder,
+    save_encoder,
+)
 from replay.utils.spark_utils import convert2spark
+from tests.utils import create_dataset, sparkDataFrameEqual, long_log_with_features, spark
 
 
 @pytest.fixture
@@ -61,6 +73,7 @@ def test_splitter(splitter, init_args, df, tmp_path):
     splitter = splitter(**init_args)
     df = df.withColumnRenamed('user_idx', 'user_id').withColumnRenamed('item_idx', 'item_id')
     save_splitter(splitter, path)
+    save_splitter(splitter, path, overwrite=True)
     train, test = splitter.split(df)
     restored_splitter = load_splitter(path)
     for arg_, value_ in init_args.items():
@@ -68,3 +81,42 @@ def test_splitter(splitter, init_args, df, tmp_path):
     new_train, new_test = restored_splitter.split(df)
     assert new_train.count() == train.count()
     assert new_test.count() == test.count()
+
+
+@pytest.mark.spark
+def test_save_load_model(long_log_with_features, tmp_path):
+    model = ItemKNN()
+    path = (tmp_path / "test").resolve()
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
+def test_save_raise(long_log_with_features, tmp_path):
+    model = ItemKNN()
+    path = (tmp_path / "test").resolve()
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    save(model, path)
+    with pytest.raises(FileExistsError):
+        save(model, path)
+
+
+@pytest.mark.spark
+def test_save_load_encoder(long_log_with_features, tmp_path):
+    encoder = LabelEncoder(
+        [
+            LabelEncodingRule("user_idx"),
+            LabelEncodingRule("item_idx"),
+        ]
+    )
+    encoder.fit(long_log_with_features)
+    save_encoder(encoder, tmp_path)
+    loaded_encoder = load_encoder(tmp_path)
+
+    assert encoder.mapping == loaded_encoder.mapping

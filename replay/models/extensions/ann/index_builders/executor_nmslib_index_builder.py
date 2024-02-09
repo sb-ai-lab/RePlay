@@ -3,8 +3,8 @@ from typing import Iterator, Optional
 
 import pandas as pd
 
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.models.extensions.ann.index_builders.nmslib_index_builder_mixin import NmslibIndexBuilderMixin
+from .base_index_builder import IndexBuilder
+from .nmslib_index_builder_mixin import NmslibIndexBuilderMixin
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
 from replay.models.extensions.ann.index_inferers.nmslib_filter_index_inferer import NmslibFilterIndexInferer
 from replay.models.extensions.ann.index_inferers.nmslib_index_inferer import NmslibIndexInferer
@@ -35,7 +35,7 @@ class ExecutorNmslibIndexBuilder(IndexBuilder):
         index_params = self.index_params
         index_store = self.index_store
 
-        def build_index_udf(iterator: Iterator[PandasDataFrame]):
+        def build_index_udf(iterator: Iterator[PandasDataFrame]):  # pragma: no cover
             """Builds index on executor and writes it to shared disk or hdfs.
 
             Args:

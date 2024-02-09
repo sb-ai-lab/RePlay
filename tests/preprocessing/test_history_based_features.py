@@ -226,6 +226,16 @@ def test_conditional_features(spark, log_for_feature_gen, user_features):
 
 
 @pytest.mark.spark
+def test_conditional_features_raise(spark, log_for_feature_gen, user_features):
+
+    cond_pop_proc = ConditionalPopularityProcessor(
+        cat_features_list=["gender", "fake_feature"]
+    )
+    with pytest.raises(ValueError):
+        cond_pop_proc.fit(log=log_for_feature_gen, features=user_features)
+
+
+@pytest.mark.spark
 def test_history_based_fp_fit_transform(
     log_for_feature_gen,
     user_features,
@@ -275,3 +285,14 @@ def test_history_based_fp_one_features_df(log_for_feature_gen, user_features):
         log_for_feature_gen.join(user_features, on="user_idx")
     )
     assert "i_pop_by_gender" in res.columns
+
+
+@pytest.mark.spark
+def test_history_based_fp_transform_raise(log_for_feature_gen, user_features):
+    history_based_fp = HistoryBasedFeaturesProcessor(
+        user_cat_features_list=["gender"]
+    )
+    with pytest.raises(AttributeError, match="Call fit before running transform"):
+        history_based_fp.transform(
+            log_for_feature_gen.join(user_features, on="user_idx")
+        )

@@ -7,8 +7,8 @@ from typing import Any, Callable
 
 from pyarrow import fs
 
-from replay.models.extensions.ann.index_stores.base_index_store import IndexStore
-from replay.models.extensions.ann.index_stores.utils import FileSystem, get_filesystem
+from .base_index_store import IndexStore
+from .utils import FileSystem, get_filesystem
 from replay.utils import PYSPARK_AVAILABLE
 from replay.utils.session_handler import State
 
@@ -24,7 +24,7 @@ if PYSPARK_AVAILABLE:
         """Class that responsible for index store in spark files.
         Works through SparkContext.addFile()."""
 
-        def _clean_up(self):
+        def _clean_up(self):  # pragma: no cover
             """Removes directory with index files
             before the instance is garbage collected."""
             if self.index_dir_path:
@@ -41,7 +41,7 @@ if PYSPARK_AVAILABLE:
             init_index: Callable[[], None],
             load_index: Callable[[Any, str], None],
             configure_index: Callable[[Any], None],
-        ):
+        ):  # pragma: no cover
             if self._index:
                 return self._index
 

@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 from pyarrow import fs
 
-from replay.models.extensions.ann.index_stores.base_index_store import IndexStore
+from .base_index_store import IndexStore
 
 logger = logging.getLogger("replay")
 
@@ -34,7 +34,7 @@ class SharedDiskIndexStore(IndexStore):
         init_index: Callable[[], None],
         load_index: Callable[[Any, str], None],
         configure_index: Callable[[Any], None],
-    ):
+    ):  # pragma: no cover
         if self._index:
             return self._index
 

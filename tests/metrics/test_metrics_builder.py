@@ -1,4 +1,7 @@
 import numpy as np
+
+from typing import Optional
+
 import pytest
 from pytest import approx
 
@@ -69,8 +72,8 @@ def _compute_unseen_ground_truth(ground_truth: torch.LongTensor, train: torch.Lo
     return unseen_ground_truth
 
 
-def compute_builder_metrics(metric_list, train, test, recs, unseen_flag: bool):
-    builder = TorchMetricsBuilder(metric_list, top_k=TOP_K, item_count=3706)
+def compute_builder_metrics(metric_list, train, test, recs, unseen_flag: bool, item_count: Optional[int] = None):
+    builder = TorchMetricsBuilder(metric_list, top_k=TOP_K, item_count=item_count)
     builder.reset()
     tensor_predictions = _convert_recs_to_tensor(recs)
     tensor_ground_truth = _convert_data_to_tensor(test, -1)
@@ -112,6 +115,7 @@ def test_seen_metrics(random_train_test_recs):
         test,
         recs,
         False,
+        3706,
     )
     for metric_name, evaluation_value in evaluation_metrics.items():
         builder_value = builder_metrics[metric_name]
@@ -161,3 +165,21 @@ def test_unseen_metrics(random_train_test_recs):
         assert evaluation_value == approx(
             builder_value, abs=ABS
         ), f"metric = {metric_name}, evaluation = {evaluation_value}, builder = {builder_value}"
+
+
+@pytest.mark.spark
+@pytest.mark.torch
+def test_failed_coverage():
+    with pytest.raises(AssertionError) as exc:
+        TorchMetricsBuilder(["coverage"], top_k=TOP_K)
+
+    assert str(exc.value) == "For Coverage calculations item_count should be defined."
+
+
+@pytest.mark.spark
+@pytest.mark.torch
+def test_item_count():
+    builder = TorchMetricsBuilder()
+    items_count = 10
+    builder.item_count = items_count
+    assert builder.item_count == items_count

@@ -1,11 +1,11 @@
-from typing import Generator, NamedTuple, Optional, Sequence, Tuple, cast
+from typing import Generator, NamedTuple, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset as TorchDataset
 
-from replay.data.nn.schema import TensorFeatureInfo, TensorMap, TensorSchema
-from replay.data.nn.sequential_dataset import SequentialDataset
+from .schema import TensorFeatureInfo, TensorMap, TensorSchema
+from .sequential_dataset import SequentialDataset
 
 
 # We do not use dataclasses as PyTorch default collate
@@ -102,8 +102,17 @@ class TorchSequentialDataset(TorchDataset):
         if len(sequence) == self._max_sequence_length:
             return sequence
 
+        # form shape for padded_sequence. Now supported one and two-dimentions features
+        padded_sequence_shape: Union[Tuple[int, int], Tuple[int]]
+        if len(sequence.shape) == 1:
+            padded_sequence_shape = (self._max_sequence_length,)
+        elif len(sequence.shape) == 2:
+            padded_sequence_shape = (self._max_sequence_length, sequence.shape[1])
+        else:
+            raise ValueError(f"Unsupported shape for sequence: {len(sequence.shape)}")
+
         padded_sequence = torch.full(
-            (self._max_sequence_length,),
+            padded_sequence_shape,
             self._padding_value,
             dtype=sequence.dtype,
         )
@@ -169,6 +178,18 @@ class TorchSequentialValidationDataset(TorchDataset):
         sliding_window_step: Optional[int] = None,
         label_feature_name: Optional[str] = None,
     ):
+        """
+        :param sequential: validation sequential dataset
+        :param ground_truth: validation ground_truth sequential dataset
+        :param train: train sequential dataset
+        :param max_sequence_length: the maximum length of sequence
+        :param padding_value: value to pad sequences to desired length
+        :param sliding_window_step: value of offset from each sequence start during iteration,
+            `None` means the offset will be equals to difference between actual sequence
+            length and `max_sequence_length`.
+            Default: `None`
+        :param label_feature_name: the name of the column containing the sequence of items.
+        """
         self._check_if_schema_match(sequential.schema, ground_truth.schema)
         self._check_if_schema_match(sequential.schema, train.schema)
 
@@ -187,9 +208,6 @@ class TorchSequentialValidationDataset(TorchDataset):
 
         if len(np.intersect1d(sequential.get_all_query_ids(), ground_truth.get_all_query_ids())) == 0:
             raise ValueError("Sequential data and ground truth must contain the same query IDs")
-
-        if len(np.intersect1d(sequential.get_all_query_ids(), train.get_all_query_ids())) == 0:
-            raise ValueError("Sequential data and train must contain the same query IDs")
 
         self._ground_truth = ground_truth
         self._train = train

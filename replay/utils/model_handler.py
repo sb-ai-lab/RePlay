@@ -2,7 +2,6 @@
 import json
 import os
 import pickle
-from inspect import getfullargspec
 from os.path import join
 from pathlib import Path
 from typing import Union
@@ -11,14 +10,14 @@ from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import *
 from replay.models.base_rec import BaseRecommender
 from replay.splitters import *
-from replay.utils.session_handler import State
+from .session_handler import State
 
 from .types import PYSPARK_AVAILABLE
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import SparkSession
 
-    from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
+    from .spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 
     def get_fs(spark: SparkSession):
         """
@@ -117,19 +116,8 @@ def load(path: str, model_type=None) -> BaseRecommender:
         model_class = model_type
     else:
         model_class = globals()[name]
-    init_args = getfullargspec(model_class.__init__).args
-    init_args.remove("self")
-    extra_args = set(args) - set(init_args)
-    if len(extra_args) > 0:
-        extra_args = {key: args[key] for key in args}
-        init_args = {key: args[key] for key in init_args}
-    else:
-        init_args = args
-        extra_args = {}
 
-    model = model_class(**init_args)
-    for arg in extra_args:
-        model.arg = extra_args[arg]
+    model = model_class(**args)
 
     dataframes_paths = get_list_of_paths(spark, join(path, "dataframes"))
     for dataframe_path in dataframes_paths:

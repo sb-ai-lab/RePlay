@@ -1,22 +1,37 @@
 # pylint: disable=wildcard-import,invalid-name,unused-wildcard-import,unspecified-encoding
 import json
+from inspect import getfullargspec
 from os.path import join
 from pathlib import Path
 from typing import Union
 
 from replay.experimental.models.base_rec import BaseRecommender
+from replay.experimental.models import *
 from replay.experimental.preprocessing import Indexer
 from replay.models import *
 from replay.splitters import *
 from replay.utils import PYSPARK_AVAILABLE
 from replay.utils.session_handler import State
-from replay.utils.spark_utils import save_picklable_to_parquet
+from replay.utils.spark_utils import save_picklable_to_parquet, load_pickled_from_parquet
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.types as st
     from pyspark.ml.feature import IndexToString, StringIndexerModel
 
     from replay.utils.model_handler import get_fs
+    from pyspark.sql import SparkSession
+
+    def get_list_of_paths(spark: SparkSession, dir_path: str):
+        """
+        Returns list of paths to files in the `dir_path`
+
+        :param spark: spark session
+        :param dir_path: path to dir in hdfs or local disk
+        :return: list of paths to files
+        """
+        fs = get_fs(spark)
+        statuses = fs.listStatus(spark._jvm.org.apache.hadoop.fs.Path(dir_path))
+        return [str(f.getPath()) for f in statuses]
 
 
 def save(
@@ -69,6 +84,62 @@ def save(
         )
     if hasattr(model, "study"):
         save_picklable_to_parquet(model.study, join(path, "study"))
+
+
+# pylint: disable=too-many-locals
+def load(path: str, model_type=None) -> BaseRecommender:
+    """
+    Load saved model from disk
+
+    :param path: path to model folder
+    :return: Restored trained model
+    """
+    spark = State().session
+    args = (
+        spark.read.json(join(path, "init_args.json"))
+        .first()
+        .asDict(recursive=True)
+    )
+    name = args["_model_name"]
+    del args["_model_name"]
+
+    if model_type is not None:
+        model_class = model_type
+    else:
+        model_class = globals()[name]
+    if name == "CQL":
+        for a in args:
+            if isinstance(args[a], dict) and 'type' in args[a] and args[a]["type"] == "none":
+                args[a]["params"] = {}
+    init_args = getfullargspec(model_class.__init__).args
+    init_args.remove("self")
+    extra_args = set(args) - set(init_args)
+    if len(extra_args) > 0:
+        extra_args = {key: args[key] for key in args}
+        init_args = {key: args[key] for key in init_args}
+    else:
+        init_args = args
+        extra_args = {}
+
+    model = model_class(**init_args)
+    for arg in extra_args:
+        model.arg = extra_args[arg]
+
+    dataframes_paths = get_list_of_paths(spark, join(path, "dataframes"))
+    for dataframe_path in dataframes_paths:
+        df = spark.read.parquet(dataframe_path)
+        attr_name = dataframe_path.split("/")[-1]
+        setattr(model, attr_name, df)
+
+    model._load_model(join(path, "model"))
+    fs = get_fs(spark)
+    model.study = (
+        load_pickled_from_parquet(join(path, "study"))
+        if fs.exists(spark._jvm.org.apache.hadoop.fs.Path(join(path, "study")))
+        else None
+    )
+
+    return model
 
 
 def save_indexer(

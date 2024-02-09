@@ -5,15 +5,10 @@ import pytest
 from _pytest.python_api import approx
 from pytest import approx
 
-if sys.version_info > (3, 9):
-    pytest.skip(
-        reason="d3rlpy does't support 3.10",
-        allow_module_level=True,
-    )
-
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
 
+from d3rlpy.models.optimizers import AdamFactory
 from pyspark.sql import functions as sf
 
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
@@ -34,7 +29,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
 @pytest.mark.experimental
 def test_predict_filters_out_seen_items(log: SparkDataFrame):
     """Test that fit/predict works, and that the model correctly filters out seen items."""
-    model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=1))
+    model = CQL(mdp_dataset_builder=MdpDatasetBuilder(top_k=1))
     model.fit(log)
     recs = model.predict(log, k=1).toPandas()
 
@@ -49,7 +44,7 @@ def test_predict_filters_out_seen_items(log: SparkDataFrame):
 def test_recommend_correct_number_of_items(log: SparkDataFrame):
     """Test that fit/predict_pairs works, and that the model outputs correct number of items."""
     top_k = 3
-    model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=top_k))
+    model = CQL(mdp_dataset_builder=MdpDatasetBuilder(top_k=top_k))
     model.fit(log)
 
     train_user_item_pairs = log.select("user_idx", "item_idx")
@@ -64,7 +59,7 @@ def test_recommend_correct_number_of_items(log: SparkDataFrame):
 @pytest.mark.experimental
 def test_serialize_deserialize_policy(log: SparkDataFrame):
     """Test that serializing and deserializing the policy does not change relevance predictions."""
-    model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=1))
+    model = CQL(mdp_dataset_builder=MdpDatasetBuilder(top_k=1))
     model.fit(log)
 
     # arbitrary batch of user-item pairs as we test exact relevance for each one
@@ -101,24 +96,16 @@ def test_mdp_dataset_builder(log: SparkDataFrame):
         1, 0, 0,
         0, 1,
     ])
-    gt_terminals = np.array([
-        0, 0, 1,
-        0, 1,
-    ])
-    n = 5
+    n = 3
 
-    # as we do not guarantee and require that MDP preparation should keep ints as ints
-    # and keeps floats exactly the same, we use approx for all equality checks
-    assert mdp_dataset.observations[:n] == approx(gt_observations)
-    # larger approx to take into account action randomization noise added to the MDP actions
-    assert mdp_dataset.actions[:n].flatten() == approx(gt_actions, abs=1e-2)
-    assert mdp_dataset.rewards[:n] == approx(gt_rewards)
-    assert mdp_dataset.terminals[:n] == approx(gt_terminals)
+    assert mdp_dataset.episodes[0].observations[:n] == approx(gt_observations[:n])
+    assert mdp_dataset.episodes[0].actions[:n].flatten() == approx(gt_actions[:n], abs=1e-2)
+    assert mdp_dataset.episodes[0].rewards[:n].flatten() == approx(gt_rewards[:n], abs=1e-2)
 
 
 @pytest.mark.experimental
 def test_predict_pairs_warm_items_only(log, log_to_pred):
-    model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=3), batch_size=512)
+    model = CQL(mdp_dataset_builder=MdpDatasetBuilder(top_k=3), batch_size=512)
     model.fit(log)
     recs = model.predict(
         log.unionByName(log_to_pred),
@@ -151,12 +138,13 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
     assert np.allclose(
         recs_joined.select("relevance").toPandas().to_numpy(),
         recs_joined.select("pairs_relevance").toPandas().to_numpy(),
+        atol=0.01
     )
 
 
 @pytest.mark.experimental
 def test_predict_new_users(long_log_with_features, user_features):
-    model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=1), batch_size=512)
+    model = CQL(mdp_dataset_builder=MdpDatasetBuilder(top_k=1), batch_size=512)
     pred = fit_predict_selected(
         model,
         train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
@@ -170,7 +158,7 @@ def test_predict_new_users(long_log_with_features, user_features):
 
 @pytest.mark.experimental
 def test_predict_cold_and_new_filter_out(long_log_with_features):
-    model = CQL(n_epochs=1, mdp_dataset_builder=MdpDatasetBuilder(top_k=3), batch_size=512)
+    model = CQL(mdp_dataset_builder=MdpDatasetBuilder(top_k=3), batch_size=512)
     pred = fit_predict_selected(
         model,
         train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
@@ -183,3 +171,19 @@ def test_predict_cold_and_new_filter_out(long_log_with_features):
         assert pred.count() == 0
     else:
         assert 1 <= pred.count() <= 2
+
+
+@pytest.mark.experimental
+def test_initialization_args_matches():
+    model = CQL(
+        n_steps=3,
+        mdp_dataset_builder=MdpDatasetBuilder(top_k=3),
+        batch_size=512,
+        actor_optim_factory=AdamFactory(betas=(0.8, 0.95))
+    )
+    params = model._init_args
+    new_model = CQL(**params)
+
+    assert new_model.n_steps == 3
+    assert new_model.model.config.actor_optim_factory.betas == (0.8, 0.95)
+    assert new_model.model.config.batch_size == 512

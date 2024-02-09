@@ -160,6 +160,40 @@ def test_user_features_handled_as_scalars(small_dataset: Dataset):
 
 
 @pytest.mark.torch
+def test_process_numerical_features(small_numerical_dataset: Dataset):
+    schema = (
+        TensorSchemaBuilder()
+        .categorical(
+            "item_id",
+            cardinality=6,
+            is_seq=True,
+            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+            feature_hint=FeatureHint.ITEM_ID,
+        )
+        .numerical(
+            "feature",
+            tensor_dim=1,
+            is_seq=True,
+            feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "feature")],
+        )
+        .numerical(
+            "some_item_feature",
+            tensor_dim=1,
+            is_seq=True,
+            feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "some_item_feature")],
+        )
+        .build()
+    )
+
+    sequential_dataset = SequenceTokenizer(schema).fit_transform(small_numerical_dataset)
+
+    _compare_sequence(sequential_dataset, 0, "some_item_feature", [[2.], [3.]])
+    _compare_sequence(sequential_dataset, 1, "some_item_feature", [[2.], [4.], [5.]])
+    _compare_sequence(sequential_dataset, 2, "some_item_feature", [[3.]])
+    _compare_sequence(sequential_dataset, 3, "some_item_feature", [[2.], [3.], [4.], [5.], [6.], [7.]])
+
+
+@pytest.mark.torch
 def test_tokenizer_properties(item_id_and_item_feature_schema, small_dataset):
     tokenizer = SequenceTokenizer(item_id_and_item_feature_schema).fit(small_dataset)
 
@@ -375,30 +409,7 @@ def test_invalid_source_table():
 
 
 @pytest.mark.torch
-def test_notimplemented_num_features(small_dataset):
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .numerical(
-            "feature",
-            64,
-            is_seq=True,
-        )
-        .build()
-    )
-
-    with pytest.raises(NotImplementedError):
-        _SequenceProcessor(schema, "user_id", "item_id", pd.DataFrame()).process_feature("feature")
-
-
-@pytest.mark.torch
-def test_unknown_source_table_in_processor():
+def test_unknown_source_table_in_cat_processor():
     schema = (
         TensorSchemaBuilder()
         .categorical(
@@ -410,9 +421,26 @@ def test_unknown_source_table_in_processor():
         )
         .build()
     )
-
     with pytest.raises(AssertionError) as exc:
         _SequenceProcessor(schema, "user_id", "item_id", pd.DataFrame()).process_feature("item_id")
+
+    assert str(exc.value) == "Unknown tensor feature source table"
+
+
+@pytest.mark.torch
+def test_unknown_source_table_in_num_processor():
+    schema = (
+        TensorSchemaBuilder()
+        .numerical(
+            "num_feature",
+            tensor_dim=6,
+            is_seq=True,
+            feature_sources=[TensorFeatureSource("", "num_feature")],
+        )
+        .build()
+    )
+    with pytest.raises(AssertionError) as exc:
+        _SequenceProcessor(schema, "user_id", "item_id", pd.DataFrame({"item_id": [1, 2, 3]})).process_feature("num_feature")
 
     assert str(exc.value) == "Unknown tensor feature source table"
 

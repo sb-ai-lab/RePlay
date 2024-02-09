@@ -2,7 +2,7 @@ from os.path import join
 from typing import Optional
 
 from replay.data.dataset import Dataset
-from replay.models.base_rec import QueryRecommender
+from .base_rec import QueryRecommender
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
@@ -118,21 +118,17 @@ class ClusterRec(QueryRecommender):
         items: SparkDataFrame,
         filter_seen_items: bool = True,
     ) -> SparkDataFrame:
-
         query_clusters = self._make_query_clusters(queries, dataset.query_features)
         filtered_items = self.item_rel_in_cluster.join(items, on=self.item_column)
         pred = query_clusters.join(filtered_items, on="cluster").drop("cluster")
         return pred
 
+    # pylint: disable=signature-differs
     def _predict_pairs(
         self,
         pairs: SparkDataFrame,
-        dataset: Optional[Dataset] = None,
+        dataset: Dataset,
     ) -> SparkDataFrame:
-
-        if not dataset.query_features:
-            raise ValueError("Query features are missing for predict")
-
         query_clusters = self._make_query_clusters(pairs.select(self.query_column).distinct(), dataset.query_features)
         pairs_with_clusters = pairs.join(query_clusters, on=self.query_column)
         filtered_items = (self.item_rel_in_cluster

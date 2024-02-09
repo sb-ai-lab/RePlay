@@ -1,0 +1,77 @@
+name: Publish to PyPI
+
+on: 
+  push:
+    branches: [release]
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  publish_experimental:
+    runs-on: ubuntu-20.04
+    permissions:
+        id-token: write
+    environment:
+        name: release
+        url: https://pypi.org/p/replay-rec
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install experimental package
+        run: |
+          python -m venv venv
+          . ./venv/bin/activate
+          pip install --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning lightfm==1.17
+
+          poetry cache clear pypi --all
+          ./poetry_wrapper.sh --experimental install --all-extras
+
+      - name: Build Experimental
+        run: |
+          . ./venv/bin/activate
+          export PACKAGE_SUFFIX=.preview
+          ./poetry_wrapper.sh --experimental build
+
+      - name: Publish Experimental
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish_production:
+    runs-on: ubuntu-20.04
+    permissions:
+        id-token: write
+    environment:
+        name: release
+        url: https://pypi.org/p/replay-rec
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install production package
+        run: |
+          python -m venv venv
+          . ./venv/bin/activate
+          pip install --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning
+
+          poetry cache clear pypi --all
+          ./poetry_wrapper.sh install --all-extras
+
+      - name: Build Production
+        run: |
+          . ./venv/bin/activate
+          ./poetry_wrapper.sh build
+
+      - name: Publish Production
+        uses: pypa/gh-action-pypi-publish@release/v1

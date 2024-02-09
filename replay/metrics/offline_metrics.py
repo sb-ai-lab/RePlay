@@ -1,3 +1,4 @@
+import warnings
 from typing import Dict, List, Optional, Tuple, Union
 
 from replay.utils import PandasDataFrame, SparkDataFrame
@@ -93,6 +94,7 @@ class OfflineMetrics:
     ...     RocAuc(2),
     ...     Coverage(2),
     ...     Novelty(2),
+    ...     Surprisal(2),
     ... ]
     >>> OfflineMetrics(metrics)(recommendations, groundtruth, train)
     {'Precision@2': 0.3333333333333333,
@@ -106,7 +108,8 @@ class OfflineMetrics:
      'HitRate@2': 0.6666666666666666,
      'RocAuc@2': 0.3333333333333333,
      'Coverage@2': 0.5555555555555556,
-     'Novelty@2': 0.3333333333333333}
+     'Novelty@2': 0.3333333333333333,
+     'Surprisal@2': 0.6845351232142715}
     >>> metrics = [
     ...     Precision(2),
     ...     Unexpectedness([1, 2]),
@@ -305,11 +308,69 @@ class OfflineMetrics:
             for _, df in base_recommendations.items():
                 if not isinstance(df, list):
                     types.add(type(df))
+                else:
+                    types.add(dict)
+                    break
         elif base_recommendations is not None:
             types.add(type(base_recommendations))
 
         if len(types) != 1:
             raise ValueError("All given data frames must have the same type")
+
+    def _check_query_column_present(
+        self,
+        dataset: MetricsDataFrameLike,
+        query_column: str,
+        dataset_name: str,
+    ):
+        """
+        Checks that query column presented in provided dataframe.
+
+        :param dataset: input dataframe.
+        :param query_column: name of query column.
+        :param dataset_name: name of dataframe.
+
+        :raises KeyError: if query column not found in dataframe.
+        """
+        if isinstance(dataset, SparkDataFrame):
+            dataset_names = dataset.schema.names
+        elif isinstance(dataset, PandasDataFrame):
+            dataset_names = dataset.columns
+
+        if not isinstance(dataset, dict) and query_column not in dataset_names:
+            raise KeyError(f"Query column {query_column} is not present in {dataset_name} dataframe")
+
+    def _get_unique_queries(
+        self,
+        dataset: MetricsDataFrameLike,
+        query_column: str,
+    ):
+        """
+        Returns unique queries from provided dataframe.
+
+        :param dataset: input dataframe.
+        :param query_column: name of query column.
+
+        :returns: set of unique queries.
+        """
+        if isinstance(dataset, SparkDataFrame):
+            return set(dataset.select(query_column).distinct().toPandas()[query_column])
+        elif isinstance(dataset, PandasDataFrame):
+            return set(dataset[query_column].unique())
+        else:
+            return set(dataset.keys())
+
+    def _check_contains(self, queries: set, other_queries: set, dataset_name: str):
+        """
+        Checks all queries from the first set are presented in the second one.
+        Throws warning otherwise.
+
+        :param queries: first set of queries.
+        :param other_queries: second set of queries.
+        :param dataset_name: name of dataset to specify in warning message.
+        """
+        if queries.issubset(other_queries) is False:
+            warnings.warn(f"{dataset_name} contains queries that are not presented in recommendations")
 
     def __call__(  # pylint: disable=too-many-branches, too-many-locals
         self,
@@ -348,6 +409,39 @@ class OfflineMetrics:
         self._check_dataframes_types(
             recommendations, ground_truth, train, base_recommendations
         )
+
+        if len(self.main_metrics) > 0:
+            query_column = self.main_metrics[0].query_column
+        elif len(self.unexpectedness_metric) > 0:
+            query_column = self.unexpectedness_metric[0].query_column
+        else:
+            query_column = self.diversity_metric[0].query_column
+
+        self._check_query_column_present(recommendations, query_column, "recommendations")
+        recs_queries = self._get_unique_queries(recommendations, query_column)
+
+        self._check_query_column_present(ground_truth, query_column, "ground_truth")
+        self._check_contains(recs_queries, self._get_unique_queries(ground_truth, query_column), "ground_truth")
+
+        if train is not None:
+            self._check_query_column_present(train, query_column, "train")
+            self._check_contains(
+                recs_queries,
+                self._get_unique_queries(train, query_column),
+                "train"
+            )
+        if base_recommendations is not None:
+            if (not isinstance(base_recommendations, dict)
+                    or isinstance(next(iter(base_recommendations.values())), list)):
+                base_recommendations = {"base_recommendations": base_recommendations}
+            for name, dataset in base_recommendations.items():
+                self._check_query_column_present(dataset, query_column, name)
+                self._check_contains(
+                    recs_queries,
+                    self._get_unique_queries(dataset, query_column),
+                    name
+                )
+
         result = {}
         if isinstance(recommendations, SparkDataFrame):
             assert isinstance(ground_truth, SparkDataFrame)
@@ -367,7 +461,7 @@ class OfflineMetrics:
                 "train": train,
             }
             for metric in self.metrics:
-                args_to_call: Dict[str, Optional[Dict]] = {
+                args_to_call: Dict[str, Union[PandasDataFrame, Dict]] = {
                     "recommendations": recommendations
                 }
                 for data_name in self._metrics_call_requirement_map[
@@ -397,11 +491,6 @@ class OfflineMetrics:
                             unexpectedness_result["@".join(splitted)] = cur_result[
                                 metric_name
                             ]
-            else:
-                for unexp in self.unexpectedness_metric:
-                    unexpectedness_result.update(
-                        unexp(recommendations, base_recommendations)
-                    )
 
         if len(self.diversity_metric) != 0:
             for diversity in self.diversity_metric:
