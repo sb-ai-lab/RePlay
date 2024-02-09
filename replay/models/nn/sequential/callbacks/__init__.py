@@ -3,5 +3,6 @@ from .prediction_callbacks import (
     PandasPredictionCallback,
     SparkPredictionCallback,
     TorchPredictionCallback,
+    QueryEmbeddingsPredictionCallback
 )
 from .validation_callback import ValidationMetricsCallback

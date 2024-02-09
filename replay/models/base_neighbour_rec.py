@@ -121,11 +121,6 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         dataset: Optional[Dataset] = None,
     ) -> SparkDataFrame:
 
-        if dataset is None:
-            raise ValueError(
-                "interactions is not provided, but it is required for prediction"
-            )
-
         return self._predict_pairs_inner(
             dataset=dataset,
             filter_df=(
@@ -161,6 +156,12 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         """
 
         if metric is not None:
+            if metric not in self.item_to_item_metrics:
+                raise ValueError(
+                    f"Select one of the valid distance metrics: "
+                    f"{self.item_to_item_metrics}"
+                )
+
             self.logger.debug(
                 "Metric is not used to determine nearest items in %s model",
                 str(self),

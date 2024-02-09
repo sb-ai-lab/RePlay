@@ -3,7 +3,7 @@ import logging
 import os
 import pickle
 import warnings
-from typing import Any, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -62,32 +62,6 @@ def convert2spark(data_frame: Optional[DataFrameLike]) -> Optional[SparkDataFram
         return data_frame
     spark = State().session
     return spark.createDataFrame(data_frame)  # type: ignore
-
-
-def get_distinct_values_in_column(
-    dataframe: SparkDataFrame, column: str
-) -> Set[Any]:
-    """
-    Get unique values from a column as a set.
-
-    :param dataframe: spark DataFrame
-    :param column: column name
-    :return: set of unique values
-    """
-    return {
-        row[column] for row in (dataframe.select(column).distinct().collect())
-    }
-
-
-def func_get(vector: np.ndarray, i: int) -> float:
-    """
-    helper function for Spark UDF to get element by index
-
-    :param vector: Scala vector or numpy array
-    :param i: index in a vector
-    :returns: element value
-    """
-    return float(vector[i])
 
 
 def get_top_k(
@@ -168,7 +142,7 @@ def get_top_k_recs(
 
 if PYSPARK_AVAILABLE:
     @sf.udf(returnType=st.DoubleType())
-    def vector_dot(one: DenseVector, two: DenseVector) -> float:
+    def vector_dot(one: DenseVector, two: DenseVector) -> float:  # pragma: no cover
         """
         dot product of two column vectors
 
@@ -208,7 +182,7 @@ if PYSPARK_AVAILABLE:
     @sf.udf(returnType=VectorUDT())  # type: ignore
     def vector_mult(
         one: Union[DenseVector, NumType], two: DenseVector
-    ) -> DenseVector:
+    ) -> DenseVector:  # pragma: no cover
         """
         elementwise vector multiplication
 
@@ -246,7 +220,7 @@ if PYSPARK_AVAILABLE:
         return one * two
 
     @sf.udf(returnType=st.ArrayType(st.DoubleType()))
-    def array_mult(first: st.ArrayType, second: st.ArrayType):
+    def array_mult(first: st.ArrayType, second: st.ArrayType):  # pragma: no cover
         """
         elementwise array multiplication
 
@@ -568,65 +542,6 @@ def join_with_col_renaming(
     )
 
 
-def add_to_date(
-    dataframe: SparkDataFrame,
-    column_name: str,
-    base_date: str,
-    base_date_format: Optional[str] = None,
-) -> SparkDataFrame:
-    """
-    Get user or item features from replay model.
-    If a model can return both user and item embeddings,
-    elementwise multiplication can be performed too.
-    If a model can't return embedding for specific user/item, zero vector is returned.
-    Treats column ``column_name`` as a number of days after the ``base_date``.
-    Converts ``column_name`` to TimestampType with
-    ``base_date`` + values of the ``column_name``.
-
-    >>> from replay.utils.session_handler import State
-    >>> from pyspark.sql.types import IntegerType
-    >>> spark = State().session
-    >>> input_data = (
-    ...     spark.createDataFrame([5, 6], IntegerType())
-    ...     .toDF("days")
-    ... )
-    >>> input_data.show()
-    +----+
-    |days|
-    +----+
-    |   5|
-    |   6|
-    +----+
-    <BLANKLINE>
-    >>> add_to_date(input_data, 'days', '2021/09/01', 'yyyy/MM/dd').show()
-    +-------------------+
-    |               days|
-    +-------------------+
-    |2021-09-06 00:00:00|
-    |2021-09-07 00:00:00|
-    +-------------------+
-    <BLANKLINE>
-
-    :param dataframe: spark dataframe
-    :param column_name: name of a column with numbers
-        to add to the ``base_date``
-    :param base_date: str with the date to add to
-    :param base_date_format: base date pattern to parse
-    :return: dataframe with new ``column_name`` converted to TimestampType
-    """
-    dataframe = (
-        dataframe.withColumn(
-            "tmp", sf.to_timestamp(sf.lit(base_date), format=base_date_format)
-        )
-        .withColumn(
-            column_name,
-            sf.to_timestamp(sf.expr(f"date_add(tmp, {column_name})")),
-        )
-        .drop("tmp")
-    )
-    return dataframe
-
-
 def process_timestamp_column(
     dataframe: SparkDataFrame,
     column_name: str,
@@ -669,7 +584,7 @@ def process_timestamp_column(
 
 if PYSPARK_AVAILABLE:
     @sf.udf(returnType=VectorUDT())
-    def list_to_vector_udf(array: st.ArrayType) -> DenseVector:
+    def list_to_vector_udf(array: st.ArrayType) -> DenseVector:  # pragma: no cover
         """
         convert spark array to vector
 
@@ -679,7 +594,7 @@ if PYSPARK_AVAILABLE:
         return Vectors.dense(array)
 
     @sf.udf(returnType=st.FloatType())
-    def vector_squared_distance(first: DenseVector, second: DenseVector) -> float:
+    def vector_squared_distance(first: DenseVector, second: DenseVector) -> float:  # pragma: no cover
         """
         :param first: first vector
         :param second: second vector
@@ -690,7 +605,7 @@ if PYSPARK_AVAILABLE:
     @sf.udf(returnType=st.FloatType())
     def vector_euclidean_distance_similarity(
         first: DenseVector, second: DenseVector
-    ) -> float:
+    ) -> float:  # pragma: no cover
         """
         :param first: first vector
         :param second: second vector
@@ -699,7 +614,7 @@ if PYSPARK_AVAILABLE:
         return 1 / (1 + float(first.squared_distance(second)) ** 0.5)
 
     @sf.udf(returnType=st.FloatType())
-    def cosine_similarity(first: DenseVector, second: DenseVector) -> float:
+    def cosine_similarity(first: DenseVector, second: DenseVector) -> float:  # pragma: no cover
         """
         :param first: first vector
         :param second: second vector
@@ -749,7 +664,7 @@ def sample_top_k_recs(pairs: SparkDataFrame, k: int, seed: int = None):
         / sf.sum("relevance").over(Window.partitionBy("user_idx")),
     )
 
-    def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:
+    def grouped_map(pandas_df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover
         user_idx = pandas_df["user_idx"][0]
 
         if seed is not None:

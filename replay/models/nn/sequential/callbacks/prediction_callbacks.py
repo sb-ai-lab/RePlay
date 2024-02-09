@@ -4,6 +4,7 @@ from typing import Generic, List, Optional, Protocol, Tuple, TypeVar, cast
 import lightning as L
 import torch
 
+from replay.models.nn.sequential import Bert4Rec
 from replay.models.nn.sequential.postprocessors import BasePostProcessor
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame, MissingImportType
 
@@ -223,3 +224,38 @@ class TorchPredictionCallback(BasePredictionCallback[Tuple[torch.LongTensor, tor
             cast(torch.LongTensor, item_ids.cpu().long()),
             item_scores.cpu(),
         )
+
+
+class QueryEmbeddingsPredictionCallback(L.Callback):
+    """
+    Callback for prediction stage to get query embeddings.
+    """
+    def __init__(self):
+        self._embeddings_per_batch: List[torch.Tensor] = []
+
+    # pylint: disable=unused-argument
+    def on_predict_epoch_start(self, trainer: L.Trainer, pl_module: L.LightningModule) -> None:
+        self._embeddings_per_batch.clear()
+
+    # pylint: disable=unused-argument, too-many-arguments
+    def on_predict_batch_end(
+        self,
+        trainer: L.Trainer,
+        pl_module: L.LightningModule,
+        outputs: torch.Tensor,
+        batch: PredictionBatch,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        args = [batch.features, batch.padding_mask]
+        if isinstance(pl_module, Bert4Rec):
+            args.append(batch.tokens_mask)
+
+        query_embeddings = pl_module._model.get_query_embeddings(*args)
+        self._embeddings_per_batch.append(query_embeddings)
+
+    def get_result(self):
+        """
+        :returns: Query embeddings through all batches.
+        """
+        return torch.cat(self._embeddings_per_batch)

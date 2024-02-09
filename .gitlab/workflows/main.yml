@@ -10,6 +10,7 @@ image: "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
 variables:
   VERSION: "0.0.7"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  RUNNER: amazme-1
 
 .setup_env: &setup_env
   - pip install -q --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning
@@ -43,7 +44,11 @@ cache: &global_cache
 stages:
   - resolve
   - code_quality
-  - test
+  - test_core
+  - test_torch
+  - test_spark
+  - test_spark_torch
+  - test_experimental
   - merge coverage
   - examples
   - build packages
@@ -66,83 +71,106 @@ resolve-job:
       - projects/experimental/poetry.lock
       - ${dependencies}
     expire_in: 2 week
+  tags: 
+    - ${RUNNER}
 
 pylint-job:
   <<: *install_experimental_replay_with_spark
   stage: code_quality
   script:
     - pylint replay
+  tags: 
+    - ${RUNNER}
 
 pycodestyle-job:
   <<: *install_experimental_replay_with_spark
   stage: code_quality
   script:
     - pycodestyle replay tests
+  tags: 
+    - ${RUNNER}
 
 sphinx-job:
   <<: *install_experimental_replay_with_spark
   stage: code_quality
   script:
     - make -C docs clean html
+  tags: 
+    - ${RUNNER}
+
+.pytest_template: &pytest_template
+  image: ${image}
+  tags: 
+    - ${RUNNER}
+  needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
+  before_script:
+    - export REPLAY_SPARK_CORE_COUNT=8
+    - export REPLAY_SPARK_MEMORY=24
+  parallel:
+    matrix:
+      - image:
+        - "${CI_REGISTRY_IMAGE}:${VERSION}_py38"
+        - "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
+        - "${CI_REGISTRY_IMAGE}:${VERSION}_py310"
 
 pytest-core:
-  stage: test
+  <<: *pytest_template
+  stage: test_core
   script:
     - ./poetry_wrapper.sh install
-    - pytest -m core tests/
-    - mv .coverage .coverage_core
-  needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
+    - pytest -m core tests/ --ignore=tests/experimental
+    - mv .coverage .coverage_core_${image:(-4)}
   artifacts:
     paths:
-      - .coverage_core
+      - .coverage_core_${image:(-4)}
     expire_in: 1 day
 
 pytest-torch:
-  stage: test
+  <<: *pytest_template
+  stage: test_torch
   script:
     - ./poetry_wrapper.sh install -E torch
-    - pytest -m "not spark and not experimental" tests/
-    - mv .coverage .coverage_torch
-  needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
+    - pytest -m "not spark and not experimental" tests/ --ignore=tests/experimental
+    - mv .coverage .coverage_torch_${image:(-4)}
   artifacts:
     paths:
-      - .coverage_torch
+      - .coverage_torch_${image:(-4)}
     expire_in: 1 day
 
 pytest-spark:
-  stage: test
+  <<: *pytest_template
+  stage: test_spark
   script:
     - ./poetry_wrapper.sh install -E spark
-    - pytest -m "not torch and not experimental" tests/
-    - mv .coverage .coverage_spark
-  needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
+    - pytest -m "not torch and not experimental" tests/ --ignore=tests/experimental
+    - mv .coverage .coverage_spark_${image:(-4)}
   artifacts:
     paths:
-      - .coverage_spark
+      - .coverage_spark_${image:(-4)}
     expire_in: 1 day
 
 pytest-spark-and-torch:
-  stage: test
+  <<: *pytest_template
+  stage: test_spark_torch
   script:
     - ./poetry_wrapper.sh install --all-extras
     - pytest -m "not experimental" --ignore=replay/experimental --ignore=tests/experimental
-    - mv .coverage .coverage_all
-  needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
+    - mv .coverage .coverage_all_${image:(-4)}
   artifacts:
     paths:
-      - .coverage_all
+      - .coverage_all_${image:(-4)}
     expire_in: 1 day
 
 pytest-experimental:
-  stage: test
+  <<: *pytest_template
+  stage: test_experimental
   script:
     - ./poetry_wrapper.sh --experimental install --all-extras
     - pytest -m "experimental"
-    - mv .coverage .coverage_experimental
-  needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
+    - mv .coverage .coverage_experimental_${image:(-4)}
   artifacts:
     paths:
-      - .coverage_experimental
+      - .coverage_experimental_${image:(-4)}
     expire_in: 1 day
 
 merge-coverage:
@@ -151,10 +179,18 @@ merge-coverage:
     - *setup_env
     - ./poetry_wrapper.sh install --only dev
   script:
-    - coverage combine .coverage_core .coverage_spark .coverage_torch .coverage_all .coverage_experimental
-    - coverage report --fail-under=93
+    - coverage combine .coverage_core_${image:(-4)} .coverage_spark_${image:(-4)} .coverage_torch_${image:(-4)} .coverage_all_${image:(-4)} .coverage_experimental_${image:(-4)}
+    - coverage report --fail-under=100
     - coverage xml
-  needs: ["pytest-core", "pytest-experimental", "pytest-spark", "pytest-spark-and-torch", "pytest-torch"]
+  needs: ["pytest-core", "pytest-torch", "pytest-spark", "pytest-spark-and-torch", "pytest-experimental"]
+  tags: 
+    - ${RUNNER}
+  parallel:
+    matrix:
+      - image:
+        - "${CI_REGISTRY_IMAGE}:${VERSION}_py38"
+        - "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
+        - "${CI_REGISTRY_IMAGE}:${VERSION}_py310"
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
     when: always
@@ -162,7 +198,6 @@ merge-coverage:
       coverage_report:
         coverage_format: cobertura
         path: coverage.xml
-
 
 examples-execute-job:
   <<: *install_replay
@@ -178,6 +213,8 @@ build-production-package:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   stage: build packages
+  tags: 
+    - ${RUNNER}
   script:
     - *setup_env
     - export PACKAGE_SUFFIX=.dev${CI_JOB_ID}
@@ -192,6 +229,8 @@ build-experimental-package:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   stage: build packages
+  tags: 
+    - ${RUNNER}
   script:
     - export PACKAGE_SUFFIX=.preview${CI_JOB_ID}
     - echo $PACKAGE_SUFFIX

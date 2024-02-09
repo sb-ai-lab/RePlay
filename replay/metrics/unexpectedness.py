@@ -123,7 +123,7 @@ class Unexpectedness(Metric):
     @staticmethod
     def _get_metric_value_by_user(  # pylint: disable=arguments-differ
         ks: List[int], base_recs: Optional[List], recs: Optional[List]
-    ) -> List[float]:  # pragma: no cover
+    ) -> List[float]:
         if not base_recs or not recs:
             return [0.0 for _ in ks]
         res = []

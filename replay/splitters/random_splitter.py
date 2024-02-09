@@ -1,10 +1,7 @@
 from typing import Optional, Union
 
 from .base_splitter import Splitter, SplitterReturnType
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
-
-if PYSPARK_AVAILABLE:
-    import pyspark.sql.functions as sf
+from replay.utils import DataFrameLike, PandasDataFrame, SparkDataFrame
 
 
 # pylint: disable=too-few-public-methods, duplicate-code
@@ -57,14 +54,6 @@ class RandomSplitter(Splitter):
         train, test = interactions.randomSplit(
             [1 - threshold, threshold], self.seed
         )
-
-        if self.session_id_column:
-            test = test.withColumn("is_test", sf.lit(True))
-            interactions = interactions.join(test, on=interactions.schema.names, how="left").na.fill({"is_test": False})
-            interactions = self._recalculate_with_session_id_column(interactions)
-            train = interactions.filter(~sf.col("is_test")).drop("is_test")
-            test = interactions.filter(sf.col("is_test")).drop("is_test")
-
         return train, test
 
     def _random_split_pandas(
@@ -74,20 +63,10 @@ class RandomSplitter(Splitter):
     ) -> Union[PandasDataFrame, PandasDataFrame]:
         train = interactions.sample(frac=(1 - threshold), random_state=self.seed)
         test = interactions.drop(train.index)
-
-        if self.session_id_column:
-            interactions["is_test"] = False
-            interactions.loc[test.index, "is_test"] = True
-            interactions = self._recalculate_with_session_id_column(interactions)
-            train = interactions[~interactions["is_test"]].drop(columns=["is_test"])
-            test = interactions[interactions["is_test"]].drop(columns=["is_test"])
-            interactions = interactions.drop(columns=["is_test"])
-
         return train, test
 
     def _core_split(self, interactions: DataFrameLike) -> SplitterReturnType:
         split_method = self._random_split_spark
         if isinstance(interactions, PandasDataFrame):
             split_method = self._random_split_pandas
-
         return split_method(interactions, self.test_size)

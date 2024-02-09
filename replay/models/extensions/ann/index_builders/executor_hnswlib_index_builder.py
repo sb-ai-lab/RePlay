@@ -38,7 +38,7 @@ class ExecutorHnswlibIndexBuilder(IndexBuilder):
         _index_store = self.index_store
         _index_params = self.index_params
 
-        def build_index_udf(iterator: Iterator[PandasDataFrame]):
+        def build_index_udf(iterator: Iterator[PandasDataFrame]):  # pragma: no cover
             """Builds index on executor and writes it to shared disk or hdfs.
 
             Args:

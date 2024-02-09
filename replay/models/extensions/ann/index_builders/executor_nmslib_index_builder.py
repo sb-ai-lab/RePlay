@@ -35,7 +35,7 @@ class ExecutorNmslibIndexBuilder(IndexBuilder):
         index_params = self.index_params
         index_store = self.index_store
 
-        def build_index_udf(iterator: Iterator[PandasDataFrame]):
+        def build_index_udf(iterator: Iterator[PandasDataFrame]):  # pragma: no cover
             """Builds index on executor and writes it to shared disk or hdfs.
 
             Args:

@@ -29,7 +29,7 @@ class HnswlibFilterIndexInferer(IndexInferer):
             vectors: pd.Series,
             num_items: pd.Series,
             seen_item_ids: pd.Series,
-        ) -> PandasDataFrame:
+        ) -> PandasDataFrame:  # pragma: no cover
             index_store = index_store_broadcast.value
             index = index_store.load_index(
                 init_index=lambda: create_hnswlib_index_instance(index_params),
