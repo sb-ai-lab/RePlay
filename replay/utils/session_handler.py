@@ -64,7 +64,7 @@ def get_spark_session(
         core_count = int(os.environ.get("REPLAY_SPARK_CORE_COUNT", "-1"))
     if spark_memory is None:
         env_var = os.environ.get("REPLAY_SPARK_MEMORY")
-        if env_var is not None:
+        if env_var is not None:  # pragma: no cover
             spark_memory = int(env_var)
         else:  # pragma: no cover
             spark_memory = floor(psutil.virtual_memory().total / 1024**3 * 0.7)
