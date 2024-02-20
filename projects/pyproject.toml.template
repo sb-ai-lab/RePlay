@@ -47,11 +47,8 @@ torch = { version = "^1.8", optional = true }
 lightning = { version = "^2.0.2", optional = true }
 pytorch-ranger = { version = "^0.1.1", optional = true }
 {% endif %}
-seaborn = "~0.12.2"
-matplotlib = "^3.5.3"
 nmslib = "2.1.1"
 hnswlib = "0.7.0"
-cached-property = "1.5.2"
 
 {% if project == "experimental" %}
 torch = "^1.8"
