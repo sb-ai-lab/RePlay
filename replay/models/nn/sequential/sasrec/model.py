@@ -406,11 +406,15 @@ class SasRecLayers(torch.nn.Module):
         """
         super().__init__()
         self.attention_layers = self._layers_stacker(
-            torch.nn.MultiheadAttention(hidden_size, num_heads, dropout), num_blocks
+            num_blocks,
+            torch.nn.MultiheadAttention,
+            hidden_size,
+            num_heads,
+            dropout
         )
-        self.attention_layernorms = self._layers_stacker(torch.nn.LayerNorm(hidden_size, eps=1e-8), num_blocks)
-        self.forward_layers = self._layers_stacker(SasRecPointWiseFeedForward(hidden_size, dropout), num_blocks)
-        self.forward_layernorms = self._layers_stacker(torch.nn.LayerNorm(hidden_size, eps=1e-8), num_blocks)
+        self.attention_layernorms = self._layers_stacker(num_blocks, torch.nn.LayerNorm, hidden_size, eps=1e-8)
+        self.forward_layers = self._layers_stacker(num_blocks, SasRecPointWiseFeedForward, hidden_size, dropout)
+        self.forward_layernorms = self._layers_stacker(num_blocks, torch.nn.LayerNorm, hidden_size, eps=1e-8)
 
     def forward(
         self,
@@ -439,8 +443,8 @@ class SasRecLayers(torch.nn.Module):
 
         return seqs
 
-    def _layers_stacker(self, layer: Any, num_blocks: int) -> torch.nn.ModuleList:
-        return torch.nn.ModuleList([layer] * num_blocks)
+    def _layers_stacker(self, num_blocks: int, layer_class: Any, *args, **kwargs) -> torch.nn.ModuleList:
+        return torch.nn.ModuleList([layer_class(*args, **kwargs) for _ in range(num_blocks)])
 
 
 class SasRecNormalizer(torch.nn.Module):
@@ -669,10 +673,10 @@ class TiSasRecLayers(torch.nn.Module):
         :param dropout: Dropout rate.
         """
         super().__init__()
-        self.attention_layers = self._layers_stacker(TiSasRecAttention(hidden_size, num_heads, dropout), num_blocks)
-        self.forward_layers = self._layers_stacker(SasRecPointWiseFeedForward(hidden_size, dropout), num_blocks)
-        self.attention_layernorms = self._layers_stacker(torch.nn.LayerNorm(hidden_size, eps=1e-8), num_blocks)
-        self.forward_layernorms = self._layers_stacker(torch.nn.LayerNorm(hidden_size, eps=1e-8), num_blocks)
+        self.attention_layers = self._layers_stacker(num_blocks, TiSasRecAttention, hidden_size, num_heads, dropout)
+        self.forward_layers = self._layers_stacker(num_blocks, SasRecPointWiseFeedForward, hidden_size, dropout)
+        self.attention_layernorms = self._layers_stacker(num_blocks, torch.nn.LayerNorm, hidden_size, eps=1e-8)
+        self.forward_layernorms = self._layers_stacker(num_blocks, torch.nn.LayerNorm, hidden_size, eps=1e-8)
 
     # pylint: disable=too-many-arguments
     def forward(
@@ -704,8 +708,8 @@ class TiSasRecLayers(torch.nn.Module):
 
         return seqs
 
-    def _layers_stacker(self, layer: Any, num_blocks: int) -> torch.nn.ModuleList:
-        return torch.nn.ModuleList([layer] * num_blocks)
+    def _layers_stacker(self, num_blocks: int, layer_class: Any, *args, **kwargs) -> torch.nn.ModuleList:
+        return torch.nn.ModuleList([layer_class(*args, **kwargs) for _ in range(num_blocks)])
 
 
 class TiSasRecAttention(torch.nn.Module):
