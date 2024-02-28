@@ -8,7 +8,7 @@ workflow:
 image: "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
 
 variables:
-  VERSION: "0.0.7"
+  VERSION: "0.0.8"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   RUNNER: amazme-1
 
