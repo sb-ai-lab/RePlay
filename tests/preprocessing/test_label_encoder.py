@@ -210,6 +210,26 @@ def test_label_encoder_with_default_value_in_seen_labels(
     encoder.fit(pandas_df_for_labelencoder)
 
 
+@pytest.mark.spark
+@pytest.mark.usefixtures(
+    "spark",
+)
+def test_label_encoder_undetectable_type_spark(spark):
+    data = []
+
+    for i in range(1000):
+        gg = 1
+        if i < 500:
+            gg = None
+        else:
+            gg = 1
+        data.append([(gg, str(1000 - i)), i])
+
+    df = spark.createDataFrame(data, schema=["user_id", "item_id"])
+    encoder = LabelEncoder([LabelEncodingRule("user_id"), LabelEncodingRule("item_id")])
+    encoder.fit_transform(df)
+
+
 @pytest.mark.core
 def test_label_encoder_value_errors():
     with pytest.raises(ValueError):

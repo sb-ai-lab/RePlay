@@ -13,6 +13,7 @@ from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, Spar
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
     from pyspark.storagelevel import StorageLevel
+    from pyspark.sql.types import StructType, LongType
 
 HandleUnknownStrategies = Literal["error", "use_default_value"]
 
@@ -148,11 +149,18 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
         mapping_on_spark = (
             unique_col_values.rdd.zipWithIndex()
-            .toDF()
+            .toDF(
+                StructType()
+                .add("_1",
+                     StructType()
+                     .add(self._col, df.schema[self._col].dataType, True),
+                     True)
+                .add("_2", LongType(), True)
+            )
             .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
             .persist(StorageLevel.MEMORY_ONLY)
         )
-
+        mapping_on_spark.show()
         self._mapping = mapping_on_spark.rdd.collectAsMap()  # type: ignore
         mapping_on_spark.unpersist()
         unique_col_values.unpersist()
@@ -200,7 +208,14 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
         new_data: dict = (
             new_unique_values.rdd.zipWithIndex()
-            .toDF()
+            .toDF(
+                StructType()
+                .add("_1",
+                     StructType()
+                     .add(self._col, df.schema[self._col].dataType),
+                     True)
+                .add("_2", LongType(), True)
+            )
             .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
             .withColumn(self._target_col, sf.col(self._target_col) + max_value)
             .rdd.collectAsMap()  # type: ignore
