@@ -1,11 +1,12 @@
 """
 Select or remove data by some criteria
 """
+import polars as pl
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Callable, Optional, Union, Tuple
 
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame, PolarsDataFrame
 
 
 if PYSPARK_AVAILABLE:
@@ -26,7 +27,12 @@ class _BaseFilter(ABC):
         """
         if isinstance(interactions, SparkDataFrame):
             return self._filter_spark(interactions)
-        return self._filter_pandas(interactions)
+        elif isinstance(interactions, PandasDataFrame):
+            return self._filter_pandas(interactions)
+        elif isinstance(interactions, PolarsDataFrame):
+            return self._filter_polars(interactions)
+        else:
+            raise NotImplementedError(f"{self.__class__.__name__} is not implemented for {type(interactions)}")
 
     @abstractmethod
     def _filter_spark(self, interactions: SparkDataFrame):  # pragma: no cover
@@ -34,6 +40,10 @@ class _BaseFilter(ABC):
 
     @abstractmethod
     def _filter_pandas(self, interactions: PandasDataFrame):  # pragma: no cover
+        pass
+
+    @abstractmethod
+    def _filter_polars(self, interactions: PolarsDataFrame):  # pragma: no cover
         pass
 
 
@@ -130,6 +140,10 @@ class InteractionEntriesFilter(_BaseFilter):
         interaction_count = len(interactions)
         return self._iterative_filter(interactions, interaction_count, self._filter_column_pandas)
 
+    def _filter_polars(self, interactions: PolarsDataFrame):
+        interaction_count = len(interactions)
+        return self._iterative_filter(interactions, interaction_count, self._filter_column_polars)
+
     def _iterative_filter(self, interactions: DataFrameLike, interaction_count: int, filter_func: Callable):
         is_dropped_user_item = [True, True]
         current_index = 0
@@ -201,10 +215,35 @@ class InteractionEntriesFilter(_BaseFilter):
             filtered_interactions = filtered_interactions.filter(sf.col("count") <= max_inter)
         filtered_interactions = filtered_interactions.drop("count")
 
-        if self.allow_caching is True:
+        if self.allow_caching:
             filtered_interactions.cache()
             interactions.unpersist()
         end_len_dataframe = filtered_interactions.count()
+        different_len = interaction_count - end_len_dataframe
+
+        return filtered_interactions, different_len, end_len_dataframe
+
+    # pylint: disable=no-self-use
+    def _filter_column_polars(
+        self,
+        interactions: PolarsDataFrame,
+        interaction_count: int,
+        agg_column: str,
+        non_agg_column: str,
+        min_inter: Optional[int] = None,
+        max_inter: Optional[int] = None,
+    ) -> Tuple[PolarsDataFrame, int, int]:
+        filtered_interactions = interactions.with_columns(
+            pl.col(non_agg_column).count().over(pl.col(agg_column))
+            .alias("count")
+        )
+        if min_inter:
+            filtered_interactions = filtered_interactions.filter(pl.col("count") >= min_inter)
+        if max_inter:
+            filtered_interactions = filtered_interactions.filter(pl.col("count") <= max_inter)
+        filtered_interactions = filtered_interactions.drop("count")
+
+        end_len_dataframe = len(filtered_interactions)
         different_len = interaction_count - end_len_dataframe
 
         return filtered_interactions, different_len, end_len_dataframe
@@ -265,6 +304,24 @@ class MinCountFilter(_BaseFilter):
             .drop(columns=["count"])
         )
 
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        filtered_interactions = interactions.clone()
+        count_by_group = (
+            filtered_interactions
+            .group_by(self.groupby_column)
+            .agg(
+                pl.col(self.groupby_column).count().alias(f"{self.groupby_column}_temp_count")
+            )
+            .filter(
+                pl.col(f"{self.groupby_column}_temp_count") >= self.num_entries
+            )
+        )
+        return (
+            filtered_interactions
+            .join(count_by_group, on=self.groupby_column)
+            .drop(f"{self.groupby_column}_temp_count")
+        )
+
 
 class LowRatingFilter(_BaseFilter):
     """
@@ -298,6 +355,9 @@ class LowRatingFilter(_BaseFilter):
 
     def _filter_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
         return interactions[interactions[self.rating_column] >= self.value]
+
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        return interactions.filter(pl.col(self.rating_column) >= self.value)
 
 
 class NumInteractionsFilter(_BaseFilter):
@@ -428,6 +488,25 @@ class NumInteractionsFilter(_BaseFilter):
         return (
             filtered_interactions[filtered_interactions["temp_rank"] < self.num_interactions]
             .drop(columns=["temp_rank"])
+        )
+
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        sorting_columns = [self.timestamp_column]
+        if self.item_column is not None:
+            sorting_columns.append(self.item_column)
+
+        descending = not self.first
+
+        return (
+            interactions
+            .sort(sorting_columns, descending=descending)
+            .with_columns(
+                pl.col(self.query_column)
+                .cumcount()
+                .over(self.query_column)
+                .alias("temp_rank")
+            )
+            .filter(pl.col("temp_rank") <= self.num_interactions).drop("temp_rank")
         )
 
 
@@ -568,6 +647,33 @@ class EntityDaysFilter(_BaseFilter):
             .drop(columns=["max_date"])
         )
 
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        if self.first:
+            return (
+                interactions
+                .with_columns(
+                    (
+                        pl.col(self.timestamp_column)
+                        .min().over(pl.col(self.entity_column)) + pl.duration(days=self.days)
+                    )
+                    .alias("min_date")
+                )
+                .filter(pl.col(self.timestamp_column) < pl.col("min_date"))
+                .drop("min_date")
+            )
+        return (
+            interactions
+            .with_columns(
+                (
+                    pl.col(self.timestamp_column)
+                    .max().over(pl.col(self.entity_column)) - pl.duration(days=self.days)
+                )
+                .alias("max_date")
+            )
+            .filter(pl.col(self.timestamp_column) > pl.col("max_date"))
+            .drop("max_date")
+        )
+
 
 class GlobalDaysFilter(_BaseFilter):
     """
@@ -671,6 +777,23 @@ class GlobalDaysFilter(_BaseFilter):
             ]
         )
 
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        if self.first:
+            return (
+                interactions
+                .filter(
+                    pl.col(self.timestamp_column)
+                    < (pl.col(self.timestamp_column).min() + pl.duration(days=self.days))
+                )
+            )
+        return (
+            interactions
+            .filter(
+                pl.col(self.timestamp_column)
+                > (pl.col(self.timestamp_column).max() - pl.duration(days=self.days))
+            )
+        )
+
 
 class TimePeriodFilter(_BaseFilter):
     """
@@ -715,18 +838,24 @@ class TimePeriodFilter(_BaseFilter):
         start_date: Optional[Union[str, datetime]] = None,
         end_date: Optional[Union[str, datetime]] = None,
         timestamp_column: str = "timestamp",
+        time_column_format: str = "%Y-%m-%d %H:%M:%S",
     ):
         r"""
-        :param start_date: datetime or str with format "yyyy-MM-dd HH:mm:ss".
+        :param start_date: datetime or str with format ``time_column_format``.
             default: `None`.
-        :param end_date: datetime or str with format "yyyy-MM-dd HH:mm:ss".
+        :param end_date: datetime or str with format ``time_column_format``.
             default: `None`.
         :param timestamp_column: timestamp column.
             default: ``timestamp``.
         """
-        self.start_date = start_date
-        self.end_date = end_date
+        self.start_date = self._format_datetime(start_date, time_column_format)
+        self.end_date = self._format_datetime(end_date, time_column_format)
         self.timestamp_column = timestamp_column
+
+    def _format_datetime(self, date: Optional[Union[str, datetime]], time_format: str) -> datetime:
+        if isinstance(date, str):
+            date = datetime.strptime(date, time_format)
+        return date
 
     def _filter_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
         if self.start_date is None:
@@ -737,8 +866,8 @@ class TimePeriodFilter(_BaseFilter):
             )
 
         return interactions.filter(
-            (col(self.timestamp_column) >= sf.lit(self.start_date).cast(TimestampType()))
-            & (col(self.timestamp_column) < sf.lit(self.end_date).cast(TimestampType()))
+            (col(self.timestamp_column) >= sf.lit(self.start_date))
+            & (col(self.timestamp_column) < sf.lit(self.end_date))
         )
 
     def _filter_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
@@ -753,3 +882,19 @@ class TimePeriodFilter(_BaseFilter):
             (interactions[self.timestamp_column] >= self.start_date)
             & (interactions[self.timestamp_column] < self.end_date)
         ]
+
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        if self.start_date is None:
+            self.start_date = interactions.select(self.timestamp_column).min()[0, 0]
+        if self.end_date is None:
+            self.end_date = interactions.select(self.timestamp_column).max()[0, 0] + pl.duration(
+                seconds=1
+            )
+
+        return (
+            interactions
+            .filter(
+                pl.col(self.timestamp_column)
+                .is_between(self.start_date, self.end_date, closed="left")
+            )
+        )

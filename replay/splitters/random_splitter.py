@@ -1,7 +1,7 @@
 from typing import Optional, Union
 
 from .base_splitter import Splitter, SplitterReturnType
-from replay.utils import DataFrameLike, PandasDataFrame, SparkDataFrame
+from replay.utils import DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 
 # pylint: disable=too-few-public-methods, duplicate-code
@@ -65,8 +65,23 @@ class RandomSplitter(Splitter):
         test = interactions.drop(train.index)
         return train, test
 
+    def _random_split_polars(
+        self,
+        interactions: PolarsDataFrame,
+        threshold: float
+    ) -> Union[PolarsDataFrame, PolarsDataFrame]:
+        train_size = int(len(interactions) * (1 - threshold)) + 1
+        shuffled_interactions = interactions.sample(fraction=1, shuffle=True, seed=self.seed)
+        train = shuffled_interactions[:train_size]
+        test = shuffled_interactions[train_size:]
+        return train, test
+
     def _core_split(self, interactions: DataFrameLike) -> SplitterReturnType:
-        split_method = self._random_split_spark
+        if isinstance(interactions, SparkDataFrame):
+            return self._random_split_spark(interactions, self.test_size)
         if isinstance(interactions, PandasDataFrame):
-            split_method = self._random_split_pandas
-        return split_method(interactions, self.test_size)
+            return self._random_split_pandas(interactions, self.test_size)
+        if isinstance(interactions, PolarsDataFrame):
+            return self._random_split_polars(interactions, self.test_size)
+
+        raise NotImplementedError(f"{self} is not implemented for {type(interactions)}")

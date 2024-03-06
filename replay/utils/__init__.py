@@ -8,4 +8,5 @@ from .types import (
     NumType,
     PandasDataFrame,
     SparkDataFrame,
+    PolarsDataFrame,
 )

@@ -1,7 +1,15 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+import polars as pl
+
+from replay.utils import (
+    PYSPARK_AVAILABLE,
+    DataFrameLike,
+    PandasDataFrame,
+    SparkDataFrame,
+    PolarsDataFrame,
+)
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import Window
@@ -74,8 +82,10 @@ class Splitter(ABC):
 
         if isinstance(test, SparkDataFrame):
             return self._drop_cold_items_and_users_from_spark(train, test)
-
-        return self._drop_cold_items_and_users_from_pandas(train, test)
+        if isinstance(test, PandasDataFrame):
+            return self._drop_cold_items_and_users_from_pandas(train, test)
+        else:
+            return self._drop_cold_items_and_users_from_polars(train, test)
 
     def _drop_cold_items_and_users_from_pandas(
         self,
@@ -106,6 +116,22 @@ class Splitter(ABC):
 
         return test
 
+    def _drop_cold_items_and_users_from_polars(
+        self,
+        train: PolarsDataFrame,
+        test: PolarsDataFrame,
+    ) -> PolarsDataFrame:
+
+        if self.drop_cold_items:
+            train_tmp = train.select(self.item_column).unique()
+            test = test.join(train_tmp, on=self.item_column)
+
+        if self.drop_cold_users:
+            train_tmp = train.select(self.query_column).unique()
+            test = test.join(train_tmp, on=self.query_column)
+
+        return test
+
     @abstractmethod
     def _core_split(self, interactions: DataFrameLike) -> SplitterReturnType:
         """
@@ -130,8 +156,10 @@ class Splitter(ABC):
     def _recalculate_with_session_id_column(self, data: DataFrameLike) -> DataFrameLike:
         if isinstance(data, SparkDataFrame):
             return self._recalculate_with_session_id_column_spark(data)
-
-        return self._recalculate_with_session_id_column_pandas(data)
+        if isinstance(data, PandasDataFrame):
+            return self._recalculate_with_session_id_column_pandas(data)
+        else:
+            return self._recalculate_with_session_id_column_polars(data)
 
     def _recalculate_with_session_id_column_pandas(self, data: PandasDataFrame) -> PandasDataFrame:
         agg_function_name = "first" if self.session_id_processing_strategy == "train" else "last"
@@ -152,5 +180,13 @@ class Splitter(ABC):
                 .rowsBetween(Window.unboundedPreceding, Window.unboundedFollowing)
             ),
         )
+
+        return res
+
+    def _recalculate_with_session_id_column_polars(self, data: PolarsDataFrame) -> PolarsDataFrame:
+        agg_function = pl.Expr.first if self.session_id_processing_strategy == "train" else pl.Expr.last
+        res = data.with_columns(
+            agg_function(pl.col("is_test").sort_by(self.timestamp_column))
+            .over([self.query_column, self.session_id_column]))
 
         return res

@@ -1,6 +1,7 @@
 # pylint: disable-all
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 
 from replay.splitters import ColdUserRandomSplitter
@@ -25,11 +26,22 @@ def log_spark(spark, log):
     return spark.createDataFrame(log)
 
 
+@pytest.fixture()
+def log_polars(log):
+    return pl.from_pandas(log)
+
+
+@pytest.fixture()
+def log_not_implemented(log):
+    return log.to_numpy()
+
+
 @pytest.mark.parametrize(
     "dataset_type",
     [
         pytest.param("log_spark", marks=pytest.mark.spark),
         pytest.param("log", marks=pytest.mark.core),
+        pytest.param("log_polars", marks=pytest.mark.core),
     ]
 )
 def test_splitting(dataset_type, request):
@@ -43,6 +55,10 @@ def test_splitting(dataset_type, request):
         test_users = test.user_id.unique()
         train_users = train.user_id.unique()
         real_ratio = len(test_users) / len(log)
+    elif isinstance(log, pl.DataFrame):
+        test_users = test.select("user_id").unique()
+        train_users = train.select("user_id").unique()
+        real_ratio = len(test_users) / len(log)
     else:
         test_users = test.toPandas().user_id.unique()
         train_users = train.toPandas().user_id.unique()
@@ -54,6 +70,13 @@ def test_splitting(dataset_type, request):
     )  # Spark weights are random ¯\_(ツ)_/¯
 
 
+@pytest.mark.core
 def test_invalid_test_size():
     with pytest.raises(ValueError):
         ColdUserRandomSplitter(test_size=1.2, query_column="user_id")
+
+
+@pytest.mark.core
+def test_not_implemented_dataframe(log_not_implemented):
+    with pytest.raises(NotImplementedError):
+        ColdUserRandomSplitter(test_size=0.2).split(log_not_implemented)
