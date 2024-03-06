@@ -1,7 +1,7 @@
 import warnings
 from typing import Dict, List, Optional, Tuple, Union
 
-from replay.utils import PandasDataFrame, SparkDataFrame
+from replay.utils import PandasDataFrame, SparkDataFrame, PolarsDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsReturnType
 from .coverage import Coverage
@@ -197,10 +197,10 @@ class OfflineMetrics:
 
     def _get_enriched_recommendations(
         self,
-        recommendations: SparkDataFrame,
-        ground_truth: SparkDataFrame,
-        train: Optional[SparkDataFrame],
-    ) -> Tuple[Dict[str, SparkDataFrame], Optional[SparkDataFrame]]:
+        recommendations: Union[SparkDataFrame, PolarsDataFrame],
+        ground_truth: Union[SparkDataFrame, PolarsDataFrame],
+        train: Optional[Union[SparkDataFrame, PolarsDataFrame]],
+    ) -> Tuple[Dict[str, Union[SparkDataFrame, PolarsDataFrame]], Optional[Union[SparkDataFrame, PolarsDataFrame]]]:
         if len(self.main_metrics) == 0:
             return {}, train
         result_dict = {}
@@ -213,7 +213,11 @@ class OfflineMetrics:
             item_column=item_column,
             rating_column=rating_column,
         )
-        default_metric._check_duplicates_spark(recommendations)
+        is_spark = isinstance(recommendations, SparkDataFrame)
+        if is_spark:
+            default_metric._check_duplicates_spark(recommendations)
+        else:
+            default_metric._check_duplicates_polars(recommendations)
         unchanged_recs = recommendations
 
         # pylint: disable=too-many-function-args
@@ -242,7 +246,11 @@ class OfflineMetrics:
                 )
                 cur_recs = novelty_metric._get_enriched_recommendations(
                     unchanged_recs, train
-                ).withColumnRenamed("ground_truth", "train")
+                )
+                if is_spark:
+                    cur_recs = cur_recs.withColumnRenamed("ground_truth", "train")
+                else:
+                    cur_recs = cur_recs.rename({"ground_truth": "train"})
                 cur_recs = metric._rearrange_columns(cur_recs)
                 result_dict["Novelty"] = cur_recs
 
@@ -269,8 +277,9 @@ class OfflineMetrics:
 
     def _calculate_metrics(
         self,
-        enriched_recs_dict: Dict[str, SparkDataFrame],
-        train: Optional[SparkDataFrame] = None,
+        enriched_recs_dict: Dict[str, Union[SparkDataFrame, PolarsDataFrame]],
+        train: Optional[Union[SparkDataFrame, PolarsDataFrame]] = None,
+        is_spark: bool = True,
     ) -> MetricsReturnType:
         result: Dict = {}
         for metric in self.metrics:
@@ -286,7 +295,10 @@ class OfflineMetrics:
                 metric_args["recs"] = enriched_recs_dict["default"]
 
             # pylint: disable=protected-access
-            result.update(metric._spark_compute(**metric_args))
+            if is_spark:
+                result.update(metric._spark_compute(**metric_args))
+            else:
+                result.update(metric._polars_compute(**metric_args))
         return result
 
     # pylint: disable=no-self-use
@@ -334,7 +346,7 @@ class OfflineMetrics:
         """
         if isinstance(dataset, SparkDataFrame):
             dataset_names = dataset.schema.names
-        elif isinstance(dataset, PandasDataFrame):
+        elif isinstance(dataset, (PandasDataFrame, PolarsDataFrame)):
             dataset_names = dataset.columns
 
         if not isinstance(dataset, dict) and query_column not in dataset_names:
@@ -357,6 +369,8 @@ class OfflineMetrics:
             return set(dataset.select(query_column).distinct().toPandas()[query_column])
         elif isinstance(dataset, PandasDataFrame):
             return set(dataset[query_column].unique())
+        elif isinstance(dataset, PolarsDataFrame):
+            return set(dataset.select(query_column).unique().to_series())
         else:
             return set(dataset.keys())
 
@@ -372,7 +386,7 @@ class OfflineMetrics:
         if queries.issubset(other_queries) is False:
             warnings.warn(f"{dataset_name} contains queries that are not presented in recommendations")
 
-    def __call__(  # pylint: disable=too-many-branches, too-many-locals
+    def __call__(  # pylint: disable=too-many-branches, too-many-locals, too-many-statements
         self,
         recommendations: MetricsDataFrameLike,
         ground_truth: MetricsDataFrameLike,
@@ -384,17 +398,21 @@ class OfflineMetrics:
         """
         Compute metrics.
 
-        :param recommendations: (PySpark DataFrame or Pandas DataFrame or dict): model predictions.
+        :param recommendations: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+            model predictions.
             If DataFrame then it must contains user, item and score columns.
             If dict then key represents user_ids, value represents list of tuple(item_id, score).
-        :param ground_truth: (PySpark DataFrame or Pandas DataFrame or dict): test data.
+        :param ground_truth: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+            test data.
             If DataFrame then it must contains user and item columns.
             If dict then key represents user_ids, value represents list of item_ids.
-        :param train: (PySpark DataFrame or Pandas DataFrame or dict, optional): train data.
+        :param train: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict, optional):
+            train data.
             If DataFrame then it must contains user and item columns.
             If dict then key represents user_ids, value represents list of item_ids.
             Default: ``None``.
-        :param base_recommendations: (PySpark DataFrame or Pandas DataFrame or dict or Dict[str, DataFrameLike]):
+        :param base_recommendations: (PySpark DataFrame or Polars DataFrame or
+            Pandas DataFrame or dict or Dict[str, DataFrameLike]):
             predictions from baseline model.
             If DataFrame then it must contains user, item and score columns.
             If dict then key represents user_ids, value represents list of tuple(item_id, score).
@@ -443,17 +461,18 @@ class OfflineMetrics:
                 )
 
         result = {}
-        if isinstance(recommendations, SparkDataFrame):
-            assert isinstance(ground_truth, SparkDataFrame)
-            assert train is None or isinstance(train, SparkDataFrame)
+        if isinstance(recommendations, (SparkDataFrame, PolarsDataFrame)):
+            is_spark = isinstance(recommendations, SparkDataFrame)
+            assert isinstance(ground_truth, type(recommendations))
+            assert train is None or isinstance(train, type(recommendations))
             enriched_recs_dict, train = self._get_enriched_recommendations(
                 recommendations, ground_truth, train
             )
 
-            if self._allow_caching:
+            if is_spark and self._allow_caching:
                 self._cache_dataframes(enriched_recs_dict)
-            result.update(self._calculate_metrics(enriched_recs_dict, train))
-            if self._allow_caching:
+            result.update(self._calculate_metrics(enriched_recs_dict, train, is_spark))
+            if is_spark and self._allow_caching:
                 self._unpersist_dataframes(enriched_recs_dict)
         else:  # Calculating metrics in dict format
             current_map: Dict[str, Union[PandasDataFrame, Dict]] = {

@@ -118,14 +118,17 @@ class Experiment:
     ):
         """
         :param metrics: (list of metrics): List of metrics to be calculated.
-        :param ground_truth: (PySpark DataFrame or Pandas DataFrame or dict): test data.
+        :param ground_truth: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+            test data.
             If DataFrame then it must contains user and item columns.
             If dict then key represents user_ids, value represents list of item_ids.
-        :param train: (PySpark DataFrame or Pandas DataFrame or dict, optional): train data.
+        :param train: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict, optional):
+            train data.
             If DataFrame then it must contains user and item columns.
             If dict then key represents user_ids, value represents list of item_ids.
             Default: ``None``.
-        :param base_recommendations: (PySpark DataFrame or Pandas DataFrame or dict or Dict[str, DataFrameLike]):
+        :param base_recommendations: (PySpark DataFrame or Polars DataFrame or
+            Pandas DataFrame or dict or Dict[str, DataFrameLike]):
             predictions from baseline model.
             If DataFrame then it must contains user, item and score columns.
             If dict then key represents user_ids, value represents list of tuple(item_id, score).
@@ -168,7 +171,8 @@ class Experiment:
         Calculate metrics for predictions
 
         :param name: name of the run to store in the resulting DataFrame
-        :param recommendations: (PySpark DataFrame or Pandas DataFrame or dict): model predictions.
+        :param recommendations: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+            model predictions.
             If DataFrame then it must contains user, item and score columns.
             If dict then key represents user_ids, value represents list of tuple(item_id, score).
         """

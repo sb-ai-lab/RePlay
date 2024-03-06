@@ -2,8 +2,9 @@ from collections import defaultdict
 from typing import Dict, List, Union
 
 import numpy as np
+import polars as pl
 
-from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame, PolarsDataFrame
 
 from .base_metric import (
     Metric,
@@ -87,7 +88,8 @@ class CategoricalDiversity(Metric):
         """
         Compute metric.
 
-        :param recommendations: (PySpark DataFrame or Pandas DataFrame or dict): model predictions.
+        :param recommendations: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+            model predictions.
             If DataFrame then it must contains user, category and score columns.
             If dict then key represents user_ids, value represents list of tuple(category, score).
 
@@ -95,6 +97,8 @@ class CategoricalDiversity(Metric):
         """
         if isinstance(recommendations, SparkDataFrame):
             return self._spark_call(recommendations)
+        if isinstance(recommendations, PolarsDataFrame):
+            return self._polars_call(recommendations)
         is_pandas = isinstance(recommendations, PandasDataFrame)
         recommendations = (
             self._convert_pandas_to_dict_with_score(recommendations)
@@ -106,6 +110,15 @@ class CategoricalDiversity(Metric):
 
     # pylint: disable=arguments-differ
     def _get_enriched_recommendations(
+        self, recommendations: Union[PolarsDataFrame, SparkDataFrame],
+    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+        if isinstance(recommendations, SparkDataFrame):
+            return self._get_enriched_recommendations_spark(recommendations)
+        else:
+            return self._get_enriched_recommendations_polars(recommendations)
+
+    # pylint: disable=arguments-differ
+    def _get_enriched_recommendations_spark(
         self, recommendations: SparkDataFrame
     ) -> SparkDataFrame:
         window = Window.partitionBy(self.query_column).orderBy(
@@ -113,6 +126,20 @@ class CategoricalDiversity(Metric):
         )
         sorted_by_score_recommendations = recommendations.withColumn(
             "rank", F.row_number().over(window)
+        )
+        return sorted_by_score_recommendations
+
+    # pylint: disable=arguments-differ
+    def _get_enriched_recommendations_polars(
+        self, recommendations: PolarsDataFrame
+    ) -> PolarsDataFrame:
+        sorted_by_score_recommendations = recommendations.select(
+            pl.all().sort_by(self.rating_column, descending=True).over(self.query_column)
+        )
+        sorted_by_score_recommendations = sorted_by_score_recommendations.with_columns(
+            sorted_by_score_recommendations.select(
+                pl.col(self.query_column).cum_count().over(self.query_column).alias("rank")
+            )
         )
         return sorted_by_score_recommendations
 
@@ -130,6 +157,20 @@ class CategoricalDiversity(Metric):
                 distribution_per_user[user].append(metric / k)
         return self._aggregate_results_per_user(dict(distribution_per_user))
 
+    def _polars_compute_per_user(self, recs: PolarsDataFrame) -> MetricsPerUserReturnType:
+        distribution_per_user = defaultdict(list)
+        for k in self.topk:
+            filtered_recs = recs.filter(pl.col("rank") <= k)
+            aggreagated_by_user = filtered_recs.group_by(self.query_column).agg(
+                pl.col(self.category_column).n_unique()
+            )
+            aggreagated_by_user_dict = (
+                dict(aggreagated_by_user.iter_rows())
+            )  # type:ignore
+            for user, metric in aggreagated_by_user_dict.items():
+                distribution_per_user[user].append(metric / k)
+        return self._aggregate_results_per_user(dict(distribution_per_user))
+
     def _spark_compute_agg(self, recs: SparkDataFrame) -> MetricsMeanReturnType:
         metrics = []
         for k in self.topk:
@@ -142,6 +183,18 @@ class CategoricalDiversity(Metric):
             metrics.append(self._mode.spark(aggregated_by_user) / k)
         return self._aggregate_results(metrics)
 
+    def _polars_compute_agg(self, recs: PolarsDataFrame) -> MetricsMeanReturnType:
+        metrics = []
+        for k in self.topk:
+            filtered_recs = recs.filter(pl.col("rank") <= k)
+            aggregated_by_user = (
+                filtered_recs.group_by(self.query_column)
+                .agg(pl.col(self.category_column).n_unique())
+                .drop(self.query_column)
+            )
+            metrics.append(self._mode.cpu(aggregated_by_user) / k)
+        return self._aggregate_results(metrics)
+
     # pylint: disable=arguments-differ
     def _spark_call(self, recommendations: SparkDataFrame) -> MetricsReturnType:
         """
@@ -151,6 +204,16 @@ class CategoricalDiversity(Metric):
         if self._mode.__name__ == "PerUser":
             return self._spark_compute_per_user(recs)
         return self._spark_compute_agg(recs)
+
+    # pylint: disable=arguments-differ
+    def _polars_call(self, recommendations: PolarsDataFrame) -> MetricsReturnType:
+        """
+        Implementation for Polars DataFrame.
+        """
+        recs = self._get_enriched_recommendations(recommendations)
+        if self._mode.__name__ == "PerUser":
+            return self._polars_compute_per_user(recs)
+        return self._polars_compute_agg(recs)
 
     def _convert_pandas_to_dict_with_score(self, data: PandasDataFrame) -> Dict:
         return (

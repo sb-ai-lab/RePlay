@@ -2,6 +2,7 @@ import random
 import string
 
 import pandas as pd
+import polars as pl
 import pytest
 from pytest import approx
 
@@ -26,7 +27,7 @@ from replay.metrics import (
     Experiment,
 )
 from replay.metrics.base_metric import MetricDuplicatesWarning
-from replay.utils import DataFrameLike, PandasDataFrame, SparkDataFrame
+from replay.utils import DataFrameLike, PandasDataFrame, SparkDataFrame, PolarsDataFrame
 
 ABS = 1e-5
 QUERY_COLUMN = "uid"
@@ -120,6 +121,7 @@ def test_metric_with_different_column_names(
     [
         pytest.param("predict_spark", "gt_spark", marks=pytest.mark.spark),
         pytest.param("predict_pd", "gt_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", "gt_pl", marks=pytest.mark.core),
         pytest.param("predict_sorted_dict", "gt_dict", marks=pytest.mark.core),
         pytest.param("predict_unsorted_dict", "gt_dict", marks=pytest.mark.core),
     ],
@@ -147,6 +149,7 @@ def test_metric(metric, topk, answer, predict_data, gt_data, per_user, request):
     "predict_data",
     [
         pytest.param("predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", marks=pytest.mark.core),
         pytest.param("predict_spark", marks=pytest.mark.spark),
     ],
 )
@@ -157,6 +160,8 @@ def test_diversity_metric(topk, answer, predict_data, per_user, request):
     def rename_cols(data: DataFrameLike, map):
         if isinstance(data, PandasDataFrame):
             return data.rename(columns=map)
+        if isinstance(data, PolarsDataFrame):
+            return data.rename(map)
         for _from, _to in map.items():
             data = data.withColumnRenamed(_from, _to)
         return data
@@ -179,6 +184,7 @@ def test_diversity_metric(topk, answer, predict_data, per_user, request):
     "predict_data",
     [
         pytest.param("predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", marks=pytest.mark.core),
         pytest.param("predict_spark", marks=pytest.mark.spark),
     ],
 )
@@ -192,12 +198,20 @@ def test_coverage_metric(topk, answer, predict_data, request):
     "topk, answer, base_recs, recs",
     [
         pytest.param(5, [0.133333], "predict_pd", "predict_pd", marks=pytest.mark.core),
+        pytest.param(5, [0.133333], "predict_pl", "predict_pl", marks=pytest.mark.core),
         pytest.param(5, [0.133333], "predict_spark", "predict_spark", marks=pytest.mark.spark),
         pytest.param(
             [3, 5],
             [0.111111111, 0.133333],
             "base_recs_pd",
             "predict_pd",
+            marks=pytest.mark.core,
+        ),
+        pytest.param(
+            [3, 5],
+            [0.111111111, 0.133333],
+            "base_recs_pl",
+            "predict_pl",
             marks=pytest.mark.core,
         ),
         pytest.param(
@@ -226,6 +240,7 @@ def test_unexpectedness(topk, answer, base_recs, recs, request):
     "predict_data, gt_data",
     [
         pytest.param("predict_pd", "gt_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", "gt_pl", marks=pytest.mark.core),
         pytest.param("predict_spark", "gt_spark", marks=pytest.mark.spark),
     ],
 )
@@ -244,6 +259,7 @@ def test_recall(topk, answer, predict_data, gt_data, request):
     "predict_data, gt_data",
     [
         pytest.param("predict_pd", "gt_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", "gt_pl", marks=pytest.mark.core),
         pytest.param("predict_spark", "gt_spark", marks=pytest.mark.spark),
     ],
 )
@@ -258,8 +274,10 @@ def test_precision(topk, answer, predict_data, gt_data, request):
     "topk, answer, recs, train",
     [
         pytest.param([3, 5], [0, 0], "predict_pd", "predict_pd", marks=pytest.mark.core),
+        pytest.param([3, 5], [0, 0], "predict_pl", "predict_pl", marks=pytest.mark.core),
         pytest.param([3, 5], [0, 0], "predict_spark", "predict_spark", marks=pytest.mark.spark),
         pytest.param([3, 5], [0.444444, 0.577777], "predict_pd", "gt_pd", marks=pytest.mark.core),
+        pytest.param([3, 5], [0.444444, 0.577777], "predict_pl", "gt_pl", marks=pytest.mark.core),
         pytest.param(
             [3, 5], [0.444444, 0.577777], "predict_spark", "gt_spark", marks=pytest.mark.spark
         ),
@@ -279,6 +297,9 @@ def test_novelty(topk, answer, recs, train, request):
             [3, 5], [0.78969, 0.614294], "predict_pd", "predict_pd", marks=pytest.mark.core
         ),
         pytest.param(
+            [3, 5], [0.78969, 0.614294], "predict_pl", "predict_pl", marks=pytest.mark.core
+        ),
+        pytest.param(
             [3, 5],
             [0.78969, 0.614294],
             "predict_spark",
@@ -287,6 +308,9 @@ def test_novelty(topk, answer, recs, train, request):
         ),
         pytest.param(
             [3, 5], [0.719586, 0.698418], "predict_pd", "gt_pd", marks=pytest.mark.core
+        ),
+        pytest.param(
+            [3, 5], [0.719586, 0.698418], "predict_pl", "gt_pl", marks=pytest.mark.core
         ),
         pytest.param(
             [3, 5],
@@ -341,6 +365,7 @@ def test_surprisal(topk, answer, recs, train, request):
             "predict_spark", "gt_spark", "predict_spark", marks=pytest.mark.spark
         ),
         pytest.param("predict_pd", "gt_pd", "predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", "gt_pl", "predict_pl", marks=pytest.mark.core),
         pytest.param(
             "predict_sorted_dict", "gt_dict", "fake_train_dict", marks=pytest.mark.core
         ),
@@ -370,6 +395,7 @@ def test_offline_metrics_types_raises(request):
             "predict_spark", "gt_spark", "predict_spark", marks=pytest.mark.spark
         ),
         pytest.param("predict_pd", "gt_pd", "predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", "gt_pl", "predict_pl", marks=pytest.mark.core),
         pytest.param("predict_fake_query_pd", "gt_pd", "predict_pd", marks=pytest.mark.core),
     ],
 )
@@ -425,6 +451,7 @@ def test_offline_metrics_diversity_metric_only_works(predict_pd, gt_pd):
             "predict_spark", "gt_spark", "base_recs_spark", marks=pytest.mark.spark
         ),
         pytest.param("predict_pd", "gt_pd", "base_recs_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", "gt_pl", "base_recs_pl", marks=pytest.mark.core),
         pytest.param(
             "predict_sorted_dict", "gt_dict", "base_recs_dict", marks=pytest.mark.core
         ),
@@ -475,6 +502,7 @@ def test_offline_metrics_unexpectedness_and_diversity(
             "predict_spark", "gt_spark", "base_recs_spark", marks=pytest.mark.spark
         ),
         pytest.param("predict_pd", "gt_pd", "base_recs_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", "gt_pl", "base_recs_pl", marks=pytest.mark.core),
         pytest.param(
             "predict_sorted_dict", "gt_dict", "base_recs_dict", marks=pytest.mark.core
         ),
@@ -518,10 +546,16 @@ def test_offline_metrics_unexpectedness_different_base_recs(
     [
         pytest.param("predict_spark", "gt_pd", marks=pytest.mark.spark),
         pytest.param("predict_spark", "gt_dict", marks=pytest.mark.spark),
+        pytest.param("predict_spark", "gt_pl", marks=pytest.mark.spark),
         pytest.param("predict_pd", "gt_spark", marks=pytest.mark.spark),
         pytest.param("predict_pd", "gt_dict", marks=pytest.mark.core),
+        pytest.param("predict_pd", "gt_pl", marks=pytest.mark.core),
+        pytest.param("predict_pl", "gt_spark", marks=pytest.mark.spark),
+        pytest.param("predict_pl", "gt_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", "gt_dict", marks=pytest.mark.core),
         pytest.param("predict_sorted_dict", "gt_spark", marks=pytest.mark.spark),
         pytest.param("predict_sorted_dict", "gt_pd", marks=pytest.mark.core),
+        pytest.param("predict_sorted_dict", "gt_pl", marks=pytest.mark.core),
     ],
 )
 def test_check_types(metric, predict_data, gt_data, request):
@@ -546,6 +580,7 @@ def test_topk_instance(metric, topk):
     "predict_data",
     [
         pytest.param("predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", marks=pytest.mark.core),
         pytest.param("predict_spark", marks=pytest.mark.spark),
     ],
 )
@@ -581,6 +616,7 @@ def test_metric_value_by_user(metric, answer_inter, answer_none, answer_non_inte
     "predict_data",
     [
         pytest.param("predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", marks=pytest.mark.core),
         pytest.param("predict_spark", marks=pytest.mark.spark),
     ],
 )
@@ -588,6 +624,8 @@ def test_duplicates_warning(predict_data, request):
     predict_data = request.getfixturevalue(predict_data)
     if isinstance(predict_data, SparkDataFrame):
         df_duplicated = predict_data.union(predict_data)
+    elif isinstance(predict_data, PolarsDataFrame):
+        df_duplicated = pl.concat([predict_data, predict_data])
     else:
         df_duplicated = pd.concat([predict_data, predict_data])
 
@@ -608,6 +646,7 @@ def test_duplicates_warning(predict_data, request):
     "predict_data",
     [
         pytest.param("predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", marks=pytest.mark.core),
         pytest.param("predict_spark", marks=pytest.mark.spark),
     ],
 )
@@ -621,6 +660,7 @@ def test_descriptors(descriptor, answer, predict_data, request):
     "predict_data",
     [
         pytest.param("predict_pd", marks=pytest.mark.core),
+        pytest.param("predict_pl", marks=pytest.mark.core),
         pytest.param("predict_spark", marks=pytest.mark.spark),
     ],
 )
