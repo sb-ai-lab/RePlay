@@ -397,7 +397,7 @@ def metrics_to_df(metrics: Mapping[str, float]) -> PandasDataFrame:
 
     metric_name_and_k = metrics_df["m"].str.split("@", expand=True)
     metrics_df["metric"] = metric_name_and_k[0]
-    metrics_df["k"] = [int(k) for k in metric_name_and_k[1]]
+    metrics_df["k"] = metric_name_and_k[1]
 
     pivoted_metrics = metrics_df.pivot(index="metric", columns="k", values="v")
     pivoted_metrics.index.name = None
