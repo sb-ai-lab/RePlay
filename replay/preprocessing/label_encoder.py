@@ -6,9 +6,17 @@ Contains classes for encoding categorical data
 ``LabelEncoder`` to apply multiple LabelEncodingRule to dataframe.
 """
 import abc
+import polars as pl
 from typing import Dict, List, Literal, Mapping, Optional, Sequence, Union
 
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame, get_spark_session
+from replay.utils import (
+    PYSPARK_AVAILABLE,
+    DataFrameLike,
+    PandasDataFrame,
+    PolarsDataFrame,
+    SparkDataFrame,
+    get_spark_session,
+)
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -169,6 +177,10 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         unique_col_values = df[self._col].drop_duplicates().reset_index(drop=True)
         self._mapping = {val: key for key, val in unique_col_values.to_dict().items()}
 
+    def _fit_polars(self, df: PolarsDataFrame) -> None:
+        unique_col_values = df.select(self._col).unique()
+        self._mapping = {key: val for val, key in enumerate(unique_col_values.to_series().to_list())}
+
     def fit(self, df: DataFrameLike) -> "LabelEncodingRule":
         """
         Fits encoder to input dataframe.
@@ -181,8 +193,12 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
         if isinstance(df, PandasDataFrame):
             self._fit_pandas(df)
-        else:
+        elif isinstance(df, SparkDataFrame):
             self._fit_spark(df)
+        elif isinstance(df, PolarsDataFrame):
+            self._fit_polars(df)
+        else:
+            raise NotImplementedError(f"{self.__class__.__name__} is not implemented for {type(df)}")
         self._inverse_mapping = self._make_inverse_mapping()
         self._inverse_mapping_list = self._make_inverse_mapping_list()
         if self._handle_unknown == "use_default_value":
@@ -234,6 +250,15 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         self._inverse_mapping.update({v: k for k, v in new_data.items()})  # type: ignore
         self._inverse_mapping_list.extend(new_data.keys())
 
+    def _partial_fit_polars(self, df: PolarsDataFrame) -> None:
+        assert self._mapping is not None
+
+        new_unique_values = set(df.select(self._col).unique().to_series().to_list()) - set(self._mapping)
+        new_data: dict = {value: max(self._mapping.values()) + i for i, value in enumerate(new_unique_values, start=1)}
+        self._mapping.update(new_data)  # type: ignore
+        self._inverse_mapping.update({v: k for k, v in new_data.items()})  # type: ignore
+        self._inverse_mapping_list.extend(new_data.keys())
+
     def partial_fit(self, df: DataFrameLike) -> "LabelEncodingRule":
         """
         Fits new data to already fitted encoder.
@@ -246,8 +271,12 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
         if isinstance(df, SparkDataFrame):
             self._partial_fit_spark(df)
-        else:
+        elif isinstance(df, PandasDataFrame):
             self._partial_fit_pandas(df)
+        elif isinstance(df, PolarsDataFrame):
+            self._partial_fit_polars(df)
+        else:
+            raise NotImplementedError(f"{self.__class__.__name__} is not implemented for {type(df)}")
 
         self._is_fitted = True
         return self
@@ -267,7 +296,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             mapping_df = PandasDataFrame(self.get_mapping().items(), columns=[self._col, self._target_col])
             joined_df = df.merge(mapping_df, how="left", on=self._col)
             unknown_mask = joined_df[self._target_col].isna()
-            joined_df[self._target_col][unknown_mask] = -1
+            joined_df.loc[unknown_mask, self._target_col] = -1
             is_unknown_label |= unknown_mask.sum() > 0
 
         if is_unknown_label and default_value != -1:
@@ -304,6 +333,26 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         result_df = transformed_df.drop(self._col, "unknown_mask").withColumnRenamed(self._target_col, self._col)
         return result_df
 
+    def _transform_polars(self, df: PolarsDataFrame, default_value: Optional[int]) -> SparkDataFrame:
+        mapping_on_polars = pl.from_records(
+            [list(self.get_mapping().keys()), list(self.get_mapping().values())],
+            schema=[self._col, self._target_col],
+        )
+        transformed_df = df.join(mapping_on_polars, on=self._col, how="left").with_columns(
+            pl.col(self._target_col).is_null().alias("unknown_mask")
+        )
+        unknown_df = transformed_df.filter(pl.col("unknown_mask"))
+        if not unknown_df.is_empty():
+            if self._handle_unknown == "error":
+                unique_labels = unknown_df.select(self._col).unique().to_series().to_list()
+                msg = f"Found unknown labels {unique_labels} in column {self._col} during transform"
+                raise ValueError(msg)
+            if default_value:
+                transformed_df = transformed_df.with_columns(pl.col(self._target_col).fill_null(default_value))
+
+        result_df = transformed_df.drop([self._col, "unknown_mask"]).rename({self._target_col: self._col})
+        return result_df
+
     def transform(self, df: DataFrameLike) -> DataFrameLike:
         """
         Transforms input dataframe with fitted encoder.
@@ -318,8 +367,12 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
         if isinstance(df, PandasDataFrame):
             transformed_df = self._transform_pandas(df, default_value)  # type: ignore
-        else:
+        elif isinstance(df, SparkDataFrame):
             transformed_df = self._transform_spark(df, default_value)  # type: ignore
+        elif isinstance(df, PolarsDataFrame):
+            transformed_df = self._transform_polars(df, default_value)  # type: ignore
+        else:
+            raise NotImplementedError(f"{self.__class__.__name__} is not implemented for {type(df)}")
         return transformed_df
 
     def _inverse_transform_pandas(self, df: PandasDataFrame) -> PandasDataFrame:
@@ -338,6 +391,18 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         )
         return transformed_df
 
+    def _inverse_transform_polars(self, df: PolarsDataFrame) -> PolarsDataFrame:
+        mapping_on_polars = pl.from_records(
+            [list(self.get_mapping().keys()), list(self.get_mapping().values())],
+            schema=[self._col, self._target_col],
+        )
+        transformed_df = (
+            df.rename({self._col: self._target_col})
+            .join(mapping_on_polars, on=self._target_col, how="left")
+            .drop(self._target_col)
+        )
+        return transformed_df
+
     def inverse_transform(self, df: DataFrameLike) -> DataFrameLike:
         """
         Reverse transform of transformed dataframe.
@@ -350,8 +415,12 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
         if isinstance(df, PandasDataFrame):
             transformed_df = self._inverse_transform_pandas(df)
-        else:
+        elif isinstance(df, SparkDataFrame):
             transformed_df = self._inverse_transform_spark(df)
+        elif isinstance(df, PolarsDataFrame):
+            transformed_df = self._inverse_transform_polars(df)
+        else:
+            raise NotImplementedError(f"{self.__class__.__name__} is not implemented for {type(df)}")
         return transformed_df
 
     def set_default_value(self, default_value: Optional[Union[int, str]]) -> None:

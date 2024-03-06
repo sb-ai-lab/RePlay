@@ -2,6 +2,7 @@ from typing import List
 
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 
 from replay.splitters import LastNSplitter
@@ -18,6 +19,10 @@ def _get_column_list(data, column: str) -> List[List]:
 
 def _get_column_list_pandas(data, column: str) -> List[List]:
     return [dataframe[column].tolist() for dataframe in data]
+
+
+def _get_column_list_polars(data, column: str) -> List[List]:
+    return [dataframe[column].to_list() for dataframe in data]
 
 
 def _check_assert(user_ids, item_ids, user_answer, item_answer):
@@ -79,6 +84,16 @@ def pandas_dataframe_test():
     return dataframe
 
 
+@pytest.fixture(scope="module")
+def polars_dataframe_test(pandas_dataframe_test):
+    return pl.from_pandas(pandas_dataframe_test)
+
+
+@pytest.fixture(scope="module")
+def dataframe_not_implemented(pandas_dataframe_test):
+    return pandas_dataframe_test.to_numpy()
+
+
 @pytest.mark.parametrize("strategy", ["interacitons", "INTERACTIONS", "interaction", "second"])
 def test_lastnsplitter_wrong_strategy(strategy):
     with pytest.raises(ValueError):
@@ -100,6 +115,7 @@ def test_lastnsplitter_wrong_strategy(strategy):
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_interactions_splitter_without_drops(n, user_answer, item_answer, dataset_type, request):
@@ -117,6 +133,9 @@ def test_last_n_interactions_splitter_without_drops(n, user_answer, item_answer,
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -139,6 +158,7 @@ def test_last_n_interactions_splitter_without_drops(n, user_answer, item_answer,
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_interactions_splitter_drop_users(n, user_answer, item_answer, dataset_type, request):
@@ -156,6 +176,9 @@ def test_last_n_interactions_splitter_drop_users(n, user_answer, item_answer, da
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -183,6 +206,7 @@ def test_last_n_interactions_splitter_drop_users(n, user_answer, item_answer, da
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_interactions_splitter_drop_items(n, user_answer, item_answer, dataset_type, request):
@@ -200,6 +224,9 @@ def test_last_n_interactions_splitter_drop_items(n, user_answer, item_answer, da
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -222,6 +249,7 @@ def test_last_n_interactions_splitter_drop_items(n, user_answer, item_answer, da
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_interactions_splitter_drop_both(n, user_answer, item_answer, dataset_type, request):
@@ -239,6 +267,9 @@ def test_last_n_interactions_splitter_drop_both(n, user_answer, item_answer, dat
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -261,6 +292,7 @@ def test_last_n_interactions_splitter_drop_both(n, user_answer, item_answer, dat
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 @pytest.mark.parametrize("to_unix_timestamp", [False, True])
@@ -287,6 +319,9 @@ def test_last_n_seconds_splitter_without_drops(
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -309,6 +344,7 @@ def test_last_n_seconds_splitter_without_drops(
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_seconds_splitter_drop_users(seconds, user_answer, item_answer, dataset_type, request):
@@ -327,6 +363,9 @@ def test_last_n_seconds_splitter_drop_users(seconds, user_answer, item_answer, d
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -349,6 +388,7 @@ def test_last_n_seconds_splitter_drop_users(seconds, user_answer, item_answer, d
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_seconds_splitter_drop_items(seconds, user_answer, item_answer, dataset_type, request):
@@ -367,6 +407,9 @@ def test_last_n_seconds_splitter_drop_items(seconds, user_answer, item_answer, d
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -389,6 +432,7 @@ def test_last_n_seconds_splitter_drop_items(seconds, user_answer, item_answer, d
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_seconds_splitter_drop_both(seconds, user_answer, item_answer, dataset_type, request):
@@ -407,6 +451,9 @@ def test_last_n_seconds_splitter_drop_both(seconds, user_answer, item_answer, da
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -436,6 +483,7 @@ def test_last_n_seconds_splitter_drop_both(seconds, user_answer, item_answer, da
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_interactions_splitter_without_drops_with_sessions(
@@ -457,6 +505,9 @@ def test_last_n_interactions_splitter_without_drops_with_sessions(
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -486,6 +537,7 @@ def test_last_n_interactions_splitter_without_drops_with_sessions(
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_last_n_seconds_splitter_without_drops_with_sessions(
@@ -508,6 +560,9 @@ def test_last_n_seconds_splitter_without_drops_with_sessions(
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -520,6 +575,7 @@ def test_last_n_seconds_splitter_without_drops_with_sessions(
     [
         pytest.param("spark_dataframe_test", "bigint", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", np.dtype("int64"), marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", pl.Int64, marks=pytest.mark.core),
     ],
 )
 def test_last_n_seconds_to_unix_timestamp(dataset_type, result_type, request):
@@ -537,9 +593,13 @@ def test_last_n_seconds_to_unix_timestamp(dataset_type, result_type, request):
         session_id_column="session_id",
     )._to_unix_timestamp(dataframe)
 
-    assert dict(dataframe_splitted.dtypes)["timestamp"] == result_type
+    if dataset_type == "spark_dataframe_test":
+        assert dict(dataframe_splitted.dtypes)["timestamp"] == result_type
+    else:
+        assert dataframe_splitted["timestamp"].dtype == result_type
 
 
+@pytest.mark.core
 def test_invalid_unix_timestamp(pandas_dataframe_test):
     pandas_dataframe_test_formated_time = LastNSplitter(
         N=86400,
@@ -553,12 +613,22 @@ def test_invalid_unix_timestamp(pandas_dataframe_test):
         session_id_column="session_id",
     )._to_unix_timestamp(pandas_dataframe_test)
 
-    assert dict(pandas_dataframe_test_formated_time.dtypes)["timestamp"] == np.dtype("<M8[ns]")
+    assert pandas_dataframe_test_formated_time["timestamp"].dtype == np.dtype("<M8[ns]")
 
 
+@pytest.mark.core
 def test_original_dataframe_not_change(pandas_dataframe_test):
     original_dataframe = pandas_dataframe_test.copy(deep=True)
 
     LastNSplitter(5, divide_column="user_id", query_column="user_id").split(original_dataframe)
 
     assert original_dataframe.equals(pandas_dataframe_test)
+
+
+@pytest.mark.core
+def test_not_implemented_dataframe(dataframe_not_implemented):
+    with pytest.raises(NotImplementedError):
+        LastNSplitter(5).split(dataframe_not_implemented)
+
+    with pytest.raises(NotImplementedError):
+        LastNSplitter(5, strategy="timedelta").split(dataframe_not_implemented)

@@ -1,6 +1,7 @@
 from typing import Iterable, Union
 
 from pandas import DataFrame as PandasDataFrame
+from polars import DataFrame as PolarsDataFrame
 
 
 # pylint: disable=too-few-public-methods
@@ -26,6 +27,6 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 
-DataFrameLike = Union[PandasDataFrame, SparkDataFrame]
+DataFrameLike = Union[PandasDataFrame, SparkDataFrame, PolarsDataFrame]
 IntOrList = Union[Iterable[int], int]
 NumType = Union[int, float]

@@ -2,9 +2,10 @@ from typing import List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+import polars as pl
 
 from .base_splitter import Splitter
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
@@ -166,8 +167,12 @@ class LastNSplitter(Splitter):
     def _add_time_partition(self, interactions: DataFrameLike) -> DataFrameLike:
         if isinstance(interactions, SparkDataFrame):
             return self._add_time_partition_to_spark(interactions)
+        if isinstance(interactions, PandasDataFrame):
+            return self._add_time_partition_to_pandas(interactions)
+        if isinstance(interactions, PolarsDataFrame):
+            return self._add_time_partition_to_polars(interactions)
 
-        return self._add_time_partition_to_pandas(interactions)
+        raise NotImplementedError(f"{self} is not implemented for {type(interactions)}")
 
     def _add_time_partition_to_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
         res = interactions.copy(deep=True)
@@ -184,11 +189,23 @@ class LastNSplitter(Splitter):
 
         return res
 
+    def _add_time_partition_to_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        res = interactions.sort(self.timestamp_column).with_columns(
+            pl.col(self.divide_column).cumcount().over(pl.col(self.divide_column))
+            .alias("row_num")
+        )
+
+        return res
+
     def _to_unix_timestamp(self, interactions: DataFrameLike) -> DataFrameLike:
         if isinstance(interactions, SparkDataFrame):
             return self._to_unix_timestamp_spark(interactions)
+        if isinstance(interactions, PandasDataFrame):
+            return self._to_unix_timestamp_pandas(interactions)
+        if isinstance(interactions, PolarsDataFrame):
+            return self._to_unix_timestamp_polars(interactions)
 
-        return self._to_unix_timestamp_pandas(interactions)
+        raise NotImplementedError(f"{self} is not implemented for {type(interactions)}")
 
     def _to_unix_timestamp_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
         time_column_type = dict(interactions.dtypes)[self.timestamp_column]
@@ -209,13 +226,22 @@ class LastNSplitter(Splitter):
 
         return interactions
 
+    def _to_unix_timestamp_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        time_column_type = interactions.dtypes[interactions.get_column_index(self.timestamp_column)]
+        if isinstance(time_column_type, pl.Datetime):
+            interactions = interactions.with_columns(pl.col(self.timestamp_column).dt.epoch("s"))
+
+        return interactions
+
     # pylint: disable=invalid-name
     def _partial_split_interactions(self, interactions: DataFrameLike, N: int) -> Tuple[DataFrameLike, DataFrameLike]:
         res = self._add_time_partition(interactions)
         if isinstance(interactions, SparkDataFrame):
             return self._partial_split_interactions_spark(res, N)
-
-        return self._partial_split_interactions_pandas(res, N)
+        if isinstance(interactions, PandasDataFrame):
+            return self._partial_split_interactions_pandas(res, N)
+        else:
+            return self._partial_split_interactions_polars(res, N)
 
     def _partial_split_interactions_pandas(
         self, interactions: PandasDataFrame, N: int
@@ -247,14 +273,35 @@ class LastNSplitter(Splitter):
 
         return train, test
 
+    def _partial_split_interactions_polars(
+        self, interactions: PolarsDataFrame, N: int
+    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+        interactions = interactions.with_columns(
+            pl.col(self.timestamp_column).count().over(self.divide_column)
+            .alias("count")
+        )
+        interactions = interactions.with_columns(
+            (pl.col("row_num") > (pl.col("count") - N))
+            .alias("is_test")
+        )
+        if self.session_id_column:
+            interactions = self._recalculate_with_session_id_column(interactions)
+
+        train = interactions.filter(~pl.col("is_test")).drop("row_num", "count", "is_test")  # pylint: disable=invalid-unary-operand-type
+        test = interactions.filter(pl.col("is_test")).drop("row_num", "count", "is_test")
+
+        return train, test
+
     def _partial_split_timedelta(
         self,
         interactions: DataFrameLike, timedelta: int
     ) -> Tuple[DataFrameLike, DataFrameLike]:
         if isinstance(interactions, SparkDataFrame):
             return self._partial_split_timedelta_spark(interactions, timedelta)
-
-        return self._partial_split_timedelta_pandas(interactions, timedelta)
+        if isinstance(interactions, PandasDataFrame):
+            return self._partial_split_timedelta_pandas(interactions, timedelta)
+        else:
+            return self._partial_split_timedelta_polars(interactions, timedelta)
 
     def _partial_split_timedelta_pandas(
         self, interactions: PandasDataFrame, timedelta: int
@@ -290,6 +337,29 @@ class LastNSplitter(Splitter):
 
         train = res.filter("is_test == 0").drop("diff_timestamp", "is_test")
         test = res.filter("is_test").drop("diff_timestamp", "is_test")
+
+        return train, test
+
+    def _partial_split_timedelta_polars(
+        self, interactions: PolarsDataFrame, timedelta: int
+    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+        res = (
+            interactions
+            .with_columns(
+                (pl.col(self.timestamp_column).max().over(self.divide_column) - pl.col(self.timestamp_column))
+                .alias("diff_timestamp")
+            )
+            .with_columns(
+                (pl.col("diff_timestamp") < timedelta)
+                .alias("is_test")
+            )
+        )
+
+        if self.session_id_column:
+            res = self._recalculate_with_session_id_column(res)
+
+        train = res.filter(~pl.col("is_test")).drop("diff_timestamp", "is_test")  # pylint: disable=invalid-unary-operand-type
+        test = res.filter(pl.col("is_test")).drop("diff_timestamp", "is_test")
 
         return train, test
 
