@@ -142,7 +142,7 @@ class Bert4Rec(L.LightningModule):
         return self._model_predict(batch.features, batch.padding_mask, batch.tokens_mask)
 
     # pylint: disable=unused-argument
-    def validation_step(self, batch: Bert4RecValidationBatch, batch_idx: int) -> torch.Tensor:
+    def validation_step(self, batch: Bert4RecValidationBatch, batch_idx: int, dataloader_idx: int = 0) -> torch.Tensor:
         """
         :param batch: Batch of prediction data.
         :param batch_idx: Batch index.

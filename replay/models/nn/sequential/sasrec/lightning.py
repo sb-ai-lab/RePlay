@@ -131,7 +131,7 @@ class SasRec(L.LightningModule):
         return self._model_predict(batch.features, batch.padding_mask)
 
     # pylint: disable=unused-argument, arguments-differ
-    def validation_step(self, batch: SasRecValidationBatch, batch_idx: int) -> torch.Tensor:
+    def validation_step(self, batch: SasRecValidationBatch, batch_idx: int, dataloader_idx: int = 0) -> torch.Tensor:
         """
         :param batch (SasRecValidationBatch): Batch of prediction data.
         :param batch_idx (int): Batch index.
