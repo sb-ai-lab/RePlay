@@ -3,8 +3,9 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Mapping, Union
 
 import numpy as np
+import polars as pl
 
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame, PolarsDataFrame
 
 from .descriptors import CalculationDescriptor, Mean
 
@@ -99,6 +100,16 @@ class Metric(ABC):
                 self._duplicate_warn()
                 return
 
+    def _check_duplicates_polars(self, recommendations: PolarsDataFrame) -> None:
+        duplicates_count = (
+            recommendations
+            .group_by(self.query_column, self.item_column)
+            .len()
+            .filter(pl.col("len") > 1)
+        )
+        if not duplicates_count.is_empty():
+            self._duplicate_warn()
+
     def __call__(
         self,
         recommendations: MetricsDataFrameLike,
@@ -107,10 +118,11 @@ class Metric(ABC):
         """
         Compute metric.
 
-        :param recommendations: (PySpark DataFrame or Pandas DataFrame or dict): model predictions.
+        :param recommendations: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict): model predictions.
             If DataFrame then it must contains user, item and score columns.
             If dict then key represents user_ids, value represents list of tuple(item_id, score).
-        :param ground_truth: (PySpark DataFrame or Pandas DataFrame or dict): test data.
+        :param ground_truth: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+            test data.
             If DataFrame then it must contains user and item columns.
             If dict then key represents user_ids, value represents list of item_ids.
 
@@ -121,6 +133,10 @@ class Metric(ABC):
             self._check_duplicates_spark(recommendations)
             assert isinstance(ground_truth, SparkDataFrame)
             return self._spark_call(recommendations, ground_truth)
+        if isinstance(recommendations, PolarsDataFrame):
+            self._check_duplicates_polars(recommendations)
+            assert isinstance(ground_truth, PolarsDataFrame)
+            return self._polars_call(recommendations, ground_truth)
         is_pandas = isinstance(recommendations, PandasDataFrame)
         recommendations = (
             self._convert_pandas_to_dict_with_score(recommendations)
@@ -187,7 +203,7 @@ class Metric(ABC):
             metrics.append(self._mode.cpu(distribution[:, k]))
         return self._aggregate_results(metrics)
 
-    def _get_items_list_per_user(
+    def _get_items_list_per_user_spark(
         self, recommendations: SparkDataFrame, extra_column: str = None
     ) -> SparkDataFrame:
         recommendations = recommendations.groupby(self.query_column).agg(
@@ -214,13 +230,55 @@ class Metric(ABC):
         recommendations = recommendations.select(*selection)
         return recommendations
 
-    def _rearrange_columns(self, data: SparkDataFrame) -> SparkDataFrame:
+    def _get_items_list_per_user_polars(
+        self, recommendations: PolarsDataFrame, extra_column: str = None
+    ) -> PolarsDataFrame:
+        selection = [self.query_column, "pred_item_id"]
+        sorting = [self.rating_column, self.item_column]
+        agg = [pl.col(self.item_column)]
+        if extra_column is not None:
+            sorting.append(extra_column)
+            agg.append(pl.col(extra_column))
+            selection.append(extra_column)
+
+        recommendations = (
+            recommendations
+            .sort(sorting, descending=True)
+            .group_by(self.query_column)
+            .agg(*agg)
+            .rename({self.item_column: "pred_item_id"})
+        )
+
+        recommendations = recommendations.select(*selection)
+        return recommendations
+
+    def _get_items_list_per_user(
+        self, recommendations: Union[SparkDataFrame, PolarsDataFrame], extra_column: str = None
+    ) -> Union[SparkDataFrame, PolarsDataFrame]:
+        if isinstance(recommendations, SparkDataFrame):
+            return self._get_items_list_per_user_spark(recommendations, extra_column)
+        else:
+            return self._get_items_list_per_user_polars(recommendations, extra_column)
+
+    def _rearrange_columns(
+        self, data: Union[SparkDataFrame, PolarsDataFrame]
+    ) -> Union[SparkDataFrame, PolarsDataFrame]:
         cols = data.columns
         cols.remove(self.query_column)
         cols = [self.query_column] + sorted(cols)
         return data.select(*cols)
 
     def _get_enriched_recommendations(
+        self,
+        recommendations: Union[PolarsDataFrame, SparkDataFrame],
+        ground_truth: Union[PolarsDataFrame, SparkDataFrame],
+    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+        if isinstance(recommendations, SparkDataFrame):
+            return self._get_enriched_recommendations_spark(recommendations, ground_truth)
+        else:
+            return self._get_enriched_recommendations_polars(recommendations, ground_truth)
+
+    def _get_enriched_recommendations_spark(
         self,
         recommendations: SparkDataFrame,
         ground_truth: SparkDataFrame,
@@ -233,6 +291,25 @@ class Metric(ABC):
 
         enriched_recommendations = sorted_by_score_recommendations.join(
             true_items_by_users, on=self.query_column, how="right"
+        )
+        return self._rearrange_columns(enriched_recommendations)
+
+    def _get_enriched_recommendations_polars(
+        self,
+        recommendations: PolarsDataFrame,
+        ground_truth: PolarsDataFrame,
+    ) -> PolarsDataFrame:
+        true_items_by_users = (
+            ground_truth
+            .group_by(self.query_column)
+            .agg(pl.col(self.item_column))
+            .rename({self.item_column: "ground_truth"})
+        )
+
+        sorted_by_score_recommendations = self._get_items_list_per_user(recommendations)
+
+        enriched_recommendations = true_items_by_users.join(
+            sorted_by_score_recommendations, on=self.query_column, how="left"
         )
         return self._rearrange_columns(enriched_recommendations)
 
@@ -274,6 +351,19 @@ class Metric(ABC):
         ]
         return self._aggregate_results(metrics)
 
+    def _polars_compute(self, recs: PolarsDataFrame) -> MetricsReturnType:
+        distribution = self._get_metric_distribution(recs)
+        if self._mode.__name__ == "PerUser":
+            return self._aggregate_results_per_user(
+                dict(distribution.select(
+                    self.query_column,
+                    value=pl.concat_list(pl.exclude(self.query_column))
+                ).iter_rows())
+            )
+        metrics = [self._mode.cpu(distribution.select(column))
+                   for column in distribution.columns[1:]]
+        return self._aggregate_results(metrics)
+
     def _spark_call(
         self, recommendations: SparkDataFrame, ground_truth: SparkDataFrame
     ) -> MetricsReturnType:
@@ -283,7 +373,24 @@ class Metric(ABC):
         recs = self._get_enriched_recommendations(recommendations, ground_truth)
         return self._spark_compute(recs)
 
-    def _get_metric_distribution(self, recs: SparkDataFrame) -> SparkDataFrame:
+    def _polars_call(
+        self, recommendations: PolarsDataFrame, ground_truth: PolarsDataFrame
+    ) -> MetricsReturnType:
+        """
+        Implementation for Polars DataFrame.
+        """
+        recs = self._get_enriched_recommendations(recommendations, ground_truth)
+        return self._polars_compute(recs)
+
+    def _get_metric_distribution(
+            self, recs: Union[PolarsDataFrame, SparkDataFrame]
+    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+        if isinstance(recs, SparkDataFrame):
+            return self._get_metric_distribution_spark(recs)
+        else:
+            return self._get_metric_distribution_polars(recs)
+
+    def _get_metric_distribution_spark(self, recs: SparkDataFrame) -> SparkDataFrame:
         cur_class = self.__class__
         distribution = recs.rdd.flatMap(  # pragma: no cover, due to incorrect work of coverage tool
             lambda x: [(x[0], cur_class._get_metric_value_by_user(x[-1], *x[1:-1]))]
@@ -291,6 +398,16 @@ class Metric(ABC):
             StructType()
             .add("user_id", recs.schema[self.query_column].dataType.typeName(), False)
             .add("value", ArrayType(DoubleType()), False)
+        )
+        return distribution
+
+    def _get_metric_distribution_polars(self, recs: PolarsDataFrame) -> PolarsDataFrame:
+        cur_class = self.__class__
+        distribution = recs.map_rows(lambda x: (x[0], *cur_class._get_metric_value_by_user(self.topk, *x[1:])))
+        distribution = distribution.rename({"column_0": self.query_column})
+        distribution = distribution.rename(
+            {distribution.columns[x + 1]: f"value_{self.topk[x]}"
+             for x in range(len(self.topk))}
         )
         return distribution
 

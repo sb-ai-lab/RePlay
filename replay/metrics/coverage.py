@@ -1,6 +1,7 @@
 from typing import Dict, List, Union
+import polars as pl
 
-from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame, PolarsDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsMeanReturnType, MetricsReturnType
 
@@ -80,6 +81,16 @@ class Coverage(Metric):
 
     # pylint: disable=arguments-differ
     def _get_enriched_recommendations(
+        self,
+        recommendations: Union[PolarsDataFrame, SparkDataFrame],
+    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+        if isinstance(recommendations, SparkDataFrame):
+            return self._get_enriched_recommendations_spark(recommendations)
+        else:
+            return self._get_enriched_recommendations_polars(recommendations)
+
+    # pylint: disable=arguments-differ
+    def _get_enriched_recommendations_spark(
         self, recommendations: SparkDataFrame
     ) -> SparkDataFrame:
         window = Window.partitionBy(self.query_column).orderBy(
@@ -92,6 +103,26 @@ class Coverage(Metric):
             sorted_by_score_recommendations.select(self.item_column, "rank")
             .groupBy(self.item_column)
             .agg(sf.min("rank").alias("best_position"))
+        )
+        return grouped_recs
+
+    # pylint: disable=arguments-differ
+    def _get_enriched_recommendations_polars(
+        self, recommendations: PolarsDataFrame
+    ) -> PolarsDataFrame:
+        sorted_by_score_recommendations = recommendations.select(
+            pl.all().sort_by(self.rating_column, descending=True).over(self.query_column)
+        )
+        sorted_by_score_recommendations = sorted_by_score_recommendations.with_columns(
+            sorted_by_score_recommendations.select(
+                pl.col(self.query_column).cum_count().over(self.query_column).alias("rank")
+            )
+        )
+        grouped_recs = (
+            sorted_by_score_recommendations
+            .select(self.item_column, "rank")
+            .group_by(self.item_column)
+            .agg(pl.col("rank").min().alias("best_position"))
         )
         return grouped_recs
 
@@ -125,6 +156,28 @@ class Coverage(Metric):
 
         return self._aggregate_results(metrics)
 
+    # pylint: disable=arguments-differ
+    def _polars_compute(
+        self, recs: PolarsDataFrame, train: PolarsDataFrame
+    ) -> MetricsMeanReturnType:
+        """
+        Calculating metrics for Polars DataFrame.
+        """
+        item_count = train.n_unique(self.item_column)
+
+        metrics = []
+        for k in self.topk:
+            res = (
+                recs.filter(pl.col("best_position") <= k)
+                .select(self.item_column)
+                .unique()
+                .join(train.select(self.item_column).unique(), on=self.item_column)
+                .count() / item_count
+            ).rows()[0][0]
+            metrics.append(res)
+
+        return self._aggregate_results(metrics)
+
     # pylint: disable=arguments-renamed
     def _spark_call(
         self, recommendations: SparkDataFrame, train: SparkDataFrame
@@ -134,6 +187,16 @@ class Coverage(Metric):
         """
         recs = self._get_enriched_recommendations(recommendations)
         return self._spark_compute(recs, train)
+
+    # pylint: disable=arguments-renamed
+    def _polars_call(
+        self, recommendations: PolarsDataFrame, train: PolarsDataFrame
+    ) -> MetricsReturnType:
+        """
+        Implementation for Polars DataFrame.
+        """
+        recs = self._get_enriched_recommendations(recommendations)
+        return self._polars_compute(recs, train)
 
     # pylint: disable=arguments-differ
     def _dict_call(self, recommendations: Dict, train: Dict) -> MetricsReturnType:
@@ -160,10 +223,12 @@ class Coverage(Metric):
         """
         Compute metric.
 
-        :param recommendations: (PySpark DataFrame or Pandas DataFrame or dict): model predictions.
+        :param recommendations: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+            model predictions.
             If DataFrame then it must contains user, item and score columns.
             If dict then key represents user_ids, value represents list of tuple(item_id, score).
-        :param train: (PySpark DataFrame or Pandas DataFrame or dict): train data.
+        :param train: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+            train data.
             If DataFrame then it must contains user and item columns.
             If dict then key represents user_ids, value represents list of item_ids.
 
@@ -174,6 +239,10 @@ class Coverage(Metric):
             self._check_duplicates_spark(recommendations)
             assert isinstance(train, SparkDataFrame)
             return self._spark_call(recommendations, train)
+        if isinstance(recommendations, PolarsDataFrame):
+            self._check_duplicates_polars(recommendations)
+            assert isinstance(train, PolarsDataFrame)
+            return self._polars_call(recommendations, train)
         is_pandas = isinstance(recommendations, PandasDataFrame)
         recommendations = (
             self._convert_pandas_to_dict_with_score(recommendations)

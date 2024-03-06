@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, List, Type
 
-from replay.utils import PandasDataFrame, SparkDataFrame
+from replay.utils import PandasDataFrame, SparkDataFrame, PolarsDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsReturnType
 
@@ -88,10 +88,12 @@ class Novelty(Metric):
         """
         Compute metric.
 
-        :param recommendations: (PySpark DataFrame or Pandas DataFrame or dict): model predictions.
+        :param recommendations: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+            model predictions.
             If DataFrame then it must contains user, item and score columns.
             If dict then items must be sorted in decreasing order of their scores.
-        :param train: (PySpark DataFrame or Pandas DataFrame or dict, optional): train data.
+        :param train: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict, optional):
+            train data.
             If DataFrame then it must contains user and item columns.
 
         :return: metric values
@@ -101,6 +103,10 @@ class Novelty(Metric):
             self._check_duplicates_spark(recommendations)
             assert isinstance(train, SparkDataFrame)
             return self._spark_call(recommendations, train)
+        if isinstance(recommendations, PolarsDataFrame):
+            self._check_duplicates_polars(recommendations)
+            assert isinstance(train, PolarsDataFrame)
+            return self._polars_call(recommendations, train)
         is_pandas = isinstance(recommendations, PandasDataFrame)
         recommendations = (
             self._convert_pandas_to_dict_with_score(recommendations)
@@ -131,6 +137,19 @@ class Novelty(Metric):
         ).withColumnRenamed("ground_truth", "train")
         recs = self._rearrange_columns(recs)
         return self._spark_compute(recs)
+
+    # pylint: disable=arguments-renamed
+    def _polars_call(
+        self, recommendations: PolarsDataFrame, train: PolarsDataFrame
+    ) -> MetricsReturnType:
+        """
+        Implementation for Polars DataFrame.
+        """
+        recs = self._get_enriched_recommendations(
+            recommendations, train
+        ).rename({"ground_truth": "train"})
+        recs = self._rearrange_columns(recs)
+        return self._polars_compute(recs)
 
     # pylint: disable=arguments-differ
     @staticmethod

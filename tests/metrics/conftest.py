@@ -3,6 +3,7 @@ from random import shuffle
 from typing import Tuple
 
 import pandas as pd
+import polars as pl
 import pytest
 
 import replay
@@ -77,6 +78,11 @@ def predict_pd():
 
 
 @pytest.fixture(scope="module")
+def predict_pl():
+    return pl.DataFrame(recs_data, schema=["uid", "iid", "scores"])
+
+
+@pytest.fixture(scope="module")
 def predict_sorted_dict():
     converted_dict = {}
     for user, item, score in recs_data:
@@ -119,6 +125,11 @@ def gt_pd():
 
 
 @pytest.fixture(scope="module")
+def gt_pl():
+    return pl.DataFrame(gt_data, schema=["uid", "iid"])
+
+
+@pytest.fixture(scope="module")
 def predict_fake_query_pd():
     return pd.DataFrame(gt_data, columns=["fake_query_id", "iid"])
 
@@ -143,6 +154,11 @@ def base_recs_spark(spark):
 @pytest.fixture(scope="module")
 def base_recs_pd():
     return pd.DataFrame(base_recs_data, columns=["uid", "iid", "scores"])
+
+
+@pytest.fixture(scope="module")
+def base_recs_pl():
+    return pl.DataFrame(base_recs_data, schema=["uid", "iid", "scores"])
 
 
 @pytest.fixture(scope="module")

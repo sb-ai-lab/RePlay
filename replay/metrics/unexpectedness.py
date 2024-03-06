@@ -1,6 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 
-from replay.utils import PandasDataFrame, SparkDataFrame
+from replay.utils import PandasDataFrame, SparkDataFrame, PolarsDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsReturnType
 
@@ -61,8 +61,18 @@ class Unexpectedness(Metric):
      'Unexpectedness-ConfidenceInterval@4': 0.0}
     <BLANKLINE>
     """
+    # pylint: disable=arguments-renamed
+    def _get_enriched_recommendations(
+        self,
+        recommendations: Union[PolarsDataFrame, SparkDataFrame],
+        base_recommendations: Union[PolarsDataFrame, SparkDataFrame],
+    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+        if isinstance(recommendations, SparkDataFrame):
+            return self._get_enriched_recommendations_spark(recommendations, base_recommendations)
+        else:
+            return self._get_enriched_recommendations_polars(recommendations, base_recommendations)
 
-    def _get_enriched_recommendations(  # pylint: disable=arguments-renamed
+    def _get_enriched_recommendations_spark(  # pylint: disable=arguments-renamed
         self, recommendations: SparkDataFrame, base_recommendations: SparkDataFrame
     ) -> SparkDataFrame:
         sorted_by_score_recommendations = self._get_items_list_per_user(recommendations)
@@ -70,6 +80,21 @@ class Unexpectedness(Metric):
         sorted_by_score_base_recommendations = self._get_items_list_per_user(
             base_recommendations
         ).withColumnRenamed("pred_item_id", "base_pred_item_id")
+
+        enriched_recommendations = sorted_by_score_recommendations.join(
+            sorted_by_score_base_recommendations, how="left", on=self.query_column
+        )
+
+        return self._rearrange_columns(enriched_recommendations)
+
+    def _get_enriched_recommendations_polars(  # pylint: disable=arguments-renamed
+        self, recommendations: PolarsDataFrame, base_recommendations: PolarsDataFrame
+    ) -> PolarsDataFrame:
+        sorted_by_score_recommendations = self._get_items_list_per_user(recommendations)
+
+        sorted_by_score_base_recommendations = self._get_items_list_per_user(
+            base_recommendations
+        ).rename({"pred_item_id": "base_pred_item_id"})
 
         enriched_recommendations = sorted_by_score_recommendations.join(
             sorted_by_score_base_recommendations, how="left", on=self.query_column
@@ -85,10 +110,11 @@ class Unexpectedness(Metric):
         """
         Compute metric.
 
-        :param recommendations: (PySpark DataFrame or Pandas DataFrame or dict): model predictions.
+        :param recommendations: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict): model predictions.
             If DataFrame then it must contains user, item and score columns.
             If dict then key represents user_ids, value represents list of tuple(item_id, score).
-        :param base_recommendations: (PySpark DataFrame or Pandas DataFrame or dict): base model predictions.
+        :param base_recommendations: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+            base model predictions.
             If DataFrame then it must contains user, item and score columns.
             If dict then key represents user_ids, value represents list of tuple(item_id, score).
 
@@ -100,6 +126,11 @@ class Unexpectedness(Metric):
             self._check_duplicates_spark(base_recommendations)
             assert isinstance(base_recommendations, SparkDataFrame)
             return self._spark_call(recommendations, base_recommendations)
+        if isinstance(recommendations, PolarsDataFrame):
+            self._check_duplicates_polars(recommendations)
+            self._check_duplicates_polars(base_recommendations)
+            assert isinstance(base_recommendations, PolarsDataFrame)
+            return self._polars_call(recommendations, base_recommendations)
         recommendations = (
             self._convert_pandas_to_dict_with_score(recommendations)
             if isinstance(recommendations, PandasDataFrame)

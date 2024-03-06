@@ -1,9 +1,10 @@
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import numpy as np
+import polars as pl
 
-from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame, PolarsDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsReturnType
 
@@ -101,7 +102,18 @@ class Surprisal(Metric):
             recs_with_weights[user] = [weights.get(i, 1) for i in items]
         return recs_with_weights
 
-    def _get_enriched_recommendations(  # pylint: disable=arguments-renamed
+    # pylint: disable=arguments-renamed
+    def _get_enriched_recommendations(
+        self,
+        recommendations: Union[PolarsDataFrame, SparkDataFrame],
+        train: Union[PolarsDataFrame, SparkDataFrame],
+    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+        if isinstance(recommendations, SparkDataFrame):
+            return self._get_enriched_recommendations_spark(recommendations, train)
+        else:
+            return self._get_enriched_recommendations_polars(recommendations, train)
+
+    def _get_enriched_recommendations_spark(  # pylint: disable=arguments-renamed
         self, recommendations: SparkDataFrame, train: SparkDataFrame
     ) -> SparkDataFrame:
         n_users = train.select(self.query_column).distinct().count()
@@ -119,6 +131,22 @@ class Surprisal(Metric):
         )
         return self._rearrange_columns(sorted_by_score_recommendations)
 
+    def _get_enriched_recommendations_polars(  # pylint: disable=arguments-renamed
+        self, recommendations: PolarsDataFrame, train: PolarsDataFrame
+    ) -> PolarsDataFrame:
+        n_users = train.select(self.query_column).n_unique()
+        item_weights = train.group_by(self.item_column).agg(
+            (np.log2(n_users / pl.col(self.query_column).n_unique()) / np.log2(n_users)).alias("weight")
+        )
+        recommendations = recommendations.join(
+            item_weights, on=self.item_column, how="left"
+        ).fill_nan(1.0)
+
+        sorted_by_score_recommendations = self._get_items_list_per_user(
+            recommendations, "weight"
+        )
+        return self._rearrange_columns(sorted_by_score_recommendations)
+
     def __call__(
         self,
         recommendations: MetricsDataFrameLike,
@@ -128,10 +156,12 @@ class Surprisal(Metric):
         Compute metric.
 
         Args:
-            recommendations (PySpark DataFrame or Pandas DataFrame or dict): model predictions.
+            recommendations (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+                model predictions.
                 If DataFrame then it must contains user, item and score columns.
                 If dict then items must be sorted in decreasing order of their scores.
-            train (PySpark DataFrame or Pandas DataFrame or dict, optional): train data.
+            train (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict, optional):
+                train data.
                 If DataFrame then it must contains user and item columns.
 
         Returns:
@@ -142,6 +172,10 @@ class Surprisal(Metric):
             self._check_duplicates_spark(recommendations)
             assert isinstance(train, SparkDataFrame)
             return self._spark_call(recommendations, train)
+        if isinstance(recommendations, PolarsDataFrame):
+            self._check_duplicates_polars(recommendations)
+            assert isinstance(train, PolarsDataFrame)
+            return self._polars_call(recommendations, train)
         is_pandas = isinstance(recommendations, PandasDataFrame)
         recommendations = (
             self._convert_pandas_to_dict_with_score(recommendations)
