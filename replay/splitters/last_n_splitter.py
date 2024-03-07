@@ -240,8 +240,7 @@ class LastNSplitter(Splitter):
             return self._partial_split_interactions_spark(res, N)
         if isinstance(interactions, PandasDataFrame):
             return self._partial_split_interactions_pandas(res, N)
-        else:
-            return self._partial_split_interactions_polars(res, N)
+        return self._partial_split_interactions_polars(res, N)
 
     def _partial_split_interactions_pandas(
         self, interactions: PandasDataFrame, N: int
@@ -300,8 +299,7 @@ class LastNSplitter(Splitter):
             return self._partial_split_timedelta_spark(interactions, timedelta)
         if isinstance(interactions, PandasDataFrame):
             return self._partial_split_timedelta_pandas(interactions, timedelta)
-        else:
-            return self._partial_split_timedelta_polars(interactions, timedelta)
+        return self._partial_split_timedelta_polars(interactions, timedelta)
 
     def _partial_split_timedelta_pandas(
         self, interactions: PandasDataFrame, timedelta: int

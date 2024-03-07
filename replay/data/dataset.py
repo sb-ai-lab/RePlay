@@ -8,7 +8,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence
 import numpy as np
 
 from .schema import FeatureHint, FeatureInfo, FeatureSchema, FeatureSource, FeatureType
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as F
@@ -50,6 +50,7 @@ class Dataset:
 
         self.is_pandas = isinstance(interactions, PandasDataFrame)
         self.is_spark = isinstance(interactions, SparkDataFrame)
+        self.is_polars = isinstance(interactions, PolarsDataFrame)
 
         self._categorical_encoded = categorical_encoded
 
@@ -63,9 +64,15 @@ class Dataset:
         except Exception as exception:
             raise ValueError("Query id column is not set.") from exception
 
-        if self.item_features is not None and isinstance(self.item_features, PandasDataFrame) != self.is_pandas:
+        if (
+            self.item_features is not None
+            and not check_dataframes_types_equal(self._interactions, self.item_features)
+        ):
             raise TypeError("Interactions and item features should have the same type.")
-        if self.query_features is not None and isinstance(self.query_features, PandasDataFrame) != self.is_pandas:
+        if (
+            self.query_features is not None
+            and not check_dataframes_types_equal(self._interactions, self.query_features)
+        ):
             raise TypeError("Interactions and query features should have the same type.")
 
         self._feature_source_map: Dict[FeatureSource, DataFrameLike] = {
@@ -129,8 +136,13 @@ class Dataset:
             query_ids = PandasDataFrame(
                 {self.feature_schema.query_id_column: query_column_df[self.feature_schema.query_id_column].unique()}
             )
-            return query_ids
-        query_ids = query_column_df.select(self.feature_schema.query_id_column).distinct()
+        if self.is_spark:
+            assert isinstance(query_column_df, SparkDataFrame)
+            query_ids = query_column_df.select(self.feature_schema.query_id_column).distinct()
+        if self.is_polars:
+            assert isinstance(query_column_df, PolarsDataFrame)
+            query_ids = query_column_df.select(self.feature_schema.query_id_column).unique()
+
         return query_ids
 
     @property
@@ -144,9 +156,13 @@ class Dataset:
             all_item_ids = item_column_df[self.feature_schema.item_id_column]
             unique_item_ids = all_item_ids.unique()
             item_ids = PandasDataFrame({self.feature_schema.item_id_column: unique_item_ids})
-            return item_ids
+        if self.is_spark:
+            assert isinstance(item_column_df, SparkDataFrame)
+            item_ids = item_column_df.select(self.feature_schema.item_id_column).distinct()
+        if self.is_polars:
+            assert isinstance(item_column_df, PolarsDataFrame)
+            item_ids = item_column_df.select(self.feature_schema.item_id_column).unique()
 
-        item_ids = item_column_df.select(self.feature_schema.item_id_column).distinct()
         return item_ids
 
     @property
@@ -365,13 +381,20 @@ class Dataset:
             features_df_unique_ids = set(features_df[ids_column].unique())  # type: ignore  # pylint: disable=E1136
             in_interactions_not_in_features_ids = interactions_unique_ids - features_df_unique_ids
             is_consistent = len(in_interactions_not_in_features_ids) == 0
-        else:
+        elif self.is_spark:
             is_consistent = (
                 self.interactions.select(ids_column)
                 .distinct()
                 .join(features_df.select(ids_column).distinct(), on=[ids_column], how="leftanti")
                 .count()
             ) == 0
+        else:
+            is_consistent = len(
+                self.interactions.select(ids_column)
+                .unique()
+                .join(features_df.select(ids_column).unique(), on=ids_column, how="anti")
+            ) == 0
+
         if not is_consistent:
             raise ValueError(f"There are IDs in the interactions that are missing in the {hint.name} dataframe.")
 
@@ -390,22 +413,29 @@ class Dataset:
         """
         if self.is_pandas:
             is_int = np.issubdtype(dict(data.dtypes)[column], int)
-        else:
+        elif self.is_spark:
             is_int = "int" in dict(data.dtypes)[column]
+        else:
+            is_int = data[column].dtype.is_integer()
+
         if not is_int:
             raise ValueError(f"IDs in {source.name}.{column} are not encoded. They are not int.")
 
         if self.is_pandas:
             min_id = data[column].min()  # type: ignore
-        else:
+        elif self.is_spark:
             min_id = data.agg(F.min(column).alias("min_index")).collect()[0][0]
+        else:
+            min_id = data[column].min()  # type: ignore
         if min_id < 0:
             raise ValueError(f"IDs in {source.name}.{column} are not encoded. Min ID is less than 0.")
 
         if self.is_pandas:
             max_id = data[column].max()  # type: ignore
-        else:
+        elif self.is_spark:
             max_id = data.agg(F.max(column).alias("max_index")).collect()[0][0]
+        else:
+            max_id = data[column].max()  # type: ignore
 
         if max_id >= cardinality:
             raise ValueError(f"IDs in {source.name}.{column} are not encoded. Max ID is more than quantity of IDs.")
@@ -461,7 +491,9 @@ def nunique(data: DataFrameLike, column: str) -> int:
     """
     if isinstance(data, SparkDataFrame):
         return data.select(column).distinct().count()
-    return data[column].nunique()
+    if isinstance(data, PandasDataFrame):
+        return data[column].nunique()
+    return data.select(column).n_unique()
 
 
 def select(data: DataFrameLike, columns: Sequence[str]) -> DataFrameLike:
@@ -475,4 +507,22 @@ def select(data: DataFrameLike, columns: Sequence[str]) -> DataFrameLike:
         return data.select(*columns)
     if isinstance(data, PandasDataFrame):
         return data[columns]
+    if isinstance(data, PolarsDataFrame):
+        return data.select(*columns)
     assert False, "Unknown data frame type"
+
+
+def check_dataframes_types_equal(dataframe: DataFrameLike, other: DataFrameLike):
+    """
+    :param dataframe: dataframe.
+    :param other: dataframe to compare.
+
+    :returns: True if dataframes have same type.
+    """
+    if isinstance(dataframe, PandasDataFrame) and isinstance(other, PandasDataFrame):
+        return True
+    if isinstance(dataframe, SparkDataFrame) and isinstance(other, SparkDataFrame):
+        return True
+    if isinstance(dataframe, PolarsDataFrame) and isinstance(other, PolarsDataFrame):
+        return True
+    return False

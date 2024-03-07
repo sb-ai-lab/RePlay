@@ -1,4 +1,5 @@
 import pandas as pd
+import polars as pl
 import pytest
 
 
@@ -21,6 +22,39 @@ def full_pandas_dataset():
     )
 
     items = pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
+
+    return {
+        "interactions": events,
+        "users": users,
+        "items": items,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
+def full_polars_dataset():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 0, 1, 1, 1, 2],
+            "item_id": [0, 1, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    users = pl.DataFrame(
+        {
+            "user_id": [0, 1, 2],
+            "gender": [0, 1, 0],
+        }
+    )
+
+    items = pl.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
 
     return {
         "interactions": events,
@@ -110,6 +144,40 @@ def full_pandas_dataset_cutted_interactions():
 
 
 @pytest.fixture
+def full_polars_dataset_cutted_interactions():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 1, 1, 1],
+            "item_id": [0, 0, 2, 3],
+            "timestamp": [0, 2, 3, 4],
+            "rating": [1.1, 1.3, 2, 3],
+            "feature1": [1.1, 1.2, 1.3, 1.4],
+        }
+    )
+
+    users = pl.DataFrame(
+        {
+            "user_id": [0, 1, 2],
+            "gender": [0, 1, 0],
+        }
+    )
+
+    items = pl.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature2": [1.1, 1.2, 1.3, 1.4]})
+
+    return {
+        "interactions": events,
+        "users": users,
+        "items": items,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
 @pytest.mark.usefixtures("spark")
 def full_spark_dataset_cutted_interactions(spark):
     events = spark.createDataFrame(
@@ -169,6 +237,39 @@ def inconsistent_item_full_pandas_dataset():
     )
 
     items = pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
+
+    return {
+        "interactions": events,
+        "users": users,
+        "items": items,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
+def inconsistent_item_full_polars_dataset():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 0, 1, 1, 1, 2],
+            "item_id": [0, 1, 0, 2, 3, 5],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    users = pl.DataFrame(
+        {
+            "user_id": [0, 1, 2],
+            "gender": [0, 1, 0],
+        }
+    )
+
+    items = pl.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
 
     return {
         "interactions": events,
@@ -257,6 +358,39 @@ def inconsistent_user_full_pandas_dataset():
 
 
 @pytest.fixture
+def inconsistent_user_full_polars_dataset():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 0, 1, 1, 1, 3],
+            "item_id": [0, 1, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    users = pl.DataFrame(
+        {
+            "user_id": [0, 1, 2],
+            "gender": [0, 1, 0],
+        }
+    )
+
+    items = pl.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
+
+    return {
+        "interactions": events,
+        "users": users,
+        "items": items,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
 @pytest.mark.usefixtures("spark")
 def inconsistent_user_full_spark_dataset(spark):
     events = spark.createDataFrame(
@@ -299,6 +433,28 @@ def inconsistent_user_full_spark_dataset(spark):
 @pytest.fixture
 def interactions_full_pandas_dataset():
     events = pd.DataFrame(
+        {
+            "user_id": [0, 0, 1, 1, 1, 2],
+            "item_id": [0, 1, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    return {
+        "interactions": events,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
+def interactions_full_polars_dataset():
+    events = pl.DataFrame(
         {
             "user_id": [0, 0, 1, 1, 1, 2],
             "item_id": [0, 1, 0, 2, 3, 1],
@@ -364,6 +520,26 @@ def interactions_timestamp_pandas_dataset():
 
 
 @pytest.fixture
+def interactions_timestamp_polars_dataset():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 0, 1, 1, 1, 2],
+            "item_id": [0, 1, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+        }
+    )
+
+    return {
+        "interactions": events,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
 @pytest.mark.usefixtures("spark")
 def interactions_timestamp_spark_dataset(spark):
     events = spark.createDataFrame(
@@ -389,6 +565,22 @@ def interactions_timestamp_spark_dataset(spark):
 @pytest.fixture
 def interactions_rating_pandas_dataset():
     events = pd.DataFrame(
+        {"user_id": [0, 0, 1, 1, 1, 2], "item_id": [0, 1, 0, 2, 3, 1], "rating": [1.1, 1.2, 1.3, 2, 3, 4]}
+    )
+
+    return {
+        "interactions": events,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
+def interactions_rating_polars_dataset():
+    events = pl.DataFrame(
         {"user_id": [0, 0, 1, 1, 1, 2], "item_id": [0, 1, 0, 2, 3, 1], "rating": [1.1, 1.2, 1.3, 2, 3, 4]}
     )
 
@@ -470,6 +662,36 @@ def interactions_users_pandas_dataset():
 
 
 @pytest.fixture
+def interactions_users_polars_dataset():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 0, 1, 1, 1, 2],
+            "item_id": [0, 1, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    users = pl.DataFrame(
+        {
+            "user_id": [0, 1, 2],
+            "gender": [0, 1, 0],
+        }
+    )
+
+    return {
+        "interactions": events,
+        "users": users,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
 @pytest.mark.usefixtures("spark")
 def interactions_users_spark_dataset(spark):
     events = spark.createDataFrame(
@@ -516,6 +738,31 @@ def interactions_items_pandas_dataset():
     )
 
     items = pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
+
+    return {
+        "interactions": events,
+        "items": items,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
+def interactions_items_polars_dataset():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 0, 1, 1, 1, 2],
+            "item_id": [0, 1, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    items = pl.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
 
     return {
         "interactions": events,
@@ -665,6 +912,50 @@ def not_int_item_pandas_dataset():
 
 
 @pytest.fixture
+def not_int_user_polars_dataset():
+    events = pl.DataFrame(
+        {
+            "user_id": ["0", "0", "1", "1", "1", "2"],
+            "item_id": [0, 1, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    return {
+        "interactions": events,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
+def not_int_item_polars_dataset():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 0, 1, 1, 1, 2],
+            "item_id": ["0", "1", "0", "2", "3", "1"],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    return {
+        "interactions": events,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
 @pytest.mark.usefixtures("spark")
 def not_int_user_spark_dataset(spark):
     events = spark.createDataFrame(
@@ -759,6 +1050,50 @@ def less_than_zero_item_pandas_dataset():
 
 
 @pytest.fixture
+def less_than_zero_user_polars_dataset():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 0, -1, 1, 1, 2],
+            "item_id": [0, 1, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    return {
+        "interactions": events,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 4,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
+def less_than_zero_item_polars_dataset():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 0, 1, 1, 1, 2],
+            "item_id": [0, -1, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    return {
+        "interactions": events,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 5,
+    }
+
+
+@pytest.fixture
 @pytest.mark.usefixtures("spark")
 def less_than_zero_user_spark_dataset(spark):
     events = spark.createDataFrame(
@@ -833,6 +1168,50 @@ def more_than_count_user_pandas_dataset():
 @pytest.fixture
 def more_than_count_item_pandas_dataset():
     events = pd.DataFrame(
+        {
+            "user_id": [0, 0, 1, 1, 1, 2],
+            "item_id": [0, 10, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    return {
+        "interactions": events,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 5,
+    }
+
+
+@pytest.fixture
+def more_than_count_user_polars_dataset():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 0, 10, 1, 1, 2],
+            "item_id": [0, 1, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    return {
+        "interactions": events,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 4,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
+def more_than_count_item_polars_dataset():
+    events = pl.DataFrame(
         {
             "user_id": [0, 0, 1, 1, 1, 2],
             "item_id": [0, 10, 0, 2, 3, 1],
@@ -985,6 +1364,109 @@ def items_pandas_dataset_different_columns():
     )
 
     items = pd.DataFrame(
+        {
+            "item_ids": [0, 1, 2, 3],
+            "category_id": [0, 0, 1, 2],
+            "feature1": [1.1, 1.2, 1.3, 1.4],
+        }
+    )
+
+    return {
+        "interactions": events,
+        "items": items,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "item_col2": "item_ids",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
+def full_polars_dataset_nonunique_columns():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 0, 1, 1, 1, 2],
+            "item_id": [0, 1, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    users = pl.DataFrame(
+        {
+            "user_id": [0, 1, 2],
+            "gender": [0, 1, 0],
+            "feature1": [0.1, 0.2, 0.3],
+        }
+    )
+
+    items = pl.DataFrame(
+        {
+            "item_id": [0, 1, 2, 3],
+            "category_id": [0, 0, 1, 2],
+            "feature1": [1.1, 1.2, 1.3, 1.4],
+        }
+    )
+
+    return {
+        "interactions": events,
+        "users": users,
+        "items": items,
+        "user_col": "user_id",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
+def users_polars_dataset_different_columns():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 0, 1, 1, 1, 2],
+            "item_id": [0, 1, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    users = pl.DataFrame(
+        {
+            "user_ids": [0, 1, 2],
+            "gender": [0, 1, 0],
+        }
+    )
+
+    return {
+        "interactions": events,
+        "users": users,
+        "user_col": "user_id",
+        "user_col2": "user_ids",
+        "item_col": "item_id",
+        "timestamp_col": "timestamp",
+        "ratings_col": "rating",
+        "users_cardinality": 3,
+        "items_cardinality": 4,
+    }
+
+
+@pytest.fixture
+def items_polars_dataset_different_columns():
+    events = pl.DataFrame(
+        {
+            "user_id": [0, 0, 1, 1, 1, 2],
+            "item_id": [0, 1, 0, 2, 3, 1],
+            "timestamp": [0, 1, 2, 3, 4, 5],
+            "rating": [1.1, 1.2, 1.3, 2, 3, 4],
+        }
+    )
+
+    items = pl.DataFrame(
         {
             "item_ids": [0, 1, 2, 3],
             "category_id": [0, 0, 1, 2],
