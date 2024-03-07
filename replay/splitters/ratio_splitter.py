@@ -211,8 +211,7 @@ class RatioSplitter(Splitter):
             return self._partial_split_fractions_spark(res, train_size)
         if isinstance(res, PandasDataFrame):
             return self._partial_split_fractions_pandas(res, train_size)
-        else:
-            return self._partial_split_fractions_polars(res, train_size)
+        return self._partial_split_fractions_polars(res, train_size)
 
     def _partial_split_fractions_pandas(
         self, interactions: PandasDataFrame, train_size: float
