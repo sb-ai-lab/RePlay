@@ -2,6 +2,7 @@
 from os.path import dirname, join
 
 import pandas as pd
+import numpy as np
 import pytest
 
 import replay
@@ -83,7 +84,6 @@ def test_equal_preds(long_log_with_features, recommender, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
-@pytest.mark.xfail
 @pytest.mark.spark
 def test_random(long_log_with_features, tmp_path):
     path = (tmp_path / "random").resolve()

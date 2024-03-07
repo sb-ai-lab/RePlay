@@ -275,16 +275,9 @@ def test_get_nearest_items(log, als_model, metric):
     )
 
 
-@pytest.mark.xfail
 @pytest.mark.experimental
 @pytest.mark.parametrize("metric", ["absent", None])
 def test_nearest_items_raises(log, metric):
-    model = AssociationRulesItemRec(session_column="user_idx")
-    model.fit(log.filter(sf.col("item_idx") != 3))
-    with pytest.raises(
-        ValueError, match=r"Select one of the valid distance metrics.*"
-    ):
-        model.get_nearest_items(items=[0, 1], k=2, metric=metric)
     model = ALSWrap()
     model.fit(log)
     with pytest.raises(

@@ -19,8 +19,8 @@ from copy import deepcopy
 from os.path import join
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
-import numpy as np
 import pandas as pd
+import numpy as np
 from numpy.random import default_rng
 from optuna import create_study
 from optuna.samplers import TPESampler
@@ -1681,7 +1681,13 @@ class NonPersonalizedRecommender(Recommender, ABC):
 
             # workaround to unify RandomRec and UCB
             if class_name == "RandomRec":
-                rating = 1 / np.arange(1, cnt + 1)
+                return PandasDataFrame(
+                    {
+                        query_column: cnt * [query_idx],
+                        item_column: items_pd[item_column].sort_values().values[items_positions],
+                        rating_column: local_rng.uniform(size=items_pd.shape[0])[items_positions],
+                    }
+                )
             else:
                 rating = items_pd["probability"].values[items_positions]
 
