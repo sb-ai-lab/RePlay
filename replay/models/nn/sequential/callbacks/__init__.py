@@ -1,6 +1,7 @@
 from .prediction_callbacks import (
     BasePredictionCallback,
     PandasPredictionCallback,
+    PolarsPredictionCallback,
     SparkPredictionCallback,
     TorchPredictionCallback,
     QueryEmbeddingsPredictionCallback

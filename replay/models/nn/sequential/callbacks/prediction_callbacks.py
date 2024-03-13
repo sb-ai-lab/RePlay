@@ -6,7 +6,7 @@ import torch
 
 from replay.models.nn.sequential import Bert4Rec
 from replay.models.nn.sequential.postprocessors import BasePostProcessor
-from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame, MissingImportType
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame, SparkDataFrame, MissingImportType
 
 if PYSPARK_AVAILABLE:  # pragma: no cover
     from pyspark.sql import SparkSession
@@ -122,6 +122,27 @@ class PandasPredictionCallback(BasePredictionCallback[PandasDataFrame]):
         item_scores: torch.Tensor,
     ) -> PandasDataFrame:
         prediction = PandasDataFrame(
+            {
+                self.query_column: query_ids.flatten().cpu().numpy(),
+                self.item_column: list(item_ids.cpu().numpy()),
+                self.rating_column: list(item_scores.cpu().numpy()),
+            }
+        )
+        return prediction.explode([self.item_column, self.rating_column])
+
+
+class PolarsPredictionCallback(BasePredictionCallback[PolarsDataFrame]):
+    """
+    Callback for predition stage with polars data frame
+    """
+
+    def _ids_to_result(
+        self,
+        query_ids: torch.Tensor,
+        item_ids: torch.Tensor,
+        item_scores: torch.Tensor,
+    ) -> PolarsDataFrame:
+        prediction = PolarsDataFrame(
             {
                 self.query_column: query_ids.flatten().cpu().numpy(),
                 self.item_column: list(item_ids.cpu().numpy()),
