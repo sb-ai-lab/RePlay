@@ -168,7 +168,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
             .persist(StorageLevel.MEMORY_ONLY)
         )
-        mapping_on_spark.show()
+
         self._mapping = mapping_on_spark.rdd.collectAsMap()  # type: ignore
         mapping_on_spark.unpersist()
         unique_col_values.unpersist()
