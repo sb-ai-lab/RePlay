@@ -338,6 +338,9 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             [list(self.get_mapping().keys()), list(self.get_mapping().values())],
             schema=[self._col, self._target_col],
         )
+        mapping_on_polars = mapping_on_polars.with_columns(
+            pl.col(self._col).cast(df.get_column(self._col).dtype)
+        )
         transformed_df = df.join(mapping_on_polars, on=self._col, how="left").with_columns(
             pl.col(self._target_col).is_null().alias("unknown_mask")
         )

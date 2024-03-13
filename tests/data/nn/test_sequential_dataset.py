@@ -1,6 +1,7 @@
 from typing import List
 
 import numpy as np
+import polars as pl
 import pandas as pd
 import pytest
 
@@ -10,17 +11,19 @@ from replay.data import FeatureHint, FeatureType
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
-    from replay.data.nn import PandasSequentialDataset, TensorSchema, TensorFeatureInfo
+    from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset, TensorSchema, TensorFeatureInfo
     from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
 
 
 @pytest.mark.torch
-def test_can_create_sequential_dataset_with_valid_schema(sequential_info):
+def test_can_create_sequential_dataset_with_valid_schema(sequential_info, sequential_info_polars):
     PandasSequentialDataset(**sequential_info)
+    PolarsSequentialDataset(**sequential_info_polars)
 
 
 @pytest.mark.torch
-def test_callback_for_cardinality(sequential_info):
+@pytest.mark.parametrize("dataset_type", [PandasSequentialDataset, PolarsSequentialDataset])
+def test_callback_for_cardinality(dataset_type, request):
     schema = TensorSchema(
         [
             TensorFeatureInfo("user_id", feature_type=FeatureType.CATEGORICAL, is_seq=True),
@@ -33,7 +36,12 @@ def test_callback_for_cardinality(sequential_info):
     for f in schema.all_features:
         assert f.cardinality is None
 
-    PandasSequentialDataset(schema, "user_id", "item_id", sequential_info["sequences"])
+    if dataset_type == PandasSequentialDataset:
+        sequential_info = request.getfixturevalue("sequential_info")
+    else:
+        sequential_info = request.getfixturevalue("sequential_info_polars")
+
+    dataset_type(schema, "user_id", "item_id", sequential_info["sequences"])
 
     assert schema.all_features[0].cardinality == 4
     assert schema.all_features[1].cardinality == 6
@@ -42,12 +50,17 @@ def test_callback_for_cardinality(sequential_info):
 
 
 @pytest.mark.torch
-def test_cannot_create_sequential_dataset_with_invalid_schema(sequential_info):
+@pytest.mark.parametrize("dataset_type", [PandasSequentialDataset, PolarsSequentialDataset])
+def test_cannot_create_sequential_dataset_with_invalid_schema(dataset_type, request):
+    if dataset_type == PandasSequentialDataset:
+        sequential_info = request.getfixturevalue("sequential_info")
+    else:
+        sequential_info = request.getfixturevalue("sequential_info_polars")
     corrupted_sequences = sequential_info["sequences"].drop(columns=["some_item_feature"])
     sequential_info["sequences"] = corrupted_sequences
 
     with pytest.raises(ValueError):
-        PandasSequentialDataset(**sequential_info)
+        dataset_type(**sequential_info)
 
 
 @pytest.mark.torch
@@ -90,8 +103,13 @@ def test_can_get_query_id(sequential_info):
 
 
 @pytest.mark.torch
-def test_intersection_datasets(sequential_info):
-    dataset = PandasSequentialDataset(**sequential_info)
+@pytest.mark.parametrize("dataset_type", [PandasSequentialDataset, PolarsSequentialDataset])
+def test_intersection_datasets(dataset_type, request):
+    if dataset_type == PandasSequentialDataset:
+        sequential_info = request.getfixturevalue("sequential_info")
+    else:
+        sequential_info = request.getfixturevalue("sequential_info_polars")
+    dataset = dataset_type(**sequential_info)
     sequences = pd.DataFrame(
         [
             (1, [1], [0, 1], [1, 2]),
@@ -128,14 +146,22 @@ def test_intersection_datasets(sequential_info):
         .build()
     )
 
-    sequential_dataset = PandasSequentialDataset(
-        tensor_schema=schema,
-        query_id_column="user_id",
-        item_id_column="item_id",
-        sequences=sequences,
-    )
+    if dataset_type == PandasSequentialDataset:
+        sequential_dataset = PandasSequentialDataset(
+            tensor_schema=schema,
+            query_id_column="user_id",
+            item_id_column="item_id",
+            sequences=sequences,
+        )
+    else:
+        sequential_dataset = PolarsSequentialDataset(
+            tensor_schema=schema,
+            query_id_column="user_id",
+            item_id_column="item_id",
+            sequences=pl.from_pandas(sequences),
+        )
 
-    filtered = PandasSequentialDataset.keep_common_query_ids(dataset, sequential_dataset)[0]
+    filtered = dataset_type.keep_common_query_ids(dataset, sequential_dataset)[0]
 
     assert all(filtered.get_all_query_ids() == [1, 2, 3])
 
