@@ -103,7 +103,7 @@ build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.poetry-dynamic-versioning]
 enable = true
-format-jinja = """0.16.0{{ env['PACKAGE_SUFFIX'] }}"""
+format-jinja = """0.16.1{{ env['PACKAGE_SUFFIX'] }}"""
 vcs = "git"
 
 [tool.black]
