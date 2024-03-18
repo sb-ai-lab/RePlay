@@ -45,49 +45,6 @@ def item_features():
     )
 
 
-@pytest.fixture(scope="package")
-def tensor_schema():
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=4,
-            is_seq=True,
-            embedding_dim=64,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "some_item_feature",
-            cardinality=4,
-            is_seq=True,
-            embedding_dim=32,
-        )
-        .categorical(
-            "some_user_feature",
-            cardinality=4,
-            is_seq=False,
-            embedding_dim=64,
-        )
-        .numerical("some_num_feature", tensor_dim=64, is_seq=True)
-        .categorical(
-            "timestamp",
-            cardinality=4,
-            is_seq=True,
-            embedding_dim=64,
-            feature_hint=FeatureHint.TIMESTAMP,
-        )
-        .categorical(
-            "some_cat_feature",
-            cardinality=4,
-            is_seq=True,
-            embedding_dim=64,
-        )
-        .build()
-    )
-
-    return schema
-
-
 @pytest.fixture
 def fake_schema():
     schema = (
@@ -379,6 +336,31 @@ def only_item_id_schema():
             is_seq=True,
             feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
             feature_hint=FeatureHint.ITEM_ID,
+        )
+        .build()
+    )
+    return schema
+
+
+@pytest.fixture
+def item_id_and_timestamp_schema():
+    schema = (
+        TensorSchemaBuilder()
+        .categorical(
+            "item_id",
+            cardinality=6,
+            is_seq=True,
+            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+            feature_hint=FeatureHint.ITEM_ID,
+        )
+        .numerical(
+            "timestamp",
+            is_seq=True,
+            tensor_dim=64,
+            feature_hint=FeatureHint.TIMESTAMP,
+            feature_sources=[TensorFeatureSource(
+                FeatureSource.INTERACTIONS, "timestamp",
+            )]
         )
         .build()
     )

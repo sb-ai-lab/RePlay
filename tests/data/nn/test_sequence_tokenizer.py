@@ -630,6 +630,19 @@ def test_save_and_load(dataset, request, only_item_id_schema: TensorSchema):
 
 @pytest.mark.torch
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
+def test_my(item_id_and_timestamp_schema, dataset, request):
+    data = request.getfixturevalue(dataset)
+    tokenizer = SequenceTokenizer(item_id_and_timestamp_schema)
+    sequential_dataset = tokenizer.fit_transform(data)
+
+    assert sequential_dataset.get_sequence_by_query_id(0, "timestamp").ndim == 1
+    assert sequential_dataset.get_sequence_by_query_id(1, "timestamp").ndim == 1
+    assert sequential_dataset.get_sequence_by_query_id(2, "timestamp").ndim == 1
+    assert sequential_dataset.get_sequence_by_query_id(3, "timestamp").ndim == 1
+
+
+@pytest.mark.torch
+@pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
 def test_save_and_load_different_features_to_keep(
     dataset, request, item_id_and_item_feature_schema: TensorSchema
 ):
