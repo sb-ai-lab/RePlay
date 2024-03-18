@@ -6,7 +6,7 @@ import polars as pl
 from pandas import DataFrame as PandasDataFrame
 from polars import DataFrame as PolarsDataFrame
 
-from replay.data import Dataset, FeatureSchema, FeatureSource
+from replay.data import Dataset, FeatureSchema, FeatureSource, FeatureHint
 from replay.data.dataset_utils import DatasetLabelEncoder
 from .schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
 from .sequential_dataset import PandasSequentialDataset, SequentialDataset, PolarsSequentialDataset
@@ -515,10 +515,15 @@ class _SequenceProcessor:
             )
         ).rename({"column_0": self._query_id_column, "column_1": tensor_feature.name})
 
+        if tensor_feature.feature_hint == FeatureHint.TIMESTAMP:
+            reshape_size = -1
+        else:
+            reshape_size = (-1, len(tensor_feature.feature_sources))
+
         return pl.DataFrame({
             self._query_id_column: result[self._query_id_column].to_list(),
             tensor_feature.name: list(map(
-                lambda x: np.array(x).reshape(-1, len(tensor_feature.feature_sources)).tolist(),
+                lambda x: np.array(x).reshape(reshape_size).tolist(),
                 result[tensor_feature.name].to_list()
             ))
         })
@@ -554,7 +559,10 @@ class _SequenceProcessor:
                 else:
                     assert False, "Unknown tensor feature source table"
             all_seqs = np.array(all_features_for_user, dtype=np.float32)
-            all_seqs = all_seqs.reshape(-1, (len(tensor_feature.feature_sources)))
+            if tensor_feature.feature_hint == FeatureHint.TIMESTAMP:
+                all_seqs = all_seqs.reshape(-1)
+            else:
+                all_seqs = all_seqs.reshape(-1, (len(tensor_feature.feature_sources)))
             values.append(all_seqs)
         return values
 
