@@ -3455,29 +3455,6 @@ setuptools = "*"
 wheel = "*"
 
 [[package]]
-name = "obp"
-version = "0.4.1"
-description = "Open Bandit Pipeline: a python library for bandit algorithms and off-policy evaluation"
-optional = false
-python-versions = "*"
-files = [
-    {file = "obp-0.4.1-py3-none-any.whl", hash = "sha256:87dec9caf4283c25ab13036532e0a24566f1c7bdcad1653a8ded43b2f5ef8208"},
-    {file = "obp-0.4.1.tar.gz", hash = "sha256:4be96fae9ba4f7a0cff3e313209e767c466f1b940bbc203c4238cc23f1241d15"},
-]
-
-[package.dependencies]
-matplotlib = ">=3.2.2"
-mypy-extensions = ">=0.4.3"
-numpy = ">=1.18.1"
-pandas = ">=0.25.1"
-pyyaml = ">=5.1"
-scikit-learn = ">=0.23.1"
-scipy = ">=1.4.1"
-seaborn = ">=0.10.1"
-torch = ">=1.7.1"
-tqdm = ">=4.41.1"
-
-[[package]]
 name = "optuna"
 version = "3.2.0"
 description = "A hyperparameter optimization framework"
@@ -4074,26 +4051,6 @@ plugins = ["importlib-metadata"]
 windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
-name = "pyieoe"
-version = "0.1.1"
-description = "pyIEOE: a Python package to facilitate interpretable OPE evaluation"
-optional = false
-python-versions = "*"
-files = [
-    {file = "pyieoe-0.1.1.tar.gz", hash = "sha256:679bee6e437cbba7bae9462a5d52d7d1a71bc7568aa4f80eec0add1dc3126b78"},
-]
-
-[package.dependencies]
-matplotlib = ">=3.3.2"
-numpy = ">=1.20.1"
-obp = ">=0.4.1"
-pandas = ">=1.2.3"
-scikit-learn = ">=0.24.1"
-scipy = ">=1.6.0"
-seaborn = ">=0.11.1"
-tqdm = ">=4.56.0"
-
-[[package]]
 name = "pylint"
 version = "2.17.7"
 description = "python code static checker"
@@ -4688,13 +4645,13 @@ files = [
 
 [[package]]
 name = "sb-obp"
-version = "0.5.6"
+version = "0.5.7"
 description = "Open Bandit Pipeline: a python library for off-policy evaluation and learning"
 optional = false
 python-versions = ">=3.8.1,<3.11"
 files = [
-    {file = "sb_obp-0.5.6-py3-none-any.whl", hash = "sha256:424004d816a1020d5a2eefb99cb3f89bbb157f1a64cf0ff08658bf71185389db"},
-    {file = "sb_obp-0.5.6.tar.gz", hash = "sha256:5c7f8a465f62e8edf229c2d2c1824e7d73c8aaba81c18f1c3880c555cbf7331f"},
+    {file = "sb_obp-0.5.7-py3-none-any.whl", hash = "sha256:b3af8774180902c3f91725319688e004ddbe141c200c7affcddf1c4fca7c1ee6"},
+    {file = "sb_obp-0.5.7.tar.gz", hash = "sha256:b0eb5f1bf404985d8f7637a73776136e09f76c03d6117cd3d48109885d47630b"},
 ]
 
 [package.dependencies]
@@ -4704,7 +4661,6 @@ numpy = ">=1.21.2,<2.0.0"
 pandas = ">=1.3.2,<2.0.0"
 Pillow = "9.1.1"
 pingouin = ">=0.4.0,<0.5.0"
-pyieoe = ">=0.1.1,<0.2.0"
 PyYAML = ">=6.0.1,<7.0.0"
 scikit-learn = "1.0.2"
 scipy = ">=1.8.1,<1.9.0"
@@ -5999,4 +5955,4 @@ torch = ["lightning", "pytorch-ranger", "torch"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1, <3.11"
-content-hash = "0a56580d5548de7a74beae1b1e71bc601776b4799b5ce9079ce0451179e40192"
+content-hash = "eea0e83133c88cd9eea035d63ec9e65144bfe8a715483ec6e73f7dd7be77f41c"
