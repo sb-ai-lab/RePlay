@@ -59,7 +59,7 @@ lightfm = "1.17"
 lightautoml = "~0.3.1"
 numba = ">=0.50"
 llvmlite = ">=0.32.1"
-obp = { git = "https://github.com/shashist/zr-obp_py310.git", branch = "master"}
+sb-obp = "^0.5.7"
 d3rlpy = "^2.0.4"
 implicit = "~0.7.0"
 gym = "^0.26.0"
