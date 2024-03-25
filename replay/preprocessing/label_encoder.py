@@ -245,7 +245,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         assert self._mapping is not None
 
         new_unique_values = set(df[self._col].tolist()) - set(self._mapping)
-        new_data: dict = {value: max(self._mapping.values()) + i for i, value in enumerate(new_unique_values, start=1)}
+        last_mapping_value = max(self._mapping.values())
+        new_data: dict = {value: last_mapping_value + i for i, value in enumerate(new_unique_values, start=1)}
         self._mapping.update(new_data)  # type: ignore
         self._inverse_mapping.update({v: k for k, v in new_data.items()})  # type: ignore
         self._inverse_mapping_list.extend(new_data.keys())
